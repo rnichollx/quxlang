@@ -8,6 +8,8 @@ add_library(LLVM::LLVM INTERFACE IMPORTED)
 file(GLOB LLVM_LIBS "${LLVM_ROOT}/lib/libLLVM*.a")
 
 set(LLVM_INCLUDE_DIRS "${LLVM_ROOT}/include" "${LLVM_SOURCES}/llvm/include")
+
+message(STATUS "LLVM_LIBS: ${LLVM_LIBS}")
 foreach(LLVM_LIB ${LLVM_LIBS})
     message(STATUS "Found LLVM library: ${LLVM_LIB}")
     get_filename_component(LLVM_LIB_NAME ${LLVM_LIB} NAME)
@@ -30,9 +32,15 @@ foreach(LLVM_LIB ${LLVM_LIBS})
     list(APPEND LLVM_LIBRARIES LLVM::${LLVM_LIB_NAME})
 
     # And add as a link dependency to the main LLVM target
-    target_link_libraries(LLVM::LLVM INTERFACE LLVM::${LLVM_LIB_NAME})
 
 endforeach()
+
+# Make a string from LLVM_LIBRARIES that replaces the ; with ,
+string(REPLACE ";" "," LLVM_LIBRARIES_STR "${LLVM_LIBS}")
+
+target_link_libraries(LLVM::LLVM INTERFACE "$<LINK_GROUP:RESCAN,${LLVM_LIBRARIES_STR}>")
+
+
 
 
 target_include_directories(LLVM::LLVM INTERFACE ${LLVM_INCLUDE_DIRS})
