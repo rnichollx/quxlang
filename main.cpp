@@ -85,7 +85,7 @@ struct operation_load_constant_i32 {
 };
 
 template <>
-llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<> & builder, llvm::Module & module, operation_load_constant_i32 const & obj)
+llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<> & , llvm::Module & module, operation_load_constant_i32 const & obj)
 {
     // load the constant
     llvm::Value * v = llvm::ConstantInt::get(module.getContext(), llvm::APInt(32, obj.value));
@@ -95,6 +95,32 @@ llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<> & builder, llvm::Module & 
 struct operation_accumulate {
     std::vector<boost::any> values;
 };
+
+struct operation_return {
+    boost::any value;
+};
+
+
+
+struct operation_load_argument_by_index {
+    std::size_t index;
+};
+
+struct operation_load_argument_by_name {
+    std::string name;
+};
+
+struct operation_load_argument_ref_by_name {
+    std::string name;
+};
+
+template <>
+llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<> & builder, llvm::Module & module, operation_return const & obj)
+{
+    llvm::Value * v = llvm_runtime_bindings::generate_code(builder, module, obj.value).release();
+    llvm::Value * r = builder.CreateRet(v);
+    return llvm::unique_value(r);
+}
 
 template <>
 llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<>& builder,
@@ -123,6 +149,8 @@ llvm::unique_value GenerateLLVMCode(llvm::IRBuilder<>& builder,
 llvm_runtime_binder<operation_accumulate> operation_accumulate_bindings;
 
 llvm_runtime_binder<operation_load_constant_i32> operation_load_constant_i32_bindings;
+
+
 
 
 
