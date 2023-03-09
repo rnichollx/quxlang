@@ -7,7 +7,7 @@ add_library(LLVM::LLVM INTERFACE IMPORTED)
 
 file(GLOB LLVM_LIBS "${LLVM_ROOT}/lib/libLLVM*.a")
 
-set(LLVM_INCLUDE_DIRS "${LLVM_ROOT}/include" "${LLVM_SOURCES}/llvm/include")
+set(LLVM_INCLUDE_DIRS "${LLVM_ROOT}/include" )
 
 message(STATUS "LLVM_LIBS: ${LLVM_LIBS}")
 foreach(LLVM_LIB ${LLVM_LIBS})

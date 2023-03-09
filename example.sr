@@ -1,0 +1,12 @@
+::foo CLASS {}
+
+::bar CLASS {}
+
+::baz CLASS {}
+
+::qux CLASS {}
+
+::quz CLASS
+{
+  .foo VAR I32;
+}
