@@ -26,11 +26,19 @@ namespace rs1031
         std::optional< std::size_t > m_offset;
     };
 
-    struct lir_field_info
+    // Deprecated
+    struct [[deprecated]] lir_field_info
     {
         lir_type_id m_type;
         std::optional< std::size_t > m_offset;
     };
+
+    struct lir_field_type_decl
+    {
+        lir_type_id m_type;
+    };
+
+
 
     struct lir_type_info
     {

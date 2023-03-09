@@ -7,6 +7,7 @@
 
 #include "dependency_resolver_chain.hpp"
 #include "lir_type_index.hpp"
+#include "map_alg.hpp"
 #include "semantic_generator.hpp"
 #include <memory>
 
@@ -19,8 +20,18 @@ namespace rs1031
         collector c;
         semantic_generator sg;
 
-        std::shared_ptr< resolvable< void > > m_done_scanning_files;
-        std::map< symbol_address, std::shared_ptr< resolvable< symbol_address > > > m_dealias_index;
+        template < typename K, typename V >
+        using index = std::map< K, dep_func_ptr< V > >;
+
+        std::shared_ptr< dependency_func_node< void > > m_done_scanning_files;
+        std::map< symbol_address, std::shared_ptr< dependency_func_node< symbol_address > > > m_dealias_index;
+
+        // Resolve typeid -> name
+        index< symbol_address, lir_type_id > m_typeid_index;
+
+        // Resolve typeid -> type information
+        index< lir_type_id, std::size_t > m_size_index;
+        index< lir_type_id, std::size_t > m_alignment_index;
 
         struct lir_type_info
         {
@@ -36,35 +47,62 @@ namespace rs1031
       public:
         compiler(lir_machine_info machine_info)
             : m_type_index(std::move(machine_info))
-            , m_done_scanning_files(std::make_shared< resolvable< void > >(
+            , m_done_scanning_files(std::make_shared< dependency_func_node< void > >(
                   []()
                   {
                       return true;
                   },
-                  std::vector< std::shared_ptr< resolvable_base > >{}, 1))
+                  std::vector< std::shared_ptr< dependency_base > >{}, 1))
         {
         }
 
-        std::shared_ptr< resolvable< symbol_address > > resolv_dealias_symbol_address(symbol_address addr)
+        std::shared_ptr< dependency_func_node< symbol_address > > step_dealias_symbol_address(symbol_address addr)
         {
-            auto it = m_dealias_index.find(addr);
-            if (it != m_dealias_index.end())
+            // todo : implement
+            return nullptr;
+        }
+
+        dep_func_ptr< std::size_t > step_calculate_size(symbol_address addr)
+        {
+            // return access_or_create(m_size_index, addr,
+            //                         [&]()
+            //                          {
+            //                              return this->create_step_calculate_size(addr);
+            //                          });
+            // TODO: Implement
+            return nullptr;
+        }
+
+        template < typename T >
+        using alg_func = typename dependency_func_node< T >::resolver_function_type;
+
+        // This structure represents a list of field declarations that refer to types by typeid.
+        using lir_field_typeid_list = std::vector< lir_field_type_decl >;
+
+        dep_func_ptr< lir_field_typeid_list > step_resolve_member_field_type_list(lir_type_id addr);
+
+        dep_func_ptr< std::size_t > create_step_calculate_size(lir_type_id addr)
+        {
+
+            dep_res_func< std::size_t > res_func = [this, addr](std::optional< std::size_t >& out, dep_func_ptr< std::size_t > that) -> bool
             {
-                return it->second;
-            }
-            else
-            {
-                auto new_resolv = std::make_shared< resolvable< symbol_address > >(
-                    [addr](std::optional< symbol_address >& out) -> bool
-                    {
-                        // TODO: Implement this correctly
-                        out = addr;
-                        return true;
-                    },
-                    std::vector< std::shared_ptr< resolvable_base > >{m_done_scanning_files});
-                m_dealias_index[addr] = new_resolv;
-                return new_resolv;
-            }
+                auto result = std::dynamic_pointer_cast< dependency_func_node< std::size_t > >(that);
+
+                assert(result != nullptr);
+                assert(result->is_maybe_resolvable());
+
+                auto member_list = this->step_resolve_member_field_type_list(addr);
+
+                if (!member_list->is_resolved())
+                {
+                    result->add_dependency(member_list);
+                    return false;
+                }
+
+                auto rmember_list = member_list->get();
+            };
+
+            return make_dep_func< std::size_t >(res_func);
         }
     };
 
