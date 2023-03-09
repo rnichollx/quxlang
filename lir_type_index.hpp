@@ -75,7 +75,7 @@ namespace rs1031
         lir_type_id get_builtin_int(std::size_t width)
         {
             std::string iname = "I" + std::to_string(width);
-            auto id = add_type({iname});
+            auto id = add_or_get_type({iname});
             m_types[id].m_size = width / 8;
             m_types[id].m_alignment = width / 8;
             m_types[id].m_sealed = true;
