@@ -106,7 +106,6 @@ namespace rs1031
 
                             // Check if type is resolved
 
-                            // 770-242-3344
                             // auto type_id = idx.add_or_get_type(type);
                         }
                     }
