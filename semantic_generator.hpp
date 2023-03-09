@@ -81,45 +81,53 @@ namespace rs1031
         void resolve_lir(lir_type_index& idx)
         {
             // Add all classes
-            for_all_class([&](sst_class& cl, symbol_address const& name) {
-                auto type_index_v = idx.add_type(name);
-                cl.m_lir_type_index = type_index_v;
-            });
+            for_all_class(
+                [&](sst_class& cl, symbol_address const& name)
+                {
+                    auto type_index_v = idx.add_type(name);
+                    cl.m_lir_type_index = type_index_v;
+                });
 
             // Add class members
-            for_all_class([&](sst_class& cl, symbol_address const&) {
-                for (sst_class_member& member : cl.members)
+            for_all_class(
+                [&](sst_class& cl, symbol_address const&)
                 {
-                    // if it's a member varaible
-                    if (std::holds_alternative< sst_member_variable >(member.get()))
+                    for (sst_class_member& member : cl.members)
                     {
-                        // get the variable
-                        auto& var = std::get< sst_member_variable >(member.get());
-                        // get the type of the variable
+                        // if it's a member varaible
+                        if (std::holds_alternative< sst_member_variable >(member.get()))
+                        {
+                            // get the variable
+                            auto& var = std::get< sst_member_variable >(member.get());
+                            // get the type of the variable
 
-                        auto name = var.name;
-                        auto type = var.type;
+                            auto name = var.name;
+                            auto type = var.type;
 
-                        // Check if type is resolved
+                            // Check if type is resolved
 
-// 770-242-3344
-                       // auto type_id = idx.add_or_get_type(type);
+                            // 770-242-3344
+                            // auto type_id = idx.add_or_get_type(type);
+                        }
                     }
-                }
-            });
+                });
 
             // Seal all classes
-            for_all_class([&](sst_class& cl, symbol_address const&) {
-                idx.seal_type(*cl.m_lir_type_index);
-            });
+            for_all_class(
+                [&](sst_class& cl, symbol_address const&)
+                {
+                    idx.seal_type(*cl.m_lir_type_index);
+                });
 
             // Finalize all classes
-            for_all_class([&](sst_class& cl, symbol_address const&) {
-                idx.typeset_finalize(*cl.m_lir_type_index);
-                // print the name and size of the type
-                std::cout << "Type " << idx.pretty_name(cl.m_lir_type_index.value()) << " has size " << *idx.get_type_size(*cl.m_lir_type_index) << std::endl;
-                // print number of members
-            });
+            for_all_class(
+                [&](sst_class& cl, symbol_address const&)
+                {
+                    idx.typeset_finalize(*cl.m_lir_type_index);
+                    // print the name and size of the type
+                    std::cout << "Type " << idx.pretty_name(cl.m_lir_type_index.value()) << " has size " << *idx.get_type_size(*cl.m_lir_type_index) << std::endl;
+                    // print number of members
+                });
         }
     };
 } // namespace rs1031
