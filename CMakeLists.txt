@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.22)
 project(ryanscript1031)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(LLVM REQUIRED CONFIG)
@@ -12,7 +12,7 @@ message(STATUS "${targets}")
 #target_link_libraries(ryanscript1031 PUBLIC ${LLVM_LIBS})
 
 
-add_executable(ryanscript1031 main.cpp parser.hpp ast.hpp value.hpp semantic_generator.hpp sst.hpp collector.hpp input_source.hpp symbol_address.hpp lir_function.hpp lir_type_index.hpp argparser.hpp dependency_resolver_chain.hpp compiler.hpp map_alg.hpp)
+add_executable(ryanscript1031 main.cpp parser.hpp ast.hpp value.hpp semantic_generator.hpp sst.hpp collector.hpp input_source.hpp lookup_sequence.hpp lir_function.hpp lir_type_index.hpp argparser.hpp dependency_resolver_chain.hpp compiler.hpp map_alg.hpp)
 
 # for each property that starts with LLVM, link to it
 foreach (target IN LISTS targets)

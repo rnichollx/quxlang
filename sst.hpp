@@ -29,7 +29,7 @@ namespace rs1031
     struct sst_class;
     struct sst_function;
 
-    struct sst_type_reference : value< std::variant< sst_null_object, ast_type_ref, symbol_address > >
+    struct sst_type_reference : value< std::variant< sst_null_object, ast_type_ref, static_lookup_sequence > >
     {
     };
 

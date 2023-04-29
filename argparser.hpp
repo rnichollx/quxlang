@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <vector>
 namespace rs1031
 {
     class argparser

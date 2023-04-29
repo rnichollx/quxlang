@@ -2,18 +2,24 @@
 // Created by Ryan Nicholl on 3/8/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_SYMBOL_ADDRESS_HEADER
-#define RPNX_RYANSCRIPT1031_SYMBOL_ADDRESS_HEADER
-
+#ifndef RPNX_RYANSCRIPT1031_LOOKUP_SEQUENCE_HEADER
+#define RPNX_RYANSCRIPT1031_LOOKUP_SEQUENCE_HEADER
+#include <deque>
 #include <vector>
 
 namespace rs1031
 {
 
-    struct symbol_address : std::vector< std::string >
+    struct lir_lookup_item
+    {
+
+    };
+
+    // TODO: replace with other types of lookup
+    struct static_lookup_sequence : std::vector< std::string >
     {
         template < typename... Args >
-        symbol_address(Args&&... args)
+        static_lookup_sequence(Args&&... args)
             : std::vector< std::string >{std::forward< Args >(args)...}
         {
         }
@@ -37,6 +43,7 @@ namespace rs1031
             return str;
         }
     };
+
 } // namespace rs1031
 
-#endif // RPNX_RYANSCRIPT1031_SYMBOL_ADDRESS_HEADER
+#endif // RPNX_RYANSCRIPT1031_LOOKUP_SEQUENCE_HEADER

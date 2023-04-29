@@ -11,15 +11,15 @@
 #include <utility>
 #include <vector>
 
-/* Here is a software design pattern: There is a generic class of T that can be in 3 states, resolved, unresolvable, and maybe_resolvable.
+/* Here is a software design pattern: There is a generic class of T that can be in 3 states, m_resolved, unresolvable, and maybe_resolvable.
 
-The class is created with an argument function/functor to "resolve" a value. When an instance is resolved, a get() function can be called to get an instance of T. The class also has the ability to add
-dependencies to other instances of the generic class that are not "resolved", and those instances do not need to be of the same T type.
+The class is created with an argument function/functor to "resolve" a value. When an instance is m_resolved, a get() function can be called to get an instance of T. The class also has the ability to
+add dependencies to other instances of the generic class that are not "m_resolved", and those instances do not need to be of the same T type.
 
-When an instance transitions to the resolved state, a counter for "unresolved dependencies" of objects that depend on it is decreased, if the "unresolved_dependencies" counter becomes 0, the state
+When an instance transitions to the m_resolved state, a counter for "unresolved dependencies" of objects that depend on it is decreased, if the "unresolved_dependencies" counter becomes 0, the state
 would transition from "unresolvable" to "maybe_resolvable".
 
-When an object is in the maybe_resolvable state, the "try_resolve" operation either transitions the object to the "resolved" state returning true, or instead adds new dependencies and transitions it
+When an object is in the maybe_resolvable state, the "try_resolve" operation either transitions the object to the "m_resolved" state returning true, or instead adds new dependencies and transitions it
 to the "unresolvable" state, returning false.
 
 When doing the "try_resolve" operation, the function returns a list of objects which transitioned from the "unresolvable" to "maybe_resolvable" state.
@@ -38,9 +38,12 @@ namespace rs1031
       private:
         // TODO: Add multithreading support, design a threading model for resolvables.
         std::atomic< ssize_t > unmet_dependencies = 0;
+
+      protected:
         std::vector< std::weak_ptr< dependency_base > > dependents;
 
       public:
+        virtual ~dependency_base() = default;
         void increment_dependencies()
         {
             unmet_dependencies++;
@@ -58,6 +61,11 @@ namespace rs1031
 
         virtual state get_state() const = 0;
 
+        bool has_unresolved_dependency() const
+        {
+            return unmet_dependencies > 0;
+        }
+
         bool is_maybe_resolvable() const
         {
             return get_state() == state::maybe_resolvable;
@@ -74,7 +82,6 @@ namespace rs1031
         }
 
         virtual bool try_resolve(std::function< void(std::shared_ptr< dependency_base >) >) = 0;
-        virtual ~dependency_base() = default;
 
         void add_dependency(std::shared_ptr< dependency_base > d)
         {
@@ -90,7 +97,99 @@ namespace rs1031
     };
 
     template < typename T >
-    class dependency_func_node : public dependency_base
+    class dependency_value_provider : public virtual dependency_base
+    {
+      public:
+        virtual ~dependency_value_provider() = default;
+        virtual T get() const = 0;
+    };
+
+    template < typename T >
+    class dependency_hardcoded_provider : public virtual dependency_base, public virtual dependency_value_provider< T >
+    {
+        T m_value;
+
+      public:
+        dependency_hardcoded_provider(T value)
+            : m_value(std::move(value))
+        {
+        }
+
+        virtual T get() const override
+        {
+            return m_value;
+        }
+
+        virtual state get_state() const override
+        {
+            return state::resolved;
+        }
+
+        virtual bool try_resolve(std::function< void(std::shared_ptr< dependency_base >) >) override
+        {
+            assert(false);
+            // already resolved
+            return true;
+        }
+    };
+
+    template < typename T >
+    struct dependency_input : public virtual dependency_base, public virtual dependency_value_provider< T >
+    {
+        std::optional< T > mv_value;
+        std::exception_ptr mv_err;
+        bool m_resolved = false;
+
+      public:
+        void set_value(T t)
+        {
+            assert(!m_resolved);
+            mv_value = std::move(t);
+        }
+
+        void set_error(std::exception_ptr e)
+        {
+            assert(!m_resolved);
+            mv_err = e;
+        }
+
+        virtual bool try_resolve(std::function< void(std::shared_ptr< dependency_base >) > emitter) override final
+        {
+            assert(!m_resolved);
+
+            if (mv_value.has_value())
+            {
+                for (auto const& d : dependents)
+                {
+                    if (auto sp = d.lock())
+                    {
+                        sp->decrease_dependencies(emitter);
+                    }
+                }
+                m_resolved = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        virtual state get_state() const override final
+        {
+            assert(!has_unresolved_dependency());
+            if (m_resolved)
+            {
+                assert(mv_err || mv_value.has_value());
+                return state::resolved;
+            }
+            else
+            {
+                return state::maybe_resolvable;
+            }
+        }
+    };
+
+    template < typename T >
+    class dependency_func_node : public virtual dependency_base, public virtual dependency_value_provider< T >
     {
       public:
         using resolver_function_type = std::function< bool(std::optional< T >&, std::shared_ptr< dependency_func_node< T > >) >;
@@ -135,6 +234,7 @@ namespace rs1031
                 return state::maybe_resolvable;
             }
         }
+
         bool try_resolve(std::function< void(std::shared_ptr< dependency_base >) > f) override final
         {
             if (unmet_dependencies != 0)
@@ -162,11 +262,11 @@ namespace rs1031
             return true;
         }
 
-        T get() const
+        virtual T get() const override
         {
             if (!resolved_value.has_value())
             {
-                throw std::runtime_error("Attempted to get a value from a dependency_func_node that has not been resolved");
+                throw std::runtime_error("Attempted to get a value from a dependency_func_node that has not been m_resolved");
             }
             return resolved_value.value();
         }
@@ -243,7 +343,13 @@ namespace rs1031
     };
 
     template < typename T >
+    using dep_ptr = std::shared_ptr< dependency_value_provider< T > >;
+
+    template < typename T >
     using dep_func_ptr = std::shared_ptr< dependency_func_node< T > >;
+
+    template < typename T >
+    using dep_input_ptr = std::shared_ptr< dependency_input< T > >;
 
     template < typename T >
     using dep_func_wk_ptr = std::weak_ptr< dependency_func_node< T > >;
@@ -255,6 +361,12 @@ namespace rs1031
     auto make_dep_func(dep_res_func< T > f)
     {
         return std::make_shared< dependency_func_node< T > >(f);
+    }
+
+    template < typename T >
+    auto make_hardcoded_dep(T value)
+    {
+        return std::make_shared< dependency_hardcoded_provider< T > >(value);
     }
 } // namespace rs1031
 

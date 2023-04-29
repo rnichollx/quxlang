@@ -8,8 +8,8 @@
 #include "ast.hpp"
 #include "input_source.hpp"
 #include "lir_type_index.hpp"
+#include "lookup_sequence.hpp"
 #include "sst.hpp"
-#include "symbol_address.hpp"
 #include <cassert>
 #include <set>
 
@@ -21,7 +21,7 @@ namespace rs1031
         std::shared_ptr< sst_module > current_module;
         std::map< std::string, std::shared_ptr< sst_module > > imported_modules;
 
-        sst_module_declaration& declaration(symbol_address const& where)
+        sst_module_declaration& declaration(static_lookup_sequence const& where)
         {
             return current_module->stuff[where];
         }
@@ -33,7 +33,7 @@ namespace rs1031
         {
             current_module = std::make_shared< sst_module >();
         }
-        void add(symbol_address const& where, ast_function const& function, input_source loc = input_source())
+        void add(static_lookup_sequence const& where, ast_function const& function, input_source loc = input_source())
         {
             sst_module_declaration& decl = declaration(where);
 
@@ -48,7 +48,7 @@ namespace rs1031
             sst_procedure pr;
         }
 
-        void add(symbol_address const& where, ast_class cl, input_source loc = input_source())
+        void add(static_lookup_sequence const& where, ast_class cl, input_source loc = input_source())
         {
             sst_module_declaration& decl = declaration(where);
 
@@ -76,57 +76,6 @@ namespace rs1031
                     f(std::get< sst_class >(decl.get()), name);
                 }
             }
-        }
-
-        void resolve_lir(lir_type_index& idx)
-        {
-            // Add all classes
-            for_all_class(
-                [&](sst_class& cl, symbol_address const& name)
-                {
-                    auto type_index_v = idx.add_type(name);
-                    cl.m_lir_type_index = type_index_v;
-                });
-
-            // Add class members
-            for_all_class(
-                [&](sst_class& cl, symbol_address const&)
-                {
-                    for (sst_class_member& member : cl.members)
-                    {
-                        // if it's a member varaible
-                        if (std::holds_alternative< sst_member_variable >(member.get()))
-                        {
-                            // get the variable
-                            auto& var = std::get< sst_member_variable >(member.get());
-                            // get the type of the variable
-
-                            auto name = var.name;
-                            auto type = var.type;
-
-                            // Check if type is resolved
-
-                            // auto type_id = idx.add_or_get_type(type);
-                        }
-                    }
-                });
-
-            // Seal all classes
-            for_all_class(
-                [&](sst_class& cl, symbol_address const&)
-                {
-                    idx.seal_type(*cl.m_lir_type_index);
-                });
-
-            // Finalize all classes
-            for_all_class(
-                [&](sst_class& cl, symbol_address const&)
-                {
-                    idx.typeset_finalize(*cl.m_lir_type_index);
-                    // print the name and size of the type
-                    std::cout << "Type " << idx.pretty_name(cl.m_lir_type_index.value()) << " has size " << *idx.get_type_size(*cl.m_lir_type_index) << std::endl;
-                    // print number of members
-                });
         }
     };
 } // namespace rs1031

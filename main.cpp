@@ -171,15 +171,12 @@ std::string load_string_from_file(std::filesystem::path where)
     return str;
 }
 
-
-
 int main(int argc, char** argv)
 {
     rs1031::argparser args(argc, argv);
     std::vector< boost::any > values;
     rs1031::collector c;
     rs1031::semantic_generator sg;
-
 
     std::filesystem::path input_path = args.get_path(1);
 
@@ -188,13 +185,13 @@ int main(int argc, char** argv)
     c.emit_class = [&sg](std::string name, rs1031::ast_class cl)
     {
         std::cout << "Emitting class " << name << std::endl;
-        sg.add(std::vector< std::string >{name}, cl);
+        sg.add(std::vector< std::string >{"__main", name}, cl);
     };
     c.emit_function = [&sg](std::string name, rs1031::ast_function func)
     {
         std::cout << "Emitting function " << name << std::endl;
         std::cout << "  " << func.to_string() << std::endl;
-        sg.add({name}, func);
+        sg.add({"__main", name}, func);
     };
     c.collect(example.begin(), example.end());
 
@@ -202,10 +199,10 @@ int main(int argc, char** argv)
     machine.m_pointer_alignment = 8;
     machine.m_pointer_size = 8;
 
-    rs1031::lir_type_index v_type_index(machine);
+    // rs1031::lir_type_index v_type_index(machine);
 
-    sg.resolve_lir(v_type_index);
-    // sg.resolve();
+    // sg.resolve_lir(v_type_index);
+    //  sg.resolve();
 
     // return 0;
 

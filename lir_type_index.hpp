@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_LIR_TYPE_INDEX_HEADER
 #define RPNX_RYANSCRIPT1031_LIR_TYPE_INDEX_HEADER
 
-#include "symbol_address.hpp"
+#include "lookup_sequence.hpp"
 #include <cassert>
 #include <cstddef>
 #include <deque>
@@ -15,6 +15,7 @@
 
 namespace rs1031
 {
+    using lir_symbol_id = std::size_t;
     using lir_type_id = std::size_t;
     using lir_field_id = std::size_t;
 
@@ -33,16 +34,9 @@ namespace rs1031
         std::optional< std::size_t > m_offset;
     };
 
-    struct lir_field_type_decl
+    struct [[deprecated]] lir_type_info
     {
-        lir_type_id m_type;
-    };
-
-
-
-    struct lir_type_info
-    {
-        symbol_address m_name;
+        static_lookup_sequence m_name;
         std::vector< lir_field_info > m_fields;
         std::vector< lir_inherit_info > m_inherits;
         std::optional< std::size_t > m_size;
@@ -57,13 +51,13 @@ namespace rs1031
         std::size_t m_pointer_alignment;
     };
 
-    struct lir_type_index
+    struct [[deprecated]] lir_type_index
     {
         using lir_type_storage = std::vector< lir_type_info >;
         // using lir_type_storage = std::deque<lir_type_info>;
 
-        // std::set< symbol_address > m_already_defined_types;
-        std::map< symbol_address, lir_type_id > m_already_defined_types;
+        // std::set< static_lookup_sequence > m_already_defined_types;
+        std::map< static_lookup_sequence, lir_type_id > m_already_defined_types;
 
         lir_type_storage m_types;
 
@@ -97,7 +91,7 @@ namespace rs1031
             setup_builtin_types();
         }
 
-        lir_type_id add_or_get_type(symbol_address addr)
+        lir_type_id add_or_get_type(static_lookup_sequence addr)
         {
             auto it = m_already_defined_types.find(addr);
             if (it != m_already_defined_types.end())
@@ -110,7 +104,7 @@ namespace rs1031
             }
         }
 
-        lir_type_id add_type(symbol_address addr)
+        lir_type_id add_type(static_lookup_sequence addr)
         {
             assert(m_already_defined_types.find(addr) == m_already_defined_types.end());
             m_types.emplace_back();
