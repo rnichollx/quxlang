@@ -5,7 +5,7 @@
 #define CATCH_CONFIG_MAIN
 #include <string>
 
-#include "graph_solver.hpp"
+#include "rpnx/graph_solver.hpp"
 #include <catch2/catch2.hpp>
 #include <iostream>
 

@@ -267,31 +267,6 @@ namespace rpnx
     template < typename Graph, typename Result >
     using output_ptr = std::shared_ptr< output_base< Graph, Result > >;
 
-    template < typename Graph, typename Func >
-    class functional_resolver;
-
-    template < typename Graph, typename R, typename... Ts >
-    class functional_resolver< Graph, R(Ts...) >
-    {
-        using key_type = std::tuple< Ts... >;
-        using value_type = R;
-        using result_type = result< value_type >;
-
-      private:
-        std::function< result_type(functional_resolver< Graph, R(Ts...) >*, Graph*, Ts...) > m_func;
-
-      public:
-        template < typename F >
-        functional_resolver(F f)
-            : m_func(f)
-        {
-        }
-
-        virtual void process(Graph* graph)
-        {
-            m_func(*this, graph, std::get< Ts >()...);
-        }
-    };
 
     template < typename Graph, typename Resolver >
     class index
@@ -328,6 +303,7 @@ namespace rpnx
         {
             solve(graph, node.get());
         }
+
         void solve(Graph* graph, node_base< Graph >* node)
         {
             std::set< node_base< Graph >* > nodes_to_process;
