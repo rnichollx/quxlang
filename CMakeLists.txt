@@ -12,11 +12,13 @@ target_include_directories(graphlib INTERFACE ${CMAKE_SOURCE_DIR}/v2/include)
 add_executable(graphlib_tests v2/tests.cpp)
 
 add_executable(rylang v2/rylang/sources/rylang_compiler.cpp
+v2/rylang/sources/ast/type_ref_ast.cpp
  v2/rylang/include/rylang/compiler.hpp
   v2/rylang/include/rylang/compiler_fwd.hpp
         v2/rylang/sources/res/filelist_resolver.cpp
   v2/rylang/include/rylang/compiler_fwd.hpp v2/rylang/include/rylang/res/file_ast_resolver.hpp  v2/rylang/include/rylang/ast/member_varaible_ast.hpp v2/rylang/include/rylang/ast/file_ast.hpp
-   v2/rylang/include/rylang/res/filelist_resolver.hpp v2/rylang/include/rylang/filelist.hpp v2/rylang/sources/main.cpp v2/rylang/include/rylang/res/file_content_resolver.hpp v2/rylang/sources/res/file_content_resolver.cpp v2/rylang/sources/res/file_ast_resolver.cpp v2/rylang/include/rylang/ast/class_ast.hpp v2/rylang/include/rylang/collector.hpp v2/rylang/include/rylang/ast/function_ast.hpp v2/rylang/include/rylang/ast/type_ref_ast.hpp v2/include/rpnx/value.hpp v2/rylang/include/rylang/ast/symbol_ref_ast.hpp v2/rylang/include/rylang/parser.hpp v2/rylang/include/rylang/ex/unexpected_eof.hpp v2/rylang/include/rylang/ast/null_object_ast.hpp v2/rylang/include/rylang/ast/null_object_ast.hpp)
+   v2/rylang/include/rylang/res/filelist_resolver.hpp v2/rylang/include/rylang/filelist.hpp v2/rylang/sources/main.cpp v2/rylang/include/rylang/res/file_content_resolver.hpp v2/rylang/sources/res/file_content_resolver.cpp v2/rylang/sources/res/file_ast_resolver.cpp v2/rylang/include/rylang/ast/class_ast.hpp v2/rylang/include/rylang/collector.hpp v2/rylang/include/rylang/ast/function_ast.hpp v2/rylang/include/rylang/ast/type_ref_ast.hpp v2/include/rpnx/value.hpp v2/rylang/include/rylang/ast/symbol_ref_ast.hpp v2/rylang/include/rylang/parser.hpp v2/rylang/include/rylang/ex/unexpected_eof.hpp v2/rylang/include/rylang/ast/null_object_ast.hpp v2/rylang/include/rylang/ast/null_object_ast.hpp
+   )
 target_link_libraries(rylang PUBLIC graphlib)
 target_include_directories(rylang PUBLIC v2/rylang/include)
 target_link_libraries(graphlib_tests PUBLIC graphlib catch2)

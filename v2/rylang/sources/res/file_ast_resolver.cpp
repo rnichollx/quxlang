@@ -11,7 +11,6 @@
 #include <exception>
 #include <fstream>
 
-
 void rylang::file_ast_resolver::process(compiler* c)
 {
     // auto input_file_name = m_input_filename;
@@ -33,4 +32,8 @@ void rylang::file_ast_resolver::process(compiler* c)
     {
         v_file_ast.classes[name] = std::move(ast);
     };
+
+    col.collect(content.begin(), content.end());
+
+    set_value(std::move(v_file_ast));
 }

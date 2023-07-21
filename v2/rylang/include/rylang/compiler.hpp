@@ -35,7 +35,7 @@ namespace rylang
         filelist get_file_list();
 
         out< std::string > file_contents(std::string const& filename);
-        out< file_ast > file_ast(std::string const& filename);
+        out< file_ast > lk_file_ast(std::string const& filename);
 
         std::string get_file_contents(std::string const& filename)
         {
@@ -43,6 +43,14 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
+
+        file_ast get_file_ast(std::string const& filename)
+        {
+            auto node = lk_file_ast(filename);
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
     };
 
 } // namespace rylang

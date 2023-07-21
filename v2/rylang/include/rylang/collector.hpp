@@ -17,7 +17,7 @@
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
-#
+#include "rylang/parser.hpp"
 
 namespace rylang
 {
@@ -232,6 +232,8 @@ namespace rylang
                     std::string remaining = std::string(pos, it_end);
                     throw std::runtime_error("Expected ';'");
                 }
+
+                c.member_variables.push_back(member);
             }
 
             else

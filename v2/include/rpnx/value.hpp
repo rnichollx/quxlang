@@ -44,6 +44,29 @@ namespace rpnx
         {
         }
 
+        value< T >& operator=(value< T > const& other)
+        {
+            reset();
+            m_data = new T(other.get());
+            return *this;
+        }
+
+        value< T >& operator=(value< T >&& other)
+        {
+            reset();
+            m_data = new T(std::move(other.get()));
+            return *this;
+        }
+
+        void reset()
+        {
+            if (m_data)
+            {
+                delete m_data;
+            }
+            m_data = nullptr;
+        }
+
         ~value()
         {
             delete m_data;
@@ -59,6 +82,6 @@ namespace rpnx
             return *m_data;
         }
     };
-} // namespace rs1031
+} // namespace rpnx
 
 #endif // RPNX_RYANSCRIPT1031_VALUE_HEADER

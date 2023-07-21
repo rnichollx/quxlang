@@ -14,6 +14,11 @@ namespace rylang
     {
         std::string name;
         type_ref_ast type;
+
+        std::string to_string()
+        {
+            return "ast_member_variable{ name: " + name + ", type: " + type.to_string() + " }";
+        }
     };
 } // namespace rylang
 
