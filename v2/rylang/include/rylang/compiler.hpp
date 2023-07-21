@@ -12,8 +12,9 @@ namespace rylang
 {
     class compiler
     {
+        filelist m_file_list;
       public:
-        compiler();
+        compiler(int argc, char** argv);
 
         filelist get_file_list();
     };

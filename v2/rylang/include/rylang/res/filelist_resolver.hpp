@@ -15,6 +15,9 @@ namespace rylang
         : public rpnx::output_base<compiler, filelist>
     {
       public:
+        filelist_resolver()
+        {
+        }
         void process(compiler* c);
     };
 

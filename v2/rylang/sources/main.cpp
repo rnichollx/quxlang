@@ -2,5 +2,5 @@
 
 int main()
 {
-  rylang::compiler c;
+  rylang::compiler c(0, nullptr);
 }
