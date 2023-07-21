@@ -250,7 +250,7 @@ namespace rpnx
         {
             m_result.set_error(er);
         }
-
+      public:
         virtual bool has_value() const override final
         {
             return m_result.has_value();
