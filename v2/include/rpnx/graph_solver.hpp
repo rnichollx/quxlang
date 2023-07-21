@@ -225,6 +225,7 @@ namespace rpnx
     class output_base : public virtual node_base< Graph >
     {
       public:
+        using value_type = Result;
         using result_type = result< Result >;
 
         virtual ~output_base(){};

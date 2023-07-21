@@ -2,7 +2,7 @@
 
 rylang::compiler::compiler(int argc, char** argv)
 {
-    for (int i = 0; i < argc; i++)
+    for (int i = 1; i < argc; i++)
     {
         m_file_list.push_back(argv[i]);
     }
@@ -10,6 +10,10 @@ rylang::compiler::compiler(int argc, char** argv)
 
 rylang::filelist rylang::compiler::get_file_list()
 {
-    // TODO: return m_file_list
-    return rylang::filelist{"foo.ry", "bar.ry"};
+    return m_file_list;
+}
+
+rpnx::output_ptr< rylang::compiler, std::string > rylang::compiler::file_contents(std::string const& filename)
+{
+    return m_file_contents_index.lookup(filename);
 }

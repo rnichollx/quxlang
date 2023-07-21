@@ -2,7 +2,7 @@
 // Created by Ryan Nicholl on 2/27/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_AST_HEADER
+#ifndef RPNX_RYANSCRIPT1031_FILE_AST_HEADER
 #define RPNX_RYANSCRIPT1031_AST_HEADER
 #include "value.hpp"
 #include <string>
@@ -162,4 +162,4 @@ namespace rs1031
 
 } // namespace rs1031
 
-#endif // RPNX_RYANSCRIPT1031_AST_HEADER
+#endif // RPNX_RYANSCRIPT1031_FILE_AST_HEADER
