@@ -5,6 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_LIR_TYPE_INDEX_HEADER
 #define RPNX_RYANSCRIPT1031_LIR_TYPE_INDEX_HEADER
 
+#include "lir.hpp"
 #include "lookup_sequence.hpp"
 #include <cassert>
 #include <cstddef>
@@ -15,9 +16,6 @@
 
 namespace rs1031
 {
-    using lir_symbol_id = std::size_t;
-    using lir_type_id = std::size_t;
-    using lir_field_id = std::size_t;
 
     struct lir_inherit_info
     {

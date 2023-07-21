@@ -24,7 +24,7 @@
 #include <typeindex>
 
 #include "collector.hpp"
-#include "compiler.hpp"
+#include "compiler_fwd.hpp"
 #include "parser.hpp"
 #include "semantic_generator.hpp"
 

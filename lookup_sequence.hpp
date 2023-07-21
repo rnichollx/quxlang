@@ -5,6 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_LOOKUP_SEQUENCE_HEADER
 #define RPNX_RYANSCRIPT1031_LOOKUP_SEQUENCE_HEADER
 #include <deque>
+#include <string>
 #include <vector>
 
 namespace rs1031
@@ -12,7 +13,6 @@ namespace rs1031
 
     struct lir_lookup_item
     {
-
     };
 
     // TODO: replace with other types of lookup
@@ -23,6 +23,8 @@ namespace rs1031
             : std::vector< std::string >{std::forward< Args >(args)...}
         {
         }
+
+        static_lookup_sequence(const static_lookup_sequence&) = default;
 
         inline std::string prettystring() const
         {

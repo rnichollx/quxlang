@@ -16,7 +16,7 @@
 The class is created with an argument function/functor to "resolve" a value. When an instance is m_resolved, a get() function can be called to get an instance of T. The class also has the ability to
 add dependencies to other instances of the generic class that are not "m_resolved", and those instances do not need to be of the same T type.
 
-When an instance transitions to the m_resolved state, a counter for "unresolved dependencies" of objects that depend on it is decreased, if the "unresolved_dependencies" counter becomes 0, the state
+When an instance transitions to the m_resolved state, a counter for "ready dependencies" of objects that depend on it is decreased, if the "unresolved_dependencies" counter becomes 0, the state
 would transition from "unresolvable" to "maybe_resolvable".
 
 When an object is in the maybe_resolvable state, the "try_resolve" operation either transitions the object to the "m_resolved" state returning true, or instead adds new dependencies and transitions it
