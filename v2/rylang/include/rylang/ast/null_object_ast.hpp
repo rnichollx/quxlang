@@ -9,7 +9,7 @@ namespace rylang
 {
     struct null_object_ast
     {
-        inline std::string to_string()
+        inline std::string to_string() const
         {
             return "ast_null_object{}";
         }

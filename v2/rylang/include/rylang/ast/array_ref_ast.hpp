@@ -14,7 +14,7 @@ namespace rylang
         symbol_ref_ast type;
         std::size_t size;
 
-        inline std::string to_string()
+        inline std::string to_string() const
         {
             return "ast_array_ref{ type: " + type.to_string() + ", size: " + std::to_string(size) + " }";
         }

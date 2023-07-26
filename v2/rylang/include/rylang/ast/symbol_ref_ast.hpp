@@ -12,7 +12,7 @@ namespace rylang
     struct symbol_ref_ast
     {
         std::string name;
-        inline std::string to_string()
+        inline std::string to_string() const
         {
             return "ast_symbol_ref{ name: " + name + " }";
         }

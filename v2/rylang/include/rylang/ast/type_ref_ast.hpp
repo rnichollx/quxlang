@@ -19,7 +19,7 @@ namespace rylang
     struct type_ref_ast
     {
        rpnx::value< std::variant< null_object_ast, symbol_ref_ast, array_ref_ast, pointer_ref_ast, integral_keyword_ast > > val;
-       std::string to_string();
+       std::string to_string() const;
     };
 } // namespace rylang
 

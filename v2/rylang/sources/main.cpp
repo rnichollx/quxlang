@@ -19,10 +19,17 @@ int main(int argc, char** argv)
 
     std::cout << "AST of " << file_name << ":\n";
 
-    for (auto& cl : ast.classes)
+    for (auto& cl : ast.root.m_sub_entities)
     {
         std::cout << "Class " << cl.first << ":\n";
-        std::cout << cl.second.to_string() << "\n";
+        std::cout << cl.second.get().to_string() << "\n";
     }
 
+    // get the class list
+    auto list = c.get_class_list();
+
+    for (auto elm : list.class_names)
+    {
+        std::cout << "Class name: " << elm << "\n";
+    }
 }

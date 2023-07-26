@@ -1,0 +1,20 @@
+::fuu CLASS {}
+
+::bez CLASS {}
+
+::bif CLASS {}
+
+::qak CLASS {}
+
+::kek CLASS
+{
+  .foo VAR I32;
+}
+
+::rpnx NAMESPACE
+{
+  ::foo CLASS
+  {
+    .bar VAR I32;
+  }
+}

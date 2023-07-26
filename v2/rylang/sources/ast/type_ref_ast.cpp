@@ -4,10 +4,10 @@
 
 #include "rylang/ast/type_ref_ast.hpp"
 
-std::string rylang::type_ref_ast::to_string()
+std::string rylang::type_ref_ast::to_string() const
 {
     return std::visit(
-        [](auto&& arg) -> std::string
+        [](auto const& arg) -> std::string
         {
             return arg.to_string();
         },

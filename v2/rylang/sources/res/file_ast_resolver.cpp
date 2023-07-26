@@ -27,13 +27,13 @@ void rylang::file_ast_resolver::process(compiler* c)
     collector col;
 
     file_ast v_file_ast;
+    v_file_ast.filename = input_filename;
 
-    col.emit_class = [&](std::string name, class_ast ast)
-    {
-        v_file_ast.classes[name] = std::move(ast);
-    };
+
 
     col.collect(content.begin(), content.end());
+
+    v_file_ast.root = col.get();
 
     set_value(std::move(v_file_ast));
 }

@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_CLASS_AST_HEADER
 #define RPNX_RYANSCRIPT1031_CLASS_AST_HEADER
 
-#include "member_varaible_ast.hpp"
+#include "member_variable_ast.hpp"
 #include <vector>
 
 namespace rylang

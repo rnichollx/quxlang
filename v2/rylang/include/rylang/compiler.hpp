@@ -8,6 +8,7 @@
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/filelist.hpp"
+#include "rylang/res/class_list_resolver.hpp"
 #include "rylang/res/file_ast_resolver.hpp"
 #include "rylang/res/file_content_resolver.hpp"
 #include "rylang/res/filelist_resolver.hpp"
@@ -16,11 +17,18 @@ namespace rylang
 {
     class compiler
     {
-        template <typename T>
+        friend class filelist_resolver;
+        friend class class_list_resolver;
+        friend class file_ast_resolver;
+        friend class file_content_resolver;
+        friend class classes_per_file_resolver;
+
+        template < typename T >
         using index = rpnx::index< compiler, T >;
 
         filelist m_file_list;
         filelist_resolver m_filelist_resolver;
+        class_list_resolver m_class_list_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
 
@@ -51,6 +59,12 @@ namespace rylang
             return node->get();
         }
 
+        class_list get_class_list()
+        {
+            auto node = &m_class_list_resolver;
+            m_solver.solve(this, node);
+            return node->get();
+        }
     };
 
 } // namespace rylang

@@ -12,7 +12,7 @@ namespace rylang
     struct pointer_ref_ast
     {
         type_ref_ast type;
-        inline std::string to_string()
+        inline std::string to_string() const
         {
             return "ast_pointer_ref{ type: " + type.to_string() + " }";
         }

@@ -9,12 +9,12 @@ namespace rylang
 {
     struct integral_keyword_ast
     {
-        bool signedness;
+        bool is_sized;
         int size;
 
-        inline std::string to_string()
+        inline std::string to_string() const
         {
-            return "ast_integral_keyword{ signedness: " + std::to_string(signedness) + ", size: " + std::to_string(size) + " }";
+            return "ast_integral_keyword{ signedness: " + std::to_string(is_sized) + ", size: " + std::to_string(size) + " }";
         }
     };
 } // namespace rylang
