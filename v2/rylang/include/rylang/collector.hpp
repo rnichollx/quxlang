@@ -473,8 +473,6 @@ namespace rylang
                 return false;
             }
 
-
-
             std::string name = get_skip_identifier(pos, it_end);
 
             if (name.empty())
@@ -502,7 +500,7 @@ namespace rylang
                 return false;
             }
 
-             if (current_entity()->m_category == entity_category::unknown_cat)
+            if (current_entity()->m_category == entity_category::unknown_cat)
             {
                 current_entity()->m_category = entity_category::variable_cat;
             }
@@ -511,8 +509,6 @@ namespace rylang
             {
                 throw std::runtime_error("Cannot redeclare FUNCTION or NAMESPACE as VARIABLE.");
             }
-
-
 
             skip_wsc(begin, end);
             // now type
@@ -531,8 +527,8 @@ namespace rylang
             return true;
         }
 
-        template <typename It>
-        bool try_get_integral_keyword(It & pos, It end, integral_keyword_ast & ast)
+        template < typename It >
+        bool try_get_integral_keyword(It& pos, It end, integral_keyword_ast& ast)
         {
             auto it = pos;
 
@@ -547,11 +543,10 @@ namespace rylang
                 }
 
                 std::string dig_str = std::string(dig_start, it);
-                ast.size = (int) std::stoi(dig_str.c_str());
+                ast.size = (int)std::stoi(dig_str.c_str());
 
                 pos = it;
                 return true;
-
             }
 
             return false;

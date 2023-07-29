@@ -5,7 +5,7 @@ find_package(LLVM REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 
 
-add_executable(rylang v2/rylang/include/rylang/ast/entity_ast.hpp v2/rylang/sources/ast/entity_ast.cpp v2/rylang/include/rylang/ast/variable_ast.hpp)
+add_executable(rylang v2/rylang/include/rylang/ast/entity_ast.hpp v2/rylang/include/rylang/ast/entity_base_ast.hpp v2/rylang/sources/ast/entity_ast.cpp v2/rylang/include/rylang/ast/variable_ast.hpp v2/rylang/include/rylang/ast/function_entity_ast.hpp v2/rylang/include/rylang/data/entity_category.hpp)
 add_library(graphlib INTERFACE v2/include/rpnx/graph_solver.hpp )
 add_library(catch2 catch2/catch2/catch2.hpp catch2/catch2.cpp )
 target_include_directories(catch2 PUBLIC catch2/)

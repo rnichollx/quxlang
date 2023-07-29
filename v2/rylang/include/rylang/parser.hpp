@@ -244,6 +244,7 @@ namespace rylang
         return pos;
     }
 
+    /** Skip whitespace and comments. */
     template < typename It >
     inline bool skip_wsc(It& begin, It end)
     {
