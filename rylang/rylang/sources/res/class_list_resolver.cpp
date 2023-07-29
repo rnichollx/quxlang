@@ -36,7 +36,7 @@ void rylang::class_list_resolver::process(compiler* c)
 
         for (auto kv : per_file_class_list_dp.root.m_sub_entities)
         {
-            if (kv.second.get().m_category != entity_category::class_cat)
+            if (! std::holds_alternative<class_entity_ast>(kv.second.get().m_subvalue.get()))
                 continue;
             result.class_names.push_back(kv.first);
         }

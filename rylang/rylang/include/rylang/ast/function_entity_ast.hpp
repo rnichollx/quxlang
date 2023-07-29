@@ -5,15 +5,19 @@
 #ifndef RPNX_RYANSCRIPT1031_FUNCTION_ENTITY_AST_HEADER
 #define RPNX_RYANSCRIPT1031_FUNCTION_ENTITY_AST_HEADER
 
-#include "rylang/ast/entity_ast_base.hpp"
+#include "rylang/ast/entity_ast.hpp"
+#include <string>
 namespace rylang
 {
-   struct function_entity_ast
-   : public entity_ast_base
-   {
+    struct function_entity_ast
+    {
+        std::vector< function_ast > m_function_overloads;
 
-   };
+        std::string to_string(entity_ast const *) const {
+                return "function_ast{ <to_string not implemented> }";
+                }
+    };
 
-}
+} // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_FUNCTION_ENTITY_AST_HEADER

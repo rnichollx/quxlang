@@ -14,6 +14,7 @@ namespace rylang
     struct variable_entity_ast;
     struct symbol_ref_ast;
     struct null_object_ast;
+    struct entity_ast;
     enum class entity_category;
 } // namespace rylang
 

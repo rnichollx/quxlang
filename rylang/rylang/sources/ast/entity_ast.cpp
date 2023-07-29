@@ -5,44 +5,24 @@
 
 std::string rylang::entity_ast::to_string() const
 {
-    std::string result = "ast_";
+    auto result = "{ENTITY " + m_name + ", sub-entities: ";
 
-    if (m_is_field_entity)
+    for (auto const& i : m_sub_entities)
     {
-        result += "member_";
+        result += " " + i.first + ": " + i.second.get().to_string() + ", ";
     }
-    if (m_category == entity_category::class_cat)
-    {
-       result += "class";
-    }
-    else if (m_category == entity_category::function_cat)
-    {
-        result += "function";
-    }
-    else if (m_category == entity_category::namespace_cat)
-    {
-        result += "namespace";
-    }
-    else if (m_category == entity_category::variable_cat)
-    {
-        result += "variable";
-    }
+    auto substr = std::visit(
+        [this](auto&& arg) -> std::string
+        {
+            return arg.to_string(this);
+        },
+        m_subvalue.get());
 
-    else throw std::runtime_error("Unknown entity category");
 
-    result += "{";
 
-    for (auto & x: m_sub_entities)
-    {
-        result += x.first + ": " + x.second.get().to_string() + ", ";
-    }
+    result += "subvalue: ";
+    result += substr;
 
-    if (m_variable_type)
-    {
-        result += "type: " + m_variable_type.value().to_string() + ", ";
-    }
-
-    result += "}";
-
+    result += " }";
     return result;
 }

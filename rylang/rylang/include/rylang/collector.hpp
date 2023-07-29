@@ -58,9 +58,9 @@ namespace rylang
             }
         }
 
-        entity_ast* enter_entity(std::string const& name, entity_category cat = entity_category::unknown_cat, bool is_field = false)
+        entity_ast* enter_entity2(std::string const & name, bool is_field)
         {
-            assert(m_symbol_stack.size() == m_entity_stack.size());
+           assert(m_symbol_stack.size() == m_entity_stack.size());
 
             if (m_entity_stack.size() == 0)
             {
@@ -80,7 +80,6 @@ namespace rylang
                 auto both = top.m_sub_entities.emplace(name, entity_ast{});
                 lookup = both.first;
                 current_entity = &lookup->second.get();
-                current_entity->m_category = entity_category::unknown_cat;
                 assert(current_entity);
                 current_entity->m_is_field_entity = is_field;
                 for (std::size_t zi = 0; zi != m_symbol_stack.size(); zi++)
@@ -110,6 +109,7 @@ namespace rylang
             return current_entity;
         }
 
+
         void leave_entity(entity_ast* which)
         {
             assert(m_entity_stack.size() > 0);
@@ -117,6 +117,24 @@ namespace rylang
             m_entity_stack.pop_back();
             m_symbol_stack.pop_back();
             assert(m_entity_stack.size() == m_symbol_stack.size());
+        }
+
+        template < typename Ast >
+        auto current_entity2() -> Ast *
+        {
+            auto ent = current_entity();
+
+            if (std::holds_alternative<null_object_ast>(ent->m_subvalue.get()))
+            {
+                ent->m_subvalue = Ast{};
+            }
+            else if (! std::holds_alternative<Ast>(ent->m_subvalue.get()))
+            {
+                throw std::runtime_error("Entity already exists with different category");
+            }
+            auto& v =  ent->m_subvalue.get();
+
+            return &std::get<Ast>(v);
         }
 
         entity_ast* current_entity()
@@ -142,79 +160,6 @@ namespace rylang
                 ;
         }
 
-        // Call this function AFTER :: has been found.
-        template < typename It >
-        void collect_symbol(It& pos, It end)
-        {
-            skip_wsc(pos, end);
-            expect_more(pos, end);
-
-            std::string remaining = std::string(pos, end);
-            std::string name = get_skip_identifier(pos, end);
-
-            if (name.empty())
-            {
-                throw std::runtime_error("Expected identifier");
-            }
-
-            while (skip_whitespace(pos, end) || skip_line_comment(pos, end))
-                ;
-
-            if (skip_keyword_if_is(pos, end, "FUNCTION"))
-            {
-                auto ent = enter_entity(name, entity_category::function_cat);
-                function_ast f;
-                collect_function(pos, end, f);
-
-                if (emit_function)
-                {
-                    emit_function(name, f);
-                }
-                leave_entity(ent);
-            }
-            else if (skip_keyword_if_is(pos, end, "CLASS"))
-            {
-                auto ent = enter_entity(name, entity_category::class_cat);
-                class_ast c;
-                collect_class(pos, end, c);
-
-                if (emit_class)
-                {
-                    emit_class(name, c);
-                }
-                leave_entity(ent);
-            }
-            else if (skip_keyword_if_is(pos, end, "NAMESPACE"))
-            {
-                auto ent = enter_entity(name, entity_category::namespace_cat);
-
-                // TODO: Parse namespace
-                // Parse namespace
-
-                leave_entity(ent);
-            }
-            else
-            {
-                throw std::runtime_error("Expected FUNCTION, CLASS, or NAMESPACE");
-            }
-
-            skip_wsc(pos, end);
-
-            if (pos == end)
-            {
-                return;
-            }
-            else if (skip_symbol_if_is(pos, end, "::"))
-            {
-                collect_symbol(pos, end);
-            }
-            else
-            {
-                throw std::runtime_error("Expected '::' or EOF");
-            }
-        }
-
-        // Call this function AFTER :: has been found.
         template < typename It >
         bool try_collect_entity(It& pos, It end)
         {
@@ -234,7 +179,7 @@ namespace rylang
                 throw std::runtime_error("Expected identifier");
             }
 
-            auto ent = enter_entity(name, entity_category::unknown_cat);
+            auto ent = enter_entity2(name, false);
 
             skip_wsc(pos, end);
 
@@ -260,21 +205,13 @@ namespace rylang
                 return false;
             }
 
-            if (current_entity()->m_category == entity_category::unknown_cat)
-            {
-                current_entity()->m_category = entity_category::function_cat;
-            }
-
-            if (current_entity()->m_category != entity_category::function_cat)
-            {
-                throw std::runtime_error("Cannot redeclare CLASS or NAMESPACE as FUNCTION.");
-            }
+            auto func_entity = current_entity2<function_entity_ast>();
 
             skip_wsc(pos, end);
 
             function_ast f;
             collect_function(pos, end, f);
-            current_entity()->m_function_overloads.push_back(std::move(f));
+            func_entity->m_function_overloads.push_back(std::move(f));
             return true;
         }
 
@@ -349,15 +286,7 @@ namespace rylang
                 return false;
             }
 
-            if (current_entity()->m_category == entity_category::unknown_cat)
-            {
-                current_entity()->m_category = entity_category::class_cat;
-            }
-
-            if (current_entity()->m_category != entity_category::class_cat)
-            {
-                throw std::runtime_error("Cannot redeclare FUNCTION or NAMESPACE as CLASS.");
-            }
+            auto class_entity = current_entity2<class_entity_ast>();
 
             if (pos == it_end)
             {
@@ -393,15 +322,7 @@ namespace rylang
                 return false;
             }
 
-            if (current_entity()->m_category == entity_category::unknown_cat)
-            {
-                current_entity()->m_category = entity_category::namespace_cat;
-            }
-
-            if (current_entity()->m_category != entity_category::namespace_cat)
-            {
-                throw std::runtime_error("Cannot redeclare FUNCTION or CLASS as NAMESPACE.");
-            }
+            auto namespace_entity = current_entity2<namespace_entity_ast>();
 
             skip_wsc(pos, it_end);
 
@@ -480,7 +401,7 @@ namespace rylang
                 throw std::runtime_error("Expected identifier");
             }
 
-            auto ent = enter_entity(name, entity_category::unknown_cat, true);
+            auto ent = enter_entity2(name, true);
 
             while (skip_wsc(pos, it_end) || try_collect_variable(pos, it_end) || try_collect_function(pos, it_end))
                 ;
@@ -500,15 +421,7 @@ namespace rylang
                 return false;
             }
 
-            if (current_entity()->m_category == entity_category::unknown_cat)
-            {
-                current_entity()->m_category = entity_category::variable_cat;
-            }
-
-            if (current_entity()->m_category != entity_category::variable_cat)
-            {
-                throw std::runtime_error("Cannot redeclare FUNCTION or NAMESPACE as VARIABLE.");
-            }
+            auto variable_entity = current_entity2<variable_entity_ast>();
 
             skip_wsc(begin, end);
             // now type
@@ -522,7 +435,7 @@ namespace rylang
                 throw std::runtime_error("Expected ';' after variable type");
             }
 
-            current_entity()->m_variable_type = typ;
+            variable_entity->m_variable_type = typ;
 
             return true;
         }
