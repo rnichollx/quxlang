@@ -1,18 +1,19 @@
 //
-// Created by Ryan Nicholl on 7/29/23.
+// Created by Ryan Nicholl on 7/24/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ENTITY_BASE_AST_HEADER
-#define RPNX_RYANSCRIPT1031_ENTITY_BASE_AST_HEADER
+#ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
+#define RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
+
 #include "function_ast.hpp"
 #include "rpnx/value.hpp"
 #include "rylang/ast/member_variable_ast.hpp"
 #include "rylang/data/entity_category.hpp"
 #include <map>
+#include <variant>
 
 namespace rylang
 {
-
     struct entity_ast
     {
         std::map< std::string, rpnx::value< entity_ast > > m_sub_entities;
@@ -29,6 +30,7 @@ namespace rylang
         std::string to_string() const;
     };
 
-}
 
-#endif // RPNX_RYANSCRIPT1031_ENTITY_BASE_AST_HEADER
+} // namespace rylang
+
+#endif // RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
