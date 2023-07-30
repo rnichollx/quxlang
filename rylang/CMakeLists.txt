@@ -5,7 +5,7 @@ endif()
 add_library(graphlib INTERFACE include/rpnx/graph_solver.hpp rylang/include/rylang/ast/class_entity_ast.hpp)
 
 target_include_directories(graphlib INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
-add_executable(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/sources/ast/entity_ast.cpp rylang/include/rylang/ast/variable_ast.hpp rylang/include/rylang/ast/function_entity_ast.hpp rylang/include/rylang/data/entity_category.hpp rylang/include/rylang/fwd.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/ast/namespace_entity_ast.hpp rylang/include/rylang/ast/variable_entity_ast.hpp rylang/sources/ast/class_entity_ast.cpp rylang/sources/ast/class_entity_ast.cpp rylang/include/rylang/ast/entity_ast_base.hpp)
+add_executable(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/sources/ast/entity_ast.cpp rylang/include/rylang/ast/variable_ast.hpp rylang/include/rylang/ast/function_entity_ast.hpp rylang/include/rylang/data/entity_category.hpp rylang/include/rylang/fwd.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/ast/namespace_entity_ast.hpp rylang/include/rylang/ast/variable_entity_ast.hpp rylang/sources/ast/class_entity_ast.cpp rylang/sources/ast/class_entity_ast.cpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/include/rylang/data/input_source.hpp)
 
 target_sources(rylang PRIVATE rylang/sources/rylang_compiler.cpp
         rylang/sources/ast/type_ref_ast.cpp
