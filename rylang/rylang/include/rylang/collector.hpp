@@ -65,7 +65,7 @@ namespace rylang
             if (m_entity_stack.size() == 0)
             {
                 m_entity_stack.push_back(&m_root);
-                m_symbol_stack.push_back("global");
+                m_symbol_stack.push_back("MAIN");
             }
 
             push_symbol(name);
