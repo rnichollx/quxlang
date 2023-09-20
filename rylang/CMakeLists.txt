@@ -12,7 +12,14 @@ add_executable(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/ry
         rylang/sources/res/files_in_module_resolver.cpp
         rylang/include/rylang/res/file_module_map_resolver.hpp
         rylang/include/rylang/data/file_module_map.hpp
-        rylang/sources/res/file_module_map_resolver.cpp)
+        rylang/sources/res/file_module_map_resolver.cpp
+        rylang/include/rylang/res/class_size_from_cannonical_chain_resolver.hpp
+        rylang/include/rylang/res/cannonical_chain_resolver.hpp
+        rylang/sources/res/cannonical_chain_resolver.cpp
+        rylang/include/rylang/res/class_ast_from_cannonical_chain_resolver.hpp
+        rylang/include/rylang/res/class_ast_from_chain_resolver.hpp
+        rylang/sources/res/class_ast_from_cannonical_chain_resolver.cpp
+        rylang/sources/res/class_ast_from_chain_resolver.cpp)
 
 target_sources(rylang PRIVATE rylang/sources/rylang_compiler.cpp
         rylang/sources/ast/type_ref_ast.cpp

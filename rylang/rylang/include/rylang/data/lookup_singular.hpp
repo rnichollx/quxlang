@@ -15,6 +15,21 @@ namespace rylang
     {
         lookup_type type;
         std::string identifier;
+
+        bool operator==(lookup_singular const& other) const
+        {
+            return std::tie(type, identifier) == std::tie(other.type, other.identifier);
+        }
+
+        bool operator!=(lookup_singular const& other) const
+        {
+            return std::tie(type, identifier) != std::tie(other.type, other.identifier);
+        }
+
+        bool operator <(lookup_singular const& other) const
+        {
+            return std::tie(type, identifier) < std::tie(other.type, other.identifier);
+        }
     };
 } // namespace rylang
 

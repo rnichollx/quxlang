@@ -21,14 +21,13 @@ message(STATUS "${targets}")
 #target_link_libraries(ryanscript1031 PUBLIC ${LLVM_LIBS})
 
 
-add_executable(ryanscript1031 main.cpp parser.hpp ast.hpp value.hpp semantic_generator.hpp sst.hpp collector.hpp input_source.hpp lookup_sequence.hpp lir_function.hpp lir_type_index.hpp argparser.hpp dependency_resolver_chain.hpp compiler_fwd.hpp map_alg.hpp indexer.hpp compiler.hpp size_index_resolver.hpp type_to_typed_field_declaration_list_resolver_fwd.hpp type_to_typed_field_declaration_list_resolver.hpp global_lookup_resolver_fwd.hpp global_lookup_resolver.hpp untyped_field_declaration_list_resolver.hpp untyped_field_declaration_list_resolver_fwd.hpp)
 
 # for each property that starts with LLVM, link to it
 foreach (target IN LISTS targets)
     if (target MATCHES "^LLVM.*" AND NOT target MATCHES "^LLVMLineEditor$")
-        target_link_libraries(ryanscript1031 PRIVATE ${target})
+    #    target_link_libraries(ryanscript1031 PRIVATE ${target})
     endif ()
 endforeach ()
 
-target_include_directories(ryanscript1031 PRIVATE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(ryanscript1031 PUBLIC Boost::boost LLVMIRReader LLVMCore LLVMSupport LLVMMC LLVMMCParser LLVMMCDisassembler LLVMTarget LLVMBinaryFormat LLVMDemangle LLVMMCJIT)
+#target_include_directories(ryanscript1031 PRIVATE ${LLVM_INCLUDE_DIRS})
+#target_link_libraries(ryanscript1031 PUBLIC Boost::boost LLVMIRReader LLVMCore LLVMSupport LLVMMC LLVMMCParser LLVMMCDisassembler LLVMTarget LLVMBinaryFormat LLVMDemangle LLVMMCJIT)

@@ -12,6 +12,7 @@
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/filelist.hpp"
+#include "rylang/res/cannonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
 #include "rylang/res/file_ast_resolver.hpp"
 #include "rylang/res/file_content_resolver.hpp"
@@ -47,6 +48,7 @@ namespace rylang
         singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
+        index< cannonical_chain_resolver > m_cannonical_chain_index;
 
         index< files_in_module_resolver > m_files_in_module_resolver;
 
@@ -109,6 +111,13 @@ namespace rylang
         out< std::string > lk_file_contents(std::string const& filename)
         {
             return file_contents(filename);
+        }
+
+        out< std::size_t > lk_class_size_from_symref(lookup_chain const& chain);
+
+        out< lookup_chain > lk_cannonical_chain(lookup_chain const& chain, lookup_chain const& context)
+        {
+            return m_cannonical_chain_index.lookup(std::make_tuple(chain, context));
         }
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class
