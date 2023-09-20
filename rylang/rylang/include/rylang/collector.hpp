@@ -58,9 +58,9 @@ namespace rylang
             }
         }
 
-        entity_ast* enter_entity2(std::string const & name, bool is_field)
+        entity_ast* enter_entity2(std::string const& name, bool is_field)
         {
-           assert(m_symbol_stack.size() == m_entity_stack.size());
+            assert(m_symbol_stack.size() == m_entity_stack.size());
 
             if (m_entity_stack.size() == 0)
             {
@@ -109,7 +109,6 @@ namespace rylang
             return current_entity;
         }
 
-
         void leave_entity(entity_ast* which)
         {
             assert(m_entity_stack.size() > 0);
@@ -120,21 +119,21 @@ namespace rylang
         }
 
         template < typename Ast >
-        auto current_entity2() -> Ast *
+        auto current_entity2() -> Ast*
         {
             auto ent = current_entity();
 
-            if (std::holds_alternative<null_object_ast>(ent->m_subvalue.get()))
+            if (std::holds_alternative< null_object_ast >(ent->m_subvalue.get()))
             {
                 ent->m_subvalue = Ast{};
             }
-            else if (! std::holds_alternative<Ast>(ent->m_subvalue.get()))
+            else if (!std::holds_alternative< Ast >(ent->m_subvalue.get()))
             {
                 throw std::runtime_error("Entity already exists with different category");
             }
-            auto& v =  ent->m_subvalue.get();
+            auto& v = ent->m_subvalue.get();
 
-            return &std::get<Ast>(v);
+            return &std::get< Ast >(v);
         }
 
         entity_ast* current_entity()
@@ -148,11 +147,36 @@ namespace rylang
         std::function< void(std::string const&, class_ast const&) > emit_class;
 
         template < typename It >
+        void collect_file(It begin, It end, file_ast& output)
+        {
+            skip_wsc(begin, end);
+            if (!skip_keyword_if_is(begin, end, "MODULE"))
+            {
+                throw std::runtime_error("expected module here");
+            }
+
+            skip_wsc(begin, end);
+
+            std::string module_name = get_skip_identifier(begin, end);
+
+            output.module_name = module_name;
+            skip_wsc(begin,end);
+            if (!skip_symbol_if_is(begin,end, ";"))
+            {
+               throw std::runtime_error("Expected ; here");
+            }
+
+            collect(begin, end);
+            output.root = this->m_root;
+        }
+
+        template < typename It >
         void collect(It begin, It end)
         {
             auto pos = begin;
 
             skip_wsc(pos, end);
+
             if (pos == end)
                 return;
 
@@ -205,7 +229,7 @@ namespace rylang
                 return false;
             }
 
-            auto func_entity = current_entity2<function_entity_ast>();
+            auto func_entity = current_entity2< function_entity_ast >();
 
             skip_wsc(pos, end);
 
@@ -286,7 +310,7 @@ namespace rylang
                 return false;
             }
 
-            auto class_entity = current_entity2<class_entity_ast>();
+            auto class_entity = current_entity2< class_entity_ast >();
 
             if (pos == it_end)
             {
@@ -322,7 +346,7 @@ namespace rylang
                 return false;
             }
 
-            auto namespace_entity = current_entity2<namespace_entity_ast>();
+            auto namespace_entity = current_entity2< namespace_entity_ast >();
 
             skip_wsc(pos, it_end);
 
@@ -421,7 +445,7 @@ namespace rylang
                 return false;
             }
 
-            auto variable_entity = current_entity2<variable_entity_ast>();
+            auto variable_entity = current_entity2< variable_entity_ast >();
 
             skip_wsc(begin, end);
             // now type

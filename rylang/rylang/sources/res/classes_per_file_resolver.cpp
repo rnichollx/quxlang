@@ -13,7 +13,7 @@ namespace rylang
         auto files_d = get_dependency(
             [&]
             {
-                return &c->m_filelist_resolver;
+                return c->lk_file_list();
             });
 
         if (!ready())

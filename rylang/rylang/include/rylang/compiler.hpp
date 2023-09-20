@@ -15,7 +15,9 @@
 #include "rylang/res/class_list_resolver.hpp"
 #include "rylang/res/file_ast_resolver.hpp"
 #include "rylang/res/file_content_resolver.hpp"
+#include "rylang/res/file_module_map_resolver.hpp"
 #include "rylang/res/filelist_resolver.hpp"
+#include "rylang/res/files_in_module_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -30,18 +32,25 @@ namespace rylang
         friend class classes_per_file_resolver;
         friend class type_id_assignment_resolver;
         friend class class_id_ast_resolver;
+        friend class files_in_module_resolver;
+        friend class file_module_map_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
 
+        template < typename T >
+        using singleton = rpnx::singleton< compiler, T >;
+
         filelist m_file_list;
-        filelist_resolver m_filelist_resolver;
+        singleton< filelist_resolver > m_filelist_resolver;
         class_list_resolver m_class_list_resolver;
+        singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
 
-        rpnx::single_thread_graph_solver< compiler > m_solver;
+        index< files_in_module_resolver > m_files_in_module_resolver;
 
+        rpnx::single_thread_graph_solver< compiler > m_solver;
 
         std::shared_mutex m_mutex;
 
@@ -54,39 +63,82 @@ namespace rylang
         }
 
       public:
-
-
         template < typename T >
         using out = rpnx::output_ptr< compiler, T >;
 
-
         compiler(int argc, char** argv);
 
-        filelist get_file_list();
+        // The lk_* functions are used by resolvers to solve the graph
 
-        out< std::string > file_contents(std::string const& filename);
+        // Get the parsed AST for a file
         out< file_ast > lk_file_ast(std::string const& filename);
-        out< class_ast > lk_class_ast(symbol_id id);
-        out< symbol_id > lk_global_lookup(std::string const& name);
-        out< symbol_id > lk_lookup_full_chain( lookup_chain const& chain);
-        out< symbol_id > lk_lookup_relative( symbol_id, lookup_singular const& part);
-        out< module_ast_precursor1 > lk_module_ast_precursor1(symbol_id id);
 
+        // out< class_ast > lk_class_ast(symbol_id id);
+        // out< symbol_id > lk_global_lookup(std::string const& name);
+        // out< symbol_id > lk_lookup_full_chain(lookup_chain const& chain);
+        // out< symbol_id > lk_lookup_relative(symbol_id, lookup_singular const& part);
+
+        out< filelist > lk_file_list()
+        {
+            return m_filelist_resolver.lookup();
+        }
+
+        // Look up the precursor AST for the module
+        //  The precursor AST is the non-preprocessed AST
+        //  This works in two steps, first the function looks up the files in the module
+        //  Then it merges the ASTs of all files in the same module.
+        out< module_ast_precursor1 > lk_module_ast_precursor1(std::string module_id);
+
+        out< file_module_map > lk_file_module_map()
+        {
+            return m_file_module_map_resolver.lookup();
+        }
+
+        // This function lists the files that belong to a module
+        //   It works by looking up the file list, then checking the AST of every file to see if it is in the module
+        inline out< filelist > lk_files_in_module(std::string module_id)
+        {
+            return m_files_in_module_resolver.lookup(module_id);
+        }
+
+        // Should actually be named lk_file_contents, but kept for legacy reasons
+        // DEPRECATED: Use lk_file_contents instead
+        out< std::string > file_contents(std::string const& filename);
+
+        // Migrate to using lk_file_contents as the name
+        out< std::string > lk_file_contents(std::string const& filename)
+        {
+            return file_contents(filename);
+        }
+
+        // get_* functions are used only for debugging and by non-resolver consumers of the class
+        // Each get_* function calls the lk_* function and then solves the graph
+
+        // Gets the content of a named file
         std::string get_file_contents(std::string const& filename)
         {
             auto node = file_contents(filename);
             m_solver.solve(this, node);
             return node->get();
         }
+
         file_ast get_file_ast(std::string const& filename)
         {
             auto node = lk_file_ast(filename);
             m_solver.solve(this, node);
             return node->get();
         }
+
         class_list get_class_list()
         {
             auto node = &m_class_list_resolver;
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
+        filelist get_file_list()
+        {
+            auto node = lk_file_list();
             m_solver.solve(this, node);
             return node->get();
         }

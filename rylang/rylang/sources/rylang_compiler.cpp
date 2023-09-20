@@ -8,10 +8,7 @@ rylang::compiler::compiler(int argc, char** argv)
     }
 }
 
-rylang::filelist rylang::compiler::get_file_list()
-{
-    return m_file_list;
-}
+
 
 rpnx::output_ptr< rylang::compiler, std::string > rylang::compiler::file_contents(std::string const& filename)
 {

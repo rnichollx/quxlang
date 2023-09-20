@@ -9,6 +9,6 @@ namespace rylang
 {
     void filelist_resolver::process(compiler* c)
     {
-        set_value(c->get_file_list());
+        set_value(c->m_file_list);
     }
 } // namespace rylang

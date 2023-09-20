@@ -29,11 +29,8 @@ void rylang::file_ast_resolver::process(compiler* c)
     file_ast v_file_ast;
     v_file_ast.filename = input_filename;
 
+    col.collect_file(content.begin(), content.end(), v_file_ast);
 
-
-    col.collect(content.begin(), content.end());
-
-    v_file_ast.root = col.get();
 
     set_value(std::move(v_file_ast));
 }

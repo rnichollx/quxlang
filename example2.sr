@@ -1,3 +1,5 @@
+MODULE main;
+
 ::fuu CLASS {}
 
 ::bez CLASS {}

@@ -6,10 +6,11 @@
 
 void rylang::lookup_resolver::process(compiler* c)
 {
-    auto symbol_type_dep = c->lk_symbol_type(m_lk);
+//    auto symbol_type_dep = c->lk_symbol_type(m_lk);
 
-    if (!ready())
-        return;
+  //  if (!ready())
+  //      return;
 
-    auto symbol_type = symbol_type_dep->get();
+  //  auto symbol_type = symbol_type_dep->get();
+  // TODO
 }

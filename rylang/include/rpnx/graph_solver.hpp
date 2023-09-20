@@ -149,10 +149,14 @@ namespace rpnx
             return result;
         }
 
-        template <typename Resolver, typename Key>
-        auto get_dep_value(index<Graph, Resolver> & index, Key key)
+        template < typename Resolver, typename Key >
+        auto get_dep_value(index< Graph, Resolver >& index, Key key)
         {
-            auto dep = get_dependency([&](){ return index.lookup(key);});
+            auto dep = get_dependency(
+                [&]()
+                {
+                    return index.lookup(key);
+                });
             if (!dep->resolved())
             {
                 throw dep_unresolved_ex{};
@@ -160,7 +164,9 @@ namespace rpnx
             return dep->get();
         }
 
-        struct dep_unresolved_ex {};
+        struct dep_unresolved_ex
+        {
+        };
 
         bool resolved() const
         {
@@ -250,6 +256,7 @@ namespace rpnx
         {
             m_result.set_error(er);
         }
+
       public:
         virtual bool has_value() const override final
         {
@@ -267,7 +274,6 @@ namespace rpnx
 
     template < typename Graph, typename Result >
     using output_ptr = std::shared_ptr< output_base< Graph, Result > >;
-
 
     template < typename Graph, typename Resolver >
     class index
@@ -294,6 +300,26 @@ namespace rpnx
 
       private:
         std::map< key_type, resolver_ptr > m_resolvers;
+    };
+
+    template < typename Graph, typename Resolver >
+    class singleton
+    {
+      public:
+        using resolver_ptr = std::shared_ptr< Resolver >;
+
+      private:
+        resolver_ptr m_resolver;
+
+      public:
+        resolver_ptr lookup()
+        {
+            if (!m_resolver)
+            {
+                m_resolver = std::make_shared< Resolver >();
+            }
+            return m_resolver;
+        }
     };
 
     template < typename Graph >

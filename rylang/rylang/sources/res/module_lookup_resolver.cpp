@@ -21,17 +21,19 @@
  */
 void rylang::module_lookup_resolver::process(compiler* c)
 {
-    compiler::out< symbol_id > module_id_dep = get_dependency(
-        [&]()
-        {
-            return c->lk_module_symbol_id(m_module_name);
-        });
+    //compiler::out< symbol_id > module_id_dep = get_dependency(
+    //    [&]()
+    //    {
+    //        return c->lk_module_symbol_id(m_module_name);
+    //    });
 
-    if (!ready())
-        return;
+    //if (!ready())
+    //    return;
+    // TODO: Support multiple modules
+    //symbol_id module_id = module_id_dep->get();
 
-    symbol_id module_id = module_id_dep->get();
-
+    symbol_id module_id = 0;
+    /*
     compiler::out< module_ast_precursor1 > module_ast_dep = get_dependency(
         [&]()
         {
@@ -42,6 +44,10 @@ void rylang::module_lookup_resolver::process(compiler* c)
         return;
 
     module_ast_precursor1 v_module_ast = module_ast_dep->get();
+    */
+    // TODO: Suppport module precursors (e.g., for allowing IF (LINUX) inside the module definition)
+
+
 
 
 

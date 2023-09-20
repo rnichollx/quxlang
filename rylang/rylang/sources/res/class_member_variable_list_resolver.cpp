@@ -10,7 +10,9 @@
 void rylang::class_member_variable_list_resolver::process(compiler* c)
 {
     // Each precursor can be determined from the class's AST.
+    // TODO
 
+    /*
     auto my_class_ast_dep = get_dependency(
         [&]()
         {
@@ -26,11 +28,13 @@ void rylang::class_member_variable_list_resolver::process(compiler* c)
     for (auto const& member: my_class_ast.member_variables)
     {
        auto const& type_ref = member.type;
-
-        auto type_id_dep = get_dependency(
-            [&]()
-            {
-                 return c->lk_symbol_id(type_ref);
-            });
+       // TODO
+               assert(false);
+        //auto type_id_dep = get_dependency(
+       //     [&]()
+       //     {
+                 //return c->lk_symbol_id(type_ref);
+       //     });
     }
+     */
 }

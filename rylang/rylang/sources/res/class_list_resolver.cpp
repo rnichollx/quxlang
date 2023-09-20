@@ -11,7 +11,7 @@ void rylang::class_list_resolver::process(compiler* c)
     auto files = get_dependency(
         [&]
         {
-            return &c->m_filelist_resolver;
+            return c->lk_file_list();
         });
 
     if (!ready())

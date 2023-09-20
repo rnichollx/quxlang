@@ -13,6 +13,7 @@ namespace rylang
     struct file_ast
     {
         std::string filename;
+        std::string module_name;
         entity_ast root;
     };
 
