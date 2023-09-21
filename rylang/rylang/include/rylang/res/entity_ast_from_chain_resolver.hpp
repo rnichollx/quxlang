@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_AST_FROM_CHAIN_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_AST_FROM_CHAIN_RESOLVER_HEADER
+#ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
+#define RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
 
 #include "rpnx/graph_solver.hpp"
 #include "rylang/ast/class_ast.hpp"
@@ -12,13 +12,13 @@
 
 namespace rylang
 {
-    class class_ast_from_chain_resolver : public rpnx::output_base< compiler, class_ast >
+    class entity_ast_from_chain_resolver : public rpnx::output_base< compiler, entity_ast >
     {
 
       public:
         using key_type = std::tuple< lookup_chain, lookup_chain >;
 
-        explicit class_ast_from_chain_resolver(key_type chains)
+        explicit entity_ast_from_chain_resolver(key_type chains)
         {
             m_chain = std::get<0>(chains);
             m_context = std::get<1>(chains);
@@ -32,4 +32,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_AST_FROM_CHAIN_RESOLVER_HEADER
+#endif // RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER

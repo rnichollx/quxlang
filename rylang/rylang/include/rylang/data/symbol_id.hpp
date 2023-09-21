@@ -9,7 +9,6 @@
 
 namespace rylang
 {
-   using symbol_id = std::uint64_t;
 } // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_SYMBOL_ID_HEADER

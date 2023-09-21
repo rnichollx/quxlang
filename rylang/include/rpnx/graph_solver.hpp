@@ -294,7 +294,6 @@ namespace rpnx
             {
                 m_resolvers[k] = std::make_shared< resolver_type >(k);
             }
-
             return m_resolvers[k];
         }
 

@@ -12,13 +12,17 @@
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/filelist.hpp"
-#include "rylang/res/cannonical_chain_resolver.hpp"
+#include "rylang/res/canonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
+#include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
+#include "rylang/res/entity_ast_from_chain_resolver.hpp"
 #include "rylang/res/file_ast_resolver.hpp"
 #include "rylang/res/file_content_resolver.hpp"
 #include "rylang/res/file_module_map_resolver.hpp"
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
+#include "rylang/res/module_ast_precursor1_resolver.hpp"
+#include "rylang/res/module_ast_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -48,7 +52,11 @@ namespace rylang
         singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
-        index< cannonical_chain_resolver > m_cannonical_chain_index;
+        index< canonical_chain_resolver > m_cannonical_chain_index;
+        index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
+        index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
+        index< module_ast_resolver > m_module_ast_index;
+        index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
         index< files_in_module_resolver > m_files_in_module_resolver;
 
@@ -75,6 +83,13 @@ namespace rylang
         // Get the parsed AST for a file
         out< file_ast > lk_file_ast(std::string const& filename);
 
+        out < module_ast > lk_module_ast(std::string const & module_name)
+        {
+          return m_module_ast_index.lookup(module_name);
+        }
+
+
+
         // out< class_ast > lk_class_ast(symbol_id id);
         // out< symbol_id > lk_global_lookup(std::string const& name);
         // out< symbol_id > lk_lookup_full_chain(lookup_chain const& chain);
@@ -89,7 +104,10 @@ namespace rylang
         //  The precursor AST is the non-preprocessed AST
         //  This works in two steps, first the function looks up the files in the module
         //  Then it merges the ASTs of all files in the same module.
-        out< module_ast_precursor1 > lk_module_ast_precursor1(std::string module_id);
+        out< module_ast_precursor1 > lk_module_ast_precursor1(std::string module_id)
+        {
+          return m_module_ast_precursor1_index.lookup(module_id);
+        }
 
         out< file_module_map > lk_file_module_map()
         {
@@ -115,9 +133,16 @@ namespace rylang
 
         out< std::size_t > lk_class_size_from_symref(lookup_chain const& chain);
 
-        out< lookup_chain > lk_cannonical_chain(lookup_chain const& chain, lookup_chain const& context)
+        // Lookup the cannonical chain for a chain in a given context.
+        out< lookup_chain > lk_canonical_chain(lookup_chain const& chain, lookup_chain const& context)
         {
             return m_cannonical_chain_index.lookup(std::make_tuple(chain, context));
+        }
+
+        // Look up the AST for a given glass given a paritcular cannonical chain
+        out< entity_ast > lk_entity_ast_from_canonical_chain(lookup_chain const& chain)
+        {
+            return m_entity_ast_from_cannonical_chain_index.lookup(chain);
         }
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class

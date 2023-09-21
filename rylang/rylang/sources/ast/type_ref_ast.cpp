@@ -6,10 +6,12 @@
 
 std::string rylang::type_ref_ast::to_string() const
 {
-    return std::visit(
-        [](auto const& arg) -> std::string
-        {
-            return arg.to_string();
-        },
-        val.get());
+    return "type_ref_ast{" +
+           std::visit(
+               [](auto const& arg) -> std::string
+               {
+                   return arg.to_string();
+               },
+               val.get()) +
+           "}";
 }

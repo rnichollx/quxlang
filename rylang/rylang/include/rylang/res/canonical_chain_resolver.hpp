@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/19/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CANNONICAL_CHAIN_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CANNONICAL_CHAIN_RESOLVER_HEADER
+#ifndef RPNX_RYANSCRIPT1031_CANONICAL_CHAIN_RESOLVER_HEADER
+#define RPNX_RYANSCRIPT1031_CANONICAL_CHAIN_RESOLVER_HEADER
 
 #include "rpnx/graph_solver.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -11,12 +11,12 @@
 
 namespace rylang
 {
-    class cannonical_chain_resolver : public rpnx::output_base< compiler, lookup_chain >
+    class canonical_chain_resolver : public rpnx::output_base< compiler, lookup_chain >
     {
       public:
         using key_type = std::tuple< lookup_chain, lookup_chain >;
 
-        explicit cannonical_chain_resolver(std::tuple< lookup_chain, lookup_chain > chain)
+        explicit canonical_chain_resolver(std::tuple< lookup_chain, lookup_chain > chain)
         {
             m_chain = std::get< 0 >(chain);
             m_context = std::get< 1 >(chain);
@@ -30,4 +30,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CANNONICAL_CHAIN_RESOLVER_HEADER
+#endif // RPNX_RYANSCRIPT1031_CANONICAL_CHAIN_RESOLVER_HEADER
