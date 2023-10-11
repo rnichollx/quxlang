@@ -16,7 +16,7 @@ std::string rylang::entity_ast::to_string() const
         {
             return arg.to_string(this);
         },
-        m_subvalue.get());
+        m_specialization.get());
 
 
 

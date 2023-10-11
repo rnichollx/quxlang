@@ -22,7 +22,7 @@ void rylang::class_member_variable_list_resolver::process(compiler* c)
 
     entity_ast ast = ast_dep->get();
 
-    if (!std::holds_alternative< class_entity_ast >(ast.m_subvalue.get()))
+    if (!std::holds_alternative< class_entity_ast >(ast.m_specialization.get()))
     {
         try
         {
@@ -36,16 +36,16 @@ void rylang::class_member_variable_list_resolver::process(compiler* c)
         return;
     }
 
-    class_entity_ast const& class_ast = std::get< class_entity_ast >(ast.m_subvalue.get());
+    class_entity_ast const& class_ast = std::get< class_entity_ast >(ast.m_specialization.get());
     class_member_variable_list output;
     for (auto const& entity_kv : ast.m_sub_entities)
     {
         std::string const& entity_name = entity_kv.first;
         entity_ast const& entity = entity_kv.second.get();
 
-        if (entity.m_is_field_entity && std::holds_alternative< variable_entity_ast >(entity.m_subvalue.get()))
+        if (entity.m_is_field_entity && std::holds_alternative< variable_entity_ast >(entity.m_specialization.get()))
         {
-            variable_entity_ast const& var = std::get< variable_entity_ast >(entity.m_subvalue.get());
+            variable_entity_ast const& var = std::get< variable_entity_ast >(entity.m_specialization.get());
 
             class_member_variable_declaration decl;
             decl.name = entity_name;

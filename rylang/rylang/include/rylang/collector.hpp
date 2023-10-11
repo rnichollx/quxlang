@@ -123,15 +123,15 @@ namespace rylang
         {
             auto ent = current_entity();
 
-            if (std::holds_alternative< null_object_ast >(ent->m_subvalue.get()))
+            if (std::holds_alternative< null_object_ast >(ent->m_specialization.get()))
             {
-                ent->m_subvalue = Ast{};
+                ent->m_specialization = Ast{};
             }
-            else if (!std::holds_alternative< Ast >(ent->m_subvalue.get()))
+            else if (!std::holds_alternative< Ast >(ent->m_specialization.get()))
             {
                 throw std::runtime_error("Entity already exists with different category");
             }
-            auto& v = ent->m_subvalue.get();
+            auto& v = ent->m_specialization.get();
 
             return &std::get< Ast >(v);
         }

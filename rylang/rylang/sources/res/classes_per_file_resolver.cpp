@@ -39,7 +39,7 @@ namespace rylang
 
             for (auto& kv : ast.root.m_sub_entities)
             {
-                if ( ! std::holds_alternative<class_entity_ast>(kv.second.get().m_subvalue.get()))
+                if ( ! std::holds_alternative<class_entity_ast>(kv.second.get().m_specialization.get()))
                     continue;
                 result.class_names.push_back(kv.first);
             }

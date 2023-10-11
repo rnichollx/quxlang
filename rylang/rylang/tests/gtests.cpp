@@ -8,10 +8,16 @@
 
 TEST(rylang_modules, merge_entities)
 {
-    rylang::entity_ast a;
-    //a.m_name = "foo";
-    a.m_sub_entities = { {"bar", rylang::entity_ast{} } };
+    rylang::entity_ast a(rylang::class_entity_ast{}, false, {{"foo", rylang::entity_ast{rylang::class_entity_ast{}, false, {}}}});
 
+    rylang::entity_ast b(rylang::class_entity_ast{}, false, {{"bar", rylang::entity_ast{rylang::class_entity_ast{}, false, {}}}});
 
-    rylang::entity_ast b;
+    rylang::entity_ast c(rylang::class_entity_ast{}, false, {});
+
+    rylang::entity_ast e(rylang::class_entity_ast{}, false, {{"foo", rylang::entity_ast{rylang::class_entity_ast{}, false, {}}}, {"bar", rylang::entity_ast{rylang::class_entity_ast{}, false, {}}}});
+
+    rylang::merge_entity(c, a);
+    rylang::merge_entity(c, b);
+
+    ASSERT_EQ(c, e);
 }
