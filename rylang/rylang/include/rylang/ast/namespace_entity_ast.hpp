@@ -16,6 +16,11 @@ namespace rylang
         {
             return "namespace_ast{}";
         }
+
+        bool operator < (namespace_entity_ast const& other) const
+        {
+            return false;
+        }
     };
 } // namespace rylang
 

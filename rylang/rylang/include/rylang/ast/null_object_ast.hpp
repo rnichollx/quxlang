@@ -20,6 +20,11 @@ namespace rylang
         {
             return "ast_null_object{}";
         }
+
+        inline bool operator < (null_object_ast const& other) const
+        {
+            return false;
+        }
     };
 } // namespace rylang
 

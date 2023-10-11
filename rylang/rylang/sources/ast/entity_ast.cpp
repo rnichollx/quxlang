@@ -5,7 +5,7 @@
 
 std::string rylang::entity_ast::to_string() const
 {
-    auto result = "{ENTITY " + m_name + ", sub-entities: ";
+    auto result = std::string("{ENTITY, sub-entities: ");
 
     for (auto const& i : m_sub_entities)
     {

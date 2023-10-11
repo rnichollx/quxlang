@@ -87,10 +87,10 @@ namespace rylang
                     if (zi > 5)
                         throw std::runtime_error("Too many namespaces");
                     auto str = m_symbol_stack.at(zi);
-                    current_entity->m_name += str;
+                   // current_entity->m_name += str;
                     if (zi != m_symbol_stack.size() - 1)
                     {
-                        current_entity->m_name += "::";
+                    //    current_entity->m_name += "::";
                     }
                 }
             }

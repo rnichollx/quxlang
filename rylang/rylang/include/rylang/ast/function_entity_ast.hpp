@@ -16,6 +16,10 @@ namespace rylang
         std::string to_string(entity_ast const *) const {
                 return "function_ast{ <to_string not implemented> }";
                 }
+        bool operator < (function_entity_ast const& other) const
+        {
+            return m_function_overloads < other.m_function_overloads;
+        }
     };
 
 } // namespace rylang

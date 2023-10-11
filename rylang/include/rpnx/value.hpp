@@ -11,6 +11,13 @@
 
 namespace rpnx
 {
+
+    template < typename T >
+    concept less_than_comparable = requires(T a, T b) {
+        {
+            a < b
+        } -> std::convertible_to< bool >; // Requires the expression 'a < b' to be valid and convertible to bool
+    };
     // The class "value" implements a pointer-indirected value
     // It behaves like the underlying type, e.g. it can be copied, moved, etc.
     // However, the pointer indirection allows for values to refer to themselves
@@ -69,7 +76,7 @@ namespace rpnx
 
         ~value()
         {
-            delete m_data;
+            reset();
         }
 
         T& get()
@@ -80,6 +87,19 @@ namespace rpnx
         T const& get() const
         {
             return *m_data;
+        }
+
+        bool operator<(value< T > const& other) const
+        {
+            static_assert(less_than_comparable<T>, "T must be less than comparable");
+            return get() < other.get();
+        }
+
+        bool operator==(value< T > const& other) const
+        {
+            static_assert(less_than_comparable<T>, "T must be less than comparable");
+
+            return get() == other.get();
         }
     };
 } // namespace rpnx

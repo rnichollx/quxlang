@@ -7,6 +7,7 @@
 
 #include "type_ref_ast.hpp"
 #include <string>
+#include <compare>
 namespace rylang
 {
     struct pointer_ref_ast
@@ -16,6 +17,11 @@ namespace rylang
         {
             return "ast_pointer_ref{ type: " + type.to_string() + " }";
         }
+        bool operator < (pointer_ref_ast const& other) const
+        {
+            return type < other.type;
+        }
+        //auto operator<=>(const pointer_ref_ast&) const = default;
     };
 
 } // namespace rylang

@@ -16,6 +16,10 @@ namespace rylang
         {
             return "ast_symbol_ref{ name: " + name + " }";
         }
+        bool operator < (symbol_ref_ast const& other) const
+        {
+            return name < other.name;
+        }
     };
 } // namespace rylang
 #endif // RPNX_RYANSCRIPT1031_SYMBOL_REF_AST_HEADER

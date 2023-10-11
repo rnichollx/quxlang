@@ -20,6 +20,7 @@ namespace rylang
         {
             return "ast_arg{ external_name: " + external_name + ", name: " + name + ", type: " + type.to_string() + " }";
         }
+        bool operator<(function_arg_ast const&) const;
     };
 
 } // namespace rylang

@@ -17,6 +17,12 @@ namespace rylang
         {
             return "variable_ast{type=" + m_variable_type.to_string() + " }";
         }
+
+        bool operator < (variable_entity_ast const& other) const
+        {
+            return m_variable_type < other.m_variable_type;
+        }
+
     };
 } // namespace rylang
 
