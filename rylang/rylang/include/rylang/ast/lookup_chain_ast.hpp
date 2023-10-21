@@ -1,0 +1,13 @@
+//
+// Created by Ryan Nicholl on 10/20/23.
+//
+
+#ifndef RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_AST_HEADER
+#define RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_AST_HEADER
+
+namespace rylang
+{
+
+}
+
+#endif // RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_AST_HEADER

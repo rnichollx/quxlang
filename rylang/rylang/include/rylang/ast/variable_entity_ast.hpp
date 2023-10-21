@@ -11,11 +11,11 @@ namespace rylang
     struct variable_entity_ast
     {
 
-        type_ref_ast m_variable_type;
+        type_reference m_variable_type;
 
         std::string to_string(entity_ast const* ) const
         {
-            return "variable_ast{type=" + m_variable_type.to_string() + " }";
+            return "variable_ast{type=?}";
         }
 
         bool operator < (variable_entity_ast const& other) const

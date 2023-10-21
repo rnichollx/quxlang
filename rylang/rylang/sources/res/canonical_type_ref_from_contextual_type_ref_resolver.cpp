@@ -41,19 +41,41 @@ void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylan
 
         set_value(canonical_ptr_type);
     }
-    else if (type.type() == boost::typeindex::type_id< lookup_chain >())
+    else if (type.type() == boost::typeindex::type_id< proximate_lookup_reference >())
     {
         canonical_lookup_chain output;
 
-        auto const& chain = boost::get< lookup_chain >(type);
+        // TODO: impelment contextual logic here to get context.
+        auto const& lookup = boost::get< proximate_lookup_reference >(type);
 
-        for (auto& element : chain.chain)
+        for (auto& element : lookup.chain.chain)
         {
             assert(element.type == lookup_type::scope);
             output.push_back(element.identifier);
         }
 
         set_value(output);
+    }
+    else if (type.type() == boost::typeindex::type_id< absolute_lookup_reference > ())
+    {
+       canonical_lookup_chain output;
+
+        auto const& lookup = boost::get< absolute_lookup_reference >(type);
+
+        for (auto& element : lookup.chain.chain)
+        {
+            assert(element.type == lookup_type::scope);
+            output.push_back(element.identifier);
+        }
+
+        set_value(output);
+
+    }
+    else if (type.type() == boost::typeindex::type_id<integral_keyword_ast> () )
+    {
+
+       set_value(boost::get<integral_keyword_ast>(type));
+
     }
     else
     {

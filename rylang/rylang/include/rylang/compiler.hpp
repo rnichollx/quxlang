@@ -10,6 +10,7 @@
 #include "rylang/ast/module_ast_precursor1.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/lookup_chain.hpp"
+#include "rylang/data/machine_info.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/filelist.hpp"
 #include "rylang/res/canonical_chain_resolver.hpp"
@@ -100,6 +101,14 @@ namespace rylang
         {
             return m_type_size_from_canonical_type_index.lookup(ref);
         }
+
+        machine_info m_machine_info;
+
+       // machine_info_resolver m_machine_info_resolver;
+        //out< machine_info > lk_machine_info()
+        //{
+        //    return &m_machine_info_resolver;
+        //}
 
         rpnx::single_thread_graph_solver< compiler > m_solver;
 

@@ -28,11 +28,11 @@ rylang::type_ref_ast::operator type_reference() const
     {
         // TODO: This conversion is messy and incomplete.
         symbol_ref_ast const& sym = std::get< symbol_ref_ast >(val.get());
-        lookup_chain chain;
+        absolute_lookup_reference chain;
         lookup_singular lk;
         lk.type = lookup_type::scope;
         lk.identifier = sym.name;
-        chain.chain.push_back(lk);
+        chain.chain.chain.push_back(lk);
 
         return chain;
     }

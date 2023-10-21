@@ -11,7 +11,7 @@ namespace rylang
 {
     struct machine_info
     {
-        std::size_t pointer_size;
+        std::size_t pointer_size = 8;
     };
 
 } // namespace rylang

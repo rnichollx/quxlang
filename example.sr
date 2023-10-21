@@ -1,10 +1,21 @@
 MODULE main;
 
-::foo CLASS {}
+::foo CLASS {
+  .x VAR ::bar;
+  .f VAR ::bar;
+  .g VAR ::baz;
+  .h VAR -> ::qux;
+}
 
-::bar CLASS {}
+::bar CLASS {
+  .y VAR I32;
+  .z VAR I64;
+}
 
-::baz CLASS {}
+::baz CLASS {
+  .z VAR I16;
+  .w VAR -> ::baz;
+}
 
 ::qux CLASS {}
 
@@ -22,7 +33,7 @@ MODULE main;
 
         }
 
-        .baz VAR buz::quz;
+        .baz VAR :buz::quz;
      }
 
   }

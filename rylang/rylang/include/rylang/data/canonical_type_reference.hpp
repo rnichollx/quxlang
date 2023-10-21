@@ -8,11 +8,13 @@
 #include <boost/variant.hpp>
 
 #include "canonical_lookup_chain.hpp"
+#include "rylang/ast/integral_keyword_ast.hpp"
+
 namespace rylang
 {
    struct canonical_pointer_type_reference;
 
-   using canonical_type_reference = boost::variant< canonical_lookup_chain, boost::recursive_wrapper<canonical_pointer_type_reference> >;
+   using canonical_type_reference = boost::variant< canonical_lookup_chain, boost::recursive_wrapper<canonical_pointer_type_reference>, integral_keyword_ast >;
 
 }
 

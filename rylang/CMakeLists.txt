@@ -42,7 +42,12 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/res/type_size_from_canonical_type_resolver.hpp
         rylang/sources/res/type_size_from_canonical_type_resolver.cpp
         rylang/include/rylang/res/machine_info_resolver.hpp
-        rylang/include/rylang/data/machine_info.hpp)
+        rylang/include/rylang/data/machine_info.hpp
+        rylang/include/rylang/ast/type_ref_ast2.hpp
+        rylang/include/rylang/ast/reference_type_ast.hpp
+        rylang/include/rylang/ast/lookup_chain_ast.hpp
+        rylang/include/rylang/data/absolute_lookup_reference.hpp
+        rylang/include/rylang/data/proximate_lookup_reference.hpp)
 
 target_include_directories(rylang PUBLIC rylang/include)
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/data/lookup_type.hpp)

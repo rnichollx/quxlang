@@ -18,6 +18,7 @@
 #include "rylang/ast/namespace_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
+#include "rylang/data/proximate_lookup_reference.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
 
@@ -87,10 +88,10 @@ namespace rylang
                     if (zi > 5)
                         throw std::runtime_error("Too many namespaces");
                     auto str = m_symbol_stack.at(zi);
-                   // current_entity->m_name += str;
+                    // current_entity->m_name += str;
                     if (zi != m_symbol_stack.size() - 1)
                     {
-                    //    current_entity->m_name += "::";
+                        //    current_entity->m_name += "::";
                     }
                 }
             }
@@ -160,10 +161,10 @@ namespace rylang
             std::string module_name = get_skip_identifier(begin, end);
 
             output.module_name = module_name;
-            skip_wsc(begin,end);
-            if (!skip_symbol_if_is(begin,end, ";"))
+            skip_wsc(begin, end);
+            if (!skip_symbol_if_is(begin, end, ";"))
             {
-               throw std::runtime_error("Expected ; here");
+                throw std::runtime_error("Expected ; here");
             }
 
             collect(begin, end);
@@ -450,12 +451,14 @@ namespace rylang
             skip_wsc(begin, end);
             // now type
 
-            type_ref_ast typ;
-
-            collect_type_symbol(begin, end, typ);
+            // type_ref_ast typ;
+            type_reference typ;
+            // collect_type_symbol(begin, end, typ);
+            collect_type_reference(begin, end, typ);
             skip_wsc(begin, end);
             if (!skip_symbol_if_is(begin, end, ";"))
             {
+                std::string remaining(begin, end);
                 throw std::runtime_error("Expected ';' after variable type");
             }
 
@@ -487,6 +490,78 @@ namespace rylang
             }
 
             return false;
+        }
+
+        template < typename It >
+        void collect_lookup_chain(It& pos, It end, lookup_chain& output)
+        {
+            skip_wsc(pos, end);
+
+            output.chain = {};
+
+            do
+            {
+                std::string name = get_skip_identifier(pos, end);
+                if (name.empty())
+                {
+                    throw std::runtime_error("Expected identifier");
+                }
+                lookup_singular lk;
+                lk.type = lookup_type::scope;
+                lk.identifier = name;
+                output.chain.push_back(lk);
+                skip_wsc(pos, end);
+            } while (skip_symbol_if_is(pos, end, "::"));
+        }
+
+        template < typename It >
+        void collect_type_reference(It& pos, It end, type_reference& type_ref)
+        {
+            skip_wsc(pos, end);
+
+            std::string remaining = std::string(pos, end);
+
+            if (skip_symbol_if_is(pos, end, "->"))
+            {
+                pointer_reference ptr;
+
+                collect_type_reference(pos, end, ptr.to);
+
+                type_ref = ptr;
+
+                return;
+            }
+
+            else if (skip_symbol_if_is(pos, end, "::"))
+            {
+                absolute_lookup_reference abs_ref;
+
+                collect_lookup_chain(pos, end, abs_ref.chain);
+
+                type_ref = abs_ref;
+                return;
+            }
+            else if (skip_symbol_if_is(pos, end, ":"))
+            {
+                proximate_lookup_reference ref;
+
+                collect_lookup_chain(pos, end, ref.chain);
+
+                type_ref = ref;
+                return;
+            }
+            else
+            {
+                integral_keyword_ast integral;
+                if (try_get_integral_keyword(pos, end, integral))
+                {
+                    type_ref = integral;
+                }
+                else
+                {
+                    throw std::runtime_error("expected integral keyword, pointer, or symbol chain");
+                }
+            }
         }
 
         template < typename It >
