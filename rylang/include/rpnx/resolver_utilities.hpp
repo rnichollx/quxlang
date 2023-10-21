@@ -175,6 +175,7 @@ namespace rpnx
 
         virtual bool has_error() const = 0;
         virtual bool has_value() const = 0;
+        virtual void set_error(std::exception_ptr) = 0;
 
         virtual void process(Graph* graph) = 0;
         bool has_unresolved_dependencies() const
@@ -228,13 +229,13 @@ namespace rpnx
     };
 
     template < typename Graph, typename Result >
-    class output_base : public virtual node_base< Graph >
+    class resolver_base : public virtual node_base< Graph >
     {
       public:
         using value_type = Result;
         using result_type = result< Result >;
 
-        virtual ~output_base(){};
+        virtual ~resolver_base(){};
 
         Result get() const
         {
@@ -251,8 +252,8 @@ namespace rpnx
         {
             m_result.set_value(r);
         }
-
-        void set_error(std::exception_ptr er)
+      public:
+        virtual void set_error(std::exception_ptr er) override
         {
             m_result.set_error(er);
         }
@@ -273,7 +274,7 @@ namespace rpnx
     };
 
     template < typename Graph, typename Result >
-    using output_ptr = std::shared_ptr< output_base< Graph, Result > >;
+    using output_ptr = std::shared_ptr< resolver_base< Graph, Result > >;
 
     template < typename Graph, typename Resolver >
     class index
@@ -286,7 +287,7 @@ namespace rpnx
         using resolver_type = Resolver;
         using resolver_ptr = std::shared_ptr< resolver_type >;
 
-        static_assert(std::is_base_of< output_base< Graph, value_type >, Resolver >::value, "Resolver must implement resolver_base");
+        static_assert(std::is_base_of< resolver_base< Graph, value_type >, Resolver >::value, "Resolver must implement resolver_base");
 
         resolver_ptr lookup(key_type const& k)
         {
@@ -344,7 +345,17 @@ namespace rpnx
                     continue;
                 }
 
-                n->process(graph);
+                volatile int foo = 0;
+
+                try
+                {
+                    n->process(graph);
+                }
+                catch (...)
+                {
+                    assert(!n->has_value());
+                    n->set_error(std::current_exception());
+                }
                 assert(n->resolved() || n->has_unresolved_dependencies());
 
                 if (n->resolved())

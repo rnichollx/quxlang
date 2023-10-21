@@ -7,14 +7,14 @@
 
 #include "rylang/filelist.hpp"
 
-#include "rpnx/graph_solver.hpp"
-#include "rylang/fwd.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
+#include "rylang/fwd.hpp"
 
 namespace rylang
 {
 
-    class files_in_module_resolver : public rpnx::output_base< compiler, filelist >
+    class files_in_module_resolver : public rpnx::resolver_base< compiler, filelist >
     {
       public:
         using key_type = std::string;

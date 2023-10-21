@@ -6,13 +6,13 @@
 #define RPNX_RYANSCRIPT1031_FILELIST_RESOLVER_HEADER
 #include "rylang/compiler_fwd.hpp"
 
-#include "rpnx/graph_solver.hpp"
-#include <string>
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/filelist.hpp"
+#include <string>
 namespace rylang
 {
     class filelist_resolver
-        : public rpnx::output_base<compiler, filelist>
+        : public rpnx::resolver_base<compiler, filelist>
     {
       public:
 

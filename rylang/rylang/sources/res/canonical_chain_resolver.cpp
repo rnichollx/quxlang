@@ -9,5 +9,11 @@
 
 void rylang::canonical_chain_resolver::process(compiler* c)
 {
-  set_value(m_chain);
+    canonical_lookup_chain output;
+    for (auto const& i : m_chain.chain)
+    {
+        // TODO: Later handle non-scope stuff
+        output.push_back(i.identifier);
+    }
+    set_value(output);
 }

@@ -8,12 +8,12 @@
 #include <string>
 #include <vector>
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
 
 namespace rylang
 {
-    class file_content_resolver : public rpnx::output_base< compiler, std::string >
+    class file_content_resolver : public rpnx::resolver_base< compiler, std::string >
     {
       private:
         std::string input_filename;

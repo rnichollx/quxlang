@@ -12,6 +12,7 @@
 #include "rylang/ast/integral_keyword_ast.hpp"
 #include "rylang/ast/null_object_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
+#include "rylang/data/type_reference.hpp"
 
 namespace rylang
 {
@@ -21,6 +22,8 @@ namespace rylang
         rpnx::value< std::variant< null_object_ast, symbol_ref_ast, array_ref_ast, pointer_ref_ast, integral_keyword_ast > > val;
         std::string to_string() const;
         bool operator < (type_ref_ast const& other) const;
+
+        operator type_reference() const;
         //auto operator<=>(type_ref_ast const&) const;
     };
 } // namespace rylang

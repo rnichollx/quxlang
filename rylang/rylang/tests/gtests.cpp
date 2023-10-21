@@ -6,6 +6,20 @@
 
 #include "rylang/manipulators/merge_entity.hpp"
 
+struct foo { int a; };
+
+struct bar {};
+
+TEST(boost_assumptions, type_index)
+{
+    boost::variant<foo, boost::recursive_wrapper<bar> > v = bar{};
+
+    ASSERT_EQ(boost::typeindex::type_id<bar>(), v.type());
+}
+
+
+
+
 TEST(rylang_modules, merge_entities)
 {
     rylang::entity_ast a(rylang::class_entity_ast{}, false, {{"foo", rylang::entity_ast{rylang::class_entity_ast{}, false, {}}}});
@@ -32,3 +46,5 @@ TEST(rylang_modules, merge_entities)
 
     ASSERT_EQ(c, e);
 }
+
+

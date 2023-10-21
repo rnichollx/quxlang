@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_MODULE_AST_RESOLVER_HEADER
 #define RPNX_RYANSCRIPT1031_MODULE_AST_RESOLVER_HEADER
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/module_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/symbol_id.hpp"
@@ -13,7 +13,7 @@
 namespace rylang
 {
    class module_ast_resolver
-   : public rpnx::output_base< compiler, module_ast >
+   : public rpnx::resolver_base< compiler, module_ast >
    {
      public:
         using key_type = std::string;

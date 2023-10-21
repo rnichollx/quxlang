@@ -1,0 +1,62 @@
+//
+// Created by Ryan Nicholl on 10/20/23.
+//
+
+#include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
+#include "rylang/compiler.hpp"
+
+void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylang::compiler* c)
+{
+    // TODO: implement this :D
+
+    // For now just assume all types are canonical.
+
+    type_reference const& type = m_ref.type;
+
+    if (type.type() == boost::typeindex::type_id< pointer_reference >())
+    {
+        pointer_reference const& ptr = boost::get< pointer_reference >(type);
+
+        type_reference to_type = ptr.to;
+
+        // we need to canonicalize the type_reference
+
+        contextual_type_reference to_type_ref;
+        to_type_ref.type = to_type;
+        to_type_ref.context = m_ref.context;
+
+        auto canonical_to_type_dep = get_dependency(
+            [&]
+            {
+                return c->lk_canonical_type_from_contextual_type(to_type_ref);
+            });
+
+        if (!ready())
+            return;
+
+        canonical_type_reference canon_ptr_to_type = canonical_to_type_dep->get();
+
+        canonical_pointer_type_reference canonical_ptr_type;
+        canonical_ptr_type.to = canon_ptr_to_type;
+
+        set_value(canonical_ptr_type);
+    }
+    else if (type.type() == boost::typeindex::type_id< lookup_chain >())
+    {
+        canonical_lookup_chain output;
+
+        auto const& chain = boost::get< lookup_chain >(type);
+
+        for (auto& element : chain.chain)
+        {
+            assert(element.type == lookup_type::scope);
+            output.push_back(element.identifier);
+        }
+
+        set_value(output);
+    }
+    else
+    {
+        throw std::logic_error("unreachable/unimplemented");
+    }
+}

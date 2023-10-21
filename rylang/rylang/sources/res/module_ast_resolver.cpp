@@ -26,8 +26,8 @@ namespace rylang
 
         module_ast_precursor1 const precursor1 = precursor1_dep->get();
 
-        // TODO: Perform precursor transformations
-        // For now, we don't do any precursor1 -> 2 transformations
+        // TODO: Perform precursor transformations,
+        //  For now, we don't do any precursor1 -> 2 transformations
 
         module_ast result;
 

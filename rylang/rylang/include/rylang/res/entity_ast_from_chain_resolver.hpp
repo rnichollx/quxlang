@@ -5,14 +5,14 @@
 #ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
 #define RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/class_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/lookup_chain.hpp"
 
 namespace rylang
 {
-    class entity_ast_from_chain_resolver : public rpnx::output_base< compiler, entity_ast >
+    class entity_ast_from_chain_resolver : public rpnx::resolver_base< compiler, entity_ast >
     {
 
       public:

@@ -12,7 +12,7 @@
 namespace rylang
 {
     /** This resolver takes a class and returns a list of fields of that class */
-    class class_member_variable_list_resolver : public rpnx::output_base< compiler, class_member_variable_list >
+    class class_member_variable_list_resolver : public rpnx::resolver_base< compiler, class_member_variable_list >
     {
       public:
         class_member_variable_list_resolver(lookup_chain id)

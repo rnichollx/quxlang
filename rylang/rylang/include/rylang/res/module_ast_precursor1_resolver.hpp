@@ -9,12 +9,12 @@
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/symbol_id.hpp"
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
 
 namespace rylang
 {
-    class module_ast_precursor1_resolver : public rpnx::output_base< compiler, module_ast_precursor1 >
+    class module_ast_precursor1_resolver : public rpnx::resolver_base< compiler, module_ast_precursor1 >
     {
       public:
         using key_type = std::string;

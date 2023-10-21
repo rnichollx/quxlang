@@ -4,14 +4,14 @@
 
 #ifndef RPNX_RYANSCRIPT1031_CLASSES_PER_FILE_RESOLVER_HEADER
 #define RPNX_RYANSCRIPT1031_CLASSES_PER_FILE_RESOLVER_HEADER
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/class_list.hpp"
 namespace rylang
 {
 
-    class classes_per_file_resolver : public rpnx::output_base< compiler, class_list >
+    class classes_per_file_resolver : public rpnx::resolver_base< compiler, class_list >
     {
         private:
           std::string input_filename;

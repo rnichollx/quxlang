@@ -4,7 +4,7 @@
 int main(int argc, char** argv)
 {
     rylang::compiler c(argc, argv);
-
+/*
     auto files = c.get_file_list();
 
     auto file_name = files.at(0);
@@ -32,4 +32,9 @@ int main(int argc, char** argv)
     {
         std::cout << "Class name: " << elm << "\n";
     }
+*/
+
+    auto foo_size = c.get_class_size(rylang::canonical_lookup_chain{"foo"});
+
+    std::cout << "Foo size: " << foo_size << "\n";
 }

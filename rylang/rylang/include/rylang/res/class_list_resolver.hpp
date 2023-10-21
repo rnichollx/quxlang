@@ -5,13 +5,13 @@
 #ifndef RPNX_RYANSCRIPT1031_CLASS_LIST_RESOLVER_HEADER
 #define RPNX_RYANSCRIPT1031_CLASS_LIST_RESOLVER_HEADER
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/class_list.hpp"
 
 namespace rylang
 {
-    class class_list_resolver : public virtual rpnx::output_base< compiler, class_list >
+    class class_list_resolver : public virtual rpnx::resolver_base< compiler, class_list >
     {
       public:
         class_list_resolver()

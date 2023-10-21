@@ -21,3 +21,21 @@ bool rylang::type_ref_ast::operator<(type_ref_ast const& other) const
 {
     return val < other.val;
 }
+
+rylang::type_ref_ast::operator type_reference() const
+{
+    if (holds_alternative< symbol_ref_ast >(val.get()))
+    {
+        // TODO: This conversion is messy and incomplete.
+        symbol_ref_ast const& sym = std::get< symbol_ref_ast >(val.get());
+        lookup_chain chain;
+        lookup_singular lk;
+        lk.type = lookup_type::scope;
+        lk.identifier = sym.name;
+        chain.chain.push_back(lk);
+
+        return chain;
+    }
+
+    throw std::runtime_error("unimplemented");
+}

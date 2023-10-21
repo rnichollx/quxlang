@@ -11,15 +11,13 @@
  */
 void rylang::class_member_variable_list_resolver::process(compiler* c)
 {
-    auto ast_dep = get_dependency(
-        [&]
-        {
-            return c->lk_entity_ast_from_canonical_chain(m_id);
-        });
+    // TODO: Delete this class?
+    assert(false);
 
+    return;
     if (!ready())
         return;
-
+/*
     entity_ast ast = ast_dep->get();
 
     if (!std::holds_alternative< class_entity_ast >(ast.m_specialization.get()))
@@ -56,4 +54,5 @@ void rylang::class_member_variable_list_resolver::process(compiler* c)
     }
 
     set_value(output);
+    */
 }

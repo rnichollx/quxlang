@@ -5,13 +5,13 @@
 #define CATCH_CONFIG_MAIN
 #include <string>
 
-#include "rpnx/graph_solver.hpp"
+#include "rpnx/resolver_utilities.hpp"
 #include <catch2/catch2.hpp>
 #include <iostream>
 
 class test_graph;
 
-class fibbonachi_resolver : public rpnx::output_base< test_graph, std::int64_t >
+class fibbonachi_resolver : public rpnx::resolver_base< test_graph, std::int64_t >
 {
   public:
     using key_type = std::int64_t;
@@ -33,7 +33,7 @@ class fibbonachi_resolver : public rpnx::output_base< test_graph, std::int64_t >
     void process(test_graph* graph);
 };
 
-class unsolvably_recursive_resolver : public rpnx::output_base< test_graph, std::int64_t >
+class unsolvably_recursive_resolver : public rpnx::resolver_base< test_graph, std::int64_t >
 {
   public:
     using key_type = std::int64_t;

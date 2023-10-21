@@ -21,6 +21,8 @@ MODULE main;
         {
 
         }
+
+        .baz VAR buz::quz;
      }
 
   }
