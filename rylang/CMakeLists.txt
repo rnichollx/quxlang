@@ -47,7 +47,9 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/ast/reference_type_ast.hpp
         rylang/include/rylang/ast/lookup_chain_ast.hpp
         rylang/include/rylang/data/absolute_lookup_reference.hpp
-        rylang/include/rylang/data/proximate_lookup_reference.hpp)
+        rylang/include/rylang/data/proximate_lookup_reference.hpp
+        rylang/include/rylang/data/class_layout.hpp
+        rylang/include/rylang/data/class_field_info.hpp)
 
 target_include_directories(rylang PUBLIC rylang/include)
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/data/lookup_type.hpp)

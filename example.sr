@@ -5,11 +5,16 @@ MODULE main;
   .f VAR ::bar;
   .g VAR ::baz;
   .h VAR -> ::qux;
+  .z VAR ::bar::zig;
 }
 
 ::bar CLASS {
   .y VAR I32;
   .z VAR I64;
+
+  ::zig CLASS {
+    .x VAR I128;
+  }
 }
 
 ::baz CLASS {

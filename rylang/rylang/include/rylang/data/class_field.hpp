@@ -13,7 +13,6 @@ namespace rylang
   {
       std::string name;
       type_reference type;
-
   };
 
 }

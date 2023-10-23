@@ -83,6 +83,8 @@ namespace rylang
 
                 throw std::runtime_error(ss.str());
             }
+
+            set_value(it->second.get());
         }
     }
 } // namespace rylang

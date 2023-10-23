@@ -32,7 +32,7 @@ void rylang::class_size_from_canonical_chain_resolver::process(compiler* c)
 
     for (auto& f : class_fields)
     {
-        std::cout << "Field: " << f.name << " " << std::endl;
+       // std::cout << "Field: " << f.name << " " << std::endl;
 
         auto fields_type = f.type;
 
