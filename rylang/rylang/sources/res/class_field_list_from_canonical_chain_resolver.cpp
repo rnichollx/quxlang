@@ -21,23 +21,23 @@ void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c
 
     entity_ast ent_ast = ast_dp->get();
 
-    //result_type output;
+    // result_type output;
 
-    std::vector<class_field> output;
+    std::vector< class_field_declaration > output;
 
-    for (auto & [name, sub_entity_val] : ent_ast.m_sub_entities)
+    for (auto& [name, sub_entity_val] : ent_ast.m_sub_entities)
     {
-      auto & sub_entity = sub_entity_val.get();
-      if (sub_entity.m_is_field_entity && sub_entity.type() == entity_type::variable_type)
-      {
-         class_field f;
-         variable_entity_ast const & var_data = sub_entity.get_as<variable_entity_ast>();
+        auto& sub_entity = sub_entity_val.get();
+        if (sub_entity.m_is_field_entity && sub_entity.type() == entity_type::variable_type)
+        {
+            class_field_declaration f;
+            variable_entity_ast const& var_data = sub_entity.get_as< variable_entity_ast >();
 
-         f.name = name;
-         f.type = var_data.m_variable_type;
+            f.name = name;
+            f.type = var_data.m_variable_type;
 
-         output.push_back(f);
-      }
+            output.push_back(f);
+        }
     }
 
     set_value(output);

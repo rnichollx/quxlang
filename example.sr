@@ -6,6 +6,13 @@ MODULE main;
   .g VAR ::baz;
   .h VAR -> ::qux;
   .z VAR ::bar::zig;
+  .z2 VAR -> ::bar::zig;
+  .q VAR :zam;
+
+
+  ::zam CLASS {
+    .x VAR I16;
+  }
 }
 
 ::bar CLASS {
@@ -13,7 +20,7 @@ MODULE main;
   .z VAR I64;
 
   ::zig CLASS {
-    .x VAR I128;
+     .x VAR I128;
   }
 }
 

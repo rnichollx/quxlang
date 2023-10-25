@@ -9,6 +9,7 @@
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
 #include "rylang/compiler_fwd.hpp"
+#include "rylang/data/class_layout.hpp"
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/machine_info.hpp"
 #include "rylang/data/symbol_id.hpp"
@@ -27,7 +28,10 @@
 #include "rylang/res/files_in_module_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
+#include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
+#include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
+#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -52,6 +56,10 @@ namespace rylang
         friend class module_ast_resolver;
         friend class canonical_type_ref_from_contextual_type_ref_resolver;
         friend class type_size_from_canonical_type_resolver;
+        friend class class_layout_from_canonical_chain_resolver;
+        friend class class_placement_info_from_cannonical_chain_resolver;
+        friend class type_placement_info_from_canonical_type_resolver;
+        friend class entity_canonical_chain_exists_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -76,8 +84,26 @@ namespace rylang
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
+        index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
+        out< bool > lk_entity_canonical_chain_exists(canonical_lookup_chain const& chain)
+        {
+            return m_entity_canonical_chain_exists_index.lookup(chain);
+        }
+
+        index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
+        out< class_layout > lk_class_layout_from_canonical_chain(canonical_lookup_chain const & chain)
+        {
+          return m_class_layout_from_canonical_chain_index.lookup(chain);
+        }
+
+        index< type_placement_info_from_canonical_type_resolver > m_type_placement_info_from_canonical_chain_index;
+        out< type_placement_info > lk_type_placement_info_from_canonical_type(canonical_type_reference const& ref)
+        {
+            return m_type_placement_info_from_canonical_chain_index.lookup(ref);
+        }
+
         index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;
-        out< std::vector< class_field > > lk_class_field_list_from_canonical_chain(canonical_lookup_chain const& chain)
+        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(canonical_lookup_chain const& chain)
         {
             return m_class_field_list_from_canonical_chain_index.lookup(chain);
         }
@@ -212,6 +238,13 @@ namespace rylang
         std::size_t get_class_size(canonical_lookup_chain const& chain)
         {
             auto size = lk_class_size_from_canonical_lookup_chain(chain);
+            m_solver.solve(this, size);
+            return size->get();
+        }
+
+        type_placement_info get_class_placement_info(canonical_lookup_chain const& chain)
+        {
+            auto size = lk_type_placement_info_from_canonical_type(chain);
             m_solver.solve(this, size);
             return size->get();
         }

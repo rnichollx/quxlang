@@ -34,7 +34,9 @@ int main(int argc, char** argv)
     }
 */
 
-    auto foo_size = c.get_class_size(rylang::canonical_lookup_chain{"foo"});
+    auto foo_placement_info = c.get_class_placement_info(rylang::canonical_lookup_chain{"foo"});
 
-    std::cout << "Foo size: " << foo_size << "\n";
+    std::cout << "Foo size: " << foo_placement_info.size << "\n";
+
+    std::cout << "Foo alignment: " << foo_placement_info.alignment << "\n";
 }

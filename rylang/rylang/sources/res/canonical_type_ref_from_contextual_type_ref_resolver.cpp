@@ -11,6 +11,7 @@ void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylan
 
     // For now just assume all types are canonical.
 
+    canonical_lookup_chain context = m_ref.context;
     type_reference const& type = m_ref.type;
 
     if (type.type() == boost::typeindex::type_id< pointer_reference >())
@@ -48,6 +49,33 @@ void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylan
         // TODO: impelment contextual logic here to get context.
         auto const& lookup = boost::get< proximate_lookup_reference >(type);
 
+        for (int i = lookup.chain.chain.size(); i != 0; i--)
+        {
+            canonical_lookup_chain fused_chain = context;
+            for (int j = 0; j < i; j++)
+            {
+                fused_chain.push_back(lookup.chain.chain[j].identifier);
+            }
+
+            auto fused_chain_exists_dp = get_dependency(
+                [&]
+                {
+                    return c->lk_entity_canonical_chain_exists(fused_chain);
+                });
+
+            if (!ready())
+                return;
+
+            bool fused_chain_exists = fused_chain_exists_dp->get();
+
+            if (fused_chain_exists)
+            {
+                output = fused_chain;
+                set_value(output);
+                return;
+            }
+        }
+
         for (auto& element : lookup.chain.chain)
         {
             assert(element.type == lookup_type::scope);
@@ -55,10 +83,11 @@ void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylan
         }
 
         set_value(output);
+        return;
     }
-    else if (type.type() == boost::typeindex::type_id< absolute_lookup_reference > ())
+    else if (type.type() == boost::typeindex::type_id< absolute_lookup_reference >())
     {
-       canonical_lookup_chain output;
+        canonical_lookup_chain output;
 
         auto const& lookup = boost::get< absolute_lookup_reference >(type);
 
@@ -69,13 +98,11 @@ void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylan
         }
 
         set_value(output);
-
     }
-    else if (type.type() == boost::typeindex::type_id<integral_keyword_ast> () )
+    else if (type.type() == boost::typeindex::type_id< integral_keyword_ast >())
     {
 
-       set_value(boost::get<integral_keyword_ast>(type));
-
+        set_value(boost::get< integral_keyword_ast >(type));
     }
     else
     {

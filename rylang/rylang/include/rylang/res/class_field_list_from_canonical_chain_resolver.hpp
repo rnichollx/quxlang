@@ -12,11 +12,11 @@
 #include "rylang/compiler_fwd.hpp"
 
 #include "rylang/data/canonical_lookup_chain.hpp"
-#include "rylang/data/class_field.hpp"
+#include "rylang/data/class_field_declaration.hpp"
 
 namespace rylang
 {
-    class class_field_list_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::vector< class_field > >
+    class class_field_list_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::vector< class_field_declaration > >
     {
       public:
         using key_type = canonical_lookup_chain;

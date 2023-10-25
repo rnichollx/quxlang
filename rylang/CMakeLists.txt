@@ -31,7 +31,7 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/contextual_type_reference.hpp
         rylang/include/rylang/data/type_reference.hpp
         rylang/include/rylang/data/pointer_reference.hpp
-        rylang/include/rylang/data/class_field.hpp
+        rylang/include/rylang/data/class_field_declaration.hpp
         rylang/include/rylang/data/canonical_type_reference.hpp
         rylang/include/rylang/data/canonical_lookup_chain.hpp
         rylang/sources/res/class_size_from_canonical_chain_resolver.cpp
@@ -49,7 +49,15 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/absolute_lookup_reference.hpp
         rylang/include/rylang/data/proximate_lookup_reference.hpp
         rylang/include/rylang/data/class_layout.hpp
-        rylang/include/rylang/data/class_field_info.hpp)
+        rylang/include/rylang/data/class_field_info.hpp
+        rylang/include/rylang/res/class_layout_from_canonical_chain_resolver.hpp
+        rylang/sources/res/class_layout_from_canonical_chain_resolver.cpp
+        rylang/include/rylang/res/type_placement_info_from_canonical_type_resolver.hpp
+        rylang/include/rylang/data/type_placement_info.hpp
+        rylang/sources/res/type_placement_info_from_canonical_type_resolver.cpp
+        rylang/include/rylang/manipulators/struct_math.hpp
+        rylang/include/rylang/res/entity_canonical_chain_exists_resolver.hpp
+        rylang/sources/res/entity_canonical_chain_exists_resolver.cpp)
 
 target_include_directories(rylang PUBLIC rylang/include)
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/data/lookup_type.hpp)
