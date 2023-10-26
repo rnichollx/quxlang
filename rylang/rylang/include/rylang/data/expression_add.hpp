@@ -12,6 +12,10 @@ namespace rylang
 {
     struct expression_add
     {
+        static constexpr const char * const symbol = "+";
+        static constexpr const char * const name = "add";
+        static constexpr const int priority = 4;
+
         expression lhs;
         expression rhs;
     };

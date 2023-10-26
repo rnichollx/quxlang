@@ -734,7 +734,39 @@ namespace rylang
                 }
             }
 
-            throw unimplemented(pos);
+            if (skip_symbol_if_is(pos, end, "}"))
+            {
+                // end of function body
+                return;
+            }
+
+            throw std::runtime_error("Expected '}' or statement");
+        }
+
+        template < typename Operator, typename It >
+        bool implement_binary_operator_v2(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
+        {
+            static const constexpr int priority = Operator::priority;
+            static constexpr const char* const operator_string = Operator::symbol;
+            if (skip_symbol_if_is(pos, end, operator_string))
+            {
+                skip_wsc(pos, end);
+                Operator new_expression;
+
+                expression* binding_point2 = operator_bindings[priority];
+                new_expression.lhs = std::move(*binding_point2);
+                *binding_point2 = rylang::expression(new_expression);
+                expression* binding_pointer = &boost::get< Operator >(*binding_point2).rhs;
+
+                for (int i = priority; i < operator_bindings.size(); i++)
+                {
+                    operator_bindings[i] = binding_pointer;
+                }
+                value_binding = &(boost::get< Operator >(*binding_point2)).rhs;
+                return true;
+            }
+            else
+                return false;
         }
 
         template < typename Operator, typename It >
@@ -764,6 +796,17 @@ namespace rylang
         template < typename It >
         expression collect_expression(It& pos, It end)
         {
+            std::optional< expression > output;
+            if (!try_collect_expression(pos, end, output))
+            {
+                throw std::runtime_error("Expected expression");
+            }
+            return output.value();
+        }
+
+        template < typename It >
+        bool try_collect_expression(It& pos, It end, std::optional< expression >& output)
+        {
             skip_wsc(pos, end);
 
             expression result;
@@ -777,17 +820,40 @@ namespace rylang
             }
 
             expression* value_bind_point = &result;
+            bool have_anything = false;
 
         next_value:
 
             std::string remaining = std::string(pos, end);
-
+            skip_wsc(pos, end);
             if (skip_symbol_if_is(pos, end, "."))
             {
                 skip_wsc(pos, end);
                 expression_thisdot_reference thisdot;
                 thisdot.field_name = get_skip_identifier(pos, end);
                 *value_bind_point = thisdot;
+                have_anything = true;
+            }
+            else if (get_identifier(pos, end).empty() == false)
+            {
+                std::string identifier = get_skip_identifier(pos, end);
+                // TODO: lookup chain?
+
+                expression_lvalue_reference lvalue;
+                lvalue.identifier = identifier;
+                *value_bind_point = lvalue;
+                have_anything = true;
+            }
+            else
+            {
+                if (!have_anything)
+                {
+                    return false;
+                }
+                else
+                {
+                    throw std::runtime_error("Expected binary operator to be followed by value");
+                }
             }
 
         next_operator:
@@ -795,11 +861,18 @@ namespace rylang
 
             skip_wsc(pos, end);
 
-            if (implement_binary_operator< expression_add >(pos, end, "+", 4, bindings, value_bind_point) ||
-                implement_binary_operator< expression_subtract >(pos, end, "-", 4, bindings, value_bind_point) ||
-                implement_binary_operator< expression_multiply >(pos, end, "*", 5, bindings, value_bind_point) ||
-                implement_binary_operator< expression_copy_assign >(pos, end, ":=", 0, bindings, value_bind_point) ||
-                implement_binary_operator< expression_move_assign >(pos, end, ":<", 0, bindings, value_bind_point)
+#define RYLANG_OPERATOR(X) implement_binary_operator_v2< X >(pos, end, bindings, value_bind_point)
+
+            if (
+                // Assignment operators
+                RYLANG_OPERATOR(expression_move_assign) || RYLANG_OPERATOR(expression_copy_assign) ||
+                // Arithmetic operators
+                RYLANG_OPERATOR(expression_add) || RYLANG_OPERATOR(expression_subtract) || RYLANG_OPERATOR(expression_multiply) || RYLANG_OPERATOR(expression_divide) ||
+                // Logical operators
+                RYLANG_OPERATOR(expression_or) || RYLANG_OPERATOR(expression_and) || RYLANG_OPERATOR(expression_nand) || RYLANG_OPERATOR(expression_nor) || RYLANG_OPERATOR(expression_xor) || RYLANG_OPERATOR(expression_implies) ||
+                RYLANG_OPERATOR(expression_implied)
+                // Comparison operators
+
 
             )
             {
@@ -807,7 +880,8 @@ namespace rylang
             }
             else
             {
-                return result;
+                output = result;
+                return true;
             }
         }
 
@@ -882,13 +956,42 @@ namespace rylang
         }
 
         template < typename It >
+        bool try_collect_expression_statement(It& pos, It end, std::optional< function_expression_statement >& output)
+        {
+            skip_wsc(pos, end);
+            std::string remaining = std::string(pos, end);
+            std::optional< expression > expr;
+            if (try_collect_expression(pos, end, expr))
+            {
+                skip_wsc(pos, end);
+                if (!skip_symbol_if_is(pos, end, ";"))
+                {
+                    throw std::runtime_error("Expected ';' after expression");
+                }
+                function_expression_statement result;
+                result.expr = std::move(expr.value());
+                output = result;
+                return true;
+            }
+            return false;
+        }
+
+        template < typename It >
         bool try_collect_statement(It& pos, It end, std::optional< function_statement >& output)
         {
             skip_wsc(pos, end);
 
+            std::optional< function_expression_statement > exp_st;
+
             if (get_keyword(pos, end) == "IF")
             {
                 output = collect_if_statement(pos, end);
+                return true;
+            }
+
+            else if (try_collect_expression_statement(pos, end, exp_st))
+            {
+                output = exp_st;
                 return true;
             }
 

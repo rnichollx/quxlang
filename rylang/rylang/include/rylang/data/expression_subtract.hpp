@@ -11,6 +11,10 @@ namespace rylang
 {
     struct expression_subtract
     {
+        static constexpr const char * name = "subtract";
+        static constexpr const char * symbol = "-";
+        static constexpr const int priority = 4;
+
         expression lhs;
         expression rhs;
     };

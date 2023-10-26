@@ -22,6 +22,14 @@ namespace rylang
     struct expression_copy_assign;
     struct expression_move_assign;
 
+    struct expression_and;
+    struct expression_or;
+    struct expression_xor;
+    struct expression_nand;
+    struct expression_nor;
+    struct expression_implies;
+    struct expression_implied;
+
     struct expression_this_reference
     {
     };
@@ -33,17 +41,25 @@ namespace rylang
 
     struct expression_lvalue_reference
     {
+        std::string identifier;
     };
     struct expression_multiply;
 
+    struct expression_modulus;
+
+    struct expression_divide;
     using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_add >, boost::recursive_wrapper< expression_addp >, boost::recursive_wrapper< expression_addw >,
                                        boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_lvalue_reference >, boost::recursive_wrapper< expression_multiply >,
                                        expression_thisdot_reference, boost::recursive_wrapper< expression_subtract >, boost::recursive_wrapper< expression_move_assign >,
-                                       boost::recursive_wrapper< expression_copy_assign > >;
+                                       boost::recursive_wrapper< expression_copy_assign >, boost::recursive_wrapper< expression_and >, boost::recursive_wrapper< expression_or >,
+                                       boost::recursive_wrapper< expression_xor >, boost::recursive_wrapper< expression_nand >, boost::recursive_wrapper< expression_nor >,
+                                       boost::recursive_wrapper< expression_implies >, boost::recursive_wrapper< expression_implied >, boost::recursive_wrapper< expression_divide >,
+                                       boost::recursive_wrapper< expression_modulus > >;
 
 } // namespace rylang
 
 #include "rylang/data/expression_add.hpp"
+#include "rylang/data/expression_bool.hpp"
 #include "rylang/data/expression_call.hpp"
 #include "rylang/data/expression_copy_assign.hpp"
 #include "rylang/data/expression_move_assign.hpp"

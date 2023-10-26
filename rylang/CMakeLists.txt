@@ -75,6 +75,8 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/expression_copy_assign.hpp
         rylang/include/rylang/data/expression_move_assign.hpp
         rylang/include/rylang/data/expression_subtract.hpp
+        rylang/include/rylang/data/expression_bool.hpp
+        rylang/include/rylang/data/expression_numeric_literal.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

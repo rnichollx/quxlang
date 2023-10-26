@@ -11,6 +11,24 @@ namespace rylang
 {
     struct expression_multiply
     {
+        static constexpr const char * const symbol = "*";
+        static constexpr const char * const name = "multiply";
+        static constexpr const int priority = 5;
+        expression lhs;
+        expression rhs;
+    };
+
+    struct expression_divide
+    {
+        static constexpr const char * const symbol = "/";
+        static constexpr const char * const name = "divide";
+        static constexpr const int priority = 3;
+        expression lhs;
+        expression rhs;
+    };
+
+    struct expression_modulus
+    {
         expression lhs;
         expression rhs;
     };

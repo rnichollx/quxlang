@@ -8,11 +8,15 @@
 #include "expression.hpp"
 namespace rylang
 {
-   struct expression_move_assign
-   {
-      expression lhs;
-      expression rhs;
-   };
-}
+    struct expression_move_assign
+    {
+        static constexpr const char* name = "move_assign";
+        static constexpr const char* symbol = ":<";
+        static constexpr const int priority = 0;
+
+        expression lhs;
+        expression rhs;
+    };
+} // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_EXPRESSION_MOVE_ASSIGN_HEADER
