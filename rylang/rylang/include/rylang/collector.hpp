@@ -18,7 +18,11 @@
 #include "rylang/ast/namespace_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
+#include "rylang/cow.hpp"
+#include "rylang/data/expression_multiply.hpp"
 #include "rylang/data/proximate_lookup_reference.hpp"
+#include "rylang/data/s_expression.hpp"
+#include "rylang/data/s_expression_add.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
 
@@ -26,6 +30,7 @@ namespace rylang
 {
     class collector
     {
+        friend class collector_tester;
         struct symbol_frame
         {
         };
@@ -715,7 +720,179 @@ namespace rylang
                 return;
             }
 
+            std::optional< function_statement > statement;
+
+            while (try_collect_statement(pos, end, statement))
+            {
+                f.body.statements.push_back(std::move(statement.value()));
+                skip_wsc(pos, end);
+
+                if (skip_symbol_if_is(pos, end, "}"))
+                {
+                    // end of function body
+                    return;
+                }
+            }
+
             throw unimplemented(pos);
+        }
+
+        template < typename Operator, typename It >
+        bool implement_binary_operator(It& pos, It end, std::string operator_string, int priority, std::vector< expression* >& operator_bindings, expression*& value_binding)
+        {
+            if (skip_symbol_if_is(pos, end, operator_string))
+            {
+                skip_wsc(pos, end);
+                Operator new_expression;
+
+                expression* binding_point2 = operator_bindings[priority];
+                new_expression.lhs = std::move(*binding_point2);
+                *binding_point2 = rylang::expression(new_expression);
+                expression* binding_pointer = &boost::get< Operator >(*binding_point2).rhs;
+
+                for (int i = priority; i < operator_bindings.size(); i++)
+                {
+                    operator_bindings[i] = binding_pointer;
+                }
+                value_binding = &(boost::get< Operator >(*binding_point2)).rhs;
+                return true;
+            }
+            else
+                return false;
+        }
+
+        template < typename It >
+        expression collect_expression(It& pos, It end)
+        {
+            skip_wsc(pos, end);
+
+            expression result;
+            std::vector< expression* > bindings;
+
+            bindings.resize(9);
+
+            for (auto& binding : bindings)
+            {
+                binding = &result;
+            }
+
+            expression* value_bind_point = &result;
+
+        next_value:
+
+            std::string remaining = std::string(pos, end);
+
+            if (skip_symbol_if_is(pos, end, "."))
+            {
+                skip_wsc(pos, end);
+                expression_thisdot_reference thisdot;
+                thisdot.field_name = get_skip_identifier(pos, end);
+                *value_bind_point = thisdot;
+            }
+
+        next_operator:
+            remaining = std::string(pos, end);
+
+            skip_wsc(pos, end);
+
+            if (implement_binary_operator< expression_add >(pos, end, "+", 4, bindings, value_bind_point) ||
+                implement_binary_operator< expression_subtract >(pos, end, "-", 4, bindings, value_bind_point) ||
+                implement_binary_operator< expression_multiply >(pos, end, "*", 5, bindings, value_bind_point) ||
+                implement_binary_operator< expression_copy_assign >(pos, end, ":=", 0, bindings, value_bind_point) ||
+                implement_binary_operator< expression_move_assign >(pos, end, ":<", 0, bindings, value_bind_point)
+
+            )
+            {
+                goto next_value;
+            }
+            else
+            {
+                return result;
+            }
+        }
+
+        template < typename It >
+        function_if_statement collect_if_statement(It& pos, It end)
+        {
+            skip_wsc(pos, end);
+
+            if (!skip_keyword_if_is(pos, end, "IF"))
+            {
+                throw std::runtime_error("Expected 'IF'");
+            }
+
+            skip_wsc(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::runtime_error("Expected '('");
+            }
+
+            function_if_statement if_statement;
+
+            if_statement.condition = collect_expression(pos, end);
+
+            skip_wsc(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::runtime_error("Expected ')'");
+            }
+
+            skip_wsc(pos, end);
+
+            if_statement.then_block = collect_function_block(pos, end);
+
+            skip_wsc(pos, end);
+
+            if (skip_keyword_if_is(pos, end, "ELSE"))
+            {
+                skip_wsc(pos, end);
+                if_statement.else_block = collect_function_block(pos, end);
+            }
+
+            return if_statement;
+        }
+
+        template < typename It >
+        function_block collect_function_block(It& pos, It end)
+        {
+            if (!skip_symbol_if_is(pos, end, "{"))
+            {
+                throw std::runtime_error("Expected a '{' to collect a function block here.");
+            }
+
+            function_block block;
+
+            std::optional< function_statement > statement;
+
+            skip_wsc(pos, end);
+            while (try_collect_statement(pos, end, statement))
+            {
+                block.statements.push_back(std::move(statement.value()));
+                skip_wsc(pos, end);
+                statement.reset();
+            }
+
+            if (!skip_symbol_if_is(pos, end, "}"))
+            {
+                throw std::runtime_error("Expected a '}' to end a function block here.");
+            }
+
+            return block;
+        }
+
+        template < typename It >
+        bool try_collect_statement(It& pos, It end, std::optional< function_statement >& output)
+        {
+            skip_wsc(pos, end);
+
+            if (get_keyword(pos, end) == "IF")
+            {
+                output = collect_if_statement(pos, end);
+                return true;
+            }
+
+            return false;
         }
     };
 } // namespace rylang

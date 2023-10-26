@@ -4,21 +4,50 @@
 
 #include <gtest/gtest.h>
 
+#include "rylang/collector.hpp"
+#include "rylang/manipulators/expression_stringifier.hpp"
 #include "rylang/manipulators/merge_entity.hpp"
 
-struct foo { int a; };
+#include <boost/variant.hpp>
 
-struct bar {};
+struct foo
+{
+    int a;
+};
+
+struct bar
+{
+};
+
+class collector_tester : public ::testing::Test
+{
+};
+
+TEST_F(collector_tester, order_of_operations)
+{
+    rylang::collector c;
+
+    std::string test_string = ".a + .b * .c + .d + .e * .f := .g + .h * .i * .j";
+
+    rylang::expression expr;
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    expr = c.collect_expression(it, it_end);
+
+    std::string str = rylang::to_string(expr);
+
+    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< rylang::expression_copy_assign >());
+    ASSERT_EQ(it, it_end);
+};
 
 TEST(boost_assumptions, type_index)
 {
-    boost::variant<foo, boost::recursive_wrapper<bar> > v = bar{};
+    boost::variant< foo, boost::recursive_wrapper< bar > > v = bar{};
 
-    ASSERT_EQ(boost::typeindex::type_id<bar>(), v.type());
+    ASSERT_EQ(boost::typeindex::type_id< bar >(), v.type());
 }
-
-
-
 
 TEST(rylang_modules, merge_entities)
 {
@@ -46,5 +75,3 @@ TEST(rylang_modules, merge_entities)
 
     ASSERT_EQ(c, e);
 }
-
-

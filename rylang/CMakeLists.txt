@@ -57,7 +57,25 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/sources/res/type_placement_info_from_canonical_type_resolver.cpp
         rylang/include/rylang/manipulators/struct_math.hpp
         rylang/include/rylang/res/entity_canonical_chain_exists_resolver.hpp
-        rylang/sources/res/entity_canonical_chain_exists_resolver.cpp)
+        rylang/sources/res/entity_canonical_chain_exists_resolver.cpp
+        rylang/include/rylang/data/expression.hpp
+        rylang/include/rylang/data/function_block.hpp
+        rylang/include/rylang/data/function_statement.hpp
+        rylang/include/rylang/data/function_if_statement.hpp
+        rylang/include/rylang/data/function_expression_statement.hpp
+        rylang/include/rylang/data/expression_add.hpp
+        rylang/include/rylang/data/expression_call.hpp
+        rylang/include/rylang/data/expression_lvalue_reference.hpp
+        rylang/include/rylang/cow.hpp
+        rylang/include/rylang/data/s_expression.hpp
+        rylang/include/rylang/data/s_expression_add.hpp
+        rylang/include/rylang/data/s_expression_call.hpp
+        rylang/include/rylang/data/expression_multiply.hpp
+        rylang/include/rylang/manipulators/expression_stringifier.hpp
+        rylang/include/rylang/data/expression_copy_assign.hpp
+        rylang/include/rylang/data/expression_move_assign.hpp
+        rylang/include/rylang/data/expression_subtract.hpp
+)
 
 target_include_directories(rylang PUBLIC rylang/include)
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/data/lookup_type.hpp)

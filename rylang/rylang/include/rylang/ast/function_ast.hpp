@@ -8,12 +8,15 @@
 #include <string>
 
 #include "function_arg_ast.hpp"
+#include "rylang/data/function_block.hpp"
 
 namespace rylang
 {
     struct function_ast
     {
         std::vector< function_arg_ast > args;
+        function_block body;
+
         std::string to_string()
         {
             std::string result = "ast_function{ args: [";
