@@ -21,6 +21,7 @@ namespace rylang
     struct expression_lvalue_reference;
     struct expression_copy_assign;
     struct expression_move_assign;
+    struct expression_parenthesis;
 
     struct expression_and;
     struct expression_or;

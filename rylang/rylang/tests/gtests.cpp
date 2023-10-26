@@ -27,7 +27,7 @@ TEST_F(collector_tester, order_of_operations)
 {
     rylang::collector c;
 
-    std::string test_string = ".a + .b * .c + .d + .e * .f := .g + .h * .i * .j";
+    std::string test_string = "a + b * c + d + e * f := g + h ^^ i * i * j";
 
     rylang::expression expr;
 

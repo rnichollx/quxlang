@@ -28,9 +28,24 @@ namespace rylang
             return "???";
         }
 
+        std::string operator()(expression_lvalue_reference const& lvalue) const
+        {
+            return lvalue.identifier;
+        }
+
         std::string operator()(expression_multiply const& expr) const
         {
             return "(" + to_string(expr.lhs) + " * " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_xor const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " ^^ " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_and const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " && " + to_string(expr.rhs) + ")";
         }
 
         std::string operator()(expression_thisdot_reference const& expr) const
