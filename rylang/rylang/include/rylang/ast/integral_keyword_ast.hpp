@@ -21,6 +21,16 @@ namespace rylang
         {
             return std::tie(is_sized, size) < std::tie(other.is_sized, other.size);
         }
+
+        bool operator == (integral_keyword_ast const& other) const
+        {
+            return std::tie(is_sized, size) == std::tie(other.is_sized, other.size);
+        }
+
+        bool operator != (integral_keyword_ast const& other) const
+        {
+            return std::tie(is_sized, size) != std::tie(other.is_sized, other.size);
+        }
     };
 } // namespace rylang
 

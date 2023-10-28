@@ -29,6 +29,15 @@ namespace rylang
         {
             return static_cast< std::vector< std::string > const& >(*this) < static_cast< std::vector< std::string > const& >(other);
         }
+
+        bool operator == (canonical_lookup_chain const& other) const
+        {
+            return static_cast< std::vector< std::string > const& >(*this) == static_cast< std::vector< std::string > const& >(other);
+        }
+        bool operator != (canonical_lookup_chain const& other) const
+        {
+            return static_cast< std::vector< std::string > const& >(*this) != static_cast< std::vector< std::string > const& >(other);
+        }
     };
 } // namespace rylang
 

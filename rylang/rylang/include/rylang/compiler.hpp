@@ -35,6 +35,7 @@
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
+#include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -64,6 +65,8 @@ namespace rylang
         friend class type_placement_info_from_canonical_type_resolver;
         friend class entity_canonical_chain_exists_resolver;
         friend class llvm_code_generator;
+        friend class canonical_type_is_implicitly_convertible_to_resolver;
+        friend class overload_set_is_callable_with_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -88,6 +91,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
+        out < bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< canonical_type_reference, canonical_type_reference > const& input)
+        {
+            return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
+        }
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
         out< bool > lk_entity_canonical_chain_exists(canonical_lookup_chain const& chain)

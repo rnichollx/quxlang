@@ -16,14 +16,24 @@ namespace rylang
         std::shared_ptr< T > ptr;
 
       public:
+        cow()
+            : ptr(std::make_shared< T >())
+        {
+        }
+
+        cow(std::nullptr_t n)
+            : ptr(n)
+        {
+        }
+
         cow(T t)
             : ptr(std::make_shared< T >(std::move(t)))
         {
         }
 
-        template <typename ... Ts>
-        cow(Ts&& ... ts)
-            : ptr(std::make_shared< T >(std::forward<Ts>(ts)...))
+        template < typename... Ts >
+        cow(Ts&&... ts)
+            : ptr(std::make_shared< T >(std::forward< Ts >(ts)...))
         {
         }
 
@@ -32,12 +42,12 @@ namespace rylang
         {
         }
 
-        cow(cow< T > & other)
+        cow(cow< T >& other)
             : ptr(other.ptr)
         {
         }
 
-        cow(cow< T > const && other)
+        cow(cow< T > const&& other)
             : ptr(other.ptr)
         {
         }
@@ -66,6 +76,32 @@ namespace rylang
         cow< T >& operator=(cow< T >&& other)
         {
             ptr = std::move(other.ptr);
+            return *this;
+        }
+
+        cow< T >& operator=(T&& other)
+        {
+            if (ptr.use_count() == 1)
+            {
+                *ptr = std::move(other);
+            }
+            else
+            {
+                ptr = std::make_shared< T >(std::move(other));
+            }
+            return *this;
+        }
+
+        cow< T >& operator=(T const& other)
+        {
+            if (ptr.use_count() == 1)
+            {
+                *ptr = other;
+            }
+            else
+            {
+                ptr = std::make_shared< T >(other);
+            }
             return *this;
         }
 
@@ -98,7 +134,7 @@ namespace rylang
             return ptr.get();
         }
 
-        void swap(cow< T > & other)
+        void swap(cow< T >& other)
         {
             ptr.swap(other.ptr);
         }

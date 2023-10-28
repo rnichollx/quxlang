@@ -16,6 +16,16 @@ namespace rylang
        {
            return to < other.to;
        }
+
+       inline bool operator == (canonical_pointer_type_reference const& other) const
+       {
+           return to == other.to;
+       }
+
+       inline bool operator != (canonical_pointer_type_reference const& other) const
+       {
+           return to != other.to;
+       }
    };
 }
 

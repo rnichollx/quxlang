@@ -88,6 +88,10 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/call_overload_set.hpp
         rylang/include/rylang/res/function_overload_selection_resolver.hpp
         rylang/include/rylang/res/mangled_name_resolver.hpp
+        rylang/include/rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp
+        rylang/include/rylang/res/overload_set_is_callable_with_resolver.hpp
+        rylang/sources/res/canonical_type_is_implicitly_convertible_to_resolver.cpp
+        rylang/sources/res/overload_set_is_callable_with_resolver.cpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

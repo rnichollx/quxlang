@@ -8,6 +8,8 @@
 #include "rylang/manipulators/expression_stringifier.hpp"
 #include "rylang/manipulators/merge_entity.hpp"
 
+#include "rylang/cow.hpp"
+
 #include <boost/variant.hpp>
 
 struct foo
@@ -42,6 +44,73 @@ TEST_F(collector_tester, order_of_operations)
     ASSERT_EQ(it, it_end);
 };
 
+TEST(cow, cow_tests)
+{
+
+    rylang::cow< int > a = 4;
+
+    rylang::cow< int > b = a;
+
+    ASSERT_EQ(a, b);
+    ASSERT_EQ(&a.get(), &b.get());
+
+    a = 5;
+
+    ASSERT_NE(a, b);
+    ASSERT_EQ(a, 5);
+
+    rylang::cow< int > c = a;
+
+    ASSERT_EQ(a, c);
+    ASSERT_EQ(&a.get(), &c.get());
+    a = 4;
+    ASSERT_EQ(a, b);
+    ASSERT_NE(&a.get(), &b.get());
+    ASSERT_NE(a, c);
+
+    c = a;
+    ASSERT_EQ(a, c);
+    ASSERT_EQ(&a.get(), &c.get());
+
+    c.edit()++;
+    ASSERT_NE(a, c);
+    ASSERT_EQ(a, 4);
+    ASSERT_EQ(c, 5);
+
+    rylang::cow< std::vector< rylang::cow< std::string > > > strings = {};
+
+    auto ptr1 = &strings.get();
+    strings.edit().push_back("Hello");
+    auto ptr2 = &strings.get();
+    ASSERT_EQ(ptr1, ptr2);
+
+    auto strings2 = strings;
+    auto ptr3 = &strings2.get();
+    ASSERT_EQ(ptr1, ptr3);
+
+    strings2.edit().push_back("World");
+    auto ptr4 = &strings2.get();
+    ASSERT_NE(ptr3, ptr4);
+
+    ASSERT_EQ(strings.get().size(), 1);
+    ASSERT_EQ(strings2.get().size(), 2);
+
+    ASSERT_EQ(strings->at(0), "Hello");
+    ASSERT_EQ(strings2.get().at(0), "Hello");
+    ASSERT_EQ(strings2.get().at(1), "World");
+
+    ASSERT_EQ(strings->at(0), strings2->at(0));
+    ASSERT_EQ(&strings->at(0).get(), &strings2->at(0).get());
+    strings.edit().push_back("World");
+
+    ASSERT_EQ(strings, strings2);
+    ASSERT_EQ(strings->at(1), "World");
+    ASSERT_EQ(strings->at(1), strings2->at(1));
+
+    ASSERT_EQ(&strings->at(0).get(), &strings2->at(0).get());
+    ASSERT_NE(&strings->at(1).get(), &strings2->at(1).get());
+
+}
 
 TEST_F(collector_tester, function_call)
 {
