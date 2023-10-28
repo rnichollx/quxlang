@@ -35,6 +35,8 @@ namespace rylang
     {
     };
 
+    struct expression_dotreference;
+
     struct expression_thisdot_reference
     {
         std::string field_name;
@@ -55,7 +57,7 @@ namespace rylang
                                        boost::recursive_wrapper< expression_copy_assign >, boost::recursive_wrapper< expression_and >, boost::recursive_wrapper< expression_or >,
                                        boost::recursive_wrapper< expression_xor >, boost::recursive_wrapper< expression_nand >, boost::recursive_wrapper< expression_nor >,
                                        boost::recursive_wrapper< expression_implies >, boost::recursive_wrapper< expression_implied >, boost::recursive_wrapper< expression_divide >,
-                                       boost::recursive_wrapper< expression_modulus > >;
+                                       boost::recursive_wrapper< expression_modulus >, boost::recursive_wrapper< expression_dotreference> >;
 
 } // namespace rylang
 
@@ -66,5 +68,7 @@ namespace rylang
 #include "rylang/data/expression_move_assign.hpp"
 #include "rylang/data/expression_multiply.hpp"
 #include "rylang/data/expression_subtract.hpp"
+#include "rylang/data/expression_dotreference.hpp"
+
 
 #endif // RPNX_RYANSCRIPT1031_EXPRESSION_HEADER

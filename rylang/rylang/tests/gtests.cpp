@@ -27,7 +27,7 @@ TEST_F(collector_tester, order_of_operations)
 {
     rylang::collector c;
 
-    std::string test_string = "a + b * c + d + e * f := g + h ^^ i * i * j";
+    std::string test_string = "a + b * c + d + e * f := g + h ^^ i * j * k * l := m + n && o + p";
 
     rylang::expression expr;
 
@@ -39,6 +39,26 @@ TEST_F(collector_tester, order_of_operations)
     std::string str = rylang::to_string(expr);
 
     ASSERT_TRUE(expr.type() == boost::typeindex::type_id< rylang::expression_copy_assign >());
+    ASSERT_EQ(it, it_end);
+};
+
+
+TEST_F(collector_tester, function_call)
+{
+    rylang::collector c;
+
+    std::string test_string = "e.a.b(c, d, e.f)";
+
+    rylang::expression expr;
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    expr = c.collect_expression(it, it_end);
+
+    std::string str = rylang::to_string(expr);
+
+    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< rylang::expression_call >());
     ASSERT_EQ(it, it_end);
 };
 

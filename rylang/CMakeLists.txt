@@ -4,6 +4,8 @@ endif ()
 
 find_package(GTest REQUIRED)
 find_package(Boost REQUIRED)
+find_package(LLVM REQUIRED)
+include_directories(${LLVM_INCLUDE_DIRS})
 
 add_executable(rylang_main rylang/sources/main.cpp
         rylang/include/rylang/data/canonical_pointer_type_reference.hpp)
@@ -77,6 +79,15 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/expression_subtract.hpp
         rylang/include/rylang/data/expression_bool.hpp
         rylang/include/rylang/data/expression_numeric_literal.hpp
+        rylang/include/rylang/data/expression_dotreference.hpp
+        rylang/include/rylang/llvm_code_generator.hpp
+        rylang/include/rylang/data/canonical_resolved_function_chain.hpp
+        rylang/include/rylang/data/function_argument.hpp
+        rylang/include/rylang/data/functiod_interface.hpp
+        rylang/include/rylang/data/functoid_argument.hpp
+        rylang/include/rylang/data/call_overload_set.hpp
+        rylang/include/rylang/res/function_overload_selection_resolver.hpp
+        rylang/include/rylang/res/mangled_name_resolver.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)
@@ -99,10 +110,26 @@ target_sources(rylang PRIVATE rylang/sources/rylang_compiler.cpp
         rylang/sources/res/file_content_resolver.cpp
         rylang/sources/res/file_ast_resolver.cpp
         rylang/include/rylang/ast/class_ast.hpp
-         rylang/include/rylang/collector.hpp rylang/include/rylang/ast/function_ast.hpp rylang/include/rylang/ast/type_ref_ast.hpp include/rpnx/value.hpp rylang/include/rylang/ast/symbol_ref_ast.hpp rylang/include/rylang/parser.hpp rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/ast/null_object_ast.hpp rylang/include/rylang/ast/null_object_ast.hpp
+        rylang/include/rylang/collector.hpp rylang/include/rylang/ast/function_ast.hpp rylang/include/rylang/ast/type_ref_ast.hpp include/rpnx/value.hpp rylang/include/rylang/ast/symbol_ref_ast.hpp rylang/include/rylang/parser.hpp rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/ast/null_object_ast.hpp rylang/include/rylang/ast/null_object_ast.hpp
         rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/data/class_list.hpp rylang/include/rylang/res/class_list_resolver.hpp rylang/sources/res/class_list_resolver.cpp rylang/sources/res/classes_per_file_resolver.cpp rylang/include/rylang/res/classes_per_file_resolver.hpp rylang/include/rylang/ast/namespace_ast.hpp)
 target_link_libraries(rylang PUBLIC graphlib Boost::boost)
 target_link_libraries(rylang_main PUBLIC rylang)
+
+
+add_compile_definitions(-DBOOST_MPL_CFG_NO_PREPROCESSED_HEADERS -DBOOST_MPL_LIMIT_LIST_SIZE=50)
+
+get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
+
+
+# for each property that starts with LLVM, link to it
+foreach (target IN LISTS targets)
+    if ((target MATCHES "^LLVM.*")  AND NOT target MATCHES "^LLVMLineEditor$")
+        message(STATUS "Linking to ${target}")
+        target_link_libraries(rylang PUBLIC ${target})
+    else ()
+        message(STATUS "Not linking to ${target}")
+    endif ()
+endforeach ()
 
 if (GTest_FOUND)
     enable_testing()

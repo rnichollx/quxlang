@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_EXPRESSION_STRINGIFIER_HEADER
 
 #include "rylang/data/expression.hpp"
+#include "rylang/data/expression_numeric_literal.hpp"
 #include <string>
 
 namespace rylang
@@ -26,6 +27,30 @@ namespace rylang
         std::string operator()(...) const
         {
             return "???";
+        }
+
+        std::string operator()(expression_numeric_literal const& expr) const
+        {
+            return expr.value;
+        }
+
+        std::string operator()(expression_dotreference const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + "." + expr.field_name + ")";
+        }
+
+        std::string operator()(expression_call const& expr) const
+        {
+            std::string result = "(" + to_string(expr.callee) + "(";
+            for (int i = 0; i < expr.args.size();i++)
+            {
+              auto arg = expr.args[i];
+              result += to_string(arg);
+              if (i != expr.args.size() - 1) result += ", ";
+
+            }
+            result += "))";
+            return result;
         }
 
         std::string operator()(expression_lvalue_reference const& lvalue) const

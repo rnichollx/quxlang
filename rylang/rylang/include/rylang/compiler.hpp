@@ -5,6 +5,9 @@
 #ifndef RPNX_RYANSCRIPT1031_COMPILER_HEADER
 #define RPNX_RYANSCRIPT1031_COMPILER_HEADER
 
+
+
+
 #include "rylang/ast/class_ast.hpp"
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
@@ -60,6 +63,7 @@ namespace rylang
         friend class class_placement_info_from_cannonical_chain_resolver;
         friend class type_placement_info_from_canonical_type_resolver;
         friend class entity_canonical_chain_exists_resolver;
+        friend class llvm_code_generator;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -72,6 +76,7 @@ namespace rylang
         using out = rpnx::output_ptr< compiler, T >;
 
       private:
+
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         class_list_resolver m_class_list_resolver;

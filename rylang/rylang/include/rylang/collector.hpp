@@ -743,6 +743,44 @@ namespace rylang
             throw std::runtime_error("Expected '}' or statement");
         }
 
+        template < typename It >
+        bool try_collect_function_callsite_expression(It& pos, It end, std::optional< expression_call >& output)
+        {
+            output.reset();
+
+            skip_wsc(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, "("))
+                return false;
+
+            expression_call result;
+
+            skip_wsc(pos, end);
+
+            if (skip_symbol_if_is(pos, end, ")"))
+            {
+                output = std::move(result);
+                return true;
+            }
+        get_arg:
+
+            expression expr = collect_expression(pos, end);
+            result.args.push_back(std::move(expr));
+
+            if (skip_symbol_if_is(pos, end, ","))
+            {
+                goto get_arg;
+            }
+
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::runtime_error("expected ',' or ')'");
+            }
+
+            output = std::move(result);
+            return true;
+        }
+
         template < typename Operator, typename It >
         bool implement_binary_operator_v2(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
         {
@@ -757,8 +795,7 @@ namespace rylang
                 new_expression.lhs = std::move(*binding_point2);
                 *binding_point2 = rylang::expression(new_expression);
                 expression* binding_pointer = &boost::get< Operator >(*binding_point2).rhs;
-
-                for (int i = priority; i < operator_bindings.size(); i++)
+                for (int i = priority + 1; i < operator_bindings.size(); i++)
                 {
                     operator_bindings[i] = binding_pointer;
                 }
@@ -869,14 +906,28 @@ namespace rylang
                 // Arithmetic operators
                 RYLANG_OPERATOR(expression_add) || RYLANG_OPERATOR(expression_subtract) || RYLANG_OPERATOR(expression_multiply) || RYLANG_OPERATOR(expression_divide) ||
                 // Logical operators
-                RYLANG_OPERATOR(expression_or) || RYLANG_OPERATOR(expression_and) || RYLANG_OPERATOR(expression_nand) || RYLANG_OPERATOR(expression_nor) || RYLANG_OPERATOR(expression_xor) || RYLANG_OPERATOR(expression_implies) ||
-                RYLANG_OPERATOR(expression_implied)
+                RYLANG_OPERATOR(expression_or) || RYLANG_OPERATOR(expression_and) || RYLANG_OPERATOR(expression_nand) || RYLANG_OPERATOR(expression_nor) || RYLANG_OPERATOR(expression_xor) ||
+                RYLANG_OPERATOR(expression_implies) || RYLANG_OPERATOR(expression_implied)
                 // Comparison operators
-
 
             )
             {
                 goto next_value;
+            }
+            else if (std::optional< expression_call > call; try_collect_function_callsite_expression(pos, end, call))
+            {
+                expression* binding_point2 = bindings[bindings.size()-1];
+                call.value().callee = std::move(*binding_point2);
+                *binding_point2 = rylang::expression(call.value());
+                goto next_operator;
+            }
+            else if (skip_symbol_if_is(pos, end, "."))
+            {
+                expression_dotreference dot;
+                dot.field_name = get_skip_identifier(pos, end);
+                dot.lhs = std::move(*bindings[bindings.size()-1]);
+                *bindings[bindings.size()-1] = dot;
+                goto next_operator;
             }
             else
             {

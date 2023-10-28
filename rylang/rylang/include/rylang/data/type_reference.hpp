@@ -17,5 +17,6 @@ namespace rylang
 } // namespace rylang
 
 #include "pointer_reference.hpp"
+#include "rylang/ast/integral_keyword_ast.hpp"
 
 #endif // RPNX_RYANSCRIPT1031_TYPE_REFERENCE_HEADER
