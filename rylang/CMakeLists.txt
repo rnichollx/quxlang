@@ -92,6 +92,12 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/res/overload_set_is_callable_with_resolver.hpp
         rylang/sources/res/canonical_type_is_implicitly_convertible_to_resolver.cpp
         rylang/sources/res/overload_set_is_callable_with_resolver.cpp
+        rylang/sources/llvm_code_generator.cpp
+        rylang/include/rylang/data/cpu_architecture.hpp
+        rylang/include/rylang/data/llvm_proxy_types.hpp
+        rylang/include/rylang/data/codepath_execution_block.hpp
+        rylang/include/rylang/data/codepath_execution_return.hpp
+        rylang/include/rylang/data/codepath_expression.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)
@@ -99,7 +105,7 @@ add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/includ
 
 target_include_directories(graphlib INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
 
-target_sources(rylang PRIVATE rylang/sources/rylang_compiler.cpp
+target_sources(rylang PRIVATE rylang/sources/compiler.cpp
         rylang/sources/ast/type_ref_ast.cpp
         rylang/include/rylang/compiler.hpp
         rylang/include/rylang/compiler_fwd.hpp

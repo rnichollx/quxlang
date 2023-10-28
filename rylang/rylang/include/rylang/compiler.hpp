@@ -5,25 +5,27 @@
 #ifndef RPNX_RYANSCRIPT1031_COMPILER_HEADER
 #define RPNX_RYANSCRIPT1031_COMPILER_HEADER
 
-
-
-
 #include "rylang/ast/class_ast.hpp"
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
 #include "rylang/compiler_fwd.hpp"
+#include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/data/class_layout.hpp"
+#include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/machine_info.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/filelist.hpp"
 #include "rylang/res/canonical_chain_resolver.hpp"
+#include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
 #include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
+#include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
 #include "rylang/res/class_size_from_canonical_chain_resolver.hpp"
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
 #include "rylang/res/entity_ast_from_chain_resolver.hpp"
+#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "rylang/res/file_ast_resolver.hpp"
 #include "rylang/res/file_content_resolver.hpp"
 #include "rylang/res/file_module_map_resolver.hpp"
@@ -33,9 +35,6 @@
 #include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
-#include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
-#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
-#include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -276,6 +275,8 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
+        llvm_proxy_type get_llvm_proxy_return_type_of(rylang::canonical_resolved_function_chain chain);
+        std::vector<llvm_proxy_type> get_llvm_proxy_argument_types_of(canonical_resolved_function_chain chain);
     };
 
 } // namespace rylang
