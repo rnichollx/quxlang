@@ -98,6 +98,7 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/codepath_execution_block.hpp
         rylang/include/rylang/data/codepath_execution_return.hpp
         rylang/include/rylang/data/codepath_expression.hpp
+        rylang/include/rylang/data/function_return_statement.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

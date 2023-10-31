@@ -42,7 +42,9 @@ MODULE main;
 
         .buz FUNCTION(%a I32, %b I64)
         {
-          .a := .b;
+           VAR c : I32;
+           c := a + b;
+           RETURN c;
         }
 
         .baz VAR :buz::quz;

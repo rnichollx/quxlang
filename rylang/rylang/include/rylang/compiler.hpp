@@ -78,7 +78,6 @@ namespace rylang
         using out = rpnx::output_ptr< compiler, T >;
 
       private:
-
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         class_list_resolver m_class_list_resolver;
@@ -92,7 +91,7 @@ namespace rylang
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
-        out < bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< canonical_type_reference, canonical_type_reference > const& input)
+        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< canonical_type_reference, canonical_type_reference > const& input)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
         }
@@ -104,9 +103,9 @@ namespace rylang
         }
 
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
-        out< class_layout > lk_class_layout_from_canonical_chain(canonical_lookup_chain const & chain)
+        out< class_layout > lk_class_layout_from_canonical_chain(canonical_lookup_chain const& chain)
         {
-          return m_class_layout_from_canonical_chain_index.lookup(chain);
+            return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
         index< type_placement_info_from_canonical_type_resolver > m_type_placement_info_from_canonical_chain_index;
@@ -143,8 +142,8 @@ namespace rylang
 
         machine_info m_machine_info;
 
-       // machine_info_resolver m_machine_info_resolver;
-        //out< machine_info > lk_machine_info()
+        // machine_info_resolver m_machine_info_resolver;
+        // out< machine_info > lk_machine_info()
         //{
         //    return &m_machine_info_resolver;
         //}
@@ -276,7 +275,9 @@ namespace rylang
             return node->get();
         }
         llvm_proxy_type get_llvm_proxy_return_type_of(rylang::canonical_resolved_function_chain chain);
-        std::vector<llvm_proxy_type> get_llvm_proxy_argument_types_of(canonical_resolved_function_chain chain);
+        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(canonical_resolved_function_chain chain);
+
+        function_ast get_function_ast_of_overload(canonical_resolved_function_chain chain);
     };
 
 } // namespace rylang

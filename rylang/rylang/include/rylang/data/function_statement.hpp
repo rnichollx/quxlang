@@ -7,6 +7,7 @@
 
 #include "rylang/data/expression.hpp"
 #include <boost/variant.hpp>
+#include "rylang/data/function_return_statement.hpp"
 
 namespace rylang
 {
@@ -21,11 +22,14 @@ namespace rylang
     // TODO: Implement var
     struct function_var_statement
     {
+        std::string name;
+        type_reference type;
     };
+
 
     using function_statement =
         boost::variant< std::monostate, boost::recursive_wrapper< function_block >, boost::recursive_wrapper< function_expression_statement >, boost::recursive_wrapper< function_if_statement >,
-                        boost::recursive_wrapper< function_while_statement >, boost::recursive_wrapper< function_var_statement > >;
+                        boost::recursive_wrapper< function_while_statement >, boost::recursive_wrapper< function_var_statement >, function_return_statement >;
 
     struct function_block
     {

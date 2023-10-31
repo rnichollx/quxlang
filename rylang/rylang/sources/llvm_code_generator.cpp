@@ -26,7 +26,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, "main", nullptr);
 
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "entry", func);
 
+    rylang::function_ast func_ast = c->get_function_ast_of_overload(ch);
 
     return {};
 }

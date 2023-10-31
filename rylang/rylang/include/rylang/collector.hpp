@@ -734,12 +734,14 @@ namespace rylang
                 }
             }
 
+            skip_wsc(pos, end);
+
             if (skip_symbol_if_is(pos, end, "}"))
             {
                 // end of function body
                 return;
             }
-
+            remaining = std::string(pos, end);
             throw std::runtime_error("Expected '}' or statement");
         }
 
@@ -916,7 +918,7 @@ namespace rylang
             }
             else if (std::optional< expression_call > call; try_collect_function_callsite_expression(pos, end, call))
             {
-                expression* binding_point2 = bindings[bindings.size()-1];
+                expression* binding_point2 = bindings[bindings.size() - 1];
                 call.value().callee = std::move(*binding_point2);
                 *binding_point2 = rylang::expression(call.value());
                 goto next_operator;
@@ -925,8 +927,8 @@ namespace rylang
             {
                 expression_dotreference dot;
                 dot.field_name = get_skip_identifier(pos, end);
-                dot.lhs = std::move(*bindings[bindings.size()-1]);
-                *bindings[bindings.size()-1] = dot;
+                dot.lhs = std::move(*bindings[bindings.size() - 1]);
+                *bindings[bindings.size() - 1] = dot;
                 goto next_operator;
             }
             else
@@ -1028,6 +1030,68 @@ namespace rylang
         }
 
         template < typename It >
+        function_var_statement collect_var_statement(It& pos, It end)
+        {
+            skip_wsc(pos, end);
+
+            if (!skip_keyword_if_is(pos, end, "VAR"))
+            {
+                throw std::runtime_error("Expected 'VAR'");
+            }
+
+            skip_wsc(pos, end);
+
+            function_var_statement var_statement;
+
+            var_statement.name = get_skip_identifier(pos, end);
+
+            skip_wsc(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, ":"))
+            {
+                throw std::runtime_error("Expected ':'");
+            }
+
+            skip_wsc(pos, end);
+
+            collect_type_reference(pos, end, var_statement.type);
+
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::runtime_error("Expected ';'");
+            }
+
+            return var_statement;
+        }
+
+        template < typename It >
+        function_return_statement collect_return_statement(It& pos, It end)
+        {
+            if (!skip_keyword_if_is(pos, end, "RETURN"))
+            {
+                throw std::runtime_error("Expected 'RETURN'");
+            }
+
+            function_return_statement output;
+
+            skip_wsc(pos, end);
+
+            if (skip_symbol_if_is(pos, end, ";"))
+            {
+              return output;
+            }
+
+            output.expr = collect_expression(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::runtime_error("Expected ';'");
+            }
+
+            return output;
+        }
+
+        template < typename It >
         bool try_collect_statement(It& pos, It end, std::optional< function_statement >& output)
         {
             skip_wsc(pos, end);
@@ -1039,7 +1103,15 @@ namespace rylang
                 output = collect_if_statement(pos, end);
                 return true;
             }
-
+            else if (get_keyword(pos, end) == "VAR")
+            {
+                output = collect_var_statement(pos, end);
+                return true;
+            }
+            else if (get_keyword(pos, end) == "RETURN")
+            {
+                output = collect_return_statement(pos, end);
+            }
             else if (try_collect_expression_statement(pos, end, exp_st))
             {
                 output = exp_st;
