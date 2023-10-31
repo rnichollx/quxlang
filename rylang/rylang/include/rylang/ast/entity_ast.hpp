@@ -8,7 +8,7 @@
 #include "function_ast.hpp"
 #include "rpnx/value.hpp"
 #include "rylang/ast/class_entity_ast.hpp"
-#include "rylang/ast/function_entity_ast.hpp"
+#include "rylang/ast/functum_entity_ast.hpp"
 #include "rylang/ast/namespace_entity_ast.hpp"
 #include "rylang/ast/variable_entity_ast.hpp"
 #include "rylang/fwd.hpp"
@@ -23,7 +23,7 @@ namespace rylang
         // Fields
         std::map< std::string, rpnx::value< entity_ast > > m_sub_entities;
         bool m_is_field_entity = false;
-        rpnx::value< std::variant< null_object_ast, function_entity_ast, variable_entity_ast, namespace_entity_ast, class_entity_ast > > m_specialization;
+        rpnx::value< std::variant< null_object_ast, functum_entity_ast, variable_entity_ast, namespace_entity_ast, class_entity_ast > > m_specialization;
 
         // member functions
         bool operator<(entity_ast const& other) const
@@ -47,7 +47,7 @@ namespace rylang
         }
 
         entity_ast() = default;
-        entity_ast(function_entity_ast const& other, bool field = false, std::map< std::string, rpnx::value< entity_ast > > const& sub_entities = {})
+        entity_ast(functum_entity_ast const& other, bool field = false, std::map< std::string, rpnx::value< entity_ast > > const& sub_entities = {})
             : m_is_field_entity(field)
             , m_specialization(other)
             , m_sub_entities(sub_entities)
@@ -107,7 +107,7 @@ namespace rylang
             {
                 return entity_type::null_object_type;
             }
-            else if (std::holds_alternative< function_entity_ast >(m_specialization.get()))
+            else if (std::holds_alternative< functum_entity_ast >(m_specialization.get()))
             {
                 return entity_type::function_type;
             }
@@ -133,7 +133,7 @@ namespace rylang
 } // namespace rylang
 
 #include "rylang/ast/class_entity_ast.hpp"
-#include "rylang/ast/function_entity_ast.hpp"
+#include "rylang/ast/functum_entity_ast.hpp"
 #include "rylang/ast/namespace_entity_ast.hpp"
 #include "rylang/ast/null_object_ast.hpp"
 #include "rylang/ast/variable_entity_ast.hpp"

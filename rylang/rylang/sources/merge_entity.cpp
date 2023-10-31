@@ -31,9 +31,9 @@ void rylang::merge_entity(rylang::entity_ast& destination, const rylang::entity_
 
     if (source.type() == entity_type::function_type)
     {
-        for (auto& x : std::get< function_entity_ast >(source.m_specialization.get()).m_function_overloads)
+        for (auto& x : std::get< functum_entity_ast >(source.m_specialization.get()).m_function_overloads)
         {
-            std::get< function_entity_ast >(destination.m_specialization.get()).m_function_overloads.push_back(x);
+            std::get< functum_entity_ast >(destination.m_specialization.get()).m_function_overloads.push_back(x);
         }
     }
 }

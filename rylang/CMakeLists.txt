@@ -9,7 +9,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 
 add_executable(rylang_main rylang/sources/main.cpp
         rylang/include/rylang/data/canonical_pointer_type_reference.hpp)
-add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/sources/ast/entity_ast.cpp rylang/include/rylang/ast/variable_ast.hpp rylang/include/rylang/ast/function_entity_ast.hpp rylang/include/rylang/data/entity_category.hpp rylang/include/rylang/fwd.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/ast/namespace_entity_ast.hpp rylang/include/rylang/ast/variable_entity_ast.hpp rylang/sources/ast/class_entity_ast.cpp rylang/sources/ast/class_entity_ast.cpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/include/rylang/data/input_source.hpp rylang/include/rylang/data/symbol_id.hpp rylang/include/rylang/data/lookup_type.hpp rylang/include/rylang/res/class_layout_resolver.hpp rylang/include/rylang/res/class_member_variable_list_resolver.hpp rylang/include/rylang/data/class_member_variable_list.hpp rylang/include/rylang/data/class_member_variable_declaration.hpp rylang/include/rylang/data/class_member_variable_precursor1.hpp rylang/include/rylang/data/lookup_chain.hpp rylang/include/rylang/data/lookup_singular.hpp rylang/sources/res/class_member_variable_list_resolver.cpp rylang/include/rylang/data/class_id_ast_resolver.hpp rylang/include/rylang/ast/module_ast_precursor1.hpp rylang/include/rylang/data/global_name_ast_map.hpp rylang/sources/res/lookup_resolver.cpp rylang/include/rylang/ast/module_ast.hpp
+add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/sources/ast/entity_ast.cpp rylang/include/rylang/ast/variable_ast.hpp rylang/include/rylang/ast/functum_entity_ast.hpp rylang/include/rylang/data/entity_category.hpp rylang/include/rylang/fwd.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/ast/namespace_entity_ast.hpp rylang/include/rylang/ast/variable_entity_ast.hpp rylang/sources/ast/class_entity_ast.cpp rylang/sources/ast/class_entity_ast.cpp rylang/include/rylang/ast/entity_ast_base.hpp rylang/include/rylang/data/input_source.hpp rylang/include/rylang/data/symbol_id.hpp rylang/include/rylang/data/lookup_type.hpp rylang/include/rylang/res/class_layout_resolver.hpp rylang/include/rylang/res/class_member_variable_list_resolver.hpp rylang/include/rylang/data/class_member_variable_list.hpp rylang/include/rylang/data/class_member_variable_declaration.hpp rylang/include/rylang/data/class_member_variable_precursor1.hpp rylang/include/rylang/data/lookup_chain.hpp rylang/include/rylang/data/lookup_singular.hpp rylang/sources/res/class_member_variable_list_resolver.cpp rylang/include/rylang/data/class_id_ast_resolver.hpp rylang/include/rylang/ast/module_ast_precursor1.hpp rylang/include/rylang/data/global_name_ast_map.hpp rylang/sources/res/lookup_resolver.cpp rylang/include/rylang/ast/module_ast.hpp
         rylang/include/rylang/res/module_ast_precursor1_resolver.hpp
         rylang/sources/res/module_ast_precursor1_resolver.cpp
         rylang/include/rylang/res/files_in_module_resolver.hpp
@@ -99,6 +99,14 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/codepath_execution_return.hpp
         rylang/include/rylang/data/codepath_expression.hpp
         rylang/include/rylang/data/function_return_statement.hpp
+        rylang/include/rylang/data/vm_allocate_storage.hpp
+        rylang/include/rylang/data/vm_expr_load_address.hpp
+        rylang/include/rylang/data/vm_block.hpp
+        rylang/include/rylang/data/vm_executable_unit.hpp
+        rylang/include/rylang/data/vm_procedure.hpp
+        rylang/include/rylang/data/vm_procedure_interface.hpp
+        rylang/include/rylang/data/vm_type.hpp
+        rylang/include/rylang/data/vm_expression.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

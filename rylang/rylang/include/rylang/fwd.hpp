@@ -8,7 +8,7 @@
 namespace rylang
 {
     struct entity_ast_base;
-    struct function_entity_ast;
+    struct functum_entity_ast;
     struct class_entity_ast;
     struct namespace_entity_ast;
     struct variable_entity_ast;

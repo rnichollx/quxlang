@@ -235,7 +235,7 @@ namespace rylang
                 return false;
             }
 
-            auto func_entity = current_entity2< function_entity_ast >();
+            auto func_entity = current_entity2< functum_entity_ast >();
 
             skip_wsc(pos, end);
 
