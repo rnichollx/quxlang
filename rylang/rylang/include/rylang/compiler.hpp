@@ -66,6 +66,7 @@ namespace rylang
         friend class llvm_code_generator;
         friend class canonical_type_is_implicitly_convertible_to_resolver;
         friend class overload_set_is_callable_with_resolver;
+        friend class function_overload_selection_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;

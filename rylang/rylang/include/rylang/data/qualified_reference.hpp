@@ -17,7 +17,7 @@ namespace rylang
     struct value_expression_reference;
     struct pointer_to_reference;
 
-    using qualified_type_reference =
+    using qualified_symbol_reference =
         boost::variant< module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_reference >, boost::recursive_wrapper< parameter_set_reference >,
                         boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< pointer_to_reference > >;
 
@@ -30,7 +30,7 @@ namespace rylang
 
     struct subentity_reference
     {
-        qualified_type_reference parent;
+        qualified_symbol_reference parent;
         std::string subentity_name;
 
         std::strong_ordering operator<=>(const subentity_reference& other) const = default;
@@ -45,7 +45,7 @@ namespace rylang
 
     struct pointer_to_reference
     {
-        qualified_type_reference target;
+        qualified_symbol_reference target;
 
         std::strong_ordering operator<=>(const pointer_to_reference& other) const = default;
     };
@@ -58,9 +58,14 @@ namespace rylang
 
     struct parameter_set_reference
     {
-        qualified_type_reference callee;
-        std::vector< qualified_type_reference > parameters;
+        qualified_symbol_reference callee;
+        std::vector< qualified_symbol_reference > parameters;
+        std::strong_ordering operator<=>(const parameter_set_reference& other) const = default;
     };
+
+
+
+
 } // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_QUALIFIED_REFERENCE_HEADER

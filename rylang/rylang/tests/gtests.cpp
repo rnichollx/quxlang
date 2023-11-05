@@ -54,7 +54,7 @@ TEST(mangling, name_mangling_new)
     param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
     param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
 
-    std::string mangled_name = rylang::mangle(rylang::qualified_type_reference(param_set));
+    std::string mangled_name = rylang::mangle(rylang::qualified_symbol_reference(param_set));
 
     ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAI32AI32E");
 }

@@ -24,5 +24,18 @@ void rylang::overload_set_is_callable_with_resolver::process(compiler* c)
             {
                 return c->lk_canonical_type_is_implicitly_convertible_to(std::make_pair(args.argument_types[i], os.argument_types[i]));
             });
+
+        if (!ready())
+            return;
+
+        bool convertible = convertible_dp->get();
+
+        if (!convertible)
+        {
+            set_value(false);
+            return;
+        }
     }
+
+    set_value(true);
 }

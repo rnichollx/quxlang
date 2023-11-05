@@ -14,7 +14,7 @@
 
 namespace rylang
 {
-    inline std::string mangle_internal(qualified_type_reference const& qt)
+    inline std::string mangle_internal(qualified_symbol_reference const& qt)
     {
         if (qt.type() == boost::typeindex::type_id< module_reference >())
         {
@@ -125,7 +125,7 @@ namespace rylang
         return out;
     }
 
-    inline std::string mangle(qualified_type_reference const& func)
+    inline std::string mangle(qualified_symbol_reference const& func)
     {
         std::string out = "_S_";
         out += mangle_internal(func);

@@ -1,0 +1,11 @@
+MODULE linux;
+
+EXPORT ::file_descriptor DERIVATIVE I32;
+EXPORT ::file_size ALIAS U64;
+EXPORT ::file_offset ALIAS U64;
+
+EXPORT ::read FUNCTION(@fd :file_descriptor, @buffer :->BYTE, @count :file_size) :file_size ARCH(X86_64) {
+
+}
+
+::write FUNCTION(

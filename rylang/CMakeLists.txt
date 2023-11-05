@@ -26,7 +26,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/sources/res/entity_ast_from_chain_resolver.cpp
         rylang/include/rylang/res/module_ast_resolver.hpp
         rylang/sources/res/module_ast_resolver.cpp
-        rylang/include/rylang/res/type_ref_sa_resolver.hpp
         rylang/include/rylang/manipulators/merge_entity.hpp
         rylang/include/rylang/manipulators/merge_entity.hpp
         rylang/sources/merge_entity.cpp
@@ -83,7 +82,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/llvm_code_generator.hpp
         rylang/include/rylang/data/canonical_resolved_function_chain.hpp
         rylang/include/rylang/data/function_argument.hpp
-        rylang/include/rylang/data/functiod_interface.hpp
         rylang/include/rylang/data/call_overload_set.hpp
         rylang/include/rylang/res/function_overload_selection_resolver.hpp
         rylang/include/rylang/res/mangled_name_resolver.hpp
@@ -115,6 +113,7 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/ordering.hpp
         rylang/include/rylang/data/qualified_reference.hpp
         rylang/include/rylang/manipulators/mangler.hpp
+        rylang/sources/res/function_overload_selection_resolver.cpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)
