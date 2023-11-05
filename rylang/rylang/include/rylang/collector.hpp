@@ -9,13 +9,11 @@
 #include <string>
 #include <vector>
 
-#include "rylang/ast/class_ast.hpp"
 #include "rylang/ast/entity_ast.hpp"
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/function_arg_ast.hpp"
 #include "rylang/ast/function_ast.hpp"
 #include "rylang/ast/member_variable_ast.hpp"
-#include "rylang/ast/namespace_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
 #include "rylang/converters/qual_converters.hpp"
@@ -152,7 +150,7 @@ namespace rylang
 
       public:
         std::function< void(std::string const&, function_ast const&) > emit_function;
-        std::function< void(std::string const&, class_ast const&) > emit_class;
+        // std::function< void(std::string const&, class_ast const&) > emit_class;
 
         template < typename It >
         void collect_file(It begin, It end, file_ast& output)
@@ -275,40 +273,6 @@ namespace rylang
         }
 
         template < typename It >
-        void collect_class(It& pos, It it_end, class_ast& c)
-        {
-            skip_wsc(pos, it_end);
-
-            if (pos == it_end)
-            {
-                throw unexpected_eof< It >{pos};
-            }
-
-            skip_wsc(pos, it_end);
-
-            std::string sym = get_symbol(pos, it_end);
-
-            std::string remaining = std::string(pos, it_end);
-            if (!skip_symbol_if_is(pos, it_end, "{"))
-            {
-                throw std::runtime_error("Expected '{'");
-            }
-
-            skip_wsc(pos, it_end);
-
-            while (skip_symbol_if_is(pos, it_end, "."))
-            {
-                collect_class_member(pos, it_end, c);
-                skip_wsc(pos, it_end);
-            }
-
-            if (!skip_symbol_if_is(pos, it_end, "}"))
-            {
-                throw std::runtime_error("Expected '}'");
-            }
-        }
-
-        template < typename It >
         bool try_collect_class(It& pos, It it_end)
         {
             skip_wsc(pos, it_end);
@@ -372,48 +336,6 @@ namespace rylang
             }
 
             return true;
-        }
-
-        template < typename It >
-        void collect_class_member(It& pos, It it_end, class_ast& c)
-        {
-            skip_wsc(pos, it_end);
-
-            expect_more(pos, it_end);
-
-            std::string name = get_skip_identifier(pos, it_end);
-
-            if (name.empty())
-            {
-                throw std::runtime_error("Expected identifier");
-            }
-
-            skip_wsc(pos, it_end);
-
-            if (skip_keyword_if_is(pos, it_end, "VAR"))
-            {
-                member_variable_ast member;
-                member.name = name;
-                skip_wsc(pos, it_end);
-
-                // now a type
-                collect_type_symbol(pos, it_end, member.type);
-
-                skip_wsc(pos, it_end);
-                if (!skip_symbol_if_is(pos, it_end, ";"))
-                {
-                    std::string remaining = std::string(pos, it_end);
-                    throw std::runtime_error("Expected ';'");
-                }
-
-                c.member_variables.push_back(member);
-            }
-
-            else
-            {
-                std::string remaining = std::string(pos, it_end);
-                throw std::runtime_error("Expected VAR");
-            }
         }
 
         template < typename It >
@@ -520,64 +442,6 @@ namespace rylang
         }
 
         template < typename It >
-        type_reference collect_type_reference(It& pos, It end)
-        {
-            type_reference output;
-            collect_type_reference(pos, end, output);
-            return output;
-        }
-
-        template < typename It >
-        void collect_type_reference(It& pos, It end, type_reference& type_ref)
-        {
-            skip_wsc(pos, end);
-
-            std::string remaining = std::string(pos, end);
-
-            if (skip_symbol_if_is(pos, end, "->"))
-            {
-                pointer_reference ptr;
-
-                collect_type_reference(pos, end, ptr.to);
-
-                type_ref = ptr;
-
-                return;
-            }
-
-            else if (skip_symbol_if_is(pos, end, "::"))
-            {
-                absolute_lookup_reference abs_ref;
-
-                collect_lookup_chain(pos, end, abs_ref.chain);
-
-                type_ref = abs_ref;
-                return;
-            }
-            else if (skip_symbol_if_is(pos, end, ":"))
-            {
-                proximate_lookup_reference ref;
-
-                collect_lookup_chain(pos, end, ref.chain);
-
-                type_ref = ref;
-                return;
-            }
-            else
-            {
-                integral_keyword_ast integral;
-                if (try_get_integral_keyword(pos, end, integral))
-                {
-                    type_ref = integral;
-                }
-                else
-                {
-                    throw std::runtime_error("expected integral keyword, pointer, or symbol chain");
-                }
-            }
-        }
-
-        template < typename It >
         qualified_symbol_reference collect_qualified_symbol(It& pos, It end)
         {
             qualified_symbol_reference output = context_reference{};
@@ -633,32 +497,6 @@ namespace rylang
             // TODO: Accept function calls here.
 
             return output;
-        }
-
-        template < typename It >
-        void collect_type_symbol(It& pos, It end, type_ref_ast& type_ref)
-        {
-            skip_wsc(pos, end);
-
-            std::string remaining = std::string(pos, end);
-
-            // TODO: Support all integers
-            integral_keyword_ast integral;
-
-            if (try_get_integral_keyword(pos, end, integral))
-            {
-                type_ref.val.get() = integral;
-            }
-            else if (get_identifier(pos, end) != "")
-            {
-                symbol_ref_ast sym;
-                collect_lookup_symbol(pos, end, sym);
-                type_ref.val.get() = sym;
-            }
-            else
-            {
-                throw std::runtime_error("Expected type");
-            }
         }
 
         template < typename It >
@@ -770,7 +608,7 @@ namespace rylang
             {
                 skip_wsc(pos, end);
 
-                f.return_type = collect_type_reference(pos, end);
+                f.return_type = collect_qualified_symbol(pos, end);
 
                 skip_wsc(pos, end);
             }
@@ -1123,7 +961,7 @@ namespace rylang
 
             skip_wsc(pos, end);
 
-            collect_type_reference(pos, end, var_statement.type);
+            var_statement.type = collect_qualified_symbol(pos, end);
 
             if (!skip_symbol_if_is(pos, end, ";"))
             {

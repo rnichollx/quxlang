@@ -26,7 +26,7 @@ namespace rylang
     struct function_var_statement
     {
         std::string name;
-        type_reference type;
+        qualified_symbol_reference type;
         std::strong_ordering operator<=>(const function_var_statement& other) const = default;
     };
 

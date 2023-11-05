@@ -17,7 +17,7 @@ namespace rylang
     struct function_ast
     {
         std::vector< function_arg_ast > args;
-        std::optional< type_reference > return_type;
+        std::optional< qualified_symbol_reference > return_type;
         function_block body;
 
         std::string to_string()
