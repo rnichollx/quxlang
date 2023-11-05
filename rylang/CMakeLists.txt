@@ -114,6 +114,9 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/qualified_reference.hpp
         rylang/include/rylang/manipulators/mangler.hpp
         rylang/sources/res/function_overload_selection_resolver.cpp
+        rylang/include/rylang/res/function_qualified_reference_resolver.hpp
+        rylang/sources/res/function_qualified_reference_resolver.cpp
+        rylang/include/rylang/converters/qual_converters.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

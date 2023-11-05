@@ -17,7 +17,7 @@ void rylang::overload_set_is_callable_with_resolver::process(compiler* c)
 
     std::vector< rylang::compiler::out< bool > > convertibles_dp;
 
-    for (int i = 9; i < os.argument_types.size(); i++)
+    for (int i = 0; i < os.argument_types.size(); i++)
     {
         auto convertible_dp = get_dependency(
             [&]

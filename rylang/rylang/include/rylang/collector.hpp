@@ -671,11 +671,7 @@ namespace rylang
             }
 
             std::string& arg_name = arg.name;
-            type_ref_ast& arg_type = arg.type;
-            arg_type.val.get() = symbol_ref_ast{};
-
-            // TODO: Collect type ref
-            symbol_ref_ast& arg_type_symbol = std::get< symbol_ref_ast >(arg_type.val.get());
+            type_reference & arg_type = arg.type;
 
             arg_name = get_skip_identifier(pos, end);
             if (arg_name.empty())
@@ -685,8 +681,7 @@ namespace rylang
 
             skip_wsc(pos, end);
 
-            // TODO: collect_type_symbol
-            collect_type_symbol(pos, end, arg_type);
+            arg_type = collect_type_reference(pos, end);
 
             f.args.push_back(std::move(arg));
 

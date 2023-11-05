@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 
     vmf.body.code.push_back(rylang::vm_allocate_storage{4, 4});
     rylang::vm_store save_value;
-    save_value.what = rylang::vm_expr_primitive_binary_op{rylang::vm_expr_dereference{rylang::vm_expr_load_address{0}, u32}, rylang::vm_expr_dereference{rylang::vm_expr_load_address{1},u32},
+    save_value.what = rylang::vm_expr_primitive_binary_op{rylang::vm_expr_dereference{rylang::vm_expr_load_address{0}, u32}, rylang::vm_expr_dereference{rylang::vm_expr_load_address{1}, u32},
                                                           rylang::vm_primitive_binary_operator::add};
     save_value.where = rylang::vm_expr_load_address{2};
     save_value.type = u32;
@@ -28,6 +28,17 @@ int main(int argc, char** argv)
     vmf.body.code.push_back(rylang::vm_return{rylang::vm_expr_dereference{rylang::vm_expr_load_address{2}, u32}});
 
     auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
+
+    rylang::canonical_lookup_chain cn{"quz", "bif", "box", "buz"};
+    rylang::canonical_type_reference u32type = rylang::integral_keyword_ast{true, 32};
+
+    rylang::call_overload_set args;
+    args.argument_types.push_back(u32type);
+    args.argument_types.push_back(u32type);
+
+    auto ol = c.get_function_overload_selection(cn, args);
+
+    std::cout << "Got overload..." << std::endl;
     // auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );
     /*
         auto files = c.get_file_list();

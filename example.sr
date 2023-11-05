@@ -47,6 +47,13 @@ MODULE main;
            RETURN c;
         }
 
+        .buz FUNCTION(%a I64, %b I64) : I64
+        {
+           VAR c : I64;
+           c := a + b;
+           RETURN c;
+        }
+
         .baz VAR :buz::quz;
      }
 

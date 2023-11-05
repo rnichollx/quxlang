@@ -15,10 +15,12 @@ namespace rylang
     {
         std::string external_name;
         std::string name;
-        type_ref_ast type;
+        type_reference type;
         std::string to_string()
         {
-            return "ast_arg{ external_name: " + external_name + ", name: " + name + ", type: " + type.to_string() + " }";
+
+            return "arg";
+            //   return "ast_arg{ external_name: " + external_name + ", name: " + name + ", type: " + type.to_string() + " }";
         }
         bool operator<(function_arg_ast const&) const
         {
