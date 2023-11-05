@@ -16,7 +16,7 @@ namespace rylang
     {
 
       public:
-        using key_type = std::tuple< lookup_chain, lookup_chain >;
+        using key_type = std::tuple< qualified_symbol_reference , qualified_symbol_reference >;
 
         explicit entity_ast_from_chain_resolver(key_type chains)
         {
@@ -27,8 +27,8 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        lookup_chain m_chain;
-        lookup_chain m_context;
+        qualified_symbol_reference m_chain;
+        qualified_symbol_reference m_context;
     };
 } // namespace rylang
 

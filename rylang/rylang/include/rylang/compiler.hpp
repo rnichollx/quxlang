@@ -17,7 +17,6 @@
 #include "rylang/data/machine_info.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/filelist.hpp"
-#include "rylang/res/canonical_chain_resolver.hpp"
 #include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
 #include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
@@ -39,6 +38,7 @@
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
+#include "rylang/res/contextualized_reference_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -72,6 +72,7 @@ namespace rylang
         friend class overload_set_is_callable_with_resolver;
         friend class function_overload_selection_resolver;
         friend class function_qualified_reference_resolver;
+        friend class contextualized_reference_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -90,11 +91,16 @@ namespace rylang
         singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
-        index< canonical_chain_resolver > m_cannonical_chain_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< contextualized_reference_resolver > m_contextualized_reference_index;
+        out< qualified_symbol_reference > lk_contextualized_reference(qualified_symbol_reference symbol, qualified_symbol_reference context)
+        {
+            return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
+        }
 
         index< function_qualified_reference_resolver > m_function_qualname_index;
         out< qualified_symbol_reference > lk_function_qualname(qualified_symbol_reference f, call_overload_set args)
@@ -114,7 +120,7 @@ namespace rylang
         // index< class_list_resolver > m_class_list_index;
 
         index< function_overload_selection_resolver > m_function_overload_selection_index;
-        out< call_overload_set > lk_function_overload_selection(canonical_lookup_chain const& chain, call_overload_set const& os)
+        out< call_overload_set > lk_function_overload_selection(qualified_symbol_reference const& chain, call_overload_set const& os)
         {
             return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
         }
@@ -126,37 +132,37 @@ namespace rylang
         }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
-        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< canonical_type_reference, canonical_type_reference > const& input)
+        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< qualified_symbol_reference, qualified_symbol_reference > const& input)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
         }
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
-        out< bool > lk_entity_canonical_chain_exists(canonical_lookup_chain const& chain)
+        out< bool > lk_entity_canonical_chain_exists(qualified_symbol_reference const& chain)
         {
             return m_entity_canonical_chain_exists_index.lookup(chain);
         }
 
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
-        out< class_layout > lk_class_layout_from_canonical_chain(canonical_lookup_chain const& chain)
+        out< class_layout > lk_class_layout_from_canonical_chain(qualified_symbol_reference const& chain)
         {
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
         index< type_placement_info_from_canonical_type_resolver > m_type_placement_info_from_canonical_chain_index;
-        out< type_placement_info > lk_type_placement_info_from_canonical_type(canonical_type_reference const& ref)
+        out< type_placement_info > lk_type_placement_info_from_canonical_type(qualified_symbol_reference const& ref)
         {
             return m_type_placement_info_from_canonical_chain_index.lookup(ref);
         }
 
         index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;
-        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(canonical_lookup_chain const& chain)
+        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(qualified_symbol_reference const& chain)
         {
             return m_class_field_list_from_canonical_chain_index.lookup(chain);
         }
 
         index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
-        out< std::size_t > lk_class_size_from_canonical_lookup_chain(canonical_lookup_chain const& chain)
+        out< std::size_t > lk_class_size_from_canonical_lookup_chain(qualified_symbol_reference const& chain)
         {
             return m_class_size_from_canonical_chain_index.lookup(chain);
         }
@@ -164,13 +170,18 @@ namespace rylang
         index< files_in_module_resolver > m_files_in_module_resolver;
 
         index< canonical_type_ref_from_contextual_type_ref_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
-        out< canonical_type_reference > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
+        out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
         {
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(ref);
         }
 
+        out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(qualified_symbol_reference type, qualified_symbol_reference context)
+        {
+            return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(contextual_type_reference{context, type});
+        }
+
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
-        out< std::size_t > lk_type_size_from_canonical_type(canonical_type_reference const& ref)
+        out< std::size_t > lk_type_size_from_canonical_type(qualified_symbol_reference const& ref)
         {
             return m_type_size_from_canonical_type_index.lookup(ref);
         }
@@ -250,16 +261,11 @@ namespace rylang
             return file_contents(filename);
         }
 
-        out< std::size_t > lk_class_size_from_symref(lookup_chain const& chain);
 
-        // Lookup the cannonical chain for a chain in a given context.
-        out< canonical_lookup_chain > lk_canonical_chain(lookup_chain const& chain, lookup_chain const& context)
-        {
-            return m_cannonical_chain_index.lookup(std::make_tuple(chain, context));
-        }
+
 
         // Look up the AST for a given glass given a paritcular cannonical chain
-        out< entity_ast > lk_entity_ast_from_canonical_chain(canonical_lookup_chain const& chain)
+        out< entity_ast > lk_entity_ast_from_canonical_chain(qualified_symbol_reference const& chain)
         {
             return m_entity_ast_from_cannonical_chain_index.lookup(chain);
         }
@@ -282,14 +288,14 @@ namespace rylang
             return node->get();
         }
 
-        std::size_t get_class_size(canonical_lookup_chain const& chain)
+        std::size_t get_class_size(qualified_symbol_reference const& chain)
         {
             auto size = lk_class_size_from_canonical_lookup_chain(chain);
             m_solver.solve(this, size);
             return size->get();
         }
 
-        type_placement_info get_class_placement_info(canonical_lookup_chain const& chain)
+        type_placement_info get_class_placement_info(qualified_symbol_reference const& chain)
         {
             auto size = lk_type_placement_info_from_canonical_type(chain);
             m_solver.solve(this, size);
@@ -312,8 +318,8 @@ namespace rylang
         llvm_proxy_type get_llvm_proxy_return_type_of(rylang::canonical_resolved_function_chain chain);
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(canonical_resolved_function_chain chain);
 
-        function_ast get_function_ast_of_overload(canonical_resolved_function_chain chain);
-        call_overload_set get_function_overload_selection(canonical_lookup_chain chain, call_overload_set args);
+        function_ast get_function_ast_of_overload(qualified_symbol_reference chain);
+        call_overload_set get_function_overload_selection(qualified_symbol_reference chain, call_overload_set args);
     };
 
 } // namespace rylang

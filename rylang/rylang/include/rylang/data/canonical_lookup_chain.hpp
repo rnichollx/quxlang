@@ -10,7 +10,7 @@
 
 namespace rylang
 {
-    struct  canonical_lookup_chain : std::vector< std::string >
+    struct [[deprecated("Use qualified_symbol_reference")]] canonical_lookup_chain : std::vector< std::string >
     {
 
         canonical_lookup_chain() = default;

@@ -16,7 +16,7 @@
 
 namespace rylang
 {
-    class canonical_type_ref_from_contextual_type_ref_resolver : public rpnx::resolver_base< compiler, canonical_type_reference >
+    class canonical_type_ref_from_contextual_type_ref_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
     {
       public:
         using key_type = contextual_type_reference;

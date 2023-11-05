@@ -50,7 +50,7 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
             if (!ready())
                 return;
 
-            canonical_type_reference arg_type = canonical_type_dp->get();
+            qualified_symbol_reference arg_type = canonical_type_dp->get();
 
             overload_args.argument_types.push_back(arg_type);
         }

@@ -25,6 +25,8 @@ namespace rylang
         boost::variant< context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >,
                         boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< pointer_to_reference > >;
 
+    // TODO: Consider adding absolute_qualified_symbol_reference
+
     struct module_reference
     {
         std::string module_name;

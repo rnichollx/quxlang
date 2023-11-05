@@ -7,9 +7,9 @@
 void rylang::type_placement_info_from_canonical_type_resolver::process(compiler* c)
 
 {
-    canonical_type_reference const& type = m_type;
+    qualified_symbol_reference const& type = m_type;
 
-    if (type.type() == boost::typeindex::type_id< canonical_pointer_type_reference >())
+    if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
     {
         machine_info m = c->m_machine_info;
 
@@ -20,12 +20,12 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
         set_value(result);
         return;
     }
-    else if (type.type() == boost::typeindex::type_id< canonical_lookup_chain >())
+    else if (type.type() == boost::typeindex::type_id< subentity_reference >())
     {
         auto layout_dp = get_dependency(
             [&]
             {
-                return c->lk_class_layout_from_canonical_chain(boost::get< canonical_lookup_chain >(type));
+                return c->lk_class_layout_from_canonical_chain(type);
             });
 
         if (!ready())
@@ -39,12 +39,12 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
         set_value(result);
         return;
     }
-    else if (type.type() == boost::typeindex::type_id< integral_keyword_ast >())
+    else if (type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
     {
-        integral_keyword_ast int_kw = boost::get< integral_keyword_ast >(type);
+        primitive_type_integer_reference int_kw = boost::get< primitive_type_integer_reference >(type);
 
         int sz = 1;
-        while (sz*8 < int_kw.size)
+        while (sz*8 < int_kw.bits)
         {
           sz *= 2;
         }

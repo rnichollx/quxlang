@@ -10,9 +10,7 @@ int main(int argc, char** argv)
 
     rylang::llvm_code_generator cg(&c);
 
-    auto func_name = rylang::canonical_resolved_function_chain{};
-    func_name.function_entity_chain = rylang::canonical_lookup_chain{"main"};
-    func_name.overload_index = 0;
+
     rylang::vm_procedure vmf;
 
     auto u32 = rylang::vm_type_int{32, false};
@@ -31,15 +29,20 @@ int main(int argc, char** argv)
 
     auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
 
-    rylang::canonical_lookup_chain cn{"quz", "bif", "box", "buz"};
-    rylang::canonical_type_reference u32type = rylang::integral_keyword_ast{true, 32};
+    rylang::qualified_symbol_reference cn = rylang::module_reference{"main"};
+
+    cn = rylang::subentity_reference{cn, "quz"};
+    cn = rylang::subentity_reference{std::move(cn), "bif"};
+    cn = rylang::subentity_reference{std::move(cn), "box"};
+    cn = rylang::subentity_reference{std::move(cn), "buz"};
+
+    rylang::primitive_type_integer_reference u32type = rylang::primitive_type_integer_reference{32, true};
 
     rylang::call_overload_set args;
     args.argument_types.push_back(u32type);
     args.argument_types.push_back(u32type);
 
-    rylang::qualified_symbol_reference ql = rylang::convert_to_qualified_symbol_reference(cn);
-    auto qn = c.get_function_qualname(ql, args);
+    auto qn = c.get_function_qualname(cn, args);
 
     std::string name = rylang::mangle(qn);
 
@@ -75,7 +78,9 @@ int main(int argc, char** argv)
         }
     */
 
-    auto foo_placement_info = c.get_class_placement_info(rylang::canonical_lookup_chain{"foo"});
+    rylang::qualified_symbol_reference foo = rylang::subentity_reference{rylang::module_reference{"main"}, "foo"};
+
+    auto foo_placement_info = c.get_class_placement_info(foo);
 
     std::cout << "Foo size: " << foo_placement_info.size << "\n";
 

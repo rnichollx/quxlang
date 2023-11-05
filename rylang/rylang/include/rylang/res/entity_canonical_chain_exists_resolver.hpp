@@ -17,16 +17,16 @@ namespace rylang
   class entity_canonical_chain_exists_resolver : public rpnx::resolver_base< compiler, bool >
   {
     public:
-        using key_type = canonical_lookup_chain;
+        using key_type = qualified_symbol_reference;
 
-        explicit entity_canonical_chain_exists_resolver(canonical_lookup_chain chain)
+        explicit entity_canonical_chain_exists_resolver(qualified_symbol_reference chain)
         {
             m_chain = chain;
         }
 
         virtual void process(compiler* c);
       private:
-        canonical_lookup_chain m_chain;
+        qualified_symbol_reference m_chain;
   };
 }
 

@@ -9,14 +9,15 @@
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_lookup_chain.hpp"
 #include "rylang/data/symbol_id.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
     class class_size_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::size_t >
     {
       public:
-      using key_type = canonical_lookup_chain;
-        class_size_from_canonical_chain_resolver(canonical_lookup_chain chain)
+      using key_type = qualified_symbol_reference;
+        class_size_from_canonical_chain_resolver(qualified_symbol_reference chain)
         {
                 m_chain = chain;
         }
@@ -24,7 +25,7 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        canonical_lookup_chain m_chain;
+        qualified_symbol_reference m_chain;
     };
 } // namespace rylang
 

@@ -8,16 +8,17 @@
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_type_reference.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
     class canonical_type_is_implicitly_convertible_to_resolver : public rpnx::resolver_base< compiler, bool >
     {
-        canonical_type_reference from;
-        canonical_type_reference to;
+        qualified_symbol_reference from;
+        qualified_symbol_reference to;
 
       public:
-        using key_type = std::pair< canonical_type_reference, canonical_type_reference >;
+        using key_type = std::pair< qualified_symbol_reference, qualified_symbol_reference >;
 
         canonical_type_is_implicitly_convertible_to_resolver(key_type input)
             : from(input.first)

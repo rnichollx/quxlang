@@ -7,6 +7,7 @@
 
 #include "canonical_type_reference.hpp"
 #include <vector>
+#include "rylang/data/qualified_reference.hpp"
 
 
 namespace rylang
@@ -15,7 +16,7 @@ namespace rylang
     struct class_field_info
     {
         std::string name;
-        canonical_type_reference type;
+        qualified_symbol_reference type;
         std::size_t offset = 0;
     };
 } // namespace rylang

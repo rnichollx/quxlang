@@ -7,12 +7,13 @@
 
 #include "contextual_type_reference.hpp"
 #include "type_reference.hpp"
+#include "rylang/data/qualified_reference.hpp"
 namespace rylang
 {
   struct class_field_declaration
     {
       std::string name;
-      type_reference type;
+      qualified_symbol_reference type;
   };
 
 }

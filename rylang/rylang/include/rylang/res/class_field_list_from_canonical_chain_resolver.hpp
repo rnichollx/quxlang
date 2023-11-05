@@ -19,8 +19,8 @@ namespace rylang
     class class_field_list_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::vector< class_field_declaration > >
     {
       public:
-        using key_type = canonical_lookup_chain;
-        class_field_list_from_canonical_chain_resolver(canonical_lookup_chain chain)
+        using key_type = qualified_symbol_reference;
+        class_field_list_from_canonical_chain_resolver(qualified_symbol_reference chain)
         {
             m_chain = chain;
         }
@@ -28,7 +28,7 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        canonical_lookup_chain m_chain;
+        qualified_symbol_reference m_chain;
     };
 } // namespace rylang
 

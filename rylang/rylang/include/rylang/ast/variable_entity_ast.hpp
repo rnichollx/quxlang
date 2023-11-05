@@ -11,7 +11,7 @@ namespace rylang
     struct variable_entity_ast
     {
 
-        type_reference m_variable_type;
+        qualified_symbol_reference m_variable_type;
 
         std::string to_string(entity_ast const* ) const
         {

@@ -7,12 +7,13 @@
 
 #include "rylang/data/canonical_type_reference.hpp"
 #include "rylang/ordering.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
     struct call_overload_set
     {
-        std::vector< canonical_type_reference > argument_types;
+        std::vector< qualified_symbol_reference > argument_types;
 
         std::strong_ordering operator<=>(const call_overload_set& other) const
         {

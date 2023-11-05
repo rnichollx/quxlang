@@ -18,8 +18,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/file_module_map.hpp
         rylang/sources/res/file_module_map_resolver.cpp
         rylang/include/rylang/res/class_size_from_canonical_chain_resolver.hpp
-        rylang/include/rylang/res/canonical_chain_resolver.hpp
-        rylang/sources/res/canonical_chain_resolver.cpp
         rylang/include/rylang/res/entity_ast_from_canonical_chain_resolver.hpp
         rylang/include/rylang/res/entity_ast_from_chain_resolver.hpp
         rylang/sources/res/entity_ast_from_cannonical_chain_resolver.cpp
@@ -117,6 +115,9 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/res/function_qualified_reference_resolver.hpp
         rylang/sources/res/function_qualified_reference_resolver.cpp
         rylang/include/rylang/converters/qual_converters.hpp
+        rylang/include/rylang/res/contextualized_reference_resolver.hpp
+        rylang/sources/res/contextualized_reference_resolver.cpp
+        rylang/include/rylang/manipulators/qualified_reference.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

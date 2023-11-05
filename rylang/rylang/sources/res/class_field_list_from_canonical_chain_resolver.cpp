@@ -8,7 +8,7 @@ void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c
     // 1 get AST
     // Examine ast and generate type list
 
-    canonical_lookup_chain canonical_chain = m_chain;
+    qualified_symbol_reference canonical_chain = m_chain;
 
     auto ast_dp = get_dependency(
         [&]

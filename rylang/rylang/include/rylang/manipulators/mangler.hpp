@@ -64,52 +64,6 @@ namespace rylang
         throw std::runtime_error("unimplemented");
     }
 
-    inline std::string mangle_internal(canonical_type_reference const& type)
-    {
-        std::string out = "";
-
-        if (type.type() == (boost::typeindex::type_id< canonical_pointer_type_reference >()))
-        {
-            out += "P";
-            out += mangle_internal(boost::get< canonical_pointer_type_reference >(type).to);
-            return out;
-        }
-        else if (type.type() == boost::typeindex::type_id< integral_keyword_ast >())
-        {
-            auto const& kw = boost::get< integral_keyword_ast >(type);
-            if (kw.is_signed)
-            {
-                out += "I";
-            }
-            else
-            {
-                out += "U";
-            }
-            out += std::to_string(kw.size);
-            return out;
-        }
-        else if (type.type() == boost::typeindex::type_id< canonical_lookup_chain >())
-        {
-            auto const& chain = boost::get< canonical_lookup_chain >(type);
-            bool start = true;
-            for (std::string_view const s : chain)
-            {
-                if (!start)
-                {
-                    out += "N";
-                }
-                else
-                {
-                    start = false;
-                }
-                out += s;
-            }
-
-            return out;
-        }
-
-        return out;
-    }
 
     inline std::string mangle_internal(canonical_resolved_function_chain const& func)
     {
@@ -119,12 +73,7 @@ namespace rylang
         return out;
     }
 
-    inline std::string mangle(canonical_type_reference const& type)
-    {
-        std::string out = "_S_";
-        out += mangle_internal(type);
-        return out;
-    }
+
 
     inline std::string mangle(canonical_resolved_function_chain const& func)
     {

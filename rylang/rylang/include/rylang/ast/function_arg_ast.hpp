@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "rylang/data/qualified_reference.hpp"
 #include "type_ref_ast.hpp"
 
 namespace rylang
@@ -15,7 +16,7 @@ namespace rylang
     {
         std::string external_name;
         std::string name;
-        type_reference type;
+        qualified_symbol_reference type;
         std::string to_string()
         {
 

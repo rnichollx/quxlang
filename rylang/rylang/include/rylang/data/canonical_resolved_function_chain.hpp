@@ -5,13 +5,13 @@
 #ifndef RPNX_RYANSCRIPT1031_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER
 #define RPNX_RYANSCRIPT1031_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER
 
-#include "canonical_lookup_chain.hpp"
+#include "qualified_reference.hpp"
 
 namespace rylang
 {
-    struct canonical_resolved_function_chain
+    struct [[deprecated("Use qualname")]] canonical_resolved_function_chain
     {
-        canonical_lookup_chain function_entity_chain;
+        qualified_symbol_reference function_entity_chain;
         std::size_t overload_index;
     };
 } // namespace rylang

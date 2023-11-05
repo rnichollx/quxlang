@@ -18,9 +18,9 @@ namespace rylang
     {
 
       public:
-        using key_type = canonical_lookup_chain;
+        using key_type = qualified_symbol_reference;
 
-        explicit entity_ast_from_canonical_chain_resolver(canonical_lookup_chain chain)
+        explicit entity_ast_from_canonical_chain_resolver(qualified_symbol_reference chain)
         {
             m_chain = chain;
         }
@@ -28,7 +28,7 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        canonical_lookup_chain m_chain;
+        qualified_symbol_reference m_chain;
     };
 
 } // namespace rylang

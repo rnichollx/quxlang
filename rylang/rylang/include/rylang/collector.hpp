@@ -18,9 +18,11 @@
 #include "rylang/ast/namespace_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
+#include "rylang/converters/qual_converters.hpp"
 #include "rylang/cow.hpp"
 #include "rylang/data/expression_multiply.hpp"
 #include "rylang/data/proximate_lookup_reference.hpp"
+#include "rylang/data/qualified_reference.hpp"
 #include "rylang/data/s_expression.hpp"
 #include "rylang/data/s_expression_add.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
@@ -455,9 +457,9 @@ namespace rylang
             // now type
 
             // type_ref_ast typ;
-            type_reference typ;
+            qualified_symbol_reference typ;
             // collect_type_symbol(begin, end, typ);
-            collect_type_reference(begin, end, typ);
+            typ = collect_qualified_symbol(begin, end);
             skip_wsc(begin, end);
             if (!skip_symbol_if_is(begin, end, ";"))
             {
@@ -576,6 +578,64 @@ namespace rylang
         }
 
         template < typename It >
+        qualified_symbol_reference collect_qualified_symbol(It& pos, It end)
+        {
+            qualified_symbol_reference output = context_reference{};
+            skip_wsc(pos, end);
+        start:
+            integral_keyword_ast integral;
+            if (try_get_integral_keyword(pos, end, integral))
+            {
+                primitive_type_integer_reference intr;
+                intr.bits = integral.size;
+                intr.has_sign = integral.is_signed;
+                return intr;
+            }
+            else if (skip_symbol_if_is(pos, end, "::"))
+            {
+                // TODO: Support multiple modules
+                output = module_reference{"main"};
+
+                auto ident = get_skip_identifier(pos, end);
+                if (ident.empty())
+                    throw std::runtime_error("expected identifier after ::");
+
+                output = subentity_reference{std::move(output), std::move(ident)};
+            }
+            else if (skip_symbol_if_is(pos, end, "->"))
+            {
+                return pointer_to_reference{collect_qualified_symbol(pos, end)};
+            }
+            else
+            {
+                std::string remaining = std::string(pos, end);
+                auto ident = get_skip_identifier(pos, end);
+                if (ident.empty())
+                    throw std::runtime_error("expected identifier");
+
+                output = subentity_reference{std::move(output), std::move(ident)};
+            }
+
+            skip_wsc(pos, end);
+
+        check_next:
+
+            if (skip_symbol_if_is(pos, end, "::"))
+            {
+                auto ident = get_skip_identifier(pos, end);
+                if (ident.empty())
+                    return output;
+
+                output = subentity_reference{std::move(output), std::move(ident)};
+                goto check_next;
+            }
+
+            // TODO: Accept function calls here.
+
+            return output;
+        }
+
+        template < typename It >
         void collect_type_symbol(It& pos, It end, type_ref_ast& type_ref)
         {
             skip_wsc(pos, end);
@@ -669,7 +729,7 @@ namespace rylang
             }
 
             std::string& arg_name = arg.name;
-            type_reference & arg_type = arg.type;
+            qualified_symbol_reference& arg_type = arg.type;
 
             arg_name = get_skip_identifier(pos, end);
             if (arg_name.empty())
@@ -679,7 +739,7 @@ namespace rylang
 
             skip_wsc(pos, end);
 
-            arg_type = collect_type_reference(pos, end);
+            arg_type = collect_qualified_symbol(pos, end);
 
             f.args.push_back(std::move(arg));
 

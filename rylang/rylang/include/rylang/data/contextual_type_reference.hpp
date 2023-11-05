@@ -8,13 +8,14 @@
 #include "lookup_chain.hpp"
 #include "rylang/ast/type_ref_ast.hpp"
 #include "rylang/data/lookup_type.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
   struct contextual_type_reference
   {
-      canonical_lookup_chain context;
-      type_reference type;
+      qualified_symbol_reference context;
+      qualified_symbol_reference type;
 
       inline bool operator <(contextual_type_reference const& other) const
       {

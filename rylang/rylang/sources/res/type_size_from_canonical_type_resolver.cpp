@@ -3,10 +3,14 @@
 //
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/manipulators/qualified_reference.hpp"
 
 void rylang::type_size_from_canonical_type_resolver::process(compiler* c)
 {
-    canonical_type_reference const& type = m_type;
+    qualified_symbol_reference const& type = m_type;
+
+    assert(!qualified_is_contextual(type));
+
     auto placement_dp = get_dependency(
         [&]
         {

@@ -6,12 +6,13 @@
 #define RPNX_RYANSCRIPT1031_CODEPATH_EXECUTION_RETURN_HEADER
 
 #include "canonical_type_reference.hpp"
+#include "qualified_reference.hpp"
 #include <optional>
 namespace rylang
 {
     struct codepath_execution_return
     {
-        canonical_type_reference return_type;
+        qualified_symbol_reference return_type;
         std::optional<codepath_expression> return_expression;
     };
 } // namespace rylang

@@ -9,6 +9,7 @@
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_lookup_chain.hpp"
 #include "rylang/data/class_layout.hpp"
+#include "rylang/data/qualified_reference.hpp"
 #include "rylang/data/symbol_id.hpp"
 
 namespace rylang
@@ -16,16 +17,16 @@ namespace rylang
     class class_layout_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, class_layout >
     {
       public:
-      using key_type = canonical_lookup_chain;
-        class_layout_from_canonical_chain_resolver(canonical_lookup_chain chain)
+        using key_type = qualified_symbol_reference;
+        class_layout_from_canonical_chain_resolver(qualified_symbol_reference chain)
         {
-                m_chain = chain;
+           m_chain = chain;
         }
 
         virtual void process(compiler* c);
 
       private:
-        canonical_lookup_chain m_chain;
+        qualified_symbol_reference m_chain;
     };
 } // namespace rylang
 

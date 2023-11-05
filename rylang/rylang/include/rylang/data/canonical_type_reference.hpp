@@ -14,7 +14,7 @@ namespace rylang
 {
    struct canonical_pointer_type_reference;
 
-   using canonical_type_reference = boost::variant< canonical_lookup_chain, boost::recursive_wrapper<canonical_pointer_type_reference>, integral_keyword_ast >;
+ //  using canonical_type_reference = boost::variant< canonical_lookup_chain, boost::recursive_wrapper<canonical_pointer_type_reference>, integral_keyword_ast >;
 
 }
 

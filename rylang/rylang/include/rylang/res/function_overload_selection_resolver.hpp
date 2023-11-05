@@ -8,6 +8,7 @@
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
@@ -15,10 +16,10 @@ namespace rylang
     {
         call_overload_set m_args;
         // TODO: Change to qualified reference
-        canonical_lookup_chain m_function_location;
+        qualified_symbol_reference m_function_location;
 
       public:
-        using key_type = std::pair< canonical_lookup_chain, call_overload_set >;
+        using key_type = std::pair< qualified_symbol_reference, call_overload_set >;
 
         function_overload_selection_resolver(key_type input)
             : m_function_location(input.first)
