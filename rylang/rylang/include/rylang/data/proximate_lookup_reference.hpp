@@ -13,10 +13,23 @@ namespace rylang
     struct proximate_lookup_reference
     {
         lookup_chain chain;
-        bool operator<(proximate_lookup_reference const& other) const
+
+        std::strong_ordering operator<=>(const proximate_lookup_reference& other) const
         {
-            return chain < other.chain;
+            return strong_ordering_from_less(chain, other.chain);
         }
+
+        bool operator==(const proximate_lookup_reference& other) const
+        {
+            return *this <=> other == std::strong_ordering::equal;
+        }
+
+        bool operator!=(const proximate_lookup_reference& other) const
+        {
+            return *this <=> other != std::strong_ordering::equal;
+        }
+
+
     };
 
 } // namespace rylang

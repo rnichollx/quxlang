@@ -6,8 +6,10 @@
 #define RPNX_RYANSCRIPT1031_FUNCTION_STATEMENT_HEADER
 
 #include "rylang/data/expression.hpp"
-#include <boost/variant.hpp>
 #include "rylang/data/function_return_statement.hpp"
+#include <boost/variant.hpp>
+#include <tuple>
+#include <utility>
 
 namespace rylang
 {
@@ -18,14 +20,15 @@ namespace rylang
     // TODO: Implement while
     struct function_while_statement
     {
+        std::strong_ordering operator<=>(const function_while_statement& other) const = default;
     };
     // TODO: Implement var
     struct function_var_statement
     {
         std::string name;
         type_reference type;
+        std::strong_ordering operator<=>(const function_var_statement& other) const = default;
     };
-
 
     using function_statement =
         boost::variant< std::monostate, boost::recursive_wrapper< function_block >, boost::recursive_wrapper< function_expression_statement >, boost::recursive_wrapper< function_if_statement >,
@@ -34,6 +37,15 @@ namespace rylang
     struct function_block
     {
         std::vector< function_statement > statements;
+
+        auto tie() const
+        {
+            return std::tie(statements);
+        }
+
+
+
+        std::strong_ordering operator<=>(const function_block& other) const = default;
     };
 
 } // namespace rylang

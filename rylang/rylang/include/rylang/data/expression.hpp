@@ -33,6 +33,7 @@ namespace rylang
 
     struct expression_this_reference
     {
+        std::strong_ordering operator<=>(const expression_this_reference& other) const = default;
     };
 
     struct expression_dotreference;
@@ -40,11 +41,14 @@ namespace rylang
     struct expression_thisdot_reference
     {
         std::string field_name;
+        std::strong_ordering operator<=>(const expression_thisdot_reference& other) const = default;
     };
 
     struct expression_lvalue_reference
     {
         std::string identifier;
+
+        std::strong_ordering operator<=>(const expression_lvalue_reference& other) const = default;
     };
     struct expression_multiply;
 

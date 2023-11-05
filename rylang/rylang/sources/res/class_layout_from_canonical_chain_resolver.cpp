@@ -12,19 +12,13 @@
 void rylang::class_layout_from_canonical_chain_resolver::process(compiler* c)
 {
     auto& chain = this->m_chain;
-    std::cout << "=====" << std::endl;
-
     class_layout output;
-
-    // TODO:
-
     // 1 get class field information
     auto class_field_dp = get_dependency(
         [&]
         {
             return c->lk_class_field_declaration_list_from_canonical_chain(chain);
         });
-
     if (!ready())
         return;
 

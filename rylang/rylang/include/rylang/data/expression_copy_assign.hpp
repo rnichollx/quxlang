@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_EXPRESSION_COPY_ASSIGN_HEADER
 
 #include "expression.hpp"
+#include <compare>
 
 namespace rylang
 {
@@ -16,6 +17,8 @@ namespace rylang
         static constexpr const int priority = 0;
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_copy_assign& other) const  = default;
     };
 
 } // namespace rylang

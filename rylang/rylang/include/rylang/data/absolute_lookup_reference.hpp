@@ -6,15 +6,22 @@
 #define RPNX_RYANSCRIPT1031_ABSOLUTE_LOOKUP_REFERENCE_HEADER
 
 #include "rylang/data/lookup_chain.hpp"
+#include "rylang/ordering.hpp"
 
 namespace rylang
 {
     struct absolute_lookup_reference
     {
         lookup_chain chain;
-        bool operator <(absolute_lookup_reference const& other) const
+
+        std::strong_ordering operator<=>(const absolute_lookup_reference& other) const
         {
-            return chain < other.chain;
+            return strong_ordering_from_less(chain, other.chain);
+        }
+
+        bool operator==(const absolute_lookup_reference& other) const
+        {
+            return *this <=> other == std::strong_ordering::equal;
         }
     };
 } // namespace rylang

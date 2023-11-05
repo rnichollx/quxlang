@@ -20,6 +20,8 @@
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/data/cpu_architecture.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
+#include "rylang/data/vm_procedure.hpp"
+#include "rylang/llvmg/vm_llvm_frame.hpp"
 
 namespace rylang
 {
@@ -36,14 +38,19 @@ namespace rylang
         }
 
       private:
-        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, llvm_proxy_type_int t);
+        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, vm_type_int t);
 
         llvm::PointerType * get_llvm_type_opaque_ptr(llvm::LLVMContext &context);
 
-        llvm::Type * get_llvm_type_from_proxy(llvm::LLVMContext &context, llvm_proxy_type typ);
+
+        llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, vm_type typ);
+        llvm::Type * get_llvm_type_from_vm_storage(llvm::LLVMContext &context, vm_allocate_storage typ);
 
       public:
-        std::vector< std::byte > get_function_code(cpu_arch cpu_type, canonical_resolved_function_chain);
+        std::vector< std::byte > get_function_code(cpu_arch cpu_type, vm_procedure vmf);
+        void generate_code(llvm::LLVMContext & context, llvm::BasicBlock* p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame);
+        void generate_arg_push(llvm::LLVMContext& context, llvm::BasicBlock* p_block, llvm::Function* p_function, rylang::vm_procedure procedure, rylang::vm_llvm_frame& frame);
+        llvm::Value* get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value);
     };
 } // namespace rylang
 

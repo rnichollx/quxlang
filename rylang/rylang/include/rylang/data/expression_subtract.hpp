@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_EXPRESSION_SUBTRACT_HEADER
 
 #include "expression.hpp"
+#include <compare>
 
 namespace rylang
 {
@@ -17,6 +18,8 @@ namespace rylang
 
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_subtract& other) const  = default;
     };
 } // namespace rylang
 

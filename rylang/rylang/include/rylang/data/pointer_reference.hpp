@@ -17,6 +17,11 @@ namespace rylang
         {
             return to < other.to;
         }
+
+        inline bool operator ==(pointer_reference const& other) const
+        {
+            return to == other.to;
+        }
     };
 } // namespace rylang
 

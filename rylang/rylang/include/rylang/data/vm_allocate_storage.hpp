@@ -11,8 +11,8 @@ namespace rylang
 {
     struct vm_allocate_storage
     {
-        std::size_t size;
-        std::size_t align;
+        std::size_t size = 0;
+        std::size_t align = 0;
     };
 } // namespace rylang
 

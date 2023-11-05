@@ -10,7 +10,7 @@ namespace rylang
 {
     struct vm_expr_load_address
     {
-        std::size_t table;
+        std::size_t index;
     };
 } // namespace rylang
 

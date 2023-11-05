@@ -40,7 +40,7 @@ MODULE main;
      {
         .foo VAR I32;
 
-        .buz FUNCTION(%a I32, %b I64)
+        .buz FUNCTION(%a I32, %b I32): I32
         {
            VAR c : I32;
            c := a + b;

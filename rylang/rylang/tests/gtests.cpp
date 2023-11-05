@@ -9,6 +9,9 @@
 #include "rylang/manipulators/merge_entity.hpp"
 
 #include "rylang/cow.hpp"
+#include "rylang/data/canonical_lookup_chain.hpp"
+#include "rylang/data/canonical_resolved_function_chain.hpp"
+#include "rylang/manipulators/mangler.hpp"
 
 #include <boost/variant.hpp>
 
@@ -24,6 +27,37 @@ struct bar
 class collector_tester : public ::testing::Test
 {
 };
+
+TEST(mangling, name_mangling)
+{
+    rylang::canonical_lookup_chain chain = rylang::canonical_lookup_chain{"foo", "bar", "baz"};
+
+    rylang::canonical_resolved_function_chain resolved_chain = {chain, 0};
+
+    std::string mangled_name = rylang::mangle(resolved_chain);
+
+    ASSERT_EQ(mangled_name, "_S_fooNbarNbazF0");
+}
+
+TEST(mangling, name_mangling_new)
+{
+    rylang::module_reference module{"main"};
+
+    rylang::subentity_reference subentity{module, "foo"};
+
+    rylang::subentity_reference subentity2{subentity, "bar"};
+
+    rylang::subentity_reference subentity3{subentity2, "baz"};
+
+    rylang::parameter_set_reference param_set{subentity3, {}};
+
+    param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
+    param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
+
+    std::string mangled_name = rylang::mangle(rylang::qualified_type_reference(param_set));
+
+    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAI32AI32E");
+}
 
 TEST_F(collector_tester, order_of_operations)
 {
@@ -109,7 +143,6 @@ TEST(cow, cow_tests)
 
     ASSERT_EQ(&strings->at(0).get(), &strings2->at(0).get());
     ASSERT_NE(&strings->at(1).get(), &strings2->at(1).get());
-
 }
 
 TEST_F(collector_tester, function_call)

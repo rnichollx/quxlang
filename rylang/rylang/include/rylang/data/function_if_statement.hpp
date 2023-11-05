@@ -16,6 +16,8 @@ namespace rylang
         expression condition;
         function_block then_block;
         std::optional< function_block > else_block;
+
+        std::strong_ordering operator<=>(const function_if_statement& other) const = default;
     };
 
 } // namespace rylang

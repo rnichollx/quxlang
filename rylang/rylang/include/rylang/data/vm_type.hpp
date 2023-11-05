@@ -17,7 +17,7 @@ namespace rylang
 
     struct vm_type_pointer{};
 
-    using vm_type = boost::variant<vm_type_int, vm_type_pointer>;
+    using vm_type = boost::variant<std::monostate, vm_type_int, vm_type_pointer>;
 } // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_VM_TYPE_HEADER

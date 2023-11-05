@@ -479,7 +479,7 @@ namespace rylang
 
             if (it != end && (*it == 'I' || *it == 'U'))
             {
-                ast.is_sized = *it++ == 'I';
+                ast.is_signed = *it++ == 'I';
 
                 auto dig_start = it;
                 while (it != end && std::isdigit(*it))
@@ -517,6 +517,14 @@ namespace rylang
                 output.chain.push_back(lk);
                 skip_wsc(pos, end);
             } while (skip_symbol_if_is(pos, end, "::"));
+        }
+
+        template < typename It >
+        type_reference collect_type_reference(It& pos, It end)
+        {
+            type_reference output;
+            collect_type_reference(pos, end, output);
+            return output;
         }
 
         template < typename It >
@@ -705,6 +713,14 @@ namespace rylang
             skip_wsc(pos, end);
 
             std::string remaining = std::string(pos, end);
+            if (skip_symbol_if_is(pos, end, ":"))
+            {
+                skip_wsc(pos, end);
+
+                f.return_type = collect_type_reference(pos, end);
+
+                skip_wsc(pos, end);
+            }
 
             if (!skip_symbol_if_is(pos, end, "{"))
             {
@@ -1078,7 +1094,7 @@ namespace rylang
 
             if (skip_symbol_if_is(pos, end, ";"))
             {
-              return output;
+                return output;
             }
 
             output.expr = collect_expression(pos, end);

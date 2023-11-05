@@ -16,6 +16,8 @@ namespace rylang
 
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_move_assign& other) const  = default;
     };
 } // namespace rylang
 

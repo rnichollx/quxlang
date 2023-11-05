@@ -13,6 +13,10 @@ namespace rylang
     struct function_return_statement
     {
         std::optional<expression> expr;
+
+        std::strong_ordering operator<=>(const function_return_statement& other) const = default;
+        inline bool operator==(const function_return_statement& other) const = default;
+        inline bool operator!=(const function_return_statement& other) const = default;
     };
 } // namespace rylang
 

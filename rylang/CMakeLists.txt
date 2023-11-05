@@ -84,7 +84,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/canonical_resolved_function_chain.hpp
         rylang/include/rylang/data/function_argument.hpp
         rylang/include/rylang/data/functiod_interface.hpp
-        rylang/include/rylang/data/functoid_argument.hpp
         rylang/include/rylang/data/call_overload_set.hpp
         rylang/include/rylang/res/function_overload_selection_resolver.hpp
         rylang/include/rylang/res/mangled_name_resolver.hpp
@@ -107,6 +106,15 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/data/vm_procedure_interface.hpp
         rylang/include/rylang/data/vm_type.hpp
         rylang/include/rylang/data/vm_expression.hpp
+        rylang/include/rylang/llvmg/vm_llvm_frame.hpp
+        rylang/include/rylang/llvmg/vm_llvm_frame_item.hpp
+        rylang/include/rylang/data/vm_expr_primitive_op.hpp
+        rylang/include/rylang/manipulators/vm_type_alignment.hpp
+        rylang/include/rylang/data/vm_expr_call.hpp
+        rylang/include/rylang/data/vm_expr_dereference.hpp
+        rylang/include/rylang/ordering.hpp
+        rylang/include/rylang/data/qualified_reference.hpp
+        rylang/include/rylang/manipulators/mangler.hpp
 )
 
 target_include_directories(rylang PUBLIC rylang/include)

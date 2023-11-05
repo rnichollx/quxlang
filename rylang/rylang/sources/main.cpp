@@ -11,7 +11,24 @@ int main(int argc, char** argv)
     auto func_name = rylang::canonical_resolved_function_chain{};
     func_name.function_entity_chain = rylang::canonical_lookup_chain{"main"};
     func_name.overload_index = 0;
-    auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );
+    rylang::vm_procedure vmf;
+
+    auto u32 = rylang::vm_type_int{32, false};
+    vmf.interface.argument_types.push_back(u32);
+    vmf.interface.argument_types.push_back(u32);
+    vmf.interface.return_type = u32;
+
+    vmf.body.code.push_back(rylang::vm_allocate_storage{4, 4});
+    rylang::vm_store save_value;
+    save_value.what = rylang::vm_expr_primitive_binary_op{rylang::vm_expr_dereference{rylang::vm_expr_load_address{0}, u32}, rylang::vm_expr_dereference{rylang::vm_expr_load_address{1},u32},
+                                                          rylang::vm_primitive_binary_operator::add};
+    save_value.where = rylang::vm_expr_load_address{2};
+    save_value.type = u32;
+    vmf.body.code.push_back(save_value);
+    vmf.body.code.push_back(rylang::vm_return{rylang::vm_expr_dereference{rylang::vm_expr_load_address{2}, u32}});
+
+    auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
+    // auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );
     /*
         auto files = c.get_file_list();
 

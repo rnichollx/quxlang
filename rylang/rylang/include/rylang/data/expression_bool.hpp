@@ -16,6 +16,8 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_and& other) const  = default;
     };
 
     // operator || (logical or)
@@ -26,6 +28,7 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+        std::strong_ordering operator<=>(const expression_or& other) const  = default;
     };
 
 
@@ -37,6 +40,8 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_nor& other) const  = default;
     };
 
     // operator ^^ (logical xor)
@@ -47,6 +52,7 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+        std::strong_ordering operator<=>(const expression_xor& other) const  = default;
     };
 
     // Operator !& (nand)
@@ -57,6 +63,8 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+
+        std::strong_ordering operator<=>(const expression_nand& other) const  = default;
     };
 
     // operator ^> (logical implication)
@@ -67,6 +75,7 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+        std::strong_ordering operator<=>(const expression_implies& other) const = default;
     };
 
     // operator ^< (logical reverse implication)
@@ -77,6 +86,7 @@ namespace rylang
         static constexpr const int priority = 1;
         expression lhs;
         expression rhs;
+        std::strong_ordering operator<=>(const expression_implied& other) const = default;
     };
 } // namespace rylang
 

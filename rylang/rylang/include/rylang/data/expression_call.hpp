@@ -14,6 +14,8 @@ namespace rylang
     {
         expression callee;
         std::vector< expression > args;
+
+        std::strong_ordering operator<=>(const expression_call& other) const = default;
     };
 } // namespace rylang
 
