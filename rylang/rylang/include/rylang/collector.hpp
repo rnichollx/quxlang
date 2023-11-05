@@ -375,7 +375,6 @@ namespace rylang
         template < typename It >
         void collect_class_member(It& pos, It it_end, class_ast& c)
         {
-            std::cout << "Found class member" << std::endl;
             skip_wsc(pos, it_end);
 
             expect_more(pos, it_end);
@@ -398,7 +397,6 @@ namespace rylang
                 // now a type
                 collect_type_symbol(pos, it_end, member.type);
 
-                std::cout << "Found member variable " << member.name << " of type " << member.type.to_string() << std::endl;
                 skip_wsc(pos, it_end);
                 if (!skip_symbol_if_is(pos, it_end, ";"))
                 {

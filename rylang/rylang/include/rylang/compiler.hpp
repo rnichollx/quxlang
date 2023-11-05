@@ -71,7 +71,7 @@ namespace rylang
         friend class canonical_type_is_implicitly_convertible_to_resolver;
         friend class overload_set_is_callable_with_resolver;
         friend class function_overload_selection_resolver;
-
+        friend class function_qualified_reference_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -101,15 +101,23 @@ namespace rylang
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
         }
-        //index< class_list_resolver > m_class_list_index;
 
-        index<function_overload_selection_resolver> m_function_overload_selection_index;
-        out < call_overload_set > lk_function_overload_selection(std::pair< canonical_lookup_chain, call_overload_set > const& input)
+      public:
+        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_overload_set args)
         {
-            return m_function_overload_selection_index.lookup(input);
+            auto node = lk_function_qualname(name, args);
+            m_solver.solve(this, node);
+            return node->get();
         }
 
+      private:
+        // index< class_list_resolver > m_class_list_index;
 
+        index< function_overload_selection_resolver > m_function_overload_selection_index;
+        out< call_overload_set > lk_function_overload_selection(canonical_lookup_chain const& chain, call_overload_set const& os)
+        {
+            return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
+        }
 
         index< overload_set_is_callable_with_resolver > m_overload_set_is_callable_with_index;
         out< bool > lk_overload_set_is_callable_with(std::pair< call_overload_set, call_overload_set > const& input)

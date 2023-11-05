@@ -10,7 +10,7 @@
 
 namespace rylang
 {
-    struct canonical_lookup_chain : std::vector< std::string >
+    struct  canonical_lookup_chain : std::vector< std::string >
     {
 
         canonical_lookup_chain() = default;

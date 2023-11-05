@@ -1,5 +1,7 @@
 #include "rylang/compiler.hpp"
+#include "rylang/converters/qual_converters.hpp"
 #include "rylang/llvm_code_generator.hpp"
+#include "rylang/manipulators/mangler.hpp"
 #include <iostream>
 
 int main(int argc, char** argv)
@@ -36,9 +38,12 @@ int main(int argc, char** argv)
     args.argument_types.push_back(u32type);
     args.argument_types.push_back(u32type);
 
-    auto ol = c.get_function_overload_selection(cn, args);
+    rylang::qualified_symbol_reference ql = rylang::convert_to_qualified_symbol_reference(cn);
+    auto qn = c.get_function_qualname(ql, args);
 
-    std::cout << "Got overload..." << std::endl;
+    std::string name = rylang::mangle(qn);
+
+    std::cout << "Got overload:" << name << std::endl;
     // auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );
     /*
         auto files = c.get_file_list();

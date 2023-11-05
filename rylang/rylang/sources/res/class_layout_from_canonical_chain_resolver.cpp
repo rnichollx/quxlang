@@ -58,9 +58,7 @@ void rylang::class_layout_from_canonical_chain_resolver::process(compiler* c)
         auto placement_info = placement_info_dp->get();
 
 
-        std::cout << "F " << this_field.name << " SZ " << output.size << " A " << placement_info.alignment << std::endl;
-        advance_to_alignment(output.size, placement_info.alignment);
-std::cout << "Z " << this_field.name << " SZ " << output.size << " A " << placement_info.alignment << std::endl;
+       advance_to_alignment(output.size, placement_info.alignment);
 
         this_field.offset = output.size;
         output.size += placement_info.size;

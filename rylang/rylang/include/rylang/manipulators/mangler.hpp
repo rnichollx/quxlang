@@ -30,9 +30,17 @@ namespace rylang
         {
             return "P" + mangle_internal(boost::get< pointer_to_reference >(qt).target);
         }
-        else if (qt.type() == boost::typeindex::type_id< primitive_type_reference >())
+        else if (qt.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {
-            return boost::get< primitive_type_reference >(qt).type_name;
+            auto const& i = boost::get< primitive_type_integer_reference >(qt);
+            if (i.has_sign)
+            {
+                return "I" + std::to_string(i.bits);
+            }
+            else
+            {
+                return "U" + std::to_string(i.bits);
+            }
         }
         else if (qt.type() == boost::typeindex::type_id< parameter_set_reference >())
         {

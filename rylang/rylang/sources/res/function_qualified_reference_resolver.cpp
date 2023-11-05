@@ -2,6 +2,7 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 #include "rylang/res/function_qualified_reference_resolver.hpp"
+#include "rylang/compiler.hpp"
 #include "rylang/converters/qual_converters.hpp"
 
 void rylang::function_qualified_reference_resolver::process(compiler* c)
@@ -20,9 +21,8 @@ void rylang::function_qualified_reference_resolver::process(compiler* c)
 
     call_overload_set cs = call_overload_set_dp->get();
 
-
     qualified_symbol_reference output = convert_to_qualified_symbol_reference(chain, cs);
 
-    output = parameter_set_reference{output, cs};
-    // TODO:
+
+    set_value(output);
 }

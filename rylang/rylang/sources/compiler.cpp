@@ -33,7 +33,7 @@ rylang::function_ast rylang::compiler::get_function_ast_of_overload(rylang::cano
 rylang::call_overload_set rylang::compiler::get_function_overload_selection(canonical_lookup_chain chain, call_overload_set args)
 
 {
-    auto node = lk_function_overload_selection(std::make_pair(chain, args));
+    auto node = lk_function_overload_selection(chain, args);
     m_solver.solve(this, node);
     return node->get();
 }
