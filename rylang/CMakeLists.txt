@@ -25,7 +25,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/include/rylang/res/module_ast_resolver.hpp
         rylang/sources/res/module_ast_resolver.cpp
         rylang/include/rylang/manipulators/merge_entity.hpp
-        rylang/include/rylang/manipulators/merge_entity.hpp
         rylang/sources/merge_entity.cpp
         rylang/include/rylang/data/contextual_type_reference.hpp
         rylang/include/rylang/data/type_reference.hpp
@@ -42,7 +41,6 @@ add_library(rylang rylang/include/rylang/ast/entity_ast.hpp rylang/include/rylan
         rylang/sources/res/type_size_from_canonical_type_resolver.cpp
         rylang/include/rylang/res/machine_info_resolver.hpp
         rylang/include/rylang/data/machine_info.hpp
-        rylang/include/rylang/ast/type_ref_ast2.hpp
         rylang/include/rylang/ast/reference_type_ast.hpp
         rylang/include/rylang/ast/lookup_chain_ast.hpp
         rylang/include/rylang/data/absolute_lookup_reference.hpp
@@ -139,9 +137,8 @@ target_sources(rylang PRIVATE rylang/sources/compiler.cpp
         rylang/include/rylang/res/file_content_resolver.hpp
         rylang/sources/res/file_content_resolver.cpp
         rylang/sources/res/file_ast_resolver.cpp
-        rylang/include/rylang/ast/class_ast.hpp
         rylang/include/rylang/collector.hpp rylang/include/rylang/ast/function_ast.hpp rylang/include/rylang/ast/type_ref_ast.hpp include/rpnx/value.hpp rylang/include/rylang/ast/symbol_ref_ast.hpp rylang/include/rylang/parser.hpp rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/ast/null_object_ast.hpp rylang/include/rylang/ast/null_object_ast.hpp
-        rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/data/class_list.hpp rylang/include/rylang/res/class_list_resolver.hpp rylang/sources/res/class_list_resolver.cpp rylang/sources/res/classes_per_file_resolver.cpp rylang/include/rylang/res/classes_per_file_resolver.hpp rylang/include/rylang/ast/namespace_ast.hpp)
+        rylang/include/rylang/ex/unexpected_eof.hpp rylang/include/rylang/data/class_list.hpp rylang/include/rylang/res/class_list_resolver.hpp rylang/sources/res/class_list_resolver.cpp rylang/sources/res/classes_per_file_resolver.cpp rylang/include/rylang/res/classes_per_file_resolver.hpp )
 target_link_libraries(rylang PUBLIC graphlib Boost::boost)
 target_link_libraries(rylang_main PUBLIC rylang)
 
