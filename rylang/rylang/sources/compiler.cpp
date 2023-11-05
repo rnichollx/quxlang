@@ -17,12 +17,14 @@ rylang::compiler::out< rylang::file_ast > rylang::compiler::lk_file_ast(std::str
 {
     return m_file_ast_index.lookup(filename);
 }
-rylang::llvm_proxy_type rylang::compiler::get_llvm_proxy_return_type_of(rylang::canonical_resolved_function_chain chain)
+rylang::llvm_proxy_type rylang::compiler::get_llvm_proxy_return_type_of(qualified_symbol_reference chain)
 {
+    // TODO: Implement this with real code
     return rylang::llvm_proxy_type_int{32, false};
 }
-std::vector< rylang::llvm_proxy_type > rylang::compiler::get_llvm_proxy_argument_types_of(rylang::canonical_resolved_function_chain chain)
+std::vector< rylang::llvm_proxy_type > rylang::compiler::get_llvm_proxy_argument_types_of(rylang::qualified_symbol_reference chain)
 {
+    // TODO: Make this use real values
     return {llvm_proxy_type_pointer(), llvm_proxy_type_int{32, false}};
 }
 

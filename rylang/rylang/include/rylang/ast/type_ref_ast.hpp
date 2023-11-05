@@ -13,6 +13,7 @@
 #include "rylang/ast/null_object_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/data/type_reference.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
@@ -23,7 +24,7 @@ namespace rylang
         std::string to_string() const;
         bool operator < (type_ref_ast const& other) const;
 
-        operator type_reference() const;
+        operator qualified_symbol_reference() const;
         //auto operator<=>(type_ref_ast const&) const;
     };
 } // namespace rylang

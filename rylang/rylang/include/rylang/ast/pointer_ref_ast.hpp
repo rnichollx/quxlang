@@ -12,11 +12,8 @@ namespace rylang
 {
     struct pointer_ref_ast
     {
-        type_ref_ast type;
-        inline std::string to_string() const
-        {
-            return "ast_pointer_ref{ type: " + type.to_string() + " }";
-        }
+        qualified_symbol_reference type;
+
         bool operator < (pointer_ref_ast const& other) const
         {
             return type < other.type;

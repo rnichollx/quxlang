@@ -13,12 +13,9 @@ namespace rylang
     struct member_variable_ast
     {
         std::string name;
-        type_ref_ast type;
+        qualified_symbol_reference type;
 
-        std::string to_string()
-        {
-            return "ast_member_variable{ name: " + name + ", type: " + type.to_string() + " }";
-        }
+
     };
 } // namespace rylang
 

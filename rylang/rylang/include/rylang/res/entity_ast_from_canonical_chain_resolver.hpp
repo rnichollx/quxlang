@@ -6,7 +6,6 @@
 #define RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
 
 #include "rpnx/resolver_utilities.hpp"
-#include "rylang/ast/class_ast.hpp"
 #include "rylang/ast/entity_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_lookup_chain.hpp"

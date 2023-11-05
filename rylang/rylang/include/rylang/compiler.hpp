@@ -5,7 +5,6 @@
 #ifndef RPNX_RYANSCRIPT1031_COMPILER_HEADER
 #define RPNX_RYANSCRIPT1031_COMPILER_HEADER
 
-#include "rylang/ast/class_ast.hpp"
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -220,10 +219,6 @@ namespace rylang
             return m_module_ast_index.lookup(module_name);
         }
 
-        // out< class_ast > lk_class_ast(symbol_id id);
-        // out< symbol_id > lk_global_lookup(std::string const& name);
-        // out< symbol_id > lk_lookup_full_chain(lookup_chain const& chain);
-        // out< symbol_id > lk_lookup_relative(symbol_id, lookup_singular const& part);
 
         out< filelist > lk_file_list()
         {
@@ -315,8 +310,8 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
-        llvm_proxy_type get_llvm_proxy_return_type_of(rylang::canonical_resolved_function_chain chain);
-        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(canonical_resolved_function_chain chain);
+        llvm_proxy_type get_llvm_proxy_return_type_of(qualified_symbol_reference chain);
+        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(qualified_symbol_reference chain);
 
         function_ast get_function_ast_of_overload(qualified_symbol_reference chain);
         call_overload_set get_function_overload_selection(qualified_symbol_reference chain, call_overload_set args);
