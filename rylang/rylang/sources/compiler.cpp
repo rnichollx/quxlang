@@ -26,11 +26,11 @@ std::vector< rylang::llvm_proxy_type > rylang::compiler::get_llvm_proxy_argument
     return {llvm_proxy_type_pointer(), llvm_proxy_type_int{32, false}};
 }
 
-rylang::function_ast rylang::compiler::get_function_ast_of_overload(rylang::canonical_resolved_function_chain chain)
+rylang::function_ast rylang::compiler::get_function_ast_of_overload(qualified_symbol_reference chain)
 {
     return rylang::function_ast{};
 }
-rylang::call_overload_set rylang::compiler::get_function_overload_selection(canonical_lookup_chain chain, call_overload_set args)
+rylang::call_overload_set rylang::compiler::get_function_overload_selection(qualified_symbol_reference chain, call_overload_set args)
 
 {
     auto node = lk_function_overload_selection(chain, args);

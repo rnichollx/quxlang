@@ -7,7 +7,7 @@
 
 namespace rylang
 {
-    struct integral_keyword_ast
+    struct [[deprecated]] integral_keyword_ast
     {
         bool is_signed;
         int size;

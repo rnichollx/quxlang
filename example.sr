@@ -7,7 +7,7 @@ MODULE main;
   .h VAR -> ::qux;
   .z VAR ::bar::zig;
   .z2 VAR -> ::bar::zig;
-  .q VAR :zam;
+  .q VAR zam;
 
 
   ::zam CLASS {
@@ -54,7 +54,7 @@ MODULE main;
            RETURN c;
         }
 
-        .baz VAR :buz::quz;
+        .baz VAR buz::quz;
      }
 
   }
