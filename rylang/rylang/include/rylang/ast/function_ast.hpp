@@ -10,7 +10,6 @@
 
 #include "function_arg_ast.hpp"
 #include "rylang/data/function_block.hpp"
-#include "rylang/data/type_reference.hpp"
 
 namespace rylang
 {

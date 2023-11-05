@@ -13,7 +13,6 @@
 #include "rylang/ast/null_object_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
 #include "rylang/data/qualified_reference.hpp"
-#include "rylang/data/type_reference.hpp"
 
 namespace rylang
 {

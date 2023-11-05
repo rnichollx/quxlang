@@ -6,8 +6,6 @@
 #include "rylang/data/class_field_declaration.hpp"
 #include "rylang/manipulators/struct_math.hpp"
 
-// TODO: remove this
-#include <iostream>
 
 void rylang::class_layout_from_canonical_chain_resolver::process(compiler* c)
 {

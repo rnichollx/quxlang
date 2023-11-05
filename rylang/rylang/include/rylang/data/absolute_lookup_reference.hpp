@@ -10,7 +10,7 @@
 
 namespace rylang
 {
-    struct absolute_lookup_reference
+    struct [[deprecated("qualified")]] absolute_lookup_reference
     {
         lookup_chain chain;
 

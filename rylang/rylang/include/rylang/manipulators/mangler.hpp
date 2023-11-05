@@ -65,7 +65,7 @@ namespace rylang
     }
 
 
-    inline std::string mangle_internal(canonical_resolved_function_chain const& func)
+    inline  std::string  mangle_internal [[deprecated("qualified")]] (canonical_resolved_function_chain const& func)
     {
         std::string out = mangle_internal(func.function_entity_chain);
         out += "F";
@@ -75,7 +75,7 @@ namespace rylang
 
 
 
-    inline std::string mangle(canonical_resolved_function_chain const& func)
+    inline std::string  mangle [[deprecated("qualified")]](canonical_resolved_function_chain const& func)
     {
         std::string out = "_S_";
         out += mangle_internal(func);

@@ -3,11 +3,6 @@
 
 void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c)
 {
-    // TODO: implement
-
-    // 1 get AST
-    // Examine ast and generate type list
-
     qualified_symbol_reference canonical_chain = m_chain;
 
     auto ast_dp = get_dependency(
@@ -20,8 +15,6 @@ void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c
         return;
 
     entity_ast ent_ast = ast_dp->get();
-
-    // result_type output;
 
     std::vector< class_field_declaration > output;
 

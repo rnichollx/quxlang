@@ -395,13 +395,13 @@ namespace rylang
         }
 
         template < typename It >
-        bool try_get_integral_keyword(It& pos, It end, integral_keyword_ast& ast)
+        bool try_get_integral_keyword(It& pos, It end, primitive_type_integer_reference& ast)
         {
             auto it = pos;
 
             if (it != end && (*it == 'I' || *it == 'U'))
             {
-                ast.is_signed = *it++ == 'I';
+                ast.has_sign = *it++ == 'I';
 
                 auto dig_start = it;
                 while (it != end && std::isdigit(*it))
@@ -410,7 +410,7 @@ namespace rylang
                 }
 
                 std::string dig_str = std::string(dig_start, it);
-                ast.size = (int)std::stoi(dig_str.c_str());
+                ast.bits = (int)std::stoi(dig_str.c_str());
 
                 pos = it;
                 return true;
@@ -447,12 +447,9 @@ namespace rylang
             qualified_symbol_reference output = context_reference{};
             skip_wsc(pos, end);
         start:
-            integral_keyword_ast integral;
-            if (try_get_integral_keyword(pos, end, integral))
+            primitive_type_integer_reference intr;
+            if (try_get_integral_keyword(pos, end, intr))
             {
-                primitive_type_integer_reference intr;
-                intr.bits = integral.size;
-                intr.has_sign = integral.is_signed;
                 return intr;
             }
             else if (skip_symbol_if_is(pos, end, "::"))
@@ -480,9 +477,8 @@ namespace rylang
                 output = subentity_reference{std::move(output), std::move(ident)};
             }
 
-            skip_wsc(pos, end);
-
         check_next:
+            skip_wsc(pos, end);
 
             if (skip_symbol_if_is(pos, end, "::"))
             {
@@ -493,8 +489,32 @@ namespace rylang
                 output = subentity_reference{std::move(output), std::move(ident)};
                 goto check_next;
             }
+            else if (skip_symbol_if_is(pos, end, "(") )
+            {
+                parameter_set_reference param_set;
+                param_set.callee = std::move(output);
 
-            // TODO: Accept function calls here.
+                skip_wsc(pos, end);
+                if (skip_symbol_if_is(pos, end, ")"))
+                {
+                    output = param_set;
+                    goto check_next;
+                }
+            next_arg:
+                skip_wsc(pos, end);
+                param_set.parameters.push_back(collect_qualified_symbol(pos, end));
+                skip_wsc(pos, end);
+                if (skip_symbol_if_is(pos, end, ")"))
+                {
+                    output = param_set;
+                    goto check_next;
+                }
+                else if (!skip_symbol_if_is(pos, end, ","))
+                {
+                    throw std::runtime_error("expected ',' or ')'");
+                }
+                goto next_arg;
+            }
 
             return output;
         }
@@ -783,8 +803,6 @@ namespace rylang
             else if (get_identifier(pos, end).empty() == false)
             {
                 std::string identifier = get_skip_identifier(pos, end);
-                // TODO: lookup chain?
-
                 expression_lvalue_reference lvalue;
                 lvalue.identifier = identifier;
                 *value_bind_point = lvalue;

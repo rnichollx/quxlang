@@ -15,7 +15,6 @@ namespace rylang
     class function_overload_selection_resolver : public rpnx::resolver_base< compiler, call_overload_set >
     {
         call_overload_set m_args;
-        // TODO: Change to qualified reference
         qualified_symbol_reference m_function_location;
 
       public:

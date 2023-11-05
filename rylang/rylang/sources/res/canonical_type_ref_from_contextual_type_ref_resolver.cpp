@@ -8,9 +8,6 @@
 
 void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylang::compiler* c)
 {
-    // TODO: implement this :D
-
-    // For now just assume all types are canonical.
 
     qualified_symbol_reference context = m_ref.context;
     qualified_symbol_reference const& type = m_ref.type;
