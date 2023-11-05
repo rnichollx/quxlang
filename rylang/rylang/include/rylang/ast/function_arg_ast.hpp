@@ -8,7 +8,6 @@
 #include <string>
 
 #include "rylang/data/qualified_reference.hpp"
-#include "type_ref_ast.hpp"
 
 namespace rylang
 {

@@ -5,8 +5,8 @@
 #ifndef RPNX_RYANSCRIPT1031_MEMBER_VARIABLE_AST_HEADER
 #define RPNX_RYANSCRIPT1031_MEMBER_VARIABLE_AST_HEADER
 
-#include "type_ref_ast.hpp"
 #include <string>
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
@@ -14,8 +14,6 @@ namespace rylang
     {
         std::string name;
         qualified_symbol_reference type;
-
-
     };
 } // namespace rylang
 

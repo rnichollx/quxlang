@@ -6,7 +6,6 @@
 #define RPNX_RYANSCRIPT1031_CONTEXTUAL_TYPE_REFERENCE_HEADER
 
 #include "lookup_chain.hpp"
-#include "rylang/ast/type_ref_ast.hpp"
 #include "rylang/data/lookup_type.hpp"
 #include "rylang/data/qualified_reference.hpp"
 

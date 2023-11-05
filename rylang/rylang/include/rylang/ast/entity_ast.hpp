@@ -11,6 +11,7 @@
 #include "rylang/ast/functum_entity_ast.hpp"
 #include "rylang/ast/namespace_entity_ast.hpp"
 #include "rylang/ast/variable_entity_ast.hpp"
+#include "rylang/ast/null_object_ast.hpp"
 #include "rylang/fwd.hpp"
 #include <map>
 #include <variant>

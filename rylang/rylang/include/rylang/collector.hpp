@@ -15,7 +15,6 @@
 #include "rylang/ast/function_ast.hpp"
 #include "rylang/ast/member_variable_ast.hpp"
 #include "rylang/ast/symbol_ref_ast.hpp"
-#include "rylang/ast/type_ref_ast.hpp"
 #include "rylang/converters/qual_converters.hpp"
 #include "rylang/cow.hpp"
 #include "rylang/data/expression_multiply.hpp"
