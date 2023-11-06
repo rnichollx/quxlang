@@ -30,7 +30,7 @@ namespace rylang
         vm_value expr;
     };
 
-    using vm_executable_unit = boost::variant< vm_store, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return >;
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return >;
 
 } // namespace rylang
 

@@ -13,7 +13,8 @@ namespace rylang
     struct vm_frame_variable
     {
         std::string name;
-        std::size_t offset;
+        qualified_symbol_reference type;
+        std::optional<std::string> destructor;
     };
 } // namespace rylang
 

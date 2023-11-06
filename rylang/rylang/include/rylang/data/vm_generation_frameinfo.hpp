@@ -13,6 +13,7 @@ namespace rylang
    struct vm_generation_frame_info
    {
       std::vector<vm_frame_variable > variables;
+      qualified_symbol_reference  context;
    };
 }
 

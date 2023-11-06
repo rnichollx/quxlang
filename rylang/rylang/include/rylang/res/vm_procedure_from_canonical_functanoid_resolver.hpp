@@ -9,7 +9,9 @@
 #include "rylang/data/vm_procedure.hpp"
 
 #include "rpnx/resolver_utilities.hpp"
+#include "rylang/data/function_statement.hpp"
 #include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/vm_generation_frameinfo.hpp"
 
 namespace rylang
 {
@@ -19,7 +21,7 @@ namespace rylang
         using key_type = qualified_symbol_reference;
 
         vm_procedure_from_canonical_functanoid_resolver(qualified_symbol_reference func_addr)
-        : m_func_name(func_addr)
+            : m_func_name(func_addr)
         {
         }
 
@@ -27,6 +29,19 @@ namespace rylang
 
       private:
         qualified_symbol_reference m_func_name;
+
+        bool build(compiler* c, vm_generation_frame_info& frame, vm_procedure& proc, function_statement statement);
+
+        bool build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_var_statement statement);
+        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_if_statement statement);
+        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_while_statement statement);
+        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
+        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
+
+        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
+
+        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
+        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_copy_assign expr);
     };
 } // namespace rylang
 
