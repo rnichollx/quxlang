@@ -23,6 +23,8 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // llvm::IRBuilder<> builder(context);
 
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>("main", context);
+
+    // TODO: This is placeholder
     module->setDataLayout("e-m:e-i64:64-i128:128-n32:64-S128");
 
     std::optional< vm_type > func_return_type = vmf.interface.return_type;
@@ -73,6 +75,8 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     FPM.doFinalization();
 
     func->print(llvm::outs());
+
+    // TODO: convert the code to machine/linker code/object and return it
 
     return {};
 }

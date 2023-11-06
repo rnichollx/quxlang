@@ -38,6 +38,9 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/contextualized_reference_resolver.hpp"
+#include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+#include "rylang/res/function_ast_resolver.hpp"
+#include "rylang/data/vm_procedure.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -72,6 +75,9 @@ namespace rylang
         friend class function_overload_selection_resolver;
         friend class function_qualified_reference_resolver;
         friend class contextualized_reference_resolver;
+        friend class function_ast_resolver;
+        friend class vm_procedure_from_canonical_functanoid_resolver;
+
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -94,6 +100,18 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index<function_ast_resolver> m_function_ast_index;
+        out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)
+        {
+            return m_function_ast_index.lookup(func_addr);
+        }
+
+        index<vm_procedure_from_canonical_functanoid_resolver> m_vm_procedure_from_canonical_functanoid_index;
+        out<vm_procedure> lk_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
+        {
+            return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
+        }
 
         index< contextualized_reference_resolver > m_contextualized_reference_index;
         out< qualified_symbol_reference > lk_contextualized_reference(qualified_symbol_reference symbol, qualified_symbol_reference context)
@@ -128,6 +146,11 @@ namespace rylang
         out< bool > lk_overload_set_is_callable_with(std::pair< call_overload_set, call_overload_set > const& input)
         {
             return m_overload_set_is_callable_with_index.lookup(input);
+        }
+
+        out< bool > lk_overload_set_is_callable_with(call_overload_set what, call_overload_set with)
+        {
+            return m_overload_set_is_callable_with_index.lookup(std::make_pair(std::move(what), std::move(with)));
         }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;

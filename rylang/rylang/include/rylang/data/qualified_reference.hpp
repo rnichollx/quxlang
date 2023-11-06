@@ -8,6 +8,7 @@
 #include <boost/variant.hpp>
 #include <compare>
 
+
 namespace rylang
 {
     struct module_reference;

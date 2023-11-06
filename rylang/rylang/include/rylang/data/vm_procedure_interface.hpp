@@ -8,12 +8,17 @@
 #include "vm_type.hpp"
 #include <vector>
 #include <optional>
+
+#include "rylang/data/qualified_reference.hpp"
+
 namespace rylang
 {
    struct vm_procedure_interface
    {
+
        std::vector<vm_type> argument_types;
        std::optional<vm_type> return_type;
+       std::vector<qualified_symbol_reference> argument_types_original;
    };
 } // namespace rylang
 
