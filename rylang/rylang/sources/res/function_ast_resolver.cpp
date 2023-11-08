@@ -4,7 +4,7 @@
 #include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/manipulators/argmanip.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 #include "rylang/variant_utils.hpp"
 
 void rylang::function_ast_resolver::process(rylang::compiler* c)
@@ -15,8 +15,13 @@ void rylang::function_ast_resolver::process(rylang::compiler* c)
 
     assert(!qualified_is_contextual(func_addr));
 
+
+    std::string typestr = boost::apply_visitor(qualified_symbol_stringifier(), func_addr);
+
     // TODO: We should only strip the overload set from functions, not templates
 
+    qualified_symbol_reference qf = parameter_set_reference{};
+    assert(typeis<parameter_set_reference>(qf  ));
     if (typeis< parameter_set_reference >(func_addr))
     {
         auto args = as< parameter_set_reference >(func_addr).parameters;

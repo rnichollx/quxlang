@@ -8,6 +8,7 @@
 #include "rylang/compiler.hpp"
 
 #include "rylang/converters/qual_converters.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 
 namespace rylang
 {
@@ -16,6 +17,8 @@ namespace rylang
         // TODO: Get the module
 
         qualified_symbol_reference const& chain = this->m_chain;
+
+        std::string typestirng = boost::apply_visitor(qualified_symbol_stringifier(), chain);
 
         if (chain.type() == boost::typeindex::type_id< module_reference >())
         {

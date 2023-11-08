@@ -3,7 +3,7 @@
 //
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/compiler.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 
 void rylang::type_size_from_canonical_type_resolver::process(compiler* c)
 {

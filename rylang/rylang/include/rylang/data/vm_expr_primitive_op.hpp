@@ -37,12 +37,14 @@ namespace rylang
         vm_value lhs;
         vm_value rhs;
         vm_primitive_binary_operator oper;
+        qualified_symbol_reference type;
     };
 
     struct vm_expr_primitive_unary_op
     {
         vm_value expr;
         vm_primitive_unary_operator oper;
+        qualified_symbol_reference type;
     };
 } // namespace rylang
 

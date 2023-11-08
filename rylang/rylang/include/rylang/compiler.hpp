@@ -15,6 +15,7 @@
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/machine_info.hpp"
 #include "rylang/data/symbol_id.hpp"
+#include "rylang/data/vm_procedure.hpp"
 #include "rylang/filelist.hpp"
 #include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
@@ -22,6 +23,7 @@
 #include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
 #include "rylang/res/class_size_from_canonical_chain_resolver.hpp"
+#include "rylang/res/contextualized_reference_resolver.hpp"
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
 #include "rylang/res/entity_ast_from_chain_resolver.hpp"
 #include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
@@ -30,6 +32,7 @@
 #include "rylang/res/file_module_map_resolver.hpp"
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
+#include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
@@ -37,10 +40,7 @@
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
-#include "rylang/res/contextualized_reference_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
-#include "rylang/res/function_ast_resolver.hpp"
-#include "rylang/data/vm_procedure.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -78,7 +78,6 @@ namespace rylang
         friend class function_ast_resolver;
         friend class vm_procedure_from_canonical_functanoid_resolver;
 
-
         template < typename T >
         using index = rpnx::index< compiler, T >;
 
@@ -101,18 +100,27 @@ namespace rylang
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
-        index<function_ast_resolver> m_function_ast_index;
+        index< function_ast_resolver > m_function_ast_index;
         out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)
         {
             return m_function_ast_index.lookup(func_addr);
         }
 
-        index<vm_procedure_from_canonical_functanoid_resolver> m_vm_procedure_from_canonical_functanoid_index;
-        out<vm_procedure> lk_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
+        index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;
+        out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
         {
             return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
         }
 
+      public:
+        vm_procedure get_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
+        {
+            auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
+      private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
         out< qualified_symbol_reference > lk_contextualized_reference(qualified_symbol_reference symbol, qualified_symbol_reference context)
         {
@@ -242,7 +250,6 @@ namespace rylang
             return m_module_ast_index.lookup(module_name);
         }
 
-
         out< filelist > lk_file_list()
         {
             return m_filelist_resolver.lookup();
@@ -278,9 +285,6 @@ namespace rylang
         {
             return file_contents(filename);
         }
-
-
-
 
         // Look up the AST for a given glass given a paritcular cannonical chain
         out< entity_ast > lk_entity_ast_from_canonical_chain(qualified_symbol_reference const& chain)

@@ -4,7 +4,7 @@
 
 #include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
 #include "rylang/compiler.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 
 void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylang::compiler* c)
 {

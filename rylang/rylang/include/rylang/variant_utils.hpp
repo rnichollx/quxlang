@@ -13,7 +13,7 @@ namespace rylang
     template < typename T, typename... Ts >
     bool typeis(boost::variant< Ts... > const& v)
     {
-        return boost::typeindex::type_id< T >() == boost::typeindex::type_id_with_cvr< decltype(v) >();
+        return v.type() == boost::typeindex::type_id< T >() ;
     }
 
     template < typename T, typename... Ts >

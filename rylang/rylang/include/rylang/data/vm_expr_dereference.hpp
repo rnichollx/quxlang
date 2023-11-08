@@ -13,7 +13,9 @@ namespace rylang
     struct vm_expr_dereference
     {
         vm_value expr;
-        vm_type type;
+        qualified_symbol_reference type;
+        //vm_type type;
+
     };
 } // namespace rylang
 

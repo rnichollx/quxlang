@@ -16,10 +16,8 @@ namespace rylang
    struct vm_procedure_interface
    {
 
-       std::vector<vm_type> argument_types;
-       std::optional<vm_type> return_type;
-       std::optional<qualified_symbol_reference> return_type2;
-       std::vector<qualified_symbol_reference> argument_types2;
+       std::optional<qualified_symbol_reference> return_type;
+       std::vector<qualified_symbol_reference> argument_types;
    };
 } // namespace rylang
 

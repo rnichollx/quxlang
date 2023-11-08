@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
 
 #include <cstddef>
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
@@ -13,6 +14,7 @@ namespace rylang
     {
         std::size_t size = 0;
         std::size_t align = 0;
+        qualified_symbol_reference type;
     };
 } // namespace rylang
 

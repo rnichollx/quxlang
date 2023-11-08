@@ -38,12 +38,12 @@ namespace rylang
         }
 
       private:
-        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, vm_type_int t);
+        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, primitive_type_integer_reference t);
 
         llvm::PointerType * get_llvm_type_opaque_ptr(llvm::LLVMContext &context);
 
 
-        llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, vm_type typ);
+        llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, qualified_symbol_reference typ);
         llvm::Type * get_llvm_type_from_vm_storage(llvm::LLVMContext &context, vm_allocate_storage typ);
 
       public:

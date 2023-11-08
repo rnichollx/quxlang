@@ -6,11 +6,14 @@
 #define RPNX_RYANSCRIPT1031_VM_EXPR_LOAD_ADDRESS_HEADER
 
 #include <cstddef>
+#include "rylang/data/qualified_reference.hpp"
+
 namespace rylang
 {
     struct vm_expr_load_address
     {
         std::size_t index;
+        qualified_symbol_reference type;
     };
 } // namespace rylang
 

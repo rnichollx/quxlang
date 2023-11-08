@@ -9,6 +9,7 @@
 
 #include "vm_allocate_storage.hpp"
 #include "vm_expression.hpp"
+#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {
@@ -18,7 +19,7 @@ namespace rylang
     {
         vm_value what;
         vm_value where;
-        vm_type type;
+        qualified_symbol_reference type;
     };
     struct vm_execute_expression
     {
@@ -27,7 +28,7 @@ namespace rylang
 
     struct vm_return
     {
-        vm_value expr;
+        std::optional<vm_value> expr;
     };
 
     using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return >;

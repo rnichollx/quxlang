@@ -1035,6 +1035,7 @@ namespace rylang
             else if (get_keyword(pos, end) == "RETURN")
             {
                 output = collect_return_statement(pos, end);
+                return true;
             }
             else if (try_collect_expression_statement(pos, end, exp_st))
             {

@@ -3,7 +3,7 @@
 //
 #include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "rylang/compiler.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 
 void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
 {

@@ -4,7 +4,7 @@
 #include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/converters/qual_converters.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 
 void rylang::function_qualified_reference_resolver::process(compiler* c)
 {

@@ -3,8 +3,7 @@
 //
 
 #include "rylang/res/contextualized_reference_resolver.hpp"
-#include "rylang/manipulators/qualified_reference.hpp"
-
+#include "rylang/manipulators/qmanip.hpp"
 
 void rylang::contextualized_reference_resolver::process(compiler* c)
 {
