@@ -488,7 +488,7 @@ namespace rylang
                 output = subentity_reference{std::move(output), std::move(ident)};
                 goto check_next;
             }
-            else if (skip_symbol_if_is(pos, end, "(") )
+            else if (skip_symbol_if_is(pos, end, "("))
             {
                 parameter_set_reference param_set;
                 param_set.callee = std::move(output);
@@ -734,6 +734,84 @@ namespace rylang
                 return false;
         }
 
+        template < typename It >
+        bool binary_operator_v3(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
+        {
+            static std::map< std::string, int > operators_map = {
+                // clang-format off
+
+                // Assignment operators
+                {":=", 0}, {":<", 0},
+
+                // Logical operators
+                {"&&", 1}, // and
+                {"!&", 1}, // nand
+                {"^^", 1}, // xor
+                {"!|", 1}, // nor
+                {"||", 1}, // or
+                {"^>", 1}, // implies
+                {"^<", 1}, // implied
+                {"!^", 1}, // equilvalent/nxor
+
+                // Comparison operators
+                {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},
+                
+                // Division and modulus
+                {"/", 3}, {"%", 3},
+                
+                // Addition and subtraction
+                {"+", 4}, {"-", 4}, // regular
+                // TODO:
+                //{"+~", 4}, {"-~", 4}, // wrap-around
+                //{"+!", 4}, {"-!", 4}, // undefined overflow
+
+                // Multiplication
+                {"*", 5},
+
+                // Exponenciation
+                {"^", 6},
+
+                // Bitwise operators, same as logical except begin with a dot.
+                {".&&", 7}, // bitwise and
+                {".!&", 7}, // bitwise nand
+                {".^^", 7}, // bitwise xor
+                {".!|", 7}, // bitwise nor
+                {".||", 7}, // bitwise or
+                {".^>", 7}, // bitwise implies
+                {".^<", 7}, // bitwise implied
+                {".!^", 7}, // bitwise equilvalent
+
+                // plus some additional shift and rotation operators
+                {".<<", 7}, {".+>>", 7}, {".>>", 7}, {".@<", 7}, {".@>", 7}
+                // clang-format on
+            };
+
+            std::string sym = get_symbol(pos, end);
+            auto it = operators_map.find(sym);
+            if (it == operators_map.end())
+                return false;
+
+            skip_symbol_if_is(pos, end, sym);
+
+            skip_wsc(pos, end);
+
+            int priority = it->second;
+
+            expression_binary new_expression;
+            new_expression.operator_str = sym;
+
+            expression* binding_point2 = operator_bindings[priority];
+            new_expression.lhs = std::move(*binding_point2);
+            *binding_point2 = rylang::expression(new_expression);
+            expression* binding_pointer = &boost::get< expression_binary >(*binding_point2).rhs;
+            for (int i = priority + 1; i < operator_bindings.size(); i++)
+            {
+                operator_bindings[i] = binding_pointer;
+            }
+            value_binding = &(boost::get< expression_binary >(*binding_point2)).rhs;
+            return true;
+        }
+
         template < typename Operator, typename It >
         bool implement_binary_operator(It& pos, It end, std::string operator_string, int priority, std::vector< expression* >& operator_bindings, expression*& value_binding)
         {
@@ -807,6 +885,19 @@ namespace rylang
                 *value_bind_point = lvalue;
                 have_anything = true;
             }
+            else if (skip_symbol_if_is(pos, end, "("))
+            {
+
+                expression parenthesis;
+                parenthesis = collect_expression(pos, end);
+                *value_bind_point = parenthesis;
+                have_anything = true;
+                skip_wsc(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw std::runtime_error("Expected ')'");
+                }
+            }
             else
             {
                 if (!have_anything)
@@ -827,16 +918,10 @@ namespace rylang
 #define RYLANG_OPERATOR(X) implement_binary_operator_v2< X >(pos, end, bindings, value_bind_point)
 
             if (
-                // Assignment operators
-                RYLANG_OPERATOR(expression_move_assign) || RYLANG_OPERATOR(expression_copy_assign) ||
-                // Arithmetic operators
-                RYLANG_OPERATOR(expression_add) || RYLANG_OPERATOR(expression_subtract) || RYLANG_OPERATOR(expression_multiply) || RYLANG_OPERATOR(expression_divide) ||
-                // Logical operators
-                RYLANG_OPERATOR(expression_or) || RYLANG_OPERATOR(expression_and) || RYLANG_OPERATOR(expression_nand) || RYLANG_OPERATOR(expression_nor) || RYLANG_OPERATOR(expression_xor) ||
-                RYLANG_OPERATOR(expression_implies) || RYLANG_OPERATOR(expression_implied)
-                // Comparison operators
 
-            )
+                // Assignment operators
+
+                binary_operator_v3(pos, end, bindings, value_bind_point))
             {
                 goto next_value;
             }

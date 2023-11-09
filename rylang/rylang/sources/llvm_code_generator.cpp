@@ -230,8 +230,6 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         llvm::Value* result = nullptr;
 
-
-
         auto lhs_vm_type = vm_value_type(binop.lhs);
 
         auto rhs_vm_type = vm_value_type(binop.rhs);
@@ -241,9 +239,31 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         std::string expr_string = rylang::to_string(binop);
 
-        if (binop.oper == rylang::vm_primitive_binary_operator::add)
+        if (binop.oper == "+")
         {
             result = builder.CreateAdd(lhs, rhs);
+            return result;
+        }
+        else if (binop.oper == "-")
+        {
+            result = builder.CreateSub(lhs, rhs);
+            return result;
+        }
+        else if (binop.oper == "*")
+        {
+            result = builder.CreateMul(lhs, rhs);
+            return result;
+        }
+        else if (binop.oper == "==")
+        {
+            result = builder.CreateICmpEQ(lhs, rhs);
+            return result;
+        }
+
+        else if (binop.oper == ":=")
+        {
+            auto underlying_type = remove_ref(lhs_vm_type);
+            result = builder.CreateAlignedStore(rhs, lhs, llvm::Align(vm_type_alignment(underlying_type)));
             return result;
         }
 

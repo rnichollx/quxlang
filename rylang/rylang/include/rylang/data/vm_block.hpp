@@ -11,10 +11,7 @@
 
 namespace rylang
 {
-    struct vm_block
-    {
-        std::vector<vm_executable_unit> code;
-    };
+
 } // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_VM_BLOCK_HEADER

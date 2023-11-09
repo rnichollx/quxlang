@@ -121,12 +121,22 @@ namespace rylang
 
         std::string operator()(vm_expr_primitive_binary_op const& exp) const
         {
-          return "binary_op<" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
+            return "binary_op<" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
         }
 
         std::string operator()(vm_expr_primitive_unary_op const& exp) const
         {
-          return "unary_op<" + to_string(exp.type) + ">(" + to_string(exp.expr) + ")";
+            return "unary_op<" + to_string(exp.type) + ">(" + to_string(exp.expr) + ")";
+        }
+
+        std::string operator()(vm_if const& ifi) const
+        {
+            std::string result = "if(" + to_string(ifi.condition) + ") then " + to_string(ifi.then_block);
+            if (ifi.else_block)
+            {
+                result += " else " + to_string(*ifi.else_block);
+            }
+            return result;
         }
 
         vm_expression_stringifier() = default;

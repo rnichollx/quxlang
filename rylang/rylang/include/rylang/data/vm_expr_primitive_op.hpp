@@ -36,7 +36,7 @@ namespace rylang
     {
         vm_value lhs;
         vm_value rhs;
-        vm_primitive_binary_operator oper;
+        std::string oper;
         qualified_symbol_reference type;
     };
 

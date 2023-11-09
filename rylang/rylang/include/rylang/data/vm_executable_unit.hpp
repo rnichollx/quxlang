@@ -7,9 +7,10 @@
 
 #include <boost/variant.hpp>
 
-#include "vm_allocate_storage.hpp"
-#include "vm_expression.hpp"
 #include "rylang/data/qualified_reference.hpp"
+#include "vm_allocate_storage.hpp"
+#include "vm_block.hpp"
+#include "vm_expression.hpp"
 
 namespace rylang
 {
@@ -28,10 +29,25 @@ namespace rylang
 
     struct vm_return
     {
-        std::optional<vm_value> expr;
+        std::optional< vm_value > expr;
     };
 
-    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return >;
+    struct vm_if;
+
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return, boost::recursive_wrapper< vm_if > >;
+
+    struct vm_block
+    {
+        std::vector< vm_executable_unit > code;
+    };
+
+    struct vm_if
+    {
+        std::optional<vm_block> condition_block;
+        vm_value condition;
+        vm_block then_block;
+        std::optional< vm_block > else_block;
+    };
 
 } // namespace rylang
 
