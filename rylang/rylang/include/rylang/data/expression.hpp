@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_EXPRESSION_HEADER
 
 #include "lookup_chain.hpp"
+#include "numeric_literal.hpp"
 #include <boost/variant.hpp>
 #include <utility>
 #include <vector>
@@ -58,6 +59,7 @@ namespace rylang
     struct expression_equals;
     struct expression_not_equals;
     struct expression_binary;
+
     using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_add >, boost::recursive_wrapper< expression_addp >, boost::recursive_wrapper< expression_addw >,
                                        boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_lvalue_reference >, boost::recursive_wrapper< expression_multiply >,
                                        expression_thisdot_reference, boost::recursive_wrapper< expression_subtract >, boost::recursive_wrapper< expression_move_assign >,
@@ -65,7 +67,7 @@ namespace rylang
                                        boost::recursive_wrapper< expression_xor >, boost::recursive_wrapper< expression_nand >, boost::recursive_wrapper< expression_nor >,
                                        boost::recursive_wrapper< expression_implies >, boost::recursive_wrapper< expression_implied >, boost::recursive_wrapper< expression_divide >,
                                        boost::recursive_wrapper< expression_modulus >, boost::recursive_wrapper< expression_dotreference >, boost::recursive_wrapper< expression_equals >,
-                                       boost::recursive_wrapper< expression_not_equals >, boost::recursive_wrapper<expression_binary> >;
+                                       boost::recursive_wrapper< expression_not_equals >, boost::recursive_wrapper<expression_binary>, numeric_literal >;
 
     struct expression_binary
     {

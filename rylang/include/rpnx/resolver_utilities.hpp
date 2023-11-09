@@ -189,7 +189,7 @@ namespace rpnx
 
         bool ready() const
         {
-            return !has_unresolved_dependencies() && !has_error_dependencies() && !resolved();
+            return !has_unresolved_dependencies() && !resolved();
         }
 
         void update_dependents()

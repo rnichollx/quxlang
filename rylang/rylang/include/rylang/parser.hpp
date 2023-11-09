@@ -111,7 +111,7 @@ namespace rylang
             return pos;
         }
         bool was_underscore = false;
-        bool started = true;
+        bool started = false;
         while (pos != end)
         {
             char c = *pos;

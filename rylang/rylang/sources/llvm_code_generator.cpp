@@ -161,6 +161,10 @@ void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
 
             get_llvm_value(context, builder, frame, expr.expr);
         }
+        else if (typeis< vm_if >(ex))
+        {
+            // TODO:
+        }
         else
         {
             // TODO: unimplemented

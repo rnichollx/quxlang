@@ -44,6 +44,9 @@ MODULE main;
            VAR c : I32;
            c := a + b + (a - a) * a;
            c := c + a;
+           IF (c > b) {
+             c := c + c;
+           }
            RETURN c;
         }
 
