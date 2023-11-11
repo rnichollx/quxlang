@@ -163,7 +163,8 @@ void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (typeis< vm_if >(ex))
         {
-            // TODO:
+            vm_if const& if_ = boost::get< vm_if >(ex);
+
         }
         else
         {
