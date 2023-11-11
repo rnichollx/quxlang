@@ -121,7 +121,7 @@ namespace rylang
 
         std::string operator()(vm_expr_primitive_binary_op const& exp) const
         {
-            return "binary_op<" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
+            return "binary_op "+ exp.oper +" <" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
         }
 
         std::string operator()(vm_expr_primitive_unary_op const& exp) const

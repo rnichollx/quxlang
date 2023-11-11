@@ -158,10 +158,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     {
         return gen_value(c, frame, block, boost::get< expression_lvalue_reference >(std::move(expr)));
     }
-    else if (typeis< expression_add >(expr))
-    {
-        return gen_value(c, frame, block, boost::get< expression_add >(std::move(expr)));
-    }
     else if (typeis< expression_copy_assign >(expr))
     {
         return gen_value(c, frame, block, boost::get< expression_copy_assign >(std::move(expr)));
@@ -266,74 +262,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     return {true, op};
 }
 
-std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
-                                                                                                       rylang::expression_add expr)
-{
-    // TODO: Support overloading
 
-    auto lhs_pair = gen_value_generic(c, frame, block, expr.lhs);
-    auto rhs_pair = gen_value_generic(c, frame, block, expr.rhs);
-
-    if (!lhs_pair.first || !rhs_pair.first)
-    {
-        return {false, {}};
-    }
-
-    // TODO: support operator overloading
-
-    // TODO: Support implicit casts
-
-    vm_value lhs = std::move(lhs_pair.second);
-    vm_value rhs = std::move(rhs_pair.second);
-
-    qualified_symbol_reference lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
-    qualified_symbol_reference rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
-
-    if (is_ref(lhs_type))
-    {
-        vm_expr_dereference deref;
-        deref.type = remove_ref(lhs_type);
-        deref.expr = std::move(lhs);
-        lhs_type = deref.type;
-        lhs = std::move(deref);
-    }
-
-    if (is_ref(rhs_type))
-    {
-        vm_expr_dereference deref2;
-        deref2.type = remove_ref(rhs_type);
-        deref2.expr = std::move(rhs);
-        rhs_type = deref2.type;
-        rhs = std::move(deref2);
-    }
-
-    assert(lhs_type == rhs_type);
-
-    vm_expr_primitive_binary_op op;
-    op.oper = "+";
-    op.type = lhs_type;
-    op.lhs = std::move(lhs);
-    op.rhs = std::move(rhs);
-
-    std::string lhs_type_string = boost::apply_visitor(qualified_symbol_stringifier(), lhs_type);
-    std::string rhs_type_string = boost::apply_visitor(qualified_symbol_stringifier(), rhs_type);
-
-    std::string lhs_type_string2 = to_string(vm_value_type(op.lhs));
-    std::string rhs_type_string2 = to_string(vm_value_type(op.rhs));
-
-    std::cout << "lhs_type_string: " << lhs_type_string << std::endl;
-    std::cout << "rhs_type_string: " << rhs_type_string << std::endl;
-
-    std::cout << "lhs_type_string2: " << lhs_type_string2 << std::endl;
-    std::cout << "rhs_type_string2: " << rhs_type_string2 << std::endl;
-
-    std::cout << "lhs: " << to_string(op.lhs) << std::endl;
-    std::cout << "rhs: " << to_string(op.rhs) << std::endl;
-
-    std::cout << "Generated the following binop: " << to_string(op) << std::endl;
-
-    return {true, op};
-}
 
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_return_statement statement)
 {
@@ -468,7 +397,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     {
         op.type = lhs_type;
     }
-    op.type = lhs_type;
     op.lhs = std::move(lhs);
     op.rhs = std::move(rhs);
 

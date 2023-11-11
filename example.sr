@@ -44,10 +44,9 @@ MODULE main;
            VAR c : I32;
 
            IF (a > b) {
-             c := a;
-           }
-           IF (b > a) {
-             c := b;
+             RETURN a;
+           } ELSE {
+             RETURN b;
            }
 
            RETURN c;
