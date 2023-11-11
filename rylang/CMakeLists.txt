@@ -20,7 +20,11 @@ add_library(rylang rylang/include/rylang/data/canonical_pointer_type_reference.h
         rylang/include/rylang/data/vm_expr_store.hpp
         rylang/include/rylang/data/vm_if.hpp
         rylang/include/rylang/data/expression_equals.hpp
-        rylang/include/rylang/data/numeric_literal.hpp)
+        rylang/include/rylang/data/numeric_literal.hpp
+        rylang/include/rylang/res/function_frame_information_resolver.hpp
+        rylang/include/rylang/data/function_frame_information.hpp
+        rylang/sources/res/function_frame_information_resolver.cpp
+        rylang/sources/example_file.cpp)
 
 target_include_directories(rylang PUBLIC rylang/include)
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp rylang/include/rylang/ast/class_entity_ast.hpp rylang/include/rylang/data/lookup_type.hpp)

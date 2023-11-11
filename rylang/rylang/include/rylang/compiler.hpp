@@ -11,6 +11,7 @@
 #include "rylang/data/call_overload_set.hpp"
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/data/class_layout.hpp"
+#include "rylang/data/function_frame_information.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/lookup_chain.hpp"
 #include "rylang/data/machine_info.hpp"
@@ -41,6 +42,7 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+#include "rylang/res/function_frame_information_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -77,6 +79,7 @@ namespace rylang
         friend class contextualized_reference_resolver;
         friend class function_ast_resolver;
         friend class vm_procedure_from_canonical_functanoid_resolver;
+        friend class function_frame_information_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -99,6 +102,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index <function_frame_information_resolver > m_function_frame_information_index;
+        out< function_frame_information > lk_function_frame_information(qualified_symbol_reference func_addr)
+        {
+            return m_function_frame_information_index.lookup(func_addr);
+        }
 
         index< function_ast_resolver > m_function_ast_index;
         out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)

@@ -11,7 +11,12 @@
 #include "rylang/manipulators/vmmanip.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
@@ -21,13 +26,14 @@
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
-    llvm::LLVMContext context;
+    std::unique_ptr< llvm::LLVMContext > context_ptr = std::make_unique< llvm::LLVMContext >();
+    llvm::LLVMContext& context = *context_ptr;
     // llvm::IRBuilder<> builder(context);
 
     std::unique_ptr< llvm::Module > module = std::make_unique< llvm::Module >("main", context);
 
     // TODO: This is placeholder
-    module->setDataLayout("e-m:e-i64:64-i128:128-n32:64-S128");
+    module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
 
     std::optional< qualified_symbol_reference > func_return_type = vmf.interface.return_type;
 
@@ -54,8 +60,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "entry", func);
     vm_llvm_frame frame;
 
+    llvm::BasicBlock* p_block = entry;
     generate_arg_push(context, entry, func, vmf, frame);
-    generate_code(context, entry, vmf.body, frame);
+    generate_code(context, p_block, vmf.body, frame);
 
     func->print(llvm::outs());
 
@@ -78,10 +85,43 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     func->print(llvm::outs());
 
-    // TODO: convert the code to machine/linker code/object and return it
+    llvm::orc::LLJITBuilder jitbuilder;
+    auto jite = jitbuilder.create();
+    if (auto err = jite.takeError())
+    {
+        std::cerr << "Failed to create JIT" << std::endl;
+        return {};
+    }
+
+    std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
+
+    // Add the module to the JIT
+    if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(module), std::move(context_ptr))))
+    {
+        std::cerr << "Failed to add module to JIT" << std::endl;
+        return {};
+    }
+
+    auto symbolE = jit->lookup("main");
+    if (!symbolE)
+    {
+        std::cerr << "Function not found" << std::endl;
+        return {};
+    }
+    auto symbol = symbolE.get();
+
+
+
+
+
+    auto my_function = symbol.toPtr< std::int32_t (*)(std::int32_t, std::int32_t) >();
+    int resultValue = my_function(4, 5);
+
+    std::cout << "my_function(4, 5) = " << resultValue << std::endl;
 
     return {};
 }
+
 
 llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, rylang::qualified_symbol_reference typ)
 {
@@ -109,9 +149,9 @@ llvm::PointerType* rylang::llvm_code_generator::get_llvm_type_opaque_ptr(llvm::L
     return llvm::PointerType::get(context, 0);
 }
 
-void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock* p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame)
+void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame)
 {
-    llvm::IRBuilder<> builder(p_block);
+
     for (vm_executable_unit const& ex : block.code)
     {
         if (typeis< vm_block >(ex))
@@ -132,6 +172,7 @@ void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
 
             // Allocate stack space with allocainst
+            llvm::IRBuilder<> builder(p_block);
             llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
             vm_llvm_frame_item item;
             item.type = StorageType;
@@ -140,6 +181,7 @@ void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
         {
+            llvm::IRBuilder<> builder(p_block);
             vm_store const& store = boost::get< vm_store >(ex);
 
             llvm::Value* where = get_llvm_value(context, builder, frame, store.where);
@@ -152,19 +194,47 @@ void rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         {
             rylang::vm_return ret = boost::get< rylang::vm_return >(ex);
             // TODO: support void return
+            llvm::IRBuilder<> builder(p_block);
             llvm::Value* ret_val = get_llvm_value(context, builder, frame, ret.expr.value());
             builder.CreateRet(ret_val);
         }
         else if (typeis< vm_execute_expression >(ex))
         {
             vm_execute_expression const& expr = boost::get< vm_execute_expression >(ex);
-
+            llvm::IRBuilder<> builder(p_block);
             get_llvm_value(context, builder, frame, expr.expr);
         }
         else if (typeis< vm_if >(ex))
         {
             vm_if const& if_ = boost::get< vm_if >(ex);
+            llvm::IRBuilder<> builder(p_block);
 
+            llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
+            builder.CreateBr(cond_block);
+            builder.SetInsertPoint(cond_block);
+
+            llvm::Value* cond = get_llvm_value(context, builder, frame, if_.condition);
+
+            llvm::BasicBlock* then_block = llvm::BasicBlock::Create(context, "then", p_block->getParent());
+            llvm::BasicBlock* else_block = llvm::BasicBlock::Create(context, "else", p_block->getParent());
+
+            builder.CreateCondBr(cond, then_block, else_block);
+
+            llvm::BasicBlock* after_block = llvm::BasicBlock::Create(context, "after", p_block->getParent());
+
+            assert(!if_.else_block.has_value());
+            // TODO: Else
+            vm_block const& block = if_.then_block;
+            generate_code(context, then_block, block, frame);
+
+            // jump to after block
+            builder.SetInsertPoint(then_block);
+            builder.CreateBr(after_block);
+
+            builder.SetInsertPoint(else_block);
+            builder.CreateBr(after_block);
+
+            p_block = after_block;
         }
         else
         {
@@ -269,6 +339,11 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         {
             auto underlying_type = remove_ref(lhs_vm_type);
             result = builder.CreateAlignedStore(rhs, lhs, llvm::Align(vm_type_alignment(underlying_type)));
+            return result;
+        }
+        else if (binop.oper == ">")
+        {
+            result = builder.CreateICmpSGT(lhs, rhs);
             return result;
         }
 

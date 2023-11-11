@@ -415,6 +415,10 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::comp
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
                                                                                                        rylang::expression_binary expr)
 {
+
+    static std::set< std::string> const bool_operators = {"==", "!=", "<", ">", "<=", ">="};
+
+    static std::set< std::string > const assignment_operators = {":=", ":<"};
     // TODO: Support overloading
 
     auto lhs_pair = gen_value_generic(c, frame, block, expr.lhs);
@@ -435,7 +439,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     qualified_symbol_reference lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
     qualified_symbol_reference rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
 
-    if (is_ref(lhs_type) && expr.operator_str != ":=" && expr.operator_str != ":<")
+    if (is_ref(lhs_type) && assignment_operators.count(expr.operator_str) == 0)
     // Do not dereference for assignment operators
     {
         vm_expr_dereference deref;
@@ -456,6 +460,14 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
     vm_expr_primitive_binary_op op;
     op.oper = expr.operator_str;
+    if (bool_operators.count(expr.operator_str) > 0)
+    {
+        op.type = qualified_symbol_reference{primitive_type_bool_reference{}};
+    }
+    else
+    {
+        op.type = lhs_type;
+    }
     op.type = lhs_type;
     op.lhs = std::move(lhs);
     op.rhs = std::move(rhs);

@@ -16,6 +16,7 @@ namespace rylang
     struct value_expression_reference;
     struct pointer_to_reference;
     struct primitive_type_integer_reference;
+    struct primitive_type_bool_reference;
     struct mvalue_reference;
     struct tvalue_reference;
     struct ovalue_reference;
@@ -31,7 +32,7 @@ namespace rylang
     };
 
     using qualified_symbol_reference =
-        boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >,
+        boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper<primitive_type_bool_reference>,
                         boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< pointer_to_reference >,
                         boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >,
                         boost::recursive_wrapper< ovalue_reference > >;

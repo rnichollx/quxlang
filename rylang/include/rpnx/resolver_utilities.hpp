@@ -120,6 +120,7 @@ namespace rpnx
             {
                 return;
             }
+
             n->m_dependents.insert(this);
 
             if (!n->resolved())
@@ -345,8 +346,6 @@ namespace rpnx
                     continue;
                 }
 
-                volatile int foo = 0;
-
                 try
                 {
                     n->process(graph);
@@ -376,7 +375,10 @@ namespace rpnx
                     auto requirements = n->unmet_dependencies();
                     for (auto& req : requirements)
                     {
-                        nodes_to_process.insert(req);
+                        if (req->ready())
+                        {
+                            nodes_to_process.insert(req);
+                        }
                     }
                     assert(requirements.size() != 0);
                 }

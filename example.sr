@@ -42,11 +42,14 @@ MODULE main;
         .buz FUNCTION(%a I32, %b I32): I32
         {
            VAR c : I32;
-           c := a + b + (a - a) * a;
-           c := c + a;
-           IF (c > b) {
-             c := c + c;
+
+           IF (a > b) {
+             c := a;
            }
+           IF (b > a) {
+             c := b;
+           }
+
            RETURN c;
         }
 
