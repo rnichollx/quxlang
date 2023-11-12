@@ -43,6 +43,7 @@
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include "rylang/res/function_frame_information_resolver.hpp"
+#include "rylang/res/operator_is_overloaded_with_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -80,6 +81,7 @@ namespace rylang
         friend class function_ast_resolver;
         friend class vm_procedure_from_canonical_functanoid_resolver;
         friend class function_frame_information_resolver;
+        friend class operator_is_overloaded_with_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -102,6 +104,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< operator_is_overloaded_with_resolver> m_operator_is_overloaded_with_index;
+        out< std::optional< qualified_symbol_reference > > lk_operator_is_overloaded_with(std::string op, qualified_symbol_reference lhs, qualified_symbol_reference rhs)
+        {
+            return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
+        }
 
         index <function_frame_information_resolver > m_function_frame_information_index;
         out< function_frame_information > lk_function_frame_information(qualified_symbol_reference func_addr)

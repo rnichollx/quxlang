@@ -22,7 +22,7 @@ namespace rylang
     {
         std::strong_ordering operator<=>(const function_while_statement& other) const = default;
     };
-    // TODO: Implement var
+
     struct function_var_statement
     {
         std::string name;

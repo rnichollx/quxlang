@@ -11,6 +11,8 @@ namespace rylang
     struct vm_llvm_frame
     {
         std::vector< vm_llvm_frame_item > values;
+
+        llvm::BasicBlock * storage_block = nullptr;
     };
 } // namespace rylang
 

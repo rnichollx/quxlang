@@ -51,6 +51,14 @@ namespace rylang
 
         std::strong_ordering operator<=>(const expression_lvalue_reference& other) const = default;
     };
+
+    struct expression_symbol_reference
+    {
+        qualified_symbol_reference symbol;
+
+        std::strong_ordering operator<=>(const expression_symbol_reference& other) const = default;
+    };
+
     struct expression_multiply;
 
     struct expression_modulus;
@@ -61,7 +69,7 @@ namespace rylang
     struct expression_binary;
 
     using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_add >, boost::recursive_wrapper< expression_addp >, boost::recursive_wrapper< expression_addw >,
-                                       boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_lvalue_reference >, boost::recursive_wrapper< expression_multiply >,
+                                       boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_lvalue_reference >, boost::recursive_wrapper< expression_symbol_reference >, boost::recursive_wrapper< expression_multiply >,
                                        expression_thisdot_reference, boost::recursive_wrapper< expression_subtract >, boost::recursive_wrapper< expression_move_assign >,
                                        boost::recursive_wrapper< expression_copy_assign >, boost::recursive_wrapper< expression_and >, boost::recursive_wrapper< expression_or >,
                                        boost::recursive_wrapper< expression_xor >, boost::recursive_wrapper< expression_nand >, boost::recursive_wrapper< expression_nor >,

@@ -4,11 +4,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(LLVM REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 
+add_subdirectory(rpnx)
 
 add_library(catch2 catch2/catch2/catch2.hpp catch2/catch2.cpp )
 target_include_directories(catch2 PUBLIC catch2/)
-
-add_executable(graphlib_tests rylang/tests.cpp)
 add_subdirectory(rylang)
 target_link_libraries(graphlib_tests PUBLIC graphlib catch2)
 

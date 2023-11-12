@@ -5,13 +5,13 @@
 #ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
 #define RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
 
-#include "function_ast.hpp"
 #include "rpnx/value.hpp"
+#include "function_ast.hpp"
 #include "rylang/ast/class_entity_ast.hpp"
 #include "rylang/ast/functum_entity_ast.hpp"
 #include "rylang/ast/namespace_entity_ast.hpp"
-#include "rylang/ast/variable_entity_ast.hpp"
 #include "rylang/ast/null_object_ast.hpp"
+#include "rylang/ast/variable_entity_ast.hpp"
 #include "rylang/fwd.hpp"
 #include <map>
 #include <variant>

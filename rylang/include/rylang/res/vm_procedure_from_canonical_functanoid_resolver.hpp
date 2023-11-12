@@ -38,11 +38,14 @@ namespace rylang
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
 
-        std::pair<bool, vm_value> gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
+        std::pair< bool, vm_value > gen_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, std::string funcname_mangled, std::vector< vm_value > args);
 
-        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
-        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_binary expr);
-        std::pair<bool, vm_value> gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_copy_assign expr);
+        std::pair< bool, vm_value > gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
+
+        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
+        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_binary expr);
+        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_copy_assign expr);
+        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_call expr);
     };
 } // namespace rylang
 

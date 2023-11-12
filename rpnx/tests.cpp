@@ -5,8 +5,8 @@
 #define CATCH_CONFIG_MAIN
 #include <string>
 
-#include "rpnx/resolver_utilities.hpp"
-#include <catch2/catch2.hpp>
+#include "catch2/catch2.hpp"
+#include "include/rpnx/resolver_utilities.hpp"
 #include <iostream>
 
 class test_graph;

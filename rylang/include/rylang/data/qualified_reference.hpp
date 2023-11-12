@@ -31,13 +31,16 @@ namespace rylang
         std::strong_ordering operator<=>(const context_reference& other) const = default;
     };
 
-    using qualified_symbol_reference =
-        boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper<primitive_type_bool_reference>,
-                        boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< pointer_to_reference >,
-                        boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >,
-                        boost::recursive_wrapper< ovalue_reference > >;
+    struct bound_function_type_reference;
+    //struct function_type_reference;
 
-    // TODO: Consider adding absolute_qualified_symbol_reference
+    using qualified_symbol_reference =
+        boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >,
+                        boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >,
+                        boost::recursive_wrapper< pointer_to_reference >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >,
+                        boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference> >;
+
+
 
     struct module_reference
     {
@@ -108,6 +111,13 @@ namespace rylang
     {
         qualified_symbol_reference target;
         std::strong_ordering operator<=>(const tvalue_reference& other) const = default;
+    };
+
+    struct bound_function_type_reference
+    {
+        qualified_symbol_reference object_type;
+        qualified_symbol_reference function_type;
+        std::strong_ordering operator<=>(const bound_function_type_reference& other) const = default;
     };
 
 } // namespace rylang

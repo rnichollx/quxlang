@@ -10,6 +10,10 @@
 
 namespace rylang
 {
+
+    std::string to_string(qualified_symbol_reference const& ref);
+
+
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {
         std::string operator()(context_reference const& ref) const
@@ -59,6 +63,11 @@ namespace rylang
         std::string operator()(module_reference const& ref) const
         {
             return "[[module: " + ref.module_name + "]]";
+        }
+
+        std::string operator()(bound_function_type_reference const& ref) const
+        {
+            return "BINDING(" + to_string(ref.object_type) + ", " + to_string(ref.function_type) + ")";
         }
 
         std::string operator()(primitive_type_integer_reference const& ref) const

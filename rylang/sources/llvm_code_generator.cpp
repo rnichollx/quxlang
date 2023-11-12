@@ -57,11 +57,16 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, "main", module.get());
 
-    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "entry", func);
+
+    llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "entry", func);
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "start", func);
+
+
     vm_llvm_frame frame;
+    frame.storage_block = storage;
 
     llvm::BasicBlock* p_block = entry;
-    generate_arg_push(context, entry, func, vmf, frame);
+    generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame);
 
     func->print(llvm::outs());
@@ -170,7 +175,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
 
             // Allocate stack space with allocainst
-            llvm::IRBuilder<> builder(p_block);
+            llvm::IRBuilder<> builder(frame.storage_block);
             llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
             vm_llvm_frame_item item;
             item.type = StorageType;
@@ -375,6 +380,15 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         auto underlying_type = remove_ref(store.type);
         result = builder.CreateAlignedStore(rhs, lhs, llvm::Align(vm_type_alignment(underlying_type)));
         return result;
+    }
+    else if (typeis< vm_expr_call >(value))
+    {
+        rylang::vm_expr_call const& call = boost::get< rylang::vm_expr_call >(value);
+
+        // TODO: Implement this
+
+        assert(false);
+
     }
 
     assert(false);

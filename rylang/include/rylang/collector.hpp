@@ -488,7 +488,7 @@ namespace rylang
                 output = subentity_reference{std::move(output), std::move(ident)};
                 goto check_next;
             }
-            else if (skip_symbol_if_is(pos, end, "("))
+            else if (skip_symbol_if_is(pos, end, "@("))
             {
                 parameter_set_reference param_set;
                 param_set.callee = std::move(output);

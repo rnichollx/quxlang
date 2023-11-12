@@ -4,6 +4,7 @@
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/data/vm_generation_frameinfo.hpp"
+#include "rylang/manipulators/mangler.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/manipulators/vmmanip.hpp"
 #include "rylang/variant_utils.hpp"
@@ -76,6 +77,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
         function_while_statement while_stmt = boost::get< function_while_statement >(statement);
         // TODO: Implement
         // return build(c, frame, proc.body, while_stmt);
+        assert(false);
     }
     else if (typeis< function_return_statement >(statement))
     {
@@ -86,7 +88,8 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     {
         function_block block_stmt = boost::get< function_block >(statement);
         // TODO: implement
-        // return build(c, frame, proc, block_stmt);
+        //return build(c, frame, block, block_stmt);
+        assert(false);
     }
     else
     {
@@ -165,6 +168,10 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     else if (typeis< expression_binary >(expr))
     {
         return gen_value(c, frame, block, boost::get< expression_binary >(std::move(expr)));
+    }
+    else if (typeis< expression_call >(expr))
+    {
+        return gen_value(c, frame, block, boost::get< expression_call >(std::move(expr)));
     }
     else
     {
@@ -262,8 +269,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     return {true, op};
 }
 
-
-
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_return_statement statement)
 {
 
@@ -345,7 +350,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
                                                                                                        rylang::expression_binary expr)
 {
 
-    static std::set< std::string> const bool_operators = {"==", "!=", "<", ">", "<=", ">="};
+    static std::set< std::string > const bool_operators = {"==", "!=", "<", ">", "<=", ">="};
 
     static std::set< std::string > const assignment_operators = {":=", ":<"};
     // TODO: Support overloading
@@ -367,6 +372,24 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
     qualified_symbol_reference lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
     qualified_symbol_reference rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
+
+    auto overload_dp = get_dependency(
+        [&]
+        {
+            return c->lk_operator_is_overloaded_with(expr.operator_str, vm_value_type(lhs), vm_value_type(rhs));
+        });
+    if (!ready())
+    {
+        return {false, {}};
+    }
+    std::optional< qualified_symbol_reference > overloaded_operator = overload_dp->get();
+
+    if (overloaded_operator.has_value())
+    {
+        std::string overloaded_operator_string = mangle(overloaded_operator.value());
+
+        return gen_call(c, frame, block, overloaded_operator_string, {lhs, rhs});
+    }
 
     if (is_ref(lhs_type) && assignment_operators.count(expr.operator_str) == 0)
     // Do not dereference for assignment operators
@@ -416,7 +439,37 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     std::cout << "rhs: " << to_string(op.rhs) << std::endl;
 
     std::cout << "Generated the following binop: " << to_string(op) << std::endl;
-//    assert(remove_ref(lhs_type) == rhs_type);
+    //    assert(remove_ref(lhs_type) == rhs_type);
 
     return {true, op};
+}
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
+                                                                                                       rylang::expression_call expr)
+{
+    vm_expr_call call;
+    for (auto & arg : expr.args)
+    {
+        // TODO: Translate arg types from references
+
+        auto pv = gen_value_generic(c, frame, block, arg);
+        bool ok = pv.first;
+        if (!ok)
+        {
+            return {false, {}};
+        }
+
+        call.arguments.push_back(pv.second);
+
+    }
+
+
+    return {true, call};
+}
+
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
+                                                                                                      std::string funcname_mangled, std::vector< vm_value > args)
+{
+    // TODO
+    assert(false);
+    return std::pair< bool, vm_value >();
 }

@@ -39,6 +39,11 @@ namespace rylang
             return op.type;
         }
 
+        qualified_symbol_reference operator()(vm_expr_call const& op) const
+        {
+            return op.interface.return_type.value_or(void_type{});
+        }
+
       public:
         vm_value_type_vistor() = default;
     };
@@ -121,7 +126,7 @@ namespace rylang
 
         std::string operator()(vm_expr_primitive_binary_op const& exp) const
         {
-            return "binary_op "+ exp.oper +" <" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
+            return "binary_op " + exp.oper + " <" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
         }
 
         std::string operator()(vm_expr_primitive_unary_op const& exp) const
@@ -136,6 +141,19 @@ namespace rylang
             {
                 result += " else " + to_string(*ifi.else_block);
             }
+            return result;
+        }
+
+        std::string operator()(vm_expr_call const& obj) const
+        {
+            std::string result = "call<" + to_string(obj.interface.return_type.value_or(void_type{})) + ">[" + obj.mangled_procedure_name + "](";
+            for (int i = 0; i < obj.arguments.size(); i++)
+            {
+                if (i != 0)
+                    result += ", ";
+                result += to_string(obj.arguments[i]);
+            }
+            result += ")";
             return result;
         }
 

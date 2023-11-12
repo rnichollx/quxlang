@@ -44,12 +44,18 @@ MODULE main;
            VAR c : I32;
 
            IF (a > b) {
-             RETURN a;
+             RETURN buz(a);
            } ELSE {
              RETURN b;
            }
 
            RETURN c;
+        }
+
+        .buz FUNCTION(%a I32) : I32
+        {
+            a := a + a;
+            RETURN a;
         }
 
         .buz FUNCTION(%a I64, %b I64) : I64
