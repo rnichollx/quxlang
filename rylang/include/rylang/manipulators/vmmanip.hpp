@@ -14,9 +14,9 @@ namespace rylang
 {
     struct vm_value_type_vistor : boost::static_visitor< qualified_symbol_reference >
     {
-        qualified_symbol_reference operator()(std::monostate) const
+        qualified_symbol_reference operator()(void_value const &) const
         {
-            return {};
+            return void_type{};
         }
         qualified_symbol_reference operator()(vm_expr_primitive_binary_op const& op) const
         {
@@ -81,6 +81,11 @@ namespace rylang
                 result += "(" + to_string(*what.expr) + ")";
             }
             return result;
+        }
+
+        std::string operator()(void_value) const
+        {
+            return "VOID()";
         }
 
         std::string operator()(vm_execute_expression what) const

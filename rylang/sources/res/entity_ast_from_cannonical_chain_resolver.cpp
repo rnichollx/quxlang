@@ -20,7 +20,14 @@ namespace rylang
 
         std::string typestirng = boost::apply_visitor(qualified_symbol_stringifier(), chain);
 
-        if (chain.type() == boost::typeindex::type_id< module_reference >())
+        if (chain.type() == boost::typeindex::type_id< parameter_set_reference >())
+        {
+            //assert(false);
+            // Don't ask for entity AST of a function parameter set?
+            // TODO: Adjust this later, we should allow this in the future to
+            //  support templates.
+        }
+        else if (chain.type() == boost::typeindex::type_id< module_reference >())
         {
 
             auto module_ast_dp = get_dependency(

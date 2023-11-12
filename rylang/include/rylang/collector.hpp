@@ -879,9 +879,15 @@ namespace rylang
             }
             else if (get_identifier(pos, end).empty() == false)
             {
-                std::string identifier = get_skip_identifier(pos, end);
-                expression_lvalue_reference lvalue;
-                lvalue.identifier = identifier;
+                // std::string identifier = get_skip_identifier(pos, end);
+                // expression_lvalue_reference lvalue;
+                // lvalue.identifier = identifier;
+                qualified_symbol_reference sym;
+                sym = collect_qualified_symbol(pos, end);
+
+                expression_symbol_reference lvalue;
+                lvalue.symbol = sym;
+
                 *value_bind_point = lvalue;
                 have_anything = true;
             }

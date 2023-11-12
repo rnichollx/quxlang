@@ -88,7 +88,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     {
         function_block block_stmt = boost::get< function_block >(statement);
         // TODO: implement
-        //return build(c, frame, block, block_stmt);
+        // return build(c, frame, block, block_stmt);
         assert(false);
     }
     else
@@ -160,6 +160,10 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     if (typeis< expression_lvalue_reference >(expr))
     {
         return gen_value(c, frame, block, boost::get< expression_lvalue_reference >(std::move(expr)));
+    }
+    if (typeis< expression_symbol_reference >(expr))
+    {
+        return gen_value(c, frame, block, boost::get< expression_symbol_reference >(std::move(expr)));
     }
     else if (typeis< expression_copy_assign >(expr))
     {
@@ -447,21 +451,26 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
                                                                                                        rylang::expression_call expr)
 {
     vm_expr_call call;
-    for (auto & arg : expr.args)
+
+    auto callee_pv = gen_value_generic(c, frame, block, expr.callee);
+    bool ok = callee_pv.first;
+    if (!ok)
+    {
+        return {false, {}};
+    }
+    for (auto& arg : expr.args)
     {
         // TODO: Translate arg types from references
 
         auto pv = gen_value_generic(c, frame, block, arg);
-        bool ok = pv.first;
+        ok = pv.first;
         if (!ok)
         {
             return {false, {}};
         }
 
         call.arguments.push_back(pv.second);
-
     }
-
 
     return {true, call};
 }
@@ -471,5 +480,61 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 {
     // TODO
     assert(false);
+    return std::pair< bool, vm_value >();
+}
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
+                                                                                                       rylang::expression_symbol_reference expr)
+{
+    bool is_possibly_frame_value = typeis< subentity_reference >(expr.symbol) && typeis< context_reference >(boost::get< subentity_reference >(expr.symbol).parent);
+
+    // Frame values are sub-entities of the current context.
+    if (is_possibly_frame_value)
+    {
+        std::string name = boost::get< subentity_reference >(expr.symbol).subentity_name;
+        for (int i = 0; i < frame.variables.size(); i++)
+        {
+            // TODO: Check for duplicates/shadowing
+            if (frame.variables[i].name == name)
+            {
+                vm_expr_load_address load;
+                load.index = i;
+                auto vartype = frame.variables[i].type;
+                // TODO: support type lookup here
+
+                std::string vartype_str = boost::apply_visitor(qualified_symbol_stringifier(), vartype);
+                assert(is_canonical(vartype));
+
+                if (is_ref(vartype))
+                {
+                    load.type = vartype;
+                }
+                else
+                {
+                    // TODO: add support for constant values here
+                    load.type = make_mref(vartype);
+                }
+                std::string loadtype_str = boost::apply_visitor(qualified_symbol_stringifier(), load.type);
+
+                return {true, load};
+            }
+        }
+    }
+
+    assert(frame.context == m_func_name);
+    auto canonical_symbol_dp = get_dependency(
+        [&]
+        {
+            return c->lk_canonical_type_from_contextual_type(expr.symbol, m_func_name);
+        });
+
+    if (!ready())
+    {
+        return {false, {}};
+    }
+
+    qualified_symbol_reference canonical_symbol = canonical_symbol_dp->get();
+
+    // TODO: Check if global variable
+
     return std::pair< bool, vm_value >();
 }

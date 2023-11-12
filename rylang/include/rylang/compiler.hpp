@@ -18,8 +18,8 @@
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/data/vm_procedure.hpp"
 #include "rylang/filelist.hpp"
+#include "rylang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
-#include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
 #include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
@@ -34,16 +34,17 @@
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
 #include "rylang/res/function_ast_resolver.hpp"
+#include "rylang/res/function_frame_information_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
+#include "rylang/res/operator_is_overloaded_with_resolver.hpp"
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
+#include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
-#include "rylang/res/function_frame_information_resolver.hpp"
-#include "rylang/res/operator_is_overloaded_with_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -66,7 +67,7 @@ namespace rylang
         friend class module_ast_precursor1_resolver;
         friend class class_size_from_canonical_chain_resolver;
         friend class module_ast_resolver;
-        friend class canonical_type_ref_from_contextual_type_ref_resolver;
+        friend class canonical_symbol_from_contextual_symbol_resolver;
         friend class type_size_from_canonical_type_resolver;
         friend class class_layout_from_canonical_chain_resolver;
         friend class class_placement_info_from_cannonical_chain_resolver;
@@ -82,6 +83,7 @@ namespace rylang
         friend class vm_procedure_from_canonical_functanoid_resolver;
         friend class function_frame_information_resolver;
         friend class operator_is_overloaded_with_resolver;
+        friend class symbol_canonical_chain_exists_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -104,6 +106,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
+        out< bool > lk_symbol_canonical_chain_exists(qualified_symbol_reference chain)
+        {
+            return m_symbol_canonical_chain_exists_index.lookup(chain);
+        }
 
         index< operator_is_overloaded_with_resolver> m_operator_is_overloaded_with_index;
         out< std::optional< qualified_symbol_reference > > lk_operator_is_overloaded_with(std::string op, qualified_symbol_reference lhs, qualified_symbol_reference rhs)
@@ -216,12 +224,11 @@ namespace rylang
 
         index< files_in_module_resolver > m_files_in_module_resolver;
 
-        index< canonical_type_ref_from_contextual_type_ref_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
+        index< canonical_symbol_from_contextual_symbol_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
         out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
         {
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(ref);
         }
-
         out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(qualified_symbol_reference type, qualified_symbol_reference context)
         {
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(contextual_type_reference{context, type});

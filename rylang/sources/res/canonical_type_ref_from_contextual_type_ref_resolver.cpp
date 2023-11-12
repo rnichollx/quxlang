@@ -2,11 +2,11 @@
 // Created by Ryan Nicholl on 10/20/23.
 //
 
-#include "rylang/res/canonical_type_ref_from_contextual_type_ref_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/manipulators/qmanip.hpp"
+#include "rylang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 
-void rylang::canonical_type_ref_from_contextual_type_ref_resolver::process(rylang::compiler* c)
+void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::compiler* c)
 {
 
     qualified_symbol_reference context = m_ref.context;
