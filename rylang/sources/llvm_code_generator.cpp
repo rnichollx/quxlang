@@ -26,14 +26,16 @@
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
+
+    vm_llvm_frame frame;
     std::unique_ptr< llvm::LLVMContext > context_ptr = std::make_unique< llvm::LLVMContext >();
     llvm::LLVMContext& context = *context_ptr;
     // llvm::IRBuilder<> builder(context);
 
-    std::unique_ptr< llvm::Module > module = std::make_unique< llvm::Module >("main", context);
+    frame.module = std::make_unique< llvm::Module >("main", context);
 
     // TODO: This is placeholder
-    module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
+    frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
 
     std::optional< qualified_symbol_reference > func_return_type = vmf.interface.return_type;
 
@@ -55,19 +57,19 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
-    llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, "main", module.get());
+    llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, "main", frame.module.get());
 
+    llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "entry", func);
 
-    llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "entry", func);
-    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "start", func);
-
-
-    vm_llvm_frame frame;
     frame.storage_block = storage;
 
     llvm::BasicBlock* p_block = entry;
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame);
+
+    llvm::IRBuilder<> builder(storage);
+    builder.CreateBr(entry);
 
     func->print(llvm::outs());
 
@@ -101,7 +103,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
 
     // Add the module to the JIT
-    if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(module), std::move(context_ptr))))
+    if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(frame.module), std::move(context_ptr))))
     {
         std::cerr << "Failed to add module to JIT" << std::endl;
         return {};
@@ -387,10 +389,44 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         // TODO: Implement this
 
-        assert(false);
+        std::string call_expr_str = to_string(call);
 
+        std::vector< llvm::Value* > args;
+        for (auto arg : call.arguments)
+        {
+            args.push_back(get_llvm_value(context, builder, frame, arg));
+        }
+
+        llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
+        llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
+
+        // TODO: Add stack unwinding support
+        return builder.CreateCall(externalFunction, args);
     }
 
     assert(false);
     return nullptr;
+}
+llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_symbol(llvm::LLVMContext& context, rylang::qualified_symbol_reference typ)
+{
+    return nullptr;
+}
+llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_interface(llvm::LLVMContext& context, rylang::vm_procedure_interface ifc)
+{
+    std::vector< llvm::Type* > arg_types;
+    llvm::Type* return_type{};
+    for (auto arg_type : ifc.argument_types)
+    {
+        arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
+    }
+    if (ifc.return_type.has_value())
+    {
+        return_type = get_llvm_type_from_vm_type(context, ifc.return_type.value());
+    }
+    else
+    {
+        return_type = llvm::Type::getVoidTy(context);
+    }
+
+    return llvm::FunctionType::get(return_type, arg_types, false);
 }

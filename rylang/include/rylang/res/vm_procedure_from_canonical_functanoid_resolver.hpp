@@ -42,6 +42,12 @@ namespace rylang
 
         std::pair< bool, vm_value > gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
 
+        std::pair< bool, vm_value > gen_implicit_conversion(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to);
+
+        std::pair< bool, vm_value> gen_ref_to_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value val);
+
+        std::pair< bool, vm_value> gen_value_to_ref(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to_type);
+
         std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
         std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_symbol_reference expr);
         std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_binary expr);

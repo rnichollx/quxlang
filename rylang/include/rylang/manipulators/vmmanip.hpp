@@ -14,7 +14,7 @@ namespace rylang
 {
     struct vm_value_type_vistor : boost::static_visitor< qualified_symbol_reference >
     {
-        qualified_symbol_reference operator()(void_value const &) const
+        qualified_symbol_reference operator()(void_value const&) const
         {
             return void_type{};
         }
@@ -22,6 +22,15 @@ namespace rylang
         {
             return op.type;
         }
+
+        qualified_symbol_reference operator()(vm_expr_bound_value const& op) const
+        {
+            bound_function_type_reference result;
+            result.function_type = op.function_ref;
+            result.object_type = boost::apply_visitor(vm_value_type_vistor{}, op.value);
+            return result;
+        }
+
         qualified_symbol_reference operator()(vm_expr_primitive_unary_op const& op) const
         {
             return op.type;
@@ -69,6 +78,12 @@ namespace rylang
             std::string result = "store<" + store_type + ", " + stored_type + ">(what=";
             result += to_string(what.what) + ", where=" + to_string(what.where) + ")";
 
+            return result;
+        }
+
+        std::string operator()(vm_expr_bound_value what) const
+        {
+            std::string result = "bound_value<" + to_string(what.function_ref) + ">(" + to_string(what.value) + ")";
             return result;
         }
 
@@ -151,7 +166,7 @@ namespace rylang
 
         std::string operator()(vm_expr_call const& obj) const
         {
-            std::string result = "call<" + to_string(obj.interface.return_type.value_or(void_type{})) + ">[" + obj.mangled_procedure_name + "](";
+            std::string result = "call<" + to_string(obj.functanoid) + ">[" + obj.mangled_procedure_name + "](";
             for (int i = 0; i < obj.arguments.size(); i++)
             {
                 if (i != 0)

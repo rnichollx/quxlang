@@ -24,6 +24,7 @@ namespace rylang
         function_frame_information_resolver(key_type input)
             : m_input(input)
         {
+          assert(false);
         }
 
         virtual void process(compiler* c);

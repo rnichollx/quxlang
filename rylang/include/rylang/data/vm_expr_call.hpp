@@ -13,6 +13,7 @@ namespace rylang
     struct vm_expr_call
     {
         std::string mangled_procedure_name;
+        qualified_symbol_reference functanoid;
         // TODO: Is this interface needed?
         vm_procedure_interface interface;
         std::vector< vm_value > arguments;

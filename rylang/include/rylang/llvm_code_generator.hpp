@@ -45,6 +45,9 @@ namespace rylang
 
         llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, qualified_symbol_reference typ);
         llvm::Type * get_llvm_type_from_vm_storage(llvm::LLVMContext &context, vm_allocate_storage typ);
+        llvm::FunctionType * get_llvm_type_from_func_symbol(llvm::LLVMContext &context, qualified_symbol_reference typ);
+        llvm::FunctionType * get_llvm_type_from_func_interface(llvm::LLVMContext &context, vm_procedure_interface ifc);
+
 
       public:
         std::vector< std::byte > get_function_code(cpu_arch cpu_type, vm_procedure vmf);

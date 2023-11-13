@@ -13,6 +13,7 @@ namespace rylang
         std::vector< vm_llvm_frame_item > values;
 
         llvm::BasicBlock * storage_block = nullptr;
+        std::unique_ptr<llvm::Module> module;
     };
 } // namespace rylang
 

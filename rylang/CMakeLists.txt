@@ -30,6 +30,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         sources/res/operator_is_overloaded_with_resolver.cpp
         include/rylang/res/symbol_canonical_chain_exists_resolver.hpp
         sources/res/symbol_canonical_chain_exists_resolver.cpp
+        include/rylang/data/vm_expr_bound_value.hpp
 )
 
 target_include_directories(rylang PUBLIC include)

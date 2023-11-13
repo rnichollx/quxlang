@@ -14,15 +14,15 @@ namespace rylang
 {
     class canonical_type_is_implicitly_convertible_to_resolver : public rpnx::resolver_base< compiler, bool >
     {
-        qualified_symbol_reference from;
-        qualified_symbol_reference to;
+        qualified_symbol_reference m_from;
+        qualified_symbol_reference m_to;
 
       public:
         using key_type = std::pair< qualified_symbol_reference, qualified_symbol_reference >;
 
         canonical_type_is_implicitly_convertible_to_resolver(key_type input)
-            : from(input.first)
-            , to(input.second)
+            : m_from(input.first)
+            , m_to(input.second)
         {
         }
 

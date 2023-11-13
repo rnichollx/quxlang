@@ -4,6 +4,10 @@
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/ast/function_ast.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/manipulators/qmanip.hpp"
+
+#include <iostream>
+#include <sstream>
 
 void rylang::function_overload_selection_resolver::process(compiler* c)
 {
@@ -12,6 +16,10 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
     std::optional< call_overload_set > output_overload;
 
     call_overload_set const& call_args = m_args;
+
+    // TODO: Remove this
+    std::stringstream ss;
+    ss << "Function overload selection resolver called, with args: " << to_string(call_args) << std::endl;
 
     // We need to collect the overloads that are callable with the given arguments
 
@@ -66,6 +74,8 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
 
         bool is_callable = is_callable_dp->get();
 
+        ss << "Checking overload " << to_string(overload_args) << " callable with " << to_string(call_args) << "? " << std::boolalpha << is_callable << std::endl;
+
         if (is_callable)
         {
             eligible_overloads++;
@@ -73,8 +83,12 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
         }
     }
 
+    // TODO: Remove this
+    std::cout << ss.str() << std::endl;
+
     if (eligible_overloads == 0)
     {
+
         throw std::runtime_error("No eligible overloads");
     }
     else if (eligible_overloads > 1)

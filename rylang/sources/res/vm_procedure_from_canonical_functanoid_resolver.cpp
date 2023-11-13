@@ -454,10 +454,37 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
     auto callee_pv = gen_value_generic(c, frame, block, expr.callee);
     bool ok = callee_pv.first;
+
     if (!ok)
     {
         return {false, {}};
     }
+
+    std::vector< qualified_symbol_reference > arg_types;
+
+    std::vector< std::string > arg_types_str;
+
+    if (!typeis< vm_expr_bound_value >(callee_pv.second))
+    {
+        throw std::runtime_error("Cannot call non-function reference");
+    }
+
+    vm_expr_bound_value callee_binding_value = boost::get< vm_expr_bound_value >(callee_pv.second);
+
+    vm_value callee_value = callee_binding_value.value;
+    qualified_symbol_reference callee_func = callee_binding_value.function_ref;
+
+    assert(is_canonical(callee_func));
+
+    // TODO: Consider omitting the callee if size of type is 0
+    if (!typeis< void_value >(callee_value))
+    {
+        call.arguments.push_back(callee_value);
+        arg_types.push_back(vm_value_type(callee_value));
+        assert(is_canonical(arg_types.back()));
+        arg_types_str.push_back(to_string(arg_types.back()));
+    }
+
     for (auto& arg : expr.args)
     {
         // TODO: Translate arg types from references
@@ -470,9 +497,63 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         }
 
         call.arguments.push_back(pv.second);
+        arg_types.push_back(vm_value_type(pv.second));
+        assert(is_canonical(arg_types.back()));
+        arg_types_str.push_back(to_string(arg_types.back()));
     }
 
+    call_overload_set call_set;
+    call_set.argument_types = arg_types;
+
+    // TODO: Check if function parameter set already specified.
+
+    auto overload_dp = get_dependency(
+        [&]
+        {
+            return c->lk_function_overload_selection(callee_func, call_set);
+        });
+
+    if (!ready())
+    {
+        return {false, {}};
+    }
+
+    call_overload_set overload = overload_dp->get();
+
+    parameter_set_reference overload_selected_ref;
+    overload_selected_ref.callee = callee_func;
+    overload_selected_ref.parameters = overload.argument_types;
+
+    for (std::size_t i = 0; i < overload_selected_ref.parameters.size(); i++)
+    {
+        qualified_symbol_reference parameter_type = overload_selected_ref.parameters[i];
+        qualified_symbol_reference arg_type = arg_types[i];
+
+        if (parameter_type != arg_type)
+        {
+            auto pair = gen_implicit_conversion(c, frame, block, call.arguments.at(i), parameter_type);
+            if (!pair.first)
+            {
+                return {false, {}};
+            }
+
+            call.arguments.at(i) = pair.second;
+        }
+    }
+
+    call.mangled_procedure_name = mangle(overload_selected_ref);
+    call.functanoid = overload_selected_ref;
+
+    call.interface = vm_procedure_interface{};
+    call.interface.argument_types = overload_selected_ref.parameters;
+    // TODO: lookup return type and interface
+    call.interface.return_type = primitive_type_integer_reference{32, true};
+
+    assert(call.mangled_procedure_name != "");
+
     return {true, call};
+
+    throw std::runtime_error("not implemented");
 }
 
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
@@ -534,7 +615,91 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
     qualified_symbol_reference canonical_symbol = canonical_symbol_dp->get();
 
+    std::string symbol_str = to_string(canonical_symbol);
     // TODO: Check if global variable
+    bool is_global_variable = false;
+    bool is_function = true; // This might not actually be true
 
-    return std::pair< bool, vm_value >();
+    vm_expr_bound_value result;
+    result.function_ref = canonical_symbol;
+    result.value = void_value{};
+
+    return {true, result};
+}
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_implicit_conversion(rylang::compiler* c, rylang::vm_generation_frame_info& frame,
+                                                                                                                     rylang::vm_block& block, rylang::vm_value from,
+                                                                                                                     rylang::qualified_symbol_reference to)
+{
+    auto from_type = vm_value_type(from);
+
+    if (remove_ref(from_type) == to)
+    {
+        return gen_ref_to_value(c, frame, block, from);
+    }
+
+    else if (from_type == remove_ref(to))
+    {
+        return gen_value_to_ref(c, frame, block, from, to);
+    }
+
+    // TODO: Allowed integer conversions, etc
+
+    throw std::runtime_error("Cannot convert between these types");
+}
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value_to_ref(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
+                                                                                                              rylang::vm_value from, rylang::qualified_symbol_reference to_type)
+{
+
+    assert(is_canonical(to_type));
+    auto result_placement_info_dp = get_dependency(
+        [&]
+        {
+            return c->lk_type_placement_info_from_canonical_type(to_type);
+        });
+    if (!ready())
+    {
+        return {false, {}};
+    }
+    type_placement_info result_placement_info = result_placement_info_dp->get();
+    vm_allocate_storage storage;
+    storage.type = to_type;
+    storage.size = result_placement_info.size;
+    storage.align = result_placement_info.alignment;
+    block.code.push_back(storage);
+    auto index = frame.variables.size();
+    vm_frame_variable var;
+    var.name = "TEMPORARY";
+    var.type = to_type;
+    frame.variables.push_back(var);
+    vm_expr_load_address load;
+    load.index = index;
+    load.type = to_type;
+    vm_expr_store store;
+    store.type = to_type;
+    store.where = load;
+    store.what = from;
+    vm_execute_expression expr;
+    expr.expr = store;
+    block.code.push_back(expr);
+    return {true, load};
+}
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_ref_to_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block,
+                                                                                                              rylang::vm_value val)
+{
+    auto arg_type = vm_value_type(val);
+    qualified_symbol_reference to_type = remove_ref(arg_type);
+
+    assert(is_canonical(arg_type));
+    auto result_placement_info_dp = get_dependency(
+        [&]
+        {
+            return c->lk_type_placement_info_from_canonical_type(to_type);
+        });
+    if (!ready())
+    {
+        return {false, {}};
+    }
+    type_placement_info result_placement_info = result_placement_info_dp->get();
+    // TODO: Copy constructor, if needed, etc.
+    return {true, vm_expr_dereference{val, to_type}};
 }

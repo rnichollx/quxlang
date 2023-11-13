@@ -5,6 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
 #define RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
 
+#include "rylang/data/call_overload_set.hpp"
 #include "rylang/data/qualified_reference.hpp"
 #include "rylang/variant_utils.hpp"
 
@@ -13,6 +14,19 @@ namespace rylang
 
     std::string to_string(qualified_symbol_reference const& ref);
 
+    inline std::string to_string(call_overload_set const& ref)
+    {
+        std::string result = "call_os(";
+        for (std::size_t i = 0; i < ref.argument_types.size(); i++)
+        {
+            if (i != 0)
+                result += ", ";
+            result += to_string(ref.argument_types[i]);
+        }
+        result += ")";
+
+        return result;
+    }
 
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {

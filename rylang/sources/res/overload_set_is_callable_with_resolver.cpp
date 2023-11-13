@@ -4,6 +4,7 @@
 
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/manipulators/qmanip.hpp"
 #include <vector>
 
 void rylang::overload_set_is_callable_with_resolver::process(compiler* c)
@@ -14,6 +15,9 @@ void rylang::overload_set_is_callable_with_resolver::process(compiler* c)
         set_value(false);
         return;
     }
+
+    std::string to = to_string(os);
+    std::string from = to_string(args);
 
     std::vector< rylang::compiler::out< bool > > convertibles_dp;
 

@@ -20,11 +20,13 @@ namespace rylang
     {
         std::strong_ordering operator<=>(const void_value&) const = default;
     };
+
+    struct vm_expr_bound_value;
     // struct vm_expr_call;
 
     using vm_value = boost::variant< void_value, boost::recursive_wrapper< vm_expr_primitive_binary_op >, boost::recursive_wrapper< vm_expr_primitive_unary_op >,
                                      boost::recursive_wrapper< vm_expr_load_address >, boost::recursive_wrapper< vm_expr_dereference >, boost::recursive_wrapper< vm_expr_store >,
-                                     boost::recursive_wrapper< vm_expr_call > >;
+                                     boost::recursive_wrapper< vm_expr_call >, boost::recursive_wrapper<vm_expr_bound_value> >;
 
 } // namespace rylang
 
@@ -33,5 +35,6 @@ namespace rylang
 #include "vm_expr_load_address.hpp"
 #include "vm_expr_primitive_op.hpp"
 #include "vm_expr_store.hpp"
+#include "vm_expr_bound_value.hpp"
 
 #endif // RPNX_RYANSCRIPT1031_VM_EXPRESSION_HEADER
