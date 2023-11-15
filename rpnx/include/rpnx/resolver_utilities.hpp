@@ -2,10 +2,15 @@
 #define RPNX_GRAPH_SOLVER_HPP
 
 #include <cassert>
+#include <iostream>
 #include <map>
 #include <optional>
 #include <set>
+#include <string>
 #include <type_traits>
+
+#include "rpnx/error_explainer.hpp"
+
 namespace rpnx
 {
     // Resolver shall have
@@ -82,6 +87,12 @@ namespace rpnx
     {
       public:
         virtual ~node_base(){};
+
+
+        virtual std::string question() const
+        {
+           return "?";
+        }
 
       public:
         void refresh_dependency(node_base< Graph >* n)
@@ -176,6 +187,7 @@ namespace rpnx
 
         virtual bool has_error() const = 0;
         virtual bool has_value() const = 0;
+        virtual std::exception_ptr get_error() const = 0;
         virtual void set_error(std::exception_ptr) = 0;
 
         virtual void process(Graph* graph) = 0;
@@ -222,6 +234,8 @@ namespace rpnx
         }
 
       private:
+
+
         std::set< node_base< Graph >* > m_met_dependencies;
         std::set< node_base< Graph >* > m_unmet_dependencies;
         std::set< node_base< Graph >* > m_error_dependencies;
@@ -238,12 +252,14 @@ namespace rpnx
 
         virtual ~resolver_base(){};
 
+
+
         Result get() const
         {
             return m_result.get();
         }
 
-        Result get_error() const
+        std::exception_ptr get_error() const override
         {
             return m_result.get_error();
         }
@@ -356,6 +372,11 @@ namespace rpnx
                     n->set_error(std::current_exception());
                 }
                 assert(n->resolved() || n->has_unresolved_dependencies());
+                if (n->has_error())
+                {
+                   std::cout << "Error in " << n->question() << std::endl;
+                   std::cout << "Error: " << explain_error(*n) << std::endl;
+                }
 
                 if (n->resolved())
                 {

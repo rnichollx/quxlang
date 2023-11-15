@@ -15,7 +15,6 @@
 namespace rylang
 {
 
-
     // parse_* functions should examine the input and return an interator to the end of the parsed position.
     // get_* functions should return a string corresponding to the result of the parse_* function.
     // skip_* functions advance the input parameter to the end of the parsed position.
@@ -164,6 +163,27 @@ namespace rylang
     }
 
     template < typename It >
+    inline std::string get_skip_subentity(It& begin, It end)
+    {
+        static std::set< std::string > subentity_keywords = {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR"};
+
+        auto pos = parse_identifier(begin, end);
+        if (pos == begin)
+        {
+            pos = parse_keyword(begin, end);
+            auto kw = std::string(begin, pos);
+
+            if (pos == begin || !subentity_keywords.contains(kw))
+            {
+                return {};
+            }
+        }
+        auto result = std::string(begin, pos);
+        begin = pos;
+        return result;
+    }
+
+    template < typename It >
     auto parse_whitespace(It begin, It end)
     {
         while (begin != end && std::isspace(*begin))
@@ -216,7 +236,7 @@ namespace rylang
         auto pos = begin;
         bool started = false;
         while (pos != end && !std::isspace(*pos) && !std::isalpha(*pos) && !std::isdigit(*pos) &&
-               (!started || (*pos != '(' && *pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';')) && *pos != '_')
+               (!started || (*pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';')) && *pos != '_')
         {
             char c = *pos;
             ++pos;
@@ -259,7 +279,6 @@ namespace rylang
         return true;
     }
 
-} // namespace rs1031
+} // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_PARSER_HEADER
-

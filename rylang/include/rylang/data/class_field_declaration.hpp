@@ -6,7 +6,7 @@
 #define RPNX_RYANSCRIPT1031_CLASS_FIELD_DECLARATION_HEADER
 
 #include "contextual_type_reference.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 namespace rylang
 {
   struct class_field_declaration

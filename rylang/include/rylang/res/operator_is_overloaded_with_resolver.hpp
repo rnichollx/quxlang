@@ -9,7 +9,7 @@
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_lookup_chain.hpp"
 #include "rylang/data/class_layout.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/symbol_id.hpp"
 
 #include <optional>

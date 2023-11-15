@@ -41,6 +41,7 @@ namespace rylang
         llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, primitive_type_integer_reference t);
 
         llvm::PointerType * get_llvm_type_opaque_ptr(llvm::LLVMContext &context);
+        llvm::Type * get_llvm_intptr(llvm::LLVMContext &context);
 
 
         llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, qualified_symbol_reference typ);

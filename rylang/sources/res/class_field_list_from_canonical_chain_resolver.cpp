@@ -16,6 +16,12 @@ void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c
 
     entity_ast ent_ast = ast_dp->get();
 
+    if (ent_ast.type() != entity_type::class_type)
+    {
+        std::string type_str = to_string(canonical_chain);
+        throw std::runtime_error("Cannot get layout of non-class entity: " + type_str + "");
+    }
+
     std::vector< class_field_declaration > output;
 
     for (auto& [name, sub_entity_val] : ent_ast.m_sub_entities)

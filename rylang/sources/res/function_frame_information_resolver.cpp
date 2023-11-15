@@ -26,12 +26,14 @@ void rylang::function_frame_information_resolver::process(compiler* c)
 
 bool rylang::function_frame_information_resolver::recurse(compiler* c, function_frame_information& frame, function_if_statement statement)
 {
-// TODO: Implement
+    assert(false);
+    // TODO: Implement
 }
 
 bool rylang::function_frame_information_resolver::recurse(compiler* c, function_frame_information& frame, function_while_statement statement)
 {
-// TODO: implement
+    assert(false);
+    // TODO: implement
 }
 
 bool rylang::function_frame_information_resolver::recurse(rylang::compiler* c, rylang::function_frame_information& frame, rylang::function_block const& block)

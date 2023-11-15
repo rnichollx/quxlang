@@ -45,6 +45,7 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+#include "rylang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -84,6 +85,7 @@ namespace rylang
         friend class function_frame_information_resolver;
         friend class operator_is_overloaded_with_resolver;
         friend class symbol_canonical_chain_exists_resolver;
+        friend class class_should_autogen_default_constructor_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -106,6 +108,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
+        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference cls)
+        {
+            return m_class_should_autogen_default_constructor_index.lookup(cls);
+        }
 
         index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
         out< bool > lk_symbol_canonical_chain_exists(qualified_symbol_reference chain)

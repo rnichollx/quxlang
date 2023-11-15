@@ -93,6 +93,58 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
 
         return;
     }
+    else if (type.type() == boost::typeindex::type_id< subdotentity_reference >())
+    {
+        subdotentity_reference const& sub = boost::get< subdotentity_reference >(type);
+
+        qualified_symbol_reference const& parent = sub.parent;
+
+        if (parent.type() == boost::typeindex::type_id< context_reference >())
+        {
+            std::optional< qualified_symbol_reference > current_context = context;
+            assert(current_context.has_value());
+            assert(!qualified_is_contextual(current_context.value()));
+
+            while (current_context.has_value())
+            {
+                subdotentity_reference sub2{current_context.value(), sub.subdotentity_name};
+
+                auto exists_dp = get_dependency(
+                    [&]
+                    {
+                        return c->lk_entity_canonical_chain_exists(sub2);
+                    });
+                if (!ready())
+                    return;
+
+                bool exists = exists_dp->get();
+
+                if (exists)
+                {
+                    set_value(sub2);
+                    return;
+                }
+
+                current_context = qualified_parent(current_context.value());
+            }
+
+            std::string str = "Could not find '" + sub.subdotentity_name + "'";
+            throw std::logic_error(str.c_str());
+        }
+
+        auto parent_dp = get_dependency(
+            [&]
+            {
+                return c->lk_canonical_type_from_contextual_type(parent, context);
+            });
+
+        if (!ready())
+            return;
+
+        set_value(subdotentity_reference{parent_dp->get(), sub.subdotentity_name});
+
+        return;
+    }
     else if (type.type() == boost::typeindex::type_id< parameter_set_reference >())
     {
         parameter_set_reference const& param_set = boost::get< parameter_set_reference >(type);

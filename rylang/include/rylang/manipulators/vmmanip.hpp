@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_VMMANIP_HEADER
 #define RPNX_RYANSCRIPT1031_VMMANIP_HEADER
 
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/vm_expr_primitive_op.hpp"
 #include "rylang/data/vm_expression.hpp"
 #include <boost/variant.hpp>
@@ -19,6 +19,11 @@ namespace rylang
             return void_type{};
         }
         qualified_symbol_reference operator()(vm_expr_primitive_binary_op const& op) const
+        {
+            return op.type;
+        }
+
+        qualified_symbol_reference operator()(vm_expr_access_field const& op) const
         {
             return op.type;
         }
@@ -53,6 +58,11 @@ namespace rylang
             return op.interface.return_type.value_or(void_type{});
         }
 
+        qualified_symbol_reference operator()(vm_expr_load_literal const& op) const
+        {
+            return op.type;
+        }
+
       public:
         vm_value_type_vistor() = default;
     };
@@ -85,6 +95,11 @@ namespace rylang
         {
             std::string result = "bound_value<" + to_string(what.function_ref) + ">(" + to_string(what.value) + ")";
             return result;
+        }
+
+        std::string operator()(vm_expr_load_literal lit) const
+        {
+            return "LITERAL<" + to_string(lit.type) + ">(" + lit.literal + ")";
         }
 
         std::string operator()(vm_return what) const
@@ -147,6 +162,11 @@ namespace rylang
         std::string operator()(vm_expr_primitive_binary_op const& exp) const
         {
             return "binary_op " + exp.oper + " <" + to_string(exp.type) + ">(" + to_string(exp.lhs) + ", " + to_string(exp.rhs) + ")";
+        }
+
+        std::string operator()(vm_expr_access_field const& exp) const
+        {
+                return "access_field<" + to_string(exp.type) + ">(" + to_string(exp.base) + ", +" + std::to_string(exp.offset) + ")";
         }
 
         std::string operator()(vm_expr_primitive_unary_op const& exp) const

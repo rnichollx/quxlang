@@ -4,10 +4,12 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/compiler.hpp"
 
+
 void rylang::type_placement_info_from_canonical_type_resolver::process(compiler* c)
 
 {
     qualified_symbol_reference const& type = m_type;
+    std::string type_str = to_string(type);
 
     if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
     {
@@ -36,6 +38,7 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
         type_placement_info result;
         result.size = layout.size;
         result.alignment = layout.align;
+
         set_value(result);
         return;
     }

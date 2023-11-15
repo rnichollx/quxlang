@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER
 #define RPNX_RYANSCRIPT1031_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER
 
-#include "qualified_reference.hpp"
+#include "qualified_symbol_reference.hpp"
 
 namespace rylang
 {

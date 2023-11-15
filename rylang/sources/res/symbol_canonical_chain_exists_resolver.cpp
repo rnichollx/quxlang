@@ -3,8 +3,8 @@
 //
 #include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/variant_utils.hpp"
-#include "rylang/data/qualified_reference.hpp"
 
 void rylang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 {

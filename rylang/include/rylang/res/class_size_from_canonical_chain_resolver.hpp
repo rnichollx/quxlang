@@ -8,7 +8,7 @@
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_lookup_chain.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/symbol_id.hpp"
 
 namespace rylang

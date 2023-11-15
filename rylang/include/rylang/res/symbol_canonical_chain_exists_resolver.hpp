@@ -9,7 +9,7 @@
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/class_list.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 
 namespace rylang
 {

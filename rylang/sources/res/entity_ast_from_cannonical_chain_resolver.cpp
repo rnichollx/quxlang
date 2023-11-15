@@ -18,7 +18,7 @@ namespace rylang
 
         qualified_symbol_reference const& chain = this->m_chain;
 
-        std::string typestirng = boost::apply_visitor(qualified_symbol_stringifier(), chain);
+        std::string typestring = boost::apply_visitor(qualified_symbol_stringifier(), chain);
 
         if (chain.type() == boost::typeindex::type_id< parameter_set_reference >())
         {
@@ -61,6 +61,30 @@ namespace rylang
             if (it == ent.m_sub_entities.end())
             {
                 throw std::runtime_error("Failed to look up entity");
+            }
+
+            set_value(it->second.get());
+        }
+        else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
+        {
+
+            auto const& subdotentity_ref = boost::get< subdotentity_reference >(chain);
+
+            auto parent_ast_dp = get_dependency(
+                [&]
+                {
+                    return c->lk_entity_ast_from_canonical_chain(subdotentity_ref.parent);
+                });
+            if (!ready())
+                return;
+            entity_ast const& ent = parent_ast_dp->get();
+
+            // TODO: Make these lookup differently
+            auto it = ent.m_sub_entities.find(subdotentity_ref.subdotentity_name);
+
+            if (it == ent.m_sub_entities.end())
+            {
+                throw std::runtime_error("Failed to look up entity " + typestring );
             }
 
             set_value(it->second.get());

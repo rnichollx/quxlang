@@ -10,7 +10,7 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/data/function_statement.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/vm_generation_frameinfo.hpp"
 
 namespace rylang
@@ -38,15 +38,37 @@ namespace rylang
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
 
-        std::pair< bool, vm_value > gen_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, std::string funcname_mangled, std::vector< vm_value > args);
+        /// Generate a call to a builtin function
+        // @param c The compiler
+        // @param frame The frame info
+        // @param block The vm_block to generate the call in
+        // @param callee The function to call
+        // @param values The arguments to the function
+        // @return A tuple containing the following:
+        //  - A boolean that returns true if resolution may proceed
+        //  - A boolean that returns true if the call should be a builtin call,
+        //    or false if it should be a normal call
+        //  - The value of the builtin call, if previous boolean was true
+        //    otherwise void_value
+        std::tuple< bool, bool, vm_value > try_gen_builtin_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
+
+
+
+        std::pair< bool, vm_value > gen_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values);
+
+        std::pair<bool, vm_value> gen_call(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
+
+        std::pair<bool, vm_value> gen_default_constructor(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
+
+        std::pair<bool, vm_value> gen_call_real(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
 
         std::pair< bool, vm_value > gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
 
         std::pair< bool, vm_value > gen_implicit_conversion(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to);
 
-        std::pair< bool, vm_value> gen_ref_to_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value val);
+        std::pair< bool, vm_value > gen_ref_to_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value val);
 
-        std::pair< bool, vm_value> gen_value_to_ref(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to_type);
+        std::pair< bool, vm_value > gen_value_to_ref(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to_type);
 
         std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
         std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_symbol_reference expr);

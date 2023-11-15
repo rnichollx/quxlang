@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_FUNCTION_FRAME_INFORMATION_HEADER
 #define RPNX_RYANSCRIPT1031_FUNCTION_FRAME_INFORMATION_HEADER
 
-#include "qualified_reference.hpp"
+#include "qualified_symbol_reference.hpp"
 #include <string>
 
 namespace rylang

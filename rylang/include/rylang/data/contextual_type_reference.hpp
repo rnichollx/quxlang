@@ -7,7 +7,7 @@
 
 #include "lookup_chain.hpp"
 #include "rylang/data/lookup_type.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 
 namespace rylang
 {

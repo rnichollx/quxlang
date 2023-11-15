@@ -6,7 +6,7 @@
 #define RPNX_RYANSCRIPT1031_CODEPATH_EXECUTION_RETURN_HEADER
 
 #include "canonical_type_reference.hpp"
-#include "qualified_reference.hpp"
+#include "qualified_symbol_reference.hpp"
 #include <optional>
 namespace rylang
 {

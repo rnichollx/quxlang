@@ -6,8 +6,8 @@
 #define RPNX_RYANSCRIPT1031_CALL_OVERLOAD_SET_HEADER
 
 #include "rylang/data/canonical_type_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/ordering.hpp"
-#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {

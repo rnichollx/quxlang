@@ -5,8 +5,8 @@
 #ifndef RPNX_RYANSCRIPT1031_MEMBER_VARIABLE_AST_HEADER
 #define RPNX_RYANSCRIPT1031_MEMBER_VARIABLE_AST_HEADER
 
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include <string>
-#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {

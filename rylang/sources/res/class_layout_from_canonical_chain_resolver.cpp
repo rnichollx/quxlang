@@ -10,6 +10,8 @@
 void rylang::class_layout_from_canonical_chain_resolver::process(compiler* c)
 {
     auto& chain = this->m_chain;
+    std::string class_str = to_string(chain);
+
     class_layout output;
     // 1 get class field information
     auto class_field_dp = get_dependency(

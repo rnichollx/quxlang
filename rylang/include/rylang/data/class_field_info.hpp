@@ -6,9 +6,8 @@
 #define RPNX_RYANSCRIPT1031_CLASS_FIELD_INFO_HEADER
 
 #include "canonical_type_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include <vector>
-#include "rylang/data/qualified_reference.hpp"
-
 
 namespace rylang
 

@@ -32,7 +32,7 @@ MODULE main;
 
 ::quz CLASS
 {
-  .foo VAR I32;
+  .f VAR I32;
   ::bif NAMESPACE
   {
      ::box CLASS
@@ -41,7 +41,10 @@ MODULE main;
 
         .buz FUNCTION(%a I32, %b I32): I32
         {
-           VAR c : I32;
+           VAR c I32;
+           VAR d ::foo;
+
+           VAR e I32 :(a + b);
 
            IF (a > b) {
              RETURN buz(a);
@@ -60,7 +63,8 @@ MODULE main;
 
         .buz FUNCTION(%a I64, %b I64) : I64
         {
-           VAR c : I64;
+           VAR c I64 :(4);
+
            c := a + b;
            a := a + a + a + a;
            c := c + a;

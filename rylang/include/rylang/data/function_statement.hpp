@@ -27,12 +27,16 @@ namespace rylang
     {
         std::string name;
         qualified_symbol_reference type;
+        // TODO: support named initializers
+        std::vector<expression> initializers;
         std::strong_ordering operator<=>(const function_var_statement& other) const = default;
     };
 
     using function_statement =
         boost::variant< std::monostate, boost::recursive_wrapper< function_block >, boost::recursive_wrapper< function_expression_statement >, boost::recursive_wrapper< function_if_statement >,
                         boost::recursive_wrapper< function_while_statement >, boost::recursive_wrapper< function_var_statement >, function_return_statement >;
+
+
 
     struct function_block
     {

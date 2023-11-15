@@ -4,7 +4,7 @@
 #include "rylang/llvm_code_generator.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/llvmg/vm_llvm_frame.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/manipulators/vm_type_alignment.hpp"
@@ -303,6 +303,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
 }
 llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
+
     if (value.type() == boost::typeindex::type_id< rylang::vm_expr_load_address >())
     {
         rylang::vm_expr_load_address lea = boost::get< rylang::vm_expr_load_address >(value);
@@ -403,6 +404,56 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         // TODO: Add stack unwinding support
         return builder.CreateCall(externalFunction, args);
     }
+    else if (typeis< vm_expr_load_literal >(value))
+    {
+        vm_expr_load_literal lit = boost::get< vm_expr_load_literal >(value);
+
+        if (lit.type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
+        {
+            primitive_type_integer_reference int_type = boost::get< primitive_type_integer_reference >(lit.type);
+            llvm::Type* llvm_int_type = get_llvm_int_type_ptr(context, int_type);
+            std::string value_string = lit.literal;
+            std::uint64_t value_number = std::stoull(value_string);
+            return llvm::ConstantInt::get(llvm_int_type, value_number, int_type.has_sign);
+        }
+        if (lit.type.type() == boost::typeindex::type_id< pointer_to_reference >())
+        {
+            if (lit.literal == "NULLPTR")
+            {
+                llvm::Type* llvm_int_type = get_llvm_intptr(context);
+                auto nullval = llvm::ConstantInt::get(llvm_int_type, 0);
+
+                llvm::Value * nullpt = builder.CreateIntToPtr(nullval, get_llvm_type_opaque_ptr(context));
+                return nullpt;
+            }
+            else
+            {
+                assert(false);
+            }
+        }
+
+        else
+        {
+            assert(false);
+        }
+    }
+    else if (typeis< vm_expr_access_field >(value))
+    {
+        vm_expr_access_field const& field = boost::get< vm_expr_access_field >(value);
+
+        llvm::Value* offset = llvm::ConstantInt::get(get_llvm_intptr(context), field.offset);
+
+        llvm::Value* original_ptr = get_llvm_value(context, builder, frame, field.base);
+
+        llvm::Value * new_ptr = builder.CreateGEP(get_llvm_type_from_vm_type(context, field.type), original_ptr, offset);
+
+
+        return new_ptr;
+    }
+    else if (typeis< void_value >(value))
+    {
+        return nullptr;
+    }
 
     assert(false);
     return nullptr;
@@ -429,4 +480,9 @@ llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_interfa
     }
 
     return llvm::FunctionType::get(return_type, arg_types, false);
+}
+llvm::Type* rylang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& context)
+{
+    // TODO: check the actual bitwidth on the current platform
+    return llvm::IntegerType::get(context, 64);
 }

@@ -5,8 +5,8 @@
 #ifndef RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
 #define RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
 
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include <cstddef>
-#include "rylang/data/qualified_reference.hpp"
 
 namespace rylang
 {

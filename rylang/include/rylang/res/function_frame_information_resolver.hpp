@@ -10,7 +10,7 @@
 #include "rylang/data/call_overload_set.hpp"
 #include "rylang/data/function_frame_information.hpp"
 #include "rylang/data/function_if_statement.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 
 namespace rylang
 {

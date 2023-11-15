@@ -9,7 +9,7 @@
 #include "rylang/data/canonical_type_reference.hpp"
 
 #include "rpnx/resolver_utilities.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 
 namespace rylang
 {

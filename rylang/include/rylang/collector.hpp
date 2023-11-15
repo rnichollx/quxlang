@@ -18,8 +18,9 @@
 #include "rylang/converters/qual_converters.hpp"
 #include "rylang/cow.hpp"
 #include "rylang/data/expression_multiply.hpp"
+#include "rylang/data/expression_numeric_literal.hpp"
 #include "rylang/data/proximate_lookup_reference.hpp"
-#include "rylang/data/qualified_reference.hpp"
+#include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/s_expression.hpp"
 #include "rylang/data/s_expression_add.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
@@ -52,6 +53,41 @@ namespace rylang
         std::runtime_error unimplemented(It&)
         {
             return std::runtime_error("not implemented");
+        }
+
+        template < typename It >
+        auto parse_number(It begin, It end) -> It
+        {
+            auto pos = begin;
+            if (pos != end && std::isdigit(*pos))
+            {
+                pos++;
+            }
+            else
+            {
+                return pos;
+            }
+
+            bool havedot = false;
+
+            while (pos != end && std::isdigit(*pos) || (*pos == '.' && !havedot))
+            {
+                if (*pos == '.')
+                {
+                    havedot = true;
+                }
+                pos++;
+            }
+
+            return pos;
+        }
+
+        template < typename It >
+        std::string get_skip_number(It& pos, It end)
+        {
+            auto start = pos;
+            pos = parse_number(pos, end);
+            return std::string(start, pos);
         }
 
         template < typename It >
@@ -441,22 +477,24 @@ namespace rylang
         }
 
         template < typename It >
-        qualified_symbol_reference collect_qualified_symbol(It& pos, It end)
+        bool try_collect_qualified_symbol(It& pos, It end, std::optional< qualified_symbol_reference >& outputv)
         {
+
             qualified_symbol_reference output = context_reference{};
+            std::string remaining = std::string(pos, end);
             skip_wsc(pos, end);
         start:
             primitive_type_integer_reference intr;
             if (try_get_integral_keyword(pos, end, intr))
             {
-                return intr;
+                output = intr;
             }
             else if (skip_symbol_if_is(pos, end, "::"))
             {
                 // TODO: Support multiple modules
                 output = module_reference{"main"};
 
-                auto ident = get_skip_identifier(pos, end);
+                auto ident = get_skip_subentity(pos, end);
                 if (ident.empty())
                     throw std::runtime_error("expected identifier after ::");
 
@@ -464,28 +502,52 @@ namespace rylang
             }
             else if (skip_symbol_if_is(pos, end, "->"))
             {
-                return pointer_to_reference{collect_qualified_symbol(pos, end)};
+                outputv = pointer_to_reference{collect_qualified_symbol(pos, end)};
+                return true;
             }
             else
             {
                 std::string remaining = std::string(pos, end);
-                auto ident = get_skip_identifier(pos, end);
+                auto ident = get_skip_subentity(pos, end);
                 if (ident.empty())
-                    throw std::runtime_error("expected identifier");
-
+                {
+                    return false;
+                }
                 output = subentity_reference{std::move(output), std::move(ident)};
             }
 
         check_next:
             skip_wsc(pos, end);
 
+            if (remaining.starts_with("I32::") || remaining.starts_with("::CON") || remaining.starts_with("CON"))
+            {
+                int x = 0;
+            }
+
+            remaining = std::string(pos, end);
+
             if (skip_symbol_if_is(pos, end, "::"))
             {
-                auto ident = get_skip_identifier(pos, end);
+                auto ident = get_skip_subentity(pos, end);
                 if (ident.empty())
-                    return output;
+                {
+                    outputv = output;
+                    return true;
+                }
 
                 output = subentity_reference{std::move(output), std::move(ident)};
+                goto check_next;
+            }
+            else if (skip_symbol_if_is(pos, end, "::."))
+            {
+                auto ident = get_skip_subentity(pos, end);
+                if (ident.empty())
+                {
+                    outputv = output;
+                    return true;
+                }
+
+                output = subdotentity_reference{std::move(output), std::move(ident)};
                 goto check_next;
             }
             else if (skip_symbol_if_is(pos, end, "@("))
@@ -515,7 +577,18 @@ namespace rylang
                 goto next_arg;
             }
 
-            return output;
+            outputv = output;
+            return true;
+        }
+
+        template < typename It >
+        qualified_symbol_reference collect_qualified_symbol(It& pos, It end)
+        {
+            std::optional< qualified_symbol_reference > output;
+            try_collect_qualified_symbol(pos, end, output);
+            if (!output.has_value())
+                throw std::runtime_error("Expected qualified symbol");
+            return output.value();
         }
 
         template < typename It >
@@ -848,9 +921,26 @@ namespace rylang
         }
 
         template < typename It >
+        bool try_collect_numeric_literal(It& pos, It end, std::optional< expression_numeric_literal >& num)
+        {
+            expression_numeric_literal numv;
+
+            std::string number = get_skip_number(pos, end);
+            if (number.empty())
+                return false;
+
+            numv.value = number;
+            num = numv;
+            // TODO: integer suffixes.
+            return true;
+        }
+
+        template < typename It >
         bool try_collect_expression(It& pos, It end, std::optional< expression >& output)
         {
             skip_wsc(pos, end);
+
+            std::string remaining{pos, end};
 
             expression result;
             std::vector< expression* > bindings;
@@ -867,9 +957,18 @@ namespace rylang
 
         next_value:
 
-            std::string remaining = std::string(pos, end);
+            remaining = std::string(pos, end);
+            std::optional< qualified_symbol_reference > sym;
             skip_wsc(pos, end);
-            if (skip_symbol_if_is(pos, end, "."))
+            if (auto num_str = get_skip_number(pos, end); !num_str.empty())
+            {
+                numeric_literal num;
+                num.value = num_str;
+                *value_bind_point = num;
+                have_anything = true;
+                skip_wsc(pos, end);
+            }
+            else if (skip_symbol_if_is(pos, end, "."))
             {
                 skip_wsc(pos, end);
                 expression_thisdot_reference thisdot;
@@ -877,16 +976,12 @@ namespace rylang
                 *value_bind_point = thisdot;
                 have_anything = true;
             }
-            else if (get_identifier(pos, end).empty() == false)
+            else if (try_collect_qualified_symbol(pos, end, sym))
             {
-                // std::string identifier = get_skip_identifier(pos, end);
-                // expression_lvalue_reference lvalue;
-                // lvalue.identifier = identifier;
-                qualified_symbol_reference sym;
-                sym = collect_qualified_symbol(pos, end);
+                assert(sym.has_value());
 
                 expression_symbol_reference lvalue;
-                lvalue.symbol = sym;
+                lvalue.symbol = sym.value();
 
                 *value_bind_point = lvalue;
                 have_anything = true;
@@ -1032,6 +1127,7 @@ namespace rylang
             if (try_collect_expression(pos, end, expr))
             {
                 skip_wsc(pos, end);
+                remaining = std::string(pos, end);
                 if (!skip_symbol_if_is(pos, end, ";"))
                 {
                     throw std::runtime_error("Expected ';' after expression");
@@ -1062,14 +1158,46 @@ namespace rylang
 
             skip_wsc(pos, end);
 
-            if (!skip_symbol_if_is(pos, end, ":"))
-            {
-                throw std::runtime_error("Expected ':'");
-            }
+            std::string remaining{pos, end};
+            var_statement.type = collect_qualified_symbol(pos, end);
 
             skip_wsc(pos, end);
 
-            var_statement.type = collect_qualified_symbol(pos, end);
+            if (skip_symbol_if_is(pos, end, ":("))
+            {
+
+                while (true)
+                {
+
+                    skip_wsc(pos, end);
+                    if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+
+                    remaining = std::string(pos, end);
+
+                    expression expr = collect_expression(pos, end);
+                    var_statement.initializers.push_back(std::move(expr));
+
+                    if (skip_symbol_if_is(pos, end, ","))
+                    {
+                        continue;
+                    }
+                    else if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Expected ',' or ')'");
+                    }
+                }
+            }
+
+            std::string remaining2{pos, end};
+
+            skip_wsc(pos, end);
 
             if (!skip_symbol_if_is(pos, end, ";"))
             {
@@ -1110,6 +1238,13 @@ namespace rylang
         bool try_collect_statement(It& pos, It end, std::optional< function_statement >& output)
         {
             skip_wsc(pos, end);
+
+            std::string remaining = std::string(pos, end);
+
+            if (remaining.starts_with("I32::CONSTRU"))
+            {
+                int x = 0;
+            }
 
             std::optional< function_expression_statement > exp_st;
 

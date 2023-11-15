@@ -11,7 +11,7 @@ namespace rylang
 {
    struct numeric_literal
    {
-       std::string literal;
+       std::string value;
 
        std::strong_ordering operator<=>(numeric_literal const&) const = default;
    };
