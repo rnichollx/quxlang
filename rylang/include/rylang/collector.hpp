@@ -1235,6 +1235,38 @@ namespace rylang
         }
 
         template < typename It >
+        function_while_statement collect_while_statement(It& pos, It end)
+        {
+            skip_wsc(pos, end);
+
+            if (!skip_keyword_if_is(pos, end, "WHILE"))
+            {
+                throw std::runtime_error("Expected 'WHILE'");
+            }
+
+            function_while_statement output;
+
+            skip_wsc(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::runtime_error("Expected '('");
+            }
+
+            output.condition = collect_expression(pos, end);
+
+            skip_wsc(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::runtime_error("Expected ')'");
+            }
+            skip_wsc(pos, end);
+            output.loop_block = collect_function_block(pos, end);
+
+            return output;
+        }
+
+        template < typename It >
         bool try_collect_statement(It& pos, It end, std::optional< function_statement >& output)
         {
             skip_wsc(pos, end);
@@ -1261,6 +1293,11 @@ namespace rylang
             else if (get_keyword(pos, end) == "RETURN")
             {
                 output = collect_return_statement(pos, end);
+                return true;
+            }
+            else if (get_keyword(pos, end) == "WHILE")
+            {
+                output = collect_while_statement(pos, end);
                 return true;
             }
             else if (try_collect_expression_statement(pos, end, exp_st))

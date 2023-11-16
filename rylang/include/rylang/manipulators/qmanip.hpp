@@ -35,6 +35,7 @@ namespace rylang
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(subdotentity_reference const& ref) const;
         std::string operator()(void_type const&) const;
+        std::string operator()(numeric_literal_reference const&) const;
 
       public:
         qualified_symbol_stringifier() = default;

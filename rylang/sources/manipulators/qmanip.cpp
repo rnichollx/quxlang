@@ -141,4 +141,8 @@ namespace rylang
     {
         return to_string(ref.parent) + "::." + ref.subdotentity_name;
     }
+    std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
+    {
+        return "NUMERIC_LITERAL";
+    }
 } // namespace rylang

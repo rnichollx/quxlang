@@ -39,6 +39,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/data/vm_expr_access_field.hpp
         include/rylang/res/symbol_is_primitive_resolver.hpp
         include/rylang/res/symbol_is_class_resolver.hpp
+        include/rylang/data/function_while_statement.hpp
 
 )
 

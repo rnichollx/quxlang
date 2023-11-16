@@ -18,10 +18,7 @@ namespace rylang
     struct function_if_statement;
 
     // TODO: Implement while
-    struct function_while_statement
-    {
-        std::strong_ordering operator<=>(const function_while_statement& other) const = default;
-    };
+    struct function_while_statement;
 
     struct function_var_statement
     {
@@ -56,5 +53,6 @@ namespace rylang
 
 #include "rylang/data/function_expression_statement.hpp"
 #include "rylang/data/function_if_statement.hpp"
+#include "rylang/data/function_while_statement.hpp"
 
 #endif // RPNX_RYANSCRIPT1031_FUNCTION_STATEMENT_HEADER

@@ -46,6 +46,11 @@ MODULE main;
 
            VAR e I32 :(a + b);
 
+           WHILE (a < 5)
+           {
+             a := a + 1;
+           }
+
            IF (a > b) {
              RETURN buz(a);
            } ELSE {
@@ -64,6 +69,10 @@ MODULE main;
         .buz FUNCTION(%a I64, %b I64) : I64
         {
            VAR c I64 :(4);
+
+           WHILE (a > b) {
+             a := a + 1;
+           }
 
            c := a + b;
            a := a + a + a + a;

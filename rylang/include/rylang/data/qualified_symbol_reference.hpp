@@ -5,6 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
 #define RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
 
+#include "numeric_literal.hpp"
 #include <boost/variant.hpp>
 #include <compare>
 
@@ -27,6 +28,12 @@ namespace rylang
     {
         std::strong_ordering operator<=>(const void_type& other) const = default;
     };
+
+    struct numeric_literal_reference
+    {
+        std::strong_ordering operator<=>(const numeric_literal_reference& other) const = default;
+    };
+
     struct context_reference
     {
         std::strong_ordering operator<=>(const context_reference& other) const = default;
@@ -35,7 +42,7 @@ namespace rylang
     struct bound_function_type_reference;
     // struct function_type_reference;
 
-    using qualified_symbol_reference = boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< pointer_to_reference >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference > >;
+    using qualified_symbol_reference = boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< parameter_set_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< pointer_to_reference >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper<numeric_literal_reference> >;
 
     struct module_reference
     {

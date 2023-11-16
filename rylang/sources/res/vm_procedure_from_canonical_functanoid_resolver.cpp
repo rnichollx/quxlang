@@ -75,9 +75,8 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     else if (typeis< function_while_statement >(statement))
     {
         function_while_statement while_stmt = boost::get< function_while_statement >(statement);
-        // TODO: Implement
-        // return build(c, frame, proc.body, while_stmt);
-        assert(false);
+
+        return build(c, frame, block, while_stmt);
     }
     else if (typeis< function_return_statement >(statement))
     {
@@ -186,10 +185,14 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     {
         return gen_value(c, frame, block, boost::get< expression_call >(std::move(expr)));
     }
+    else if (typeis< numeric_literal >(expr))
+    {
+        return gen_value(c, frame, block, boost::get< numeric_literal >(std::move(expr)));
+    }
     else
     {
         // TODO: Add other types
-        throw std::logic_error("Unimplemented");
+        throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
     }
     // gen_expression(c, frame, block, expr);
     return {false, {}};
@@ -944,4 +947,38 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     }
 
     return {true, void_value()};
+}
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_while_statement statement)
+{
+    vm_block expr_block;
+    vm_while whl_statement;
+
+    if (auto pair = gen_value_generic(c, frame, expr_block, statement.condition); pair.first)
+    {
+        whl_statement.condition = pair.second;
+        if (expr_block.code.size() > 0)
+        {
+            whl_statement.condition_block = std::move(expr_block);
+        }
+        block.code.push_back(std::move(expr_block));
+        for (auto& i : statement.loop_block.statements)
+        {
+            if (!build_generic(c, frame, whl_statement.loop_block, i))
+            {
+                return false;
+            }
+        }
+        block.code.push_back(whl_statement);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::numeric_literal expr)
+{
+    return std::pair< bool, vm_value >();
 }

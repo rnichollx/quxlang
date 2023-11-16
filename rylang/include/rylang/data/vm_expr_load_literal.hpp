@@ -11,11 +11,19 @@
 
 namespace rylang
 {
+
+   struct vm_expr_literal
+   {
+      std::string literal;
+   };
+
    struct vm_expr_load_literal
    {
        std::string literal;
        qualified_symbol_reference type;
    };
+
+
 }
 
 #endif // RPNX_RYANSCRIPT1031_VM_EXPR_LOAD_LITERAL_HEADER

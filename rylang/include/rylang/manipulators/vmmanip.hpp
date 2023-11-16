@@ -63,6 +63,11 @@ namespace rylang
             return op.type;
         }
 
+        qualified_symbol_reference operator()(vm_expr_literal const& op) const
+        {
+            return numeric_literal_reference{};
+        }
+
       public:
         vm_value_type_vistor() = default;
     };
@@ -77,6 +82,11 @@ namespace rylang
 
     struct vm_expression_stringifier : boost::static_visitor< std::string >
     {
+        std::string operator()(vm_expr_literal lit) const
+        {
+            return "LITERAL(" + lit.literal + ")";
+        }
+
         std::string operator()(vm_expr_store what) const
         {
             std::string store_type;
@@ -97,9 +107,11 @@ namespace rylang
             return result;
         }
 
+
+
         std::string operator()(vm_expr_load_literal lit) const
         {
-            return "LITERAL<" + to_string(lit.type) + ">(" + lit.literal + ")";
+            return "LOAD_LITERAL<" + to_string(lit.type) + ">(" + lit.literal + ")";
         }
 
         std::string operator()(vm_return what) const
@@ -181,6 +193,12 @@ namespace rylang
             {
                 result += " else " + to_string(*ifi.else_block);
             }
+            return result;
+        }
+
+        std::string operator()(vm_while const& wfi) const
+        {
+            std::string result = "while(" + to_string(wfi.condition) + ") do " + to_string(wfi.loop_block);
             return result;
         }
 
