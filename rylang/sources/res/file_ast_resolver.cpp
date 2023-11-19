@@ -5,9 +5,11 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#include "rylang/res/file_ast_resolver.hpp"
-#include "rylang/collector.hpp"
 #include "rylang/compiler.hpp"
+
+
+#include "rylang/collector.hpp"
+
 #include <exception>
 #include <fstream>
 

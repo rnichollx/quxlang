@@ -1,15 +1,17 @@
 //
 // Created by Ryan Nicholl on 11/4/23.
 //
-#include "rylang/res/function_qualified_reference_resolver.hpp"
+
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/converters/qual_converters.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 
 void rylang::function_qualified_reference_resolver::process(compiler* c)
 {
-    // TODO: Lookup chain is deprecated, but this is being used by other resolvers still
-    qualified_symbol_reference chain = m_input;
+   //assert(false);
+   qualified_symbol_reference chain = m_input;
 
     auto call_overload_set_dp = get_dependency(
         [&]

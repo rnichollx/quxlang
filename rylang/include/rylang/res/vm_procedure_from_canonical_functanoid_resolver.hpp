@@ -30,20 +30,25 @@ namespace rylang
       private:
         qualified_symbol_reference m_func_name;
 
-        bool build_generic(compiler* c, vm_generation_frame_info& frame, vm_block& proc, function_statement statement);
+        [[nodiscard]] bool build_generic(compiler* c, vm_generation_frame_info& frame, vm_block& proc, function_statement statement);
 
-        bool build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_var_statement statement);
-        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_if_statement statement);
-        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_while_statement statement);
-        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
-        bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
+        [[nodiscard]] bool build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_var_statement statement);
+        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_if_statement statement);
+        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_while_statement statement);
+        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
+        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
+        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_block statement);
 
 
         void frame_push(compiler* c, vm_generation_frame_info& frame, vm_block& block);
-        bool frame_pop(compiler* c, vm_generation_frame_info& frame, vm_block& block);
-        bool frame_create_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference name, qualified_symbol_reference type);
+        [[nodiscard]] bool frame_pop(compiler* c, vm_generation_frame_info& frame, vm_block& block);
+        [[nodiscard]] bool frame_create_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name, qualified_symbol_reference type, std::vector<vm_value> args = {});
         std::pair < bool, std::optional<vm_value> > frame_try_get_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
-        bool frame_destroy_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
+        [[nodiscard]] bool  frame_destroy_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
+
+        std::pair<bool, vm_value> frame_create_temporary(compiler * c, vm_generation_frame_info &frame, vm_block &block, vm_value initial_value, qualified_symbol_reference type);
+
+
         /// Generate a call to a builtin function
         // @param c The compiler
         // @param frame The frame info
@@ -56,7 +61,7 @@ namespace rylang
         //    or false if it should be a normal call
         //  - The value of the builtin call, if previous boolean was true
         //    otherwise void_value
-        std::tuple< bool, bool, vm_value > try_gen_builtin_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
+        std::tuple< bool, bool, vm_value > try_gen_builtin_call [[deprecated]](compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
 
 
         vm_value gen_conversion_to_integer(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_expr_literal val, primitive_type_integer_reference to_type);

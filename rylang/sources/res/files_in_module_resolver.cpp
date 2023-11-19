@@ -1,7 +1,6 @@
 //
 // Created by Ryan Nicholl on 9/11/23.
 //
-#include "rylang/res/files_in_module_resolver.hpp"
 #include "rylang/compiler.hpp"
 
 void rylang::files_in_module_resolver::process(compiler* c)

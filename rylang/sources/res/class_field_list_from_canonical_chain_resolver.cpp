@@ -1,5 +1,7 @@
-#include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
+
 
 void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c)
 {

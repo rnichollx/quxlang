@@ -3,6 +3,7 @@
 //
 
 #include "rylang/compiler.hpp"
+
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 

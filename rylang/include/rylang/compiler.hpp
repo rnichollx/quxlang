@@ -125,9 +125,9 @@ namespace rylang
         }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
-        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference cls)
+        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference const &cls)
         {
-            return m_class_should_autogen_default_constructor_index.lookup(cls);
+            return m_class_should_autogen_default_constructor_index.lookup(cls);//
         }
 
         index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
@@ -171,19 +171,14 @@ namespace rylang
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
-        index< function_qualified_reference_resolver > m_function_qualname_index;
-        out< qualified_symbol_reference > lk_function_qualname(qualified_symbol_reference f, call_parameter_information args)
+        index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]] ;
+        out< qualified_symbol_reference > lk_function_qualname [[deprecated]] (qualified_symbol_reference f, call_parameter_information args)
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
         }
 
       public:
-        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_parameter_information args)
-        {
-            auto node = lk_function_qualname(name, args);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+        qualified_symbol_reference get_function_qualname [[deprecated]] (qualified_symbol_reference name, call_parameter_information args);
 
       private:
         // index< class_list_resolver > m_class_list_index;

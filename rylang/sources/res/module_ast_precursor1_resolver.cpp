@@ -5,8 +5,6 @@
 //
 // Created by Ryan Nicholl on 7/20/23.
 //
-
-#include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/compiler.hpp"
 
 namespace rylang

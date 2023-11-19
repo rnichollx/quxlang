@@ -6,7 +6,6 @@
 // Created by Ryan Nicholl on 9/11/23.
 //
 
-#include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/manipulators/merge_entity.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"

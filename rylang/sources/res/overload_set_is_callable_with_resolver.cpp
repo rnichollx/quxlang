@@ -2,8 +2,10 @@
 // Created by Ryan Nicholl on 10/28/23.
 //
 
-#include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/overload_set_is_callable_with_resolver.hpp"
+
 #include "rylang/manipulators/qmanip.hpp"
 #include <vector>
 

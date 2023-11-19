@@ -1,8 +1,9 @@
 //
 // Created by Ryan Nicholl on 11/14/23.
 //
-#include "rylang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/res/class_should_autogen_default_constructor_resolver.hpp"
+
 
 void rylang::class_should_autogen_default_constructor_resolver::process(compiler* c)
 {

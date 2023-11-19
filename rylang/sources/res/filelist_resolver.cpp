@@ -2,7 +2,6 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#include "rylang/res/filelist_resolver.hpp"
 #include "rylang/compiler.hpp"
 
 namespace rylang

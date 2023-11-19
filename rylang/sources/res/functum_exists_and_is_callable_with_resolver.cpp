@@ -1,8 +1,10 @@
 //
 // Created by Ryan Nicholl on 11/16/23.
 //
-#include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
+
 
 void rylang::functum_exists_and_is_callable_with_resolver::process(compiler* c)
 {

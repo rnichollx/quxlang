@@ -1,8 +1,10 @@
 //
 // Created by Ryan Nicholl on 10/22/23.
 //
-#include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
+
 #include "rylang/data/class_field_declaration.hpp"
 #include "rylang/manipulators/struct_math.hpp"
 

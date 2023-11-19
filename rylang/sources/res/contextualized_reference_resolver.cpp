@@ -1,7 +1,7 @@
 //
 // Created by Ryan Nicholl on 11/5/23.
 //
-
+#include "rylang/compiler.hpp"
 #include "rylang/res/contextualized_reference_resolver.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 

@@ -2,10 +2,13 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
+#include "rylang/compiler.hpp"
+
+
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
 
 #include "rylang/ast/entity_ast.hpp"
-#include "rylang/compiler.hpp"
+
 
 #include "rylang/converters/qual_converters.hpp"
 #include "rylang/manipulators/qmanip.hpp"

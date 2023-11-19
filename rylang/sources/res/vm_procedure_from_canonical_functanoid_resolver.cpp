@@ -1,8 +1,11 @@
 //
 // Created by Ryan Nicholl on 11/5/23.
 //
-#include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+
 #include "rylang/data/vm_generation_frameinfo.hpp"
 #include "rylang/manipulators/mangler.hpp"
 #include "rylang/manipulators/qmanip.hpp"
@@ -27,7 +30,7 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
     function_ast function_ast_v = function_ast_dp->get();
     vm_procedure vm_proc;
     vm_generation_frame_info frame;
-    frame.blocks.emplace_back();
+    frame_push(c, frame, vm_proc.body);
     frame.context = m_func_name;
     vm_proc.interface.return_type = function_ast_v.return_type;
     // First generate the arguments
@@ -49,13 +52,17 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
         vm_proc.interface.argument_types.push_back(arg.type);
     }
     // Then generate the body
-    for (function_statement const& stmt : function_ast_v.body.statements)
+    if (!build_generic(c, frame, vm_proc.body, function_ast_v.body))
     {
-        if (!build_generic(c, frame, vm_proc.body, stmt))
-        {
-            return;
-        }
+        return;
     }
+
+    if (!frame_pop(c, frame, vm_proc.body))
+    {
+        return;
+    }
+
+    assert(frame.blocks.empty());
 
     set_value(vm_proc);
 }
@@ -92,9 +99,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     else if (typeis< function_block >(statement))
     {
         function_block block_stmt = boost::get< function_block >(statement);
-        // TODO: implement
-        // return build(c, frame, block, block_stmt);
-        assert(false);
+        return build(c, frame, block, block_stmt);
     }
     else
     {
@@ -122,29 +127,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::comp
 
     std::string canonical_var_str = to_string(canonical_type);
 
-    compiler::out< type_placement_info > type_placement_info_dp = get_dependency(
-        [&]
-        {
-            return c->lk_type_placement_info_from_canonical_type(canonical_type);
-        });
-    if (!ready())
-    {
-        return false;
-    }
-    type_placement_info type_placement_info_v = type_placement_info_dp->get();
-    storage.size = type_placement_info_v.size;
-    storage.align = type_placement_info_v.alignment;
-    vm_frame_variable var;
-    var.name = statement.name;
-    var.type = canonical_type;
-    var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(canonical_type)};
-    // TODO: Set destructor here if needed.
-    frame.variables.push_back(var);
-    block.code.push_back(storage);
-    subdotentity_reference constructor_symbol = {canonical_type, "CONSTRUCTOR"};
-    gen_call(c, frame, block, constructor_symbol, std::vector< vm_value >{var.get_addr.value()});
-
-    return true;
+    return frame_create_variable(c, frame, block, statement.name, canonical_type);
 }
 
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_expression_statement statement)
@@ -174,7 +157,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     if (typeis< expression_lvalue_reference >(expr))
     {
         assert(false);
-        return gen_value(c, frame, block, boost::get< expression_lvalue_reference >(std::move(expr)));
     }
     if (typeis< expression_symbol_reference >(expr))
     {
@@ -341,22 +323,31 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::comp
             if_stmt.condition_block = std::move(expr_block);
         }
         block.code.push_back(std::move(expr_block));
-        for (auto& i : statement.then_block.statements)
+        frame_push(c, frame, block);
+
+        if (!build_generic(c, frame, if_stmt.then_block, statement.then_block))
         {
-            if (!build_generic(c, frame, if_stmt.then_block, i))
-            {
-                return false;
-            }
+            return false;
+        }
+
+        if (!frame_pop(c, frame, block))
+        {
+            return false;
         }
         if (statement.else_block.has_value())
         {
             if_stmt.else_block = vm_block{};
+            frame_push(c, frame, block);
             for (auto& i : statement.else_block.value().statements)
             {
                 if (!build_generic(c, frame, if_stmt.else_block.value(), i))
                 {
                     return false;
                 }
+            }
+            if (!frame_pop(c, frame, block))
+            {
+                return false;
             }
         }
         block.code.push_back(if_stmt);
@@ -802,17 +793,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
 {
 
-    auto tuple = try_gen_builtin_call(c, frame, block, callee, call_args);
-    if (!std::get< 0 >(tuple))
-    {
-        return {false, {}};
-    }
-
-    if (std::get< 1 >(tuple))
-    {
-        return {true, std::get< 2 >(tuple)};
-    }
-
     call_parameter_information call_set;
     call_set.argument_types = {};
 
@@ -1073,12 +1053,12 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
 
             qualified_symbol_reference arg_type = vm_value_type(arg);
 
-            if (!typeis< primitive_type_integer_reference >(arg_type))
+            if (!typeis< mvalue_reference >(arg_type) || !typeis< primitive_type_integer_reference >(remove_ref(arg_type)))
             {
                 throw std::runtime_error("Invalid argument type to integer constructor");
             }
 
-            auto int_arg_type = boost::get< primitive_type_integer_reference >(arg_type);
+            auto int_arg_type = boost::get< primitive_type_integer_reference >(remove_ref(arg_type));
             if (int_arg_type != int_type)
             {
                 throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
@@ -1158,14 +1138,59 @@ rylang::vm_value rylang::vm_procedure_from_canonical_functanoid_resolver::gen_co
 }
 void rylang::vm_procedure_from_canonical_functanoid_resolver::frame_push(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block)
 {
+    frame.blocks.emplace_back();
 }
+
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_pop(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block)
 {
-    return false;
+    assert(!frame.blocks.empty());
+
+    auto& frame_block = frame.blocks.back();
+    for (auto& var : frame_block.variables)
+    {
+
+        if (!frame_destroy_variable(c, frame, block, var.first))
+        {
+            return false;
+        }
+    }
+
+    frame.blocks.pop_back();
+
+    return true;
 }
-bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_create_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference name, rylang::qualified_symbol_reference type)
+
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_create_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::string name, rylang::qualified_symbol_reference type, std::vector< vm_value > args)
 {
-    return false;
+    vm_allocate_storage storage;
+
+    std::string var_type_str = to_string(type);
+
+    compiler::out< type_placement_info > type_placement_info_dp = get_dependency(
+        [&]
+        {
+            return c->lk_type_placement_info_from_canonical_type(type);
+        });
+    if (!ready())
+    {
+        return false;
+    }
+    type_placement_info type_placement_info_v = type_placement_info_dp->get();
+    storage.size = type_placement_info_v.size;
+    storage.align = type_placement_info_v.alignment;
+    vm_frame_variable var;
+    var.name = name;
+    var.type = type;
+    var.alive = true;
+    var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(type)};
+    // TODO: Set destructor here if needed.
+
+    frame.variables.push_back(var);
+    block.code.push_back(storage);
+    subdotentity_reference constructor_symbol = {type, "CONSTRUCTOR"};
+    args.insert(args.begin(), var.get_addr.value());
+
+    return gen_call(c, frame, block, constructor_symbol, args).first;
 }
 
 std::pair< bool, std::optional< rylang::vm_value > > rylang::vm_procedure_from_canonical_functanoid_resolver::frame_try_get_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::string name)
@@ -1201,5 +1226,31 @@ std::pair< bool, std::optional< rylang::vm_value > > rylang::vm_procedure_from_c
 }
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_destroy_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::string name)
 {
-    return false;
+    vm_value frame_address;
+    auto [ok, frame_address_opt] = frame_try_get_variable(c, frame, block, name);
+
+    if (!ok)
+    {
+        return false;
+    }
+
+    assert(frame_address_opt.has_value());
+
+    frame_address = frame_address_opt.value();
+
+    subdotentity_reference destructor_symbol = {remove_ref(vm_value_type(frame_address)), "DESTRUCTOR"};
+
+    return gen_call(c, frame, block, destructor_symbol, {frame_address}).first;
+}
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_block statement)
+{
+    frame_push(c, frame, block);
+    for (auto& i : statement.statements)
+    {
+        if (!build_generic(c, frame, block, i))
+        {
+            return false;
+        }
+    }
+    return frame_pop(c, frame, block);
 }

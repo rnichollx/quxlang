@@ -1,7 +1,6 @@
 //
 // Created by Ryan Nicholl on 11/5/23.
 //
-#include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/manipulators/argmanip.hpp"
 #include "rylang/manipulators/qmanip.hpp"

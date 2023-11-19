@@ -3,7 +3,6 @@
 //
 
 #include "rylang/compiler.hpp"
-#include "rylang/res/entity_ast_from_chain_resolver.hpp"
 
 void rylang::entity_ast_from_chain_resolver::process(compiler* c)
 {

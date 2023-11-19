@@ -39,3 +39,9 @@ rylang::call_parameter_information rylang::compiler::get_function_overload_selec
     m_solver.solve(this, node);
     return node->get();
 }
+rylang::qualified_symbol_reference rylang::compiler::get_function_qualname(rylang::qualified_symbol_reference name, rylang::call_parameter_information args)
+{
+    auto node = lk_function_qualname(name, args);
+    m_solver.solve(this, node);
+    return node->get();
+}

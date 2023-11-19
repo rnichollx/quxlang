@@ -1,9 +1,10 @@
 //
 // Created by Ryan Nicholl on 10/20/23.
 //
+#include "rylang/compiler.hpp"
 #include "rylang/res/class_size_from_canonical_chain_resolver.hpp"
 
-#include "rylang/compiler.hpp"
+
 
 #include <iostream>
 void rylang::class_size_from_canonical_chain_resolver::process(compiler* c)

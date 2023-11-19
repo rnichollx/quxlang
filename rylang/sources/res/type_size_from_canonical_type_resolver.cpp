@@ -1,8 +1,10 @@
 //
 // Created by Ryan Nicholl on 10/20/23.
 //
-#include "rylang/res/type_size_from_canonical_type_resolver.hpp"
+
 #include "rylang/compiler.hpp"
+#include "rylang/res/type_size_from_canonical_type_resolver.hpp"
+
 #include "rylang/manipulators/qmanip.hpp"
 
 void rylang::type_size_from_canonical_type_resolver::process(compiler* c)

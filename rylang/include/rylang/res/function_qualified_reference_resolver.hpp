@@ -11,7 +11,7 @@
 
 namespace rylang
 {
-    class function_qualified_reference_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
+    class [[deprecated]] function_qualified_reference_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
     {
         qualified_symbol_reference m_input;
 

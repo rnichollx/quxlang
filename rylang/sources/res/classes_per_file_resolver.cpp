@@ -2,8 +2,9 @@
 // Created by Ryan Nicholl on 7/21/23.
 //
 
-#include "rylang/res/classes_per_file_resolver.hpp"
 #include "rylang/compiler.hpp"
+
+#include "rylang/res/classes_per_file_resolver.hpp"
 
 namespace rylang
 {

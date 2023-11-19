@@ -1,8 +1,11 @@
 //
 // Created by Ryan Nicholl on 10/24/23.
 //
-#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
+
 #include "rylang/compiler.hpp"
+
+
+#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 
 void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)

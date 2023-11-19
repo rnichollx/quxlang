@@ -1,8 +1,8 @@
 //
 // Created by Ryan Nicholl on 11/12/23.
 //
-#include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "rylang/compiler.hpp"
+
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/variant_utils.hpp"
 

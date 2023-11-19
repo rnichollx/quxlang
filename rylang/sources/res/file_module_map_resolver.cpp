@@ -2,7 +2,6 @@
 // Created by Ryan Nicholl on 9/11/23.
 //
 
-#include "rylang/res/file_module_map_resolver.hpp"
 #include "rylang/compiler.hpp"
 
 void rylang::file_module_map_resolver::process(compiler* c)
