@@ -9,12 +9,16 @@
 
 namespace rylang
 {
-
-   struct vm_generation_frame_info
-   {
-      std::vector<vm_frame_variable > variables;
-      qualified_symbol_reference  context;
-   };
-}
+    struct vm_generation_block
+    {
+        std::map< std::string, vm_frame_variable > variables;
+    };
+    struct vm_generation_frame_info
+    {
+        std::vector< vm_frame_variable > variables;
+        std::vector< vm_generation_block > blocks;
+        qualified_symbol_reference context;
+    };
+} // namespace rylang
 
 #endif // RPNX_RYANSCRIPT1031_VM_GENERATION_FRAMEINFO_HEADER

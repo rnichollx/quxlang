@@ -190,25 +190,55 @@ namespace rylang
         template < typename It >
         void collect_file(It begin, It end, file_ast& output)
         {
-            skip_wsc(begin, end);
-            if (!skip_keyword_if_is(begin, end, "MODULE"))
+            It & pos = begin;
+            skip_wsc(pos, end);
+            if (!skip_keyword_if_is(pos, end, "MODULE"))
             {
                 throw std::runtime_error("expected module here");
             }
 
-            skip_wsc(begin, end);
+            skip_wsc(pos, end);
 
-            std::string module_name = get_skip_identifier(begin, end);
+            std::string module_name = get_skip_identifier(pos, end);
 
             output.module_name = module_name;
-            skip_wsc(begin, end);
-            if (!skip_symbol_if_is(begin, end, ";"))
+            skip_wsc(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
             {
                 throw std::runtime_error("Expected ; here");
             }
 
+            skip_wsc(pos, end);
+
+            if (skip_keyword_if_is(pos, end, "IMPORT"))
+            {
+                skip_wsc(pos, end);
+                std::string module_name = get_skip_identifier(pos, end);
+                skip_wsc(pos, end);
+
+                std::string import_name = module_name;
+
+                if (skip_symbol_if_is(pos, end, "AS"))
+                {
+                    skip_wsc(pos, end);
+                    import_name = get_skip_identifier(pos, end);
+                    skip_wsc(pos, end);
+                }
+
+                if (!skip_symbol_if_is(pos, end, ";"))
+                {
+                    throw std::runtime_error("Expected ; here");
+                }
+
+                output.imports[import_name] = module_name;
+            }
+
+
+
             collect(begin, end);
             output.root = this->m_root;
+
+
         }
 
         template < typename It >
@@ -223,6 +253,16 @@ namespace rylang
 
             while (try_collect_entity(pos, end))
                 ;
+
+
+            auto distance = std::distance(pos, end);
+
+            auto use_distance = std::min<std::size_t>(64, distance);
+
+            if (pos != end)
+            {
+                throw std::runtime_error("Unexpected text: " + std::string(pos, pos + use_distance));
+            }
         }
 
         template < typename It >

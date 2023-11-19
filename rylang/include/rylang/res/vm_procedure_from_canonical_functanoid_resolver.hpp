@@ -38,6 +38,12 @@ namespace rylang
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
         bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
 
+
+        void frame_push(compiler* c, vm_generation_frame_info& frame, vm_block& block);
+        bool frame_pop(compiler* c, vm_generation_frame_info& frame, vm_block& block);
+        bool frame_create_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference name, qualified_symbol_reference type);
+        std::pair < bool, std::optional<vm_value> > frame_try_get_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
+        bool frame_destroy_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
         /// Generate a call to a builtin function
         // @param c The compiler
         // @param frame The frame info

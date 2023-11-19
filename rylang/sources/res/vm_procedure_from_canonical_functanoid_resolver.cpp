@@ -27,6 +27,7 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
     function_ast function_ast_v = function_ast_dp->get();
     vm_procedure vm_proc;
     vm_generation_frame_info frame;
+    frame.blocks.emplace_back();
     frame.context = m_func_name;
     vm_proc.interface.return_type = function_ast_v.return_type;
     // First generate the arguments
@@ -37,10 +38,14 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
         // NOTE: Make sure that we can handle contextual types in arg list.
         //  They should be decontextualized somewhere else probably.. so maybe this will
         //  be impossible.
+
+        // TODO: Make sure no name conflicts are allowed.
         assert(!qualified_is_contextual(arg.type));
         var.name = arg.name;
         var.type = arg.type;
         frame.variables.push_back(var);
+        assert(!frame.blocks.empty());
+        frame.blocks.back().variables[arg.name] = var;
         vm_proc.interface.argument_types.push_back(arg.type);
     }
     // Then generate the body
@@ -168,6 +173,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 {
     if (typeis< expression_lvalue_reference >(expr))
     {
+        assert(false);
         return gen_value(c, frame, block, boost::get< expression_lvalue_reference >(std::move(expr)));
     }
     if (typeis< expression_symbol_reference >(expr))
@@ -364,7 +370,6 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::comp
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::expression_binary expr)
 {
 
-
     // TODO: Support overloading
 
     auto lhs_pair = gen_value_generic(c, frame, block, expr.lhs);
@@ -468,32 +473,15 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     if (is_possibly_frame_value)
     {
         std::string name = boost::get< subentity_reference >(expr.symbol).subentity_name;
-        for (int i = 0; i < frame.variables.size(); i++)
+
+        auto pair = frame_try_get_variable(c, frame, block, name);
+        if (!pair.first)
         {
-            // TODO: Check for duplicates/shadowing
-            if (frame.variables[i].name == name)
-            {
-                vm_expr_load_address load;
-                load.index = i;
-                auto vartype = frame.variables[i].type;
-                // TODO: support type lookup here
-
-                std::string vartype_str = boost::apply_visitor(qualified_symbol_stringifier(), vartype);
-                assert(is_canonical(vartype));
-
-                if (is_ref(vartype))
-                {
-                    load.type = vartype;
-                }
-                else
-                {
-                    // TODO: add support for constant values here
-                    load.type = make_mref(vartype);
-                }
-                std::string loadtype_str = boost::apply_visitor(qualified_symbol_stringifier(), load.type);
-
-                return {true, load};
-            }
+            return {false, {}};
+        }
+        if (pair.second.has_value())
+        {
+            return {true, pair.second.value()};
         }
     }
 
@@ -949,7 +937,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
 {
 
-
     functanoid_reference const& overload_selected_ref = boost::get< functanoid_reference >(callee);
     std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
 
@@ -1054,7 +1041,7 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
             }
             else
             {
-              assert(typeis< primitive_type_integer_reference >(remove_ref(lhs_type)));
+                assert(typeis< primitive_type_integer_reference >(remove_ref(lhs_type)));
             }
 
             assert(typeis< primitive_type_integer_reference >(rhs_type));
@@ -1168,4 +1155,51 @@ rylang::vm_value rylang::vm_procedure_from_canonical_functanoid_resolver::gen_co
     vm_expr_load_literal result = vm_expr_load_literal{val.literal, to_type};
 
     return result;
+}
+void rylang::vm_procedure_from_canonical_functanoid_resolver::frame_push(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block)
+{
+}
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_pop(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block)
+{
+    return false;
+}
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_create_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference name, rylang::qualified_symbol_reference type)
+{
+    return false;
+}
+
+std::pair< bool, std::optional< rylang::vm_value > > rylang::vm_procedure_from_canonical_functanoid_resolver::frame_try_get_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::string name)
+{
+    for (int i = 0; i < frame.variables.size(); i++)
+    {
+        // TODO: Check for duplicates/shadowing
+        if (frame.variables[i].name == name)
+        {
+            vm_expr_load_address load;
+            load.index = i;
+            auto vartype = frame.variables[i].type;
+            // TODO: support type lookup here
+
+            std::string vartype_str = boost::apply_visitor(qualified_symbol_stringifier(), vartype);
+            assert(is_canonical(vartype));
+
+            if (is_ref(vartype))
+            {
+                load.type = vartype;
+            }
+            else
+            {
+                // TODO: add support for constant values here
+                load.type = make_mref(vartype);
+            }
+            std::string loadtype_str = boost::apply_visitor(qualified_symbol_stringifier(), load.type);
+
+            return {true, load};
+        }
+    }
+    return {true, std::nullopt};
+}
+bool rylang::vm_procedure_from_canonical_functanoid_resolver::frame_destroy_variable(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::string name)
+{
+    return false;
 }

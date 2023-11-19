@@ -42,7 +42,6 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     }
     else if (type.type() == boost::typeindex::type_id< subentity_reference >())
     {
-
         subentity_reference const& sub = boost::get< subentity_reference >(type);
 
         qualified_symbol_reference const& parent = sub.parent;

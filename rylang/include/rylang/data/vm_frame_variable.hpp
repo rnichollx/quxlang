@@ -14,8 +14,8 @@ namespace rylang
     {
         std::string name;
         qualified_symbol_reference type;
+        bool alive;
         std::optional<vm_value> get_addr;
-        std::optional<std::string> destructor;
     };
 } // namespace rylang
 

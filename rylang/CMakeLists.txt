@@ -21,9 +21,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/data/vm_if.hpp
         include/rylang/data/expression_equals.hpp
         include/rylang/data/numeric_literal.hpp
-        include/rylang/res/function_frame_information_resolver.hpp
         include/rylang/data/function_frame_information.hpp
-        sources/res/function_frame_information_resolver.cpp
         sources/example_file.cpp
         include/rylang/res/operator_is_overloaded_with_resolver.hpp
         include/rylang/ast/class_entity_ast.hpp include/rylang/data/lookup_type.hpp

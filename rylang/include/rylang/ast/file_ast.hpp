@@ -6,6 +6,7 @@
 #define RPNX_RYANSCRIPT1031_FILE_AST_HEADER
 
 #include <string>
+#include <map>
 #include "rylang/ast/entity_ast.hpp"
 
 namespace rylang
@@ -14,6 +15,7 @@ namespace rylang
     {
         std::string filename;
         std::string module_name;
+        std::map<std::string, std::string> imports;
         entity_ast root;
     };
 

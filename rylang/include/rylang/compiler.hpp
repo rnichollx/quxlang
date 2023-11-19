@@ -35,7 +35,6 @@
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
 #include "rylang/res/function_ast_resolver.hpp"
-#include "rylang/res/function_frame_information_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
@@ -119,7 +118,6 @@ namespace rylang
             return m_list_functum_overloads_index.lookup(chain);
         }
 
-
         index < functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
         out< bool > lk_functum_exists_and_is_callable_with(qualified_symbol_reference const& chain, call_parameter_information const& os)
         {
@@ -144,11 +142,7 @@ namespace rylang
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
-        index <function_frame_information_resolver > m_function_frame_information_index;
-        out< function_frame_information > lk_function_frame_information(qualified_symbol_reference func_addr)
-        {
-            return m_function_frame_information_index.lookup(func_addr);
-        }
+
 
         index< function_ast_resolver > m_function_ast_index;
         out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)
@@ -272,19 +266,9 @@ namespace rylang
         }
 
         machine_info m_machine_info;
-
-        // machine_info_resolver m_machine_info_resolver;
-        // out< machine_info > lk_machine_info()
-        //{
-        //    return &m_machine_info_resolver;
-        //}
-
         rpnx::single_thread_graph_solver< compiler > m_solver;
-
         std::shared_mutex m_mutex;
-
         std::size_t m_type_id_next = 1;
-
         std::size_t assign_type_id()
         {
             std::unique_lock< std::shared_mutex > lock(m_mutex);
