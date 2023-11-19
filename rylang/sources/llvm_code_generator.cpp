@@ -275,7 +275,6 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
 
             builder.CreateCondBr(cond, loop_block, after_block);
 
-
             bool while_body_has_terminator = false;
 
             vm_block const& block = while_.loop_block;
@@ -405,6 +404,11 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
             result = builder.CreateICmpSGT(lhs, rhs);
             return result;
         }
+        else if (binop.oper == "<")
+        {
+            result = builder.CreateICmpSLT(lhs, rhs);
+            return result;
+        }
 
         assert(false);
     }
@@ -457,7 +461,7 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
                 llvm::Type* llvm_int_type = get_llvm_intptr(context);
                 auto nullval = llvm::ConstantInt::get(llvm_int_type, 0);
 
-                llvm::Value * nullpt = builder.CreateIntToPtr(nullval, get_llvm_type_opaque_ptr(context));
+                llvm::Value* nullpt = builder.CreateIntToPtr(nullval, get_llvm_type_opaque_ptr(context));
                 return nullpt;
             }
             else
@@ -479,14 +483,21 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         llvm::Value* original_ptr = get_llvm_value(context, builder, frame, field.base);
 
-        llvm::Value * new_ptr = builder.CreateGEP(get_llvm_type_from_vm_type(context, field.type), original_ptr, offset);
-
+        llvm::Value* new_ptr = builder.CreateGEP(get_llvm_type_from_vm_type(context, field.type), original_ptr, offset);
 
         return new_ptr;
     }
     else if (typeis< void_value >(value))
     {
         return nullptr;
+    }
+    else if (typeis<vm_expr_reinterpret>(value))
+    {
+        vm_expr_reinterpret const& reinterp = boost::get<vm_expr_reinterpret>(value);
+
+        // TODO: Consider checking that the llvm types are the same
+
+        return get_llvm_value(context, builder, frame, reinterp.expr);
     }
 
     assert(false);

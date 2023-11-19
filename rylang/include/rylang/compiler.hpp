@@ -237,6 +237,7 @@ namespace rylang
         index< type_placement_info_from_canonical_type_resolver > m_type_placement_info_from_canonical_chain_index;
         out< type_placement_info > lk_type_placement_info_from_canonical_type(qualified_symbol_reference const& ref)
         {
+            assert(!typeis<numeric_literal_reference>(ref));
             return m_type_placement_info_from_canonical_chain_index.lookup(ref);
         }
 

@@ -26,6 +26,12 @@ namespace rylang
 
             return mangle_internal(se.parent) + "N" + se.subentity_name;
         }
+        else if (qt.type() == boost::typeindex::type_id< subdotentity_reference >())
+        {
+            subdotentity_reference const& se = boost::get< subdotentity_reference >(qt);
+
+            return mangle_internal(se.parent) + "D" + se.subdotentity_name;
+        }
         else if (qt.type() == boost::typeindex::type_id< pointer_to_reference >())
         {
             return "P" + mangle_internal(boost::get< pointer_to_reference >(qt).target);

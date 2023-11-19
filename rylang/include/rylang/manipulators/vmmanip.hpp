@@ -68,6 +68,11 @@ namespace rylang
             return numeric_literal_reference{};
         }
 
+        qualified_symbol_reference operator()(vm_expr_reinterpret const & op) const
+        {
+            return op.type;
+        }
+
       public:
         vm_value_type_vistor() = default;
     };
@@ -213,6 +218,11 @@ namespace rylang
             }
             result += ")";
             return result;
+        }
+
+        std::string operator()(vm_expr_reinterpret const & obj) const
+        {
+           return "reinterpret<" + to_string(obj.type) + ">(" + to_string(obj.expr) + ")";
         }
 
         vm_expression_stringifier() = default;

@@ -53,10 +53,15 @@ namespace rylang
         std::tuple< bool, bool, vm_value > try_gen_builtin_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
 
 
+        vm_value gen_conversion_to_integer(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_expr_literal val, primitive_type_integer_reference to_type);
+
 
         std::pair< bool, vm_value > gen_call_expr(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values);
 
         std::pair<bool, vm_value> gen_call(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
+
+
+        std::tuple< bool, bool, vm_value > try_gen_call_functanoid_builtin(compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
 
         std::pair<bool, vm_value> gen_call_functanoid(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
 

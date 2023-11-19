@@ -50,5 +50,11 @@ void rylang::canonical_type_is_implicitly_convertible_to_resolver::process(compi
 
     std::string from_type_str = to_string(from);
 
+    if (typeis<primitive_type_integer_reference>(to) && typeis<numeric_literal_reference>(from))
+    {
+        set_value(true);
+        return;
+    }
+
     set_value(to == from);
 }
