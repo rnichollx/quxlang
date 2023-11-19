@@ -7,7 +7,7 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/function_frame_information.hpp"
 #include "rylang/data/function_if_statement.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"

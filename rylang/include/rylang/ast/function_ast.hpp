@@ -9,7 +9,7 @@
 #include <string>
 
 #include "function_arg_ast.hpp"
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/function_block.hpp"
 
 namespace rylang

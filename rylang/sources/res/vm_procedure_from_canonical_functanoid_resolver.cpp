@@ -386,23 +386,51 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     qualified_symbol_reference lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
     qualified_symbol_reference rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
 
-    auto overload_dp = get_dependency(
+    qualified_symbol_reference lhs_underlying_type = remove_ref(lhs_type);
+    qualified_symbol_reference rhs_underlying_type = remove_ref(rhs_type);
+
+    qualified_symbol_reference lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + expr.operator_str};
+    qualified_symbol_reference rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
+
+    call_parameter_information lhs_param_info{{lhs_type, rhs_type}};
+    call_parameter_information rhs_param_info{{rhs_type, lhs_type}};
+    auto lhs_exists_and_callable_with_dp = get_dependency(
         [&]
         {
-            return c->lk_operator_is_overloaded_with(expr.operator_str, vm_value_type(lhs), vm_value_type(rhs));
+            return c->lk_functum_exists_and_is_callable_with(lhs_function, lhs_param_info);
         });
+
     if (!ready())
     {
         return {false, {}};
     }
-    std::optional< qualified_symbol_reference > overloaded_operator = overload_dp->get();
 
-    if (overloaded_operator.has_value())
+    bool lhs_exists_and_callable_with = lhs_exists_and_callable_with_dp->get();
+
+    if (lhs_exists_and_callable_with)
     {
-        // std::string overloaded_operator_string = mangle(overloaded_operator.value());
-
-        return gen_call(c, frame, block, overloaded_operator.value(), {lhs, rhs});
+        return gen_call(c, frame, block, lhs_function, std::vector< vm_value >{lhs, rhs});
     }
+
+    auto rhs_exists_and_callable_with_dp = get_dependency(
+        [&]
+        {
+            return c->lk_functum_exists_and_is_callable_with(rhs_function, rhs_param_info);
+        });
+
+    if (!ready())
+    {
+        return {false, {}};
+    }
+
+    bool rhs_exists_and_callable_with = rhs_exists_and_callable_with_dp->get();
+
+    if (rhs_exists_and_callable_with)
+    {
+        return gen_call(c, frame, block, rhs_function, std::vector< vm_value >{rhs, lhs});
+    }
+
+    throw std::logic_error("Could not find either " + to_string(lhs_function) + " or " + to_string(rhs_function));
 
     if (is_ref(lhs_type) && assignment_operators.count(expr.operator_str) == 0)
     // Do not dereference for assignment operators
@@ -484,7 +512,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         args.push_back(pv.second);
     }
 
-    return gen_call(c, frame, block, callee_pv.second, args);
+    return gen_call_expr(c, frame, block, callee_pv.second, args);
 
     throw std::runtime_error("not implemented");
 }
@@ -635,6 +663,13 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
         subdotentity_reference const& subdot = boost::get< subdotentity_reference >(callee);
         qualified_symbol_reference parent_type = subdot.parent;
 
+        assert(!values.empty());
+
+        // if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
+        //{
+        //   primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
+
+        //}
         if (subdot.subdotentity_name == "CONSTRUCTOR" && typeis< primitive_type_integer_reference >(parent_type))
         {
             primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
@@ -794,7 +829,7 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
 
     return {true, false, {}};
 }
-std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::vm_value callee, std::vector< vm_value > call_args)
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_expr(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values)
 {
     // TODO: support overloaded operator() of non-functions
     if (!typeis< vm_expr_bound_value >(callee))
@@ -812,11 +847,12 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     // TODO: Consider omitting the callee if size of type is 0
     if (!typeis< void_value >(callee_value))
     {
-        call_args.insert(call_args.begin(), callee_value);
+        values.insert(values.begin(), callee_value);
     }
 
-    return gen_call(c, frame, block, callee_func, call_args);
+    return gen_call(c, frame, block, callee_func, values);
 }
+
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
 {
 
@@ -831,7 +867,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         return {true, std::get< 2 >(tuple)};
     }
 
-    call_overload_set call_set;
+    call_parameter_information call_set;
     call_set.argument_types = {};
 
     for (vm_value const& val : call_args)
@@ -851,43 +887,13 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         return {false, {}};
     }
 
-    call_overload_set overload = overload_dp->get();
+    call_parameter_information overload = overload_dp->get();
 
-    parameter_set_reference overload_selected_ref;
+    functanoid_reference overload_selected_ref;
     overload_selected_ref.callee = callee;
     overload_selected_ref.parameters = overload.argument_types;
 
-    vm_expr_call call;
-    call.arguments = std::move(call_args);
-
-    for (std::size_t i = 0; i < overload_selected_ref.parameters.size(); i++)
-    {
-        qualified_symbol_reference parameter_type = overload_selected_ref.parameters[i];
-        assert(call.arguments.size() > i);
-        qualified_symbol_reference arg_type = vm_value_type(call.arguments.at(i));
-
-        if (parameter_type != arg_type)
-        {
-            auto pair = gen_implicit_conversion(c, frame, block, call.arguments.at(i), parameter_type);
-            if (!pair.first)
-            {
-                return {false, {}};
-            }
-
-            call.arguments.at(i) = pair.second;
-        }
-    }
-
-    call.mangled_procedure_name = mangle(overload_selected_ref);
-    call.functanoid = overload_selected_ref;
-
-    call.interface = vm_procedure_interface{};
-    call.interface.argument_types = overload_selected_ref.parameters;
-    // TODO: lookup return type and interface
-    call.interface.return_type = primitive_type_integer_reference{32, true};
-
-    assert(call.mangled_procedure_name != "");
-    return {true, call};
+    return gen_call_functanoid(c, frame, block, overload_selected_ref, call_args);
 }
 
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_default_constructor(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference type, std::vector< vm_value > values)
@@ -977,8 +983,57 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(rylang::comp
     }
 }
 
-
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::numeric_literal expr)
 {
-    return std::pair< bool, vm_value >();
+    return {true, vm_expr_literal{expr.value}};
+}
+
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
+{
+    vm_expr_call call;
+
+    functanoid_reference const& overload_selected_ref = boost::get< functanoid_reference >(callee);
+
+    auto arg_pair = gen_preinvoke_conversions(c, frame, block, std::move(call_args), overload_selected_ref.parameters);
+    if (!arg_pair.first)
+    {
+        return {false, {}};
+    }
+
+    return gen_invoke(c, frame, block, overload_selected_ref, std::move(arg_pair.second));
+}
+
+std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(compiler* c, vm_generation_frame_info& frame, vm_block& block, functanoid_reference const& overload_selected_ref, std::vector< vm_value > call_args)
+{
+    vm_expr_call call;
+
+    call.mangled_procedure_name = mangle(overload_selected_ref);
+    call.functanoid = overload_selected_ref;
+
+    call.interface = vm_procedure_interface{};
+    call.interface.argument_types = overload_selected_ref.parameters;
+
+    // TODO: lookup return type and interface
+    call.interface.return_type = primitive_type_integer_reference{32, true};
+
+    assert(call.mangled_procedure_name != "");
+    return {true, call};
+}
+
+std::pair< bool, std::vector< rylang::vm_value > > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::vector< vm_value > values, std::vector< qualified_symbol_reference > const& to_types)
+{
+    // TODO: Add support for default parameters.
+    std::vector< vm_value > result;
+    assert(values.size() == to_types.size());
+
+    for (std::size_t i = 0; i < values.size(); i++)
+    {
+        auto pair = gen_implicit_conversion(c, frame, block, values.at(i), to_types.at(i));
+        if (!pair.first)
+        {
+            return {false, {}};
+        }
+        result.push_back(pair.second);
+    }
+    return {true, result};
 }

@@ -54,15 +54,19 @@ namespace rylang
 
 
 
-        std::pair< bool, vm_value > gen_call(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_call_expr(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values);
 
         std::pair<bool, vm_value> gen_call(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
 
+        std::pair<bool, vm_value> gen_call_functanoid(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
+
         std::pair<bool, vm_value> gen_default_constructor(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
 
-        std::pair<bool, vm_value> gen_call_real(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
+        std::pair<bool, vm_value> gen_invoke(compiler * c, vm_generation_frame_info & frame, vm_block & block, functanoid_reference const& callee, std::vector<vm_value> values);
 
         std::pair< bool, vm_value > gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
+
+        std::pair< bool, std::vector<vm_value>> gen_preinvoke_conversions(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::vector<vm_value> values, std::vector<qualified_symbol_reference> const & to_types);
 
         std::pair< bool, vm_value > gen_implicit_conversion(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to);
 

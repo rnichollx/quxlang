@@ -8,7 +8,7 @@
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
 #include "rylang/compiler_fwd.hpp"
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/data/class_layout.hpp"
 #include "rylang/data/function_frame_information.hpp"
@@ -23,6 +23,7 @@
 #include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "rylang/res/class_list_resolver.hpp"
+#include "rylang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "rylang/res/class_size_from_canonical_chain_resolver.hpp"
 #include "rylang/res/contextualized_reference_resolver.hpp"
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
@@ -37,6 +38,7 @@
 #include "rylang/res/function_frame_information_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
+#include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/res/operator_is_overloaded_with_resolver.hpp"
@@ -45,7 +47,6 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
-#include "rylang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -86,6 +87,7 @@ namespace rylang
         friend class operator_is_overloaded_with_resolver;
         friend class symbol_canonical_chain_exists_resolver;
         friend class class_should_autogen_default_constructor_resolver;
+        friend class functum_exists_and_is_callable_with_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -108,6 +110,13 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+
+        index < functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
+        out< bool > lk_functum_exists_and_is_callable_with(qualified_symbol_reference const& chain, call_parameter_information const& os)
+        {
+            return m_functum_exists_and_is_callable_with_index.lookup(std::make_pair(chain, os));
+        }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
         out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference cls)
@@ -161,13 +170,13 @@ namespace rylang
         }
 
         index< function_qualified_reference_resolver > m_function_qualname_index;
-        out< qualified_symbol_reference > lk_function_qualname(qualified_symbol_reference f, call_overload_set args)
+        out< qualified_symbol_reference > lk_function_qualname(qualified_symbol_reference f, call_parameter_information args)
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
         }
 
       public:
-        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_overload_set args)
+        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_parameter_information args)
         {
             auto node = lk_function_qualname(name, args);
             m_solver.solve(this, node);
@@ -178,23 +187,28 @@ namespace rylang
         // index< class_list_resolver > m_class_list_index;
 
         index< function_overload_selection_resolver > m_function_overload_selection_index;
-        out< call_overload_set > lk_function_overload_selection(qualified_symbol_reference const& chain, call_overload_set const& os)
+        out< call_parameter_information > lk_function_overload_selection(qualified_symbol_reference const& chain, call_parameter_information const& os)
         {
             return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
         }
 
         index< overload_set_is_callable_with_resolver > m_overload_set_is_callable_with_index;
-        out< bool > lk_overload_set_is_callable_with(std::pair< call_overload_set, call_overload_set > const& input)
+        out< bool > lk_overload_set_is_callable_with(std::pair< call_parameter_information, call_parameter_information > const& input)
         {
             return m_overload_set_is_callable_with_index.lookup(input);
         }
 
-        out< bool > lk_overload_set_is_callable_with(call_overload_set what, call_overload_set with)
+        out< bool > lk_overload_set_is_callable_with(call_parameter_information what, call_parameter_information with)
         {
             return m_overload_set_is_callable_with_index.lookup(std::make_pair(std::move(what), std::move(with)));
         }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
+        out< bool > lk_canonical_type_is_implicitly_convertible_to(qualified_symbol_reference from, qualified_symbol_reference to)
+        {
+            return m_canonical_type_is_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
+        }
+
         out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< qualified_symbol_reference, qualified_symbol_reference > const& input)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
@@ -373,7 +387,7 @@ namespace rylang
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(qualified_symbol_reference chain);
 
         function_ast get_function_ast_of_overload(qualified_symbol_reference chain);
-        call_overload_set get_function_overload_selection(qualified_symbol_reference chain, call_overload_set args);
+        call_parameter_information get_function_overload_selection(qualified_symbol_reference chain, call_parameter_information args);
     };
 
 } // namespace rylang

@@ -5,7 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
 #define RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
 
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/variant_utils.hpp"
 
@@ -14,16 +14,16 @@ namespace rylang
 
     std::string to_string(qualified_symbol_reference const& ref);
 
-    struct call_overload_set;
+    struct call_parameter_information;
 
-    std::string to_string(call_overload_set const& ref);
+    std::string to_string(call_parameter_information const& ref);
 
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subentity_reference const& ref) const;
         std::string operator()(pointer_to_reference const& ref) const;
-        std::string operator()(parameter_set_reference const& ref) const;
+        std::string operator()(functanoid_reference const& ref) const;
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
         std::string operator()(cvalue_reference const& ref) const;
@@ -213,6 +213,16 @@ namespace rylang
     inline bool is_canonical(qualified_symbol_reference const& ref)
     {
         return !qualified_is_contextual(ref);
+    }
+
+    inline bool is_integral(qualified_symbol_reference const& ref)
+    {
+        return typeis< primitive_type_integer_reference >(ref);
+    }
+
+    inline bool is_numeric_literal(qualified_symbol_reference const& ref)
+    {
+        return typeis< numeric_literal_reference >(ref);
     }
 
     inline bool qualified_is_contextual(qualified_symbol_reference const& ref)

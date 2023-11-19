@@ -20,9 +20,9 @@ void rylang::function_qualified_reference_resolver::process(compiler* c)
     if (!ready())
         return;
 
-    call_overload_set cs = call_overload_set_dp->get();
+    call_parameter_information cs = call_overload_set_dp->get();
 
-    parameter_set_reference psr;
+    functanoid_reference psr;
     psr.callee = chain;
     for (auto& argtype : cs.argument_types)
     {

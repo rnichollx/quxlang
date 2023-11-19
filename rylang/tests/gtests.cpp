@@ -49,7 +49,7 @@ TEST(mangling, name_mangling_new)
 
     rylang::subentity_reference subentity3{subentity2, "baz"};
 
-    rylang::parameter_set_reference param_set{subentity3, {}};
+    rylang::functanoid_reference param_set{subentity3, {}};
 
     param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
     param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});

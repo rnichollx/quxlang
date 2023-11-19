@@ -10,9 +10,9 @@ void rylang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 {
     auto const & chain = this->m_chain;
 
-    if (typeis<parameter_set_reference>(chain))
+    if (typeis< functanoid_reference >(chain))
     {
-        parameter_set_reference const& param_set = boost::get< parameter_set_reference >(chain);
+        functanoid_reference const& param_set = boost::get< functanoid_reference >(chain);
         // We only care if the parent exists, we can exist but be an invalid functaniod otherwise?
         // Maybe this resolver should be renamed...
 

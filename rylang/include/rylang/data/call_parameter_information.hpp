@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CALL_OVERLOAD_SET_HEADER
-#define RPNX_RYANSCRIPT1031_CALL_OVERLOAD_SET_HEADER
+#ifndef RPNX_RYANSCRIPT1031_CALL_PARAMETER_INFORMATION_HEADER
+#define RPNX_RYANSCRIPT1031_CALL_PARAMETER_INFORMATION_HEADER
 
 #include "rylang/data/canonical_type_reference.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
@@ -11,15 +11,15 @@
 
 namespace rylang
 {
-    struct call_overload_set
+    struct call_parameter_information
     {
         std::vector< qualified_symbol_reference > argument_types;
 
-        std::strong_ordering operator<=>(const call_overload_set& other) const
+        std::strong_ordering operator<=>(const call_parameter_information& other) const
         {
             return strong_ordering_from_less(argument_types, other.argument_types);
         }
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CALL_OVERLOAD_SET_HEADER
+#endif // RPNX_RYANSCRIPT1031_CALL_PARAMETER_INFORMATION_HEADER

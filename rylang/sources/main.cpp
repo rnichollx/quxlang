@@ -18,7 +18,7 @@ int main(int argc, char** argv)
 
     rylang::primitive_type_integer_reference u32type = rylang::primitive_type_integer_reference{32, true};
 
-    rylang::call_overload_set args;
+    rylang::call_parameter_information args;
     args.argument_types.push_back(u32type);
     args.argument_types.push_back(u32type);
 

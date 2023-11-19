@@ -11,11 +11,18 @@
 
 void rylang::function_overload_selection_resolver::process(compiler* c)
 {
+
+    std::cout << "Function overload selection resolver called for " << to_string(m_function_location) << std::endl;
+    std::cout << "With args: " << std::endl;
+    for (auto const& arg : m_args.argument_types)
+    {
+        std::cout << "    " << to_string(arg) << std::endl;
+    }
     std::size_t eligible_overloads = 0;
 
-    std::optional< call_overload_set > output_overload;
+    std::optional< call_parameter_information > output_overload;
 
-    call_overload_set const& call_args = m_args;
+    call_parameter_information const& call_args = m_args;
 
     // TODO: Remove this
     std::stringstream ss;
@@ -43,7 +50,7 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
 
     for (function_ast const& overload : func_ast.m_function_overloads)
     {
-        call_overload_set overload_args;
+        call_parameter_information overload_args;
 
         for (auto const& arg : overload.args)
         {

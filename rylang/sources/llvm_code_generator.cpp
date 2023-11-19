@@ -258,6 +258,38 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
 
             p_block = after_block;
         }
+        else if (typeis< vm_while >(ex))
+        {
+            vm_while const& while_ = boost::get< vm_while >(ex);
+            llvm::IRBuilder<> builder(p_block);
+
+            llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
+            builder.CreateBr(cond_block);
+            builder.SetInsertPoint(cond_block);
+
+            llvm::Value* cond = get_llvm_value(context, builder, frame, while_.condition);
+
+            llvm::BasicBlock* loop_block = llvm::BasicBlock::Create(context, "loop", p_block->getParent());
+
+            llvm::BasicBlock* after_block = llvm::BasicBlock::Create(context, "after", p_block->getParent());
+
+            builder.CreateCondBr(cond, loop_block, after_block);
+
+
+            bool while_body_has_terminator = false;
+
+            vm_block const& block = while_.loop_block;
+            while_body_has_terminator = !generate_code(context, loop_block, block, frame);
+            // jump to after block
+
+            if (!while_body_has_terminator)
+            {
+                builder.SetInsertPoint(loop_block);
+                builder.CreateBr(cond_block);
+            }
+
+            p_block = after_block;
+        }
         else
         {
             // TODO: unimplemented
@@ -303,6 +335,8 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
 }
 llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
+
+    std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
 
     if (value.type() == boost::typeindex::type_id< rylang::vm_expr_load_address >())
     {

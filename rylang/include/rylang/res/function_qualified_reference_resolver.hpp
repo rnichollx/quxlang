@@ -6,7 +6,7 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
 
 namespace rylang
@@ -15,10 +15,10 @@ namespace rylang
     {
         qualified_symbol_reference m_input;
 
-        call_overload_set m_args;
+        call_parameter_information m_args;
 
       public:
-        using key_type = std::pair< qualified_symbol_reference, call_overload_set >;
+        using key_type = std::pair< qualified_symbol_reference, call_parameter_information >;
 
         function_qualified_reference_resolver(key_type input)
             : m_input(input.first)

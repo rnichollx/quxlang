@@ -6,7 +6,7 @@
 
 namespace rylang
 {
-    std::string to_string(call_overload_set const& ref)
+    std::string to_string(call_parameter_information const& ref)
     {
         std::string result = "call_os(";
         for (std::size_t i = 0; i < ref.argument_types.size(); i++)
@@ -30,9 +30,9 @@ namespace rylang
         {
             return boost::get< pointer_to_reference >(input).target;
         }
-        else if (input.type() == boost::typeindex::type_id< parameter_set_reference >())
+        else if (input.type() == boost::typeindex::type_id< functanoid_reference >())
         {
-            return boost::get< parameter_set_reference >(input).callee;
+            return boost::get< functanoid_reference >(input).callee;
         }
         else
         {
@@ -54,9 +54,9 @@ namespace rylang
         {
             return pointer_to_reference{with_context(boost::get< pointer_to_reference >(ref).target, context)};
         }
-        else if (ref.type() == boost::typeindex::type_id< parameter_set_reference >())
+        else if (ref.type() == boost::typeindex::type_id< functanoid_reference >())
         {
-            parameter_set_reference output = boost::get< parameter_set_reference >(ref);
+            functanoid_reference output = boost::get< functanoid_reference >(ref);
             output.callee = with_context(output.callee, context);
             for (auto& p : output.parameters)
             {
@@ -78,7 +78,7 @@ namespace rylang
     {
         return "->" + boost::apply_visitor(*this, ref.target);
     }
-    std::string qualified_symbol_stringifier::operator()(parameter_set_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(functanoid_reference const& ref) const
     {
         std::string output = boost::apply_visitor(*this, ref.callee) + "(";
         bool first = true;

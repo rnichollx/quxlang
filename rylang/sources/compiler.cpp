@@ -32,7 +32,7 @@ rylang::function_ast rylang::compiler::get_function_ast_of_overload(qualified_sy
 {
     return rylang::function_ast{};
 }
-rylang::call_overload_set rylang::compiler::get_function_overload_selection(qualified_symbol_reference chain, call_overload_set args)
+rylang::call_parameter_information rylang::compiler::get_function_overload_selection(qualified_symbol_reference chain, call_parameter_information args)
 
 {
     auto node = lk_function_overload_selection(chain, args);

@@ -20,7 +20,7 @@ namespace rylang
 
         std::string typestring = boost::apply_visitor(qualified_symbol_stringifier(), chain);
 
-        if (chain.type() == boost::typeindex::type_id< parameter_set_reference >())
+        if (chain.type() == boost::typeindex::type_id< functanoid_reference >())
         {
             //assert(false);
             // Don't ask for entity AST of a function parameter set?

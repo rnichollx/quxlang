@@ -552,7 +552,7 @@ namespace rylang
             }
             else if (skip_symbol_if_is(pos, end, "@("))
             {
-                parameter_set_reference param_set;
+                functanoid_reference param_set;
                 param_set.callee = std::move(output);
 
                 skip_wsc(pos, end);

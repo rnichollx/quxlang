@@ -10,7 +10,7 @@
 void rylang::function_ast_resolver::process(rylang::compiler* c)
 {
     qualified_symbol_reference func_addr = m_function_name;
-    std::optional< call_overload_set > overload_set;
+    std::optional< call_parameter_information > overload_set;
 
 
     assert(!qualified_is_contextual(func_addr));
@@ -20,12 +20,12 @@ void rylang::function_ast_resolver::process(rylang::compiler* c)
 
     // TODO: We should only strip the overload set from functions, not templates
 
-    qualified_symbol_reference qf = parameter_set_reference{};
-    assert(typeis<parameter_set_reference>(qf  ));
-    if (typeis< parameter_set_reference >(func_addr))
+    qualified_symbol_reference qf = functanoid_reference{};
+    assert(typeis< functanoid_reference >(qf  ));
+    if (typeis< functanoid_reference >(func_addr))
     {
-        auto args = as< parameter_set_reference >(func_addr).parameters;
-        overload_set = call_overload_set{std::vector< qualified_symbol_reference >(args.begin(), args.end())};
+        auto args = as< functanoid_reference >(func_addr).parameters;
+        overload_set = call_parameter_information{std::vector< qualified_symbol_reference >(args.begin(), args.end())};
         func_addr = qualified_parent(func_addr).value();
     }
 
@@ -65,7 +65,7 @@ void rylang::function_ast_resolver::process(rylang::compiler* c)
 
     for (function_ast const& func : functum_entity_ast_v.m_function_overloads)
     {
-        call_overload_set cos_args = to_call_overload_set(func.args);
+        call_parameter_information cos_args = to_call_overload_set(func.args);
         auto callable_dp = get_dependency(
             [&]
             {

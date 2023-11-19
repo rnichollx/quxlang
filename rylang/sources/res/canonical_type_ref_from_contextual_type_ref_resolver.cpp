@@ -145,11 +145,11 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
 
         return;
     }
-    else if (type.type() == boost::typeindex::type_id< parameter_set_reference >())
+    else if (type.type() == boost::typeindex::type_id< functanoid_reference >())
     {
-        parameter_set_reference const& param_set = boost::get< parameter_set_reference >(type);
+        functanoid_reference const& param_set = boost::get< functanoid_reference >(type);
 
-        parameter_set_reference output;
+        functanoid_reference output;
 
         auto callee_dp = get_dependency(
             [&]

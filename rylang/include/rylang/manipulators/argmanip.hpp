@@ -7,16 +7,16 @@
 
 #include "rylang/ast/function_arg_ast.hpp"
 #include "rylang/ast/function_ast.hpp"
-#include "rylang/data/call_overload_set.hpp"
+#include "rylang/data/call_parameter_information.hpp"
 
 namespace rylang
 {
-    inline call_overload_set to_call_overload_set(std::vector< function_arg_ast > const & args)
+    inline call_parameter_information to_call_overload_set(std::vector< function_arg_ast > const & args)
     {
         // TODO: For now, assume all function argument types are non-contextual
         //  Later, we can add support for context conversion
 
-        call_overload_set result;
+        call_parameter_information result;
 
         for (auto& arg : args)
         {
