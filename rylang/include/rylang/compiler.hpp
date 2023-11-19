@@ -47,6 +47,7 @@
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+#include "rylang/res/list_functum_overloads_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -88,6 +89,7 @@ namespace rylang
         friend class symbol_canonical_chain_exists_resolver;
         friend class class_should_autogen_default_constructor_resolver;
         friend class functum_exists_and_is_callable_with_resolver;
+        friend class list_functum_overloads_resolver;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -110,6 +112,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< list_functum_overloads_resolver> m_list_functum_overloads_index;
+        out< std::optional<std::vector< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
+        {
+            return m_list_functum_overloads_index.lookup(chain);
+        }
 
 
         index < functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;

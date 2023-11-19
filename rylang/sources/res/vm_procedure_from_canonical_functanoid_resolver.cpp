@@ -430,7 +430,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         return gen_call(c, frame, block, rhs_function, std::vector< vm_value >{rhs, lhs});
     }
 
-    throw std::logic_error("Could not find either " + to_string(lhs_function) + " or " + to_string(rhs_function));
+    throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", "+ to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
 
     if (is_ref(lhs_type) && assignment_operators.count(expr.operator_str) == 0)
     // Do not dereference for assignment operators

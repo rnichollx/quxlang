@@ -43,6 +43,9 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/data/symbol_type.hpp
         include/rylang/res/functum_exists_and_is_callable_with_resolver.hpp
         sources/res/functum_exists_and_is_callable_with_resolver.cpp
+        include/rylang/res/list_functum_overloads_resolver.hpp
+        include/rylang/res/list_functum_overloads_resolver.hpp
+        sources/res/list_functum_overloads_resolver.cpp
 
 )
 
