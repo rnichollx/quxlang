@@ -34,7 +34,7 @@ namespace rylang
             bool closed = false;
 
           public:
-            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, compiler* c, vm_generation_frame_info& frame, vm_block& block);
+            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, qualified_symbol_reference func, compiler* c, vm_generation_frame_info& frame, vm_block& block);
             explicit context_frame(context_frame const& other);
 
             struct condition_t
@@ -72,6 +72,7 @@ namespace rylang
             [[nodiscard]] inline std::pair< bool, std::size_t > create_temporary_storage(qualified_symbol_reference type);
             [[nodiscard]] std::pair< bool, vm_value > load_temporary(std::size_t index);
             [[nodiscard]] std::pair< bool, vm_value > load_temporary_as_new(std::size_t index);
+            [[nodiscard]] std::pair< bool, vm_value > set_return_value(vm_value);
             [[nodiscard]] inline std::pair< bool, vm_value > load_variable(std::size_t index)
             {
                 return load_value(index, true, false);
@@ -90,13 +91,17 @@ namespace rylang
 
             [[nodiscard]] std::pair< bool, std::optional< vm_value > > try_load_variable(std::string name);
             [[nodiscard]] std::pair< bool, vm_value > load_value(std::size_t index, bool alive, bool temp);
+            [[nodiscard]] std::pair< bool, vm_value > load_value_as_desctructable(std::size_t index);
 
             [[nodiscard]] inline std::pair< bool, vm_value > load_variable(std::string name);
             [[nodiscard]] bool construct_new_variable(std::string name, qualified_symbol_reference type, std::vector< vm_value > args);
             [[nodiscard]] bool destroy_value(std::size_t index);
             [[nodiscard]] bool frame_return(vm_value val);
             [[nodiscard]] bool frame_return();
+            [[nodiscard]] bool run_value_destructor(std::size_t index);
+            [[nodiscard]] bool run_value_constructor(std::size_t index, std::vector< vm_value > args);
 
+          public:
             qualified_symbol_reference current_context() const;
 
             void push(vm_executable_unit s)
@@ -112,6 +117,7 @@ namespace rylang
           private:
             class compiler* m_c;
             vm_generation_frame_info& m_frame;
+            qualified_symbol_reference m_ctx;
             vm_block& m_block;
             vm_block m_new_block;
             std::function< void(vm_block) > m_insertion_point;
