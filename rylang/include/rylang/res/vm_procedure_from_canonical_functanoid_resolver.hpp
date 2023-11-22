@@ -72,7 +72,7 @@ namespace rylang
             [[nodiscard]] inline std::pair< bool, std::size_t > create_temporary_storage(qualified_symbol_reference type);
             [[nodiscard]] std::pair< bool, vm_value > load_temporary(std::size_t index);
             [[nodiscard]] std::pair< bool, vm_value > load_temporary_as_new(std::size_t index);
-            [[nodiscard]] std::pair< bool, vm_value > set_return_value(vm_value);
+            [[nodiscard]] bool set_return_value(vm_value);
             [[nodiscard]] inline std::pair< bool, vm_value > load_variable(std::size_t index)
             {
                 return load_value(index, true, false);

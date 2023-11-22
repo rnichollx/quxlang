@@ -466,9 +466,9 @@ namespace rylang
 
         return {true, load};
     }
-    std::pair< bool, vm_value > vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value)
+    bool vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value val)
     {
-        return std::pair< bool, vm_value >();
+
     }
 } // namespace rylang
 
