@@ -46,6 +46,8 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         sources/res/list_functum_overloads_resolver.cpp
         include/rylang/operators.hpp
         include/rylang/data/vm_expr_reinterpret.hpp
+        include/rylang/data/vm_expr_poison.hpp
+        include/rylang/data/vm_expr_undef.hpp
 
 )
 

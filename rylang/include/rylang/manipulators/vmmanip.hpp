@@ -68,7 +68,17 @@ namespace rylang
             return numeric_literal_reference{};
         }
 
-        qualified_symbol_reference operator()(vm_expr_reinterpret const & op) const
+        qualified_symbol_reference operator()(vm_expr_reinterpret const& op) const
+        {
+            return op.type;
+        }
+
+        qualified_symbol_reference operator()(vm_expr_poison const& op) const
+        {
+            return op.type;
+        }
+
+        qualified_symbol_reference operator()(vm_expr_undef const& op) const
         {
             return op.type;
         }
@@ -111,8 +121,6 @@ namespace rylang
             std::string result = "bound_value<" + to_string(what.function_ref) + ">(" + to_string(what.value) + ")";
             return result;
         }
-
-
 
         std::string operator()(vm_expr_load_literal lit) const
         {
@@ -183,7 +191,7 @@ namespace rylang
 
         std::string operator()(vm_expr_access_field const& exp) const
         {
-                return "access_field<" + to_string(exp.type) + ">(" + to_string(exp.base) + ", +" + std::to_string(exp.offset) + ")";
+            return "access_field<" + to_string(exp.type) + ">(" + to_string(exp.base) + ", +" + std::to_string(exp.offset) + ")";
         }
 
         std::string operator()(vm_expr_primitive_unary_op const& exp) const
@@ -220,9 +228,31 @@ namespace rylang
             return result;
         }
 
-        std::string operator()(vm_expr_reinterpret const & obj) const
+        std::string operator()(vm_expr_reinterpret const& obj) const
         {
-           return "reinterpret<" + to_string(obj.type) + ">(" + to_string(obj.expr) + ")";
+            return "reinterpret<" + to_string(obj.type) + ">(" + to_string(obj.expr) + ")";
+        }
+
+        std::string operator()(vm_expr_poison const& obj) const
+        {
+            return "poison<" + to_string(obj.type) + ">()";
+        }
+
+        std::string operator()(vm_expr_undef const& obj) const
+        {
+            return "undef<" + to_string(obj.type) + ">()";
+        }
+
+        std::string operator()(vm_disable_storage const&) const
+        {
+            assert(false); // TODO: implement this
+            return "";
+        }
+
+        std::string operator()(vm_enable_storage const&) const
+        {
+            assert(false); // TODO: implement this
+            return "";
         }
 
         vm_expression_stringifier() = default;

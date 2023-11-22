@@ -11,8 +11,11 @@ namespace rylang
 {
     struct vm_generation_block
     {
-        std::map< std::string, vm_frame_variable > variables;
+        std::map< std::string, std::size_t > variable_lookup_index;
+        std::map< std::size_t, vm_frame_variable_state > value_states;
+        std::optional<qualified_symbol_reference> context_overload;
     };
+
     struct vm_generation_frame_info
     {
         std::vector< vm_frame_variable > variables;

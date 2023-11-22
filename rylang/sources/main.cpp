@@ -4,6 +4,11 @@
 #include "rylang/manipulators/mangler.hpp"
 #include <iostream>
 
+#include "rylang/data/vm_executable_unit.hpp"
+
+#include "rylang/manipulators/vmmanip.hpp"
+
+
 int main(int argc, char** argv)
 {
     rylang::compiler c(argc, argv);
@@ -27,6 +32,8 @@ int main(int argc, char** argv)
     std::string name = rylang::mangle(qn);
 
     rylang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(qn);
+
+    std::cout << rylang::to_string(rylang::vm_executable_unit{vmf.body}) << std::endl;
     auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
 
 

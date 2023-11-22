@@ -35,7 +35,18 @@ namespace rylang
     struct vm_if;
     struct vm_while;
 
-    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper<vm_while> >;
+
+
+    struct vm_disable_storage
+    {
+        std::size_t index;
+    };
+    struct vm_enable_storage
+    {
+       std::size_t index;
+    };
+
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper<vm_while>, boost::recursive_wrapper<vm_disable_storage>, boost::recursive_wrapper<vm_enable_storage> >;
 
     struct vm_block
     {
@@ -56,6 +67,8 @@ namespace rylang
         vm_value condition;
         vm_block loop_block;
     };
+
+
 
 } // namespace rylang
 

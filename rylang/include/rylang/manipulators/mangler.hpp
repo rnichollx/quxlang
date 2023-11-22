@@ -66,12 +66,27 @@ namespace rylang
             // TODO: Implement
             throw std::runtime_error("unimplemented");
         }
+        else if (typeis< mvalue_reference >(qt))
+        {
+            return "RM" + to_string(as< mvalue_reference >(qt).target);
+        }
+        else if (typeis< cvalue_reference >(qt))
+        {
+            return "RC" + to_string(as< cvalue_reference >(qt).target);
+        }
+        else if (typeis< ovalue_reference >(qt))
+        {
+            return "RO" + to_string(as< ovalue_reference >(qt).target);
+        }
+        if (typeis< tvalue_reference >(qt))
+        {
+            return "RT" + to_string(as< tvalue_reference >(qt).target);
+        }
 
         throw std::runtime_error("unimplemented");
     }
 
-
-    inline  std::string  mangle_internal [[deprecated("qualified")]] (canonical_resolved_function_chain const& func)
+    inline std::string mangle_internal [[deprecated("qualified")]] (canonical_resolved_function_chain const& func)
     {
         std::string out = mangle_internal(func.function_entity_chain);
         out += "F";
@@ -79,9 +94,7 @@ namespace rylang
         return out;
     }
 
-
-
-    inline std::string  mangle [[deprecated("qualified")]](canonical_resolved_function_chain const& func)
+    inline std::string mangle [[deprecated("qualified")]] (canonical_resolved_function_chain const& func)
     {
         std::string out = "_S_";
         out += mangle_internal(func);

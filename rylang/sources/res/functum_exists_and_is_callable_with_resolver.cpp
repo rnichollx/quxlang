@@ -30,7 +30,7 @@ void rylang::functum_exists_and_is_callable_with_resolver::process(compiler* c)
         return;
     }
 
-    std::vector<call_parameter_information> const & overloads = overloads_opt.value();
+    std::set<call_parameter_information> const & overloads = overloads_opt.value();
     // TODO: Add priority/fail on ambiguity
 
     for (call_parameter_information const& overload : overloads)

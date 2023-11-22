@@ -28,74 +28,126 @@ namespace rylang
         void process(compiler* c);
 
       private:
+        struct context_frame
+        {
+            std::size_t exception_ct;
+            bool closed = false;
+
+          public:
+            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, compiler* c, vm_generation_frame_info& frame, vm_block& block);
+            explicit context_frame(context_frame const& other);
+
+            struct condition_t
+            {
+            };
+            struct then_t
+            {
+            };
+            struct else_t
+            {
+            };
+            struct loop_t
+            {
+            };
+
+            static constexpr condition_t condition_tag = condition_t{};
+            static constexpr then_t then_tag = then_t{};
+            static constexpr else_t else_tag = else_t{};
+            static constexpr loop_t loop_tag = loop_t{};
+
+            explicit context_frame(context_frame const& other, vm_if& insertion_point, condition_t);
+            explicit context_frame(context_frame const& other, vm_if& insertion_point, then_t);
+            explicit context_frame(context_frame const& other, vm_if& insertion_point, else_t);
+            explicit context_frame(context_frame const& other, vm_while& insertion_point, condition_t);
+            explicit context_frame(context_frame const& other, vm_while& insertion_point, loop_t);
+            context_frame(context_frame&& other) = delete;
+
+            ~context_frame() noexcept(false);
+
+            bool close();
+            void discard();
+
+            [[nodiscard]] inline std::pair< bool, std::size_t > create_variable_storage(std::string name, qualified_symbol_reference type);
+            [[nodiscard]] inline std::pair< bool, std::size_t > create_value_storage(std::optional< std::string > name, qualified_symbol_reference type);
+            [[nodiscard]] inline std::pair< bool, std::size_t > create_temporary_storage(qualified_symbol_reference type);
+            [[nodiscard]] std::pair< bool, vm_value > load_temporary(std::size_t index);
+            [[nodiscard]] std::pair< bool, vm_value > load_temporary_as_new(std::size_t index);
+            [[nodiscard]] inline std::pair< bool, vm_value > load_variable(std::size_t index)
+            {
+                return load_value(index, true, false);
+            }
+            [[nodiscard]] inline std::pair< bool, vm_value > load_variable_as_new(std::size_t index)
+            {
+                return load_value(index, false, false);
+            }
+            [[nodiscard]] bool set_value_alive(std::size_t index);
+            [[nodiscard]] bool set_value_dead(std::size_t index);
+            [[nodiscard]] std::pair< bool, std::size_t > construct_new_temporary(qualified_symbol_reference type, std::vector< vm_value > args);
+            [[nodiscard]] std::pair< bool, std::size_t > adopt_value_as_temporary(vm_value val);
+            [[nodiscard]] std::pair< bool, std::optional< std::size_t > > try_get_variable_index(std::string name);
+            [[nodiscard]] std::pair< bool, qualified_symbol_reference > get_variable_type(std::size_t index);
+            [[nodiscard]] std::pair< bool, std::optional< qualified_symbol_reference > > try_get_variable_type(std::string name);
+
+            [[nodiscard]] std::pair< bool, std::optional< vm_value > > try_load_variable(std::string name);
+            [[nodiscard]] std::pair< bool, vm_value > load_value(std::size_t index, bool alive, bool temp);
+
+            [[nodiscard]] inline std::pair< bool, vm_value > load_variable(std::string name);
+            [[nodiscard]] bool construct_new_variable(std::string name, qualified_symbol_reference type, std::vector< vm_value > args);
+            [[nodiscard]] bool destroy_value(std::size_t index);
+            [[nodiscard]] bool frame_return(vm_value val);
+            [[nodiscard]] bool frame_return();
+
+            qualified_symbol_reference current_context() const;
+
+            void push(vm_executable_unit s)
+            {
+                m_new_block.code.push_back(std::move(s));
+            }
+
+            class compiler* compiler() const
+            {
+                return m_c;
+            }
+
+          private:
+            class compiler* m_c;
+            vm_generation_frame_info& m_frame;
+            vm_block& m_block;
+            vm_block m_new_block;
+            std::function< void(vm_block) > m_insertion_point;
+            vm_procedure_from_canonical_functanoid_resolver* m_resolver;
+        };
         qualified_symbol_reference m_func_name;
 
-        [[nodiscard]] bool build_generic(compiler* c, vm_generation_frame_info& frame, vm_block& proc, function_statement statement);
+        [[nodiscard]] bool build_generic(context_frame& ctx, function_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, rylang::function_var_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, function_if_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, function_while_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, function_return_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, function_expression_statement statement);
+        [[nodiscard]] bool build(context_frame& ctx, function_block statement);
 
-        [[nodiscard]] bool build(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, rylang::function_var_statement statement);
-        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_if_statement statement);
-        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_while_statement statement);
-        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_return_statement statement);
-        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_expression_statement statement);
-        [[nodiscard]] bool build(compiler* c, vm_generation_frame_info& frame, vm_block& block, function_block statement);
+        std::tuple< bool, bool, vm_value > try_gen_builtin_call [[deprecated]] (context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        vm_value gen_conversion_to_integer(context_frame& ctx, vm_expr_literal val, primitive_type_integer_reference to_type);
+        std::pair< bool, vm_value > gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_call(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        std::tuple< bool, bool, vm_value > try_gen_call_functanoid_builtin(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_call_functanoid(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_default_constructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_default_destructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
 
-
-        void frame_push(compiler* c, vm_generation_frame_info& frame, vm_block& block);
-        [[nodiscard]] bool frame_pop(compiler* c, vm_generation_frame_info& frame, vm_block& block);
-        [[nodiscard]] bool frame_create_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name, qualified_symbol_reference type, std::vector<vm_value> args = {});
-        std::pair < bool, std::optional<vm_value> > frame_try_get_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
-        [[nodiscard]] bool  frame_destroy_variable(compiler * c, vm_generation_frame_info & frame, vm_block & block, std::string name);
-
-        std::pair<bool, vm_value> frame_create_temporary(compiler * c, vm_generation_frame_info &frame, vm_block &block, vm_value initial_value, qualified_symbol_reference type);
-
-
-        /// Generate a call to a builtin function
-        // @param c The compiler
-        // @param frame The frame info
-        // @param block The vm_block to generate the call in
-        // @param callee The function to call
-        // @param values The arguments to the function
-        // @return A tuple containing the following:
-        //  - A boolean that returns true if resolution may proceed
-        //  - A boolean that returns true if the call should be a builtin call,
-        //    or false if it should be a normal call
-        //  - The value of the builtin call, if previous boolean was true
-        //    otherwise void_value
-        std::tuple< bool, bool, vm_value > try_gen_builtin_call [[deprecated]](compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
-
-
-        vm_value gen_conversion_to_integer(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_expr_literal val, primitive_type_integer_reference to_type);
-
-
-        std::pair< bool, vm_value > gen_call_expr(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value callee, std::vector< vm_value > values);
-
-        std::pair<bool, vm_value> gen_call(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
-
-
-        std::tuple< bool, bool, vm_value > try_gen_call_functanoid_builtin(compiler* c, vm_generation_frame_info& frame, vm_block& block, qualified_symbol_reference callee, std::vector< vm_value > values);
-
-        std::pair<bool, vm_value> gen_call_functanoid(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
-
-        std::pair<bool, vm_value> gen_default_constructor(compiler * c, vm_generation_frame_info & frame, vm_block & block, qualified_symbol_reference callee, std::vector<vm_value> values);
-
-        std::pair<bool, vm_value> gen_invoke(compiler * c, vm_generation_frame_info & frame, vm_block & block, functanoid_reference const& callee, std::vector<vm_value> values);
-
-        std::pair< bool, vm_value > gen_value_generic(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression expr);
-
-        std::pair< bool, std::vector<vm_value>> gen_preinvoke_conversions(rylang::compiler* c, rylang::vm_generation_frame_info& frame, rylang::vm_block& block, std::vector<vm_value> values, std::vector<qualified_symbol_reference> const & to_types);
-
-        std::pair< bool, vm_value > gen_implicit_conversion(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to);
-
-        std::pair< bool, vm_value > gen_ref_to_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value val);
-
-        std::pair< bool, vm_value > gen_value_to_ref(compiler* c, vm_generation_frame_info& frame, vm_block& block, vm_value from, qualified_symbol_reference to_type);
-
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_lvalue_reference expr);
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_symbol_reference expr);
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_binary expr);
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_copy_assign expr);
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, expression_call expr);
-        std::pair< bool, vm_value > gen_value(compiler* c, vm_generation_frame_info& frame, vm_block& block, numeric_literal expr);
+        std::pair< bool, vm_value > gen_invoke(context_frame& ctx, functanoid_reference const& callee, std::vector< vm_value > values);
+        std::pair< bool, vm_value > gen_value_generic(context_frame& ctx, expression expr);
+        std::pair< bool, std::vector< vm_value > > gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< qualified_symbol_reference > const& to_types);
+        std::pair< bool, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, qualified_symbol_reference to);
+        std::pair< bool, vm_value > gen_ref_to_value(context_frame& ctx, vm_value val);
+        std::pair< bool, vm_value > gen_value_to_ref(context_frame& ctx, vm_value from, qualified_symbol_reference to_type);
+        [[deprecated]] std::pair< bool, vm_value > gen_value(context_frame& ctx, expression_lvalue_reference expr);
+        std::pair< bool, vm_value > gen_value(context_frame& ctx, expression_symbol_reference expr);
+        std::pair< bool, vm_value > gen_value(context_frame& ctx, expression_binary expr);
+        std::pair< bool, vm_value > gen_value(context_frame& ctx, expression_copy_assign expr);
+        std::pair< bool, vm_value > gen_value(context_frame& ctx, expression_call expr);
+        std::pair< bool, vm_value > gen_value(context_frame& ctx, numeric_literal expr);
     };
 } // namespace rylang
 

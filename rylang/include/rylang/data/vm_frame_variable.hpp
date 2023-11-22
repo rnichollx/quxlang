@@ -5,8 +5,8 @@
 #ifndef RPNX_RYANSCRIPT1031_VM_FRAME_VARIABLE_HEADER
 #define RPNX_RYANSCRIPT1031_VM_FRAME_VARIABLE_HEADER
 
-#include <string>
 #include <optional>
+#include <string>
 
 namespace rylang
 {
@@ -14,8 +14,14 @@ namespace rylang
     {
         std::string name;
         qualified_symbol_reference type;
-        bool alive;
-        std::optional<vm_value> get_addr;
+        bool is_temporary = false;
+        vm_value get_addr;
+    };
+
+    struct vm_frame_variable_state
+    {
+        bool alive = false;
+        bool this_frame = true;
     };
 } // namespace rylang
 

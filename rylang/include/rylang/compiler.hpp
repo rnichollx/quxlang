@@ -113,7 +113,7 @@ namespace rylang
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
         index< list_functum_overloads_resolver> m_list_functum_overloads_index;
-        out< std::optional<std::vector< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
+        out< std::optional<std::set< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
         {
             return m_list_functum_overloads_index.lookup(chain);
         }

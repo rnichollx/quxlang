@@ -11,7 +11,7 @@
 
 namespace rylang
 {
-    class list_functum_overloads_resolver : public rpnx::resolver_base< compiler, std::optional< std::vector< call_parameter_information > > >
+    class list_functum_overloads_resolver : public rpnx::resolver_base< compiler, std::optional< std::set< call_parameter_information > > >
     {
       public:
         using key_type = qualified_symbol_reference;

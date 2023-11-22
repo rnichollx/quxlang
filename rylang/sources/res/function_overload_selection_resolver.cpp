@@ -36,7 +36,7 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
     std::size_t eligible_overloads = 0;
     std::optional< call_parameter_information > output_overload;
 
-    std::vector< call_parameter_information > const& overloads = overloads_opt.value();
+    std::set< call_parameter_information > const& overloads = overloads_opt.value();
 
     for (call_parameter_information const& overload : overloads)
     {
