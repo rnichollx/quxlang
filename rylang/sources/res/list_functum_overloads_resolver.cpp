@@ -68,6 +68,17 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
             constructor = true;
             // TODO: Allow disabling default constructor
             defaulted = true;
+
+            if (typeis<primitive_type_integer_reference>(parent))
+            {
+                auto int_type = as<primitive_type_integer_reference>(parent);
+
+                std::set< call_parameter_information > result;
+                result.insert({{make_mref(parent), parent}});
+                result.insert({{make_mref(parent)}});
+                set_value(result);
+                return;
+            }
         }
 
         else if (name == "DESTRUCTOR")

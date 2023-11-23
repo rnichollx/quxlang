@@ -29,7 +29,6 @@ namespace rylang
 
     struct vm_return
     {
-        std::optional< vm_value > expr;
     };
 
     struct vm_if;

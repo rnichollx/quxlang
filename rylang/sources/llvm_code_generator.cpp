@@ -182,6 +182,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             vm_llvm_frame_item item;
             item.type = StorageType;
             item.get_address = alloca;
+            item.align = llvm::Align(align);
             frame.values.push_back(item);
         }
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
@@ -200,8 +201,11 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             rylang::vm_return ret = boost::get< rylang::vm_return >(ex);
             // TODO: support void return
             llvm::IRBuilder<> builder(p_block);
-            llvm::Value* ret_val = get_llvm_value(context, builder, frame, ret.expr.value());
 
+            llvm::Align ret_align = frame.values.at(0).align;
+            llvm::Value* ret_val_reference = frame.values.at(0).get_address;
+            llvm::Type* ret_type = frame.values.at(0).type;
+            llvm::Value* ret_val = builder.CreateAlignedLoad(ret_type, ret_val_reference, ret_align);
             // get a true value
 
             builder.CreateRet(ret_val);
@@ -326,6 +330,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         vm_llvm_frame_item item;
         item.type = arg_llvm_type;
         item.get_address = alloca;
+        item.align = arg_align;
         frame.values.push_back(item);
         // store the value in the alloca
         builder.CreateAlignedStore(arg_value, alloca, arg_align);

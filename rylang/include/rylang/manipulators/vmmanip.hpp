@@ -129,12 +129,7 @@ namespace rylang
 
         std::string operator()(vm_return what) const
         {
-            std::string result = "return";
-            if (what.expr)
-            {
-
-                result += "(" + to_string(*what.expr) + ")";
-            }
+            std::string result = "RETURN";
             return result;
         }
 

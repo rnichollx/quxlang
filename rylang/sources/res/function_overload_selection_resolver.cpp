@@ -13,7 +13,15 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
 {
     std::stringstream ss;
     std::cout << "Function overload selection resolver called for " << to_string(m_function_location) << std::endl;
-    std::cout << "With args: " << std::endl;
+    std::cout << "With args:" << std::endl;
+    auto args = m_args;
+
+    for (auto & argtype : args.argument_types)
+    {
+       std::cout << " " << to_string(argtype) << ",";
+    }
+
+    std::cout << std::endl;
 
     auto overloads_dp = get_dependency(
         [&]

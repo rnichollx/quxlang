@@ -51,7 +51,8 @@ namespace rylang
             throw std::logic_error("Context frame destroyed without being closed or discarded");
         }
     }
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other)
+
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(context_frame const& other)
         : m_c(other.m_c)
         , m_frame(other.m_frame)
         , m_block(other.m_block)
@@ -336,7 +337,7 @@ namespace rylang
     }
     bool vm_procedure_from_canonical_functanoid_resolver::context_frame::frame_return()
     {
-        for (std::size_t i; i < m_frame.variables.size(); i++)
+        for (std::size_t i = 1; i < m_frame.variables.size(); i++)
         {
             if (m_frame.blocks.back().value_states.at(i).alive)
             {
@@ -411,7 +412,11 @@ namespace rylang
         }
         subdotentity_reference destructor_symbol = {type, "DESTRUCTOR"};
 
-        auto [ok3, res] = m_resolver->gen_call(*this, destructor_symbol, {val});
+        functanoid_reference destructor_reference;
+        destructor_reference.callee = destructor_symbol;
+        destructor_reference.parameters = {make_mref(type)};
+
+        auto [ok3, res] = m_resolver->gen_invoke(*this, destructor_reference, {val});
         if (!ok3)
         {
             return false;
@@ -468,7 +473,20 @@ namespace rylang
     }
     bool vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value val)
     {
+        assert(m_frame.blocks.back().value_states[0].alive == false);
 
+        auto ok = run_value_constructor(0, {std::move(val)});
+        if (!ok)
+        {
+            return false;
+        }
+
+        if (!set_value_alive(0))
+        {
+            return false;
+        }
+
+        return true;
     }
 } // namespace rylang
 
@@ -1343,6 +1361,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, functanoid_reference const& overload_selected_ref, std::vector< vm_value > call_args)
 {
+    std::cout << "gen invoke" << std::endl;
     vm_expr_call call;
 
     std::string typestr = to_string(overload_selected_ref);
@@ -1514,7 +1533,7 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
                 vm_value arg_to_copy = values.at(1);
                 qualified_symbol_reference arg_copy_type = vm_value_type(arg_to_copy);
                 // TODO: conversion to integer?
-                if (arg_copy_type != arg_type)
+                if (arg_copy_type != remove_ref(arg_type))
                 {
                     throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
                 }
