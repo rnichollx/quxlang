@@ -28,6 +28,7 @@ namespace rylang
         , m_block(block)
         , m_resolver(res)
     {
+        std::cout << "Enter context frame" << std::endl;
         m_insertion_point = [this](vm_block b)
         {
             m_block.code.emplace_back(std::move(b));
@@ -42,12 +43,15 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::~context_frame() noexcept(false)
     {
+        std::cout << "context frame destructor" << std::endl;
         if (std::uncaught_exceptions() != exception_ct)
         {
+            std::cout << "Exception return from context frame" << std::endl;
             return;
         }
         if (!closed)
         {
+            // std::cout << "improperly destroyed context frame" << std::endl;
             throw std::logic_error("Context frame destroyed without being closed or discarded");
         }
     }
@@ -58,6 +62,9 @@ namespace rylang
         , m_block(other.m_block)
         , m_resolver(other.m_resolver)
     {
+        assert(m_frame.blocks.back().value_states[0].alive == false);
+
+        std::cout << "Enter duplicate context" << std::endl;
         m_frame.blocks.emplace_back(m_frame.blocks.back());
         for (auto& var : m_frame.blocks.back().value_states)
         {
@@ -71,22 +78,32 @@ namespace rylang
 
     bool vm_procedure_from_canonical_functanoid_resolver::context_frame::close()
     {
+        if (closed)
+        {
+            throw std::logic_error("Already closed");
+        }
         for (auto& var : m_frame.blocks.back().value_states)
         {
             if (var.second.this_frame && var.second.alive)
             {
                 if (!destroy_value(var.first))
                 {
+                    std::cout << "Close failed" << std::endl;
+                    closed = true;
                     return false;
                 }
             }
         }
         assert(m_insertion_point);
         m_insertion_point(std::move(m_new_block));
+        assert(m_frame.blocks.size() != 0);
+        m_frame.blocks.pop_back();
+        closed = true;
         return true;
     }
     void vm_procedure_from_canonical_functanoid_resolver::context_frame::discard()
     {
+        std::cout << "Context discarded" << std::endl;
         closed = true;
     }
 
@@ -197,16 +214,25 @@ namespace rylang
             return {false, {}};
         }
         type_placement_info type_placement_info_v = type_placement_info_dp->get();
+
+        vm_allocate_storage storage;
+        storage.size = type_placement_info_v.size;
+        storage.align = type_placement_info_v.alignment;
+        if (name.has_value())
         {
-            vm_allocate_storage storage;
-            storage.size = type_placement_info_v.size;
-            storage.align = type_placement_info_v.alignment;
-            push(storage);
+            storage.kind = storage_type::local;
         }
+        else
+        {
+            storage.kind = storage_type::temporary;
+        }
+        storage.type = type;
         vm_frame_variable var;
         var.name = name.value_or("TEMPORARY");
         var.type = type;
         var.is_temporary = temp;
+        var.storage = storage;
+        assert(var.storage.valid());
         vm_expr_load_address load;
         if (temp)
         {
@@ -306,6 +332,13 @@ namespace rylang
 
     bool vm_procedure_from_canonical_functanoid_resolver::context_frame::set_value_alive(std::size_t index)
     {
+        std::cout << "set < " << index << " > alive" << std::endl;
+        if (index == 0)
+        {
+            std::cout << "set "
+                      << "return alive" << std::endl;
+        }
+        assert(m_frame.blocks.back().value_states[index].alive == false);
         m_frame.blocks.back().value_states.at(index).alive = true;
         return true;
     }
@@ -339,7 +372,7 @@ namespace rylang
     {
         for (std::size_t i = 1; i < m_frame.variables.size(); i++)
         {
-            if (m_frame.blocks.back().value_states.at(i).alive)
+            if (m_frame.blocks.back().value_states.count(i) != 0 && m_frame.blocks.back().value_states.at(i).alive)
             {
                 if (!destroy_value(i))
                 {
@@ -473,6 +506,7 @@ namespace rylang
     }
     bool vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value val)
     {
+        std::cout << "Set return value: " << to_string(val) << std::endl;
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
         auto ok = run_value_constructor(0, {std::move(val)});
@@ -492,6 +526,13 @@ namespace rylang
 
 void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* c)
 {
+    for (std::size_t i = 0; i < 10; i++)
+    {
+        std::cout << std::endl;
+    }
+
+    std::cout << "Begin processing" << std::endl;
+
     auto function_ast_dp = get_dependency(
         [&]
         {
@@ -504,7 +545,6 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
     function_ast function_ast_v = function_ast_dp->get();
     vm_procedure vm_proc;
     vm_generation_frame_info frame;
-
     {
         context_frame ctx(this, m_func_name, c, frame, vm_proc.body);
 
@@ -515,12 +555,14 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
             vm_frame_variable var;
             var.name = "RETURN_VALUE";
             var.type = function_ast_v.return_type.value();
+            var.storage.kind = storage_type::return_value;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
             frame.blocks.back().variable_lookup_index["return"] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = false;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = false;
             vm_proc.interface.return_type = function_ast_v.return_type.value();
+
         }
 
         for (auto& arg : function_ast_v.args)
@@ -535,6 +577,7 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
             assert(!qualified_is_contextual(arg.type));
             var.name = arg.name;
             var.type = arg.type;
+            var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
             frame.blocks.back().variable_lookup_index[arg.name] = frame.variables.size() - 1;
@@ -545,6 +588,8 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
             // TODO: Maybe consider adding ctx.add_argument instead of doing this inside this function
         }
 
+        assert(frame.blocks.back().value_states[0].alive == false);
+
         // Then generate the body
         if (!build_generic(ctx, function_ast_v.body))
         {
@@ -552,16 +597,26 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
             return;
         }
 
-        ctx.close();
+        auto closed = ctx.close();
+        if (!closed)
+        {
+            return;
+        }
     }
+    assert(ready());
     assert(frame.blocks.empty());
+
+    for (auto const& var : frame.variables)
+    {
+        assert(var.storage.valid());
+        vm_proc.storage.push_back(var.storage);
+    }
 
     set_value(vm_proc);
 }
 
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_frame& ctx, rylang::function_var_statement statement)
 {
-    vm_allocate_storage storage;
 
     std::string var_type_str = to_string(statement.type);
 
@@ -1373,7 +1428,22 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     call.interface.argument_types = overload_selected_ref.parameters;
 
     // TODO: lookup return type and interface
-    call.interface.return_type = primitive_type_integer_reference{32, true};
+    auto return_type_dp = get_dependency(
+        [&]
+        {
+            return ctx.compiler()->lk_functanoid_return_type(overload_selected_ref);
+        });
+    if (!ready())
+    {
+        return {false, {}};
+    }
+
+    auto return_type = return_type_dp->get();
+
+    if (!typeis< void_type >(return_type))
+    {
+        call.interface.return_type = return_type;
+    }
 
     call.arguments = std::move(call_args);
 
@@ -1704,8 +1774,10 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     else if (typeis< function_block >(statement))
     {
         function_block block_stmt = boost::get< function_block >(statement);
+        context_frame block_ctx(ctx);
         auto res = build(ctx, block_stmt);
         assert(res == ready());
+        block_ctx.close();
         return res;
     }
     else

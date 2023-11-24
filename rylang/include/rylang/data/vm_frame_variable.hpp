@@ -16,6 +16,7 @@ namespace rylang
         qualified_symbol_reference type;
         bool is_temporary = false;
         vm_value get_addr;
+        vm_allocate_storage storage;
     };
 
     struct vm_frame_variable_state

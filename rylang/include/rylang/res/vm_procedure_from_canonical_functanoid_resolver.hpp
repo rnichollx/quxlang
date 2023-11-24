@@ -30,7 +30,7 @@ namespace rylang
       private:
         struct context_frame
         {
-            std::size_t exception_ct;
+            std::size_t exception_ct = 0;
             bool closed = false;
 
           public:

@@ -196,10 +196,11 @@ namespace rylang
 
         std::string operator()(vm_if const& ifi) const
         {
-            std::string result = "if(" + to_string(ifi.condition) + ") then " + to_string(ifi.then_block);
+            std::string result = "if(" + to_string(ifi.condition) + ") then {" + to_string(ifi.then_block);
+            result += "}";
             if (ifi.else_block)
             {
-                result += " else " + to_string(*ifi.else_block);
+                result += " else {" + to_string(*ifi.else_block) + "}";
             }
             return result;
         }

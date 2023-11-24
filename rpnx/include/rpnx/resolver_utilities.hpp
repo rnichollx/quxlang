@@ -8,8 +8,11 @@
 #include <set>
 #include <string>
 #include <type_traits>
+#include <coroutine>
 
 #include "rpnx/error_explainer.hpp"
+
+#include <__coroutine/coroutine_handle.h>
 
 namespace rpnx
 {
@@ -292,6 +295,109 @@ namespace rpnx
 
     template < typename Graph, typename Result >
     using output_ptr = std::shared_ptr< resolver_base< Graph, Result > >;
+
+    template <typename Graph, typename Result>
+    class resolver_coroutine
+        : resolver_base<Graph, Result>
+    {
+    private:
+
+        struct promise_type
+        {
+            resolver_coroutine * cr;
+
+            auto get_return_value()
+            {
+                return resolver_coroutine{this};
+            }
+
+            auto initial_suspend()
+            {
+                return std::suspend_always{};
+            }
+
+            auto final_suspend()
+            {
+                if (!cr->has_error() && !cr->has_value() && cr->ready())
+                {
+                    throw std::runtime_error("Resolver did not set value or error");
+                }
+                return std::suspend_never{};
+            }
+
+            ~promise_type()
+            {
+                if (cr)
+                {
+                    cr->pr = nullptr;
+                }
+            }
+
+            void unhandled_exception()
+            {
+                assert(cr);
+                cr->set_error(std::current_exception());
+            }
+
+            void return_value(Result r)
+            {
+                assert(cr);
+                cr->set_value(r);
+            }
+
+        };
+        promise_type * pr{};
+    public:
+        resolver_coroutine(promise_type * pr)
+            : pr(pr)
+        {
+            assert(pr != nullptr);
+        }
+
+        ~resolver_coroutine()
+        {
+            if (pr)
+            {
+                std::coroutine_handle<promise_type>::from_promise(*pr).destroy();
+            }
+
+            assert(pr == nullptr);
+        }
+
+
+
+    };
+
+    template <typename Graph, typename Result>
+    class resolver_base_awaitable
+    {
+    private:
+        node_base<Graph> * m_node;
+        std::shared_ptr< resolver_base<Graph, Result> > m_resolver;
+    public:
+        resolver_base_awaitable(node_base<Graph> * node, std::shared_ptr< resolver_base<Graph, Result> > resolver)
+            : m_node(node), m_resolver(resolver)
+        {
+            m_node->add_dependency(m_resolver);
+        }
+
+        auto await_ready() noexcept
+        {
+            return m_resolver->ready();
+        }
+
+        auto await_suspend(std::coroutine_handle<>)
+        {
+            // This is a no-op because resolvers wait
+            // for processors to resume stalled resolvables.
+        }
+
+        Result await_resume()
+        {
+            return m_resolver->get();
+        }
+
+    };
 
     template < typename Graph, typename Resolver >
     class index

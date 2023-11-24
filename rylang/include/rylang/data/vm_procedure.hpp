@@ -15,6 +15,7 @@ namespace rylang
     {
         vm_block body;
         vm_procedure_interface interface;
+        std::vector<vm_allocate_storage> storage;
     };
 } // namespace rylang
 

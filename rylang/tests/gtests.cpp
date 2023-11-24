@@ -28,16 +28,7 @@ class collector_tester : public ::testing::Test
 {
 };
 
-TEST(mangling, name_mangling)
-{
-    rylang::canonical_lookup_chain chain = rylang::canonical_lookup_chain{"foo", "bar", "baz"};
 
-    rylang::canonical_resolved_function_chain resolved_chain = {chain, 0};
-
-    std::string mangled_name = rylang::mangle(resolved_chain);
-
-    ASSERT_EQ(mangled_name, "_S_fooNbarNbazF0");
-}
 
 TEST(mangling, name_mangling_new)
 {

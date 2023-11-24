@@ -21,6 +21,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "rylang/to_pretty_string.hpp"
 #include <iostream>
 
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
@@ -167,23 +168,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_allocate_storage >())
         {
-            vm_allocate_storage const& alloc = boost::get< vm_allocate_storage >(ex);
-
-            // The llvm type doesn't contain alignment information, so we have to do it manually in the alloca instruction.
-            std::size_t align = alloc.align;
-
-            llvm::Type* StorageType = get_llvm_type_from_vm_storage(context, alloc);
-
-            llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
-
-            // Allocate stack space with allocainst
-            llvm::IRBuilder<> builder(frame.storage_block);
-            llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
-            vm_llvm_frame_item item;
-            item.type = StorageType;
-            item.get_address = alloca;
-            item.align = llvm::Align(align);
-            frame.values.push_back(item);
+            assert(false);
         }
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
         {
@@ -198,6 +183,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_return >())
         {
+            std::cout << " handle vm return " << std::endl;
             rylang::vm_return ret = boost::get< rylang::vm_return >(ex);
             // TODO: support void return
             llvm::IRBuilder<> builder(p_block);
@@ -209,7 +195,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             // get a true value
 
             builder.CreateRet(ret_val);
-            return false;
+            return true;
         }
         else if (typeis< vm_execute_expression >(ex))
         {
@@ -219,6 +205,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (typeis< vm_if >(ex))
         {
+            std::cout << "generate if " << p_block << std::endl;
             vm_if const& if_ = boost::get< vm_if >(ex);
             llvm::IRBuilder<> builder(p_block);
 
@@ -259,8 +246,9 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
                 builder.SetInsertPoint(else_block);
                 builder.CreateBr(after_block);
             }
-
             p_block = after_block;
+
+            std::cout << "generate if, after: " << p_block << std::endl;
         }
         else if (typeis< vm_while >(ex))
         {
@@ -319,6 +307,21 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
     auto arg_it = p_function->arg_begin();
     auto arg_end = p_function->arg_end();
 
+    if (procedure.interface.return_type.has_value() && !typeis< void_type >(procedure.interface.return_type.value()))
+    {
+        auto arg_type = procedure.interface.return_type.value();
+        llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
+        llvm::Value* one_value = llvm::ConstantInt::get(context, llvm::APInt(64, 1));
+
+        llvm::Align arg_align = llvm::Align(vm_type_alignment(arg_type));
+        llvm::AllocaInst* alloca = builder.CreateAlloca(arg_llvm_type, 0, one_value);
+        vm_llvm_frame_item item;
+        item.type = arg_llvm_type;
+        item.get_address = alloca;
+        item.align = arg_align;
+        frame.values.push_back(item);
+    }
+
     for (auto arg_type : procedure.interface.argument_types)
     {
         assert(arg_it != arg_end);
@@ -326,7 +329,9 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         llvm::Value* arg_value = &*arg_it;
 
         llvm::Align arg_align = llvm::Align(vm_type_alignment(arg_type));
-        llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(arg_llvm_type, 0, arg_value, llvm::Align(arg_align)));
+        llvm::Value* one_value = llvm::ConstantInt::get(context, llvm::APInt(64, 1));
+
+        llvm::AllocaInst* alloca = builder.CreateAlloca(arg_llvm_type, 0, one_value);
         vm_llvm_frame_item item;
         item.type = arg_llvm_type;
         item.get_address = alloca;
@@ -336,6 +341,32 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         builder.CreateAlignedStore(arg_value, alloca, arg_align);
         arg_it++;
     }
+
+    for (vm_allocate_storage ex : procedure.storage)
+    {
+        if (ex.kind == storage_type::return_value || ex.kind == storage_type::argument)
+        {
+            continue;
+        }
+        vm_allocate_storage const& alloc = ex;
+
+        // The llvm type doesn't contain alignment information, so we have to do it manually in the alloca instruction.
+        std::size_t align = alloc.align;
+
+        llvm::Type* StorageType = get_llvm_type_from_vm_storage(context, alloc);
+
+        llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
+
+        // Allocate stack space with allocainst
+        llvm::IRBuilder<> builder(frame.storage_block);
+        llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
+        vm_llvm_frame_item item;
+        item.type = StorageType;
+        item.get_address = alloca;
+        item.align = llvm::Align(align);
+        frame.values.push_back(item);
+    }
+
 }
 llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
@@ -496,9 +527,9 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
     {
         return nullptr;
     }
-    else if (typeis<vm_expr_reinterpret>(value))
+    else if (typeis< vm_expr_reinterpret >(value))
     {
-        vm_expr_reinterpret const& reinterp = boost::get<vm_expr_reinterpret>(value);
+        vm_expr_reinterpret const& reinterp = boost::get< vm_expr_reinterpret >(value);
 
         // TODO: Consider checking that the llvm types are the same
 
