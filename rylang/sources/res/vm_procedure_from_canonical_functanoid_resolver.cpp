@@ -16,6 +16,8 @@
 #include <exception>
 
 // TODO: Debugging, remove this
+#include "rylang/to_pretty_string.hpp"
+
 #include <iostream>
 
 namespace rylang
@@ -25,13 +27,12 @@ namespace rylang
         : m_c(c)
         , m_ctx(func)
         , m_frame(frame)
-        , m_block(block)
         , m_resolver(res)
     {
         std::cout << "Enter context frame" << std::endl;
-        m_insertion_point = [this](vm_block b)
+        m_insertion_point = [this, &block](vm_block b)
         {
-            m_block.code.emplace_back(std::move(b));
+            block.code.emplace_back(std::move(b));
         };
         exception_ct = std::uncaught_exceptions();
         assert(m_frame.blocks.empty());
@@ -39,6 +40,7 @@ namespace rylang
         m_frame.blocks.emplace_back();
         m_frame.blocks.back().context_overload = func;
         m_frame.context = func;
+        comment("initial context frame");
     }
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::~context_frame() noexcept(false)
@@ -56,10 +58,9 @@ namespace rylang
         }
     }
 
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(context_frame const& other)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(context_frame& other)
         : m_c(other.m_c)
         , m_frame(other.m_frame)
-        , m_block(other.m_block)
         , m_resolver(other.m_resolver)
     {
         assert(m_frame.blocks.back().value_states[0].alive == false);
@@ -70,9 +71,10 @@ namespace rylang
         {
             var.second.this_frame = false;
         }
-        m_insertion_point = [this](vm_block b)
+        auto ptr = this;
+        m_insertion_point = [ptr, &other](vm_block b)
         {
-            m_block.code.emplace_back(std::move(b));
+            other.m_new_block.code.emplace_back(std::move(b));
         };
     }
 
@@ -140,7 +142,12 @@ namespace rylang
         return {true, load};
     }
 
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::condition_t)
+    void vm_procedure_from_canonical_functanoid_resolver::context_frame::comment(std::string const& str)
+    {
+        m_new_block.comments.push_back(str);
+    }
+
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::condition_t)
         : context_frame(other)
     {
         m_insertion_point = [this, &insertion_point](vm_block b)
@@ -148,7 +155,7 @@ namespace rylang
             insertion_point.condition_block = std::move(b);
         };
     }
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::then_t)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::then_t)
         : context_frame(other)
     {
         m_insertion_point = [this, &insertion_point](vm_block b)
@@ -156,7 +163,7 @@ namespace rylang
             insertion_point.then_block = std::move(b);
         };
     }
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::else_t)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::else_t)
         : context_frame(other)
     {
         m_insertion_point = [this, &insertion_point](vm_block b)
@@ -168,7 +175,7 @@ namespace rylang
             }
         };
     }
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::condition_t)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::condition_t)
         : context_frame(other)
     {
         m_insertion_point = [this, &insertion_point](vm_block b)
@@ -176,7 +183,7 @@ namespace rylang
             insertion_point.condition_block = std::move(b);
         };
     }
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame const& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::loop_t)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::loop_t)
         : context_frame(other)
     {
         m_insertion_point = [this, &insertion_point](vm_block b)
@@ -381,6 +388,8 @@ namespace rylang
             }
         }
 
+        push(vm_return{});
+
         return true;
     }
 
@@ -438,6 +447,10 @@ namespace rylang
         {
             return false;
         }
+        std::string variable_type_str = to_string(
+                type);
+
+        std::cout << "Destroying value of type " << variable_type_str << std::endl;
         auto [ok2, val] = load_value_as_desctructable(index);
         if (!ok2)
         {
@@ -449,7 +462,7 @@ namespace rylang
         destructor_reference.callee = destructor_symbol;
         destructor_reference.parameters = {make_mref(type)};
 
-        auto [ok3, res] = m_resolver->gen_invoke(*this, destructor_reference, {val});
+        auto [ok3, res] = m_resolver->gen_call(*this, destructor_reference, {val});
         if (!ok3)
         {
             return false;
@@ -562,7 +575,6 @@ void rylang::vm_procedure_from_canonical_functanoid_resolver::process(compiler* 
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = false;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = false;
             vm_proc.interface.return_type = function_ast_v.return_type.value();
-
         }
 
         for (auto& arg : function_ast_v.args)
@@ -633,7 +645,18 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
 
     std::string canonical_var_str = to_string(canonical_type);
 
-    return ctx.construct_new_variable(statement.name, canonical_type, {});
+    std::vector< vm_value > args;
+    for (auto& arg : statement.initializers)
+    {
+        auto pair = gen_value_generic(ctx, arg);
+        if (!pair.first)
+        {
+            return false;
+        }
+        args.push_back(pair.second);
+    }
+
+    return ctx.construct_new_variable(statement.name, canonical_type, args);
 }
 
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_frame& ctx, rylang::function_expression_statement statement)
@@ -659,19 +682,10 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
 }
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value_generic(context_frame& ctx, expression expr)
 {
-    if (typeis< expression_lvalue_reference >(expr))
-    {
-        assert(false);
-    }
+    ctx.comment("context generate value generic");
     if (typeis< expression_symbol_reference >(expr))
     {
         auto res = gen_value(ctx, boost::get< expression_symbol_reference >(std::move(expr)));
-        assert(res.first == ready());
-        return res;
-    }
-    else if (typeis< expression_copy_assign >(expr))
-    {
-        auto res = gen_value(ctx, boost::get< expression_copy_assign >(std::move(expr)));
         assert(res.first == ready());
         return res;
     }
@@ -690,7 +704,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     else if (typeis< numeric_literal >(expr))
     {
         auto res = gen_value(ctx, boost::get< numeric_literal >(std::move(expr)));
-        assert(res.first == ready());
+        // assert(res.first == ready());
         return res;
     }
     else
@@ -779,6 +793,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
     if (statement.expr.has_value())
     {
         context_frame return_ctx(ctx);
+        return_ctx.comment("return context!");
         auto pair = gen_value_generic(return_ctx, statement.expr.value());
         if (!pair.first)
         {
@@ -809,7 +824,9 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
 bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_frame& ctx, rylang::function_if_statement statement)
 {
     vm_if if_stmt;
+    ctx.comment("entering build if statement");
     context_frame if_condition_ctx(ctx, if_stmt, context_frame::condition_tag);
+    if_condition_ctx.comment("if condition context");
     auto [ok, condvalue] = gen_value_generic(if_condition_ctx, statement.condition);
     if (!ok)
     {
@@ -823,6 +840,7 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
         return false;
     }
     context_frame if_then_ctx(ctx, if_stmt, context_frame::then_tag);
+    if_then_ctx.comment("if then context");
     if (!build_generic(if_then_ctx, statement.then_block))
     {
         if_then_ctx.discard();
@@ -836,11 +854,13 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build(context_fram
     if (statement.else_block.has_value())
     {
         context_frame if_else_ctx(ctx, if_stmt, context_frame::else_tag);
+        if_else_ctx.comment("if else context");
         if (!build_generic(if_else_ctx, statement.else_block.value()))
         {
             if_else_ctx.discard();
             return false;
         }
+        if_else_ctx.comment("closing if else ctx");
         ok = if_else_ctx.close();
         if (!ok)
         {
@@ -1060,6 +1080,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
 std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::try_gen_builtin_call(context_frame& ctx, rylang::qualified_symbol_reference callee, std::vector< vm_value > values)
 {
+    assert(false);
     // This should be unwrapped by the caller
     assert(!typeis< bound_function_type_reference >(callee));
 
@@ -1416,10 +1437,11 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, functanoid_reference const& overload_selected_ref, std::vector< vm_value > call_args)
 {
-    std::cout << "gen invoke" << std::endl;
+
     vm_expr_call call;
 
     std::string typestr = to_string(overload_selected_ref);
+    std::cout << "gen invoke of " << typestr << std::endl;
 
     call.mangled_procedure_name = mangle(overload_selected_ref);
     call.functanoid = overload_selected_ref;
@@ -1474,6 +1496,10 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
         {
             return {false, {}};
         }
+    }
+    else
+    {
+        ctx.push(vm_execute_expression{call});
     }
     return {true, call};
 }
@@ -1739,6 +1765,10 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     {
         function_var_statement var_stmt = boost::get< function_var_statement >(statement);
         auto res = build(ctx, var_stmt);
+        if (var_stmt.initializers.size() > 0)
+        {
+            std::cout << to_pretty_string(var_stmt.initializers.at(0)) << std::endl;
+        }
         assert(res == ready());
         return res;
     }
@@ -1768,6 +1798,10 @@ bool rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(ryla
     {
         function_return_statement return_stmt = boost::get< function_return_statement >(statement);
         auto res = build(ctx, return_stmt);
+        if (res)
+        {
+            std::cout << to_pretty_string(ctx.m_new_block) << std::endl;
+        }
         assert(res == ready());
         return res;
     }

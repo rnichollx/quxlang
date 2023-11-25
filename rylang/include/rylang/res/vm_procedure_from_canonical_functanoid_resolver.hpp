@@ -35,7 +35,7 @@ namespace rylang
 
           public:
             context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, qualified_symbol_reference func, compiler* c, vm_generation_frame_info& frame, vm_block& block);
-            explicit context_frame(context_frame const& other);
+            explicit context_frame(context_frame & other);
 
             struct condition_t
             {
@@ -55,11 +55,13 @@ namespace rylang
             static constexpr else_t else_tag = else_t{};
             static constexpr loop_t loop_tag = loop_t{};
 
-            explicit context_frame(context_frame const& other, vm_if& insertion_point, condition_t);
-            explicit context_frame(context_frame const& other, vm_if& insertion_point, then_t);
-            explicit context_frame(context_frame const& other, vm_if& insertion_point, else_t);
-            explicit context_frame(context_frame const& other, vm_while& insertion_point, condition_t);
-            explicit context_frame(context_frame const& other, vm_while& insertion_point, loop_t);
+            void comment(std::string const & str);
+
+            explicit context_frame(context_frame & other, vm_if& insertion_point, condition_t);
+            explicit context_frame(context_frame & other, vm_if& insertion_point, then_t);
+            explicit context_frame(context_frame & other, vm_if& insertion_point, else_t);
+            explicit context_frame(context_frame & other, vm_while& insertion_point, condition_t);
+            explicit context_frame(context_frame & other, vm_while& insertion_point, loop_t);
             context_frame(context_frame&& other) = delete;
 
             ~context_frame() noexcept(false);
@@ -115,10 +117,11 @@ namespace rylang
             }
 
           private:
+        public:
             class compiler* m_c;
             vm_generation_frame_info& m_frame;
             qualified_symbol_reference m_ctx;
-            vm_block& m_block;
+            //vm_block& m_block;
             vm_block m_new_block;
             std::function< void(vm_block) > m_insertion_point;
             vm_procedure_from_canonical_functanoid_resolver* m_resolver;

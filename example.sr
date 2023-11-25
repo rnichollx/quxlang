@@ -44,18 +44,18 @@ IMPORT linux;
 
         .buz FUNCTION(%a I32, %b I32): I32
         {
-           VAR c I32;
+           VAR c I32 :(4);
+           IF (a < 9) {
+             a := a + 2;
+              }
+              ELSE {
+              b := b + 1;
+              }
 
-           VAR e I32 :(a + b);
-
-           WHILE (a < 5)
-           {
-             a := a + 1;
+           IF (a < b) {
+             c := c + a + 2;
            }
-
-           IF (a > b) {
-             RETURN buz(a);
-           } ELSE {
+           ELSE {
              RETURN b;
            }
 

@@ -68,14 +68,7 @@ namespace rylang
     struct expression_not_equals;
     struct expression_binary;
 
-    using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_add >, boost::recursive_wrapper< expression_addp >, boost::recursive_wrapper< expression_addw >,
-                                       boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_lvalue_reference >, boost::recursive_wrapper< expression_symbol_reference >, boost::recursive_wrapper< expression_multiply >,
-                                       expression_thisdot_reference, boost::recursive_wrapper< expression_subtract >, boost::recursive_wrapper< expression_move_assign >,
-                                       boost::recursive_wrapper< expression_copy_assign >, boost::recursive_wrapper< expression_and >, boost::recursive_wrapper< expression_or >,
-                                       boost::recursive_wrapper< expression_xor >, boost::recursive_wrapper< expression_nand >, boost::recursive_wrapper< expression_nor >,
-                                       boost::recursive_wrapper< expression_implies >, boost::recursive_wrapper< expression_implied >, boost::recursive_wrapper< expression_divide >,
-                                       boost::recursive_wrapper< expression_modulus >, boost::recursive_wrapper< expression_dotreference >, boost::recursive_wrapper< expression_equals >,
-                                       boost::recursive_wrapper< expression_not_equals >, boost::recursive_wrapper<expression_binary>, numeric_literal >;
+    using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_symbol_reference >,  expression_thisdot_reference, boost::recursive_wrapper< expression_dotreference >, boost::recursive_wrapper< expression_binary >, numeric_literal >;
 
     struct expression_binary
     {

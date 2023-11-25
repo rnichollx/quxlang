@@ -66,6 +66,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     frame.storage_block = storage;
 
     llvm::BasicBlock* p_block = entry;
+
+    std::string function_code_stirng = to_pretty_string(vmf.body);
+    std::cout << function_code_stirng << std::endl;
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame);
 
@@ -195,7 +198,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             // get a true value
 
             builder.CreateRet(ret_val);
-            return true;
+            return false;
         }
         else if (typeis< vm_execute_expression >(ex))
         {

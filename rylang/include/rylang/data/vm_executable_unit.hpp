@@ -45,11 +45,12 @@ namespace rylang
        std::size_t index;
     };
 
-    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_allocate_storage, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper<vm_while>, boost::recursive_wrapper<vm_disable_storage>, boost::recursive_wrapper<vm_enable_storage> >;
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper<vm_while>, boost::recursive_wrapper<vm_disable_storage>, boost::recursive_wrapper<vm_enable_storage> >;
 
     struct vm_block
     {
         std::vector< vm_executable_unit > code;
+        std::vector<std::string> comments;
     };
 
     struct vm_if
