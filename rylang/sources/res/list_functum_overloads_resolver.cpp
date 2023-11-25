@@ -13,6 +13,8 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
     bool constructor = false;
     std::optional< qualified_symbol_reference > parent_opt;
 
+    std::string name = to_string(m_functum);
+
     if (typeis< subdotentity_reference >(m_functum))
     {
         auto parent = as< subdotentity_reference >(m_functum).parent;

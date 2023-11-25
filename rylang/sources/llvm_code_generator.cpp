@@ -431,7 +431,6 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
             result = builder.CreateICmpEQ(lhs, rhs);
             return result;
         }
-
         else if (binop.oper == ":=")
         {
             auto underlying_type = remove_ref(lhs_vm_type);
@@ -537,6 +536,12 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         // TODO: Consider checking that the llvm types are the same
 
         return get_llvm_value(context, builder, frame, reinterp.expr);
+    }
+    else if (typeis <vm_expr_poison >(value))
+    {
+        auto type = vm_value_type(value);
+        llvm::Type* llvm_type = get_llvm_type_from_vm_type(context, type);
+        return llvm::PoisonValue::get(llvm_type);
     }
 
     assert(false);

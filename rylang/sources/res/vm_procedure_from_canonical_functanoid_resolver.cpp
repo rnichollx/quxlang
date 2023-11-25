@@ -45,7 +45,7 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::~context_frame() noexcept(false)
     {
-        std::cout << "context frame destructor" << std::endl;
+        //std::cout << "context frame destructor" << std::endl;
         if (std::uncaught_exceptions() != exception_ct)
         {
             std::cout << "Exception return from context frame" << std::endl;
@@ -65,7 +65,7 @@ namespace rylang
     {
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
-        std::cout << "Enter duplicate context" << std::endl;
+        //std::cout << "Enter duplicate context" << std::endl;
         m_frame.blocks.emplace_back(m_frame.blocks.back());
         for (auto& var : m_frame.blocks.back().value_states)
         {
@@ -462,7 +462,7 @@ namespace rylang
         destructor_reference.callee = destructor_symbol;
         destructor_reference.parameters = {make_mref(type)};
 
-        auto [ok3, res] = m_resolver->gen_call(*this, destructor_reference, {val});
+        auto [ok3, res] = m_resolver->gen_call(*this, destructor_symbol, {val});
         if (!ok3)
         {
             return false;
@@ -1078,182 +1078,7 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     return {true, vm_expr_dereference{val, to_type}};
 }
 
-std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::try_gen_builtin_call(context_frame& ctx, rylang::qualified_symbol_reference callee, std::vector< vm_value > values)
-{
-    assert(false);
-    // This should be unwrapped by the caller
-    assert(!typeis< bound_function_type_reference >(callee));
 
-    if (typeis< subdotentity_reference >(callee))
-    {
-        subdotentity_reference const& subdot = boost::get< subdotentity_reference >(callee);
-        qualified_symbol_reference parent_type = subdot.parent;
-
-        assert(!values.empty());
-
-        // if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
-        //{
-        //   primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
-
-        //}
-        if (subdot.subdotentity_name == "CONSTRUCTOR" && typeis< primitive_type_integer_reference >(parent_type))
-        {
-            primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
-
-            // Can't call this... not possible
-            if (values.empty())
-            {
-                throw std::runtime_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
-            }
-
-            if (values.size() > 2)
-            {
-                throw std::runtime_error("Invalid number of arguments to integer constructor");
-            }
-
-            vm_value arg = values[0];
-
-            qualified_symbol_reference arg_type = vm_value_type(arg);
-
-            qualified_symbol_reference arg_type_underlying = remove_ref(arg_type);
-            if (arg_type_underlying != qualified_symbol_reference(int_type))
-            {
-                throw std::runtime_error("Member constructor cannot be used with unrelated type (note: T::.CONSTRUCTOR(...)'s first parameter is a reference to the storage for the object to construct. Maybe you meant to use the free constructor instead? i.e. T::CONSTRUCTOR(...)? (no dot after ::)");
-            }
-
-            if (!is_ref(arg_type))
-            {
-                throw std::runtime_error("Cannot call constructor on a value (THIS must be a reference)");
-            }
-
-            if (typeis< cvalue_reference >(arg_type))
-            {
-                throw std::runtime_error("Called constructor cannot mutate a constant reference 'THIS' value (THIS must be MUT& or OUT& reference)");
-            }
-
-            if (!typeis< primitive_type_integer_reference >(arg_type_underlying))
-            {
-                throw std::runtime_error("Invalid argument type to integer constructor");
-            }
-
-            auto int_arg_type = boost::get< primitive_type_integer_reference >(arg_type_underlying);
-            if (int_arg_type != int_type)
-            {
-                throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
-            }
-
-            if (values.size() == 1)
-            {
-                // default constructor
-
-                vm_expr_store initalizer;
-                initalizer.what = vm_expr_load_literal{"0", int_type};
-                initalizer.where = arg;
-                initalizer.type = int_type;
-                ctx.push(vm_execute_expression{initalizer});
-                return {true, true, void_value{}};
-            }
-
-            else if (values.size() == 2)
-            {
-                // copy constructor
-
-                vm_expr_store initalizer;
-
-                vm_value arg_to_copy = values.at(1);
-                qualified_symbol_reference arg_copy_type = vm_value_type(arg_to_copy);
-                // TODO: conversion to integer?
-
-                if (is_ref(vm_value_type(arg_to_copy)))
-                {
-                    // TODO: Check parameter is a valid input (i.e. not an output ref)
-
-                    arg_to_copy = vm_expr_dereference{arg_to_copy, remove_ref(vm_value_type(arg_to_copy))};
-                    arg_copy_type = remove_ref(arg_copy_type);
-                }
-
-                initalizer.what = arg_to_copy;
-                initalizer.where = arg;
-                initalizer.type = int_type;
-                ctx.push(vm_execute_expression{initalizer});
-                return {true, true, void_value{}};
-            }
-        }
-        else if (subdot.subdotentity_name == "CONSTRUCTOR")
-        {
-            // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
-            auto should_autogen_dp = get_dependency(
-                [&]
-                {
-                    return ctx.compiler()->lk_class_should_autogen_default_constructor(parent_type);
-                });
-            if (!ready())
-            {
-                return {false, false, {}};
-            }
-            bool should_autogen = should_autogen_dp->get();
-            if (!should_autogen)
-            {
-                return {true, false, {}};
-            }
-
-            auto pair = gen_default_constructor(ctx, parent_type, values);
-            if (pair.first)
-            {
-                return {true, true, pair.second};
-            }
-            else
-            {
-                return {false, {}, {}};
-            }
-        }
-    }
-
-    if (typeis< subentity_reference >(callee))
-    {
-        subentity_reference const& sr = boost::get< subentity_reference >(callee);
-
-        qualified_symbol_reference parent = sr.parent;
-        if (sr.subentity_name == "CONSTRUCTOR" && typeis< primitive_type_integer_reference >(parent))
-        {
-            primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent);
-
-            if (values.size() == 0)
-            {
-                return {true, true, vm_expr_load_literal{"0", int_type}};
-            }
-
-            if (values.size() != 1)
-            {
-                throw std::runtime_error("Invalid number of arguments to integer constructor");
-            }
-
-            vm_value arg = values[0];
-
-            qualified_symbol_reference arg_type = vm_value_type(arg);
-
-            if (is_ref(arg_type))
-            {
-                arg_type = remove_ref(arg_type);
-                arg = vm_expr_dereference{arg, arg_type};
-            }
-            if (!typeis< primitive_type_integer_reference >(arg_type))
-            {
-                throw std::runtime_error("Invalid argument type to integer constructor");
-            }
-
-            auto int_arg_type = boost::get< primitive_type_integer_reference >(arg_type);
-            if (int_arg_type != int_type)
-            {
-                throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
-            }
-
-            return {true, true, arg};
-        }
-    }
-
-    return {true, false, {}};
-}
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values)
 {
     // TODO: support overloaded operator() of non-functions
@@ -1669,6 +1494,36 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
                 return {false, {}, {}};
             }
         }
+        else if (subdot.subdotentity_name == "DESTRUCTOR")
+        {
+            // TODO: Allow this to be provided by users.
+
+            // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
+            //auto should_autogen_dp = get_dependency(
+            //    [&]
+            //    {
+            //        return ctx.compiler()->lk_class_should_autogen_default_constructor(parent_type);
+            //    });
+            if (!ready())
+            {
+                return {false, false, {}};
+            }
+            bool should_autogen = true; //should_autogen_dp->get();
+            if (!should_autogen)
+            {
+                return {true, false, {}};
+            }
+
+            auto pair = gen_default_destructor(ctx, parent_type, values);
+            if (pair.first)
+            {
+                return {true, true, pair.second};
+            }
+            else
+            {
+                return {false, {}, {}};
+            }
+        }
     }
 
     return {true, false, {}};
@@ -1716,11 +1571,22 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
 
     if (is_ptr(type))
     {
-        vm_expr_store set_nullptr;
-        set_nullptr.type = type;
-        set_nullptr.where = values.at(0);
-        set_nullptr.what = vm_expr_load_literal{"NULLPTR", type};
-        ctx.push(vm_execute_expression{set_nullptr});
+        vm_expr_store set_poison;
+        set_poison.type = type;
+        set_poison.where = values.at(0);
+        set_poison.what = vm_expr_poison{type};
+        ctx.push(vm_execute_expression{set_poison});
+
+        return {true, void_value{}};
+    }
+
+    if (is_primitive(type))
+    {
+        vm_expr_store set_poison;
+        set_poison.type = type;
+        set_poison.where = values.at(0);
+        set_poison.what = vm_expr_poison{type};
+        ctx.push(vm_execute_expression{set_poison});
 
         return {true, void_value{}};
     }
