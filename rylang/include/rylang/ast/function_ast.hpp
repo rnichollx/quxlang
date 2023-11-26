@@ -11,6 +11,7 @@
 #include "function_arg_ast.hpp"
 #include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/function_block.hpp"
+#include "rylang/data/function_delegate.hpp"
 
 namespace rylang
 {
@@ -18,6 +19,7 @@ namespace rylang
     {
         std::vector< function_arg_ast > args;
         std::optional< qualified_symbol_reference > return_type;
+        std::vector < function_delegate > delegates;
         function_block body;
 
         std::string to_string()

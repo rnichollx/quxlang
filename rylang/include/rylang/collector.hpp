@@ -190,7 +190,7 @@ namespace rylang
         template < typename It >
         void collect_file(It begin, It end, file_ast& output)
         {
-            It & pos = begin;
+            It& pos = begin;
             skip_wsc(pos, end);
             if (!skip_keyword_if_is(pos, end, "MODULE"))
             {
@@ -233,12 +233,8 @@ namespace rylang
                 output.imports[import_name] = module_name;
             }
 
-
-
             collect(begin, end);
             output.root = this->m_root;
-
-
         }
 
         template < typename It >
@@ -254,10 +250,9 @@ namespace rylang
             while (try_collect_entity(pos, end))
                 ;
 
-
             auto distance = std::distance(pos, end);
 
-            auto use_distance = std::min<std::size_t>(64, distance);
+            auto use_distance = std::min< std::size_t >(64, distance);
 
             if (pos != end)
             {
@@ -320,9 +315,71 @@ namespace rylang
             return true;
         }
 
+        template <typename It>
+        std::string remaining(It pos, It end)
+        {
+            return std::string(pos, end);
+        }
+
+        enum class functype { regular, constructor, destructor };
+
+        template < typename It >
+        void collect_function_delegates(It& pos, It end, function_ast& f)
+        {
+            std::string r = remaining(pos, end);
+            //std::string remaining = std::string(pos, end);
+            skip_wsc(pos, end);
+            if (!skip_symbol_if_is(pos, end, ":"))
+            {
+                // No delegates
+                return;
+            }
+
+        get_delegate:
+            function_delegate fd;
+
+            skip_wsc(pos, end);
+
+            fd.target = collect_qualified_symbol(pos, end);
+
+            skip_wsc(pos, end);
+            if (skip_symbol_if_is(pos, end, ":("))
+            {
+                if (skip_symbol_if_is(pos, end, ")"))
+                {
+                    goto done_args;
+                }
+            collect_arg:
+                skip_wsc(pos, end);
+                expression expr = collect_expression(pos, end);
+                fd.args.push_back(std::move(expr));
+                skip_wsc(pos, end);
+                if (skip_symbol_if_is(pos, end, ","))
+                    goto collect_arg;
+                else if (skip_symbol_if_is(pos, end, ")"))
+                    goto done_args;
+                else
+                    throw std::runtime_error("Expected ',' or ')'");
+            }
+            else
+            {
+                throw std::logic_error("Expected ':(...)'");
+            }
+        done_args:
+            f.delegates.push_back(std::move(fd));
+
+            if (skip_symbol_if_is(pos, end, ","))
+            {
+                goto get_delegate;
+            }
+
+            r = remaining(pos, end);
+
+        }
+
         // Call this function after "FUNCTION",
         template < typename It >
-        void collect_function(It& pos, It it_end, function_ast& f)
+        void collect_function(It& pos, It it_end, function_ast& f, functype type = functype::regular)
         {
             while (skip_whitespace(pos, it_end) || skip_line_comment(pos, it_end))
                 ;
@@ -344,6 +401,14 @@ namespace rylang
             }
 
             collect_function_args(pos, it_end, f);
+
+            if (type == functype::constructor)
+            {
+                collect_function_delegates(pos, it_end, f);
+            }
+
+            std::string remaining2(pos, it_end);
+            skip_wsc(pos, it_end);
             collect_function_body(pos, it_end, f);
         }
 
@@ -414,11 +479,33 @@ namespace rylang
         }
 
         template < typename It >
+        void do_collect_constructor(It& pos, It it_end)
+        {
+            auto ent = enter_entity2("CONSTRUCTOR", true);
+
+            auto func_entity = current_entity2< functum_entity_ast >();
+
+            skip_wsc(pos, it_end);
+
+            function_ast f;
+            collect_function(pos, it_end, f, functype::constructor);
+            func_entity->m_function_overloads.push_back(std::move(f));
+            leave_entity(ent);
+            return;
+        }
+
+        template < typename It >
         bool try_collect_class_member(It& pos, It it_end)
         {
             if (!skip_symbol_if_is(pos, it_end, "."))
             {
                 return false;
+            }
+
+            if (skip_keyword_if_is(pos, it_end, "CONSTRUCTOR"))
+            {
+                do_collect_constructor(pos, it_end);
+                return true;
             }
 
             std::string name = get_skip_identifier(pos, it_end);
@@ -427,6 +514,8 @@ namespace rylang
             {
                 throw std::runtime_error("Expected identifier");
             }
+
+            // TODO: This is messsy
 
             auto ent = enter_entity2(name, true);
 

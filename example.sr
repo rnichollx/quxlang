@@ -42,6 +42,16 @@ IMPORT linux;
      {
         .foo VAR I32;
 
+        ::nux CLASS
+        {
+          .x VAR I32;
+
+          .CONSTRUCTOR(%xa I32)
+          : x:(xa)
+          {
+          }
+        }
+
         .buz FUNCTION(%a I32, %b I32): I32
         {
            VAR c I32 :(4);

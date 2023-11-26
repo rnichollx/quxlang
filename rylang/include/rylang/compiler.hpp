@@ -34,20 +34,22 @@
 #include "rylang/res/file_module_map_resolver.hpp"
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
+#include "rylang/res/functanoid_return_type_resolver.hpp"
 #include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
+#include "rylang/res/functum_builtin_overloads_resolver.hpp"
 #include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
+#include "rylang/res/list_functum_overloads_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/res/operator_is_overloaded_with_resolver.hpp"
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
+#include "rylang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
-#include "rylang/res/list_functum_overloads_resolver.hpp"
-#include "rylang/res/functanoid_return_type_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
 
@@ -91,6 +93,12 @@ namespace rylang
         friend class functum_exists_and_is_callable_with_resolver;
         friend class list_functum_overloads_resolver;
         friend class functanoid_return_type_resolver;
+
+        template<typename G>
+        friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
+
+        template <typename G>
+        friend auto type_placement_info_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -231,11 +239,12 @@ namespace rylang
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
-        index< type_placement_info_from_canonical_type_resolver > m_type_placement_info_from_canonical_chain_index;
+        rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, qualified_symbol_reference > m_type_placement_info_from_canonical_chain_index;
         out< type_placement_info > lk_type_placement_info_from_canonical_type(qualified_symbol_reference const& ref)
         {
+            //auto tuple = std::tuple<rylang::qualified_symbol_reference>(ref);
             assert(!typeis<numeric_literal_reference>(ref));
-            return m_type_placement_info_from_canonical_chain_index.lookup(ref);
+            return m_type_placement_info_from_canonical_chain_index.lookup(this, ref);
         }
 
         index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;

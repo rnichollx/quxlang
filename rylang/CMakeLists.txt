@@ -52,6 +52,16 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/res/functanoid_return_type_resolver.hpp
         sources/res/functanoid_return_type_resolver.cpp
         include/rylang/to_pretty_string.hpp
+        include/rylang/data/function_delegate.hpp
+        include/rylang/res/functum_builtin_overloads_resolver.hpp
+        sources/res/list_functum_overloads_question_f.cpp
+        include/rylang/res/type_size_from_canonical_type_question.hpp
+        sources/res/type_size_from_canonical_type_question.cpp
+        include/rylang/res/type_placement_info_from_canonical_type_question.hpp
+        sources/res/type_placement_info_from_canonical_type_question.cpp
+        include/rylang/res/vm_procedure_from_canonical_functanoid_question.hpp
+        sources/res/vm_procedure_from_canonical_functanoid_question.cpp
+        include/rylang/res/detail/vm_procedure_builder.hpp
 
 )
 
