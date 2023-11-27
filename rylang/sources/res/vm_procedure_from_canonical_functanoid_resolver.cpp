@@ -45,7 +45,7 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::~context_frame() noexcept(false)
     {
-        //std::cout << "context frame destructor" << std::endl;
+        // std::cout << "context frame destructor" << std::endl;
         if (std::uncaught_exceptions() != exception_ct)
         {
             std::cout << "Exception return from context frame" << std::endl;
@@ -65,7 +65,7 @@ namespace rylang
     {
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
-        //std::cout << "Enter duplicate context" << std::endl;
+        // std::cout << "Enter duplicate context" << std::endl;
         m_frame.blocks.emplace_back(m_frame.blocks.back());
         for (auto& var : m_frame.blocks.back().value_states)
         {
@@ -447,8 +447,7 @@ namespace rylang
         {
             return false;
         }
-        std::string variable_type_str = to_string(
-                type);
+        std::string variable_type_str = to_string(type);
 
         std::cout << "Destroying value of type " << variable_type_str << std::endl;
         auto [ok2, val] = load_value_as_desctructable(index);
@@ -1078,7 +1077,6 @@ std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functano
     return {true, vm_expr_dereference{val, to_type}};
 }
 
-
 std::pair< bool, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values)
 {
     // TODO: support overloaded operator() of non-functions
@@ -1499,7 +1497,7 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
             // TODO: Allow this to be provided by users.
 
             // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
-            //auto should_autogen_dp = get_dependency(
+            // auto should_autogen_dp = get_dependency(
             //    [&]
             //    {
             //        return ctx.compiler()->lk_class_should_autogen_default_constructor(parent_type);
@@ -1508,7 +1506,7 @@ std::tuple< bool, bool, rylang::vm_value > rylang::vm_procedure_from_canonical_f
             {
                 return {false, false, {}};
             }
-            bool should_autogen = true; //should_autogen_dp->get();
+            bool should_autogen = true; // should_autogen_dp->get();
             if (!should_autogen)
             {
                 return {true, false, {}};

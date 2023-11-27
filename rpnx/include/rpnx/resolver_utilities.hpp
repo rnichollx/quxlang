@@ -403,6 +403,33 @@ namespace rpnx
         result_type m_result;
     };
 
+    template < typename Graph, typename Result, typename Input >
+    class co_resolver_base : resolver_base< Graph, Result >
+    {
+      public:
+        using input_type = Input;
+
+        void process(Graph* g) override final
+        {
+            if (!m_coroutine.has_value())
+            {
+                m_coroutine = co_process(input_val);
+                add_dependency(&m_coroutine);
+            }
+            if (this->ready())
+            {
+                assert(m_coroutine.ready());
+                set_value(m_coroutine.get());
+            }
+        }
+
+      protected:
+        input_type input_val;
+        virtual resolver_coroutine< Graph, Result > co_process(input_type) = 0;
+    private:
+        std::optional<resolver_coroutine< Graph, Result > > m_coroutine;
+    };
+
     template < typename Graph, typename Result >
     using output_ptr = std::shared_ptr< resolver_base< Graph, Result > >;
 
@@ -616,15 +643,15 @@ namespace rpnx
         {
             auto& waiter_promise = pr;
             assert(waiter_node == nullptr);
-            auto &waiter_coroutine = waiter_promise.get_coroutine();
-            waiter_coroutine.kickoff_coroutines.push_back(std::make_unique<coroutine_callback<Graph>>(coroutine_callback<Graph>{[this]()
-                                {
-                                    return resume();
-                                }}));
-            this->waiter_coroutine = std::make_unique<coroutine_callback<Graph>>(coroutine_callback<Graph>{[&waiter_coroutine]()
-                                {
-                                    return waiter_coroutine.resume();
-                                }});
+            auto& waiter_coroutine = waiter_promise.get_coroutine();
+            waiter_coroutine.kickoff_coroutines.push_back(std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[this]()
+                                                                                                                                      {
+                                                                                                                                          return resume();
+                                                                                                                                      }}));
+            this->waiter_coroutine = std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[&waiter_coroutine]()
+                                                                                                                 {
+                                                                                                                     return waiter_coroutine.resume();
+                                                                                                                 }});
         }
 
         template < typename T >
