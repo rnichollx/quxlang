@@ -423,6 +423,9 @@ namespace rpnx
         template < typename Graph2, typename Result2 >
         friend class resolver_base;
 
+        template < typename Graph2, typename Result2 >
+        friend class general_coroutine;
+
       public:
         using result_type = Result;
         class promise_type
@@ -605,6 +608,23 @@ namespace rpnx
                                             {
                                                 return resume();
                                             }});
+        }
+
+        template < typename Result2 >
+        void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
+
+        {
+            auto& waiter_promise = pr;
+            assert(waiter_node == nullptr);
+            auto &waiter_coroutine = waiter_promise.get_coroutine();
+            waiter_coroutine.kickoff_coroutines.push_back(std::make_unique<coroutine_callback<Graph>>(coroutine_callback<Graph>{[this]()
+                                {
+                                    return resume();
+                                }}));
+            this->waiter_coroutine = std::make_unique<coroutine_callback<Graph>>(coroutine_callback<Graph>{[&waiter_coroutine]()
+                                {
+                                    return waiter_coroutine.resume();
+                                }});
         }
 
         template < typename T >
