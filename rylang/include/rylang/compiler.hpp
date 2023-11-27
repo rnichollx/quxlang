@@ -46,8 +46,8 @@
 #include "rylang/res/operator_is_overloaded_with_resolver.hpp"
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
-#include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_question.hpp"
+#include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
@@ -94,10 +94,10 @@ namespace rylang
         friend class list_functum_overloads_resolver;
         friend class functanoid_return_type_resolver;
 
-        template<typename G>
+        template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
-        template <typename G>
+        template < typename G >
         friend auto type_placement_info_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
         template < typename T >
@@ -122,28 +122,28 @@ namespace rylang
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
-        index<functanoid_return_type_resolver> m_functanoid_return_type_index;
+        index< functanoid_return_type_resolver > m_functanoid_return_type_index;
         out< qualified_symbol_reference > lk_functanoid_return_type(functanoid_reference const& chain)
         {
             return m_functanoid_return_type_index.lookup(chain);
         }
 
-        index< list_functum_overloads_resolver> m_list_functum_overloads_index;
-        out< std::optional<std::set< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
+        index< list_functum_overloads_resolver > m_list_functum_overloads_index;
+        out< std::optional< std::set< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
         {
             return m_list_functum_overloads_index.lookup(chain);
         }
 
-        index < functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
+        index< functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
         out< bool > lk_functum_exists_and_is_callable_with(qualified_symbol_reference const& chain, call_parameter_information const& os)
         {
             return m_functum_exists_and_is_callable_with_index.lookup(std::make_pair(chain, os));
         }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
-        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference const &cls)
+        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference const& cls)
         {
-            return m_class_should_autogen_default_constructor_index.lookup(cls);//
+            return m_class_should_autogen_default_constructor_index.lookup(cls); //
         }
 
         index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
@@ -152,13 +152,11 @@ namespace rylang
             return m_symbol_canonical_chain_exists_index.lookup(chain);
         }
 
-        index< operator_is_overloaded_with_resolver> m_operator_is_overloaded_with_index;
+        index< operator_is_overloaded_with_resolver > m_operator_is_overloaded_with_index;
         out< std::optional< qualified_symbol_reference > > lk_operator_is_overloaded_with(std::string op, qualified_symbol_reference lhs, qualified_symbol_reference rhs)
         {
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
-
-
 
         index< function_ast_resolver > m_function_ast_index;
         out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)
@@ -187,7 +185,7 @@ namespace rylang
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
-        index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]] ;
+        index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]];
         out< qualified_symbol_reference > lk_function_qualname [[deprecated]] (qualified_symbol_reference f, call_parameter_information args)
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
@@ -233,17 +231,19 @@ namespace rylang
             return m_entity_canonical_chain_exists_index.lookup(chain);
         }
 
+      public:
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
         out< class_layout > lk_class_layout_from_canonical_chain(qualified_symbol_reference const& chain)
         {
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
+      private:
         rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, qualified_symbol_reference > m_type_placement_info_from_canonical_chain_index;
         out< type_placement_info > lk_type_placement_info_from_canonical_type(qualified_symbol_reference const& ref)
         {
-            //auto tuple = std::tuple<rylang::qualified_symbol_reference>(ref);
-            assert(!typeis<numeric_literal_reference>(ref));
+            // auto tuple = std::tuple<rylang::qualified_symbol_reference>(ref);
+            assert(!typeis< numeric_literal_reference >(ref));
             return m_type_placement_info_from_canonical_chain_index.lookup(this, ref);
         }
 

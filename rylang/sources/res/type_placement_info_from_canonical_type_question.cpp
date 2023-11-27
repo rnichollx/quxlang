@@ -6,10 +6,24 @@
 
 namespace rylang
 {
+    template <typename Graph>
+    auto general_int_4_returner() -> rpnx::general_coroutine<Graph, int>
+    {
+        co_return 4;
+    }
+
+    template <typename Graph>
+    auto get_class_layout_from_canonical_chain(Graph * g, qualified_symbol_reference cls) -> rpnx::general_coroutine<Graph, class_layout>
+    {
+        co_return co_await *g->lk_class_layout_from_canonical_chain(cls);
+    }
+
     template < typename Graph >
     auto type_placement_info_from_canonical_type_question_f(Graph* g, rylang::qualified_symbol_reference type) -> rpnx::resolver_coroutine< Graph, type_placement_info >
     {
         std::string type_str = to_string(type);
+
+        int four = co_await general_int_4_returner<Graph>();
 
         if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
         {
@@ -23,7 +37,7 @@ namespace rylang
         }
         else if (type.type() == boost::typeindex::type_id< subentity_reference >())
         {
-            class_layout layout = co_await *g->lk_class_layout_from_canonical_chain(type);
+            class_layout layout = co_await get_class_layout_from_canonical_chain(g, type);
 
             type_placement_info result;
             result.size = layout.size;

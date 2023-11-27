@@ -21,6 +21,26 @@ namespace rpnx
     // result_type
     // graph_type
 
+    template < typename Graph >
+    struct coroutine_callback;
+
+    template < typename Graph >
+    class node_base;
+
+    template < typename Graph >
+    struct coroutine_exec_result
+    {
+        std::vector< node_base< Graph >* > ready_nodes;
+        std::set< node_base< Graph >* > kickoff_nodes;
+        std::vector< std::unique_ptr< coroutine_callback< Graph > > > ready_callbacks;
+    };
+
+    template < typename Graph >
+    struct coroutine_callback
+    {
+        std::function< coroutine_exec_result< Graph >() > callback;
+    };
+
     template < typename Graph, typename Resolver >
     class index;
 
@@ -86,8 +106,13 @@ namespace rpnx
     };
 
     template < typename Graph >
+    class single_thread_graph_solver;
+
+    template < typename Graph >
     class node_base
     {
+        friend class single_thread_graph_solver< Graph >;
+
       public:
         virtual ~node_base(){};
 
@@ -204,7 +229,7 @@ namespace rpnx
 
         bool ready() const
         {
-            return !has_unresolved_dependencies() && !resolved() && busy_coroutines() == 0;
+            return !has_unresolved_dependencies() && !resolved() && blocking_coroutine_count() == 0;
         }
 
         void update_dependents()
@@ -235,34 +260,37 @@ namespace rpnx
             return m_met_dependencies;
         }
 
-        std::size_t busy_coroutines() const
-        {
-            return m_busy_coroutines;
-        }
-
-        void coroutine_suspend(std::coroutine_handle<> handle)
+        void coroutine_callback_suspend_until_ready(coroutine_callback< Graph > handle)
         {
             m_waiting_coroutines.push_back(handle);
         }
 
-        std::vector< std::coroutine_handle<> > take_waiting_coroutines()
+        void kickoff_coroutine(coroutine_callback< Graph > cb)
         {
-            std::vector< std::coroutine_handle<> > result = std::move(m_waiting_coroutines);
+            m_kickoff_coroutines.push_back(cb);
+        }
+
+        auto take_waiting_coroutines()
+        {
+            auto result = std::move(m_waiting_coroutines);
 
             m_waiting_coroutines.clear();
 
             return result;
         }
 
-        void declare_coroutine_started()
+        auto take_kickoff_coroutines()
         {
-            m_busy_coroutines++;
+            auto result = std::move(m_kickoff_coroutines);
+
+            m_kickoff_coroutines.clear();
+
+            return result;
         }
 
-        void declare_coroutine_finished()
+        std::size_t blocking_coroutine_count() const
         {
-            assert(m_busy_coroutines > 0);
-            m_busy_coroutines--;
+            return m_kickoff_coroutines.size() + m_busy_coroutines;
         }
 
       private:
@@ -270,20 +298,30 @@ namespace rpnx
         std::set< node_base< Graph >* > m_unmet_dependencies;
         std::set< node_base< Graph >* > m_error_dependencies;
         std::set< node_base< Graph >* > m_dependents;
-        std::size_t m_busy_coroutines;
-        std::vector< std::coroutine_handle<> > m_waiting_coroutines;
+        std::vector< coroutine_callback< Graph > > m_kickoff_coroutines;
+        std::size_t m_busy_coroutines = 0;
+        std::vector< coroutine_callback< Graph > > m_waiting_coroutines;
     };
 
     template < typename Graph, typename Result >
     class resolver_coroutine;
 
     template < typename Graph, typename Result >
+    class general_coroutine;
+
+    template < typename Graph, typename Result >
     class resolver_base : public virtual node_base< Graph >
     {
+
       public:
         using value_type = Result;
         using result_type = result< Result >;
 
+        resolver_base()
+        {
+        }
+
+        resolver_base(resolver_base< Graph, Result > const&) = delete;
         virtual ~resolver_base(){};
 
         Result get() const
@@ -326,14 +364,39 @@ namespace rpnx
 
         Result await_resume()
         {
+            assert(await_ready());
             return get();
+        }
+
+        // The compiler isn't smart enough to do nested type deduction, so we have to do it manually.
+        template < typename Result2 >
+        void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
+        {
+            pr.cr->add_dependency(this);
+        }
+
+        template < typename Result2 >
+        void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
+        {
+            coroutine_callback< Graph > cb;
+
+            pr.get_coroutine().waiting_on_node = this;
+
+            cb.callback = [&pr]()
+            {
+                general_coroutine< Graph, Result2 >& general_coroutine_handle = pr.get_coroutine();
+                return general_coroutine_handle.resume();
+            };
+
+            this->coroutine_callback_suspend_until_ready(cb);
         }
 
         template < typename T >
         void await_suspend(std::coroutine_handle< T > ch)
         {
             auto& pr = ch.promise();
-            pr.cr->add_dependency(this);
+            using result_type = typename std::remove_reference_t< decltype(pr) >::result_type;
+            await_suspend_helper< result_type >(pr);
         }
 
       private:
@@ -343,23 +406,55 @@ namespace rpnx
     template < typename Graph, typename Result >
     using output_ptr = std::shared_ptr< resolver_base< Graph, Result > >;
 
+    template < typename Graph >
+    class coroutine_base
+    {
+    };
+
     // This class implements a general purpose coroutine that can be
     // used with a processor, but which is not itself a resolver.
     // It is expected to be called from within a resolver.
     template < typename Graph, typename Result >
     class general_coroutine
     {
+        template < typename Graph2, typename Result2 >
+        friend class resolver_coroutine;
+
+        template < typename Graph2, typename Result2 >
+        friend class resolver_base;
+
+      public:
+        using result_type = Result;
         class promise_type
         {
+            friend class general_coroutine< Graph, Result >;
+
+            template < typename Graph2, typename Result2 >
+            friend class resolver_coroutine;
+
           private:
             general_coroutine* cr = nullptr;
 
           public:
+            using result_type = Result;
+            using coroutine_type = general_coroutine< Graph, Result >;
 
             ~promise_type()
             {
-                cr->pr_ptr = nullptr;
+                assert(cr->m_result);
+                cr->co_promise_ptr = nullptr;
             }
+            promise_type(promise_type const&) = delete;
+            promise_type()
+            {
+            }
+
+            general_coroutine< Graph, Result >& get_coroutine() const
+            {
+                assert(cr);
+                return *cr;
+            }
+
             auto get_return_object()
             {
                 return general_coroutine{this};
@@ -379,6 +474,8 @@ namespace rpnx
             auto final_suspend() noexcept
             {
                 assert(cr->m_result);
+                //  cr->handle_completion();
+
                 return std::suspend_never{};
             }
 
@@ -388,44 +485,135 @@ namespace rpnx
                 assert(!cr->m_result);
                 cr->m_result.set_value(r);
             }
-
-            void return_void()
-            {
-                assert(cr != nullptr);
-                assert(!cr->m_result);
-                // TODO: Handle result != void type
-                cr->m_result.set_value();
-            }
         };
 
-        promise_type* pr_ptr = nullptr;
-        node_base< Graph >* ptr_waiter = nullptr;
+      private:
+        promise_type* co_promise_ptr = nullptr;
         result< Result > m_result;
-        std::coroutine_handle<> waiter_coroutine;
+
+        // There are two possible types of things can suspend on us:
+        // A resolver_coroutine, or a general_coroutine.
+        // Resolver coroutines need to be resumed by the resolver's process function,
+        // since the node logic pre-dates usage of C++ coroutines
+        // On the other hand, general_coroutines work more like
+        // a normal coroutine and we can directly pass callbacks to the processor.
+
+        node_base< Graph >* waiter_node = nullptr;
+
+        std::unique_ptr< coroutine_callback< Graph > > waiter_coroutine;
+
+        std::vector< std::unique_ptr< coroutine_callback< Graph > > > kickoff_coroutines;
+        std::optional< node_base< Graph >* > waiting_on_node;
+        bool dead = false;
 
       private:
         general_coroutine(promise_type* arg_ptr_pr)
-            : pr_ptr(arg_ptr_pr)
+            : co_promise_ptr(arg_ptr_pr)
         {
-            pr_ptr->cr = this;
+            co_promise_ptr->cr = this;
         }
 
       public:
+        coroutine_exec_result< Graph > resume()
+        {
+            assert(co_promise_ptr);
+
+            auto co_handle = std::coroutine_handle< promise_type >::from_promise(*co_promise_ptr);
+            co_handle.resume();
+
+            if (!m_result)
+            {
+                assert(co_promise_ptr);
+                return get_exec_result();
+            }
+
+            assert(co_promise_ptr == nullptr);
+
+            return get_exec_result();
+        }
+
+        coroutine_exec_result< Graph > get_exec_result()
+        {
+            // This should only be called once after we have a result.
+            coroutine_exec_result< Graph > result;
+
+            // This unit represents a general subroutine.
+
+            // Either waiter_node is set if the await_suspend was called
+            // from a node, or waiter_coroutine is set if the await_suspend
+            // was called from a general_coroutine.
+
+            // It is an API contract violation to have multiple await_suspend
+            // calls.
+
+            if (m_result)
+            {
+                assert(waiter_node || waiter_coroutine);
+                assert(!(waiter_node && waiter_coroutine));
+                assert(kickoff_coroutines.empty());
+
+                if (waiter_node)
+                {
+                    result.ready_nodes.push_back(waiter_node);
+                    waiter_node = nullptr;
+                }
+                else if (waiter_coroutine)
+                {
+                    // A coroutine that suspends on us
+                    // cannot be waiting on multiple values, and is therefore
+                    // always ready
+                    result.ready_callbacks.push_back(std::move(waiter_coroutine));
+                    waiter_coroutine = nullptr;
+                }
+
+                assert(waiter_node == nullptr);
+                assert(waiter_coroutine == nullptr);
+                return result;
+            }
+            else
+            {
+                assert((!kickoff_coroutines.empty()) || (waiting_on_node.has_value()));
+                coroutine_exec_result< Graph > result;
+                result.ready_callbacks = std::move(kickoff_coroutines);
+                kickoff_coroutines.clear();
+                if (waiting_on_node.has_value())
+                {
+                    result.kickoff_nodes.insert(waiting_on_node.value());
+                }
+                return result;
+            }
+        }
+
         general_coroutine()
         {
         }
 
         bool await_ready() noexcept
         {
+            assert(m_result || co_promise_ptr);
             return m_result;
         }
 
         template < typename Result2 >
-        void await_suspend(std::coroutine_handle< typename resolver_coroutine< Graph, Result2 >::promise_type > waiter_handle)
+        void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
+
         {
-            auto& waiter_promise = waiter_handle.promise();
-            ptr_waiter = waiter_promise.cr;
-            ptr_waiter->declare_coroutine_started();
+            auto& waiter_promise = pr;
+            assert(waiter_node == nullptr);
+            waiter_node = waiter_promise.cr;
+            waiter_node->kickoff_coroutine({[this]()
+                                            {
+                                                return resume();
+                                            }});
+        }
+
+        template < typename T >
+        void await_suspend(std::coroutine_handle< T > handle)
+        {
+            using promise_type = typename std::remove_reference_t< decltype(handle.promise()) >;
+            using coroutine_type = typename promise_type::coroutine_type;
+            using result_type = typename promise_type::result_type;
+            await_suspend_helper< result_type >(handle.promise());
         }
 
         auto await_resume()
@@ -440,6 +628,13 @@ namespace rpnx
       public:
         struct promise_type
         {
+            using result_type = Result;
+
+            promise_type()
+            {
+            }
+            promise_type(promise_type const&) = delete;
+            using coroutine_type = resolver_coroutine< Graph, Result >;
             resolver_coroutine* cr;
 
             auto get_return_object()
@@ -556,7 +751,6 @@ namespace rpnx
         std::map< input_type, output_ptr > m_resolvers;
     };
 
-
     template < typename Graph, typename Resolver >
     class index
     {
@@ -616,16 +810,47 @@ namespace rpnx
         {
             std::set< node_base< Graph >* > nodes_to_process;
 
-            std::vector< std::coroutine_handle<> > coroutines_to_process;
+            std::vector< coroutine_callback< Graph > > coroutines_to_process;
             nodes_to_process.insert(node);
 
             while (nodes_to_process.size() > 0 || coroutines_to_process.size() > 0)
             {
                 if (coroutines_to_process.size() != 0)
                 {
-                    std::coroutine_handle<> ch = coroutines_to_process.back();
+                    coroutine_callback< Graph > co_callback_exec = std::move(coroutines_to_process.back());
                     coroutines_to_process.pop_back();
-                    ch.resume();
+
+                    auto func = co_callback_exec.callback;
+                    assert(func);
+                    auto results = func();
+                    // auto results = co_callback_exec.callback();
+
+                    assert(results.ready_callbacks.size() != 0 || results.ready_nodes.size() != 0 || results.kickoff_nodes.size() != 0);
+
+                    assert(results.ready_nodes.size() <= 1);
+                    for (node_base< Graph >* node_new : results.ready_nodes)
+                    {
+                        assert(node_new->m_busy_coroutines > 0);
+                        node_new->m_busy_coroutines--;
+                        if (node_new->ready())
+                        {
+                            nodes_to_process.insert(node_new);
+                        }
+                    }
+
+                    for (node_base< Graph >* node_new : results.kickoff_nodes)
+                    {
+                        if (node_new->ready())
+                        {
+                            nodes_to_process.insert(node_new);
+                        }
+                    }
+
+                    for (std::unique_ptr< coroutine_callback< Graph > >& co_callback_new_ptr : results.ready_callbacks)
+                    {
+                        coroutines_to_process.push_back(std::move(*co_callback_new_ptr));
+                    }
+
                     continue;
                 }
 
@@ -645,12 +870,16 @@ namespace rpnx
                     assert(!n->has_value());
                     n->set_error(std::current_exception());
                 }
-                assert(n->resolved() || n->has_unresolved_dependencies() || n->busy_coroutines() != 0);
+                assert(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0);
                 if (n->has_error())
                 {
                     std::cout << "Error in " << n->question() << std::endl;
                     std::cout << "Error: " << explain_error(*n) << std::endl;
                 }
+
+                auto kickoff_coroutines = n->take_kickoff_coroutines();
+                coroutines_to_process.insert(coroutines_to_process.end(), kickoff_coroutines.begin(), kickoff_coroutines.end());
+                n->m_busy_coroutines += kickoff_coroutines.size();
 
                 if (n->resolved())
                 {
@@ -677,7 +906,7 @@ namespace rpnx
                             nodes_to_process.insert(req);
                         }
                     }
-                    assert(requirements.size() != 0);
+                    assert(requirements.size() != 0 || n->blocking_coroutine_count() != 0);
                 }
             }
 
