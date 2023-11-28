@@ -7,19 +7,19 @@
 
 #include "rylang/operators.hpp"
 
-void rylang::list_functum_overloads_resolver::process(compiler* c)
+rpnx::resolver_coroutine< rylang::compiler, std::optional< std::set< rylang::call_parameter_information > > > rylang::list_functum_overloads_resolver::co_process(compiler* c, qualified_symbol_reference functum)
 {
     bool defaulted = false;
     bool constructor = false;
     std::optional< qualified_symbol_reference > parent_opt;
 
-    std::string name = to_string(m_functum);
+    std::string name = to_string(functum);
 
-    if (typeis< subdotentity_reference >(m_functum))
+    if (typeis< subdotentity_reference >(functum))
     {
-        auto parent = as< subdotentity_reference >(m_functum).parent;
+        auto parent = as< subdotentity_reference >(functum).parent;
         parent_opt = parent;
-        auto name = as< subdotentity_reference >(m_functum).subdotentity_name;
+        auto name = as< subdotentity_reference >(functum).subdotentity_name;
 
         if (typeis< primitive_type_integer_reference >(parent) && name.starts_with("OPERATOR"))
         {
@@ -38,21 +38,18 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
             if (assignment_operators.contains(operator_name) && is_rhs)
             {
                 // Cannot assign from RHS for now
-                set_value(std::nullopt);
-                return;
+                co_return std::nullopt;
             }
 
             if (assignment_operators.contains(operator_name))
             {
                 allowed_operations.insert(call_parameter_information{{make_oref(int_type), int_type}});
-                set_value(allowed_operations);
-                return;
+                co_return allowed_operations;
             }
 
             allowed_operations.insert(call_parameter_information{{int_type, int_type}});
             // allowed_operations.push_back(call_parameter_information{{int_type, numeric_literal_reference{}}});
-            set_value(allowed_operations);
-            return;
+            co_return (allowed_operations);
         }
 
         else if (typeis< numeric_literal_reference >(parent) && name.starts_with("OPERATOR"))
@@ -62,8 +59,7 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
             allowed_operations.insert(call_parameter_information{{numeric_literal_reference{}, numeric_literal_reference{}}});
             // TODO: MAYBE: Allow composing any integer operation?
             // allowed_operations.push_back(call_parameter_information{{numeric_literal_reference{}, }});
-            set_value(allowed_operations);
-            return;
+            co_return (allowed_operations);
         }
         else if (name == "CONSTRUCTOR")
         {
@@ -71,15 +67,14 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
             // TODO: Allow disabling default constructor
             defaulted = true;
 
-            if (typeis<primitive_type_integer_reference>(parent))
+            if (typeis< primitive_type_integer_reference >(parent))
             {
-                auto int_type = as<primitive_type_integer_reference>(parent);
+                auto int_type = as< primitive_type_integer_reference >(parent);
 
                 std::set< call_parameter_information > result;
                 result.insert({{make_mref(parent), parent}});
                 result.insert({{make_mref(parent)}});
-                set_value(result);
-                return;
+                co_return (result);
             }
         }
 
@@ -90,49 +85,25 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
         }
     }
 
-    auto exists_dp = get_dependency(
-        [&]
-        {
-            return c->lk_entity_canonical_chain_exists(m_functum);
-        });
-
-    if (!ready())
-    {
-        return;
-    }
-
-    bool exists = exists_dp->get();
+    auto exists = co_await *c->lk_entity_canonical_chain_exists(functum);
 
     if (!exists && !defaulted)
     {
-        set_value(std::nullopt);
-        return;
+        co_return (std::nullopt);
     }
     std::set< call_parameter_information > result;
 
     if (exists)
     {
 
-        auto functum_dp = get_dependency(
-            [&]
-            {
-                return c->lk_entity_ast_from_canonical_chain(m_functum);
-            });
+        auto functum_ast = co_await *c->lk_entity_ast_from_canonical_chain(functum);
 
-        if (!ready())
+        if (!std::holds_alternative< functum_entity_ast >(functum_ast.m_specialization.get()))
         {
-            return;
+            co_return(std::nullopt);
         }
 
-        entity_ast functum = functum_dp->get();
-
-        if (!std::holds_alternative< functum_entity_ast >(functum.m_specialization.get()))
-        {
-            set_value(std::nullopt);
-            return;
-        }
-
-        functum_entity_ast const& functum_e = std::get< functum_entity_ast >(functum.m_specialization.get());
+        functum_entity_ast const& functum_e = std::get< functum_entity_ast >(functum_ast.m_specialization.get());
 
         for (function_ast const& f : functum_e.m_function_overloads)
         {
@@ -140,20 +111,11 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
             for (auto const& arg : f.args)
             {
                 contextual_type_reference ctx_type;
-                ctx_type.context = m_functum;
+                ctx_type.context = functum;
                 ctx_type.type = arg.type;
-                auto type_dp = get_dependency(
-                    [&]
-                    {
-                        return c->lk_canonical_type_from_contextual_type(ctx_type);
-                    });
-                if (!ready())
-                {
-                    return;
-                }
-                info.argument_types.push_back(type_dp->get());
+                auto type = co_await * c->lk_canonical_type_from_contextual_type(ctx_type);
+                info.argument_types.push_back(type);
             }
-
             result.insert(info);
         }
     }
@@ -164,5 +126,5 @@ void rylang::list_functum_overloads_resolver::process(compiler* c)
 
         result.insert(default_consturctor_parameters);
     }
-    set_value(result);
+    co_return(result);
 }

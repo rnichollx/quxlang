@@ -11,19 +11,15 @@
 
 namespace rylang
 {
-    class list_functum_overloads_resolver : public rpnx::resolver_base< compiler, std::optional< std::set< call_parameter_information > > >
+    class list_functum_overloads_resolver : public rpnx::co_resolver_base< compiler, std::optional< std::set< call_parameter_information > >,qualified_symbol_reference >
     {
       public:
-        using key_type = qualified_symbol_reference;
         list_functum_overloads_resolver(qualified_symbol_reference functum)
+            : co_resolver_base(functum)
         {
-            m_functum = functum;
         }
 
-        virtual void process(compiler* c) override;
-
-      private:
-        qualified_symbol_reference m_functum;
+        virtual rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > > co_process(compiler* c, qualified_symbol_reference input) override;
     };
 } // namespace rylang
 

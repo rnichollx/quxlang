@@ -4,11 +4,9 @@
 
 #include "rylang/compiler.hpp"
 
-
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
 
 #include "rylang/ast/entity_ast.hpp"
-
 
 #include "rylang/converters/qual_converters.hpp"
 #include "rylang/manipulators/qmanip.hpp"
@@ -25,10 +23,11 @@ namespace rylang
 
         if (chain.type() == boost::typeindex::type_id< functanoid_reference >())
         {
-            //assert(false);
-            // Don't ask for entity AST of a function parameter set?
-            // TODO: Adjust this later, we should allow this in the future to
-            //  support templates.
+            // assert(false);
+            //  Don't ask for entity AST of a function parameter set?
+            //  TODO: Adjust this later, we should allow this in the future to
+            //   support templates.
+            //rpnx::unimplemented();
         }
         else if (chain.type() == boost::typeindex::type_id< module_reference >())
         {
@@ -87,7 +86,7 @@ namespace rylang
 
             if (it == ent.m_sub_entities.end())
             {
-                throw std::runtime_error("Failed to look up entity " + typestring );
+                throw std::runtime_error("Failed to look up entity " + typestring);
             }
 
             set_value(it->second.get());

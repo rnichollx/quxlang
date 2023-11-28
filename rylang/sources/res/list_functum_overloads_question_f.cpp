@@ -6,8 +6,9 @@
 #include "rylang/res/functum_builtin_overloads_resolver.hpp"
 namespace rylang
 {
+
     template < typename Graph >
-    auto list_builtin_functum_overloads_question_f(Graph* g, qualified_symbol_reference functum) -> rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > >
+    auto list_builtin_functum_overloads_question_f(Graph* g, qualified_symbol_reference functum) -> rpnx::resolver_coroutine< Graph, std::optional< std::set< call_parameter_information > > >
     {
         bool defaulted = false;
         bool constructor = false;
@@ -87,4 +88,6 @@ namespace rylang
         std::set< call_parameter_information > result;
         co_return result;
     }
+
+    // template auto list_builtin_functum_overloads_question_f< compiler >(compiler* g, qualified_symbol_reference functum) -> rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > >;
 } // namespace rylang

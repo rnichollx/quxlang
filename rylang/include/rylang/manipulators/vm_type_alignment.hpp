@@ -29,7 +29,7 @@ namespace rylang
         }
         else
         {
-            throw std::runtime_error("vm_type_alignment: unimplemented");
+            return rpnx::unimplemented();
         }
     }
 } // namespace rylang

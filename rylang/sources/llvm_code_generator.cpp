@@ -286,8 +286,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else
         {
-            // TODO: unimplemented
-            assert(false);
+            rpnx::unimplemented();
         }
     }
 

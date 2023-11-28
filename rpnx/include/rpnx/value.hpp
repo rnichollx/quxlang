@@ -91,16 +91,40 @@ namespace rpnx
 
         bool operator<(value< T > const& other) const
         {
-            static_assert(less_than_comparable<T>, "T must be less than comparable");
+            static_assert(less_than_comparable< T >, "T must be less than comparable");
             return get() < other.get();
         }
 
         bool operator==(value< T > const& other) const
         {
-            static_assert(less_than_comparable<T>, "T must be less than comparable");
+            static_assert(less_than_comparable< T >, "T must be less than comparable");
 
             return get() == other.get();
         }
+    };
+
+    class unimplemented
+    {
+      public:
+        unimplemented()
+        {
+            throw std::logic_error("Unimplemented");
+        }
+
+        template < typename T >
+        operator T()
+        {
+            throw std::logic_error("Unimplemented");
+        }
+
+        template <typename ... Ts>
+        unimplemented & operator()(Ts&&...)
+        {
+            throw std::logic_error("Unimplemented");
+        }
+
+
+
     };
 } // namespace rpnx
 
