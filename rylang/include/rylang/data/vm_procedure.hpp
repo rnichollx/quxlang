@@ -13,9 +13,11 @@ namespace rylang
 {
     struct vm_procedure
     {
+        std::string mangled_name;
         vm_block body;
         vm_procedure_interface interface;
         std::vector<vm_allocate_storage> storage;
+        std::set< qualified_symbol_reference > invoked_functanoids;
     };
 } // namespace rylang
 

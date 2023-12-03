@@ -36,10 +36,33 @@ namespace rylang
         std::string operator()(subdotentity_reference const& ref) const;
         std::string operator()(void_type const&) const;
         std::string operator()(numeric_literal_reference const&) const;
+        std::string operator()(avalue_reference const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
     };
+
+    inline auto knot(context_reference) -> std::tuple<>
+    {
+        return {};
+    }
+
+    inline auto knot(subentity_reference& ref)
+    {
+        return std::tie(ref.parent);
+    }
+
+    inline auto knot(subentity_reference const& ref)
+    {
+        return std::tie(ref.parent);
+    }
+
+    inline auto knot(cvalue_reference const& ref)
+    {
+        return std::tie(ref.target);
+    }
+
+
 
     inline std::string to_string(qualified_symbol_reference const& ref)
     {
@@ -249,7 +272,7 @@ namespace rylang
 
     inline bool is_primitive(qualified_symbol_reference sym)
     {
-        return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym)  || typeis< pointer_to_reference >(sym);
+        return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym) || typeis< pointer_to_reference >(sym);
     }
 
 } // namespace rylang

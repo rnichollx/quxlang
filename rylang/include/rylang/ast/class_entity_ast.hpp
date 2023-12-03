@@ -6,17 +6,17 @@
 #define RPNX_RYANSCRIPT1031_CLASS_ENTITY_AST_HEADER
 
 #include <string>
+#include <compare>
+#include <set>
 
 namespace rylang
 {
     struct entity_ast;
     struct class_entity_ast
     {
+        std::set< std::string > m_keywords;
         std::string to_string(entity_ast const*) const;
-        bool operator<(class_entity_ast const& other) const
-        {
-            return false;
-        }
+        std::strong_ordering operator<=>(class_entity_ast const&) const = default;
     };
 
 } // namespace rylang

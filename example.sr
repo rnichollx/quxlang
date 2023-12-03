@@ -52,35 +52,42 @@ IMPORT linux;
           }
         }
 
-        .buz FUNCTION(%a I32, %b I32): I32
+        ::buz FUNCTION(%a I32, %b I32): I32
         {
+           VAR lol nux :(3);
            VAR c I32 :(4);
            IF (a < 9) {
              a := a + 2;
-              }
-              ELSE {
+           } ELSE {
               b := b + 1;
-              }
+           }
 
            IF (a < b) {
              c := c + a + 2;
-           }
-           ELSE {
+             c := fizz(c);
+           } ELSE {
              RETURN b;
            }
 
            RETURN c;
         }
 
-        .buz FUNCTION(%a I32) : I32
+        ::fizz FUNCTION(%a I32) : I32
+        {
+           RETURN a + 1;
+        }
+
+        ::buz FUNCTION(%a I32) : I32
         {
             a := a + a;
             RETURN a;
         }
 
-        .buz FUNCTION(%a I64, %b I64) : I64
+        ::buz FUNCTION(%a I64, %b I64) : I64
         {
            VAR c I64 :(4);
+
+
 
            WHILE (a < 9) {
              a := a + 1;
@@ -88,7 +95,6 @@ IMPORT linux;
            RETURN a;
         }
 
-        .baz VAR buz::quz;
      }
 
   }

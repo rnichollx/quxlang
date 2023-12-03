@@ -24,16 +24,34 @@
 #include "rylang/to_pretty_string.hpp"
 #include <iostream>
 
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/GenericValue.h>
+#include <llvm/ExecutionEngine/MCJIT.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
+
+#include <llvm/IR/Module.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/IR/Function.h>
+#include <llvm/Support/SmallVectorMemoryBuffer.h>
+
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
 
-    vm_llvm_frame frame;
+
     std::unique_ptr< llvm::LLVMContext > context_ptr = std::make_unique< llvm::LLVMContext >();
+    vm_llvm_frame frame;
     llvm::LLVMContext& context = *context_ptr;
     // llvm::IRBuilder<> builder(context);
 
-    frame.module = std::make_unique< llvm::Module >("main", context);
+    frame.module = std::make_unique< llvm::Module >("MODULE" + vmf.mangled_name, context);
 
     // TODO: This is placeholder
     frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
@@ -58,7 +76,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
-    llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, "main", frame.module.get());
+    llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, vmf.mangled_name, frame.module.get());
 
     llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(context, "entry", func);
@@ -96,37 +114,55 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     func->print(llvm::outs());
 
-    llvm::orc::LLJITBuilder jitbuilder;
-    auto jite = jitbuilder.create();
-    if (auto err = jite.takeError())
-    {
-        std::cerr << "Failed to create JIT" << std::endl;
-        return {};
+
+
+
+    // Serialize the module to a SmallVector
+    llvm::SmallVector<char, 128> buffer;
+    llvm::raw_svector_ostream OS(buffer);
+    llvm::WriteBitcodeToFile(*frame.module, OS);
+
+    // Convert the SmallVector to std::vector<std::byte>
+    std::vector<std::byte> bytecodeVector;
+    bytecodeVector.reserve(buffer.size());
+    for (char c : buffer) {
+        bytecodeVector.push_back(static_cast<std::byte>(c));
     }
 
-    std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
+    frame.module = nullptr;
+    //llvm::orc::LLJITBuilder jitbuilder;
+    //auto jite = jitbuilder.create();
+    //if (auto err = jite.takeError())
+    //{
+    //    std::cerr << "Failed to create JIT" << std::endl;
+    //    return {};
+    //}
+
+    return bytecodeVector;
+
+    //std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
 
     // Add the module to the JIT
-    if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(frame.module), std::move(context_ptr))))
-    {
-        std::cerr << "Failed to add module to JIT" << std::endl;
-        return {};
-    }
+    //if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(frame.module), std::move(context_ptr))))
+    //{
+    //    std::cerr << "Failed to add module to JIT" << std::endl;
+    //    return {};
+    //}
 
-    auto symbolE = jit->lookup("main");
-    if (!symbolE)
-    {
-        std::cerr << "Function not found" << std::endl;
-        return {};
-    }
-    auto symbol = symbolE.get();
+    //auto symbolE = jit->lookup("main");
+    //if (!symbolE)
+    //{
+    //    std::cerr << "Function not found" << std::endl;
+    //    return {};
+    //}
+    //auto symbol = symbolE.get();
 
-    auto my_function = symbol.toPtr< std::int32_t (*)(std::int32_t, std::int32_t) >();
-    int resultValue = my_function(4, 5);
+    //auto my_function = symbol.toPtr< std::int32_t (*)(std::int32_t, std::int32_t) >();
+    //int resultValue = my_function(4, 5);
 
-    std::cout << "my_function(4, 5) = " << resultValue << std::endl;
+    //std::cout << "my_function(4, 5) = " << resultValue << std::endl;
 
-    return {};
+    //return {};
 }
 
 llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, rylang::qualified_symbol_reference typ)

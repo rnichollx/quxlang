@@ -555,6 +555,20 @@ namespace rylang
             return result;
         }
 
+        std::string operator()(avalue_reference const& ref)
+        {
+            std::string result;
+            result = "avalue_reference{\n";
+            current_indent++;
+            result += indent_string();
+            result += "target: ";
+            result += boost::apply_visitor(*this, ref.target);
+            current_indent--;
+            result += indent_string() + "}\n";
+            return result;
+        }
+
+
         std::string operator()(bound_function_type_reference const& ref)
         {
             std::string result;

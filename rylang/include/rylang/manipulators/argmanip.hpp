@@ -11,8 +11,9 @@
 
 namespace rylang
 {
-    inline call_parameter_information to_call_overload_set(std::vector< function_arg_ast > const & args)
+    inline call_parameter_information to_call_overload_set(function_ast const& func)
     {
+        std::vector< function_arg_ast > const & args = func.args;
         // TODO: For now, assume all function argument types are non-contextual
         //  Later, we can add support for context conversion
 

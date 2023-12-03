@@ -23,6 +23,7 @@ namespace rylang
     struct tvalue_reference;
     struct ovalue_reference;
     struct cvalue_reference;
+    struct avalue_reference;
 
     struct void_type
     {
@@ -42,7 +43,7 @@ namespace rylang
     struct bound_function_type_reference;
     // struct function_type_reference;
 
-    using qualified_symbol_reference = boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< functanoid_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< pointer_to_reference >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper<numeric_literal_reference> >;
+    using qualified_symbol_reference = boost::variant< void_type, context_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< functanoid_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< pointer_to_reference >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
 
     struct module_reference
     {
@@ -115,6 +116,12 @@ namespace rylang
     {
         qualified_symbol_reference target;
         std::strong_ordering operator<=>(const ovalue_reference& other) const = default;
+    };
+
+    struct avalue_reference
+    {
+        qualified_symbol_reference target;
+        std::strong_ordering operator<=>(const avalue_reference& other) const = default;
     };
 
     struct tvalue_reference

@@ -34,6 +34,10 @@ namespace rylang
         {
             return boost::get< functanoid_reference >(input).callee;
         }
+        else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
+        {
+            return boost::get< subdotentity_reference >(input).parent;
+        }
         else
         {
             return std::nullopt;
@@ -144,5 +148,9 @@ namespace rylang
     std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
         return "NUMERIC_LITERAL";
+    }
+    std::string qualified_symbol_stringifier::operator()(avalue_reference const& val) const
+    {
+        return "ARGUMENT& " + to_string(val.target);
     }
 } // namespace rylang

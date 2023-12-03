@@ -16,6 +16,7 @@ namespace rylang
         std::string external_name;
         std::string name;
         qualified_symbol_reference type;
+
         std::string to_string()
         {
 

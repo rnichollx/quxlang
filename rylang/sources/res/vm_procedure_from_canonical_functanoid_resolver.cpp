@@ -23,13 +23,15 @@ using namespace rylang;
 namespace rylang
 {
 
-    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver* res, qualified_symbol_reference func, class compiler* c, vm_generation_frame_info& frame, vm_block& block)
+    vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver* res, qualified_symbol_reference func, class compiler* c, vm_generation_frame_info& frame, vm_procedure& proc)
         : m_c(c)
         , m_ctx(func)
         , m_frame(frame)
         , m_resolver(res)
+        , m_proc(proc)
     {
-        std::cout << "Enter context frame" << std::endl;
+        vm_block& block = proc.body;
+       // std::cout << "Enter context frame" << std::endl;
         m_insertion_point = [this, &block](vm_block b)
         {
             block.code.emplace_back(std::move(b));
@@ -62,6 +64,7 @@ namespace rylang
         : m_c(other.m_c)
         , m_frame(other.m_frame)
         , m_resolver(other.m_resolver)
+        , m_proc(other.m_proc)
     {
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
@@ -302,11 +305,11 @@ namespace rylang
 
     void vm_procedure_from_canonical_functanoid_resolver::context_frame::set_value_alive(std::size_t index)
     {
-        std::cout << "set < " << index << " > alive" << std::endl;
+        //std::cout << "set < " << index << " > alive" << std::endl;
         if (index == 0)
         {
-            std::cout << "set "
-                      << "return alive" << std::endl;
+         //   std::cout << "set "
+         //             << "return alive" << std::endl;
         }
         assert(m_frame.blocks.back().value_states[index].alive == false);
         m_frame.blocks.back().value_states.at(index).alive = true;
@@ -321,6 +324,8 @@ namespace rylang
     {
         return create_value_storage(name, type);
     }
+
+
 
     rpnx::general_coroutine< compiler, std::size_t > vm_procedure_from_canonical_functanoid_resolver::context_frame::create_temporary_storage(qualified_symbol_reference type)
     {
@@ -388,7 +393,7 @@ namespace rylang
 
         std::string variable_type_str = to_string(type);
 
-        std::cout << "Destroying value of type " << variable_type_str << std::endl;
+        //std::cout << "Destroying value of type " << variable_type_str << std::endl;
         auto val = load_value_as_desctructable(index);
         subdotentity_reference destructor_symbol = {type, "DESTRUCTOR"};
 
@@ -441,7 +446,7 @@ namespace rylang
 
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value val)
     {
-        std::cout << "Set return value: " << to_string(val) << std::endl;
+       // std::cout << "Set return value: " << to_string(val) << std::endl;
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
         co_await run_value_constructor(0, {std::move(val)});
@@ -464,9 +469,10 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
     function_ast function_ast_v = co_await *c->lk_function_ast(func_name);
 
     vm_procedure vm_proc;
+    vm_proc.mangled_name = mangle(func_name);
     vm_generation_frame_info frame;
     {
-        context_frame ctx(this, func_name, c, frame, vm_proc.body);
+        context_frame ctx(this, func_name, c, frame, vm_proc);
 
         // If the function returns a value, that is the first variable
 
@@ -953,7 +959,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     vm_expr_call call;
 
     std::string typestr = to_string(overload_selected_ref);
-    std::cout << "gen invoke of " << typestr << std::endl;
+    //std::cout << "gen invoke of " << typestr << std::endl;
 
     call.mangled_procedure_name = mangle(overload_selected_ref);
     call.functanoid = overload_selected_ref;
@@ -971,6 +977,8 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     call.arguments = std::move(call_args);
 
     assert(call.mangled_procedure_name != "");
+
+    ctx.procedure().invoked_functanoids.insert(overload_selected_ref);
     if (call.interface.return_type.has_value())
     {
         auto temp_index = co_await ctx.create_temporary_storage(call.interface.return_type.value());
@@ -979,7 +987,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
         vm_store call_result;
         call_result.type = call.interface.return_type.value();
         call_result.where = tempval;
-        call_result.what = call;
+        call_result.what = std::move(call);
         ctx.push(call_result);
         ctx.set_value_alive(temp_index);
         co_return ctx.load_temporary(temp_index);

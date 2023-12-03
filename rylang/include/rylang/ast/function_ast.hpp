@@ -19,8 +19,10 @@ namespace rylang
     {
         std::vector< function_arg_ast > args;
         std::optional< qualified_symbol_reference > return_type;
+        std::optional< qualified_symbol_reference > this_type;
         std::vector < function_delegate > delegates;
         function_block body;
+
 
         std::string to_string()
         {

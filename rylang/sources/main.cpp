@@ -8,7 +8,6 @@
 
 #include "rylang/manipulators/vmmanip.hpp"
 
-
 int main(int argc, char** argv)
 {
     rylang::compiler c(argc, argv);
@@ -31,11 +30,32 @@ int main(int argc, char** argv)
 
     std::string name = rylang::mangle(qn);
 
-    rylang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(qn);
+    std::set< rylang::qualified_symbol_reference > already_compiled;
+    std::set< rylang::qualified_symbol_reference > new_deps = {qn};
 
-    std::cout << rylang::to_string(rylang::vm_executable_unit{vmf.body}) << std::endl;
-    auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
+    std::map< rylang::qualified_symbol_reference, std::vector< std::byte > > compiled_code;
 
+    while (new_deps.empty() == false)
+    {
+        auto to_compile = *new_deps.begin();
+
+        std::cout << "Compiling " << rylang::to_string(to_compile) << std::endl;
+        rylang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(to_compile);
+        // std::cout << rylang::to_string(rylang::vm_executable_unit{vmf.body}) << std::endl;
+        auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
+        compiled_code[to_compile] = code;
+        already_compiled.insert(to_compile);
+
+        for (auto& x : vmf.invoked_functanoids)
+        {
+            if (already_compiled.contains(x))
+                continue;
+            else
+                new_deps.insert(x);
+        }
+
+        new_deps.erase(to_compile);
+    }
 
     std::cout << "Got overload:" << name << std::endl;
     // auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );

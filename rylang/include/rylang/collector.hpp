@@ -21,8 +21,6 @@
 #include "rylang/data/expression_numeric_literal.hpp"
 #include "rylang/data/proximate_lookup_reference.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
-#include "rylang/data/s_expression.hpp"
-#include "rylang/data/s_expression_add.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
 
@@ -311,11 +309,19 @@ namespace rylang
 
             function_ast f;
             collect_function(pos, end, f);
+            auto ent = current_entity();
+            if (ent->m_is_field_entity)
+            {
+                f.this_type = context_reference{};
+            }
+
+
+
             func_entity->m_function_overloads.push_back(std::move(f));
             return true;
         }
 
-        template <typename It>
+        template < typename It >
         std::string remaining(It pos, It end)
         {
             return std::string(pos, end);
@@ -327,7 +333,7 @@ namespace rylang
         void collect_function_delegates(It& pos, It end, function_ast& f)
         {
             std::string r = remaining(pos, end);
-            //std::string remaining = std::string(pos, end);
+            // std::string remaining = std::string(pos, end);
             skip_wsc(pos, end);
             if (!skip_symbol_if_is(pos, end, ":"))
             {
@@ -374,7 +380,6 @@ namespace rylang
             }
 
             r = remaining(pos, end);
-
         }
 
         // Call this function after "FUNCTION",
@@ -404,12 +409,19 @@ namespace rylang
 
             if (type == functype::constructor)
             {
+                assert(current_entity()->m_is_field_entity);
                 collect_function_delegates(pos, it_end, f);
             }
 
             std::string remaining2(pos, it_end);
             skip_wsc(pos, it_end);
             collect_function_body(pos, it_end, f);
+
+            if (current_entity()->m_is_field_entity && !f.this_type.has_value())
+            {
+                f.this_type = context_reference{};
+
+            }
         }
 
         template < typename It >
@@ -439,7 +451,7 @@ namespace rylang
 
             skip_wsc(pos, it_end);
 
-            while (skip_wsc(pos, it_end) || try_collect_class_member(pos, it_end) || try_collect_entity(pos, it_end))
+            while (skip_wsc(pos, it_end) || try_collect_class_member(pos, it_end) || try_collect_entity(pos, it_end) || try_collect_class_keyword(pos, it_end))
                 ;
 
             if (!skip_symbol_if_is(pos, it_end, "}"))
@@ -492,6 +504,30 @@ namespace rylang
             func_entity->m_function_overloads.push_back(std::move(f));
             leave_entity(ent);
             return;
+        }
+
+        template < typename It >
+        bool try_collect_class_keyword(It& pos, It it_end)
+        {
+            class_entity_ast * class_entity = current_entity2< class_entity_ast >();
+
+            std::set<std::string> keywords = {"NO_MOVE", "NO_COPY", "TRIVIALLY_COPYABLE", "RELOCATABLE", "NO_DEFAULT_CONSTRUCTOR", "NO_RELOCATE" };
+
+            std::string next_kw = get_keyword(pos, it_end);
+            if (keywords.contains(next_kw))
+            {
+                class_entity->m_keywords.insert(next_kw);
+                skip_keyword_if_is(pos, it_end, next_kw);
+                skip_wsc(pos, it_end);
+
+                if (!skip_symbol_if_is(pos, it_end, ";"))
+                {
+                    throw std::runtime_error("Expected ';' after " + next_kw);
+                }
+                return true;
+            }
+
+            return false;
         }
 
         template < typename It >

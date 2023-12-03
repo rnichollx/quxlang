@@ -9,12 +9,17 @@
 #include <iostream>
 #include <sstream>
 
-void rylang::function_overload_selection_resolver::process(compiler* c)
+rpnx::resolver_coroutine<rylang::compiler, rylang::call_parameter_information> rylang::function_overload_selection_resolver::co_process(compiler* c, key_type input)
 {
+
     std::stringstream ss;
-    std::cout << "Function overload selection resolver called for " << to_string(m_function_location) << std::endl;
-    std::cout << "With args:" << std::endl;
-    auto args = m_args;
+
+    auto funcloc = input.first;
+    ss << "Function overload selection resolver called for " << to_string(funcloc) << std::endl;
+    ss << "With args:" << std::endl;
+    auto args = input.second;
+
+
 
     for (auto & argtype : args.argument_types)
     {
@@ -23,18 +28,8 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
 
     std::cout << std::endl;
 
-    auto overloads_dp = get_dependency(
-        [&]
-        {
-            return c->lk_list_functum_overloads(m_function_location);
-        });
+    auto overloads_opt  = co_await *c->lk_list_functum_overloads(funcloc);
 
-    if (!ready())
-    {
-        return;
-    }
-
-    auto overloads_opt = overloads_dp->get();
 
     if (!overloads_opt.has_value())
     {
@@ -48,18 +43,9 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
 
     for (call_parameter_information const& overload : overloads)
     {
-        auto is_callable_dp = get_dependency(
-            [&]
-            {
-                return c->lk_overload_set_is_callable_with(std::make_pair(overload, m_args));
-            });
+        auto is_callable = co_await* c->lk_overload_set_is_callable_with(std::make_pair(overload, args));
 
-        if (!ready())
-            return;
-
-        bool is_callable = is_callable_dp->get();
-
-        ss << "Checking overload " << to_string(overload) << " callable with " << to_string(m_args) << "? " << std::boolalpha << is_callable << std::endl;
+        ss << "Checking overload " << to_string(overload) << " callable with " << to_string(args) << "? " << std::boolalpha << is_callable << std::endl;
 
         if (is_callable)
         {
@@ -81,5 +67,5 @@ void rylang::function_overload_selection_resolver::process(compiler* c)
         throw std::runtime_error("Ambiguous overload");
     }
 
-    set_value(output_overload.value());
+    co_return output_overload.value();
 }

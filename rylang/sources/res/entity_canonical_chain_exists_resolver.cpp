@@ -28,6 +28,49 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
         set_value(true);
         return;
     }
+    else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
+    {
+        auto parent = qualified_parent(chain);
+        assert(parent.has_value());
+
+        auto parent_exists_dp = get_dependency(
+            [&]
+            {
+                return c->lk_entity_canonical_chain_exists(parent.value());
+            });
+
+        if (!ready())
+            return;
+
+        bool parent_exists = parent_exists_dp->get();
+
+        if (!parent_exists)
+        {
+            set_value(false);
+            return;
+        }
+
+        auto parent_ast_dp = get_dependency(
+            [&]
+            {
+                return c->lk_entity_ast_from_canonical_chain(parent.value());
+            });
+        if (!ready())
+            return;
+
+        auto parent_ast = parent_ast_dp->get();
+
+        if (parent_ast.m_sub_entities.find(boost::get< subdotentity_reference >(chain).subdotentity_name) == parent_ast.m_sub_entities.end())
+        {
+            set_value(false);
+            return;
+        }
+        else
+        {
+            set_value(true);
+            return;
+        }
+    }
     else if (chain.type() == boost::typeindex::type_id< subentity_reference >())
     {
         auto parent = qualified_parent(chain);

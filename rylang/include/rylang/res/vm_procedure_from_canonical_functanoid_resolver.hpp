@@ -32,7 +32,7 @@ namespace rylang
             bool closed = false;
 
           public:
-            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, qualified_symbol_reference func, compiler* c, vm_generation_frame_info& frame, vm_block& block);
+            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, qualified_symbol_reference func, compiler* c, vm_generation_frame_info& frame, vm_procedure& block);
             explicit context_frame(context_frame& other);
 
             struct condition_t
@@ -81,8 +81,8 @@ namespace rylang
             {
                 return load_value(index, false, false);
             }
-            [[nodiscard]] void set_value_alive(std::size_t index);
-            [[nodiscard]] void set_value_dead(std::size_t index);
+            void set_value_alive(std::size_t index);
+            void set_value_dead(std::size_t index);
             [[nodiscard]] std::size_t construct_new_temporary(qualified_symbol_reference type, std::vector< vm_value > args);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::size_t > adopt_value_as_temporary(vm_value val);
             [[nodiscard]] std::optional< std::size_t > try_get_variable_index(std::string name);
@@ -100,6 +100,16 @@ namespace rylang
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > frame_return();
             [[nodiscard]] rpnx::general_coroutine< compiler, void > run_value_destructor(std::size_t index);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > run_value_constructor(std::size_t index, std::vector< vm_value > args);
+
+            vm_procedure& procedure()
+            {
+                return m_proc;
+            }
+
+            vm_procedure const& procedure() const
+            {
+                return m_proc;
+            }
 
           public:
             qualified_symbol_reference current_context() const;
@@ -128,6 +138,8 @@ namespace rylang
             vm_block m_new_block;
             std::function< void(vm_block) > m_insertion_point;
             vm_procedure_from_canonical_functanoid_resolver* m_resolver;
+
+            vm_procedure& m_proc;
         };
 
         [[nodiscard]] rpnx::general_coroutine< compiler, void > build_generic(context_frame& ctx, function_statement statement);

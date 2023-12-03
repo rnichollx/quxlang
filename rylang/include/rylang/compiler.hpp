@@ -18,6 +18,7 @@
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/data/vm_procedure.hpp"
 #include "rylang/filelist.hpp"
+#include "rylang/res/called_functanoids_resolver.hpp"
 #include "rylang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include "rylang/res/class_field_list_from_canonical_chain_resolver.hpp"
@@ -38,9 +39,10 @@
 #include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
-#include "rylang/res/functum_builtin_overloads_resolver.hpp"
 #include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
+#include "rylang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "rylang/res/list_functum_overloads_resolver.hpp"
+#include "rylang/res/list_user_functum_overloads_resolver.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/res/operator_is_overloaded_with_resolver.hpp"
@@ -57,6 +59,7 @@ namespace rylang
 {
     class compiler
     {
+        //
         friend class filelist_resolver;
         friend class class_list_resolver;
         friend class file_ast_resolver;
@@ -93,6 +96,9 @@ namespace rylang
         friend class functum_exists_and_is_callable_with_resolver;
         friend class list_functum_overloads_resolver;
         friend class functanoid_return_type_resolver;
+        friend class called_functanoids_resolver;
+        friend class list_user_functum_overloads_resolver;
+        friend class list_builtin_functum_overloads_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -121,6 +127,24 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
+        out< std::set< call_parameter_information > > lk_builtin_functum_overloads(qualified_symbol_reference functum)
+        {
+            return m_list_builtin_functum_overloads_index.lookup(functum);
+        }
+
+        index< list_user_functum_overloads_resolver > m_list_user_functum_overloads_index;
+        out< std::set< call_parameter_information > > lk_user_functum_overloads(qualified_symbol_reference functum)
+        {
+            return m_list_user_functum_overloads_index.lookup(functum);
+        }
+
+        index< called_functanoids_resolver > m_called_functanoids_index;
+        out< std::set< qualified_symbol_reference > > lk_called_functanoids(qualified_symbol_reference func_addr)
+        {
+            return m_called_functanoids_index.lookup(func_addr);
+        }
 
         index< functanoid_return_type_resolver > m_functanoid_return_type_index;
         out< qualified_symbol_reference > lk_functanoid_return_type(functanoid_reference const& chain)
@@ -192,7 +216,7 @@ namespace rylang
         }
 
       public:
-        qualified_symbol_reference get_function_qualname [[deprecated]] (qualified_symbol_reference name, call_parameter_information args);
+        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_parameter_information args);
 
       private:
         // index< class_list_resolver > m_class_list_index;

@@ -5,16 +5,7 @@
 #ifndef RPNX_RYANSCRIPT1031_LLVM_CODE_GENERATOR_HEADER
 #define RPNX_RYANSCRIPT1031_LLVM_CODE_GENERATOR_HEADER
 
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/GenericValue.h>
-#include <llvm/ExecutionEngine/MCJIT.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/raw_ostream.h>
+
 
 #include "compiler_fwd.hpp"
 #include "rylang/data/canonical_resolved_function_chain.hpp"
@@ -23,6 +14,14 @@
 #include "rylang/data/vm_procedure.hpp"
 #include "rylang/llvmg/vm_llvm_frame.hpp"
 
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/Support/TargetSelect.h>
+
+namespace llvm
+{
+    class PointerType;
+    class IntegerType;
+}
 namespace rylang
 {
     class llvm_code_generator

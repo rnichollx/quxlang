@@ -64,7 +64,7 @@ void rylang::function_ast_resolver::process(rylang::compiler* c)
 
     for (function_ast const& func : functum_entity_ast_v.m_function_overloads)
     {
-        call_parameter_information cos_args = to_call_overload_set(func.args);
+        call_parameter_information cos_args = to_call_overload_set(func);
         auto callable_dp = get_dependency(
             [&]
             {

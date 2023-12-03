@@ -12,21 +12,18 @@
 
 namespace rylang
 {
-    class function_overload_selection_resolver : public rpnx::resolver_base< compiler, call_parameter_information >
+    class function_overload_selection_resolver : public rpnx::co_resolver_base< compiler, call_parameter_information, std::pair< qualified_symbol_reference, call_parameter_information > >
     {
-        call_parameter_information m_args;
-        qualified_symbol_reference m_function_location;
 
       public:
         using key_type = std::pair< qualified_symbol_reference, call_parameter_information >;
 
         function_overload_selection_resolver(key_type input)
-            : m_function_location(input.first)
-            , m_args(input.second)
+            : co_resolver_base(input)
         {
         }
 
-        virtual void process(compiler* c);
+        virtual rpnx::resolver_coroutine<compiler, call_parameter_information > co_process(compiler* c, key_type input);
     };
 } // namespace rylang
 
