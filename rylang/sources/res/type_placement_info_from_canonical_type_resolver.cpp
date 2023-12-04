@@ -1,9 +1,6 @@
 //
 // Created by Ryan Nicholl on 10/23/23.
 //
-#include "rylang/compiler.hpp"
-
-
 void rylang::type_placement_info_from_canonical_type_resolver::process(compiler* c)
 
 {

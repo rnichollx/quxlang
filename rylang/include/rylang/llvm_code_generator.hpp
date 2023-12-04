@@ -51,7 +51,7 @@ namespace rylang
 
       public:
         std::vector< std::byte > get_function_code(cpu_arch cpu_type, vm_procedure vmf);
-        bool generate_code(llvm::LLVMContext & context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame);
+        bool generate_code(llvm::LLVMContext & context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame, vm_procedure &vmf);
         void generate_arg_push(llvm::LLVMContext& context, llvm::BasicBlock* p_block, llvm::Function* p_function, rylang::vm_procedure procedure, rylang::vm_llvm_frame& frame);
         void generate_ret_storage(llvm::LLVMContext & context, llvm::BasicBlock* p_block, llvm::Function* p_function, rylang::vm_procedure procedure, rylang::vm_llvm_frame& frame);
         llvm::Value* get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value);

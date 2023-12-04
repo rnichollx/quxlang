@@ -13,20 +13,48 @@
 
 namespace rylang
 {
-    class function_ast_resolver : public rpnx::resolver_base< compiler, function_ast >
+    class function_ast_resolver : public rpnx::co_resolver_base< compiler, function_ast, qualified_symbol_reference >
     {
       public:
         using key_type = qualified_symbol_reference;
 
         function_ast_resolver(qualified_symbol_reference input)
-            : m_function_name(input)
+            : co_resolver_base(input)
         {
         }
 
-        void process(compiler* c);
+        rpnx::resolver_coroutine< compiler, function_ast > co_process(compiler* c, qualified_symbol_reference function_name);
+
+        virtual std::string question() const override
+        {
+            return "What is the function AST for " + to_string(input_val) + "?";
+        }
+
+        virtual std::string answer() const override
+        {
+            if (has_value())
+            {
+                return "OK";
+            }
+
+            else
+            {
+                try
+                {
+                    get();
+                }
+                catch (std::exception& e)
+                {
+                    return e.what();
+                }
+                catch (...)
+                {
+                    return "Unknown error";
+                }
+            }
+        }
 
       private:
-        qualified_symbol_reference m_function_name;
     };
 } // namespace rylang
 

@@ -23,6 +23,7 @@ namespace rylang
     {
         // Fields
         std::map< std::string, rpnx::value< entity_ast > > m_sub_entities;
+        std::map< std::string, rpnx::value< entity_ast > > m_subdot_entities;
         bool m_is_field_entity = false;
         rpnx::value< std::variant< null_object_ast, functum_entity_ast, variable_entity_ast, namespace_entity_ast, class_entity_ast > > m_specialization;
 

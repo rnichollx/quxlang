@@ -68,19 +68,19 @@ namespace rylang
         }
         else if (typeis< mvalue_reference >(qt))
         {
-            return "RM" + to_string(as< mvalue_reference >(qt).target);
+            return "RM" + mangle_internal(as< mvalue_reference >(qt).target);
         }
         else if (typeis< cvalue_reference >(qt))
         {
-            return "RC" + to_string(as< cvalue_reference >(qt).target);
+            return "RC" + mangle_internal(as< cvalue_reference >(qt).target);
         }
         else if (typeis< ovalue_reference >(qt))
         {
-            return "RO" + to_string(as< ovalue_reference >(qt).target);
+            return "RO" + mangle_internal(as< ovalue_reference >(qt).target);
         }
         if (typeis< tvalue_reference >(qt))
         {
-            return "RT" + to_string(as< tvalue_reference >(qt).target);
+            return "RT" + mangle_internal(as< tvalue_reference >(qt).target);
         }
 
         throw std::runtime_error("unimplemented");

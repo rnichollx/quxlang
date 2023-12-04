@@ -66,7 +66,8 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         sources/res/list_user_functum_overloads_resolver.cpp
         sources/res/list_builtin_functum_overloads_resolver.cpp
         include/rylang/manipulators/tmanip.hpp
-        sources/res/call_params_of_function_ast_resolver.hpp
+        include/rylang/res/call_params_of_function_ast_resolver.hpp
+        sources/res/call_params_of_function_ast_resolver.cpp
 
 )
 

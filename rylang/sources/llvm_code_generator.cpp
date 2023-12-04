@@ -76,6 +76,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
+    std::cout << "New function name: " << vmf.mangled_name << std::endl;
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, vmf.mangled_name, frame.module.get());
 
     llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
@@ -86,9 +87,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     llvm::BasicBlock* p_block = entry;
 
     std::string function_code_stirng = to_pretty_string(vmf.body);
-    std::cout << function_code_stirng << std::endl;
+    //std::cout << function_code_stirng << std::endl;
     generate_arg_push(context, storage, func, vmf, frame);
-    generate_code(context, p_block, vmf.body, frame);
+    generate_code(context, p_block, vmf.body, frame, vmf);
 
     llvm::IRBuilder<> builder(storage);
     builder.CreateBr(entry);
@@ -191,7 +192,7 @@ llvm::PointerType* rylang::llvm_code_generator::get_llvm_type_opaque_ptr(llvm::L
     return llvm::PointerType::get(context, 0);
 }
 
-bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame)
+bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame, rylang::vm_procedure & vmf)
 {
 
     for (vm_executable_unit const& ex : block.code)
@@ -200,7 +201,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         {
             // TODO: consider adding separate frame info here
             vm_block const& block = boost::get< vm_block >(ex);
-            if (!generate_code(context, p_block, block, frame))
+            if (!generate_code(context, p_block, block, frame, vmf))
             {
                 return false;
             }
@@ -222,18 +223,29 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_return >())
         {
-            std::cout << " handle vm return " << std::endl;
+            //std::cout << " handle vm return " << std::endl;
             rylang::vm_return ret = boost::get< rylang::vm_return >(ex);
-            // TODO: support void return
-            llvm::IRBuilder<> builder(p_block);
 
-            llvm::Align ret_align = frame.values.at(0).align;
-            llvm::Value* ret_val_reference = frame.values.at(0).get_address;
-            llvm::Type* ret_type = frame.values.at(0).type;
-            llvm::Value* ret_val = builder.CreateAlignedLoad(ret_type, ret_val_reference, ret_align);
-            // get a true value
 
-            builder.CreateRet(ret_val);
+
+            if (vmf.interface.return_type.has_value())
+            {
+                // TODO: support void return
+                llvm::IRBuilder<> builder(p_block);
+
+                llvm::Align ret_align = frame.values.at(0).align;
+                llvm::Value* ret_val_reference = frame.values.at(0).get_address;
+                llvm::Type* ret_type = frame.values.at(0).type;
+                llvm::Value* ret_val = builder.CreateAlignedLoad(ret_type, ret_val_reference, ret_align);
+                // get a true value
+
+                builder.CreateRet(ret_val);
+            }
+            else
+            {
+                llvm::IRBuilder<> builder(p_block);
+                builder.CreateRetVoid();
+            }
             return false;
         }
         else if (typeis< vm_execute_expression >(ex))
@@ -244,7 +256,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (typeis< vm_if >(ex))
         {
-            std::cout << "generate if " << p_block << std::endl;
+            //std::cout << "generate if " << p_block << std::endl;
             vm_if const& if_ = boost::get< vm_if >(ex);
             llvm::IRBuilder<> builder(p_block);
 
@@ -265,12 +277,12 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             bool else_has_terminator = false;
 
             vm_block const& block = if_.then_block;
-            if_has_terminator = !generate_code(context, then_block, block, frame);
+            if_has_terminator = !generate_code(context, then_block, block, frame, vmf);
 
             if (if_.else_block.has_value())
             {
                 vm_block const& block = if_.else_block.value();
-                else_has_terminator = !generate_code(context, else_block, block, frame);
+                else_has_terminator = !generate_code(context, else_block, block, frame, vmf);
             }
 
             // jump to after block
@@ -287,7 +299,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             }
             p_block = after_block;
 
-            std::cout << "generate if, after: " << p_block << std::endl;
+           // std::cout << "generate if, after: " << p_block << std::endl;
         }
         else if (typeis< vm_while >(ex))
         {
@@ -309,7 +321,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             bool while_body_has_terminator = false;
 
             vm_block const& block = while_.loop_block;
-            while_body_has_terminator = !generate_code(context, loop_block, block, frame);
+            while_body_has_terminator = !generate_code(context, loop_block, block, frame, vmf);
             // jump to after block
 
             if (!while_body_has_terminator)
@@ -409,7 +421,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
 llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
 
-    std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
+    //std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
 
     if (value.type() == boost::typeindex::type_id< rylang::vm_expr_load_address >())
     {
@@ -508,6 +520,8 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         {
             args.push_back(get_llvm_value(context, builder, frame, arg));
         }
+
+        std::cout << "mangled name: " << call.mangled_procedure_name << std::endl;
 
         llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
         llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());

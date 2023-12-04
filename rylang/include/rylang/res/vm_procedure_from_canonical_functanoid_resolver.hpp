@@ -25,6 +25,13 @@ namespace rylang
 
         virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, qualified_symbol_reference func_addr) override final;
 
+        virtual std::string question() const override
+        {
+            return "What is the vm_procedure for " + to_string(input_val) + "?";
+        }
+
+
+
       private:
         struct context_frame
         {

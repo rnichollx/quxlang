@@ -49,6 +49,7 @@ IMPORT linux;
           .CONSTRUCTOR(%xa I32)
           : x:(xa)
           {
+            RETURN;
           }
         }
 

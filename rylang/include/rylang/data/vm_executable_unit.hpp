@@ -29,12 +29,11 @@ namespace rylang
 
     struct vm_return
     {
+        std::strong_ordering operator<=>(vm_return const&) const = default;
     };
 
     struct vm_if;
     struct vm_while;
-
-
 
     struct vm_disable_storage
     {
@@ -42,20 +41,20 @@ namespace rylang
     };
     struct vm_enable_storage
     {
-       std::size_t index;
+        std::size_t index;
     };
 
-    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper<vm_while>, boost::recursive_wrapper<vm_disable_storage>, boost::recursive_wrapper<vm_enable_storage> >;
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper< vm_while >, boost::recursive_wrapper< vm_disable_storage >, boost::recursive_wrapper< vm_enable_storage > >;
 
     struct vm_block
     {
         std::vector< vm_executable_unit > code;
-        std::vector<std::string> comments;
+        std::vector< std::string > comments;
     };
 
     struct vm_if
     {
-        std::optional<vm_block> condition_block;
+        std::optional< vm_block > condition_block;
         vm_value condition;
         vm_block then_block;
         std::optional< vm_block > else_block;
@@ -63,12 +62,10 @@ namespace rylang
 
     struct vm_while
     {
-        std::optional<vm_block> condition_block;
+        std::optional< vm_block > condition_block;
         vm_value condition;
         vm_block loop_block;
     };
-
-
 
 } // namespace rylang
 

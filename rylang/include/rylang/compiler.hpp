@@ -51,6 +51,7 @@
 #include "rylang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
+#include "rylang/res/call_params_of_function_ast_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
@@ -99,6 +100,7 @@ namespace rylang
         friend class called_functanoids_resolver;
         friend class list_user_functum_overloads_resolver;
         friend class list_builtin_functum_overloads_resolver;
+        friend class call_params_of_function_ast_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -127,6 +129,12 @@ namespace rylang
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< call_params_of_function_ast_resolver > m_call_params_of_function_ast_index;
+        out < call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, qualified_symbol_reference f_symbol)
+        {
+            return m_call_params_of_function_ast_index.lookup(std::make_pair(f_ast, f_symbol));
+        }
 
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
         out< std::set< call_parameter_information > > lk_builtin_functum_overloads(qualified_symbol_reference functum)

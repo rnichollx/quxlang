@@ -170,11 +170,50 @@ namespace rpnx
         friend class single_thread_graph_solver< Graph >;
 
       public:
+        node_base< Graph >* m_attached_to = nullptr;
+
+      public:
         virtual ~node_base(){};
 
         virtual std::string question() const
         {
-            return "?";
+            if (m_attached_to)
+            {
+                return m_attached_to->question();
+            }
+            return typeid(*this).name();
+        }
+
+        virtual std::string answer() const
+        {
+            assert(resolved());
+            if (m_attached_to)
+            {
+                return m_attached_to->answer();
+            }
+            if (has_value())
+            {
+                return "has_value";
+            }
+            else if (has_error())
+            {
+                try
+                {
+                    std::rethrow_exception(get_error());
+                }
+                catch (std::exception& e)
+                {
+                    return e.what();
+                }
+                catch (...)
+                {
+                    return "Unknown error";
+                }
+
+            }
+
+
+            assert(false);
         }
 
       public:
@@ -460,7 +499,7 @@ namespace rpnx
     };
 
     template < typename Graph >
-    class resolver_base<Graph, void> : public virtual node_base< Graph >
+    class resolver_base< Graph, void > : public virtual node_base< Graph >
     {
 
       public:
@@ -574,6 +613,7 @@ namespace rpnx
             if (!m_coroutine.has_value())
             {
                 m_coroutine.emplace(co_process(g, input_val));
+                m_coroutine.value().m_attached_to = this;
                 this->add_dependency(&*m_coroutine);
             }
             else if (this->ready())
@@ -1064,6 +1104,7 @@ namespace rpnx
     template < typename Graph, typename Result >
     class resolver_coroutine : public resolver_base< Graph, Result >
     {
+      protected:
       public:
         struct promise_type
         {
@@ -1309,11 +1350,30 @@ namespace rpnx
                     assert(!n->has_value());
                     n->set_error(std::current_exception());
                 }
+
                 assert(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0);
+
+                if (n->resolved() && ! n->m_attached_to)
+                {
+
+                    std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                }
                 if (n->has_error())
                 {
-                    std::cout << "Error in " << n->question() << std::endl;
-                    std::cout << "Error: " << explain_error(*n) << std::endl;
+                    // std::cout << "Error in " << n->question() << std::endl;
+                    // std::cout << "Error: " << explain_error(*n) << std::endl;
+
+                    std::cout << "Questions asked by " << n->question() << ":" << std::endl;
+
+                    for (auto& dep : n->met_dependencies())
+                    {
+                        std::cout << "Q: " << dep->question() << " A: " << dep->answer() << std::endl;
+                    }
+
+                    for (auto& dep : n->error_dependencies())
+                    {
+                        std::cout << "Q: " << dep->question() << " A: " << dep->answer() << std::endl;
+                    }
                 }
 
                 auto kickoff_coroutines = n->take_kickoff_coroutines();

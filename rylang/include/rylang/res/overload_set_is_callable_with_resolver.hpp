@@ -12,22 +12,29 @@
 
 namespace rylang
 {
-    class overload_set_is_callable_with_resolver : public rpnx::resolver_base< compiler, bool >
+    class overload_set_is_callable_with_resolver : public rpnx::co_resolver_base< compiler, bool, std::pair< call_parameter_information, call_parameter_information > >
     {
-        call_parameter_information os;
-        call_parameter_information args;
 
       public:
-        using key_type = std::pair< call_parameter_information, call_parameter_information >;
 
-        overload_set_is_callable_with_resolver(key_type input)
-            : os(input.first)
-            , args(input.second)
+        overload_set_is_callable_with_resolver(input_type input)
+            : co_resolver_base(input)
         {
         }
 
-        void process(compiler* c);
+        virtual rpnx::resolver_coroutine<compiler, bool> co_process(compiler* c, input_type input);
+
+        virtual std::string question() const override
+        {
+            return "Is " + to_string(input_val.first) + " callable with " + to_string(input_val.second) + "?";
+        }
+
+        virtual std::string answer() const override
+        {
+            return has_value() ? (get() ? "Yes" : "No") : "erorr";
+        }
     };
+
 
 } // namespace rylang
 

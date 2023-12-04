@@ -31,7 +31,7 @@ namespace rylang
         , m_proc(proc)
     {
         vm_block& block = proc.body;
-       // std::cout << "Enter context frame" << std::endl;
+        // std::cout << "Enter context frame" << std::endl;
         m_insertion_point = [this, &block](vm_block b)
         {
             block.code.emplace_back(std::move(b));
@@ -66,7 +66,6 @@ namespace rylang
         , m_resolver(other.m_resolver)
         , m_proc(other.m_proc)
     {
-        assert(m_frame.blocks.back().value_states[0].alive == false);
 
         // std::cout << "Enter duplicate context" << std::endl;
         m_frame.blocks.emplace_back(m_frame.blocks.back());
@@ -305,11 +304,11 @@ namespace rylang
 
     void vm_procedure_from_canonical_functanoid_resolver::context_frame::set_value_alive(std::size_t index)
     {
-        //std::cout << "set < " << index << " > alive" << std::endl;
+        // std::cout << "set < " << index << " > alive" << std::endl;
         if (index == 0)
         {
-         //   std::cout << "set "
-         //             << "return alive" << std::endl;
+            //   std::cout << "set "
+            //             << "return alive" << std::endl;
         }
         assert(m_frame.blocks.back().value_states[index].alive == false);
         m_frame.blocks.back().value_states.at(index).alive = true;
@@ -324,8 +323,6 @@ namespace rylang
     {
         return create_value_storage(name, type);
     }
-
-
 
     rpnx::general_coroutine< compiler, std::size_t > vm_procedure_from_canonical_functanoid_resolver::context_frame::create_temporary_storage(qualified_symbol_reference type)
     {
@@ -393,7 +390,7 @@ namespace rylang
 
         std::string variable_type_str = to_string(type);
 
-        //std::cout << "Destroying value of type " << variable_type_str << std::endl;
+        // std::cout << "Destroying value of type " << variable_type_str << std::endl;
         auto val = load_value_as_desctructable(index);
         subdotentity_reference destructor_symbol = {type, "DESTRUCTOR"};
 
@@ -446,7 +443,7 @@ namespace rylang
 
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::set_return_value(vm_value val)
     {
-       // std::cout << "Set return value: " << to_string(val) << std::endl;
+        // std::cout << "Set return value: " << to_string(val) << std::endl;
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
         co_await run_value_constructor(0, {std::move(val)});
@@ -459,7 +456,7 @@ namespace rylang
 
 rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_procedure_from_canonical_functanoid_resolver::co_process(compiler* c, qualified_symbol_reference func_name)
 {
-    for (std::size_t i = 0; i < 10; i++)
+    for (std::size_t i = 0; i < 3; i++)
     {
         std::cout << std::endl;
     }
@@ -468,6 +465,35 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
 
     function_ast function_ast_v = co_await *c->lk_function_ast(func_name);
 
+    qualified_symbol_reference functum_reference = func_name;
+    if (typeis< functanoid_reference >(func_name))
+    {
+        functum_reference = qualified_parent(func_name).value();
+    }
+
+    bool is_member = false;
+
+    std::optional< qualified_symbol_reference > parent_type;
+
+    std::optional< std::string > func_name_str;
+
+    if (typeis< subdotentity_reference >(functum_reference))
+    {
+        is_member = true;
+        parent_type = as< subdotentity_reference >(functum_reference).parent;
+        func_name_str = as< subdotentity_reference >(functum_reference).subdotentity_name;
+    }
+    else
+    {
+        assert(typeis< subentity_reference >(functum_reference));
+        parent_type = as< subentity_reference >(functum_reference).parent;
+        func_name_str = as< subentity_reference >(functum_reference).subentity_name;
+    }
+    // TODO: Support more member function logic, e.g. templates
+
+
+
+    std::optional<vm_value> this_value;
     vm_procedure vm_proc;
     vm_proc.mangled_name = mangle(func_name);
     vm_generation_frame_info frame;
@@ -490,8 +516,12 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             vm_proc.interface.return_type = function_ast_v.return_type.value();
         }
 
+
+
         for (auto& arg : function_ast_v.args)
         {
+
+
             // TODO: consider pass by pointer of large values instead of by value
             vm_frame_variable var;
             // NOTE: Make sure that we can handle contextual types in arg list.
@@ -502,8 +532,13 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             assert(!qualified_is_contextual(arg.type));
             var.name = arg.name;
             var.type = arg.type;
+            var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
+            if (is_member && !this_value.has_value())
+            {
+                this_value = var.get_addr;
+            }
             assert(!frame.blocks.empty());
             frame.blocks.back().variable_lookup_index[arg.name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
@@ -513,10 +548,20 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             // TODO: Maybe consider adding ctx.add_argument instead of doing this inside this function
         }
 
-        assert(frame.blocks.back().value_states[0].alive == false);
+        assert(!function_ast_v.return_type.has_value() || frame.blocks.back().value_states[0].alive == false);
+
+        bool is_constructor = func_name_str.has_value() && func_name_str.value() == "CONSTRUCTOR" && is_member;
+        bool is_destructor = false;
+
+        if (is_constructor)
+        {
+            gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
+        }
 
         // Then generate the body
         co_await build_generic(ctx, function_ast_v.body);
+
+        if (is_destructor) {}
 
         co_await ctx.close();
     }
@@ -959,7 +1004,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     vm_expr_call call;
 
     std::string typestr = to_string(overload_selected_ref);
-    //std::cout << "gen invoke of " << typestr << std::endl;
+    // std::cout << "gen invoke of " << typestr << std::endl;
 
     call.mangled_procedure_name = mangle(overload_selected_ref);
     call.functanoid = overload_selected_ref;

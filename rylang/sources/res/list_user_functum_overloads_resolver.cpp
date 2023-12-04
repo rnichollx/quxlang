@@ -31,43 +31,7 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
 
     for (function_ast const& f : functum_e.m_function_overloads)
     {
-        call_parameter_information info;
-
-        std::optional<qualified_symbol_reference > this_arg_type;
-
-
-
-        if (f.this_type.has_value())
-        {
-            // Member function
-
-            // TODO: Make sure this points to a class?
-            auto parent = qualified_parent(functum);
-            assert(parent.has_value());
-
-            if (f.this_type.value().type() == boost::typeindex::type_id< context_reference >())
-            {
-                this_arg_type = make_mref(parent.value());
-            }
-            else
-            {
-                this_arg_type = f.this_type.value();
-            }
-
-
-            info.argument_types.push_back(*this_arg_type);
-
-
-        }
-        for (auto const& arg : f.args)
-        {
-            contextual_type_reference ctx_type;
-            ctx_type.context = functum;
-            ctx_type.type = arg.type;
-            auto type = co_await *c->lk_canonical_type_from_contextual_type(ctx_type);
-            info.argument_types.push_back(type);
-        }
-        result.insert(info);
+        result.insert(co_await *c->lk_call_params_of_function_ast(f, functum));
     }
 
     co_return result;
