@@ -139,6 +139,8 @@ namespace rylang
 
     std::string to_string(qualified_symbol_reference const&);
 
+
+
 } // namespace rylang
 
 #include "rylang/manipulators/qmanip.hpp"

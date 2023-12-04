@@ -665,6 +665,16 @@ namespace rylang
 
                 output = subentity_reference{std::move(output), std::move(ident)};
             }
+            else if (skip_symbol_if_is(pos, end,  "."))
+            {
+                std::string remaining = std::string(pos, end);
+                auto ident = get_skip_subentity(pos, end);
+                if (ident.empty())
+                {
+                    return false;
+                }
+                output = subdotentity_reference{std::move(output), std::move(ident)};
+            }
             else if (skip_symbol_if_is(pos, end, "->"))
             {
                 outputv = pointer_to_reference{collect_qualified_symbol(pos, end)};

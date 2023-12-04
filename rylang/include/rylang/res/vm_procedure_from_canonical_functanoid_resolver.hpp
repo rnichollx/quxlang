@@ -30,8 +30,6 @@ namespace rylang
             return "What is the vm_procedure for " + to_string(input_val) + "?";
         }
 
-
-
       private:
         struct context_frame
         {
@@ -176,6 +174,11 @@ namespace rylang
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_copy_assign expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_call expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, numeric_literal expr);
+        rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_this_reference expr);
+        rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_thisdot_reference expr);
+
+        vm_value gen_this(context_frame& ctx);
+        rpnx::general_coroutine< compiler, vm_value > gen_access_field(context_frame& ctx, vm_value val, std::string field_name);
     };
 } // namespace rylang
 

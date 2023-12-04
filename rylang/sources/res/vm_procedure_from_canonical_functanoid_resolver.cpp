@@ -129,7 +129,10 @@ namespace rylang
 
         if (is_ref(vartype))
         {
-            load.type = vartype;
+            load.type = pointer_to_reference{vartype};
+
+            auto deref = vm_expr_dereference{load, vartype};
+            return deref;
         }
         else
         {
@@ -271,6 +274,7 @@ namespace rylang
     }
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_value(std::size_t index, bool alive, bool temp)
     {
+        auto th = this;
         vm_expr_load_address load;
         load.index = index;
         auto vartype = m_frame.variables.at(index).type;
@@ -284,7 +288,10 @@ namespace rylang
 
         if (is_ref(vartype))
         {
-            load.type = vartype;
+            load.type = pointer_to_reference{vartype};
+            auto deref = vm_expr_dereference{load, vartype};
+
+            return deref;
         }
         else
         {
@@ -447,9 +454,7 @@ namespace rylang
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
         co_await run_value_constructor(0, {std::move(val)});
-
         set_value_alive(0);
-
         co_return {};
     }
 } // namespace rylang
@@ -491,9 +496,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
     }
     // TODO: Support more member function logic, e.g. templates
 
-
-
-    std::optional<vm_value> this_value;
+    std::optional< vm_value > this_value;
+    std::optional< qualified_symbol_reference > this_type;
+    std::optional< qualified_symbol_reference > thistype_type;
     vm_procedure vm_proc;
     vm_proc.mangled_name = mangle(func_name);
     vm_generation_frame_info frame;
@@ -516,13 +521,41 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             vm_proc.interface.return_type = function_ast_v.return_type.value();
         }
 
+        if (function_ast_v.this_type)
+        {
 
+            vm_frame_variable var;
+            var.name = "THIS";
+            if (typeis< context_reference >(function_ast_v.this_type.value()))
+            {
+                var.type = make_mref(parent_type.value());
+            }
+            else
+            {
+                var.type = function_ast_v.this_type.value();
+            }
+
+
+            //var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
+            var.storage.kind = storage_type::argument;
+            frame.variables.push_back(var);
+            assert(is_member && !this_value.has_value());
+
+            this_value = var.get_addr;
+            assert(is_ref(var.type));
+            this_type = var.type;
+            thistype_type = remove_ref(var.type);
+            assert(!frame.blocks.empty());
+            frame.blocks.back().variable_lookup_index["THIS"] = frame.variables.size() - 1;
+            frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
+            frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
+            vm_proc.interface.argument_types.push_back(var.type);
+        }
 
         for (auto& arg : function_ast_v.args)
         {
 
-
-            // TODO: consider pass by pointer of large values instead of by value
+            // TODO: consider pass by pointer of large values instead of by value?
             vm_frame_variable var;
             // NOTE: Make sure that we can handle contextual types in arg list.
             //  They should be decontextualized somewhere else probably.. so maybe this will
@@ -535,10 +568,6 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
-            if (is_member && !this_value.has_value())
-            {
-                this_value = var.get_addr;
-            }
             assert(!frame.blocks.empty());
             frame.blocks.back().variable_lookup_index[arg.name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
@@ -555,6 +584,22 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
 
         if (is_constructor)
         {
+            // TODO: Refector this into separate function?
+            assert(thistype_type.has_value());
+            class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
+            std::set< std::string > intialized_members;
+            for (function_delegate& delegate : function_ast_v.delegates)
+            {
+                // TODO: Support intializing base classes (after we add inheritance)
+
+                auto& target = delegate.target;
+
+                if (typeis< subentity_reference >(target) && (as< subentity_reference >(target).parent == qualified_symbol_reference(context_reference{})))
+                {
+                    std::string name = as< subentity_reference >(target).subentity_name;
+                }
+            }
+
             gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
         }
 
@@ -631,6 +676,15 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     {
         co_return co_await gen_value(ctx, boost::get< numeric_literal >(std::move(expr)));
     }
+    else if (typeis< expression_thisdot_reference >(expr))
+    {
+        co_return co_await gen_value(ctx, boost::get< expression_thisdot_reference >(std::move(expr)));
+    }
+    else if (typeis< expression_this_reference >(expr))
+    {
+        co_return co_await gen_value(ctx, boost::get< expression_this_reference >(std::move(expr)));
+    }
+
     else
     {
         throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
@@ -981,6 +1035,66 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 {
     co_return vm_expr_literal{expr.value};
 }
+rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, expression_this_reference expr)
+{
+    co_return gen_this(ctx);
+}
+rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, expression_thisdot_reference expr)
+{
+    auto thisval = gen_this(ctx);
+    return gen_access_field(ctx, thisval, expr.field_name);
+}
+
+vm_value vm_procedure_from_canonical_functanoid_resolver::gen_this(context_frame& ctx)
+{
+    return ctx.load_variable("THIS");
+}
+
+rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_access_field(context_frame& ctx, vm_value val, std::string field_name)
+{
+    auto th = this;
+    auto thisval = gen_this(ctx);
+
+    auto thisreftype = vm_value_type(thisval);
+    assert(is_ref(thisreftype));
+    auto thistype = remove_ref(thisreftype);
+
+    class_layout layout = co_await *ctx.compiler()->lk_class_layout_from_canonical_chain(thistype);
+
+    for (class_field_info const& field : layout.fields)
+    {
+        if (field.name == field_name)
+        {
+            vm_expr_access_field access;
+            if (typeis< mvalue_reference >(thisreftype))
+            {
+                access.type = make_mref(field.type);
+            }
+            else if (typeis< tvalue_reference >(thisreftype))
+            {
+                access.type = make_tref(field.type);
+            }
+            else if (typeis< ovalue_reference >(thisreftype))
+            {
+                access.type = make_oref(field.type);
+            }
+            else if (typeis< cvalue_reference >(thisreftype))
+            {
+                access.type = make_cref(field.type);
+            }
+            else
+            {
+                assert(false);
+            }
+            access.base = thisval;
+            access.offset = field.offset;
+            co_return access;
+        }
+    }
+
+    throw std::runtime_error("No such field");
+}
+
 rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
 {
 
@@ -1203,6 +1317,8 @@ rpnx::general_coroutine< rylang::compiler, std::optional< rylang::vm_value > > r
                 co_return std::nullopt;
             }
 
+            // assert(!is_ref(parent_type));
+
             co_return co_await gen_default_destructor(ctx, parent_type, values);
         }
     }
@@ -1236,8 +1352,8 @@ rpnx::general_coroutine< compiler, void > rylang::vm_procedure_from_canonical_fu
 rpnx::general_coroutine< compiler, vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_default_destructor(context_frame& ctx, rylang::qualified_symbol_reference type, std::vector< vm_value > values)
 {
     // TODO: make default constructing references an error
-
-    assert(!is_ref(type));
+    std::string typestr = to_string(type);
+    // assert(!is_ref(type));
 
     if (values.size() != 1)
     {
@@ -1247,18 +1363,7 @@ rpnx::general_coroutine< compiler, vm_value > rylang::vm_procedure_from_canonica
     auto arg_type = vm_value_type(values.at(0));
     assert(arg_type == make_mref(type) || arg_type == make_oref(type));
 
-    if (is_ptr(type))
-    {
-        vm_expr_store set_poison;
-        set_poison.type = type;
-        set_poison.where = values.at(0);
-        set_poison.what = vm_expr_poison{type};
-        ctx.push(vm_execute_expression{set_poison});
-
-        co_return void_value{};
-    }
-
-    if (is_primitive(type))
+    if (is_ptr(type) || is_primitive(type) || is_ref(type))
     {
         vm_expr_store set_poison;
         set_poison.type = type;
@@ -1276,6 +1381,8 @@ rpnx::general_coroutine< compiler, vm_value > rylang::vm_procedure_from_canonica
     for (auto const& field : layout.fields)
     {
         vm_expr_access_field access;
+
+        std::string field_typestr = to_string(field.type);
         access.type = make_mref(field.type);
         access.base = this_obj;
         access.offset = field.offset;

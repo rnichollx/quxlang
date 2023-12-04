@@ -20,6 +20,7 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "rylang/to_pretty_string.hpp"
 #include <iostream>
@@ -34,6 +35,8 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/LLVMContext.h>
@@ -101,11 +104,13 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // Add necessary analysis passes that mem2reg might require
     FPM.add(llvm::createBasicAAWrapperPass());
     FPM.add(llvm::createVerifierPass());
+    FPM.add(llvm::createInstructionCombiningPass());
 
     // Promote allocas to registers.
     FPM.add(llvm::createPromoteMemoryToRegisterPass());
 
     FPM.add(llvm::createSROAPass());
+    //FPM.add(new llvm::SimplifyCFGPass());
 
     // Do the transformations
     FPM.doInitialization();

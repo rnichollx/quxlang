@@ -22,7 +22,7 @@ namespace rylang
             // TODO: This probably isn't right
             return (boost::get< primitive_type_integer_reference >(t).bits + 7) / 8;
         }
-        else if (is_ptr(t))
+        else if (is_ptr(t) || is_ref(t))
         {
             // TODO: This obviously isn't correct on all machines, but we'll fix that later.
             return 8;

@@ -47,8 +47,9 @@ IMPORT linux;
           .x VAR I32;
 
           .CONSTRUCTOR(%xa I32)
-          : x:(xa)
+          : .x:(xa)
           {
+            // .x := xa;
             RETURN;
           }
         }
