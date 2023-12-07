@@ -1356,7 +1356,7 @@ namespace rpnx
                 if (n->resolved() && ! n->m_attached_to)
                 {
 
-                    std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                    //std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
                 }
                 if (n->has_error())
                 {

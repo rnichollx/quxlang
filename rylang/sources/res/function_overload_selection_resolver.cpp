@@ -23,10 +23,10 @@ rpnx::resolver_coroutine<rylang::compiler, rylang::call_parameter_information> r
 
     for (auto & argtype : args.argument_types)
     {
-       std::cout << " " << to_string(argtype) << ",";
+       ss << " " << to_string(argtype) << ",";
     }
 
-    std::cout << std::endl;
+    ss << std::endl;
 
     auto overloads_opt  = co_await *c->lk_list_functum_overloads(funcloc);
 

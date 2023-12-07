@@ -1,7 +1,0 @@
-1. every class with *_resolver:
- a. lives in the rylang namespace
- b. inherits from rpnx::resolver_base
- c. and declares a key_type
- d. #includes "rpnx/resolver_utilities.hpp"
- e. includes "rylang/compiler_fwd.hpp"
- f. declares a virtual void process function

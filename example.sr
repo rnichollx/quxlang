@@ -1,6 +1,6 @@
 MODULE main;
 
-IMPORT linux;
+
 
 
 ::foo CLASS {
@@ -45,11 +45,11 @@ IMPORT linux;
         ::nux CLASS
         {
           .x VAR I32;
+          .y VAR I32;
 
           .CONSTRUCTOR(%xa I32)
-          : .x:(xa)
+          : .x:(xa + 4)
           {
-            // .x := xa;
             RETURN;
           }
         }
@@ -89,11 +89,10 @@ IMPORT linux;
         {
            VAR c I64 :(4);
 
-
-
            WHILE (a < 9) {
              a := a + 1;
            }
+
            RETURN a;
         }
 

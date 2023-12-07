@@ -594,13 +594,61 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
 
                 auto& target = delegate.target;
 
-                if (typeis< subentity_reference >(target) && (as< subentity_reference >(target).parent == qualified_symbol_reference(context_reference{})))
+                if (typeis< subdotentity_reference >(target) && (as< subdotentity_reference >(target).parent == qualified_symbol_reference(context_reference{})))
                 {
-                    std::string name = as< subentity_reference >(target).subentity_name;
+                    std::string name = as< subdotentity_reference >(target).subdotentity_name;
+
+                    // We need to loop over the layout fields and find this member
+                    for (class_field_info& field : this_layout.fields)
+                    {
+                        if (field.name == name)
+                        {
+                            // We should generate the args for this call and then call the constructor
+
+                            std::vector<vm_value> args;
+
+                            // The first arg is the
+
+                            auto th = gen_this(ctx);
+
+                            auto get_element_ptr = vm_expr_access_field{th,  field.offset, make_mref(field.type)};
+
+                            args.push_back(get_element_ptr);
+
+                            for (auto& arg_expr : delegate.args)
+                            {
+                                auto val = co_await gen_value_generic(ctx, arg_expr);
+                                args.push_back(val);
+                            }
+
+                            co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
+
+                            intialized_members.insert(name);
+                        }
+                    }
                 }
+
+
             }
 
-            gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
+            for (class_field_info& field : this_layout.fields)
+            {
+                if (intialized_members.contains(field.name))
+                {
+                    continue;
+                }
+                std::vector<vm_value> args;
+
+                auto th = gen_this(ctx);
+
+                auto get_element_ptr = vm_expr_access_field{th,  field.offset, make_mref(field.type)};
+
+                args.push_back(get_element_ptr);
+
+                co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
+            }
+
+            //gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
         }
 
         // Then generate the body

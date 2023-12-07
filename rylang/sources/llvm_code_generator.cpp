@@ -11,6 +11,27 @@
 #include "rylang/manipulators/vmmanip.hpp"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/IR/IRBuilder.h"
@@ -111,12 +132,42 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     FPM.add(llvm::createSROAPass());
     //FPM.add(new llvm::SimplifyCFGPass());
-
+/*
     // Do the transformations
     FPM.doInitialization();
     FPM.run(*func);
     FPM.run(*func);
     FPM.doFinalization();
+    */
+
+
+    // Create the analysis managers.
+    // These must be declared in this order so that they are destroyed in the
+    // correct order due to inter-analysis-manager references.
+    llvm::LoopAnalysisManager LAM;
+    llvm::FunctionAnalysisManager FAM;
+    llvm::CGSCCAnalysisManager CGAM;
+    llvm::ModuleAnalysisManager MAM;
+
+    // Create the new pass manager builder.
+    // Take a look at the PassBuilder constructor parameters for more
+    // customization, e.g. specifying a TargetMachine or various debugging
+    // options.
+    llvm::PassBuilder PB;
+
+    // Register all the basic analyses with the managers.
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    // Create the pass manager.
+    // This one corresponds to a typical -O2 optimization pipeline.
+    llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+
+    // Optimize the IR!
+    MPM.run(*frame.module, MAM);
 
     func->print(llvm::outs());
 
@@ -205,8 +256,8 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         if (typeis< vm_block >(ex))
         {
             // TODO: consider adding separate frame info here
-            vm_block const& block = boost::get< vm_block >(ex);
-            if (!generate_code(context, p_block, block, frame, vmf))
+            vm_block const& block2 = boost::get< vm_block >(ex);
+            if (!generate_code(context, p_block, block2, frame, vmf))
             {
                 return false;
             }
@@ -281,13 +332,13 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             bool if_has_terminator = false;
             bool else_has_terminator = false;
 
-            vm_block const& block = if_.then_block;
-            if_has_terminator = !generate_code(context, then_block, block, frame, vmf);
+            vm_block const& block2 = if_.then_block;
+            if_has_terminator = !generate_code(context, then_block, block2, frame, vmf);
 
             if (if_.else_block.has_value())
             {
-                vm_block const& block = if_.else_block.value();
-                else_has_terminator = !generate_code(context, else_block, block, frame, vmf);
+                vm_block const& block3 = if_.else_block.value();
+                else_has_terminator = !generate_code(context, else_block, block3, frame, vmf);
             }
 
             // jump to after block
@@ -325,8 +376,8 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
 
             bool while_body_has_terminator = false;
 
-            vm_block const& block = while_.loop_block;
-            while_body_has_terminator = !generate_code(context, loop_block, block, frame, vmf);
+            vm_block const& block4 = while_.loop_block;
+            while_body_has_terminator = !generate_code(context, loop_block, block4, frame, vmf);
             // jump to after block
 
             if (!while_body_has_terminator)
@@ -601,10 +652,12 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
     assert(false);
     return nullptr;
 }
+
 llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_symbol(llvm::LLVMContext& context, rylang::qualified_symbol_reference typ)
 {
     return nullptr;
 }
+
 llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_interface(llvm::LLVMContext& context, rylang::vm_procedure_interface ifc)
 {
     std::vector< llvm::Type* > arg_types;
@@ -624,6 +677,7 @@ llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_interfa
 
     return llvm::FunctionType::get(return_type, arg_types, false);
 }
+
 llvm::Type* rylang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& context)
 {
     // TODO: check the actual bitwidth on the current platform
