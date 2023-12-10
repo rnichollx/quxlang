@@ -597,7 +597,7 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
             std::uint64_t value_number = std::stoull(value_string);
             return llvm::ConstantInt::get(llvm_int_type, value_number, int_type.has_sign);
         }
-        if (lit.type.type() == boost::typeindex::type_id< pointer_to_reference >())
+        if (lit.type.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
             if (lit.literal == "NULLPTR")
             {

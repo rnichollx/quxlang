@@ -22,7 +22,7 @@ namespace rylang
     {
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subentity_reference const& ref) const;
-        std::string operator()(pointer_to_reference const& ref) const;
+        std::string operator()(instance_pointer_type const& ref) const;
         std::string operator()(functanoid_reference const& ref) const;
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
@@ -37,10 +37,19 @@ namespace rylang
         std::string operator()(void_type const&) const;
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(avalue_reference const&) const;
+        std::string operator()(template_reference const &) const;
 
       public:
         qualified_symbol_stringifier() = default;
     };
+
+
+    struct template_match_results
+    {
+        std::map<std::string, qualified_symbol_reference > matches;
+    };
+
+    std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type);
 
     inline auto knot(context_reference) -> std::tuple<>
     {
@@ -191,7 +200,7 @@ namespace rylang
 
     inline bool is_ptr(qualified_symbol_reference type)
     {
-        if (typeis< pointer_to_reference >(type))
+        if (typeis< instance_pointer_type >(type))
         {
             return true;
         }
@@ -238,6 +247,8 @@ namespace rylang
         return !qualified_is_contextual(ref);
     }
 
+
+
     inline bool is_integral(qualified_symbol_reference const& ref)
     {
         return typeis< primitive_type_integer_reference >(ref);
@@ -272,7 +283,7 @@ namespace rylang
 
     inline bool is_primitive(qualified_symbol_reference sym)
     {
-        return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym) || typeis< pointer_to_reference >(sym);
+        return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym) || typeis< instance_pointer_type >(sym);
     }
 
 } // namespace rylang

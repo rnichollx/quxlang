@@ -28,8 +28,6 @@ class collector_tester : public ::testing::Test
 {
 };
 
-
-
 TEST(mangling, name_mangling_new)
 {
     rylang::module_reference module{"main"};
@@ -40,10 +38,10 @@ TEST(mangling, name_mangling_new)
 
     rylang::subentity_reference subentity3{subentity2, "baz"};
 
-    rylang::functanoid_reference param_set{subentity3, {}};
+    rylang::functanoid_reference param_set{subentity3, {}, {}};
 
-    param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
-    param_set.parameters.push_back(rylang::primitive_type_reference{"I32"});
+    param_set.parameters.push_back(rylang::primitive_type_integer_reference{32, true});
+    param_set.parameters.push_back(rylang::primitive_type_integer_reference{32, true});
 
     std::string mangled_name = rylang::mangle(rylang::qualified_symbol_reference(param_set));
 
@@ -65,7 +63,8 @@ TEST_F(collector_tester, order_of_operations)
 
     std::string str = rylang::to_string(expr);
 
-    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< rylang::expression_copy_assign >());
+    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< rylang::expression_binary >());
+    ASSERT_TRUE(boost::get< rylang::expression_binary >(expr).operator_str == ":=");
     ASSERT_EQ(it, it_end);
 };
 
@@ -187,4 +186,35 @@ TEST(rylang_modules, merge_entities)
     rylang::merge_entity(c, b);
 
     ASSERT_EQ(c, e);
+}
+
+TEST(qual, template_matching)
+{
+    rylang::qualified_symbol_reference template1 = rylang::template_reference{"foo"};
+    rylang::qualified_symbol_reference template2 = rylang::instance_pointer_type{rylang::template_reference{"foo"}};
+    rylang::qualified_symbol_reference type1 = rylang::primitive_type_integer_reference{32, true};
+    rylang::qualified_symbol_reference type2 = rylang::instance_pointer_type{rylang::primitive_type_integer_reference{32, true}};
+
+    auto res1 = rylang::match_template(template1, type1);
+
+    ASSERT_TRUE(res1.has_value());
+    ASSERT_TRUE(res1.value().matches["foo"] == type1);
+    ASSERT_TRUE(res1.value().matches["foo"] != type2);
+
+    auto res2 = rylang::match_template(template1, type2);
+
+    ASSERT_TRUE(res2.has_value());
+    ASSERT_TRUE(res2.value().matches["foo"] == type2);
+    ASSERT_TRUE(res2.value().matches["foo"] != type1);
+
+    auto res3 = rylang::match_template(template2, type1);
+
+    ASSERT_FALSE(res3.has_value());
+
+    auto res4 = rylang::match_template(template2, type2);
+    ASSERT_TRUE(res4.has_value());
+    ASSERT_TRUE(res4.value().matches["foo"] == type1);
+    ASSERT_TRUE(res4.value().matches["foo"] != type2);
+
+
 }

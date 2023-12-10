@@ -15,6 +15,7 @@ namespace rylang
     struct class_entity_ast
     {
         std::set< std::string > m_keywords;
+        std::vector<std::string> m_var_order;
         std::string to_string(entity_ast const*) const;
         std::strong_ordering operator<=>(class_entity_ast const&) const = default;
     };

@@ -21,6 +21,7 @@ namespace rylang
         std::optional< qualified_symbol_reference > return_type;
         std::optional< qualified_symbol_reference > this_type;
         std::vector < function_delegate > delegates;
+        std::optional<std::int64_t> priority;
         function_block body;
 
 

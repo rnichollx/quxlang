@@ -32,9 +32,9 @@ namespace rylang
 
             return mangle_internal(se.parent) + "D" + se.subdotentity_name;
         }
-        else if (qt.type() == boost::typeindex::type_id< pointer_to_reference >())
+        else if (qt.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            return "P" + mangle_internal(boost::get< pointer_to_reference >(qt).target);
+            return "P" + mangle_internal(boost::get< instance_pointer_type >(qt).target);
         }
         else if (qt.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {

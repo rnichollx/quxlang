@@ -460,7 +460,7 @@ namespace rylang
             return "booltype{}\n";
         }
 
-        std::string operator()(pointer_to_reference const& ptr)
+        std::string operator()(instance_pointer_type const& ptr)
         {
             std::string result;
             result = "pointer_to_reference{\n";
@@ -568,7 +568,6 @@ namespace rylang
             return result;
         }
 
-
         std::string operator()(bound_function_type_reference const& ref)
         {
             std::string result;
@@ -636,6 +635,11 @@ namespace rylang
             result += indent_string() + "}\n";
             return result;
         }
+
+        std::string operator()(template_reference const& ref)
+        {
+            return "template_reference{ name: " + ref.name + " }\n";
+        }
     };
 
     inline std::string to_pretty_string(expression expr)
@@ -649,6 +653,7 @@ namespace rylang
         to_pretty_string_visitor visitor;
         return boost::apply_visitor(visitor, expr);
     }
+
 } // namespace rylang
 
 #endif // TO_PRETTY_STRING_HPP

@@ -26,9 +26,9 @@ namespace rylang
         {
             return boost::get< subentity_reference >(input).parent;
         }
-        else if (input.type() == boost::typeindex::type_id< pointer_to_reference >())
+        else if (input.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            return boost::get< pointer_to_reference >(input).target;
+            return boost::get< instance_pointer_type >(input).target;
         }
         else if (input.type() == boost::typeindex::type_id< functanoid_reference >())
         {
@@ -54,9 +54,9 @@ namespace rylang
         {
             return subentity_reference{with_context(boost::get< subentity_reference >(ref).parent, context), boost::get< subentity_reference >(ref).subentity_name};
         }
-        else if (ref.type() == boost::typeindex::type_id< pointer_to_reference >())
+        else if (ref.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            return pointer_to_reference{with_context(boost::get< pointer_to_reference >(ref).target, context)};
+            return instance_pointer_type{with_context(boost::get< instance_pointer_type >(ref).target, context)};
         }
         else if (ref.type() == boost::typeindex::type_id< functanoid_reference >())
         {
@@ -78,7 +78,7 @@ namespace rylang
     {
         return to_string(ref.parent) + "::" + ref.subentity_name;
     }
-    std::string qualified_symbol_stringifier::operator()(pointer_to_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(instance_pointer_type const& ref) const
     {
         return "->" + boost::apply_visitor(*this, ref.target);
     }
@@ -153,4 +153,104 @@ namespace rylang
     {
         return "ARGUMENT& " + to_string(val.target);
     }
+    std::string qualified_symbol_stringifier::operator()(template_reference const& val) const
+    {
+        return "T(" + val.name + ")";
+    }
+    std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type)
+    {
+        std::optional< template_match_results > results;
+        assert(is_canonical(type));
+
+        // Template portion match.
+        // e.g. T(t1) matches I32 and sets t1 to I32
+        if (typeis< template_reference >(template_type))
+        {
+            template_match_results output;
+            auto name = boost::get< template_reference >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = type;
+            }
+            results = std::move(output);
+            return results;
+        }
+
+        // Exact match, e.g. I32 matches I32
+        if (template_type == type)
+        {
+            return template_match_results{};
+        }
+
+        // Impossible to match in this case, e.g. a pointer reference cannot match an integer
+        // Note that template matching doesn't do any implicit conversions.
+        // So for example, MUT& I32 cannot match a template CONST& I32,
+        // even though a MUT& I32 can be implicitly converted to a CONST& I32.
+        // This is because might be matching a template parameter, and implementations might differ,
+        // so we can't assume that the conversion is valid.
+        // For example, a structure might implement differently depending on the mutability of the reference.
+        // Such as including a mutex in the MUT& version, but not in the CONST& version.
+        // e.g. foo@(I32, MUT& I32) cannot match foo@(I32, CONST& I32)
+
+        // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
+
+        if (template_type.type() != type.type())
+        {
+            return std::nullopt;
+        }
+
+        if (typeis< instance_pointer_type >(template_type))
+        {
+            auto const& ptr_template = boost::get< instance_pointer_type >(template_type);
+            auto const& ptr_type = boost::get< instance_pointer_type >(type);
+            return match_template(ptr_template.target, ptr_type.target);
+        }
+        else if (typeis< subentity_reference >(template_type))
+        {
+            auto const& sub_template = boost::get< subentity_reference >(template_type);
+            auto const& sub_type = boost::get< subentity_reference >(type);
+            if (sub_template.subentity_name != sub_type.subentity_name)
+            {
+                return std::nullopt;
+            }
+            return match_template(sub_template.parent, sub_type.parent);
+        }
+        else if (typeis< subdotentity_reference >(template_type))
+        {
+            // it is not possible for a type to be a subdotentity_reference
+            throw std::logic_error("::. cannot appear in an argument type or argument type template");
+        }
+        else if (typeis< cvalue_reference >(template_type))
+        {
+            cvalue_reference const& template_cval = boost::get< cvalue_reference >(template_type);
+            cvalue_reference const& type_cval = boost::get< cvalue_reference >(type);
+            return match_template(template_cval.target, type_cval.target);
+        }
+        else if (typeis< mvalue_reference >(template_type))
+        {
+            mvalue_reference const& template_mval = boost::get< mvalue_reference >(template_type);
+            mvalue_reference const& type_mval = boost::get< mvalue_reference >(type);
+            return match_template(template_mval.target, type_mval.target);
+        }
+        else if (typeis< ovalue_reference >(template_type))
+        {
+            ovalue_reference const& template_oval = boost::get< ovalue_reference >(template_type);
+            ovalue_reference const& type_oval = boost::get< ovalue_reference >(type);
+            return match_template(template_oval.target, type_oval.target);
+        }
+        else if (typeis< tvalue_reference >(template_type))
+        {
+            tvalue_reference const& template_tval = boost::get< tvalue_reference >(template_type);
+            tvalue_reference const& type_tval = boost::get< tvalue_reference >(type);
+            return match_template(template_tval.target, type_tval.target);
+        }
+
+
+        // In other cases, we are talking about a non-composite reference
+        // However, we should make sure we don't miss types
+
+        assert(typeis< primitive_type_integer_reference >(template_type) || typeis< primitive_type_bool_reference >(template_type)  || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        return std::nullopt;
+    }
+
 } // namespace rylang

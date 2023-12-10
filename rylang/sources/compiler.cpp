@@ -17,16 +17,8 @@ rylang::compiler::out< rylang::file_ast > rylang::compiler::lk_file_ast(std::str
 {
     return m_file_ast_index.lookup(filename);
 }
-rylang::llvm_proxy_type rylang::compiler::get_llvm_proxy_return_type_of(qualified_symbol_reference chain)
-{
-    // TODO: Implement this with real code
-    return rylang::llvm_proxy_type_int{32, false};
-}
-std::vector< rylang::llvm_proxy_type > rylang::compiler::get_llvm_proxy_argument_types_of(rylang::qualified_symbol_reference chain)
-{
-    // TODO: Make this use real values
-    return {llvm_proxy_type_pointer(), llvm_proxy_type_int{32, false}};
-}
+
+
 
 rylang::function_ast rylang::compiler::get_function_ast_of_overload(qualified_symbol_reference chain)
 {

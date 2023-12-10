@@ -7,7 +7,7 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
     qualified_symbol_reference const& type = m_type;
     std::string type_str = to_string(type);
 
-    if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
+    if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
         machine_info m = c->m_machine_info;
 

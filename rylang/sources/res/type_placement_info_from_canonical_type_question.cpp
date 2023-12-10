@@ -26,7 +26,7 @@ namespace rylang
 
         int four = co_await general_int_4_returner<Graph>();
 
-        if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
+        if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
             machine_info m = g->m_machine_info;
 

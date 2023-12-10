@@ -181,6 +181,24 @@ namespace rylang
             return m_entity_stack.back();
         }
 
+        entity_ast* parent_entity()
+        {
+            assert(m_entity_stack.size() > 1);
+            return m_entity_stack[m_entity_stack.size() - 2];
+        }
+
+        std::string const& current_entity_name()
+        {
+            assert(m_symbol_stack.empty() == false);
+            return m_symbol_stack.back();
+        }
+
+        std::string const& parent_entity_name()
+        {
+            assert(m_symbol_stack.size() > 1);
+            return m_symbol_stack[m_symbol_stack.size() - 2];
+        }
+
       public:
         std::function< void(std::string const&, function_ast const&) > emit_function;
         // std::function< void(std::string const&, class_ast const&) > emit_class;
@@ -315,8 +333,6 @@ namespace rylang
                 f.this_type = context_reference{};
             }
 
-
-
             func_entity->m_function_overloads.push_back(std::move(f));
             return true;
         }
@@ -382,6 +398,47 @@ namespace rylang
             r = remaining(pos, end);
         }
 
+        template < typename It >
+        void try_collect_function_specifiers(It& pos, It it_end, function_ast& f)
+        {
+        start:
+
+            skip_wsc(pos, it_end);
+
+            if (skip_keyword_if_is(pos, it_end, "PRIORITY"))
+            {
+                if (f.priority.has_value())
+                {
+                    throw std::runtime_error("PRIORITY already specified");
+                }
+
+                skip_wsc(pos, it_end);
+
+                if (!skip_symbol_if_is(pos, it_end, "("))
+                {
+                    throw std::runtime_error("Expected '(' after PRIORITY");
+                }
+
+                auto num = get_skip_number(pos, it_end);
+                if (num.empty())
+                {
+                    // TODO: support expressions here
+                    throw std::runtime_error("Expected number after PRIORITY(");
+                }
+
+                skip_wsc(pos, it_end);
+
+                if (!skip_symbol_if_is(pos, it_end, ")"))
+                {
+                    throw std::runtime_error("Expected ')' after PRIORITY(");
+                }
+
+                f.priority = std::stoi(num);
+
+                goto start;
+            }
+        }
+
         // Call this function after "FUNCTION",
         template < typename It >
         void collect_function(It& pos, It it_end, function_ast& f, functype type = functype::regular)
@@ -415,12 +472,13 @@ namespace rylang
 
             std::string remaining2(pos, it_end);
             skip_wsc(pos, it_end);
+            try_collect_function_specifiers(pos, it_end, f);
+            try_collect_function_return_type(pos, it_end, f);
             collect_function_body(pos, it_end, f);
 
             if (current_entity()->m_is_field_entity && !f.this_type.has_value())
             {
                 f.this_type = context_reference{};
-
             }
         }
 
@@ -509,9 +567,9 @@ namespace rylang
         template < typename It >
         bool try_collect_class_keyword(It& pos, It it_end)
         {
-            class_entity_ast * class_entity = current_entity2< class_entity_ast >();
+            class_entity_ast* class_entity = current_entity2< class_entity_ast >();
 
-            std::set<std::string> keywords = {"NO_MOVE", "NO_COPY", "TRIVIALLY_COPYABLE", "RELOCATABLE", "NO_DEFAULT_CONSTRUCTOR", "NO_RELOCATE" };
+            std::set< std::string > keywords = {"NO_MOVE", "NO_COPY", "TRIVIALLY_COPYABLE", "RELOCATABLE", "NO_DEFAULT_CONSTRUCTOR", "NO_RELOCATE"};
 
             std::string next_kw = get_keyword(pos, it_end);
             if (keywords.contains(next_kw))
@@ -576,7 +634,16 @@ namespace rylang
             auto variable_entity = current_entity2< variable_entity_ast >();
 
             skip_wsc(begin, end);
+
+            auto name = current_entity_name();
             // now type
+
+            auto parent = parent_entity();
+            if (parent->type() == entity_type::class_type)
+            {
+                auto& cls = parent->get_as< class_entity_ast >();
+                cls.m_var_order.push_back(name);
+            }
 
             // type_ref_ast typ;
             qualified_symbol_reference typ;
@@ -665,7 +732,7 @@ namespace rylang
 
                 output = subentity_reference{std::move(output), std::move(ident)};
             }
-            else if (skip_symbol_if_is(pos, end,  "."))
+            else if (skip_symbol_if_is(pos, end, "."))
             {
                 std::string remaining = std::string(pos, end);
                 auto ident = get_skip_subentity(pos, end);
@@ -677,7 +744,7 @@ namespace rylang
             }
             else if (skip_symbol_if_is(pos, end, "->"))
             {
-                outputv = pointer_to_reference{collect_qualified_symbol(pos, end)};
+                outputv = instance_pointer_type{collect_qualified_symbol(pos, end)};
                 return true;
             }
             else
@@ -866,7 +933,7 @@ namespace rylang
         }
 
         template < typename It >
-        void collect_function_body(It& pos, It end, function_ast& f)
+        void try_collect_function_return_type(It& pos, It end, function_ast& f)
         {
             skip_wsc(pos, end);
 
@@ -879,6 +946,12 @@ namespace rylang
 
                 skip_wsc(pos, end);
             }
+        }
+
+        template < typename It >
+        void collect_function_body(It& pos, It end, function_ast& f)
+        {
+            skip_wsc(pos, end);
 
             if (!skip_symbol_if_is(pos, end, "{"))
             {
@@ -915,7 +988,7 @@ namespace rylang
                 // end of function body
                 return;
             }
-            remaining = std::string(pos, end);
+            auto remaining = std::string(pos, end);
             throw std::runtime_error("Expected '}' or statement");
         }
 

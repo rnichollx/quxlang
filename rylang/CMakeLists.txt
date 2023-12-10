@@ -68,6 +68,8 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/manipulators/tmanip.hpp
         include/rylang/res/call_params_of_function_ast_resolver.hpp
         sources/res/call_params_of_function_ast_resolver.cpp
+        include/rylang/ast2/ast2_class.hpp
+        include/rylang/ast2/ast2_variable.hpp
 
 )
 

@@ -13,9 +13,9 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     qualified_symbol_reference context = m_ref.context;
     qualified_symbol_reference const& type = m_ref.type;
 
-    if (type.type() == boost::typeindex::type_id< pointer_to_reference >())
+    if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
-        pointer_to_reference const& ptr = boost::get< pointer_to_reference >(type);
+        instance_pointer_type const& ptr = boost::get< instance_pointer_type >(type);
 
         qualified_symbol_reference to_type = ptr.target;
 
@@ -36,7 +36,7 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
 
         qualified_symbol_reference canon_ptr_to_type = canonical_to_type_dep->get();
 
-        pointer_to_reference canonical_ptr_type;
+        instance_pointer_type canonical_ptr_type;
         canonical_ptr_type.target = canon_ptr_to_type;
 
         set_value(canonical_ptr_type);

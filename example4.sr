@@ -1,0 +1,107 @@
+// Templates
+
+::foo FUNCTION(%a T(t1), %b -> T(t2)) ENABLE_IF(IS_INTEGRAL(t2))
+{
+
+}
+
+
+// Pointers
+// Standard Pointer: ->T
+// Pointer to array: [->] T
+::foo FUNCTION(a *I32)
+{
+   VAR x [4]I32;
+
+   VAR x_ptr ->I32 := &x[0]; // OK, pointer to first element
+   VAR x_ptr2 [->]I32 := &x; // OK, pointer to array
+   VAR y := x_ptr->; // OK, derefernece pointer
+   VAR y2 I32 := x_ptr2->; // OK, same as above
+   VAR y3 I32 := x_ptr2[1]; // OK, indexed dereferencing array pointer works
+   VAR y4 I32 := x_ptr[1]; // ERROR, cannot index standard pointer
+   VAR ptr3 [->]I32 := TO_ARRAY_PTR(x_ptr); // OK, convert standard pointer to array pointer
+   VAR y5 I32 := ptr3[1]; // Compiles, but undefined behavior!
+   VAR y6 I32 := LAUNDER(ptr3)[1]; // OK in this circumstances, but beware misuse
+
+   // Note on Launder:
+   // Each pointer has a "reachability" aspect. Certain values are not "reachable" from a given pointer,
+   // and dereferencing such a pointer is undefined behavior. Launder is a way to "extend" the reachability
+   // of a pointer to all possibly reachable values of the same type reachable from the current context.
+   // A standard pointer cannot "reach" other adjacent elements of an array, but an array pointer can.
+   // Laundering an array pointer that was converted from a standard pointer allows it to reach all elements
+   // of the array, but only if the array elements were reachable from another pointer in the same context.
+
+   // This means, for example, that you must launder a pointer before passing it to a function that expects
+   // an array pointer, not inside the callee. The optimizer can assume elements of local arrays are not
+   // reachable from instance pointers passed to other functions unless they are first laundered.
+
+   // e.g.:
+   VAR x [4]I32;
+   VAR y [4]I32;
+   VAR x_ptr ->I32 := &x[0];
+
+
+   foo(x_ptr);
+   // The compiler may assume x[1], x[2], x[3] are not read or modified by the call to foo(x_ptr)
+   // because they are not reachable from an instance pointer
+
+
+   VAR x_array_ptr [->]I32 := TO_ARRAY_PTR(x_ptr);
+
+   foo(x_array_ptr);
+   // The compiler can still assume x[1], x[2], x[3] are not read or modified by the call to foo(x_array_ptr)
+   // because the reachability of x_array_ptr is the same as x_ptr
+
+   foo(LAUNDER(x_array_ptr));
+   // The compiler can no longer assume x[1], x[2], x[3] are not read or modified by the call to foo(x_array_ptr)
+   // because x[1], x[2], and x[3] are in the "possibly reachable" set of x_array_ptr, and were accessible from
+   // the current context.
+
+   // Note that calling LAUNDER inside the foo function would have no effect, because the "possibly reachable"
+   // set of x_array_ptr is not extended to the callee.
+
+   // However, the compiler may still assume y[0], y[1], y[2], y[3] are not read or modified by the call to foo(x_array_ptr)
+   // because they were not within the "possibly reachable" set of x_ptr.
+
+   // In general, the "possibly reachable" set of a pointer is all the values in the same array as the pointer,
+   // However, it most notably does *not* include other structure members of the same structure as the pointer.
+   // e.g. you *cannot* do this using an array pointer:
+
+   ::foo FUNCTION(x_ptr [->]I32)
+   {
+     VAR y [->]I32 :( UINTPTR(x_ptr) - OFFSETOF(foo::bar) + OFFSETOF(foo::baz));
+     // Disallowed, because the "possibly reachable" set of x_ptr becomes the set that was reachable during
+     // the function call, and members outside the array are never reachable from an array pointer.
+   }
+
+   // There is a third type of pointer, the so called "arithmetic pointer" where we can do such offsetting:
+   ::foo FUNCTION(x_ptr *I32)
+   {
+        VAR y *barstruct := REINTERPRET_CAST@barstruct(UINTPTR(x_ptr) - OFFSETOF(foo::.baz) + OFFSETOF(foo::.bar));
+        // OK, assuming the other structure members were reachable at the time of the call
+   }
+   // Note that arithmetic pointers can reach anything that is both possibly reachable from the current context,
+   // and *derivable* from themselves, and can perform arithmetic like field offsets. However, the overuse of arithmetic
+   // pointers is discouraged because it impedes optimization.
+
+   // Note that the "possibly reachable" set of a pointer is not strictly the same as the "possibly reachable"
+   // set of the current context. For example, if you have a pointer to a local variable, the "possibly reachable"
+   // set of the pointer doesn't include other local variables, because the offset of the other variables in the
+   // stack frame is undefined.
+
+   // There are two major rules to derivability:
+   // 1. We consider that a pointer to a local variable is not "derivable" from a pointer which is not itself derived
+   // from the address of said local variable in some way.
+   // 2. When a pointer is returned from an allocator, it is not derivable from any other pointer, even if we know
+   // the implementation of the allocator! I.e. the compiler may assume the allocator does not modify an object it
+   // has allocated for us, and does not share the address of the object anywhere outside the allocator.
+
+
+
+
+
+
+
+}
+
+

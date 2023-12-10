@@ -129,7 +129,7 @@ namespace rylang
 
         if (is_ref(vartype))
         {
-            load.type = pointer_to_reference{vartype};
+            load.type = instance_pointer_type{vartype};
 
             auto deref = vm_expr_dereference{load, vartype};
             return deref;
@@ -288,7 +288,7 @@ namespace rylang
 
         if (is_ref(vartype))
         {
-            load.type = pointer_to_reference{vartype};
+            load.type = instance_pointer_type{vartype};
             auto deref = vm_expr_dereference{load, vartype};
 
             return deref;
