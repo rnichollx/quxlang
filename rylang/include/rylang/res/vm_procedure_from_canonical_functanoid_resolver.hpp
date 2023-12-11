@@ -163,7 +163,7 @@ namespace rylang
         rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
         rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
 
-        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, functanoid_reference const& callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instanciation_reference const& callee, std::vector< vm_value > values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
         rpnx::general_coroutine< compiler, std::vector< vm_value > > gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< qualified_symbol_reference > const& to_types);
         rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, qualified_symbol_reference to);

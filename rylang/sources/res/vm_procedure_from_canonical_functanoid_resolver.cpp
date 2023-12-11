@@ -14,6 +14,7 @@
 #include <exception>
 
 // TODO: Debugging, remove this
+#include "rylang/debug.hpp"
 #include "rylang/to_pretty_string.hpp"
 
 #include <iostream>
@@ -401,7 +402,7 @@ namespace rylang
         auto val = load_value_as_desctructable(index);
         subdotentity_reference destructor_symbol = {type, "DESTRUCTOR"};
 
-        functanoid_reference destructor_reference;
+        instanciation_reference destructor_reference;
         destructor_reference.callee = destructor_symbol;
         destructor_reference.parameters = {make_mref(type)};
 
@@ -471,7 +472,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
     function_ast function_ast_v = co_await *c->lk_function_ast(func_name);
 
     qualified_symbol_reference functum_reference = func_name;
-    if (typeis< functanoid_reference >(func_name))
+    if (typeis< instanciation_reference >(func_name))
     {
         functum_reference = qualified_parent(func_name).value();
     }
@@ -535,8 +536,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
                 var.type = function_ast_v.this_type.value();
             }
 
-
-            //var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
+            // var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(is_member && !this_value.has_value());
@@ -552,8 +552,12 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             vm_proc.interface.argument_types.push_back(var.type);
         }
 
-        for (auto& arg : function_ast_v.args)
+        for (std::size_t i = 0; i < function_ast_v.args.size(); i++)
         {
+            auto arg = function_ast_v.args[i];
+            auto arg_type = boost::get<instanciation_reference>(func_name).parameters.at(i + (function_ast_v.this_type.has_value() ? 1 : 0) );
+
+            // TODO: Check that arg_type matches arg.type
 
             // TODO: consider pass by pointer of large values instead of by value?
             vm_frame_variable var;
@@ -562,9 +566,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             //  be impossible.
 
             // TODO: Make sure no name conflicts are allowed.
-            assert(!qualified_is_contextual(arg.type));
+            assert(!qualified_is_contextual(arg_type));
             var.name = arg.name;
-            var.type = arg.type;
+            var.type = arg_type;
             var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
@@ -572,7 +576,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             frame.blocks.back().variable_lookup_index[arg.name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
-            vm_proc.interface.argument_types.push_back(arg.type);
+            vm_proc.interface.argument_types.push_back(arg_type);
 
             // TODO: Maybe consider adding ctx.add_argument instead of doing this inside this function
         }
@@ -605,13 +609,13 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
                         {
                             // We should generate the args for this call and then call the constructor
 
-                            std::vector<vm_value> args;
+                            std::vector< vm_value > args;
 
                             // The first arg is the
 
                             auto th = gen_this(ctx);
 
-                            auto get_element_ptr = vm_expr_access_field{th,  field.offset, make_mref(field.type)};
+                            auto get_element_ptr = vm_expr_access_field{th, field.offset, make_mref(field.type)};
 
                             args.push_back(get_element_ptr);
 
@@ -627,8 +631,6 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
                         }
                     }
                 }
-
-
             }
 
             for (class_field_info& field : this_layout.fields)
@@ -637,24 +639,31 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
                 {
                     continue;
                 }
-                std::vector<vm_value> args;
+                std::vector< vm_value > args;
 
                 auto th = gen_this(ctx);
 
-                auto get_element_ptr = vm_expr_access_field{th,  field.offset, make_mref(field.type)};
+                auto get_element_ptr = vm_expr_access_field{th, field.offset, make_mref(field.type)};
 
                 args.push_back(get_element_ptr);
 
                 co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
             }
 
-            //gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
+            // gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
         }
 
         // Then generate the body
         co_await build_generic(ctx, function_ast_v.body);
 
         if (is_destructor) {}
+
+        // Implied return on void functions
+        if (!function_ast_v.return_type.has_value())
+        {
+            co_await ctx.frame_return();
+        }
+        // TODO: Else, insert termination here.
 
         co_await ctx.close();
     }
@@ -752,10 +761,10 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     // TODO: Support implicit casts
 
     qualified_symbol_reference lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
-    std::string lhs_type_string = boost::apply_visitor(qualified_symbol_stringifier(), lhs_type);
+    std::string lhs_type_string = to_string(lhs_type);
 
     qualified_symbol_reference rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
-    std::string rhs_type_string = boost::apply_visitor(qualified_symbol_stringifier(), rhs_type);
+    std::string rhs_type_string = to_string(rhs_type);
 
     if (!is_ref(lhs_type))
     {
@@ -923,6 +932,9 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 {
     auto from_type = vm_value_type(from);
 
+    RYLANG_DEBUG(std::string from_type_str = to_string(from_type));
+    RYLANG_DEBUG(std::string to_type_str = to_string(to));
+
     if (from_type == to)
     {
         co_return from;
@@ -1015,7 +1027,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 
     call_parameter_information overload = co_await *ctx.compiler()->lk_function_overload_selection(callee, call_set);
 
-    functanoid_reference overload_selected_ref;
+    instanciation_reference overload_selected_ref;
     overload_selected_ref.callee = callee;
     overload_selected_ref.parameters = overload.argument_types;
 
@@ -1146,7 +1158,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
 rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, rylang::qualified_symbol_reference callee, std::vector< vm_value > call_args)
 {
 
-    functanoid_reference const& overload_selected_ref = boost::get< functanoid_reference >(callee);
+    instanciation_reference const& overload_selected_ref = boost::get< instanciation_reference >(callee);
     std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
 
     auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
@@ -1160,7 +1172,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     co_return co_await gen_invoke(ctx, overload_selected_ref, std::move(args));
 }
 
-rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, functanoid_reference const& overload_selected_ref, std::vector< vm_value > call_args)
+rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instanciation_reference const& overload_selected_ref, std::vector< vm_value > call_args)
 {
 
     vm_expr_call call;
@@ -1221,9 +1233,9 @@ rpnx::general_coroutine< rylang::compiler, std::vector< vm_value > > rylang::vm_
 }
 rpnx::general_coroutine< rylang::compiler, std::optional< rylang::vm_value > > rylang::vm_procedure_from_canonical_functanoid_resolver::try_gen_call_functanoid_builtin(context_frame& ctx, rylang::qualified_symbol_reference callee_set, std::vector< vm_value > values)
 {
-    assert(typeis< functanoid_reference >(callee_set));
+    assert(typeis< instanciation_reference >(callee_set));
 
-    auto callee = boost::get< functanoid_reference >(callee_set).callee;
+    auto callee = boost::get< instanciation_reference >(callee_set).callee;
 
     if (typeis< subdotentity_reference >(callee))
     {

@@ -209,11 +209,119 @@ namespace rpnx
                 {
                     return "Unknown error";
                 }
-
             }
 
-
             assert(false);
+        }
+
+        std::string debug()
+        {
+            auto unmet_v = unmet_dependencies();
+            if (unmet_v.size() == 1 && (*unmet_v.begin())->m_attached_to == this)
+            {
+                return (*unmet_v.begin())->debug();
+            }
+            std::stringstream ss;
+
+            ss << "Q: " << question() << "\n";
+            if (resolved())
+            {
+                ss << "A: " << answer() << "\n";
+            }
+            else
+            {
+                ss << "A: unresolved\n";
+            }
+
+            ss << "Met dependencies:\n";
+            for (auto& d : met_dependencies())
+            {
+                ss << "  " << d->question() << ", " << d->answer() << "\n";
+            }
+
+            ss << "Unmet dependencies:\n";
+
+            for (auto& d : unmet_dependencies())
+            {
+                ss << "  " << d->question() << "\n";
+            }
+
+            ss << "Asked by:\n";
+            if (m_attached_to)
+            {
+                for (auto& d : m_attached_to->dependents())
+                {
+                    ss << "  " << d->question() << "\n";
+                }
+            }
+            else
+            {
+                for (auto& d : dependents())
+                {
+                    if (d != m_attached_to)
+                    {
+                        ss << "  " << d->question() << "\n";
+                    }
+                }
+            }
+
+            return ss.str();
+        }
+
+
+        std::string debug_recursive()
+        {
+            auto unmet_v = unmet_dependencies();
+            if (unmet_v.size() == 1 && (*unmet_v.begin())->m_attached_to == this)
+            {
+                return (*unmet_v.begin())->debug_recursive();
+            }
+            std::stringstream ss;
+
+            ss << "Q: " << question() << "\n";
+            if (resolved())
+            {
+                ss << "A: " << answer() << "\n";
+            }
+            else
+            {
+                ss << "A: unresolved\n";
+            }
+
+            ss << "Met dependencies:\n";
+            for (auto& d : met_dependencies())
+            {
+                ss << "  " << d->question() << ", " << d->answer() << "\n";
+            }
+
+            ss << "Unmet dependencies:\n";
+
+            for (auto& d : unmet_dependencies())
+            {
+                ss << "  " << d->question() << "\n";
+            }
+
+            ss << "Asked by:\n";
+            if (m_attached_to)
+            {
+                for (auto& d : m_attached_to->dependents())
+                {
+                    ss << "  +" << d->question() << "\n";
+                    ss << "Which has debug info:\n";
+                    ss << d->debug_recursive();
+                }
+            }
+            else
+            {
+                for (auto& d : dependents())
+                {
+                        ss << "  */" << d->question() << "\n";
+                        ss << "  Which has debug info:\n";
+                        ss << d->debug_recursive();
+                }
+            }
+
+            return ss.str();
         }
 
       public:
@@ -1353,10 +1461,10 @@ namespace rpnx
 
                 assert(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0);
 
-                if (n->resolved() && ! n->m_attached_to)
+                if (n->resolved() && !n->m_attached_to)
                 {
 
-                    //std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                    // std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
                 }
                 if (n->has_error())
                 {

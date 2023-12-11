@@ -9,16 +9,20 @@
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/manipulators/vm_type_alignment.hpp"
 #include "rylang/manipulators/vmmanip.hpp"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/Passes.h"
+#include "rylang/to_pretty_string.hpp"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
@@ -31,19 +35,9 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/Orc/LLJIT.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
-#include "rylang/to_pretty_string.hpp"
 #include <iostream>
 
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -59,16 +53,15 @@
 
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 
-#include <llvm/IR/Module.h>
-#include <llvm/IR/LLVMContext.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
-
 
     std::unique_ptr< llvm::LLVMContext > context_ptr = std::make_unique< llvm::LLVMContext >();
     vm_llvm_frame frame;
@@ -111,7 +104,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     llvm::BasicBlock* p_block = entry;
 
     std::string function_code_stirng = to_pretty_string(vmf.body);
-    //std::cout << function_code_stirng << std::endl;
+    // std::cout << function_code_stirng << std::endl;
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame, vmf);
 
@@ -131,15 +124,14 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     FPM.add(llvm::createPromoteMemoryToRegisterPass());
 
     FPM.add(llvm::createSROAPass());
-    //FPM.add(new llvm::SimplifyCFGPass());
-/*
-    // Do the transformations
-    FPM.doInitialization();
-    FPM.run(*func);
-    FPM.run(*func);
-    FPM.doFinalization();
-    */
-
+    // FPM.add(new llvm::SimplifyCFGPass());
+    /*
+        // Do the transformations
+        FPM.doInitialization();
+        FPM.run(*func);
+        FPM.run(*func);
+        FPM.doFinalization();
+        */
 
     // Create the analysis managers.
     // These must be declared in this order so that they are destroyed in the
@@ -171,55 +163,53 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     func->print(llvm::outs());
 
-
-
-
     // Serialize the module to a SmallVector
-    llvm::SmallVector<char, 128> buffer;
+    llvm::SmallVector< char, 128 > buffer;
     llvm::raw_svector_ostream OS(buffer);
     llvm::WriteBitcodeToFile(*frame.module, OS);
 
     // Convert the SmallVector to std::vector<std::byte>
-    std::vector<std::byte> bytecodeVector;
+    std::vector< std::byte > bytecodeVector;
     bytecodeVector.reserve(buffer.size());
-    for (char c : buffer) {
-        bytecodeVector.push_back(static_cast<std::byte>(c));
+    for (char c : buffer)
+    {
+        bytecodeVector.push_back(static_cast< std::byte >(c));
     }
 
     frame.module = nullptr;
-    //llvm::orc::LLJITBuilder jitbuilder;
-    //auto jite = jitbuilder.create();
-    //if (auto err = jite.takeError())
+    // llvm::orc::LLJITBuilder jitbuilder;
+    // auto jite = jitbuilder.create();
+    // if (auto err = jite.takeError())
     //{
-    //    std::cerr << "Failed to create JIT" << std::endl;
-    //    return {};
-    //}
+    //     std::cerr << "Failed to create JIT" << std::endl;
+    //     return {};
+    // }
 
     return bytecodeVector;
 
-    //std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
+    // std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
 
     // Add the module to the JIT
-    //if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(frame.module), std::move(context_ptr))))
+    // if (jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(frame.module), std::move(context_ptr))))
     //{
     //    std::cerr << "Failed to add module to JIT" << std::endl;
     //    return {};
     //}
 
-    //auto symbolE = jit->lookup("main");
-    //if (!symbolE)
+    // auto symbolE = jit->lookup("main");
+    // if (!symbolE)
     //{
-    //    std::cerr << "Function not found" << std::endl;
-    //    return {};
-    //}
-    //auto symbol = symbolE.get();
+    //     std::cerr << "Function not found" << std::endl;
+    //     return {};
+    // }
+    // auto symbol = symbolE.get();
 
-    //auto my_function = symbol.toPtr< std::int32_t (*)(std::int32_t, std::int32_t) >();
-    //int resultValue = my_function(4, 5);
+    // auto my_function = symbol.toPtr< std::int32_t (*)(std::int32_t, std::int32_t) >();
+    // int resultValue = my_function(4, 5);
 
-    //std::cout << "my_function(4, 5) = " << resultValue << std::endl;
+    // std::cout << "my_function(4, 5) = " << resultValue << std::endl;
 
-    //return {};
+    // return {};
 }
 
 llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, rylang::qualified_symbol_reference typ)
@@ -248,7 +238,7 @@ llvm::PointerType* rylang::llvm_code_generator::get_llvm_type_opaque_ptr(llvm::L
     return llvm::PointerType::get(context, 0);
 }
 
-bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame, rylang::vm_procedure & vmf)
+bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, rylang::vm_block const& block, rylang::vm_llvm_frame& frame, rylang::vm_procedure& vmf)
 {
 
     for (vm_executable_unit const& ex : block.code)
@@ -279,10 +269,8 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_return >())
         {
-            //std::cout << " handle vm return " << std::endl;
+            // std::cout << " handle vm return " << std::endl;
             rylang::vm_return ret = boost::get< rylang::vm_return >(ex);
-
-
 
             if (vmf.interface.return_type.has_value())
             {
@@ -312,7 +300,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (typeis< vm_if >(ex))
         {
-            //std::cout << "generate if " << p_block << std::endl;
+            // std::cout << "generate if " << p_block << std::endl;
             vm_if const& if_ = boost::get< vm_if >(ex);
             llvm::IRBuilder<> builder(p_block);
 
@@ -355,7 +343,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             }
             p_block = after_block;
 
-           // std::cout << "generate if, after: " << p_block << std::endl;
+            // std::cout << "generate if, after: " << p_block << std::endl;
         }
         else if (typeis< vm_while >(ex))
         {
@@ -472,12 +460,11 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         item.align = llvm::Align(align);
         frame.values.push_back(item);
     }
-
 }
 llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
 
-    //std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
+    // std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
 
     if (value.type() == boost::typeindex::type_id< rylang::vm_expr_load_address >())
     {
@@ -509,8 +496,8 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         auto rhs_vm_type = vm_value_type(binop.rhs);
 
-        std::string lhs_type_str = boost::apply_visitor(qualified_symbol_stringifier(), lhs_vm_type);
-        std::string rhs_type_str = boost::apply_visitor(qualified_symbol_stringifier(), rhs_vm_type);
+        std::string lhs_type_str = to_string(lhs_vm_type);
+        std::string rhs_type_str = to_string(rhs_vm_type);
 
         std::string expr_string = rylang::to_string(binop);
 
@@ -642,7 +629,7 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         return get_llvm_value(context, builder, frame, reinterp.expr);
     }
-    else if (typeis <vm_expr_poison >(value))
+    else if (typeis< vm_expr_poison >(value))
     {
         auto type = vm_value_type(value);
         llvm::Type* llvm_type = get_llvm_type_from_vm_type(context, type);

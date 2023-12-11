@@ -1,26 +1,26 @@
 //
 // Created by Ryan Nicholl on 11/5/23.
 //
+#include "rylang/debug.hpp"
 #include "rylang/manipulators/argmanip.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/variant_utils.hpp"
 
 using namespace rylang;
 
-rpnx::resolver_coroutine<compiler, function_ast > rylang::function_ast_resolver::co_process(rylang::compiler* c, qualified_symbol_reference func_addr)
+rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver::co_process(rylang::compiler* c, qualified_symbol_reference func_addr)
 {
     std::optional< call_parameter_information > overload_set;
 
     assert(!qualified_is_contextual(func_addr));
 
-    std::string typestr = boost::apply_visitor(qualified_symbol_stringifier(), func_addr);
+    std::string typestr = to_string(func_addr);
 
     // TODO: We should only strip the overload set from functions, not templates
 
-
-    if (typeis< functanoid_reference >(func_addr))
+    if (typeis< instanciation_reference >(func_addr))
     {
-        auto args = as< functanoid_reference >(func_addr).parameters;
+        auto args = as< instanciation_reference >(func_addr).parameters;
         overload_set = call_parameter_information{std::vector< qualified_symbol_reference >(args.begin(), args.end())};
         func_addr = qualified_parent(func_addr).value();
     }
@@ -47,13 +47,26 @@ rpnx::resolver_coroutine<compiler, function_ast > rylang::function_ast_resolver:
     }
 
     auto overload_set_value = overload_set.value();
+    RYLANG_DEBUG(std::string overload_set_str = to_string(overload_set_value));
+
+    if (typestr == "[[module: main]]::quz::bif::box::bif(MUT& I32)")
+    {
+        std::string();
+    }
 
     for (function_ast const& func : functum_entity_ast_v.m_function_overloads)
     {
         call_parameter_information cos_args = co_await *c->lk_call_params_of_function_ast(func, func_addr);
 
-        bool callable = co_await *c->lk_overload_set_is_callable_with(overload_set_value, cos_args);
+        RYLANG_DEBUG(std::cout << debug_recursive());
+
+        bool callable = co_await *c->lk_overload_set_is_callable_with(cos_args, overload_set_value);
         // TODO: For now, just grab the first one that matches, later error on avoid ambiguous overloads.
+
+        if (typestr == "[[module: main]]::quz::bif::box::bif(MUT& I32)")
+        {
+            std::string();
+        }
 
         if (callable)
         {

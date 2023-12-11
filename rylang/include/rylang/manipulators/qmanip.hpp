@@ -18,35 +18,15 @@ namespace rylang
 
     std::string to_string(call_parameter_information const& ref);
 
-    struct qualified_symbol_stringifier : boost::static_visitor< std::string >
-    {
-        std::string operator()(context_reference const& ref) const;
-        std::string operator()(subentity_reference const& ref) const;
-        std::string operator()(instance_pointer_type const& ref) const;
-        std::string operator()(functanoid_reference const& ref) const;
-        std::string operator()(mvalue_reference const& ref) const;
-        std::string operator()(tvalue_reference const& ref) const;
-        std::string operator()(cvalue_reference const& ref) const;
-        std::string operator()(ovalue_reference const& ref) const;
-        std::string operator()(module_reference const& ref) const;
-        std::string operator()(bound_function_type_reference const& ref) const;
-        std::string operator()(primitive_type_integer_reference const& ref) const;
-        std::string operator()(primitive_type_bool_reference const& ref) const;
-        std::string operator()(value_expression_reference const& ref) const;
-        std::string operator()(subdotentity_reference const& ref) const;
-        std::string operator()(void_type const&) const;
-        std::string operator()(numeric_literal_reference const&) const;
-        std::string operator()(avalue_reference const&) const;
-        std::string operator()(template_reference const &) const;
 
-      public:
-        qualified_symbol_stringifier() = default;
-    };
+
+    bool is_template(qualified_symbol_reference const& ref);
 
 
     struct template_match_results
     {
-        std::map<std::string, qualified_symbol_reference > matches;
+        std::map< std::string, qualified_symbol_reference > matches;
+        qualified_symbol_reference type;
     };
 
     std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type);
@@ -71,12 +51,7 @@ namespace rylang
         return std::tie(ref.target);
     }
 
-
-
-    inline std::string to_string(qualified_symbol_reference const& ref)
-    {
-        return boost::apply_visitor(qualified_symbol_stringifier{}, ref);
-    }
+    std::string to_string(qualified_symbol_reference const& ref);
 
     inline qualified_symbol_reference make_mref(qualified_symbol_reference ref)
     {
@@ -246,8 +221,6 @@ namespace rylang
     {
         return !qualified_is_contextual(ref);
     }
-
-
 
     inline bool is_integral(qualified_symbol_reference const& ref)
     {

@@ -11,20 +11,16 @@
 
 namespace rylang
 {
-    struct functum_exists_and_is_callable_with_resolver : public rpnx::resolver_base< compiler, bool >
+    struct functum_exists_and_is_callable_with_resolver : public rpnx::co_resolver_base< compiler, bool, std::pair< qualified_symbol_reference, call_parameter_information > >
     {
-        qualified_symbol_reference func;
-        call_parameter_information args;
       public:
-        using key_type = std::pair< qualified_symbol_reference, call_parameter_information >;
 
-        functum_exists_and_is_callable_with_resolver(key_type input)
+        functum_exists_and_is_callable_with_resolver(input_type input)
+            : co_resolver_base(input)
         {
-            func = input.first;
-            args = input.second;
         }
 
-        virtual void process(compiler* c);
+        virtual rpnx::resolver_coroutine<compiler, bool> co_process(compiler* c, input_type) override;
     };
 } // namespace rylang
 

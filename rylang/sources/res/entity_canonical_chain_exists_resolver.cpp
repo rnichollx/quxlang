@@ -114,7 +114,7 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
             return;
         }
     }
-    else if (chain.type() == boost::typeindex::type_id< functanoid_reference >())
+    else if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
     {
         set_value(false);
     }

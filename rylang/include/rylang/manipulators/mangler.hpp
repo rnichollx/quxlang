@@ -48,12 +48,12 @@ namespace rylang
                 return "U" + std::to_string(i.bits);
             }
         }
-        else if (qt.type() == boost::typeindex::type_id< functanoid_reference >())
+        else if (qt.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            std::string out = mangle_internal(boost::get< functanoid_reference >(qt).callee);
+            std::string out = mangle_internal(boost::get< instanciation_reference >(qt).callee);
             out += "C";
             // out += std::to_string(boost::get< functanoid_reference >(qt).parameters.size());
-            for (auto const& p : boost::get< functanoid_reference >(qt).parameters)
+            for (auto const& p : boost::get< instanciation_reference >(qt).parameters)
             {
                 out += "A";
                 out += mangle_internal(p);

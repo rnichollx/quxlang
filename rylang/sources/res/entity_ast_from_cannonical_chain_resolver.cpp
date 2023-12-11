@@ -19,9 +19,9 @@ namespace rylang
 
         qualified_symbol_reference const& chain = this->m_chain;
 
-        std::string typestring = boost::apply_visitor(qualified_symbol_stringifier(), chain);
+        std::string typestring = to_string(chain);
 
-        if (chain.type() == boost::typeindex::type_id< functanoid_reference >())
+        if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
         {
             // assert(false);
             //  Don't ask for entity AST of a function parameter set?

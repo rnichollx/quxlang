@@ -20,6 +20,13 @@ namespace rylang
         overload_set_is_callable_with_resolver(input_type input)
             : co_resolver_base(input)
         {
+            for (auto & arg: input.second.argument_types)
+            {
+                if (is_template(arg))
+                {
+                    throw std::logic_error("this shouldn't be possible");
+                }
+            }
         }
 
         virtual rpnx::resolver_coroutine<compiler, bool> co_process(compiler* c, input_type input);

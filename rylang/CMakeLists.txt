@@ -70,6 +70,11 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         sources/res/call_params_of_function_ast_resolver.cpp
         include/rylang/ast2/ast2_class.hpp
         include/rylang/ast2/ast2_variable.hpp
+        include/rylang/res/function_overload_selection_resolver2.hpp
+        include/rylang/data/functanoid_instanciation.hpp
+        include/rylang/debug.hpp
+        include/rylang/res/overload_set_instanciate_with_resolver.hpp
+        sources/res/overload_set_instanciate_with_resolver.cpp
 
 )
 

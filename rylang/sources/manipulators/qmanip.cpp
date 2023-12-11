@@ -6,6 +6,31 @@
 
 namespace rylang
 {
+    struct qualified_symbol_stringifier : boost::static_visitor< std::string >
+    {
+        std::string operator()(context_reference const& ref) const;
+        std::string operator()(subentity_reference const& ref) const;
+        std::string operator()(instance_pointer_type const& ref) const;
+        std::string operator()(instanciation_reference const& ref) const;
+        std::string operator()(mvalue_reference const& ref) const;
+        std::string operator()(tvalue_reference const& ref) const;
+        std::string operator()(cvalue_reference const& ref) const;
+        std::string operator()(ovalue_reference const& ref) const;
+        std::string operator()(module_reference const& ref) const;
+        std::string operator()(bound_function_type_reference const& ref) const;
+        std::string operator()(primitive_type_integer_reference const& ref) const;
+        std::string operator()(primitive_type_bool_reference const& ref) const;
+        std::string operator()(value_expression_reference const& ref) const;
+        std::string operator()(subdotentity_reference const& ref) const;
+        std::string operator()(void_type const&) const;
+        std::string operator()(numeric_literal_reference const&) const;
+        std::string operator()(avalue_reference const&) const;
+        std::string operator()(template_reference const&) const;
+
+      public:
+        qualified_symbol_stringifier() = default;
+    };
+
     std::string to_string(call_parameter_information const& ref)
     {
         std::string result = "call_os(";
@@ -20,6 +45,118 @@ namespace rylang
         return result;
     }
 
+    bool is_template(qualified_symbol_reference const& ref);
+
+    struct is_template_visitor : boost::static_visitor< bool >
+    {
+      public:
+        is_template_visitor()
+        {
+        }
+
+        bool operator()(subentity_reference const& ref) const
+        {
+            return is_template(ref.parent);
+        }
+
+        bool operator()(instance_pointer_type const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(instanciation_reference const& ref) const
+        {
+            if (is_template(ref.callee))
+                return true;
+            for (auto& p : ref.parameters)
+            {
+                if (is_template(p))
+                    return true;
+            }
+            return false;
+        }
+
+        bool operator()(mvalue_reference const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(tvalue_reference const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(cvalue_reference const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(ovalue_reference const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(context_reference const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(bound_function_type_reference const& ref) const
+        {
+            return is_template(ref.object_type) || is_template(ref.function_type);
+        }
+
+        bool operator()(primitive_type_integer_reference const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(primitive_type_bool_reference const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(value_expression_reference const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(void_type const&) const
+        {
+            return false;
+        }
+
+        bool operator()(module_reference const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(subdotentity_reference const& ref) const
+        {
+            return is_template(ref.parent);
+        }
+
+        bool operator()(numeric_literal_reference const&) const
+        {
+            return false;
+        }
+
+        bool operator()(avalue_reference const& ref) const
+        {
+            return is_template(ref.target);
+        }
+
+        bool operator()(template_reference const&) const
+        {
+            return true;
+        }
+    };
+
+    bool is_template(qualified_symbol_reference const& ref)
+    {
+        return boost::apply_visitor(is_template_visitor{}, ref);
+    }
+
     std::optional< qualified_symbol_reference > qualified_parent(qualified_symbol_reference input)
     {
         if (input.type() == boost::typeindex::type_id< subentity_reference >())
@@ -30,9 +167,9 @@ namespace rylang
         {
             return boost::get< instance_pointer_type >(input).target;
         }
-        else if (input.type() == boost::typeindex::type_id< functanoid_reference >())
+        else if (input.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            return boost::get< functanoid_reference >(input).callee;
+            return boost::get< instanciation_reference >(input).callee;
         }
         else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
@@ -58,9 +195,9 @@ namespace rylang
         {
             return instance_pointer_type{with_context(boost::get< instance_pointer_type >(ref).target, context)};
         }
-        else if (ref.type() == boost::typeindex::type_id< functanoid_reference >())
+        else if (ref.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            functanoid_reference output = boost::get< functanoid_reference >(ref);
+            instanciation_reference output = boost::get< instanciation_reference >(ref);
             output.callee = with_context(output.callee, context);
             for (auto& p : output.parameters)
             {
@@ -82,7 +219,7 @@ namespace rylang
     {
         return "->" + boost::apply_visitor(*this, ref.target);
     }
-    std::string qualified_symbol_stringifier::operator()(functanoid_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
         std::string output = boost::apply_visitor(*this, ref.callee) + "(";
         bool first = true;
@@ -157,6 +294,7 @@ namespace rylang
     {
         return "T(" + val.name + ")";
     }
+
     std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type)
     {
         std::optional< template_match_results > results;
@@ -172,6 +310,7 @@ namespace rylang
             {
                 output.matches[name] = type;
             }
+            output.type = type;
             results = std::move(output);
             return results;
         }
@@ -179,7 +318,9 @@ namespace rylang
         // Exact match, e.g. I32 matches I32
         if (template_type == type)
         {
-            return template_match_results{};
+            template_match_results result{};
+            result.type = type;
+            return result;
         }
 
         // Impossible to match in this case, e.g. a pointer reference cannot match an integer
@@ -203,7 +344,14 @@ namespace rylang
         {
             auto const& ptr_template = boost::get< instance_pointer_type >(template_type);
             auto const& ptr_type = boost::get< instance_pointer_type >(type);
-            return match_template(ptr_template.target, ptr_type.target);
+            auto match = match_template(ptr_template.target, ptr_type.target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = instance_pointer_type{std::move(match->type)};
+            return match;
         }
         else if (typeis< subentity_reference >(template_type))
         {
@@ -213,7 +361,13 @@ namespace rylang
             {
                 return std::nullopt;
             }
-            return match_template(sub_template.parent, sub_type.parent);
+            auto match = match_template(sub_template.parent, sub_type.parent);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+            match->type = subentity_reference{std::move(match->type), sub_template.subentity_name};
+            return match;
         }
         else if (typeis< subdotentity_reference >(template_type))
         {
@@ -224,33 +378,82 @@ namespace rylang
         {
             cvalue_reference const& template_cval = boost::get< cvalue_reference >(template_type);
             cvalue_reference const& type_cval = boost::get< cvalue_reference >(type);
-            return match_template(template_cval.target, type_cval.target);
+            auto match = match_template(template_cval.target, type_cval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = cvalue_reference{std::move(match->type)};
+            return match;
         }
         else if (typeis< mvalue_reference >(template_type))
         {
             mvalue_reference const& template_mval = boost::get< mvalue_reference >(template_type);
             mvalue_reference const& type_mval = boost::get< mvalue_reference >(type);
-            return match_template(template_mval.target, type_mval.target);
+            auto match = match_template(template_mval.target, type_mval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = mvalue_reference{std::move(match->type)};
+            return match;
         }
         else if (typeis< ovalue_reference >(template_type))
         {
             ovalue_reference const& template_oval = boost::get< ovalue_reference >(template_type);
             ovalue_reference const& type_oval = boost::get< ovalue_reference >(type);
-            return match_template(template_oval.target, type_oval.target);
+            auto match = match_template(template_oval.target, type_oval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = ovalue_reference{std::move(match->type)};
+            return match;
         }
         else if (typeis< tvalue_reference >(template_type))
         {
             tvalue_reference const& template_tval = boost::get< tvalue_reference >(template_type);
             tvalue_reference const& type_tval = boost::get< tvalue_reference >(type);
-            return match_template(template_tval.target, type_tval.target);
+            auto match = match_template(template_tval.target, type_tval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = tvalue_reference{std::move(match->type)};
+            return match;
         }
+        else if (typeis< instanciation_reference >(template_type))
+        {
+            instanciation_reference const& template_funct = boost::get< instanciation_reference >(template_type);
+            instanciation_reference const& type_funct = boost::get< instanciation_reference >(type);
 
+            if (template_funct.parameters.size() != type_funct.parameters.size())
+            {
+                return std::nullopt;
+            }
+
+            auto callee_match = match_template(template_funct.callee, type_funct.callee);
+            if (!callee_match)
+            {
+                return std::nullopt;
+            }
+
+            template_match_results all_results;
+            all_results.type = std::move(callee_match->type);
+            all_results.matches = std::move(callee_match->matches);
+
+            std::vector<qualified_symbol_reference> instanciated_parameters;
+        }
 
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< primitive_type_integer_reference >(template_type) || typeis< primitive_type_bool_reference >(template_type)  || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< primitive_type_integer_reference >(template_type) || typeis< primitive_type_bool_reference >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
+    }
+    std::string to_string(qualified_symbol_reference const& ref)
+    {
+        return boost::apply_visitor(qualified_symbol_stringifier{}, ref);
     }
 
 } // namespace rylang

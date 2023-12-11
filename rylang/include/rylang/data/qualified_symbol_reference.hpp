@@ -14,7 +14,7 @@ namespace rylang
     struct module_reference;
     struct subentity_reference;
     struct subdotentity_reference;
-    struct functanoid_reference;
+    struct instanciation_reference;
     struct value_expression_reference;
     struct instance_pointer_type;
     struct primitive_type_integer_reference;
@@ -49,7 +49,7 @@ namespace rylang
     struct bound_function_type_reference;
     // struct function_type_reference;
 
-    using qualified_symbol_reference = boost::variant< void_type, context_reference, template_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< functanoid_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< instance_pointer_type >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
+    using qualified_symbol_reference = boost::variant< void_type, context_reference, template_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< instanciation_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< instance_pointer_type >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
 
     struct module_reference
     {
@@ -112,12 +112,11 @@ namespace rylang
         std::strong_ordering operator<=>(const value_expression_reference& other) const = default;
     };
 
-    struct functanoid_reference
+    struct instanciation_reference
     {
         qualified_symbol_reference callee;
-        std::optional< std::vector< qualified_symbol_reference > > function_ref;
         std::vector< qualified_symbol_reference > parameters;
-        std::strong_ordering operator<=>(const functanoid_reference& other) const = default;
+        std::strong_ordering operator<=>(const instanciation_reference& other) const = default;
     };
 
     struct mvalue_reference

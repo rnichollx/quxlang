@@ -43,14 +43,15 @@ rpnx::resolver_coroutine<rylang::compiler, rylang::call_parameter_information> r
 
     for (call_parameter_information const& overload : overloads)
     {
-        auto is_callable = co_await* c->lk_overload_set_is_callable_with(std::make_pair(overload, args));
+        auto instanciation = co_await* c->lk_overload_set_instanciate_with(overload, args);
 
-        ss << "Checking overload " << to_string(overload) << " callable with " << to_string(args) << "? " << std::boolalpha << is_callable << std::endl;
+        ss << "In "<< to_string(funcloc) << " Checking overload " << to_string(overload) << " callable with " << to_string(args) << "? " << std::boolalpha << instanciation.has_value() << std::endl;
 
-        if (is_callable)
+        if (instanciation.has_value())
         {
             eligible_overloads++;
-            output_overload = overload;
+            assert(instanciation->argument_types.size() == args.argument_types.size());
+            output_overload = instanciation;
         }
     }
 

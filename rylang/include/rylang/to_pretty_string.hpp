@@ -479,7 +479,7 @@ namespace rylang
             return "value_expression_reference{<todo>}\n";
         }
 
-        std::string operator()(functanoid_reference const& func)
+        std::string operator()(instanciation_reference const& func)
         {
             std::string result;
             result = "functanoid_reference{\n";

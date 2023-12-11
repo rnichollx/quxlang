@@ -50,8 +50,14 @@ MODULE main;
           .CONSTRUCTOR(%xa I32)
           : .x:(xa + 4)
           {
+            bif(.y);
             RETURN;
           }
+        }
+
+        ::bif FUNCTION(%a MUT& T(t1))
+        {
+           a := a + 1;
         }
 
         ::buz FUNCTION(%a I32, %b I32): I32

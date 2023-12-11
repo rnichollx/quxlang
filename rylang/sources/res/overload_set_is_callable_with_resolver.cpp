@@ -4,6 +4,7 @@
 
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 
+#include "rylang/debug.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include <vector>
 
@@ -13,37 +14,24 @@ rpnx::resolver_coroutine< compiler, bool > rylang::overload_set_is_callable_with
 {
     auto os = input.first;
     auto args = input.second;
-    // TODO: support default values for arguments
 
-    auto val = this;
+    std::string mos_str = to_string(os);
+    std::string args_str = to_string(args);
 
-
-    std::string to = to_string(os);
-    std::string from = to_string(args);
-
-    if (os.argument_types.size() != args.argument_types.size())
+    if (args_str == "call_os(MUT& T(t1))")
     {
-        co_return false;
+        int x = 0;
     }
 
-    std::vector< rylang::compiler::out< bool > > convertibles_dp;
+    auto result = co_await *c->lk_overload_set_instanciate_with(os, args);
 
-    for (int i = 0; i < os.argument_types.size(); i++)
+    auto result_str = result.has_value() ? to_string(result.value()) : "nullopt";
+
+    if (args_str == "call_os(MUT& T(t1))")
     {
-
-        convertibles_dp.push_back(c->lk_canonical_type_is_implicitly_convertible_to(std::make_pair(args.argument_types[i], os.argument_types[i])));
-
-        add_dependency(convertibles_dp.back());
+        std::cout << debug_recursive() << std::endl;
+        int x = 0;
     }
 
-    for (auto & dp : convertibles_dp)
-    {
-        auto arg_is_convertible = co_await *dp;
-        if (arg_is_convertible == false)
-        {
-            co_return false;
-        }
-    }
-
-    co_return true;
+    co_return result.has_value();
 }

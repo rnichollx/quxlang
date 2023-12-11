@@ -24,7 +24,7 @@ void rylang::function_qualified_reference_resolver::process(compiler* c)
 
     call_parameter_information cs = call_overload_set_dp->get();
 
-    functanoid_reference psr;
+    instanciation_reference psr;
     psr.callee = chain;
     for (auto& argtype : cs.argument_types)
     {

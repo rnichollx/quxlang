@@ -15,7 +15,7 @@ namespace rylang
     {
         // TODO: Include VM machine info as argument
 
-        std::string type_string = boost::apply_visitor(qualified_symbol_stringifier(), t);
+        std::string type_string = to_string( t);
 
         if (t.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {

@@ -18,6 +18,7 @@
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/data/vm_procedure.hpp"
 #include "rylang/filelist.hpp"
+#include "rylang/res/call_params_of_function_ast_resolver.hpp"
 #include "rylang/res/called_functanoids_resolver.hpp"
 #include "rylang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "rylang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
@@ -50,8 +51,8 @@
 #include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
+#include "rylang/res/overload_set_instanciate_with_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
-#include "rylang/res/call_params_of_function_ast_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <shared_mutex>
@@ -101,6 +102,7 @@ namespace rylang
         friend class list_user_functum_overloads_resolver;
         friend class list_builtin_functum_overloads_resolver;
         friend class call_params_of_function_ast_resolver;
+        friend class overload_set_instanciate_with_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -130,8 +132,14 @@ namespace rylang
         index< module_ast_resolver > m_module_ast_index;
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
+        index< overload_set_instanciate_with_resolver > m_overload_set_instanciate_with_index;
+        out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
+        {
+            return m_overload_set_instanciate_with_index.lookup(std::make_pair(os, args));
+        }
+
         index< call_params_of_function_ast_resolver > m_call_params_of_function_ast_index;
-        out < call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, qualified_symbol_reference f_symbol)
+        out< call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, qualified_symbol_reference f_symbol)
         {
             return m_call_params_of_function_ast_index.lookup(std::make_pair(f_ast, f_symbol));
         }
@@ -155,7 +163,7 @@ namespace rylang
         }
 
         index< functanoid_return_type_resolver > m_functanoid_return_type_index;
-        out< qualified_symbol_reference > lk_functanoid_return_type(functanoid_reference const& chain)
+        out< qualified_symbol_reference > lk_functanoid_return_type(instanciation_reference const& chain)
         {
             return m_functanoid_return_type_index.lookup(chain);
         }
@@ -300,6 +308,7 @@ namespace rylang
         }
         out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(qualified_symbol_reference type, qualified_symbol_reference context)
         {
+
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(contextual_type_reference{context, type});
         }
 

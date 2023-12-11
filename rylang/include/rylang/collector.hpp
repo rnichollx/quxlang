@@ -721,6 +721,38 @@ namespace rylang
             {
                 output = intr;
             }
+            else if (skip_keyword_if_is(pos, end, "T"))
+            {
+                template_reference tref;
+
+                skip_wsc(pos, end);
+                if (skip_symbol_if_is(pos, end, "("))
+                {
+                    skip_wsc(pos, end);
+                    tref.name = get_skip_identifier(pos, end);
+                    if (tref.name.empty())
+                    {
+                        throw std::runtime_error("Expected identifier after T(");
+                    }
+                    skip_wsc(pos, end);
+                    if (!skip_symbol_if_is(pos, end, ")"))
+                    {
+                        throw std::runtime_error("Expected ')' after T(" +tref.name);
+                    }
+                }
+
+                output = tref;
+            }
+            else if (skip_keyword_if_is(pos, end, "MUT"))
+            {
+                if (!skip_symbol_if_is(pos, end, "&"))
+                {
+                    // TODO: Support MUT-> etc
+                    throw std::runtime_error("Expected & after MUT");
+                }
+                outputv = mvalue_reference{collect_qualified_symbol(pos, end)};
+                return true;
+            }
             else if (skip_symbol_if_is(pos, end, "::"))
             {
                 // TODO: Support multiple modules
@@ -794,7 +826,7 @@ namespace rylang
             }
             else if (skip_symbol_if_is(pos, end, "@("))
             {
-                functanoid_reference param_set;
+                instanciation_reference param_set;
                 param_set.callee = std::move(output);
 
                 skip_wsc(pos, end);

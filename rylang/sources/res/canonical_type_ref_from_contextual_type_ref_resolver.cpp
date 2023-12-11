@@ -13,6 +13,10 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     qualified_symbol_reference context = m_ref.context;
     qualified_symbol_reference const& type = m_ref.type;
 
+    std::cout << "type lookup," << std::endl;
+    std::cout << "Context: " << to_string(context) << std::endl;
+    std::cout << "Type: " << to_string(type) << std::endl;
+
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
         instance_pointer_type const& ptr = boost::get< instance_pointer_type >(type);
@@ -145,11 +149,11 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
 
         return;
     }
-    else if (type.type() == boost::typeindex::type_id< functanoid_reference >())
+    else if (type.type() == boost::typeindex::type_id< instanciation_reference >())
     {
-        functanoid_reference const& param_set = boost::get< functanoid_reference >(type);
+        instanciation_reference const& param_set = boost::get< instanciation_reference >(type);
 
-        functanoid_reference output;
+        instanciation_reference output;
 
         auto callee_dp = get_dependency(
             [&]
@@ -190,8 +194,32 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     {
         set_value(type);
     }
+    else if (type.type() == boost::typeindex::type_id< mvalue_reference >())
+    {
+        auto target_type = boost::get< mvalue_reference >(type).target;
+        auto target_can_dp = get_dependency(
+            [&]
+            {
+                return c->lk_canonical_type_from_contextual_type(target_type, context);
+            });
+        if (!ready())
+        {
+            return;
+        }
+        set_value(mvalue_reference{target_can_dp->get()});
+    }
+    else if (typeis<void_type>(type))
+    {
+        set_value(type);
+    }
+    else if (typeis<template_reference>(type))
+    {
+        set_value(type);
+    }
     else
     {
+        std::string str = std::string() + "unimplemented: " + type.type().name();
+        std::cout << str << std::endl;
         throw std::logic_error("unreachable/unimplemented");
     }
 }
