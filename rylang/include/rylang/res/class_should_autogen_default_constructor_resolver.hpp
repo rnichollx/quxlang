@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/14/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER
+#ifndef RYLANG_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER_GUARD
+#define RYLANG_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -15,8 +15,8 @@ namespace rylang
     class class_should_autogen_default_constructor_resolver : public virtual rpnx::resolver_base< compiler, bool >
     {
       public:
-        using key_type = qualified_symbol_reference;
-        class_should_autogen_default_constructor_resolver(qualified_symbol_reference cls)
+        using key_type = type_symbol;
+        class_should_autogen_default_constructor_resolver(type_symbol cls)
             : m_cls(cls)
         {
         }
@@ -24,8 +24,8 @@ namespace rylang
         void process(compiler* c);
 
       private:
-        qualified_symbol_reference m_cls;
+        type_symbol m_cls;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER
+#endif // RYLANG_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER_GUARD

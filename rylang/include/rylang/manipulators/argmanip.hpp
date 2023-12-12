@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ARGMANIP_HEADER
-#define RPNX_RYANSCRIPT1031_ARGMANIP_HEADER
+#ifndef RYLANG_ARGMANIP_HEADER_GUARD
+#define RYLANG_ARGMANIP_HEADER_GUARD
 
 #include "rylang/ast/function_arg_ast.hpp"
 #include "rylang/ast/function_ast.hpp"
@@ -14,4 +14,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_ARGMANIP_HEADER
+#endif // RYLANG_ARGMANIP_HEADER_GUARD

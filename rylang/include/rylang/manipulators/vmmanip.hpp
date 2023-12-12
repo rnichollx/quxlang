@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/7/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VMMANIP_HEADER
-#define RPNX_RYANSCRIPT1031_VMMANIP_HEADER
+#ifndef RYLANG_VMMANIP_HEADER_GUARD
+#define RYLANG_VMMANIP_HEADER_GUARD
 
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/data/vm_expr_primitive_op.hpp"
@@ -12,23 +12,23 @@
 
 namespace rylang
 {
-    struct vm_value_type_vistor : boost::static_visitor< qualified_symbol_reference >
+    struct vm_value_type_vistor : boost::static_visitor< type_symbol >
     {
-        qualified_symbol_reference operator()(void_value const&) const
+        type_symbol operator()(void_value const&) const
         {
             return void_type{};
         }
-        qualified_symbol_reference operator()(vm_expr_primitive_binary_op const& op) const
+        type_symbol operator()(vm_expr_primitive_binary_op const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_access_field const& op) const
+        type_symbol operator()(vm_expr_access_field const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_bound_value const& op) const
+        type_symbol operator()(vm_expr_bound_value const& op) const
         {
             bound_function_type_reference result;
             result.function_type = op.function_ref;
@@ -36,49 +36,49 @@ namespace rylang
             return result;
         }
 
-        qualified_symbol_reference operator()(vm_expr_primitive_unary_op const& op) const
+        type_symbol operator()(vm_expr_primitive_unary_op const& op) const
         {
             return op.type;
         }
-        qualified_symbol_reference operator()(vm_expr_load_address const& op) const
+        type_symbol operator()(vm_expr_load_address const& op) const
         {
             return op.type;
         }
-        qualified_symbol_reference operator()(vm_expr_dereference const& op) const
+        type_symbol operator()(vm_expr_dereference const& op) const
         {
             return op.type;
         }
-        qualified_symbol_reference operator()(vm_expr_store const& op) const
+        type_symbol operator()(vm_expr_store const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_call const& op) const
+        type_symbol operator()(vm_expr_call const& op) const
         {
             return op.interface.return_type.value_or(void_type{});
         }
 
-        qualified_symbol_reference operator()(vm_expr_load_literal const& op) const
+        type_symbol operator()(vm_expr_load_literal const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_literal const& op) const
+        type_symbol operator()(vm_expr_literal const& op) const
         {
             return numeric_literal_reference{};
         }
 
-        qualified_symbol_reference operator()(vm_expr_reinterpret const& op) const
+        type_symbol operator()(vm_expr_reinterpret const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_poison const& op) const
+        type_symbol operator()(vm_expr_poison const& op) const
         {
             return op.type;
         }
 
-        qualified_symbol_reference operator()(vm_expr_undef const& op) const
+        type_symbol operator()(vm_expr_undef const& op) const
         {
             return op.type;
         }
@@ -87,7 +87,7 @@ namespace rylang
         vm_value_type_vistor() = default;
     };
 
-    inline qualified_symbol_reference vm_value_type(vm_value const& val)
+    inline type_symbol vm_value_type(vm_value const& val)
     {
         return boost::apply_visitor(vm_value_type_vistor{}, val);
     }
@@ -264,4 +264,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VMMANIP_HEADER
+#endif // RYLANG_VMMANIP_HEADER_GUARD

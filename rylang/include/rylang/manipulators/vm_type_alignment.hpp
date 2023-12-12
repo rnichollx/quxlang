@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_TYPE_ALIGNMENT_HEADER
-#define RPNX_RYANSCRIPT1031_VM_TYPE_ALIGNMENT_HEADER
+#ifndef RYLANG_VM_TYPE_ALIGNMENT_HEADER_GUARD
+#define RYLANG_VM_TYPE_ALIGNMENT_HEADER_GUARD
 
 #include "qmanip.hpp"
 #include "rylang/data/vm_type.hpp"
@@ -11,7 +11,7 @@
 
 namespace rylang
 {
-    inline std::size_t vm_type_alignment(qualified_symbol_reference t)
+    inline std::size_t vm_type_alignment(type_symbol t)
     {
         // TODO: Include VM machine info as argument
 
@@ -34,4 +34,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_TYPE_ALIGNMENT_HEADER
+#endif // RYLANG_VM_TYPE_ALIGNMENT_HEADER_GUARD

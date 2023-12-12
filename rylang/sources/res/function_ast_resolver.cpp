@@ -8,7 +8,7 @@
 
 using namespace rylang;
 
-rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver::co_process(rylang::compiler* c, qualified_symbol_reference func_addr)
+rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver::co_process(rylang::compiler* c, type_symbol func_addr)
 {
     std::optional< call_parameter_information > overload_set;
 
@@ -21,7 +21,7 @@ rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver
     if (typeis< instanciation_reference >(func_addr))
     {
         auto args = as< instanciation_reference >(func_addr).parameters;
-        overload_set = call_parameter_information{std::vector< qualified_symbol_reference >(args.begin(), args.end())};
+        overload_set = call_parameter_information{std::vector< type_symbol >(args.begin(), args.end())};
         func_addr = qualified_parent(func_addr).value();
     }
 

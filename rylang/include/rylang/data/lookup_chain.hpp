@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_HEADER
-#define RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_HEADER
+#ifndef RYLANG_LOOKUP_CHAIN_HEADER_GUARD
+#define RYLANG_LOOKUP_CHAIN_HEADER_GUARD
 
 #include "rylang/data/lookup_singular.hpp"
 #include <vector>
@@ -34,4 +34,4 @@ namespace rylang
     typedef basic_lookup_chain< std::allocator< lookup_singular > > lookup_chain;
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_LOOKUP_CHAIN_HEADER
+#endif // RYLANG_LOOKUP_CHAIN_HEADER_GUARD

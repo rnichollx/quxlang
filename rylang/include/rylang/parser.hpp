@@ -1,5 +1,5 @@
-#ifndef RYLANG_PARSER_HEADER
-#define RYLANG_PARSER_HEADER
+#ifndef RYLANG_PARSER_HEADER_GUARD
+#define RYLANG_PARSER_HEADER_GUARD
 
 //
 // Created by Ryan Nicholl on 2/27/23.
@@ -281,4 +281,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_PARSER_HEADER
+#endif // RYLANG_PARSER_HEADER_GUARD

@@ -31,6 +31,17 @@ MODULE main;
   .w VAR -> ::baz;
 }
 
+::box CLASS TEMPLATE(T(t1)) PRIORITY(0)
+{
+  .x VAR t1;
+}
+
+::box TEMPLATE CLASS(->T(t1)) PRIORITY(1)
+{
+  .x VAR t1;
+  .size VAR I64;
+}
+
 ::qux CLASS {}
 
 ::quz CLASS
@@ -51,7 +62,6 @@ MODULE main;
           : .x:(xa + 4)
           {
             bif(.y);
-            RETURN;
           }
         }
 

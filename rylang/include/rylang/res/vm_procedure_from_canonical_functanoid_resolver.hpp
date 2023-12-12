@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER
+#ifndef RYLANG_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER_GUARD
+#define RYLANG_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER_GUARD
 
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/vm_procedure.hpp"
@@ -15,15 +15,15 @@
 
 namespace rylang
 {
-    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, qualified_symbol_reference >
+    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, type_symbol >
     {
       public:
-        vm_procedure_from_canonical_functanoid_resolver(qualified_symbol_reference func_addr)
-            : rpnx::co_resolver_base< compiler, vm_procedure, qualified_symbol_reference >(func_addr)
+        vm_procedure_from_canonical_functanoid_resolver(type_symbol func_addr)
+            : rpnx::co_resolver_base< compiler, vm_procedure, type_symbol >(func_addr)
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, qualified_symbol_reference func_addr) override final;
+        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, type_symbol func_addr) override final;
 
         virtual std::string question() const override
         {
@@ -37,7 +37,7 @@ namespace rylang
             bool closed = false;
 
           public:
-            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, qualified_symbol_reference func, compiler* c, vm_generation_frame_info& frame, vm_procedure& block);
+            context_frame(vm_procedure_from_canonical_functanoid_resolver* resolver, type_symbol func, compiler* c, vm_generation_frame_info& frame, vm_procedure& block);
             explicit context_frame(context_frame& other);
 
             struct condition_t
@@ -72,9 +72,9 @@ namespace rylang
             rpnx::general_coroutine< compiler, std::monostate > close();
             rpnx::general_coroutine< compiler, std::monostate > discard();
 
-            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_variable_storage(std::string name, qualified_symbol_reference type);
-            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_value_storage(std::optional< std::string > name, qualified_symbol_reference type);
-            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_temporary_storage(qualified_symbol_reference type);
+            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_variable_storage(std::string name, type_symbol type);
+            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_value_storage(std::optional< std::string > name, type_symbol type);
+            [[nodiscard]] inline rpnx::general_coroutine< compiler, std::size_t > create_temporary_storage(type_symbol type);
             [[nodiscard]] vm_value load_temporary(std::size_t index);
             [[nodiscard]] vm_value load_temporary_as_new(std::size_t index);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > set_return_value(vm_value);
@@ -88,18 +88,18 @@ namespace rylang
             }
             void set_value_alive(std::size_t index);
             void set_value_dead(std::size_t index);
-            [[nodiscard]] std::size_t construct_new_temporary(qualified_symbol_reference type, std::vector< vm_value > args);
+            [[nodiscard]] std::size_t construct_new_temporary(type_symbol type, std::vector< vm_value > args);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::size_t > adopt_value_as_temporary(vm_value val);
             [[nodiscard]] std::optional< std::size_t > try_get_variable_index(std::string name);
-            [[nodiscard]] qualified_symbol_reference get_variable_type(std::size_t index);
-            [[nodiscard]] std::optional< qualified_symbol_reference > try_get_variable_type(std::string name);
+            [[nodiscard]] type_symbol get_variable_type(std::size_t index);
+            [[nodiscard]] std::optional< type_symbol > try_get_variable_type(std::string name);
 
             [[nodiscard]] std::optional< vm_value > try_load_variable(std::string name);
             [[nodiscard]] vm_value load_value(std::size_t index, bool alive, bool temp);
             [[nodiscard]] vm_value load_value_as_desctructable(std::size_t index);
 
             [[nodiscard]] vm_value load_variable(std::string name);
-            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > construct_new_variable(std::string name, qualified_symbol_reference type, std::vector< vm_value > args);
+            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > construct_new_variable(std::string name, type_symbol type, std::vector< vm_value > args);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > destroy_value(std::size_t index);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > frame_return(vm_value val);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > frame_return();
@@ -117,7 +117,7 @@ namespace rylang
             }
 
           public:
-            qualified_symbol_reference current_context() const;
+            type_symbol current_context() const;
 
             void push(vm_executable_unit s)
             {
@@ -131,14 +131,14 @@ namespace rylang
 
           private:
           public:
-            qualified_symbol_reference funcname()
+            type_symbol funcname()
             {
                 return m_frame.context;
             }
 
             class compiler* m_c;
             vm_generation_frame_info& m_frame;
-            qualified_symbol_reference m_ctx;
+            type_symbol m_ctx;
             // vm_block& m_block;
             vm_block m_new_block;
             std::function< void(vm_block) > m_insertion_point;
@@ -157,18 +157,18 @@ namespace rylang
 
         vm_value gen_conversion_to_integer(context_frame& ctx, vm_expr_literal val, primitive_type_integer_reference to_type);
         rpnx::general_coroutine< compiler, vm_value > gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_call(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, std::optional< vm_value > > try_gen_call_functanoid_builtin(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_call_functanoid(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, qualified_symbol_reference callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_call(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, std::optional< vm_value > > try_gen_call_functanoid_builtin(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_call_functanoid(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
 
         rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instanciation_reference const& callee, std::vector< vm_value > values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
-        rpnx::general_coroutine< compiler, std::vector< vm_value > > gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< qualified_symbol_reference > const& to_types);
-        rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, qualified_symbol_reference to);
+        rpnx::general_coroutine< compiler, std::vector< vm_value > > gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< type_symbol > const& to_types);
+        rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, type_symbol to);
         rpnx::general_coroutine< compiler, vm_value > gen_ref_to_value(context_frame& ctx, vm_value val);
-        rpnx::general_coroutine< compiler, vm_value > gen_value_to_ref(context_frame& ctx, vm_value from, qualified_symbol_reference to_type);
+        rpnx::general_coroutine< compiler, vm_value > gen_value_to_ref(context_frame& ctx, vm_value from, type_symbol to_type);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_symbol_reference expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_binary expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_copy_assign expr);
@@ -182,4 +182,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER
+#endif // RYLANG_VM_PROCEDURE_FROM_CANONICAL_FUNCTANOID_RESOLVER_HEADER_GUARD

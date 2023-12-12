@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FILE_AST_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_FILE_AST_RESOLVER_HEADER
+#ifndef RYLANG_FILE_AST_RESOLVER_HEADER_GUARD
+#define RYLANG_FILE_AST_RESOLVER_HEADER_GUARD
 
 #include <string>
 #include <vector>
@@ -31,4 +31,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FILE_SST_RESOLVER_HEADER
+#endif // RYLANG_FILE_SST_RESOLVER_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_MODULE_AST_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_MODULE_AST_RESOLVER_HEADER
+#ifndef RYLANG_MODULE_AST_RESOLVER_HEADER_GUARD
+#define RYLANG_MODULE_AST_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/module_ast.hpp"
@@ -29,4 +29,4 @@ namespace rylang
    };
 }
 
-#endif // RPNX_RYANSCRIPT1031_MODULE_AST_RESOLVER_HEADER
+#endif // RYLANG_MODULE_AST_RESOLVER_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPRESSION_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPRESSION_HEADER
+#ifndef RYLANG_VM_EXPRESSION_HEADER_GUARD
+#define RYLANG_VM_EXPRESSION_HEADER_GUARD
 
 #include <boost/variant.hpp>
 
@@ -49,4 +49,4 @@ namespace rylang
 #include "vm_expr_poison.hpp"
 #include "vm_expr_undef.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPRESSION_HEADER
+#endif // RYLANG_VM_EXPRESSION_HEADER_GUARD

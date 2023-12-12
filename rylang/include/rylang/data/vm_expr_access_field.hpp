@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/14/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPR_ACCESS_FIELD_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPR_ACCESS_FIELD_HEADER
+#ifndef RYLANG_VM_EXPR_ACCESS_FIELD_HEADER_GUARD
+#define RYLANG_VM_EXPR_ACCESS_FIELD_HEADER_GUARD
 
 #include "vm_expression.hpp"
 
@@ -13,8 +13,8 @@ namespace rylang
     {
         vm_value base;
         std::size_t offset;
-        qualified_symbol_reference type;
+        type_symbol type;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPR_ACCESS_FIELD_HEADER
+#endif // RYLANG_VM_EXPR_ACCESS_FIELD_HEADER_GUARD

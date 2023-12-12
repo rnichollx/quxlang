@@ -18,7 +18,7 @@ void rylang::entity_ast_from_chain_resolver::process(compiler* c)
     if (!ready())
         return;
 
-    qualified_symbol_reference canonical_chain = canonical_chain_dep->get();
+    type_symbol canonical_chain = canonical_chain_dep->get();
 
     auto ast_dep = get_dependency(
         [&]

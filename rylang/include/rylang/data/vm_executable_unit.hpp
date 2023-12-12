@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXECUTABLE_UNIT_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXECUTABLE_UNIT_HEADER
+#ifndef RYLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD
+#define RYLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD
 
 #include <boost/variant.hpp>
 
@@ -20,7 +20,7 @@ namespace rylang
     {
         vm_value what;
         vm_value where;
-        qualified_symbol_reference type;
+        type_symbol type;
     };
     struct vm_execute_expression
     {
@@ -71,4 +71,4 @@ namespace rylang
 
 #include "vm_block.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXECUTABLE_UNIT_HEADER
+#endif // RYLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD

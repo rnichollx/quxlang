@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/29/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VARIABLE_ENTITY_AST_HEADER
-#define RPNX_RYANSCRIPT1031_VARIABLE_ENTITY_AST_HEADER
+#ifndef RYLANG_VARIABLE_ENTITY_AST_HEADER_GUARD
+#define RYLANG_VARIABLE_ENTITY_AST_HEADER_GUARD
 #include <string>
 
 namespace rylang
@@ -11,7 +11,7 @@ namespace rylang
     struct variable_entity_ast
     {
 
-        qualified_symbol_reference m_variable_type;
+        type_symbol m_variable_type;
 
         std::string to_string(entity_ast const* ) const
         {
@@ -26,4 +26,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VARIABLE_ENTITY_AST_HEADER
+#endif // RYLANG_VARIABLE_ENTITY_AST_HEADER_GUARD

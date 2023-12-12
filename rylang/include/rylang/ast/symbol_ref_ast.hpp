@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_SYMBOL_REF_AST_HEADER
-#define RPNX_RYANSCRIPT1031_SYMBOL_REF_AST_HEADER
+#ifndef RYLANG_SYMBOL_REF_AST_HEADER_GUARD
+#define RYLANG_SYMBOL_REF_AST_HEADER_GUARD
 
 #include <string>
 
@@ -22,4 +22,4 @@ namespace rylang
         }
     };
 } // namespace rylang
-#endif // RPNX_RYANSCRIPT1031_SYMBOL_REF_AST_HEADER
+#endif // RYLANG_SYMBOL_REF_AST_HEADER_GUARD

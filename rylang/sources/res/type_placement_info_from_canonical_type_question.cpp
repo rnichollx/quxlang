@@ -13,14 +13,14 @@ namespace rylang
     }
 
     template <typename Graph>
-    auto get_class_layout_from_canonical_chain(Graph * g, qualified_symbol_reference cls) -> rpnx::general_coroutine<Graph, class_layout>
+    auto get_class_layout_from_canonical_chain(Graph * g, type_symbol cls) -> rpnx::general_coroutine<Graph, class_layout>
     {
         int four = co_await general_int_4_returner<Graph>();
         co_return co_await *g->lk_class_layout_from_canonical_chain(cls);
     }
 
     template < typename Graph >
-    auto type_placement_info_from_canonical_type_question_f(Graph* g, rylang::qualified_symbol_reference type) -> rpnx::resolver_coroutine< Graph, type_placement_info >
+    auto type_placement_info_from_canonical_type_question_f(Graph* g, rylang::type_symbol type) -> rpnx::resolver_coroutine< Graph, type_placement_info >
     {
         std::string type_str = to_string(type);
 
@@ -71,5 +71,5 @@ namespace rylang
         }
     }
 
-    template auto type_placement_info_from_canonical_type_question_f< compiler >(compiler* g, rylang::qualified_symbol_reference type) -> rpnx::resolver_coroutine< compiler, type_placement_info >;
+    template auto type_placement_info_from_canonical_type_question_f< compiler >(compiler* g, rylang::type_symbol type) -> rpnx::resolver_coroutine< compiler, type_placement_info >;
 } // namespace rylang

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_AST_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_AST_RESOLVER_HEADER
+#ifndef RYLANG_FUNCTION_AST_RESOLVER_HEADER_GUARD
+#define RYLANG_FUNCTION_AST_RESOLVER_HEADER_GUARD
 
 #include "rylang/ast/function_ast.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -13,17 +13,17 @@
 
 namespace rylang
 {
-    class function_ast_resolver : public rpnx::co_resolver_base< compiler, function_ast, qualified_symbol_reference >
+    class function_ast_resolver : public rpnx::co_resolver_base< compiler, function_ast, type_symbol >
     {
       public:
-        using key_type = qualified_symbol_reference;
+        using key_type = type_symbol;
 
-        function_ast_resolver(qualified_symbol_reference input)
+        function_ast_resolver(type_symbol input)
             : co_resolver_base(input)
         {
         }
 
-        rpnx::resolver_coroutine< compiler, function_ast > co_process(compiler* c, qualified_symbol_reference function_name);
+        rpnx::resolver_coroutine< compiler, function_ast > co_process(compiler* c, type_symbol function_name);
 
         virtual std::string question() const override
         {
@@ -58,4 +58,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_AST_RESOLVER_HEADER
+#endif // RYLANG_FUNCTION_AST_RESOLVER_HEADER_GUARD

@@ -6,11 +6,11 @@
 rpnx::resolver_coroutine< rylang::compiler, rylang::call_parameter_information > rylang::call_params_of_function_ast_resolver::co_process(compiler* c, input_type input)
 {
     function_ast f = input.first;
-    qualified_symbol_reference functum = input.second;
+    type_symbol functum = input.second;
 
     call_parameter_information info;
 
-    std::optional< qualified_symbol_reference > this_arg_type;
+    std::optional< type_symbol > this_arg_type;
 
     if (f.this_type.has_value())
     {

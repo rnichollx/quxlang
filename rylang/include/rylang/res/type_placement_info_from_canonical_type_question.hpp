@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/22/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_QUESTION_HEADER
-#define RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_QUESTION_HEADER
+#ifndef RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_QUESTION_HEADER_GUARD
+#define RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_QUESTION_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -16,9 +16,9 @@
 namespace rylang
 {
     template < typename Graph >
-    auto type_placement_info_from_canonical_type_question_f(Graph* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< Graph, type_placement_info >;
+    auto type_placement_info_from_canonical_type_question_f(Graph* g, type_symbol type) -> rpnx::resolver_coroutine< Graph, type_placement_info >;
 
-    extern template auto type_placement_info_from_canonical_type_question_f< compiler >(compiler* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< compiler, type_placement_info >;
+    extern template auto type_placement_info_from_canonical_type_question_f< compiler >(compiler* g, type_symbol type) -> rpnx::resolver_coroutine< compiler, type_placement_info >;
 
     struct type_placement_info_from_canonical_type_question
     {
@@ -30,4 +30,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER
+#endif // RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD

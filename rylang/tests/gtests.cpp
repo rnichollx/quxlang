@@ -13,7 +13,11 @@
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/manipulators/mangler.hpp"
 
+#include <rylang/parsers/parse_symbol.hpp>
+#include <rylang/parsers/parse_whitespace.hpp>
+
 #include <boost/variant.hpp>
+#include <rylang/parsers/try_parse_class.hpp>
 
 struct foo
 {
@@ -28,6 +32,15 @@ class collector_tester : public ::testing::Test
 {
 };
 
+TEST(parsing, parse_empty_class)
+{
+    std::string test_string = "CLASS { }";
+
+    std::optional< rylang::ast2_class > cl = rylang::parsers::try_parse_class(test_string);
+
+    ASSERT_TRUE(cl.has_value());
+}
+
 TEST(mangling, name_mangling_new)
 {
     rylang::module_reference module{"main"};
@@ -38,12 +51,12 @@ TEST(mangling, name_mangling_new)
 
     rylang::subentity_reference subentity3{subentity2, "baz"};
 
-    rylang::instanciation_reference param_set{subentity3, {}, {}};
+    rylang::instanciation_reference param_set{subentity3, {}};
 
     param_set.parameters.push_back(rylang::primitive_type_integer_reference{32, true});
     param_set.parameters.push_back(rylang::primitive_type_integer_reference{32, true});
 
-    std::string mangled_name = rylang::mangle(rylang::qualified_symbol_reference(param_set));
+    std::string mangled_name = rylang::mangle(rylang::type_symbol(param_set));
 
     ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAI32AI32E");
 }
@@ -190,10 +203,10 @@ TEST(rylang_modules, merge_entities)
 
 TEST(qual, template_matching)
 {
-    rylang::qualified_symbol_reference template1 = rylang::template_reference{"foo"};
-    rylang::qualified_symbol_reference template2 = rylang::instance_pointer_type{rylang::template_reference{"foo"}};
-    rylang::qualified_symbol_reference type1 = rylang::primitive_type_integer_reference{32, true};
-    rylang::qualified_symbol_reference type2 = rylang::instance_pointer_type{rylang::primitive_type_integer_reference{32, true}};
+    rylang::type_symbol template1 = rylang::template_reference{"foo"};
+    rylang::type_symbol template2 = rylang::instance_pointer_type{rylang::template_reference{"foo"}};
+    rylang::type_symbol type1 = rylang::primitive_type_integer_reference{32, true};
+    rylang::type_symbol type2 = rylang::instance_pointer_type{rylang::primitive_type_integer_reference{32, true}};
 
     auto res1 = rylang::match_template(template1, type1);
 
@@ -215,6 +228,4 @@ TEST(qual, template_matching)
     ASSERT_TRUE(res4.has_value());
     ASSERT_TRUE(res4.value().matches["foo"] == type1);
     ASSERT_TRUE(res4.value().matches["foo"] != type2);
-
-
 }

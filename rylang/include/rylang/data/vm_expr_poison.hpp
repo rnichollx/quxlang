@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPR_POISON_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPR_POISON_HEADER
+#ifndef RYLANG_VM_EXPR_POISON_HEADER_GUARD
+#define RYLANG_VM_EXPR_POISON_HEADER_GUARD
 
 #include "rylang/data/qualified_symbol_reference.hpp"
 
@@ -11,8 +11,8 @@ namespace rylang
 {
   struct vm_expr_poison
   {
-      qualified_symbol_reference type;
+      type_symbol type;
   };
 }
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPR_POISON_HEADER
+#endif // RYLANG_VM_EXPR_POISON_HEADER_GUARD

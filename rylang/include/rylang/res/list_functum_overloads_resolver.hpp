@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/18/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER
+#ifndef RYLANG_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER_GUARD
+#define RYLANG_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -11,17 +11,17 @@
 
 namespace rylang
 {
-    class list_functum_overloads_resolver : public rpnx::co_resolver_base< compiler, std::optional< std::set< call_parameter_information > >,qualified_symbol_reference >
+    class list_functum_overloads_resolver : public rpnx::co_resolver_base< compiler, std::optional< std::set< call_parameter_information > >,type_symbol >
     {
       public:
-        list_functum_overloads_resolver(qualified_symbol_reference functum)
+        list_functum_overloads_resolver(type_symbol functum)
             : co_resolver_base(functum)
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > > co_process(compiler* c, qualified_symbol_reference input) override;
+        virtual rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > > co_process(compiler* c, type_symbol input) override;
     };
 } // namespace rylang
 
 
-#endif // RPNX_RYANSCRIPT1031_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER
+#endif // RYLANG_LIST_FUNCTUM_OVERLOADS_RESOLVER_HEADER_GUARD

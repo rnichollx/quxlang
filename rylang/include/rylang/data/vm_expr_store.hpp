@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/7/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPR_STORE_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPR_STORE_HEADER
+#ifndef RYLANG_VM_EXPR_STORE_HEADER_GUARD
+#define RYLANG_VM_EXPR_STORE_HEADER_GUARD
 
 #include "vm_expression.hpp"
 namespace rylang
@@ -12,8 +12,8 @@ namespace rylang
     {
         vm_value what;
         vm_value where;
-        qualified_symbol_reference type;
+        type_symbol type;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPR_STORE_HEADER
+#endif // RYLANG_VM_EXPR_STORE_HEADER_GUARD

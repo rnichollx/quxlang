@@ -5,9 +5,9 @@
 #include "rylang/compiler.hpp"
 #include "rylang/operators.hpp"
 
-rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_information > > rylang::list_builtin_functum_overloads_resolver::co_process(compiler* c, qualified_symbol_reference functum)
+rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_information > > rylang::list_builtin_functum_overloads_resolver::co_process(compiler* c, type_symbol functum)
 {
-    std::optional< qualified_symbol_reference > parent_opt;
+    std::optional< type_symbol > parent_opt;
     std::string name = to_string(functum);
     if (typeis< subdotentity_reference >(functum))
     {

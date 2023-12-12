@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_LOOKUP_SINGULAR_HEADER
-#define RPNX_RYANSCRIPT1031_LOOKUP_SINGULAR_HEADER
+#ifndef RYLANG_LOOKUP_SINGULAR_HEADER_GUARD
+#define RYLANG_LOOKUP_SINGULAR_HEADER_GUARD
 
 #include <string>
 #include "rylang/data/lookup_type.hpp"
@@ -33,4 +33,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_LOOKUP_SINGULAR_HEADER
+#endif // RYLANG_LOOKUP_SINGULAR_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_COW_HEADER
-#define RPNX_RYANSCRIPT1031_COW_HEADER
+#ifndef RYLANG_COW_HEADER_GUARD
+#define RYLANG_COW_HEADER_GUARD
 
 #include <memory>
 
@@ -141,4 +141,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_COW_HEADER
+#endif // RYLANG_COW_HEADER_GUARD

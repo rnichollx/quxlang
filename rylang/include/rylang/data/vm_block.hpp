@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_BLOCK_HEADER
-#define RPNX_RYANSCRIPT1031_VM_BLOCK_HEADER
+#ifndef RYLANG_VM_BLOCK_HEADER_GUARD
+#define RYLANG_VM_BLOCK_HEADER_GUARD
 
 #include <cstddef>
 
@@ -14,4 +14,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_BLOCK_HEADER
+#endif // RYLANG_VM_BLOCK_HEADER_GUARD

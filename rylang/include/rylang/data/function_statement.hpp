@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_STATEMENT_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_STATEMENT_HEADER
+#ifndef RYLANG_FUNCTION_STATEMENT_HEADER_GUARD
+#define RYLANG_FUNCTION_STATEMENT_HEADER_GUARD
 
 #include "rylang/data/expression.hpp"
 #include "rylang/data/function_return_statement.hpp"
@@ -23,7 +23,7 @@ namespace rylang
     struct function_var_statement
     {
         std::string name;
-        qualified_symbol_reference type;
+        type_symbol type;
         // TODO: support named initializers
         std::vector<expression> initializers;
         std::strong_ordering operator<=>(const function_var_statement& other) const = default;
@@ -55,4 +55,4 @@ namespace rylang
 #include "rylang/data/function_if_statement.hpp"
 #include "rylang/data/function_while_statement.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_STATEMENT_HEADER
+#endif // RYLANG_FUNCTION_STATEMENT_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/22/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_FIELD_INFO_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_FIELD_INFO_HEADER
+#ifndef RYLANG_CLASS_FIELD_INFO_HEADER_GUARD
+#define RYLANG_CLASS_FIELD_INFO_HEADER_GUARD
 
 #include "canonical_type_reference.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
@@ -15,9 +15,9 @@ namespace rylang
     struct class_field_info
     {
         std::string name;
-        qualified_symbol_reference type;
+        type_symbol type;
         std::size_t offset = 0;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_FIELD_INFO_HEADER
+#endif // RYLANG_CLASS_FIELD_INFO_HEADER_GUARD

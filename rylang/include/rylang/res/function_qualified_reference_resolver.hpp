@@ -1,8 +1,8 @@
 //
 // Created by Ryan Nicholl on 11/4/23.
 //
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER
+#ifndef RYLANG_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER_GUARD
+#define RYLANG_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -11,14 +11,14 @@
 
 namespace rylang
 {
-    class [[deprecated]] function_qualified_reference_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
+    class [[deprecated]] function_qualified_reference_resolver : public rpnx::resolver_base< compiler, type_symbol >
     {
-        qualified_symbol_reference m_input;
+        type_symbol m_input;
 
         call_parameter_information m_args;
 
       public:
-        using key_type = std::pair< qualified_symbol_reference, call_parameter_information >;
+        using key_type = std::pair< type_symbol, call_parameter_information >;
 
         function_qualified_reference_resolver(key_type input)
             : m_input(input.first)
@@ -31,4 +31,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER
+#endif // RYLANG_FUNCTION_QUALIFIED_REFERENCE_RESOLVER_HEADER_GUARD

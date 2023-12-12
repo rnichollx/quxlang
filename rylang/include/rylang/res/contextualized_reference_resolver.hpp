@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER
+#ifndef RYLANG_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER_GUARD
+#define RYLANG_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER_GUARD
 
 #include "rylang/compiler_fwd.hpp"
 
@@ -12,14 +12,14 @@
 
 namespace rylang
 {
-    struct contextualized_reference_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
+    struct contextualized_reference_resolver : public rpnx::resolver_base< compiler, type_symbol >
     {
       private:
-        qualified_symbol_reference m_symbol;
-        qualified_symbol_reference m_context;
+        type_symbol m_symbol;
+        type_symbol m_context;
 
       public:
-        using key_type = std::pair< qualified_symbol_reference, qualified_symbol_reference >;
+        using key_type = std::pair< type_symbol, type_symbol >;
 
         contextualized_reference_resolver(key_type input)
             : m_symbol(input.first)
@@ -30,4 +30,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER
+#endif // RYLANG_CONTEXTUALIZED_REFERENCE_RESOLVER_HEADER_GUARD

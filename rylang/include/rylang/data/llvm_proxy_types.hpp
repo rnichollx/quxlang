@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/28/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_LLVM_PROXY_TYPES_HEADER
-#define RPNX_RYANSCRIPT1031_LLVM_PROXY_TYPES_HEADER
+#ifndef RYLANG_LLVM_PROXY_TYPES_HEADER_GUARD
+#define RYLANG_LLVM_PROXY_TYPES_HEADER_GUARD
 
 #include <boost/variant.hpp>
 
@@ -21,4 +21,4 @@ namespace rylang
     using llvm_proxy_type = boost::variant< llvm_proxy_type_pointer, llvm_proxy_type_int >;
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_LLVM_PROXY_TYPES_HEADER
+#endif // RYLANG_LLVM_PROXY_TYPES_HEADER_GUARD

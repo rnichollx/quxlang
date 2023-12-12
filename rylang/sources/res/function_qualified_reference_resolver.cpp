@@ -11,7 +11,7 @@
 void rylang::function_qualified_reference_resolver::process(compiler* c)
 {
    //assert(false);
-   qualified_symbol_reference chain = m_input;
+   type_symbol chain = m_input;
 
     auto call_overload_set_dp = get_dependency(
         [&]

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_UNEXPECTED_EOF_HEADER
-#define RPNX_RYANSCRIPT1031_UNEXPECTED_EOF_HEADER
+#ifndef RYLANG_UNEXPECTED_EOF_HEADER_GUARD
+#define RYLANG_UNEXPECTED_EOF_HEADER_GUARD
 
 namespace rylang
 {
@@ -14,4 +14,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_UNEXPECTED_EOF_HEADER
+#endif // RYLANG_UNEXPECTED_EOF_HEADER_GUARD

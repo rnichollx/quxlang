@@ -9,7 +9,7 @@
 
 void rylang::type_size_from_canonical_type_resolver::process(compiler* c)
 {
-    qualified_symbol_reference const& type = m_type;
+    type_symbol const& type = m_type;
 
     assert(!qualified_is_contextual(type));
 

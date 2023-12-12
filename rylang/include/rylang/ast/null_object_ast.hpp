@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_NULL_OBJECT_AST_HEADER
-#define RPNX_RYANSCRIPT1031_NULL_OBJECT_AST_HEADER
+#ifndef RYLANG_NULL_OBJECT_AST_HEADER_GUARD
+#define RYLANG_NULL_OBJECT_AST_HEADER_GUARD
 #include <string>
 
 #include "rylang/fwd.hpp"
@@ -28,4 +28,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_NULL_OBJECT_AST_HEADER
+#endif // RYLANG_NULL_OBJECT_AST_HEADER_GUARD

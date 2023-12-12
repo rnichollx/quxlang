@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/23/23.
 //
 
-#ifndef TO_PRETTY_STRING_HPP
-#define TO_PRETTY_STRING_HPP
+#ifndef TO_PRETTY_STRING_HEADER_GUARD
+#define TO_PRETTY_STRING_HEADER_GUARD
 
 #include "data/expression.hpp"
 #include "data/function_block.hpp"
@@ -656,4 +656,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // TO_PRETTY_STRING_HPP
+#endif // TO_PRETTY_STRING_HEADER_GUARD

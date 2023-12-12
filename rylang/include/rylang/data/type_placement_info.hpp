@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/23/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_HEADER
-#define RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_HEADER
+#ifndef RYLANG_TYPE_PLACEMENT_INFO_HEADER_GUARD
+#define RYLANG_TYPE_PLACEMENT_INFO_HEADER_GUARD
 
 #include <cstddef>
 namespace rylang
@@ -15,4 +15,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_HEADER
+#endif // RYLANG_TYPE_PLACEMENT_INFO_HEADER_GUARD

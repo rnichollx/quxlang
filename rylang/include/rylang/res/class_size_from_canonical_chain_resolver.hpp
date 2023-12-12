@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/19/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
+#ifndef RYLANG_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD
+#define RYLANG_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -16,8 +16,8 @@ namespace rylang
     class class_size_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::size_t >
     {
       public:
-      using key_type = qualified_symbol_reference;
-        class_size_from_canonical_chain_resolver(qualified_symbol_reference chain)
+      using key_type = type_symbol;
+        class_size_from_canonical_chain_resolver(type_symbol chain)
         {
                 m_chain = chain;
         }
@@ -25,8 +25,8 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        qualified_symbol_reference m_chain;
+        type_symbol m_chain;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
+#endif // RYLANG_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

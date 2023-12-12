@@ -4,7 +4,7 @@
 void rylang::type_placement_info_from_canonical_type_resolver::process(compiler* c)
 
 {
-    qualified_symbol_reference const& type = m_type;
+    type_symbol const& type = m_type;
     std::string type_str = to_string(type);
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_COMPILER_HEADER
-#define RPNX_RYANSCRIPT1031_COMPILER_HEADER
+#ifndef RYLANG_COMPILER_HEADER_GUARD
+#define RYLANG_COMPILER_HEADER_GUARD
 
 #include "rylang/ast/file_ast.hpp"
 #include "rylang/ast/module_ast_precursor1.hpp"
@@ -105,10 +105,10 @@ namespace rylang
         friend class overload_set_instanciate_with_resolver;
 
         template < typename G >
-        friend auto type_size_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, std::size_t >;
+        friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
         template < typename G >
-        friend auto type_placement_info_from_canonical_type_question_f(G* g, qualified_symbol_reference type) -> rpnx::resolver_coroutine< G, type_placement_info >;
+        friend auto type_placement_info_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -139,79 +139,79 @@ namespace rylang
         }
 
         index< call_params_of_function_ast_resolver > m_call_params_of_function_ast_index;
-        out< call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, qualified_symbol_reference f_symbol)
+        out< call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, type_symbol f_symbol)
         {
             return m_call_params_of_function_ast_index.lookup(std::make_pair(f_ast, f_symbol));
         }
 
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
-        out< std::set< call_parameter_information > > lk_builtin_functum_overloads(qualified_symbol_reference functum)
+        out< std::set< call_parameter_information > > lk_builtin_functum_overloads(type_symbol functum)
         {
             return m_list_builtin_functum_overloads_index.lookup(functum);
         }
 
         index< list_user_functum_overloads_resolver > m_list_user_functum_overloads_index;
-        out< std::set< call_parameter_information > > lk_user_functum_overloads(qualified_symbol_reference functum)
+        out< std::set< call_parameter_information > > lk_user_functum_overloads(type_symbol functum)
         {
             return m_list_user_functum_overloads_index.lookup(functum);
         }
 
         index< called_functanoids_resolver > m_called_functanoids_index;
-        out< std::set< qualified_symbol_reference > > lk_called_functanoids(qualified_symbol_reference func_addr)
+        out< std::set< type_symbol > > lk_called_functanoids(type_symbol func_addr)
         {
             return m_called_functanoids_index.lookup(func_addr);
         }
 
         index< functanoid_return_type_resolver > m_functanoid_return_type_index;
-        out< qualified_symbol_reference > lk_functanoid_return_type(instanciation_reference const& chain)
+        out< type_symbol > lk_functanoid_return_type(instanciation_reference const& chain)
         {
             return m_functanoid_return_type_index.lookup(chain);
         }
 
         index< list_functum_overloads_resolver > m_list_functum_overloads_index;
-        out< std::optional< std::set< call_parameter_information > > > lk_list_functum_overloads(qualified_symbol_reference const& chain)
+        out< std::optional< std::set< call_parameter_information > > > lk_list_functum_overloads(type_symbol const& chain)
         {
             return m_list_functum_overloads_index.lookup(chain);
         }
 
         index< functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
-        out< bool > lk_functum_exists_and_is_callable_with(qualified_symbol_reference const& chain, call_parameter_information const& os)
+        out< bool > lk_functum_exists_and_is_callable_with(type_symbol const& chain, call_parameter_information const& os)
         {
             return m_functum_exists_and_is_callable_with_index.lookup(std::make_pair(chain, os));
         }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
-        out< bool > lk_class_should_autogen_default_constructor(qualified_symbol_reference const& cls)
+        out< bool > lk_class_should_autogen_default_constructor(type_symbol const& cls)
         {
             return m_class_should_autogen_default_constructor_index.lookup(cls); //
         }
 
         index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
-        out< bool > lk_symbol_canonical_chain_exists(qualified_symbol_reference chain)
+        out< bool > lk_symbol_canonical_chain_exists(type_symbol chain)
         {
             return m_symbol_canonical_chain_exists_index.lookup(chain);
         }
 
         index< operator_is_overloaded_with_resolver > m_operator_is_overloaded_with_index;
-        out< std::optional< qualified_symbol_reference > > lk_operator_is_overloaded_with(std::string op, qualified_symbol_reference lhs, qualified_symbol_reference rhs)
+        out< std::optional< type_symbol > > lk_operator_is_overloaded_with(std::string op, type_symbol lhs, type_symbol rhs)
         {
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
         index< function_ast_resolver > m_function_ast_index;
-        out< function_ast > lk_function_ast(qualified_symbol_reference func_addr)
+        out< function_ast > lk_function_ast(type_symbol func_addr)
         {
             return m_function_ast_index.lookup(func_addr);
         }
 
         index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;
-        out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
+        out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
         {
             return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
         }
 
       public:
-        vm_procedure get_vm_procedure_from_canonical_functanoid(qualified_symbol_reference func_addr)
+        vm_procedure get_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
             m_solver.solve(this, node);
@@ -220,25 +220,25 @@ namespace rylang
 
       private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
-        out< qualified_symbol_reference > lk_contextualized_reference(qualified_symbol_reference symbol, qualified_symbol_reference context)
+        out< type_symbol > lk_contextualized_reference(type_symbol symbol, type_symbol context)
         {
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
         index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]];
-        out< qualified_symbol_reference > lk_function_qualname [[deprecated]] (qualified_symbol_reference f, call_parameter_information args)
+        out< type_symbol > lk_function_qualname [[deprecated]] (type_symbol f, call_parameter_information args)
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
         }
 
       public:
-        qualified_symbol_reference get_function_qualname(qualified_symbol_reference name, call_parameter_information args);
+        type_symbol get_function_qualname(type_symbol name, call_parameter_information args);
 
       private:
         // index< class_list_resolver > m_class_list_index;
 
         index< function_overload_selection_resolver > m_function_overload_selection_index;
-        out< call_parameter_information > lk_function_overload_selection(qualified_symbol_reference const& chain, call_parameter_information const& os)
+        out< call_parameter_information > lk_function_overload_selection(type_symbol const& chain, call_parameter_information const& os)
         {
             return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
         }
@@ -255,32 +255,32 @@ namespace rylang
         }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
-        out< bool > lk_canonical_type_is_implicitly_convertible_to(qualified_symbol_reference from, qualified_symbol_reference to)
+        out< bool > lk_canonical_type_is_implicitly_convertible_to(type_symbol from, type_symbol to)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
         }
 
-        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< qualified_symbol_reference, qualified_symbol_reference > const& input)
+        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< type_symbol, type_symbol > const& input)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
         }
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
-        out< bool > lk_entity_canonical_chain_exists(qualified_symbol_reference const& chain)
+        out< bool > lk_entity_canonical_chain_exists(type_symbol const& chain)
         {
             return m_entity_canonical_chain_exists_index.lookup(chain);
         }
 
       public:
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
-        out< class_layout > lk_class_layout_from_canonical_chain(qualified_symbol_reference const& chain)
+        out< class_layout > lk_class_layout_from_canonical_chain(type_symbol const& chain)
         {
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
       private:
-        rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, qualified_symbol_reference > m_type_placement_info_from_canonical_chain_index;
-        out< type_placement_info > lk_type_placement_info_from_canonical_type(qualified_symbol_reference const& ref)
+        rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, type_symbol > m_type_placement_info_from_canonical_chain_index;
+        out< type_placement_info > lk_type_placement_info_from_canonical_type(type_symbol const& ref)
         {
             // auto tuple = std::tuple<rylang::qualified_symbol_reference>(ref);
             assert(!typeis< numeric_literal_reference >(ref));
@@ -288,13 +288,13 @@ namespace rylang
         }
 
         index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;
-        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(qualified_symbol_reference const& chain)
+        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(type_symbol const& chain)
         {
             return m_class_field_list_from_canonical_chain_index.lookup(chain);
         }
 
         index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
-        out< std::size_t > lk_class_size_from_canonical_lookup_chain(qualified_symbol_reference const& chain)
+        out< std::size_t > lk_class_size_from_canonical_lookup_chain(type_symbol const& chain)
         {
             return m_class_size_from_canonical_chain_index.lookup(chain);
         }
@@ -302,18 +302,18 @@ namespace rylang
         index< files_in_module_resolver > m_files_in_module_resolver;
 
         index< canonical_symbol_from_contextual_symbol_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
-        out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
+        out< type_symbol > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
         {
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(ref);
         }
-        out< qualified_symbol_reference > lk_canonical_type_from_contextual_type(qualified_symbol_reference type, qualified_symbol_reference context)
+        out< type_symbol > lk_canonical_type_from_contextual_type(type_symbol type, type_symbol context)
         {
 
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(contextual_type_reference{context, type});
         }
 
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
-        out< std::size_t > lk_type_size_from_canonical_type(qualified_symbol_reference const& ref)
+        out< std::size_t > lk_type_size_from_canonical_type(type_symbol const& ref)
         {
             return m_type_size_from_canonical_type_index.lookup(ref);
         }
@@ -379,7 +379,7 @@ namespace rylang
         }
 
         // Look up the AST for a given glass given a paritcular cannonical chain
-        out< entity_ast > lk_entity_ast_from_canonical_chain(qualified_symbol_reference const& chain)
+        out< entity_ast > lk_entity_ast_from_canonical_chain(type_symbol const& chain)
         {
             return m_entity_ast_from_cannonical_chain_index.lookup(chain);
         }
@@ -402,14 +402,14 @@ namespace rylang
             return node->get();
         }
 
-        std::size_t get_class_size(qualified_symbol_reference const& chain)
+        std::size_t get_class_size(type_symbol const& chain)
         {
             auto size = lk_class_size_from_canonical_lookup_chain(chain);
             m_solver.solve(this, size);
             return size->get();
         }
 
-        type_placement_info get_class_placement_info(qualified_symbol_reference const& chain)
+        type_placement_info get_class_placement_info(type_symbol const& chain)
         {
             auto size = lk_type_placement_info_from_canonical_type(chain);
             m_solver.solve(this, size);
@@ -429,13 +429,13 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
-        llvm_proxy_type get_llvm_proxy_return_type_of(qualified_symbol_reference chain);
-        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(qualified_symbol_reference chain);
+        llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
+        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);
 
-        function_ast get_function_ast_of_overload(qualified_symbol_reference chain);
-        call_parameter_information get_function_overload_selection(qualified_symbol_reference chain, call_parameter_information args);
+        function_ast get_function_ast_of_overload(type_symbol chain);
+        call_parameter_information get_function_overload_selection(type_symbol chain, call_parameter_information args);
     };
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_COMPILER_HEADER
+#endif // RYLANG_COMPILER_HEADER_GUARD

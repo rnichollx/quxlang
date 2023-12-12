@@ -5,7 +5,7 @@
 
 void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c)
 {
-    qualified_symbol_reference canonical_chain = m_chain;
+    type_symbol canonical_chain = m_chain;
 
     auto ast_dp = get_dependency(
         [&]

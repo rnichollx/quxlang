@@ -10,8 +10,8 @@
 void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::compiler* c)
 {
 
-    qualified_symbol_reference context = m_ref.context;
-    qualified_symbol_reference const& type = m_ref.type;
+    type_symbol context = m_ref.context;
+    type_symbol const& type = m_ref.type;
 
     std::cout << "type lookup," << std::endl;
     std::cout << "Context: " << to_string(context) << std::endl;
@@ -21,7 +21,7 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     {
         instance_pointer_type const& ptr = boost::get< instance_pointer_type >(type);
 
-        qualified_symbol_reference to_type = ptr.target;
+        type_symbol to_type = ptr.target;
 
         // we need to canonicalize the type_reference
 
@@ -38,7 +38,7 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
         if (!ready())
             return;
 
-        qualified_symbol_reference canon_ptr_to_type = canonical_to_type_dep->get();
+        type_symbol canon_ptr_to_type = canonical_to_type_dep->get();
 
         instance_pointer_type canonical_ptr_type;
         canonical_ptr_type.target = canon_ptr_to_type;
@@ -49,11 +49,11 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     {
         subentity_reference const& sub = boost::get< subentity_reference >(type);
 
-        qualified_symbol_reference const& parent = sub.parent;
+        type_symbol const& parent = sub.parent;
 
         if (parent.type() == boost::typeindex::type_id< context_reference >())
         {
-            std::optional< qualified_symbol_reference > current_context = context;
+            std::optional< type_symbol > current_context = context;
             assert(current_context.has_value());
             assert(!qualified_is_contextual(current_context.value()));
 
@@ -101,11 +101,11 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     {
         subdotentity_reference const& sub = boost::get< subdotentity_reference >(type);
 
-        qualified_symbol_reference const& parent = sub.parent;
+        type_symbol const& parent = sub.parent;
 
         if (parent.type() == boost::typeindex::type_id< context_reference >())
         {
-            std::optional< qualified_symbol_reference > current_context = context;
+            std::optional< type_symbol > current_context = context;
             assert(current_context.has_value());
             assert(!qualified_is_contextual(current_context.value()));
 

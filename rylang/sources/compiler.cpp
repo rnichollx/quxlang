@@ -20,18 +20,18 @@ rylang::compiler::out< rylang::file_ast > rylang::compiler::lk_file_ast(std::str
 
 
 
-rylang::function_ast rylang::compiler::get_function_ast_of_overload(qualified_symbol_reference chain)
+rylang::function_ast rylang::compiler::get_function_ast_of_overload(type_symbol chain)
 {
     return rylang::function_ast{};
 }
-rylang::call_parameter_information rylang::compiler::get_function_overload_selection(qualified_symbol_reference chain, call_parameter_information args)
+rylang::call_parameter_information rylang::compiler::get_function_overload_selection(type_symbol chain, call_parameter_information args)
 
 {
     auto node = lk_function_overload_selection(chain, args);
     m_solver.solve(this, node);
     return node->get();
 }
-rylang::qualified_symbol_reference rylang::compiler::get_function_qualname(rylang::qualified_symbol_reference name, rylang::call_parameter_information args)
+rylang::type_symbol rylang::compiler::get_function_qualname(rylang::type_symbol name, rylang::call_parameter_information args)
 {
     auto node = lk_function_qualname(name, args);
     m_solver.solve(this, node);

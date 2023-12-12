@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_FRAME_VARIABLE_HEADER
-#define RPNX_RYANSCRIPT1031_VM_FRAME_VARIABLE_HEADER
+#ifndef RYLANG_VM_FRAME_VARIABLE_HEADER_GUARD
+#define RYLANG_VM_FRAME_VARIABLE_HEADER_GUARD
 
 #include <optional>
 #include <string>
@@ -13,7 +13,7 @@ namespace rylang
     struct vm_frame_variable
     {
         std::string name;
-        qualified_symbol_reference type;
+        type_symbol type;
         bool is_temporary = false;
         vm_value get_addr;
         vm_allocate_storage storage;
@@ -26,4 +26,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_FRAME_VARIABLE_HEADER
+#endif // RYLANG_VM_FRAME_VARIABLE_HEADER_GUARD

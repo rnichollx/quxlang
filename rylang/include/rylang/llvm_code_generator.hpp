@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_LLVM_CODE_GENERATOR_HEADER
-#define RPNX_RYANSCRIPT1031_LLVM_CODE_GENERATOR_HEADER
+#ifndef RYLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
+#define RYLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
 
 
 
@@ -43,9 +43,9 @@ namespace rylang
         llvm::Type * get_llvm_intptr(llvm::LLVMContext &context);
 
 
-        llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, qualified_symbol_reference typ);
+        llvm::Type * get_llvm_type_from_vm_type(llvm::LLVMContext &context, type_symbol typ);
         llvm::Type * get_llvm_type_from_vm_storage(llvm::LLVMContext &context, vm_allocate_storage typ);
-        llvm::FunctionType * get_llvm_type_from_func_symbol(llvm::LLVMContext &context, qualified_symbol_reference typ);
+        llvm::FunctionType * get_llvm_type_from_func_symbol(llvm::LLVMContext &context, type_symbol typ);
         llvm::FunctionType * get_llvm_type_from_func_interface(llvm::LLVMContext &context, vm_procedure_interface ifc);
 
 
@@ -58,4 +58,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_LLVM_CODE_GENERATOR_HEADER
+#endif // RYLANG_LLVM_CODE_GENERATOR_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_MANGLER_HEADER
-#define RPNX_RYANSCRIPT1031_MANGLER_HEADER
+#ifndef RYLANG_MANGLER_HEADER_GUARD
+#define RYLANG_MANGLER_HEADER_GUARD
 #include <string>
 
 #include <boost/type_index.hpp>
@@ -14,7 +14,7 @@
 
 namespace rylang
 {
-    inline std::string mangle_internal(qualified_symbol_reference const& qt)
+    inline std::string mangle_internal(type_symbol const& qt)
     {
         if (qt.type() == boost::typeindex::type_id< module_reference >())
         {
@@ -101,7 +101,7 @@ namespace rylang
         return out;
     }
 
-    inline std::string mangle(qualified_symbol_reference const& func)
+    inline std::string mangle(type_symbol const& func)
     {
         std::string out = "_S_";
         out += mangle_internal(func);
@@ -109,4 +109,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_MANGLER_HEADER
+#endif // RYLANG_MANGLER_HEADER_GUARD

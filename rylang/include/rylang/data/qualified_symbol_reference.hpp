@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
-#define RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
+#ifndef RYLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
+#define RYLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
 
 #include "numeric_literal.hpp"
 #include <boost/variant.hpp>
@@ -49,7 +49,7 @@ namespace rylang
     struct bound_function_type_reference;
     // struct function_type_reference;
 
-    using qualified_symbol_reference = boost::variant< void_type, context_reference, template_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< instanciation_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< instance_pointer_type >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
+    using type_symbol = boost::variant< void_type, context_reference, template_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< instanciation_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< instance_pointer_type >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
 
     struct module_reference
     {
@@ -60,7 +60,7 @@ namespace rylang
 
     struct subentity_reference
     {
-        qualified_symbol_reference parent;
+        type_symbol parent;
         std::string subentity_name;
 
         std::strong_ordering operator<=>(const subentity_reference& other) const = default;
@@ -68,7 +68,7 @@ namespace rylang
 
     struct subdotentity_reference
     {
-        qualified_symbol_reference parent;
+        type_symbol parent;
         std::string subdotentity_name;
 
         std::strong_ordering operator<=>(const subdotentity_reference& other) const = default;
@@ -89,20 +89,20 @@ namespace rylang
 
     struct instance_pointer_type
     {
-        qualified_symbol_reference target;
+        type_symbol target;
 
         std::strong_ordering operator<=>(const instance_pointer_type& other) const = default;
     };
 
     struct array_pointer_type
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const array_pointer_type& other) const = default;
     };
 
     struct arithmetic_pointer_type
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const arithmetic_pointer_type& other) const = default;
     };
 
@@ -114,51 +114,51 @@ namespace rylang
 
     struct instanciation_reference
     {
-        qualified_symbol_reference callee;
-        std::vector< qualified_symbol_reference > parameters;
+        type_symbol callee;
+        std::vector< type_symbol > parameters;
         std::strong_ordering operator<=>(const instanciation_reference& other) const = default;
     };
 
     struct mvalue_reference
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const mvalue_reference& other) const = default;
     };
 
     struct cvalue_reference
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const cvalue_reference& other) const = default;
     };
     struct ovalue_reference
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const ovalue_reference& other) const = default;
     };
 
     struct avalue_reference
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const avalue_reference& other) const = default;
     };
 
     struct tvalue_reference
     {
-        qualified_symbol_reference target;
+        type_symbol target;
         std::strong_ordering operator<=>(const tvalue_reference& other) const = default;
     };
 
     struct bound_function_type_reference
     {
-        qualified_symbol_reference object_type;
-        qualified_symbol_reference function_type;
+        type_symbol object_type;
+        type_symbol function_type;
         std::strong_ordering operator<=>(const bound_function_type_reference& other) const = default;
     };
 
-    std::string to_string(qualified_symbol_reference const&);
+    std::string to_string(type_symbol const&);
 
 } // namespace rylang
 
 #include "rylang/manipulators/qmanip.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
+#endif // RYLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

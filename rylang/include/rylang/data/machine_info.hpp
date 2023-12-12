@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_MACHINE_INFO_HEADER
-#define RPNX_RYANSCRIPT1031_MACHINE_INFO_HEADER
+#ifndef RYLANG_MACHINE_INFO_HEADER_GUARD
+#define RYLANG_MACHINE_INFO_HEADER_GUARD
 
 #include <cstddef>
 #include <optional>
@@ -19,4 +19,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_MACHINE_INFO_HEADER
+#endif // RYLANG_MACHINE_INFO_HEADER_GUARD

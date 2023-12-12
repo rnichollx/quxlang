@@ -45,7 +45,7 @@ namespace rylang
         return result;
     }
 
-    bool is_template(qualified_symbol_reference const& ref);
+    bool is_template(type_symbol const& ref);
 
     struct is_template_visitor : boost::static_visitor< bool >
     {
@@ -152,12 +152,12 @@ namespace rylang
         }
     };
 
-    bool is_template(qualified_symbol_reference const& ref)
+    bool is_template(type_symbol const& ref)
     {
         return boost::apply_visitor(is_template_visitor{}, ref);
     }
 
-    std::optional< qualified_symbol_reference > qualified_parent(qualified_symbol_reference input)
+    std::optional< type_symbol > qualified_parent(type_symbol input)
     {
         if (input.type() == boost::typeindex::type_id< subentity_reference >())
         {
@@ -181,7 +181,7 @@ namespace rylang
         }
     }
 
-    qualified_symbol_reference with_context(qualified_symbol_reference const& ref, qualified_symbol_reference const& context)
+    type_symbol with_context(type_symbol const& ref, type_symbol const& context)
     {
         if (ref.type() == boost::typeindex::type_id< context_reference >())
         {
@@ -295,7 +295,7 @@ namespace rylang
         return "T(" + val.name + ")";
     }
 
-    std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type)
+    std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type)
     {
         std::optional< template_match_results > results;
         assert(is_canonical(type));
@@ -442,7 +442,7 @@ namespace rylang
             all_results.type = std::move(callee_match->type);
             all_results.matches = std::move(callee_match->matches);
 
-            std::vector<qualified_symbol_reference> instanciated_parameters;
+            std::vector<type_symbol> instanciated_parameters;
         }
 
         // In other cases, we are talking about a non-composite reference
@@ -451,7 +451,7 @@ namespace rylang
         assert(typeis< primitive_type_integer_reference >(template_type) || typeis< primitive_type_bool_reference >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }
-    std::string to_string(qualified_symbol_reference const& ref)
+    std::string to_string(type_symbol const& ref)
     {
         return boost::apply_visitor(qualified_symbol_stringifier{}, ref);
     }

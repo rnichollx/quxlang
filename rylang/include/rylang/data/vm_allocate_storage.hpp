@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
-#define RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
+#ifndef RYLANG_VM_ALLOCATE_STORAGE_HEADER_GUARD
+#define RYLANG_VM_ALLOCATE_STORAGE_HEADER_GUARD
 
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include <cstddef>
@@ -15,7 +15,7 @@ namespace rylang
     {
         std::size_t size = 0;
         std::size_t align = 0;
-        qualified_symbol_reference type;
+        type_symbol type;
         storage_type kind;
 
         bool valid() const
@@ -27,4 +27,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_ALLOCATE_STORAGE_HEADER
+#endif // RYLANG_VM_ALLOCATE_STORAGE_HEADER_GUARD

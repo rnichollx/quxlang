@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_EXPRESSION_HEADER
-#define RPNX_RYANSCRIPT1031_EXPRESSION_HEADER
+#ifndef RYLANG_EXPRESSION_HEADER_GUARD
+#define RYLANG_EXPRESSION_HEADER_GUARD
 
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"
@@ -54,7 +54,7 @@ namespace rylang
 
     struct expression_symbol_reference
     {
-        qualified_symbol_reference symbol;
+        type_symbol symbol;
 
         std::strong_ordering operator<=>(const expression_symbol_reference& other) const = default;
     };
@@ -92,4 +92,4 @@ namespace rylang
 #include "rylang/data/expression_multiply.hpp"
 #include "rylang/data/expression_subtract.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_EXPRESSION_HEADER
+#endif // RYLANG_EXPRESSION_HEADER_GUARD

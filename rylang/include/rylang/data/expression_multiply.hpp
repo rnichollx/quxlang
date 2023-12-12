@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_EXPRESSION_MULTIPLY_HEADER
-#define RPNX_RYANSCRIPT1031_EXPRESSION_MULTIPLY_HEADER
+#ifndef RYLANG_EXPRESSION_MULTIPLY_HEADER_GUARD
+#define RYLANG_EXPRESSION_MULTIPLY_HEADER_GUARD
 
 #include "rylang/data/expression.hpp"
 #include <compare>
@@ -38,4 +38,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_EXPRESSION_MULTIPLY_HEADER
+#endif // RYLANG_EXPRESSION_MULTIPLY_HEADER_GUARD

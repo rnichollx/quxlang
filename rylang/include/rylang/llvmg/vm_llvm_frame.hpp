@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_LLVM_FRAME_HEADER
-#define RPNX_RYANSCRIPT1031_VM_LLVM_FRAME_HEADER
+#ifndef RYLANG_VM_LLVM_FRAME_HEADER_GUARD
+#define RYLANG_VM_LLVM_FRAME_HEADER_GUARD
 
 #include "vm_llvm_frame_item.hpp"
 namespace rylang
@@ -17,4 +17,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_LLVM_FRAME_HEADER
+#endif // RYLANG_VM_LLVM_FRAME_HEADER_GUARD

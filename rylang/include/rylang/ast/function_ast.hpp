@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_AST_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_AST_HEADER
+#ifndef RYLANG_FUNCTION_AST_HEADER_GUARD
+#define RYLANG_FUNCTION_AST_HEADER_GUARD
 
 #include <optional>
 #include <string>
@@ -18,8 +18,8 @@ namespace rylang
     struct function_ast
     {
         std::vector< function_arg_ast > args;
-        std::optional< qualified_symbol_reference > return_type;
-        std::optional< qualified_symbol_reference > this_type;
+        std::optional< type_symbol > return_type;
+        std::optional< type_symbol > this_type;
         std::vector < function_delegate > delegates;
         std::optional<std::int64_t> priority;
         function_block body;
@@ -58,4 +58,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_AST_HEADER
+#endif // RYLANG_FUNCTION_AST_HEADER_GUARD

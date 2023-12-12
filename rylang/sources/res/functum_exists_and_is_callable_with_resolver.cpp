@@ -10,7 +10,7 @@
 rpnx::resolver_coroutine< rylang::compiler, bool > rylang::functum_exists_and_is_callable_with_resolver::co_process(compiler* c, input_type input)
 {
 
-    qualified_symbol_reference func = input.first;
+    type_symbol func = input.first;
     call_parameter_information args = input.second;
     // TODO: implement this case later
     assert(!typeis< instanciation_reference >(func));

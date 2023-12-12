@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER
+#ifndef RYLANG_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER_GUARD
+#define RYLANG_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER_GUARD
 
 // input: contextual_type_reference
 // output: canonical_type_reference
@@ -16,7 +16,7 @@
 
 namespace rylang
 {
-    class canonical_symbol_from_contextual_symbol_resolver : public rpnx::resolver_base< compiler, qualified_symbol_reference >
+    class canonical_symbol_from_contextual_symbol_resolver : public rpnx::resolver_base< compiler, type_symbol >
     {
       public:
         using key_type = contextual_type_reference;
@@ -33,4 +33,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER
+#endif // RYLANG_CANONICAL_SYMBOL_FROM_CONTEXTUAL_SYMBOL_RESOLVER_HEADER_GUARD

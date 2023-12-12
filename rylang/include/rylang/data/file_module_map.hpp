@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/11/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FILE_MODULE_MAP_HEADER
-#define RPNX_RYANSCRIPT1031_FILE_MODULE_MAP_HEADER
+#ifndef RYLANG_FILE_MODULE_MAP_HEADER_GUARD
+#define RYLANG_FILE_MODULE_MAP_HEADER_GUARD
 
 #include <string>
 #include <map>
@@ -14,4 +14,4 @@ namespace rylang
    using file_module_map = std::map<std::string, std::set<std::string> >;
 }
 
-#endif // RPNX_RYANSCRIPT1031_FILE_MODULE_MAP_HEADER
+#endif // RYLANG_FILE_MODULE_MAP_HEADER_GUARD

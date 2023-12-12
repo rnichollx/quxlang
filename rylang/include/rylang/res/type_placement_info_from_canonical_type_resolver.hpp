@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/22/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER
+#ifndef RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
+#define RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -18,8 +18,8 @@ namespace rylang
     class type_placement_info_from_canonical_type_resolver : public rpnx::resolver_base< compiler, type_placement_info >
     {
       public:
-        using key_type = qualified_symbol_reference;
-        type_placement_info_from_canonical_type_resolver(qualified_symbol_reference type)
+        using key_type = type_symbol;
+        type_placement_info_from_canonical_type_resolver(type_symbol type)
         {
             m_type = type;
         }
@@ -27,8 +27,8 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        qualified_symbol_reference m_type;
+        type_symbol m_type;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER
+#endif // RYLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/11/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_FRAME_INFORMATION_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_FRAME_INFORMATION_HEADER
+#ifndef RYLANG_FUNCTION_FRAME_INFORMATION_HEADER_GUARD
+#define RYLANG_FUNCTION_FRAME_INFORMATION_HEADER_GUARD
 
 #include "qualified_symbol_reference.hpp"
 #include <string>
@@ -14,14 +14,14 @@ namespace rylang
     {
         // TODO: Multiple identifiers?
         std::string identifier;
-        qualified_symbol_reference type;
+        type_symbol type;
         std::size_t allocation = -1;
         std::size_t allocation_offset = 0;
     };
 
     struct function_allocation_information
     {
-        std::optional<qualified_symbol_reference> type;
+        std::optional<type_symbol> type;
         std::optional<std::size_t> size;
         std::optional<std::size_t> alignment;
     };
@@ -33,4 +33,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_FRAME_INFORMATION_HEADER
+#endif // RYLANG_FUNCTION_FRAME_INFORMATION_HEADER_GUARD

@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 
     rylang::llvm_code_generator cg(&c);
 
-    rylang::qualified_symbol_reference cn = rylang::module_reference{"main"};
+    rylang::type_symbol cn = rylang::module_reference{"main"};
     cn = rylang::subentity_reference{cn, "quz"};
     cn = rylang::subentity_reference{std::move(cn), "bif"};
     cn = rylang::subentity_reference{std::move(cn), "box"};
@@ -30,10 +30,10 @@ int main(int argc, char** argv)
 
     std::string name = rylang::mangle(qn);
 
-    std::set< rylang::qualified_symbol_reference > already_compiled;
-    std::set< rylang::qualified_symbol_reference > new_deps = {qn};
+    std::set< rylang::type_symbol > already_compiled;
+    std::set< rylang::type_symbol > new_deps = {qn};
 
-    std::map< rylang::qualified_symbol_reference, std::vector< std::byte > > compiled_code;
+    std::map< rylang::type_symbol, std::vector< std::byte > > compiled_code;
 
     while (new_deps.empty() == false)
     {
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
         }
     */
 
-    rylang::qualified_symbol_reference foo = rylang::subentity_reference{rylang::module_reference{"main"}, "foo"};
+    rylang::type_symbol foo = rylang::subentity_reference{rylang::module_reference{"main"}, "foo"};
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

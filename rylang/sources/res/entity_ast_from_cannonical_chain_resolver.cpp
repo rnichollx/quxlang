@@ -17,7 +17,7 @@ namespace rylang
     {
         // TODO: Get the module
 
-        qualified_symbol_reference const& chain = this->m_chain;
+        type_symbol const& chain = this->m_chain;
 
         std::string typestring = to_string(chain);
 

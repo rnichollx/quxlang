@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/26/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_EXPRESSION_BOOL_HEADER
-#define RPNX_RYANSCRIPT1031_EXPRESSION_BOOL_HEADER
+#ifndef RYLANG_EXPRESSION_BOOL_HEADER_GUARD
+#define RYLANG_EXPRESSION_BOOL_HEADER_GUARD
 
 #include "expression.hpp"
 namespace rylang
@@ -90,4 +90,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_EXPRESSION_BOOL_HEADER
+#endif // RYLANG_EXPRESSION_BOOL_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_EXPRESSION_ADD_HEADER
-#define RPNX_RYANSCRIPT1031_EXPRESSION_ADD_HEADER
+#ifndef RYLANG_EXPRESSION_ADD_HEADER_GUARD
+#define RYLANG_EXPRESSION_ADD_HEADER_GUARD
 
 #include "rylang/cow.hpp"
 #include "rylang/data/expression.hpp"
@@ -34,4 +34,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_EXPRESSION_ADD_HEADER
+#endif // RYLANG_EXPRESSION_ADD_HEADER_GUARD

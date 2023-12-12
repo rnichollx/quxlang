@@ -4,8 +4,8 @@
 
 #include "qualified_symbol_reference.hpp"
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPR_LOAD_LITERAL_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPR_LOAD_LITERAL_HEADER
+#ifndef RYLANG_VM_EXPR_LOAD_LITERAL_HEADER_GUARD
+#define RYLANG_VM_EXPR_LOAD_LITERAL_HEADER_GUARD
 
 #include <string>
 
@@ -20,10 +20,10 @@ namespace rylang
    struct vm_expr_load_literal
    {
        std::string literal;
-       qualified_symbol_reference type;
+       type_symbol type;
    };
 
 
 }
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPR_LOAD_LITERAL_HEADER
+#endif // RYLANG_VM_EXPR_LOAD_LITERAL_HEADER_GUARD

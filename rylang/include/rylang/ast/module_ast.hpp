@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/16/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_MODULE_AST_HEADER
-#define RPNX_RYANSCRIPT1031_MODULE_AST_HEADER
+#ifndef RYLANG_MODULE_AST_HEADER_GUARD
+#define RYLANG_MODULE_AST_HEADER_GUARD
 
 #include "rylang/ast/entity_ast.hpp"
 #include <map>
@@ -18,4 +18,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_MODULE_AST_HEADER
+#endif // RYLANG_MODULE_AST_HEADER_GUARD

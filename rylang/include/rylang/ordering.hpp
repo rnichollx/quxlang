@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ORDERING_HEADER
-#define RPNX_RYANSCRIPT1031_ORDERING_HEADER
+#ifndef RYLANG_ORDERING_HEADER_GUARD
+#define RYLANG_ORDERING_HEADER_GUARD
 
 #include <compare>
 
@@ -32,4 +32,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_ORDERING_HEADER
+#endif // RYLANG_ORDERING_HEADER_GUARD

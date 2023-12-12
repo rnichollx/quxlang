@@ -7,7 +7,7 @@
 
 #include "rylang/operators.hpp"
 
-rpnx::resolver_coroutine< rylang::compiler, std::optional< std::set< rylang::call_parameter_information > > > rylang::list_functum_overloads_resolver::co_process(compiler* c, qualified_symbol_reference functum)
+rpnx::resolver_coroutine< rylang::compiler, std::optional< std::set< rylang::call_parameter_information > > > rylang::list_functum_overloads_resolver::co_process(compiler* c, type_symbol functum)
 {
     auto builtins = co_await *c->lk_builtin_functum_overloads(functum);
     auto user_defined = co_await *c->lk_user_functum_overloads(functum);

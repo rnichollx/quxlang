@@ -6,8 +6,8 @@
 
 void rylang::canonical_type_is_implicitly_convertible_to_resolver::process(compiler* c)
 {
-    qualified_symbol_reference from = m_from;
-    qualified_symbol_reference to = m_to;
+    type_symbol from = m_from;
+    type_symbol to = m_to;
 
     if (from == to)
     {

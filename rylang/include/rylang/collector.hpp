@@ -2,8 +2,10 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_COLLECTOR_HEADER
-#define RPNX_RYANSCRIPT1031_COLLECTOR_HEADER
+#ifndef RYLANG_COLLECTOR_HEADER_GUARD
+#define RYLANG_COLLECTOR_HEADER_GUARD
+
+#include "ast/class_template_ast.hpp"
 
 #include <iostream>
 #include <string>
@@ -23,6 +25,10 @@
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
+
+#include <rylang/ast2/ast2_class.hpp>
+#include <rylang/ast2/ast2_class_variable_declaration.hpp>
+#include <rylang/parsers/parse_class_body.hpp>
 
 namespace rylang
 {
@@ -277,6 +283,58 @@ namespace rylang
         }
 
         template < typename It >
+        bool try_collect_class_template(It& pos, It end, std::optional< class_template_ast >& ct)
+        {
+            auto pos2 = pos;
+
+            skip_wsc(pos2, end);
+            if (!skip_keyword_if_is(pos2, end, "CLASS"))
+            {
+                return false;
+            }
+            skip_wsc(pos2, end);
+            if (!skip_keyword_if_is(pos2, end, "TEMPLATE"))
+            {
+                return false;
+            }
+            pos = pos2;
+            skip_wsc(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::runtime_error("Expected '(' after CLASS TEMPLATE");
+            }
+            ct = class_template_ast{};
+        get_arg:
+            skip_wsc(pos, end);
+
+            auto arg = collect_qualified_symbol(pos, end);
+
+            ct->m_template_args.push_back(arg);
+            skip_wsc(pos, end);
+
+            if (skip_symbol_if_is(pos, end, ","))
+            {
+                goto get_arg;
+            }
+            else if (skip_symbol_if_is(pos, end, ")"))
+            {
+                skip_wsc(pos, end);
+                if (!skip_symbol_if_is(pos, end, "{"))
+                {
+                    throw std::runtime_error("Expected '{' after CLASS TEMPLATE(...)");
+                }
+
+                class_entity_ast class_body = collect2_class_body(pos, end);
+
+                return true;
+            }
+            else
+            {
+                throw std::runtime_error("Expected ',' or ')' after CLASS TEMPLATE(...");
+            }
+        }
+
+        template < typename It >
         bool try_collect_entity(It& pos, It end)
         {
             skip_wsc(pos, end);
@@ -483,6 +541,82 @@ namespace rylang
         }
 
         template < typename It >
+        std::optional< class_entity_ast > try_collect2_class(It& pos, It end)
+        {
+            std::optional< class_entity_ast > out;
+
+            if (!skip_keyword_if_is(pos, end, "CLASS"))
+            {
+                return out;
+            }
+
+            out = collect2_class_body(pos, end);
+            return out;
+        }
+
+        template < typename It >
+        std::optional< ast2_class_variable_declaration > try_collect2_class_variable(It& pos, It end)
+        {
+            std::optional< ast2_class_variable_declaration > out;
+
+            auto pos2 = pos;
+
+            bool is_member;
+
+            if (skip_symbol_if_is(pos2, end, "."))
+            {
+                is_member = true;
+            }
+            else if (skip_symbol_if_is(pos2, end, "::"))
+            {
+                is_member = false;
+            }
+            else
+            {
+                return out;
+            }
+            std::string name = get_skip_identifier(pos2, end);
+
+            if (name.empty())
+            {
+                throw std::runtime_error("Expected identifier");
+            }
+
+            skip_wsc(pos2, end);
+
+            if (!skip_keyword_if_is(pos2, end, "VAR"))
+            {
+                return out;
+            }
+
+            skip_wsc(pos2, end);
+
+            type_symbol type = collect_qualified_symbol(pos, end);
+
+            skip_wsc(pos2, end);
+
+            if (!skip_symbol_if_is(pos2, end, ";"))
+            {
+                throw std::runtime_error("Expected ';' after VAR type");
+            }
+
+            pos = pos2;
+
+            out = ast2_class_variable_declaration{};
+            out->name = name;
+            out->type = type;
+            out->is_member = is_member;
+
+            return out;
+        }
+
+        template < typename It >
+        class_entity_ast collect2_class_body(It& pos, It end)
+        {
+            return parse_class_body(pos, end);
+        }
+
+        template < typename It >
         bool try_collect_class(It& pos, It it_end)
         {
             skip_wsc(pos, it_end);
@@ -646,7 +780,7 @@ namespace rylang
             }
 
             // type_ref_ast typ;
-            qualified_symbol_reference typ;
+            type_symbol typ;
             // collect_type_symbol(begin, end, typ);
             typ = collect_qualified_symbol(begin, end);
             skip_wsc(begin, end);
@@ -709,10 +843,10 @@ namespace rylang
         }
 
         template < typename It >
-        bool try_collect_qualified_symbol(It& pos, It end, std::optional< qualified_symbol_reference >& outputv)
+        bool try_collect_qualified_symbol(It& pos, It end, std::optional< type_symbol >& outputv)
         {
 
-            qualified_symbol_reference output = context_reference{};
+            type_symbol output = context_reference{};
             std::string remaining = std::string(pos, end);
             skip_wsc(pos, end);
         start:
@@ -737,7 +871,7 @@ namespace rylang
                     skip_wsc(pos, end);
                     if (!skip_symbol_if_is(pos, end, ")"))
                     {
-                        throw std::runtime_error("Expected ')' after T(" +tref.name);
+                        throw std::runtime_error("Expected ')' after T(" + tref.name);
                     }
                 }
 
@@ -856,9 +990,9 @@ namespace rylang
         }
 
         template < typename It >
-        qualified_symbol_reference collect_qualified_symbol(It& pos, It end)
+        type_symbol collect_qualified_symbol(It& pos, It end)
         {
-            std::optional< qualified_symbol_reference > output;
+            std::optional< type_symbol > output;
             try_collect_qualified_symbol(pos, end, output);
             if (!output.has_value())
                 throw std::runtime_error("Expected qualified symbol");
@@ -933,7 +1067,7 @@ namespace rylang
             }
 
             std::string& arg_name = arg.name;
-            qualified_symbol_reference& arg_type = arg.type;
+            type_symbol& arg_type = arg.type;
 
             arg_name = get_skip_identifier(pos, end);
             if (arg_name.empty())
@@ -1238,7 +1372,7 @@ namespace rylang
         next_value:
 
             remaining = std::string(pos, end);
-            std::optional< qualified_symbol_reference > sym;
+            std::optional< type_symbol > sym;
             skip_wsc(pos, end);
             if (auto num_str = get_skip_number(pos, end); !num_str.empty())
             {
@@ -1591,4 +1725,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_COLLECTOR_HEADER
+#endif // RYLANG_COLLECTOR_HEADER_GUARD

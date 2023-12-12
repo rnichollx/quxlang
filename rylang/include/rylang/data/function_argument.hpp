@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FUNCTION_ARGUMENT_HEADER
-#define RPNX_RYANSCRIPT1031_FUNCTION_ARGUMENT_HEADER
+#ifndef RYLANG_FUNCTION_ARGUMENT_HEADER_GUARD
+#define RYLANG_FUNCTION_ARGUMENT_HEADER_GUARD
 
 #include "rylang/data/type_reference.hpp"
 
@@ -12,4 +12,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FUNCTION_ARGUMENT_HEADER
+#endif // RYLANG_FUNCTION_ARGUMENT_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/31/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_EXPR_DEREFERENCE_HEADER
-#define RPNX_RYANSCRIPT1031_VM_EXPR_DEREFERENCE_HEADER
+#ifndef RYLANG_VM_EXPR_DEREFERENCE_HEADER_GUARD
+#define RYLANG_VM_EXPR_DEREFERENCE_HEADER_GUARD
 
 #include "vm_expression.hpp"
 #include "vm_type.hpp"
@@ -13,10 +13,10 @@ namespace rylang
     struct vm_expr_dereference
     {
         vm_value expr;
-        qualified_symbol_reference type;
+        type_symbol type;
         //vm_type type;
 
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_EXPR_DEREFERENCE_HEADER
+#endif // RYLANG_VM_EXPR_DEREFERENCE_HEADER_GUARD

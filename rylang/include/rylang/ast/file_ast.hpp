@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FILE_AST_HEADER
-#define RPNX_RYANSCRIPT1031_FILE_AST_HEADER
+#ifndef RYLANG_FILE_AST_HEADER_GUARD
+#define RYLANG_FILE_AST_HEADER_GUARD
 
 #include <string>
 #include <map>
@@ -21,4 +21,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FILE_AST_HEADER
+#endif // RYLANG_FILE_AST_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VARIANT_UTILS_HEADER
-#define RPNX_RYANSCRIPT1031_VARIANT_UTILS_HEADER
+#ifndef RYLANG_VARIANT_UTILS_HEADER_GUARD
+#define RYLANG_VARIANT_UTILS_HEADER_GUARD
 
 #include <boost/type_index.hpp>
 #include <boost/variant.hpp>
@@ -29,4 +29,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VARIANT_UTILS_HEADER
+#endif // RYLANG_VARIANT_UTILS_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
-#define RPNX_RYANSCRIPT1031_MANIPULATORS_QUALIFIED_REFERENCE_HEADER
+#ifndef RYLANG_MANIPULATORS_QUALIFIED_REFERENCE_HEADER_GUARD
+#define RYLANG_MANIPULATORS_QUALIFIED_REFERENCE_HEADER_GUARD
 
 #include "rylang/data/call_parameter_information.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
@@ -12,7 +12,7 @@
 namespace rylang
 {
 
-    std::string to_string(qualified_symbol_reference const& ref);
+    std::string to_string(type_symbol const& ref);
 
     struct call_parameter_information;
 
@@ -20,16 +20,16 @@ namespace rylang
 
 
 
-    bool is_template(qualified_symbol_reference const& ref);
+    bool is_template(type_symbol const& ref);
 
 
     struct template_match_results
     {
-        std::map< std::string, qualified_symbol_reference > matches;
-        qualified_symbol_reference type;
+        std::map< std::string, type_symbol > matches;
+        type_symbol type;
     };
 
-    std::optional< template_match_results > match_template(qualified_symbol_reference const& template_type, qualified_symbol_reference const& type);
+    std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type);
 
     inline auto knot(context_reference) -> std::tuple<>
     {
@@ -51,9 +51,9 @@ namespace rylang
         return std::tie(ref.target);
     }
 
-    std::string to_string(qualified_symbol_reference const& ref);
+    std::string to_string(type_symbol const& ref);
 
-    inline qualified_symbol_reference make_mref(qualified_symbol_reference ref)
+    inline type_symbol make_mref(type_symbol ref)
     {
         if (typeis< mvalue_reference >(ref))
         {
@@ -77,7 +77,7 @@ namespace rylang
         }
     }
 
-    inline qualified_symbol_reference make_oref(qualified_symbol_reference ref)
+    inline type_symbol make_oref(type_symbol ref)
     {
         if (typeis< mvalue_reference >(ref))
         {
@@ -101,7 +101,7 @@ namespace rylang
         }
     }
 
-    inline qualified_symbol_reference make_tref(qualified_symbol_reference ref)
+    inline type_symbol make_tref(type_symbol ref)
     {
         if (typeis< mvalue_reference >(ref))
         {
@@ -125,7 +125,7 @@ namespace rylang
         }
     }
 
-    inline qualified_symbol_reference make_cref(qualified_symbol_reference ref)
+    inline type_symbol make_cref(type_symbol ref)
     {
         if (typeis< mvalue_reference >(ref))
         {
@@ -149,7 +149,7 @@ namespace rylang
         }
     }
 
-    inline bool is_ref(qualified_symbol_reference type)
+    inline bool is_ref(type_symbol type)
     {
         if (typeis< mvalue_reference >(type))
         {
@@ -173,7 +173,7 @@ namespace rylang
         }
     }
 
-    inline bool is_ptr(qualified_symbol_reference type)
+    inline bool is_ptr(type_symbol type)
     {
         if (typeis< instance_pointer_type >(type))
         {
@@ -185,7 +185,7 @@ namespace rylang
         }
     }
 
-    inline qualified_symbol_reference remove_ref(qualified_symbol_reference type)
+    inline type_symbol remove_ref(type_symbol type)
     {
         if (typeis< mvalue_reference >(type))
         {
@@ -209,30 +209,30 @@ namespace rylang
         }
     }
 
-    std::optional< qualified_symbol_reference > qualified_parent(qualified_symbol_reference input);
+    std::optional< type_symbol > qualified_parent(type_symbol input);
 
-    inline bool qualified_is_contextual(qualified_symbol_reference const& ref);
-    inline bool is_contextual(qualified_symbol_reference const& ref)
+    inline bool qualified_is_contextual(type_symbol const& ref);
+    inline bool is_contextual(type_symbol const& ref)
     {
         return qualified_is_contextual(ref);
     }
 
-    inline bool is_canonical(qualified_symbol_reference const& ref)
+    inline bool is_canonical(type_symbol const& ref)
     {
         return !qualified_is_contextual(ref);
     }
 
-    inline bool is_integral(qualified_symbol_reference const& ref)
+    inline bool is_integral(type_symbol const& ref)
     {
         return typeis< primitive_type_integer_reference >(ref);
     }
 
-    inline bool is_numeric_literal(qualified_symbol_reference const& ref)
+    inline bool is_numeric_literal(type_symbol const& ref)
     {
         return typeis< numeric_literal_reference >(ref);
     }
 
-    inline bool qualified_is_contextual(qualified_symbol_reference const& ref)
+    inline bool qualified_is_contextual(type_symbol const& ref)
     {
         if (ref.type() == boost::typeindex::type_id< context_reference >())
         {
@@ -250,15 +250,15 @@ namespace rylang
         }
     }
 
-    std::optional< qualified_symbol_reference > qualified_parent(qualified_symbol_reference input);
+    std::optional< type_symbol > qualified_parent(type_symbol input);
 
-    qualified_symbol_reference with_context(qualified_symbol_reference const& ref, qualified_symbol_reference const& context);
+    type_symbol with_context(type_symbol const& ref, type_symbol const& context);
 
-    inline bool is_primitive(qualified_symbol_reference sym)
+    inline bool is_primitive(type_symbol sym)
     {
         return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym) || typeis< instance_pointer_type >(sym);
     }
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_QUALIFIED_SYMBOL_REFERENCE_HEADER
+#endif // RYLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/21/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_LIST_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_LIST_HEADER
+#ifndef RYLANG_CLASS_LIST_HEADER_GUARD
+#define RYLANG_CLASS_LIST_HEADER_GUARD
 #include <vector>
 #include <string>
 
@@ -15,4 +15,4 @@ namespace rylang
   };
 }
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_LIST_HEADER
+#endif // RYLANG_CLASS_LIST_HEADER_GUARD

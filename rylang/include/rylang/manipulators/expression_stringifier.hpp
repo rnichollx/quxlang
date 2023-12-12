@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_EXPRESSION_STRINGIFIER_HEADER
-#define RPNX_RYANSCRIPT1031_EXPRESSION_STRINGIFIER_HEADER
+#ifndef RYLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD
+#define RYLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD
 
 #include "rylang/data/expression.hpp"
 #include "rylang/data/expression_numeric_literal.hpp"
@@ -105,4 +105,4 @@ namespace rylang
     }
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_EXPRESSION_STRINGIFIER_HEADER
+#endif // RYLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/23/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_STRUCT_MATH_HEADER
-#define RPNX_RYANSCRIPT1031_STRUCT_MATH_HEADER
+#ifndef RYLANG_STRUCT_MATH_HEADER_GUARD
+#define RYLANG_STRUCT_MATH_HEADER_GUARD
 
 #include <cstddef>
 
@@ -16,4 +16,4 @@ namespace rylang
     }
 }
 
-#endif // RPNX_RYANSCRIPT1031_STRUCT_MATH_HEADER
+#endif // RYLANG_STRUCT_MATH_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/29/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FWD_HEADER
-#define RPNX_RYANSCRIPT1031_FWD_HEADER
+#ifndef RYLANG_FWD_HEADER_GUARD
+#define RYLANG_FWD_HEADER_GUARD
 
 namespace rylang
 {
@@ -18,4 +18,4 @@ namespace rylang
     enum class entity_category;
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FWD_HEADER
+#endif // RYLANG_FWD_HEADER_GUARD

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
+#ifndef RYLANG_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD
+#define RYLANG_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/ast/entity_ast.hpp"
@@ -17,9 +17,9 @@ namespace rylang
     {
 
       public:
-        using key_type = qualified_symbol_reference;
+        using key_type = type_symbol;
 
-        explicit entity_ast_from_canonical_chain_resolver(qualified_symbol_reference chain)
+        explicit entity_ast_from_canonical_chain_resolver(type_symbol chain)
         {
             m_chain = chain;
         }
@@ -27,9 +27,9 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        qualified_symbol_reference m_chain;
+        type_symbol m_chain;
     };
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER
+#endif // RYLANG_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

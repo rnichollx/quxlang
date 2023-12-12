@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/24/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
-#define RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
+#ifndef RYLANG_ENTITY_AST_HEADER_GUARD
+#define RYLANG_ENTITY_AST_HEADER_GUARD
 
 #include "rpnx/value.hpp"
 #include "function_ast.hpp"
@@ -18,7 +18,7 @@
 
 namespace rylang
 {
-    enum class entity_type { null_object_type, function_type, variable_type, namespace_type, class_type };
+    enum class entity_type { null_object_type, function_type, variable_type, namespace_type, class_type, class_templex_type };
     struct entity_ast
     {
         // Fields
@@ -140,4 +140,4 @@ namespace rylang
 #include "rylang/ast/null_object_ast.hpp"
 #include "rylang/ast/variable_entity_ast.hpp"
 
-#endif // RPNX_RYANSCRIPT1031_ENTITY_AST_HEADER
+#endif // RYLANG_ENTITY_AST_HEADER_GUARD

@@ -19,7 +19,7 @@ void rylang::functanoid_return_type_resolver::process(rylang::compiler* c)
         subdotentity_reference subdot = as<subdotentity_reference>(parent);
         if (subdot.subdotentity_name == "CONSTRUCTOR" || subdot.subdotentity_name == "DESTRUCTOR")
         {
-            set_value(qualified_symbol_reference{void_type{}});
+            set_value(type_symbol{void_type{}});
             return;
         }
     }
@@ -52,6 +52,6 @@ void rylang::functanoid_return_type_resolver::process(rylang::compiler* c)
         return;
     }
 
-    qualified_symbol_reference return_type = return_type_dp->get();
+    type_symbol return_type = return_type_dp->get();
     set_value(return_type);
 }

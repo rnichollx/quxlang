@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/21/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_CLASS_LIST_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_CLASS_LIST_RESOLVER_HEADER
+#ifndef RYLANG_CLASS_LIST_RESOLVER_HEADER_GUARD
+#define RYLANG_CLASS_LIST_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -22,4 +22,4 @@ namespace rylang
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_CLASS_LIST_RESOLVER_HEADER
+#endif // RYLANG_CLASS_LIST_RESOLVER_HEADER_GUARD

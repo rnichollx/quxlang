@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_FILELIST_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_FILELIST_RESOLVER_HEADER
+#ifndef RYLANG_FILELIST_RESOLVER_HEADER_GUARD
+#define RYLANG_FILELIST_RESOLVER_HEADER_GUARD
 #include "rylang/compiler_fwd.hpp"
 
 #include "rpnx/resolver_utilities.hpp"
@@ -25,4 +25,4 @@ namespace rylang
 
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_FILELIST_RESOLVER_HEADER
+#endif // RYLANG_FILELIST_RESOLVER_HEADER_GUARD

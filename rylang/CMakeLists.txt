@@ -69,12 +69,40 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/res/call_params_of_function_ast_resolver.hpp
         sources/res/call_params_of_function_ast_resolver.cpp
         include/rylang/ast2/ast2_class.hpp
-        include/rylang/ast2/ast2_variable.hpp
+        include/rylang/ast2/ast2_class_variable_declaration.hpp
         include/rylang/res/function_overload_selection_resolver2.hpp
         include/rylang/data/functanoid_instanciation.hpp
         include/rylang/debug.hpp
         include/rylang/res/overload_set_instanciate_with_resolver.hpp
         sources/res/overload_set_instanciate_with_resolver.cpp
+        include/rylang/ast/class_template_ast.hpp
+        include/rylang/ast/class_templex_entity_ast.hpp
+        include/rylang/ast2/ast2_entity.hpp
+        include/rylang/ast2/ast2_class_declaration.hpp
+        include/rylang/ast2/ast2_function_declaration.hpp
+        include/rylang/ast2/ast2_class_template.hpp
+        include/rylang/parsers/parse_class_body.hpp
+        include/rylang/parsers/try_parse_class.hpp
+        include/rylang/parsers/try_parse_class_template.hpp
+        include/rylang/parsers/skip_whitespace.hpp
+        include/rylang/parsers/skip_keyword_if_is.hpp
+        include/rylang/parsers/iter_parse_keyword.hpp
+        include/rylang/parsers/skip_symbol_if_is.hpp
+        include/rylang/parsers/iter_parse_symbol.hpp
+        include/rylang/parsers/try_parse_class_variable_declaration.hpp
+        include/rylang/parsers/parse_comment.hpp
+        include/rylang/parsers/iter_parse_line_comment.hpp
+        include/rylang/parsers/parse_symbol.hpp
+        include/rylang/parsers/parse_whitespace_and_comments.hpp
+        include/rylang/parsers/ctype.hpp
+        include/rylang/parsers/parse_whitespace.hpp
+        include/rylang/parsers/try_parse_function_declaration.hpp
+        include/rylang/parsers/try_parse_type_symbol.hpp
+        include/rylang/parsers/try_parse_integral_keyword.hpp
+        include/rylang/parsers/try_parse_class_function_declaration.hpp
+        include/rylang/ast2/ast2_class_function_declaration.hpp
+        include/rylang/parsers/parse_type_symbol.hpp
+        include/rylang/parsers/parse_function_body.hpp
 
 )
 
@@ -105,7 +133,7 @@ target_precompile_headers(rylang PRIVATE
  <boost/variant.hpp>)
 
 
-add_compile_definitions(-DBOOST_MPL_CFG_NO_PREPROCESSED_HEADERS -DBOOST_MPL_LIMIT_LIST_SIZE=50)
+add_compile_definitions(-DBOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS -DBOOST_MPL_LIMIT_LIST_SIZE=50)
 
 get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
 

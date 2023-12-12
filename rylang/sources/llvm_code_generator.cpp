@@ -73,7 +73,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // TODO: This is placeholder
     frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
 
-    std::optional< qualified_symbol_reference > func_return_type = vmf.interface.return_type;
+    std::optional< type_symbol > func_return_type = vmf.interface.return_type;
 
     llvm::Type* func_llvm_return_type = nullptr;
 
@@ -212,7 +212,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // return {};
 }
 
-llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, rylang::qualified_symbol_reference typ)
+llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, rylang::type_symbol typ)
 {
     if (typ.type() == boost::typeindex::type_id< rylang::primitive_type_integer_reference >())
     {
@@ -640,7 +640,7 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
     return nullptr;
 }
 
-llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_symbol(llvm::LLVMContext& context, rylang::qualified_symbol_reference typ)
+llvm::FunctionType* rylang::llvm_code_generator::get_llvm_type_from_func_symbol(llvm::LLVMContext& context, rylang::type_symbol typ)
 {
     return nullptr;
 }

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_VM_TYPE_HEADER
-#define RPNX_RYANSCRIPT1031_VM_TYPE_HEADER
+#ifndef RYLANG_VM_TYPE_HEADER_GUARD
+#define RYLANG_VM_TYPE_HEADER_GUARD
 
 #include <cstddef>
 #include <boost/variant.hpp>
@@ -20,4 +20,4 @@ namespace rylang
     using vm_type = boost::variant<std::monostate, vm_type_int, vm_type_pointer>;
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_VM_TYPE_HEADER
+#endif // RYLANG_VM_TYPE_HEADER_GUARD

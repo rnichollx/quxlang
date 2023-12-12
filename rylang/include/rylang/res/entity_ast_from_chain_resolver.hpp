@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
-#define RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
+#ifndef RYLANG_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
+#define RYLANG_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/compiler_fwd.hpp"
@@ -15,7 +15,7 @@ namespace rylang
     {
 
       public:
-        using key_type = std::tuple< qualified_symbol_reference , qualified_symbol_reference >;
+        using key_type = std::tuple< type_symbol , type_symbol >;
 
         explicit entity_ast_from_chain_resolver(key_type chains)
         {
@@ -26,9 +26,9 @@ namespace rylang
         virtual void process(compiler* c);
 
       private:
-        qualified_symbol_reference m_chain;
-        qualified_symbol_reference m_context;
+        type_symbol m_chain;
+        type_symbol m_context;
     };
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER
+#endif // RYLANG_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD

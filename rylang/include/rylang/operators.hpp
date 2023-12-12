@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/18/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_OPERATORS_HEADER
-#define RPNX_RYANSCRIPT1031_OPERATORS_HEADER
+#ifndef RYLANG_OPERATORS_HEADER_GUARD
+#define RYLANG_OPERATORS_HEADER_GUARD
 
 #include <set>
 #include <string>
@@ -14,4 +14,4 @@ namespace rylang
     static std::set< std::string > const assignment_operators = {":=", ":<"};
 } // namespace rylang
 
-#endif // RPNX_RYANSCRIPT1031_OPERATORS_HEADER
+#endif // RYLANG_OPERATORS_HEADER_GUARD

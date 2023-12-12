@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/16/23.
 //
 
-#ifndef RPNX_RYANSCRIPT1031_SYMBOL_TYPE_HEADER
-#define RPNX_RYANSCRIPT1031_SYMBOL_TYPE_HEADER
+#ifndef RYLANG_SYMBOL_TYPE_HEADER_GUARD
+#define RYLANG_SYMBOL_TYPE_HEADER_GUARD
 
 namespace rylang
 {
@@ -23,4 +23,4 @@ namespace rylang
     };
 }
 
-#endif // RPNX_RYANSCRIPT1031_SYMBOL_TYPE_HEADER
+#endif // RYLANG_SYMBOL_TYPE_HEADER_GUARD
