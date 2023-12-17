@@ -13,21 +13,16 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
     {
         auto parent = as< subdotentity_reference >(functum).parent;
 
-        std::optional< entity_ast > class_ent;
+        std::optional< ast2_declaration > decl;
 
-        class_entity_ast* class_ent_ptr = nullptr;
         auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
         if (parent_class_exists)
         {
-            class_ent = co_await *c->lk_entity_ast_from_canonical_chain(parent);
+            decl = co_await *c->lk_entity_ast_from_canonical_chain(parent);
 
-            if (class_ent.value().type() != entity_type::class_type)
+            if (!typeis< ast2_class_declaration >(decl.value()))
             {
-                class_ent = std::nullopt;
-            }
-            else
-            {
-                class_ent_ptr = &class_ent->get_as< class_entity_ast >();
+                decl = std::nullopt;
             }
         }
 

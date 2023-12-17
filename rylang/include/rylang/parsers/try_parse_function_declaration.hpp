@@ -8,13 +8,16 @@
 #include <optional>
 
 #include <rylang/ast2/ast2_function_declaration.hpp>
+#include <rylang/parsers/parse_function_block.hpp>
 #include <rylang/parsers/skip_keyword_if_is.hpp>
-
-#include <rylang/parsers/try_parse_function_body.hpp>
+#include <rylang/parsers/try_parse_function_return_type.hpp>
+#include <rylang/parsers/parse_function_args.hpp>
+#include <rylang/parsers/parse_function_block.hpp>
 
 namespace rylang::parsers
 {
-    std::optional< ast2_function_declaration > try_parse_function_declaration(std::string_view& pos, std::string_view end)
+    template <typename It>
+    std::optional< ast2_function_declaration > try_parse_function_declaration(It & pos, It end)
     {
         std::optional< ast2_function_declaration > out;
 
@@ -22,8 +25,13 @@ namespace rylang::parsers
         {
             return out;
         }
+        out = ast2_function_declaration{};
 
-        out = parse_function_body(pos, end);
+        out->args = parse_function_args(pos, end);
+        out->return_type = try_parse_function_return_type(pos, end);
+
+
+        out->body = parse_function_block(pos, end);
         return out;
     }
 } // namespace rylang

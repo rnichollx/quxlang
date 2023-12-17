@@ -4,9 +4,8 @@
 
 #include "rylang/compiler.hpp"
 
-
-#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "rylang/manipulators/qmanip.hpp"
+#include "rylang/res/entity_canonical_chain_exists_resolver.hpp"
 
 void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
 {
@@ -60,7 +59,26 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
 
         auto parent_ast = parent_ast_dp->get();
 
-        if (parent_ast.m_sub_entities.find(boost::get< subdotentity_reference >(chain).subdotentity_name) == parent_ast.m_sub_entities.end())
+        auto sub_name = boost::get< subdotentity_reference >(chain).subdotentity_name;
+
+        if (!typeis< ast2_class_declaration >(parent_ast))
+        {
+            set_value(false);
+            return;
+        }
+
+        auto class_map_dp = get_dependency(
+            [&]
+            {
+                return c->lk_type_map(parent.value());
+            });
+        if (!ready())
+        {
+            return;
+        }
+        auto const & class_map = class_map_dp->get();
+
+        if (class_map.members.find(sub_name) == class_map.members.end())
         {
             set_value(false);
             return;
@@ -93,17 +111,20 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
             return;
         }
 
-        auto parent_ast_dp = get_dependency(
+        auto class_map_dp = get_dependency(
             [&]
             {
-                return c->lk_entity_ast_from_canonical_chain(parent.value());
+                return c->lk_type_map(parent.value());
             });
         if (!ready())
             return;
 
-        auto parent_ast = parent_ast_dp->get();
+        auto const & class_map = class_map_dp->get();
 
-        if (parent_ast.m_sub_entities.find(boost::get< subentity_reference >(chain).subentity_name) == parent_ast.m_sub_entities.end())
+        std::string sub_name = boost::get< subentity_reference >(chain).subentity_name;
+
+
+        if (class_map.members.find(sub_name) == class_map.members.end())
         {
             set_value(false);
             return;
@@ -113,9 +134,11 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
             set_value(true);
             return;
         }
+
     }
     else if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
     {
+        // TODO: support templates
         set_value(false);
     }
     else

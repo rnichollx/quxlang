@@ -518,6 +518,7 @@ namespace rpnx
 
       public:
         using value_type = Result;
+        using output_type = Result;
         using result_type = result< Result >;
 
         resolver_base()
@@ -706,6 +707,7 @@ namespace rpnx
       public:
         using input_type = Input;
         using key_type = Input;
+
 
         co_resolver_base(input_type input_val)
             : input_val(input_val)

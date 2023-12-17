@@ -52,7 +52,7 @@ namespace rylang::parsers
                 throw std::runtime_error("Expected '{' after CLASS TEMPLATE(...)");
             }
 
-            class_entity_ast class_body = collect2_class_body(pos, end);
+            ast2_class_declaration class_body = parse_class(pos, end);
 
             return ct;
         }

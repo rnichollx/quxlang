@@ -4,14 +4,12 @@
 
 #ifndef AST2_CLASS_TEMPLATE_HEADER_GUARD
 #define AST2_CLASS_TEMPLATE_HEADER_GUARD
+#include <rylang/ast2/ast2_type_map.hpp>
 #include <rylang/data/qualified_symbol_reference.hpp>
 
 namespace rylang
 {
-    struct ast2_class_template
-    {
-        std::vector<type_symbol> m_template_args;
-    };
+
 }
 
 #endif //AST2_CLASS_TEMPLATE_HEADER_GUARD

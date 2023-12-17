@@ -47,14 +47,16 @@
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 #include "rylang/res/module_ast_resolver.hpp"
 #include "rylang/res/operator_is_overloaded_with_resolver.hpp"
+#include "rylang/res/overload_set_instanciate_with_resolver.hpp"
 #include "rylang/res/overload_set_is_callable_with_resolver.hpp"
 #include "rylang/res/symbol_canonical_chain_exists_resolver.hpp"
+#include "rylang/res/type_map_resolver.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "rylang/res/type_placement_info_from_canonical_type_resolver.hpp"
-#include "rylang/res/overload_set_instanciate_with_resolver.hpp"
 #include "rylang/res/type_size_from_canonical_type_resolver.hpp"
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
+#include <rylang/ast2/ast2_type_map.hpp>
 #include <shared_mutex>
 
 namespace rylang
@@ -103,6 +105,7 @@ namespace rylang
         friend class list_builtin_functum_overloads_resolver;
         friend class call_params_of_function_ast_resolver;
         friend class overload_set_instanciate_with_resolver;
+        friend class type_map_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -129,8 +132,20 @@ namespace rylang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
-        index< module_ast_resolver > m_module_ast_index;
+
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
+
+        index< type_map_resolver > m_type_map_index;
+        out< ast2_type_map > lk_type_map(type_symbol typ)
+        {
+            return m_type_map_index.lookup(typ);
+        }
+
+        index< module_ast_resolver > m_module_ast_index;
+        out< module_ast_resolver::output_type > lk_module_ast(std::string const& module_name)
+        {
+            return m_module_ast_index.lookup(module_name);
+        }
 
         index< overload_set_instanciate_with_resolver > m_overload_set_instanciate_with_index;
         out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
@@ -139,9 +154,14 @@ namespace rylang
         }
 
         index< call_params_of_function_ast_resolver > m_call_params_of_function_ast_index;
-        out< call_parameter_information > lk_call_params_of_function_ast(function_ast f_ast, type_symbol f_symbol)
+        out< call_parameter_information > lk_call_params_of_function_ast(ast2_function_declaration f_ast, type_symbol f_symbol)
         {
-            return m_call_params_of_function_ast_index.lookup(std::make_pair(f_ast, f_symbol));
+            return lk_call_params_of_function_ast(std::make_pair(f_ast, f_symbol));
+        }
+
+        out< typename call_params_of_function_ast_resolver::output_type > lk_call_params_of_function_ast(call_params_of_function_ast_resolver::input_type input)
+        {
+            return m_call_params_of_function_ast_index.lookup(input);
         }
 
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
@@ -199,7 +219,7 @@ namespace rylang
         }
 
         index< function_ast_resolver > m_function_ast_index;
-        out< function_ast > lk_function_ast(type_symbol func_addr)
+        out< ast2_function_declaration > lk_function_ast(type_symbol func_addr)
         {
             return m_function_ast_index.lookup(func_addr);
         }
@@ -337,10 +357,7 @@ namespace rylang
         // Get the parsed AST for a file
         out< file_ast > lk_file_ast(std::string const& filename);
 
-        out< module_ast > lk_module_ast(std::string const& module_name)
-        {
-            return m_module_ast_index.lookup(module_name);
-        }
+
 
         out< filelist > lk_file_list()
         {
@@ -379,7 +396,7 @@ namespace rylang
         }
 
         // Look up the AST for a given glass given a paritcular cannonical chain
-        out< entity_ast > lk_entity_ast_from_canonical_chain(type_symbol const& chain)
+        out< ast2_declaration > lk_entity_ast_from_canonical_chain(type_symbol const& chain)
         {
             return m_entity_ast_from_cannonical_chain_index.lookup(chain);
         }

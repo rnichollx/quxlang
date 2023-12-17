@@ -10,6 +10,8 @@
 #include "rylang/manipulators/merge_entity.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 
+#include <rylang/ast2/ast2_module.hpp>
+
 namespace rylang
 {
     void module_ast_resolver::process(compiler* c)
@@ -28,7 +30,7 @@ namespace rylang
         // TODO: Perform precursor transformations,
         //  For now, we don't do any precursor1 -> 2 transformations
 
-        module_ast result;
+        ast2_module result;
 
         result.module_name = this->m_id;
 

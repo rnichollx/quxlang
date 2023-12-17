@@ -1,0 +1,47 @@
+
+
+// Following evaluates at compile time
+
+CT_FOR ( ... )
+{
+
+}
+
+
+CT_FOR (VAR i := 0; i < 10; i++)
+{
+  // Unrolled at compile time
+
+}
+
+::apply(%func T, %what TS(args) -> T(ty) )
+{
+  CT_FOR( VAR i := 0; i < args::size(); i++)
+  {
+     VAR arg CONST& args@(i) :(what[i]);
+     VAR arg_ptr_to ty@(i) := arg->;
+     func(arg_ptr_to);
+  }
+}
+
+// Use like:
+
+apply(printf, !("Hello", "World", "!\n"));
+
+::foo(%func T, %a TS(args) -> T(ty), %b TS(args2) I64 )
+{
+  CT_FOR( CT_VAR i := 0; i < args::size(); i++)
+  {
+     CT_FOR( CR_VAR j := 0; j < args2::size(); j++)
+     {
+       VAR arg CONST& args@(i) :(what[i]);
+       VAR arg_ptr_to ty@(i) := arg->;
+       VAR num I64 :(b[j]);
+       func(arg_ptr_to, b);
+     }
+  }
+}
+
+
+
+}

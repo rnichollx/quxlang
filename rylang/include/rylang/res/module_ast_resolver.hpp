@@ -10,10 +10,12 @@
 #include "rylang/compiler_fwd.hpp"
 #include "rylang/data/symbol_id.hpp"
 
+#include <rylang/ast2/ast2_module.hpp>
+
 namespace rylang
 {
    class module_ast_resolver
-   : public rpnx::resolver_base< compiler, module_ast >
+   : public rpnx::resolver_base< compiler, ast2_module >
    {
      public:
         using key_type = std::string;

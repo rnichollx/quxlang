@@ -11,10 +11,10 @@
 
 #include <optional>
 
-namespace rylang
+namespace rylang::parsers
 {
     template < typename It >
-    std::optional<type_symbol> try_parse_type_symbol(It& pos, It end);
+    std::optional< type_symbol > try_parse_type_symbol(It& pos, It end);
 
     template < typename It >
     type_symbol parse_type_symbol(It& pos, It end)
@@ -26,6 +26,13 @@ namespace rylang
         }
         return result.value();
     }
-} // namespace rylang
+
+    type_symbol parse_type_symbol(std::string str)
+    {
+        auto pos = str.begin();
+        auto end = str.end();
+        return parse_type_symbol(pos, end);
+    }
+} // namespace rylang::parsers
 
 #endif // PARSE_TYPE_SYMBOL_HPP

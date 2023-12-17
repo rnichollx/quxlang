@@ -11,7 +11,7 @@
 
 namespace rylang
 {
-    struct ast2_class_function_declaration
+    struct ast2_named_function_declaration
     {
         std::string name;
         bool is_field = false;

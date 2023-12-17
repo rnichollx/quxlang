@@ -26,8 +26,8 @@
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
 
-#include <rylang/ast2/ast2_class.hpp>
-#include <rylang/ast2/ast2_class_variable_declaration.hpp>
+#include <rylang/ast2/ast2_named_variable_declaration.hpp>
+#include <rylang/ast2/ast2_type_map.hpp>
 #include <rylang/parsers/parse_class_body.hpp>
 
 namespace rylang
@@ -49,6 +49,7 @@ namespace rylang
         {
             m_symbol_stack.push_back(std::move(symbol));
         }
+
         void pop_symbol()
         {
         }
@@ -555,9 +556,9 @@ namespace rylang
         }
 
         template < typename It >
-        std::optional< ast2_class_variable_declaration > try_collect2_class_variable(It& pos, It end)
+        std::optional< ast2_named_variable_declaration > try_collect2_class_variable(It& pos, It end)
         {
-            std::optional< ast2_class_variable_declaration > out;
+            std::optional< ast2_named_variable_declaration > out;
 
             auto pos2 = pos;
 
@@ -602,7 +603,7 @@ namespace rylang
 
             pos = pos2;
 
-            out = ast2_class_variable_declaration{};
+            out = ast2_named_variable_declaration{};
             out->name = name;
             out->type = type;
             out->is_member = is_member;
@@ -1161,64 +1162,8 @@ namespace rylang
         template < typename It >
         bool try_collect_function_callsite_expression(It& pos, It end, std::optional< expression_call >& output)
         {
-            output.reset();
-
-            skip_wsc(pos, end);
-
-            if (!skip_symbol_if_is(pos, end, "("))
-                return false;
-
-            expression_call result;
-
-            skip_wsc(pos, end);
-
-            if (skip_symbol_if_is(pos, end, ")"))
-            {
-                output = std::move(result);
-                return true;
-            }
-        get_arg:
-
-            expression expr = collect_expression(pos, end);
-            result.args.push_back(std::move(expr));
-
-            if (skip_symbol_if_is(pos, end, ","))
-            {
-                goto get_arg;
-            }
-
-            if (!skip_symbol_if_is(pos, end, ")"))
-            {
-                throw std::runtime_error("expected ',' or ')'");
-            }
-
-            output = std::move(result);
-            return true;
-        }
-
-        template < typename Operator, typename It >
-        bool implement_binary_operator_v2(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
-        {
-            static const constexpr int priority = Operator::priority;
-            static constexpr const char* const operator_string = Operator::symbol;
-            if (skip_symbol_if_is(pos, end, operator_string))
-            {
-                skip_wsc(pos, end);
-                Operator new_expression;
-
-                expression* binding_point2 = operator_bindings[priority];
-                new_expression.lhs = std::move(*binding_point2);
-                *binding_point2 = rylang::expression(new_expression);
-                expression* binding_pointer = &boost::get< Operator >(*binding_point2).rhs;
-                for (int i = priority + 1; i < operator_bindings.size(); i++)
-                {
-                    operator_bindings[i] = binding_pointer;
-                }
-                value_binding = &(boost::get< Operator >(*binding_point2)).rhs;
-                return true;
-            }
-            else
-                return false;
+            output = parsers::try_parse_function_callsite_expression(pos, end);
+            return output.has_value();
         }
 
         template < typename It >
@@ -1299,30 +1244,6 @@ namespace rylang
             return true;
         }
 
-        template < typename Operator, typename It >
-        bool implement_binary_operator(It& pos, It end, std::string operator_string, int priority, std::vector< expression* >& operator_bindings, expression*& value_binding)
-        {
-            if (skip_symbol_if_is(pos, end, operator_string))
-            {
-                skip_wsc(pos, end);
-                Operator new_expression;
-
-                expression* binding_point2 = operator_bindings[priority];
-                new_expression.lhs = std::move(*binding_point2);
-                *binding_point2 = rylang::expression(new_expression);
-                expression* binding_pointer = &boost::get< Operator >(*binding_point2).rhs;
-
-                for (int i = priority; i < operator_bindings.size(); i++)
-                {
-                    operator_bindings[i] = binding_pointer;
-                }
-                value_binding = &(boost::get< Operator >(*binding_point2)).rhs;
-                return true;
-            }
-            else
-                return false;
-        }
-
         template < typename It >
         expression collect_expression(It& pos, It end)
         {
@@ -1352,156 +1273,14 @@ namespace rylang
         template < typename It >
         bool try_collect_expression(It& pos, It end, std::optional< expression >& output)
         {
-            skip_wsc(pos, end);
-
-            std::string remaining{pos, end};
-
-            expression result;
-            std::vector< expression* > bindings;
-
-            bindings.resize(9);
-
-            for (auto& binding : bindings)
-            {
-                binding = &result;
-            }
-
-            expression* value_bind_point = &result;
-            bool have_anything = false;
-
-        next_value:
-
-            remaining = std::string(pos, end);
-            std::optional< type_symbol > sym;
-            skip_wsc(pos, end);
-            if (auto num_str = get_skip_number(pos, end); !num_str.empty())
-            {
-                numeric_literal num;
-                num.value = num_str;
-                *value_bind_point = num;
-                have_anything = true;
-                skip_wsc(pos, end);
-            }
-            else if (skip_symbol_if_is(pos, end, "."))
-            {
-                skip_wsc(pos, end);
-                expression_thisdot_reference thisdot;
-                thisdot.field_name = get_skip_identifier(pos, end);
-                *value_bind_point = thisdot;
-                have_anything = true;
-            }
-            else if (try_collect_qualified_symbol(pos, end, sym))
-            {
-                assert(sym.has_value());
-
-                expression_symbol_reference lvalue;
-                lvalue.symbol = sym.value();
-
-                *value_bind_point = lvalue;
-                have_anything = true;
-            }
-            else if (skip_symbol_if_is(pos, end, "("))
-            {
-
-                expression parenthesis;
-                parenthesis = collect_expression(pos, end);
-                *value_bind_point = parenthesis;
-                have_anything = true;
-                skip_wsc(pos, end);
-                if (!skip_symbol_if_is(pos, end, ")"))
-                {
-                    throw std::runtime_error("Expected ')'");
-                }
-            }
-            else
-            {
-                if (!have_anything)
-                {
-                    return false;
-                }
-                else
-                {
-                    throw std::runtime_error("Expected binary operator to be followed by value");
-                }
-            }
-
-        next_operator:
-            remaining = std::string(pos, end);
-
-            skip_wsc(pos, end);
-
-#define RYLANG_OPERATOR(X) implement_binary_operator_v2< X >(pos, end, bindings, value_bind_point)
-
-            if (
-
-                // Assignment operators
-
-                binary_operator_v3(pos, end, bindings, value_bind_point))
-            {
-                goto next_value;
-            }
-            else if (std::optional< expression_call > call; try_collect_function_callsite_expression(pos, end, call))
-            {
-                expression* binding_point2 = bindings[bindings.size() - 1];
-                call.value().callee = std::move(*binding_point2);
-                *binding_point2 = rylang::expression(call.value());
-                goto next_operator;
-            }
-            else if (skip_symbol_if_is(pos, end, "."))
-            {
-                expression_dotreference dot;
-                dot.field_name = get_skip_identifier(pos, end);
-                dot.lhs = std::move(*bindings[bindings.size() - 1]);
-                *bindings[bindings.size() - 1] = dot;
-                goto next_operator;
-            }
-            else
-            {
-                output = result;
-                return true;
-            }
+            output = parsers::try_parse_expression(pos, end);
+            return output.has_value();
         }
 
         template < typename It >
         function_if_statement collect_if_statement(It& pos, It end)
         {
-            skip_wsc(pos, end);
-
-            if (!skip_keyword_if_is(pos, end, "IF"))
-            {
-                throw std::runtime_error("Expected 'IF'");
-            }
-
-            skip_wsc(pos, end);
-
-            if (!skip_symbol_if_is(pos, end, "("))
-            {
-                throw std::runtime_error("Expected '('");
-            }
-
-            function_if_statement if_statement;
-
-            if_statement.condition = collect_expression(pos, end);
-
-            skip_wsc(pos, end);
-            if (!skip_symbol_if_is(pos, end, ")"))
-            {
-                throw std::runtime_error("Expected ')'");
-            }
-
-            skip_wsc(pos, end);
-
-            if_statement.then_block = collect_function_block(pos, end);
-
-            skip_wsc(pos, end);
-
-            if (skip_keyword_if_is(pos, end, "ELSE"))
-            {
-                skip_wsc(pos, end);
-                if_statement.else_block = collect_function_block(pos, end);
-            }
-
-            return if_statement;
+            return parsers::parse_if_statement(pos, end);
         }
 
         template < typename It >

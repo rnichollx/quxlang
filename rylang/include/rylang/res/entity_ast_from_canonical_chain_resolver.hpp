@@ -11,9 +11,11 @@
 #include "rylang/data/canonical_lookup_chain.hpp"
 #include "rylang/data/lookup_chain.hpp"
 
+#include <rylang/ast2/ast2_entity.hpp>
+
 namespace rylang
 {
-    class entity_ast_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, entity_ast >
+    class entity_ast_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, ast2_declaration >
     {
 
       public:

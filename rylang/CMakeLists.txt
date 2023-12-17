@@ -68,8 +68,8 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/manipulators/tmanip.hpp
         include/rylang/res/call_params_of_function_ast_resolver.hpp
         sources/res/call_params_of_function_ast_resolver.cpp
-        include/rylang/ast2/ast2_class.hpp
-        include/rylang/ast2/ast2_class_variable_declaration.hpp
+        include/rylang/ast2/ast2_type_map.hpp
+        include/rylang/ast2/ast2_named_variable_declaration.hpp
         include/rylang/res/function_overload_selection_resolver2.hpp
         include/rylang/data/functanoid_instanciation.hpp
         include/rylang/debug.hpp
@@ -100,9 +100,34 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/parsers/try_parse_type_symbol.hpp
         include/rylang/parsers/try_parse_integral_keyword.hpp
         include/rylang/parsers/try_parse_class_function_declaration.hpp
-        include/rylang/ast2/ast2_class_function_declaration.hpp
+        include/rylang/ast2/ast2_named_function_declaration.hpp
         include/rylang/parsers/parse_type_symbol.hpp
-        include/rylang/parsers/parse_function_body.hpp
+        include/rylang/parsers/parse_function_block.hpp
+        include/rylang/parsers/parse_function_declaration.hpp
+        include/rylang/parsers/parse_function_args.hpp
+        include/rylang/ast2/ast2_function_arg.hpp
+        include/rylang/parsers/try_parse_function_return_type.hpp
+        include/rylang/parsers/try_parse_statement.hpp
+        include/rylang/parsers/parse_if_statement.hpp
+        include/rylang/parsers/parse_expression.hpp
+        include/rylang/parsers/try_parse_expression.hpp
+        include/rylang/parsers/parse_int.hpp
+        include/rylang/parsers/parse_var_statement.hpp
+        include/rylang/parsers/next_keyword.hpp
+        include/rylang/parsers/parse_keyword.hpp
+        include/rylang/parsers/try_parse_expression_statement.hpp
+        include/rylang/parsers/parse_return_statement.hpp
+        include/rylang/parsers/parse_while_statement.hpp
+        include/rylang/parsers/iter_parse_number.hpp
+        include/rylang/parsers/try_parse_function_callsite_expression.hpp
+        include/rylang/parsers/parse_class.hpp
+        include/rylang/ast2/ast2_namespace.hpp
+        include/rylang/ast2/ast2manip.hpp
+        include/rylang/res/type_map_resolver.hpp
+        sources/res/type_map_resolver.cpp
+        include/rylang/ast2/ast2_templex.hpp
+        include/rylang/ast2/ast2_functum.hpp
+        include/rylang/ast2/ast2_module.hpp
 
 )
 

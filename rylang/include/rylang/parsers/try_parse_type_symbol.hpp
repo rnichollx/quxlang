@@ -22,7 +22,11 @@ namespace rylang::parsers
         std::string remaining = std::string(pos, end);
         skip_whitespace_and_comments(pos, end);
     start:
-        if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
+        if (skip_keyword_if_is(pos, end, "BOOL"))
+        {
+            output = primitive_type_bool_reference{};
+        }
+        else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = *int_kw;
         }
@@ -156,7 +160,5 @@ namespace rylang::parsers
     }
 
 } // namespace rylang::parsers
-
-
 
 #endif // TRY_PARSE_TYPE_SYMBOL_HPP

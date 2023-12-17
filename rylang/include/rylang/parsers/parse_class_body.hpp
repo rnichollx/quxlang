@@ -6,23 +6,25 @@
 #define PARSE_CLASS_BODY_HEADER_GUARD
 
 #include <optional>
-#include <rylang/ast2/ast2_class.hpp>
-#include <rylang/parsers/try_parse_class_variable_declaration.hpp>
+#include <rylang/ast2/ast2_type_map.hpp>
 #include <rylang/parsers/try_parse_class_function_declaration.hpp>
+#include <rylang/parsers/try_parse_class_variable_declaration.hpp>
 
 namespace rylang::parsers
 {
 
     template < typename It >
-    ast2_class parse_class_body(It& pos, It end)
+    ast2_class_declaration parse_class_body(It& pos, It end)
     {
-        ast2_class result;
+        ast2_class_declaration result;
         if (!skip_symbol_if_is(pos, end, "{"))
         {
             throw std::runtime_error("Expected '{'");
         }
 
     member:
+
+        skip_whitespace_and_comments(pos, end);
         if (auto var = try_parse_class_variable_declaration(pos, end); var)
         {
             result.member_variables.push_back(*var);
@@ -33,6 +35,8 @@ namespace rylang::parsers
             result.member_functions.push_back(*func);
             goto member;
         }
+
+
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {

@@ -19,17 +19,17 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
 
     std::set< call_parameter_information > result;
 
-    auto functum_ast = co_await *c->lk_entity_ast_from_canonical_chain(functum);
+    auto maybe_functum_ast = co_await *c->lk_entity_ast_from_canonical_chain(functum);
 
-    if (!std::holds_alternative< functum_entity_ast >(functum_ast.m_specialization.get()))
+    if (!typeis<ast2_functum>(maybe_functum_ast))
     {
         // TODO: Redirect to constructor?
         co_return {};
     }
 
-    functum_entity_ast const& functum_e = std::get< functum_entity_ast >(functum_ast.m_specialization.get());
+    ast2_functum const& functum_ast = as<ast2_functum>(maybe_functum_ast);
 
-    for (function_ast const& f : functum_e.m_function_overloads)
+    for (ast2_function_declaration const& f : functum_ast.functions)
     {
         result.insert(co_await *c->lk_call_params_of_function_ast(f, functum));
     }

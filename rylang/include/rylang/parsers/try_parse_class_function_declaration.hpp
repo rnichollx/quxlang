@@ -4,15 +4,19 @@
 
 #ifndef TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
 #define TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
-#include <rylang/ast2/ast2_class_function_declaration.hpp>
+#include <rylang/ast2/ast2_named_function_declaration.hpp>
+#include <rylang/parsers/parse_function_block.hpp>
+#include <rylang/parsers/skip_keyword_if_is.hpp>
 #include <rylang/parsers/skip_symbol_if_is.hpp>
+
+#include <rylang/parsers/try_parse_function_declaration.hpp>
 
 namespace rylang::parsers
 {
     template < typename It >
-    std::optional<ast2_class_function_declaration> try_parse_class_function_declaration(It& pos, It end)
+    std::optional<ast2_named_function_declaration> try_parse_class_function_declaration(It& pos, It end)
     {
-        std::optional<ast2_class_function_declaration> out;
+        std::optional<ast2_named_function_declaration> out;
 
         auto pos2 = pos;
 
@@ -46,11 +50,17 @@ namespace rylang::parsers
 
         skip_wsc(pos2, end);
 
-        ast2_function_declaration function = parse_function_body(pos2, end);
+        auto function_opt  = try_parse_function_declaration(pos2, end);
+        if (!function_opt)
+        {
+            return out;
+        }
+
+        auto function = *function_opt;
 
         pos = pos2;
 
-        out = ast2_class_function_declaration{};
+        out = ast2_named_function_declaration{};
         out->name = name;
         out->is_field = is_member;
         out->function = function;

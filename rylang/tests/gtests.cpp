@@ -36,9 +36,37 @@ TEST(parsing, parse_empty_class)
 {
     std::string test_string = "CLASS { }";
 
-    std::optional< rylang::ast2_class > cl = rylang::parsers::try_parse_class(test_string);
+    std::optional< rylang::ast2_class_declaration > cl = rylang::parsers::try_parse_class(test_string);
 
     ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_function_args)
+{
+    std::string test_string = "(%a I32, %b I64, %c -> I32)";
+
+    auto args = rylang::parsers::parse_function_args(test_string);
+
+    ASSERT_EQ(args.size(), 3);
+    ASSERT_EQ(args[0].name, "a");
+    ASSERT_EQ(args[1].name, "b");
+    ASSERT_EQ(args[2].name, "c");
+
+    bool ok1 = args[0].type == rylang::type_symbol(rylang::primitive_type_integer_reference{32, true});
+    bool ok2 = args[1].type == rylang::type_symbol(rylang::primitive_type_integer_reference{64, true});
+    ASSERT_TRUE(ok1);
+    ASSERT_TRUE(ok2);
+}
+
+TEST(parsing, parse_basic_types)
+{
+    using namespace rylang::parsers;
+    using namespace rylang;
+
+    ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(primitive_type_integer_reference{64, true}));
+    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(instance_pointer_type{primitive_type_integer_reference{64, true}}));
+
+    ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(primitive_type_bool_reference{}));
 }
 
 TEST(mangling, name_mangling_new)

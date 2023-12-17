@@ -6,6 +6,7 @@
 #define PARSE_FUNCTION_BODY_HPP
 #include <rylang/data/function_block.hpp>
 #include <rylang/parsers/parse_whitespace_and_comments.hpp>
+#include <rylang/parsers/try_parse_statement.hpp>
 
 namespace rylang::parsers
 {
@@ -30,7 +31,7 @@ namespace rylang::parsers
 
         std::optional< function_statement > statement;
 
-        while (statement = try_parse_statement(pos, end))
+        while ((statement = try_parse_statement(pos, end)))
         {
             body.statements.push_back(std::move(statement.value()));
             skip_whitespace_and_comments(pos, end);
@@ -47,7 +48,7 @@ namespace rylang::parsers
         if (skip_symbol_if_is(pos, end, "}"))
         {
             // end of function body
-            return;
+            return body;
         }
         auto remaining = std::string(pos, end);
         throw std::runtime_error("Expected '}' or statement");

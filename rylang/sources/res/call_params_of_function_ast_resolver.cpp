@@ -5,8 +5,8 @@
 #include "rylang/res/call_params_of_function_ast_resolver.hpp"
 rpnx::resolver_coroutine< rylang::compiler, rylang::call_parameter_information > rylang::call_params_of_function_ast_resolver::co_process(compiler* c, input_type input)
 {
-    function_ast f = input.first;
-    type_symbol functum = input.second;
+    ast2_function_declaration const & f = input.first;
+    type_symbol const & functum = input.second;
 
     call_parameter_information info;
 

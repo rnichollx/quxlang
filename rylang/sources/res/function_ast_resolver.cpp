@@ -8,7 +8,7 @@
 
 using namespace rylang;
 
-rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver::co_process(rylang::compiler* c, type_symbol func_addr)
+rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function_ast_resolver::co_process(rylang::compiler* c, type_symbol func_addr)
 {
     std::optional< call_parameter_information > overload_set;
 
@@ -27,18 +27,18 @@ rpnx::resolver_coroutine< compiler, function_ast > rylang::function_ast_resolver
 
     auto entity_ast_v = co_await *c->lk_entity_ast_from_canonical_chain(func_addr);
 
-    if (entity_ast_v.type() != entity_type::function_type)
+    if (!typeis<ast2_fuctum>(entity_ast_v))
     {
         throw std::runtime_error("Getting function AST for non-functum entity");
     }
 
-    functum_entity_ast functum_entity_ast_v = entity_ast_v.get_as< functum_entity_ast >();
+    ast2_functum const & functum_entity_ast_v = as<ast2_functum>(entity_ast_v);
 
     if (!overload_set.has_value())
     {
-        if (functum_entity_ast_v.m_function_overloads.size() == 1)
+        if (functum_entity_ast_v.functions.size() == 1)
         {
-            co_return functum_entity_ast_v.m_function_overloads[0];
+            co_return functum_entity_ast_v.functions[0];
         }
         else
         {

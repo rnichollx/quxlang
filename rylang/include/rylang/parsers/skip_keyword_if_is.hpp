@@ -18,7 +18,9 @@ namespace rylang::parsers
         {
             return false;
         }
-        if (std::string(ipos, pos) == keyword)
+        auto pos2 = ipos;
+        std::string kw(pos2, pos);
+        if (kw == std::string(keyword))
         {
             ipos = pos;
             return true;

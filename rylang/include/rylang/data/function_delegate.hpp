@@ -14,6 +14,8 @@ namespace rylang
     {
         type_symbol target;
         std::vector< expression > args;
+
+        std::strong_ordering operator<=>(const function_delegate& other) const = default;
     };
 } // namespace rylang
 

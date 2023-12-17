@@ -13,7 +13,7 @@
 
 namespace rylang
 {
-    class function_ast_resolver : public rpnx::co_resolver_base< compiler, function_ast, type_symbol >
+    class function_ast_resolver : public rpnx::co_resolver_base< compiler, ast2_function_declaration, type_symbol >
     {
       public:
         using key_type = type_symbol;
@@ -23,7 +23,7 @@ namespace rylang
         {
         }
 
-        rpnx::resolver_coroutine< compiler, function_ast > co_process(compiler* c, type_symbol function_name);
+        virtual rpnx::resolver_coroutine< compiler, ast2_function_declaration > co_process(compiler* c, type_symbol function_name) override;
 
         virtual std::string question() const override
         {
