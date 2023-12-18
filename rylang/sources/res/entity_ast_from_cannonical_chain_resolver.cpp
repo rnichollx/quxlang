@@ -23,11 +23,21 @@ namespace rylang
 
         if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            // assert(false);
-            //  Don't ask for entity AST of a function parameter set?
-            //  TODO: Adjust this later, we should allow this in the future to
-            //   support templates.
-            //rpnx::unimplemented();
+            instanciation_reference inst = as<instanciation_reference>(chain);
+
+            // Get the template argument
+            auto ast_dp = get_dependency([&]
+            {
+                return c->lk_template_instanciation(inst);
+            });
+
+            if (!ready())
+            {
+                return;
+            }
+
+            set_value(ast_dp->get());
+            return;
         }
         else if (chain.type() == boost::typeindex::type_id< module_reference >())
         {

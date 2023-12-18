@@ -268,7 +268,6 @@ namespace rpnx
             return ss.str();
         }
 
-
         std::string debug_recursive()
         {
             auto unmet_v = unmet_dependencies();
@@ -315,9 +314,9 @@ namespace rpnx
             {
                 for (auto& d : dependents())
                 {
-                        ss << "  */" << d->question() << "\n";
-                        ss << "  Which has debug info:\n";
-                        ss << d->debug_recursive();
+                    ss << "  */" << d->question() << "\n";
+                    ss << "  Which has debug info:\n";
+                    ss << d->debug_recursive();
                 }
             }
 
@@ -708,7 +707,7 @@ namespace rpnx
       public:
         using input_type = Input;
         using key_type = Input;
-
+        using co_type = resolver_coroutine< Graph, Result >;
 
         co_resolver_base(input_type input_val)
             : input_val(input_val)
@@ -1462,6 +1461,10 @@ namespace rpnx
                     n->set_error(std::current_exception());
                 }
 
+                if (!(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0))
+                {
+                    std::cout << "failed resolution:" << n->question() << std::endl;
+                }
                 assert(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0);
 
                 if (n->resolved() && !n->m_attached_to)

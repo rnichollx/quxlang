@@ -23,9 +23,10 @@ namespace rylang
             return out;
         }
 
-        
+
     };
 } // namespace rylang
 std::string rylang::to_string(ast2_declarable const& ref)
 {
+    return "";
 }

@@ -12,29 +12,24 @@
 namespace rylang::parsers
 {
     template < typename It >
-    std::optional< rylang::ast2_class_template_declaration > try_parse_class_template(It& pos, It end)
+    std::optional< rylang::ast2_template_declaration > try_parse_template(It& pos, It end)
     {
         auto pos2 = pos;
 
-        skip_wsc(pos2, end);
-        if (!skip_keyword_if_is(pos2, end, "CLASS"))
-        {
-            return std::nullopt;
-        }
-        skip_wsc(pos2, end);
+
         if (!skip_keyword_if_is(pos2, end, "TEMPLATE"))
         {
             return std::nullopt;
         }
         pos = pos2;
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
             throw std::runtime_error("Expected '(' after CLASS TEMPLATE");
         }
-        std::optional< rylang::ast2_class_template_declaration > ct = ast2_class_template_declaration{};
+        std::optional< rylang::ast2_template_declaration > ct = ast2_template_declaration{};
     get_arg:
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         auto arg = parse_type_symbol(pos, end);
 
@@ -47,14 +42,12 @@ namespace rylang::parsers
         }
         else if (skip_symbol_if_is(pos, end, ")"))
         {
-            skip_wsc(pos, end);
-            if (!skip_symbol_if_is(pos, end, "{"))
-            {
-                throw std::runtime_error("Expected '{' after CLASS TEMPLATE(...)");
-            }
+            skip_whitespace_and_comments(pos, end);
+            // TODO: Also allow template functions.
 
             ast2_class_declaration class_body = parse_class(pos, end);
 
+            ct->m_class = class_body;
             return ct;
         }
         else

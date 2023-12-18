@@ -64,9 +64,20 @@ void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& s
 
         destination = boost::get< ast2_class_declaration >(source);
     }
-    else if (typeis< ast2_class_template_declaration >(source))
+    else if (typeis< ast2_template_declaration >(source))
     {
-        rpnx::unimplemented();
+        if (typeis< std::monostate >(destination))
+        {
+            destination = ast2_templex{};
+        }
+        if (!typeis< ast2_templex >(destination))
+        {
+            throw std::runtime_error("Cannot merge template into non-template of the same name");
+        }
+
+        ast2_templex& destination_templex = boost::get< ast2_templex >(destination);
+
+        destination_templex.templates.push_back(boost::get< ast2_template_declaration >(source));
     }
     else if (typeis< ast2_namespace_declaration > (source))
     {

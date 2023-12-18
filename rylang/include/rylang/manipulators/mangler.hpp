@@ -14,6 +14,33 @@
 
 namespace rylang
 {
+    inline std::string mangle_internal(std::string const & str)
+    {
+        std::string result;
+        bool upper = false;
+        for (char c : str)
+        {
+            if (c >= 'A' && c <= 'Z')
+            {
+                upper = true;
+                result += c - 'A' + 'a';
+            }
+
+            else
+            {
+                result += c;
+            }
+        }
+
+        if (upper)
+        {
+            return "W" + result;
+        }
+        else
+        {
+            return result;
+        }
+    }
     inline std::string mangle_internal(type_symbol const& qt)
     {
         if (qt.type() == boost::typeindex::type_id< module_reference >())
@@ -30,7 +57,7 @@ namespace rylang
         {
             subdotentity_reference const& se = boost::get< subdotentity_reference >(qt);
 
-            return mangle_internal(se.parent) + "D" + se.subdotentity_name;
+            return mangle_internal(se.parent) + "D" + mangle_internal(se.subdotentity_name);
         }
         else if (qt.type() == boost::typeindex::type_id< instance_pointer_type >())
         {

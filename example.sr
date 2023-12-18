@@ -31,10 +31,10 @@ MODULE main;
   .w VAR -> ::baz;
 }
 
-// ::box CLASS TEMPLATE(T(t1)) PRIORITY(0)
-// {
-//  .x VAR t1;
-// }
+::box2 TEMPLATE(T(t1)) CLASS // PRIORITY(0)
+{
+  .x VAR t1;
+}
 
 // ::box TEMPLATE CLASS(->T(t1)) PRIORITY(1)
 // {
@@ -61,6 +61,7 @@ MODULE main;
           .CONSTRUCTOR FUNCTION(%xa I32)
           :> .x:(xa + 4)
           {
+            VAR q box2@(I32);
             bif(.y);
           }
         }

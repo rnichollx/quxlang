@@ -10,7 +10,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::ast2_type_map > rylang::type
     std::vector< std::pair< std::string, ast2_declarable > > ast_members;
     std::vector< std::pair< std::string, ast2_declarable > > ast_globals;
 
-    auto ast = co_await *c->lk_entity_ast_from_canonical_chain(input);
+    std::string inputname = to_string(input);
+
+    ast2_map_entity ast = co_await *c->lk_entity_ast_from_canonical_chain(input);
 
     if (typeis< ast2_class_declaration >(ast))
     {
@@ -25,7 +27,27 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::ast2_type_map > rylang::type
     {
         ast_globals = boost::get< ast2_namespace_declaration >(ast).globals;
     }
-    else {}
+
+    else if (typeis< ast2_templex > (ast))
+    {
+        if (typeis<instanciation_reference>(input))
+        {
+        //    instanciation_reference inst = as<instanciation_reference
+        }
+        // We need to instanciate the template in this case
+
+        //ast2_map_entity ast2 = co_await * c->lk_template_instanciation(input);
+    }
+    else if (typeis<ast2_functum>(ast))
+    {
+        // ignore this
+    }
+    else
+    {
+        std::string typenam = to_string(input);
+        std::string nametp = ast.type().name();
+        rpnx::unimplemented();
+    }
 
     output_type output;
 

@@ -8,6 +8,10 @@ void rylang::class_field_list_from_canonical_chain_resolver::process(compiler* c
 
     // TODO: Check if is not a class.
 
+    std::string name = to_string(m_chain);
+
+
+
     auto ast_dp = get_dependency(
         [&]
         {

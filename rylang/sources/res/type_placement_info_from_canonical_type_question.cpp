@@ -6,16 +6,16 @@
 
 namespace rylang
 {
-    template <typename Graph>
-    auto general_int_4_returner() -> rpnx::general_coroutine<Graph, int>
+    template < typename Graph >
+    auto general_int_4_returner() -> rpnx::general_coroutine< Graph, int >
     {
         co_return 4;
     }
 
-    template <typename Graph>
-    auto get_class_layout_from_canonical_chain(Graph * g, type_symbol cls) -> rpnx::general_coroutine<Graph, class_layout>
+    template < typename Graph >
+    auto get_class_layout_from_canonical_chain(Graph* g, type_symbol cls) -> rpnx::general_coroutine< Graph, class_layout >
     {
-        int four = co_await general_int_4_returner<Graph>();
+      //  int four = co_await general_int_4_returner< Graph >();
         co_return co_await *g->lk_class_layout_from_canonical_chain(cls);
     }
 
@@ -24,7 +24,7 @@ namespace rylang
     {
         std::string type_str = to_string(type);
 
-        int four = co_await general_int_4_returner<Graph>();
+        int four = co_await general_int_4_returner< Graph >();
 
         if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
@@ -36,7 +36,7 @@ namespace rylang
 
             co_return result;
         }
-        else if (type.type() == boost::typeindex::type_id< subentity_reference >())
+        else if (typeis< subentity_reference >(type) || typeis< instanciation_reference >(type))
         {
             class_layout layout = co_await get_class_layout_from_canonical_chain(g, type);
 
@@ -51,7 +51,7 @@ namespace rylang
             primitive_type_integer_reference int_kw = boost::get< primitive_type_integer_reference >(type);
 
             int sz = 1;
-            while (sz*8 < int_kw.bits)
+            while (sz * 8 < int_kw.bits)
             {
                 sz *= 2;
             }
@@ -69,6 +69,8 @@ namespace rylang
         {
             throw std::logic_error("Unimplemented");
         }
+
+        rpnx::unimplemented();
     }
 
     template auto type_placement_info_from_canonical_type_question_f< compiler >(compiler* g, rylang::type_symbol type) -> rpnx::resolver_coroutine< compiler, type_placement_info >;

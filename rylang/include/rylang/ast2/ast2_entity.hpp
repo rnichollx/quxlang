@@ -16,24 +16,20 @@ namespace rylang
     struct ast2_file_declaration;
     struct ast2_class_declaration;
     struct ast2_function_declaration;
-    struct ast2_class_template_declaration;
+    struct ast2_template_declaration;
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
 
-    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_class_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
+    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
 
     struct ast2_functum;
     struct ast2_templex;
 
     using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration > >;
 
-    using ast2_template = boost::variant< std::monostate, boost::recursive_wrapper< ast2_class_template_declaration >, boost::recursive_wrapper< ast2_function_template_declaration > >;
+    using ast2_templatable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
 
-    struct ast2_templex
-    {
-        std::vector< ast2_template > templates;
-        std::strong_ordering operator<=>(const ast2_templex& other) const = default;
-    };
+
 
     struct ast2_functum
     {
@@ -64,21 +60,21 @@ namespace rylang
         std::strong_ordering operator<=>(const ast2_class_declaration& other) const = default;
     };
 
-    struct ast2_class_template_declaration
+    struct ast2_template_declaration
     {
         std::vector< type_symbol > m_template_args;
         ast2_class_declaration m_class;
+        std::optional<std::int64_t> priority;
 
-        std::strong_ordering operator<=>(const ast2_class_template_declaration& other) const = default;
+        std::strong_ordering operator<=>(const ast2_template_declaration& other) const = default;
     };
 
-    struct ast2_function_template_declaration
+    struct ast2_templex
     {
-        std::vector< type_symbol > m_template_args;
-        // ast2_class_declaration m_class;
-
-        std::strong_ordering operator<=>(const ast2_function_template_declaration& other) const = default;
+        std::vector< ast2_template_declaration > templates;
+        std::strong_ordering operator<=>(const ast2_templex& other) const = default;
     };
+
 
     struct ast2_function_declaration
     {

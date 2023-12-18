@@ -57,6 +57,7 @@
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <rylang/ast2/ast2_type_map.hpp>
+#include <rylang/res/template_instanciation_resolver.hpp>
 #include <shared_mutex>
 
 namespace rylang
@@ -106,6 +107,7 @@ namespace rylang
         friend class call_params_of_function_ast_resolver;
         friend class overload_set_instanciate_with_resolver;
         friend class type_map_resolver;
+        friend class template_instanciation_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -126,11 +128,18 @@ namespace rylang
       private:
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
-        //class_list_resolver m_class_list_resolver;
+        // class_list_resolver m_class_list_resolver;
         singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
+
+        index< template_instanciation_resolver > m_template_instanciation_index;
+        out<ast2_map_entity> lk_template_instanciation(instanciation_reference input)
+        {
+            return m_template_instanciation_index.lookup(input);
+        }
+
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
         entity_ast_from_canonical_chain_resolver::outptr_type lk_entity_ast_from_canonical_chain(type_symbol const& chain)
         {
@@ -361,8 +370,6 @@ namespace rylang
         // Get the parsed AST for a file
         out< ast2_file_declaration > lk_file_ast(std::string const& filename);
 
-
-
         out< filelist > lk_file_list()
         {
             return m_filelist_resolver.lookup();
@@ -401,7 +408,6 @@ namespace rylang
 
         // Look up the AST for a given glass given a paritcular cannonical chain
 
-
         // get_* functions are used only for debugging and by non-resolver consumers of the class
         // Each get_* function calls the lk_* function and then solves the graph
       public:
@@ -433,8 +439,6 @@ namespace rylang
             m_solver.solve(this, size);
             return size->get();
         }
-
-
 
         filelist get_file_list()
         {

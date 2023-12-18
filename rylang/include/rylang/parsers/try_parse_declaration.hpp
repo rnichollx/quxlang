@@ -22,7 +22,7 @@ namespace rylang::parsers
     {
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_declarable > output;
-        output = try_parse_class(pos, end);
+        output = try_parse_template(pos, end);
         if (output)
         {
             return output;
@@ -32,7 +32,7 @@ namespace rylang::parsers
         {
             return output;
         }
-        output = try_parse_class_template(pos, end);
+        output = try_parse_class(pos, end);
         if (output)
         {
             return output;

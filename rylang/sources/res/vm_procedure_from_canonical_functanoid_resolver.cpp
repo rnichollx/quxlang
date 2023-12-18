@@ -225,6 +225,7 @@ namespace rylang
         storage.type = type;
         vm_frame_variable var;
         var.name = name.value_or("TEMPORARY");
+        std::string typestr = to_string(type);
         var.type = type;
         var.is_temporary = temp;
         var.storage = storage;
