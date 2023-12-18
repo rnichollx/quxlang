@@ -59,22 +59,49 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
 
             while (current_context.has_value())
             {
-                subentity_reference sub2{current_context.value(), sub.subentity_name};
-
-                auto exists_dp = get_dependency(
-                    [&]
-                    {
-                        return c->lk_entity_canonical_chain_exists(sub2);
-                    });
-                if (!ready())
-                    return;
-
-                bool exists = exists_dp->get();
-
-                if (exists)
+                std::string name = sub.subentity_name;
+                if (typeis< instanciation_reference >(*current_context))
                 {
-                    set_value(sub2);
-                    return;
+                    // Two possibilities, 1 = this is a template, 2 = this is a function
+                    instanciation_reference inst = as< instanciation_reference >(*current_context);
+                    auto param_set_dp = get_dependency(
+                        [&]
+                        {
+                            return c->lk_template_instanciation_parameter_set(inst);
+                        });
+                    if (!ready())
+                    {
+                        return;
+                    }
+                    template_instanciation_parameter_set param_set = param_set_dp->get();
+                    auto it = param_set.parameter_map.find(name);
+                    if (it != param_set.parameter_map.end())
+                    {
+                        set_value(it->second);
+                        return;
+                    }
+                    current_context = qualified_parent(current_context.value());
+                }
+                else
+                {
+                    subentity_reference sub2{current_context.value(), sub.subentity_name};
+
+                    auto exists_dp = get_dependency(
+                        [&]
+                        {
+                            return c->lk_entity_canonical_chain_exists(sub2);
+                        });
+                    if (!ready())
+                        return;
+
+                    bool exists = exists_dp->get();
+                    std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl;
+
+                    if (exists)
+                    {
+                        set_value(sub2);
+                        return;
+                    }
                 }
 
                 current_context = qualified_parent(current_context.value());
@@ -122,6 +149,8 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
                     return;
 
                 bool exists = exists_dp->get();
+
+                std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl;
 
                 if (exists)
                 {
@@ -208,11 +237,11 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
         }
         set_value(mvalue_reference{target_can_dp->get()});
     }
-    else if (typeis<void_type>(type))
+    else if (typeis< void_type >(type))
     {
         set_value(type);
     }
-    else if (typeis<template_reference>(type))
+    else if (typeis< template_reference >(type))
     {
         set_value(type);
     }

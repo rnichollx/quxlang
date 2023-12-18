@@ -13,12 +13,11 @@ namespace rylang
 }
 namespace rylang
 {
-
-    class template_instanciation_resolver
-        : public rpnx::co_resolver_base<compiler, ast2_map_entity, instanciation_reference>
+    class temploid_instanciation_resolver
+        : public rpnx::co_resolver_base<compiler, ast2_template_declaration, instanciation_reference>
     {
     public:
-        template_instanciation_resolver(input_type input)
+        temploid_instanciation_resolver(input_type input)
             : co_resolver_base(input)
         {
         }

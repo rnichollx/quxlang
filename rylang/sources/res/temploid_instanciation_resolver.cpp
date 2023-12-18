@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#include <rylang/res/template_instanciation_resolver.hpp>
-auto rylang::template_instanciation_resolver::co_process(compiler* c, input_type input) -> co_type
+#include <rylang/res/temploid_instanciation_resolver.hpp>
+auto rylang::temploid_instanciation_resolver::co_process(compiler* c, input_type input) -> co_type
 {
     auto args = input.parameters;
 
@@ -13,8 +13,10 @@ auto rylang::template_instanciation_resolver::co_process(compiler* c, input_type
 
     ast2_map_entity maybe_templ_ast = co_await *c->lk_entity_ast_from_canonical_chain(templ);
 
+    std::cout << debug_recursive() << std::endl;
+
     std::string type = to_string(templ);
-    if (!typeis< ast2_templex >(maybe_templ_ast))
+    if (!typeis< ast2_templex >(maybe_templ_ast) && !typeis<ast2_functum>(maybe_templ_ast))
     {
         throw std::runtime_error("Cannot create template instanciation of non-template symbol.");
     }
@@ -63,5 +65,5 @@ auto rylang::template_instanciation_resolver::co_process(compiler* c, input_type
         throw std::runtime_error("Ambiguous template selection");
     }
 
-    co_return selected_template->m_class;
+    co_return *selected_template;
 }

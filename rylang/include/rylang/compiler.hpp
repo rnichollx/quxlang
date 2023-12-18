@@ -57,7 +57,8 @@
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <rylang/ast2/ast2_type_map.hpp>
-#include <rylang/res/template_instanciation_resolver.hpp>
+#include <rylang/res/template_instanciation_parameter_set_resolver.hpp>
+#include <rylang/res/temploid_instanciation_resolver.hpp>
 #include <shared_mutex>
 
 namespace rylang
@@ -107,7 +108,8 @@ namespace rylang
         friend class call_params_of_function_ast_resolver;
         friend class overload_set_instanciate_with_resolver;
         friend class type_map_resolver;
-        friend class template_instanciation_resolver;
+        friend class temploid_instanciation_resolver;
+        friend class template_instanciation_parameter_set_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -134,8 +136,14 @@ namespace rylang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
-        index< template_instanciation_resolver > m_template_instanciation_index;
-        out<ast2_map_entity> lk_template_instanciation(instanciation_reference input)
+        index< template_instanciation_parameter_set_resolver > m_template_instanciation_parameter_set_resolver;
+        template_instanciation_parameter_set_resolver::outptr_type lk_template_instanciation_parameter_set(instanciation_reference input)
+        {
+            return m_template_instanciation_parameter_set_resolver.lookup(input);
+        }
+
+        index< temploid_instanciation_resolver > m_template_instanciation_index;
+        out< temploid_instanciation_resolver::output_type > lk_template_instanciation(instanciation_reference input)
         {
             return m_template_instanciation_index.lookup(input);
         }

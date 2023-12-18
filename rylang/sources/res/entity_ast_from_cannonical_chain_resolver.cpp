@@ -35,8 +35,9 @@ namespace rylang
             {
                 return;
             }
+            ast2_template_declaration templ = ast_dp->get();
 
-            set_value(ast_dp->get());
+            set_value(templ.m_class);
             return;
         }
         else if (chain.type() == boost::typeindex::type_id< module_reference >())
