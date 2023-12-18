@@ -77,7 +77,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/ast/class_template_ast.hpp
         include/rylang/ast/class_templex_entity_ast.hpp
         include/rylang/ast2/ast2_entity.hpp
-        include/rylang/ast2/ast2_function_declaration.hpp
+        include/rylang/ast2/ast2_function_delegate.hpp
         include/rylang/parsers/parse_class_body.hpp
         include/rylang/parsers/try_parse_class.hpp
         include/rylang/parsers/try_parse_class_template.hpp
@@ -132,6 +132,13 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/parsers/try_parse_named_declaration.hpp
         include/rylang/parsers/parse_declaration.hpp
         include/rylang/parsers/try_parse_namespace.hpp
+        include/rylang/parsers/parse_identifier.hpp
+        include/rylang/parsers/iter_parse_identifier.hpp
+        include/rylang/parsers/parse_subentity.hpp
+        include/rylang/parsers/peek_symbol.hpp
+        include/rylang/parsers/try_parse_function_delegates.hpp
+        include/rylang/parsers/try_parse_function_callsite_args.hpp
+        include/rylang/parsers/try_parse_delegate_callsite_args.hpp
 
 )
 

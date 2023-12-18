@@ -11,6 +11,9 @@
 namespace rylang::parsers
 {
     template < typename It >
+    std::vector< ast2_named_declaration > parse_named_declarations(It& pos, It end);
+
+    template < typename It >
     std::optional< ast2_namespace_declaration > try_parse_namespace(It& pos, It end)
     {
         ast2_namespace_declaration out;

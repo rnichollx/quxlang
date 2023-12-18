@@ -7,8 +7,12 @@
 
 #include <optional>
 #include <rylang/data/qualified_symbol_reference.hpp>
+#include <rylang/parsers/parse_identifier.hpp>
 #include <rylang/parsers/parse_whitespace_and_comments.hpp>
+#include <rylang/parsers/skip_keyword_if_is.hpp>
+#include <rylang/parsers/skip_symbol_if_is.hpp>
 #include <rylang/parsers/try_parse_integral_keyword.hpp>
+#include <rylang/parsers/parse_subentity.hpp>
 
 namespace rylang::parsers
 {
@@ -38,7 +42,7 @@ namespace rylang::parsers
             if (skip_symbol_if_is(pos, end, "("))
             {
                 skip_whitespace_and_comments(pos, end);
-                tref.name = get_skip_identifier(pos, end);
+                tref.name = parse_identifier(pos, end);
                 if (tref.name.empty())
                 {
                     throw std::runtime_error("Expected identifier after T(");
@@ -66,7 +70,7 @@ namespace rylang::parsers
             // TODO: Support multiple modules
             output = module_reference{"main"};
 
-            auto ident = get_skip_subentity(pos, end);
+            auto ident = parse_subentity(pos, end);
             if (ident.empty())
                 throw std::runtime_error("expected identifier after ::");
 
@@ -75,7 +79,7 @@ namespace rylang::parsers
         else if (skip_symbol_if_is(pos, end, "."))
         {
             std::string remaining = std::string(pos, end);
-            auto ident = get_skip_subentity(pos, end);
+            auto ident = parse_subentity(pos, end);
             if (ident.empty())
             {
                 return std::nullopt;
@@ -89,7 +93,7 @@ namespace rylang::parsers
         else
         {
             std::string remaining = std::string(pos, end);
-            auto ident = get_skip_subentity(pos, end);
+            auto ident = parse_subentity(pos, end);
             if (ident.empty())
             {
                 return std::nullopt;
@@ -109,7 +113,7 @@ namespace rylang::parsers
 
         if (skip_symbol_if_is(pos, end, "::"))
         {
-            auto ident = get_skip_subentity(pos, end);
+            auto ident = parse_subentity(pos, end);
             if (ident.empty())
             {
                 return output;
@@ -120,7 +124,7 @@ namespace rylang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "::."))
         {
-            auto ident = get_skip_subentity(pos, end);
+            auto ident = parse_subentity(pos, end);
             if (ident.empty())
             {
                 return output;

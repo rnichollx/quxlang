@@ -7,6 +7,7 @@
 
 #include <boost/variant.hpp>
 #include <rylang/ast2/ast2_function_arg.hpp>
+#include <rylang/ast2/ast2_function_delegate.hpp>
 
 namespace rylang
 {
@@ -84,7 +85,7 @@ namespace rylang
         std::vector< ast2_function_arg > args;
         std::optional< type_symbol > return_type;
         std::optional< type_symbol > this_type;
-        std::vector< function_delegate > delegates;
+        std::vector< ast2_function_delegate > delegates;
         std::optional< std::int64_t > priority;
         function_block body;
 

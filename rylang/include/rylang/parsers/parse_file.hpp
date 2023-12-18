@@ -73,6 +73,13 @@ namespace rylang::parsers
 
         return output;
     }
+
+    ast2_file_declaration parse_file(std::string const& input)
+    {
+        auto it = input.begin();
+        auto end = input.end();
+        return parse_file(it, end);
+    }
 } // namespace rylang::parsers
 
 #endif // PARSE_FILE_HPP

@@ -11,8 +11,11 @@
 #include <rylang/parsers/try_parse_variable_declaration.hpp>
 #include <rylang/parsers/try_parse_namespace.hpp>
 
+
 namespace rylang::parsers
 {
+    template < typename It >
+    std::optional< ast2_class_declaration > try_parse_class(It& pos, It end);
 
     template < typename It >
     std::optional< ast2_declarable > try_parse_declarable(It& pos, It end)

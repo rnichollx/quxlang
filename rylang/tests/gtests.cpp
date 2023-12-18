@@ -13,10 +13,13 @@
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/manipulators/mangler.hpp"
 
+#include <rylang/parsers/parse_expression.hpp>
 #include <rylang/parsers/parse_symbol.hpp>
 #include <rylang/parsers/parse_whitespace.hpp>
+#include <rylang/parsers/try_parse_expression.hpp>
 
 #include <boost/variant.hpp>
+#include <rylang/parsers/parse_file.hpp>
 #include <rylang/parsers/try_parse_class.hpp>
 
 struct foo
@@ -39,6 +42,64 @@ TEST(parsing, parse_empty_class)
     std::optional< rylang::ast2_class_declaration > cl = rylang::parsers::try_parse_class(test_string);
 
     ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_class_with_variables)
+{
+    std::string test_string = "CLASS { .a VAR I32; .b VAR I64; ::c VAR I32; }";
+
+    std::optional< rylang::ast2_class_declaration > cl = rylang::parsers::try_parse_class(test_string);
+
+    ASSERT_TRUE(cl.has_value());
+
+    auto cl2 = cl.value();
+
+    ASSERT_EQ(cl2.globals.size(), 1);
+    ASSERT_EQ(cl2.members.size(), 2);
+
+    auto member1 = cl2.members[0];
+    auto member2 = cl2.members[1];
+    auto global = cl2.globals[0];
+
+    std::pair< std::string, rylang::ast2_declarable > member1_expected = {"a", rylang::ast2_variable_declaration{rylang::type_symbol(rylang::primitive_type_integer_reference{32, true})}};
+
+    std::pair< std::string, rylang::ast2_declarable > member2_expected = {"b", rylang::ast2_variable_declaration{rylang::type_symbol(rylang::primitive_type_integer_reference{64, true})}};
+
+    std::pair< std::string, rylang::ast2_declarable > global_expected = {"c", rylang::ast2_variable_declaration{rylang::type_symbol(rylang::primitive_type_integer_reference{32, true})}};
+
+    ASSERT_TRUE(member1 == member1_expected);
+    ASSERT_TRUE(member2 == member2_expected);
+    ASSERT_TRUE(global == global_expected);
+}
+
+TEST(parsing, parse_class_constructor)
+{
+    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) { } }";
+
+    auto cl = rylang::parsers::try_parse_class(test_string);
+
+    ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_class_constructor_delegates)
+{
+    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
+
+    auto cl = rylang::parsers::try_parse_class(test_string);
+
+    ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, functum_combining)
+{
+    std::string test_string = "MODULE m; ::foo FUNCTION(%a I32) { } ::foo FUNCTION(%a I64) { }";
+
+    rylang::ast2_file_declaration file;
+    file = rylang::parsers::parse_file(test_string);
+
+    ASSERT_EQ(file.globals.size(), 2);
+    ASSERT_EQ(file.globals[0].first, "foo");
+    ASSERT_EQ(file.globals[1].first, "foo");
 }
 
 TEST(parsing, parse_function_args)
@@ -91,7 +152,7 @@ TEST(mangling, name_mangling_new)
 
 TEST_F(collector_tester, order_of_operations)
 {
-    rylang::collector c;
+    // rylang::collector c;
 
     std::string test_string = "a + b * c + d + e * f := g + h ^^ i * j * k * l := m + n && o + p";
 
@@ -178,7 +239,6 @@ TEST(cow, cow_tests)
 
 TEST_F(collector_tester, function_call)
 {
-    rylang::collector c;
 
     std::string test_string = "e.a.b(c, d, e.f)";
 
@@ -187,7 +247,7 @@ TEST_F(collector_tester, function_call)
     std::string::iterator it = test_string.begin();
     std::string::iterator it_end = test_string.end();
 
-    expr = c.collect_expression(it, it_end);
+    expr = rylang::parsers::parse_expression(it, it_end);
 
     std::string str = rylang::to_string(expr);
 

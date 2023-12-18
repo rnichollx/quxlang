@@ -6,6 +6,7 @@
 #define RYLANG_MERGE_ENTITY_HEADER_GUARD
 
 #include "rylang/ast/entity_ast.hpp"
+#include <rylang/ast2/ast2_entity.hpp>
 
 namespace rylang
 {

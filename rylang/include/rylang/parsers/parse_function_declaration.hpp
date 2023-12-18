@@ -7,6 +7,6 @@
 
 #include <rylang/parsers/parse_type_symbol.hpp>
 
-#include <rylang/ast2/ast2_function_declaration.hpp>
+#include <..\ast2\ast2_function_delegate.hpp>
 
 #endif //PARSE_FUNCTION_DECLARATION_HPP

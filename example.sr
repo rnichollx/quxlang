@@ -58,8 +58,8 @@ MODULE main;
           .x VAR I32;
           .y VAR I32;
 
-          .CONSTRUCTOR(%xa I32)
-          : .x:(xa + 4)
+          .CONSTRUCTOR FUNCTION(%xa I32)
+          :> .x:(xa + 4)
           {
             bif(.y);
           }

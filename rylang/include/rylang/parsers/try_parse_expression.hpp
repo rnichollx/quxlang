@@ -9,6 +9,7 @@
 #include <rylang/data/qualified_symbol_reference.hpp>
 #include <rylang/parsers/parse_int.hpp>
 #include <rylang/parsers/parse_whitespace_and_comments.hpp>
+#include <rylang/parsers/peek_symbol.hpp>
 #include <rylang/parsers/try_parse_type_symbol.hpp>
 
 #include <rylang/parsers/try_parse_function_callsite_expression.hpp>
@@ -72,14 +73,14 @@ namespace rylang::parsers
                 // clang-format on
             };
 
-            std::string sym = get_symbol(pos, end);
+            std::string sym = peek_symbol(pos, end);
             auto it = operators_map.find(sym);
             if (it == operators_map.end())
                 return false;
 
             skip_symbol_if_is(pos, end, sym);
 
-            skip_wsc(pos, end);
+            skip_whitespace_and_comments(pos, end);
 
             int priority = it->second;
 
@@ -130,13 +131,13 @@ namespace rylang::parsers
             num.value = num_str;
             *value_bind_point = num;
             have_anything = true;
-            skip_wsc(pos, end);
+            skip_whitespace_and_comments(pos, end);
         }
         else if (skip_symbol_if_is(pos, end, "."))
         {
-            skip_wsc(pos, end);
+            skip_whitespace_and_comments(pos, end);
             expression_thisdot_reference thisdot;
-            thisdot.field_name = get_skip_identifier(pos, end);
+            thisdot.field_name = parse_subentity(pos, end);
             *value_bind_point = thisdot;
             have_anything = true;
         }
@@ -178,7 +179,7 @@ namespace rylang::parsers
     next_operator:
         remaining = std::string(pos, end);
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
         if (detail::binary_operator_v3(pos, end, bindings, value_bind_point))
         {
             goto next_value;
@@ -193,7 +194,7 @@ namespace rylang::parsers
         else if (skip_symbol_if_is(pos, end, "."))
         {
             expression_dotreference dot;
-            dot.field_name = get_skip_identifier(pos, end);
+            dot.field_name = parse_subentity(pos, end);
             dot.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = dot;
             goto next_operator;

@@ -15,11 +15,11 @@ namespace rylang::parsers
 
         if (skip_symbol_if_is(pos, end, "."))
         {
-            output = {{true, get_skip_identifier(pos, end)}};
+            output = {{true, parse_subentity(pos, end)}};
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
-            output = {{false, get_skip_identifier(pos, end)}};
+            output = {{false, parse_subentity(pos, end)}};
         }
 
         if (output.has_value() && output->second.empty())

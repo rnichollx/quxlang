@@ -30,7 +30,7 @@ void rylang::file_ast_resolver::process(compiler* c)
 
     auto content = content_ptr->get();
 
-    collector col;
+
 
     ast2_file_declaration v_file_ast;
 

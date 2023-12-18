@@ -12,7 +12,12 @@
 
 namespace rylang
 {
-
+    struct ast2_function_delegate
+    {
+        type_symbol target;
+        std::vector< expression > args;
+        std::strong_ordering operator<=>(const ast2_function_delegate& other) const = default;
+    };
 
 
 } // namespace rylang

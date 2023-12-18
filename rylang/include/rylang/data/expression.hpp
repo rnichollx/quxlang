@@ -8,6 +8,7 @@
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"
 #include <boost/variant.hpp>
+#include <rylang/data/qualified_symbol_reference.hpp>
 #include <utility>
 #include <vector>
 

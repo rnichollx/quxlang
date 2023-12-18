@@ -592,7 +592,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             assert(thistype_type.has_value());
             class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
             std::set< std::string > intialized_members;
-            for (function_delegate& delegate : function_ast_v.delegates)
+            for (ast2_function_delegate& delegate : function_ast_v.delegates)
             {
                 // TODO: Support intializing base classes (after we add inheritance)
 
