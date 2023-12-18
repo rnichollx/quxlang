@@ -12,6 +12,7 @@ rpnx::resolver_coroutine< rylang::compiler, std::optional< std::set< rylang::cal
     auto builtins = co_await *c->lk_builtin_functum_overloads(functum);
     auto user_defined = co_await *c->lk_user_functum_overloads(functum);
 
+    std::string name = to_string(functum);
     std::set< call_parameter_information > all_overloads;
     for (auto const& o : builtins)
     {

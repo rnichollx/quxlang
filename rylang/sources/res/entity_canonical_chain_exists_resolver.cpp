@@ -9,7 +9,9 @@
 
 void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
 {
+    std::cout << this->debug_recursive() << std::endl;
     auto chain = this->m_chain;
+    std::string name = to_string(chain);
     assert(!qualified_is_contextual(chain));
     if (chain.type() == boost::typeindex::type_id< module_reference >())
     {
@@ -119,12 +121,16 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
         if (!ready())
             return;
 
+        if (name == "[[module: main]]::quz::bif")
+        {
+            int x = 1;
+        }
         auto const & class_map = class_map_dp->get();
 
         std::string sub_name = boost::get< subentity_reference >(chain).subentity_name;
 
 
-        if (class_map.members.find(sub_name) == class_map.members.end())
+        if (class_map.globals.find(sub_name) == class_map.globals.end())
         {
             set_value(false);
             return;

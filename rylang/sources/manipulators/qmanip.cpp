@@ -6,6 +6,8 @@
 
 namespace rylang
 {
+
+
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {
         std::string operator()(context_reference const& ref) const;
@@ -442,7 +444,7 @@ namespace rylang
             all_results.type = std::move(callee_match->type);
             all_results.matches = std::move(callee_match->matches);
 
-            std::vector<type_symbol> instanciated_parameters;
+            std::vector< type_symbol > instanciated_parameters;
         }
 
         // In other cases, we are talking about a non-composite reference

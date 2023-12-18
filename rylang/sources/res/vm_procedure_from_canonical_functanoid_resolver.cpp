@@ -522,12 +522,12 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
             vm_proc.interface.return_type = function_ast_v.return_type.value();
         }
 
-        if (function_ast_v.this_type)
+        if (function_ast_v.this_type || typeis< subdotentity_reference >(functum_reference))
         {
 
             vm_frame_variable var;
             var.name = "THIS";
-            if (typeis< context_reference >(function_ast_v.this_type.value()))
+            if (!function_ast_v.this_type.has_value() || typeis< context_reference >(function_ast_v.this_type.value()))
             {
                 var.type = make_mref(parent_type.value());
             }
@@ -555,7 +555,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         for (std::size_t i = 0; i < function_ast_v.args.size(); i++)
         {
             auto arg = function_ast_v.args[i];
-            auto arg_type = boost::get<instanciation_reference>(func_name).parameters.at(i + (function_ast_v.this_type.has_value() ? 1 : 0) );
+            auto arg_type = boost::get<instanciation_reference>(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis<subdotentity_reference>(functum_reference) ? 1 : 0) );
 
             // TODO: Check that arg_type matches arg.type
 
@@ -589,7 +589,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         if (is_constructor)
         {
             // TODO: Refector this into separate function?
-            assert(thistype_type.has_value());
+           // assert(thistype_type.has_value());
             class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
             std::set< std::string > intialized_members;
             for (ast2_function_delegate& delegate : function_ast_v.delegates)
@@ -1040,6 +1040,13 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 
     assert(!is_ref(type));
 
+    std::string val ;
+
+    for (auto& i : values)
+    {
+        val += to_string(i) + " ";
+    }
+
     if (values.size() != 1)
     {
         throw std::runtime_error("Invalid number of arguments to default constructor");
@@ -1348,7 +1355,7 @@ rpnx::general_coroutine< rylang::compiler, std::optional< rylang::vm_value > > r
                 co_return void_value{};
             }
         }
-        else if (subdot.subdotentity_name == "CONSTRUCTOR")
+        else if (subdot.subdotentity_name == "CONSTRUCTOR" && values.size() == 1)
         {
             // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
             auto should_autogen = co_await *ctx.compiler()->lk_class_should_autogen_default_constructor(parent_type);

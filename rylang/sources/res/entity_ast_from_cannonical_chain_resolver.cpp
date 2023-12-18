@@ -69,7 +69,7 @@ namespace rylang
         }
         else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
-            auto const& subentity_ref = boost::get< subentity_reference >(chain);
+            auto const& subentity_ref = boost::get< subdotentity_reference >(chain);
             auto parent_ast_dp = get_dependency(
                 [&]
                 {
@@ -79,7 +79,7 @@ namespace rylang
                 return;
             ast2_type_map const& ent = parent_ast_dp->get();
 
-            auto it = ent.members.find(subentity_ref.subentity_name);
+            auto it = ent.members.find(subentity_ref.subdotentity_name);
 
             if (it == ent.members.end())
             {

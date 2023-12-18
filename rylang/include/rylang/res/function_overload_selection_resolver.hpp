@@ -23,6 +23,11 @@ namespace rylang
         {
         }
 
+        virtual std::string question() const override
+        {
+            return "Selecting overload for " + to_string(input_val.first) + " with parameters " + to_string(input_val.second);
+        }
+
         virtual rpnx::resolver_coroutine<compiler, call_parameter_information > co_process(compiler* c, key_type input) override;
     };
 } // namespace rylang

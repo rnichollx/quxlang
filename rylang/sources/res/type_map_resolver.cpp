@@ -21,7 +21,10 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::ast2_type_map > rylang::type
     {
         ast_globals = boost::get< ast2_module_declaration >(ast).globals;
     }
-
+    else if (typeis< ast2_namespace_declaration >(ast))
+    {
+        ast_globals = boost::get< ast2_namespace_declaration >(ast).globals;
+    }
     else {}
 
     output_type output;

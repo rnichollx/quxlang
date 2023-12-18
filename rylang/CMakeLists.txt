@@ -139,6 +139,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/parsers/try_parse_function_delegates.hpp
         include/rylang/parsers/try_parse_function_callsite_args.hpp
         include/rylang/parsers/try_parse_delegate_callsite_args.hpp
+        sources/ast2_entity.cpp
 
 )
 

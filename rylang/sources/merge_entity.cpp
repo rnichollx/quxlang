@@ -40,6 +40,7 @@ void rylang::merge_entity(rylang::entity_ast& destination, const rylang::entity_
 void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& source)
 {
 
+    std::string kind = source.type().name();
     if (typeis< ast2_function_declaration >(source))
     {
         if (typeis< std::monostate >(destination))
@@ -65,5 +66,39 @@ void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& s
     }
     else if (typeis< ast2_class_template_declaration >(source))
     {
+        rpnx::unimplemented();
+    }
+    else if (typeis< ast2_namespace_declaration > (source))
+    {
+        if (typeis< std::monostate >(destination))
+        {
+            destination = ast2_namespace_declaration{};
+        }
+        if (!typeis< ast2_namespace_declaration >(destination))
+        {
+            throw std::runtime_error("Cannot merge namespace into non-namespace of the same name");
+        }
+
+
+
+        ast2_namespace_declaration & ns = as< ast2_namespace_declaration >(destination);
+
+        for (auto& x : as< ast2_namespace_declaration >(source).globals)
+        {
+            ns.globals.push_back(x);
+        }
+    }
+    else if (typeis<ast2_variable_declaration>(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::runtime_error("Cannot merge variable into already existing entity");
+        }
+
+        destination = boost::get< ast2_variable_declaration >(source);
+    }
+    else
+    {
+        rpnx::unimplemented();
     }
 }

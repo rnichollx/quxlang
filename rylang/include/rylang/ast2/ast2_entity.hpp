@@ -116,6 +116,9 @@ namespace rylang
         std::strong_ordering operator<=>(const ast2_declarations& other) const = default;
     };
 
+    std::string to_string(ast2_function_declaration const & ref);
+    std::string to_string(ast2_declarable const& ref);
+
 } // namespace rylang
 
 #endif // AST2_ENTITY_HEADER_GUARD

@@ -12,7 +12,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::call_parameter_information >
 
     std::optional< type_symbol > this_arg_type;
 
-    if (f.this_type.has_value())
+
+
+    if (f.this_type.has_value() || typeis<subdotentity_reference>(functum))
     {
         // Member function
 
@@ -20,7 +22,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::call_parameter_information >
         auto parent = qualified_parent(functum);
         assert(parent.has_value());
 
-        if (f.this_type.value().type() == boost::typeindex::type_id< context_reference >())
+        if (!f.this_type.has_value() || f.this_type.value().type() == boost::typeindex::type_id< context_reference >())
         {
             this_arg_type = make_mref(parent.value());
         }
