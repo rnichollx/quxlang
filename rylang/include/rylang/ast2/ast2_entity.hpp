@@ -12,14 +12,27 @@ namespace rylang
 {
     struct ast2_namespace_declaration;
     struct ast2_variable_declaration;
+    struct ast2_file_declaration;
     struct ast2_class_declaration;
     struct ast2_function_declaration;
     struct ast2_class_template_declaration;
+    struct ast2_function_template_declaration;
+    struct ast2_module_declaration;
+
+    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_class_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
+
     struct ast2_functum;
+    struct ast2_templex;
 
-    using ast2_declaration = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_class_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
+    using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration > >;
 
-    using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper<ast2_variable_declaration> >;
+    using ast2_template = boost::variant< std::monostate, boost::recursive_wrapper< ast2_class_template_declaration >, boost::recursive_wrapper< ast2_function_template_declaration > >;
+
+    struct ast2_templex
+    {
+        std::vector< ast2_template > templates;
+        std::strong_ordering operator<=>(const ast2_templex& other) const = default;
+    };
 
     struct ast2_functum
     {
@@ -29,7 +42,7 @@ namespace rylang
 
     struct ast2_namespace_declaration
     {
-        std::vector< std::pair< std::string, ast2_declaration > > entities;
+        std::vector< std::pair< std::string, ast2_declarable > > globals;
 
         std::strong_ordering operator<=>(const ast2_namespace_declaration& other) const = default;
     };
@@ -44,12 +57,10 @@ namespace rylang
 
     struct ast2_class_declaration
     {
-        std::vector< std::pair< std::string, ast2_declaration > > members;
-        std::vector< std::pair< std::string, ast2_declaration > > globals;
-
+        std::vector< std::pair< std::string, ast2_declarable > > members;
+        std::vector< std::pair< std::string, ast2_declarable > > globals;
         std::set< std::string > class_keywords;
-
-        std::strong_ordering operator <=>(const ast2_class_declaration& other) const = default;
+        std::strong_ordering operator<=>(const ast2_class_declaration& other) const = default;
     };
 
     struct ast2_class_template_declaration
@@ -58,6 +69,14 @@ namespace rylang
         ast2_class_declaration m_class;
 
         std::strong_ordering operator<=>(const ast2_class_template_declaration& other) const = default;
+    };
+
+    struct ast2_function_template_declaration
+    {
+        std::vector< type_symbol > m_template_args;
+        // ast2_class_declaration m_class;
+
+        std::strong_ordering operator<=>(const ast2_function_template_declaration& other) const = default;
     };
 
     struct ast2_function_declaration
@@ -70,6 +89,30 @@ namespace rylang
         function_block body;
 
         std::strong_ordering operator<=>(const ast2_function_declaration& other) const = default;
+    };
+
+    struct ast2_file_declaration
+    {
+        std::string filename;
+        std::string module_name;
+        std::map< std::string, std::string > imports;
+        std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::strong_ordering operator<=>(const ast2_file_declaration& other) const = default;
+    };
+
+    struct ast2_module_declaration
+    {
+        std::string module_name;
+        std::map< std::string, std::string > imports;
+        std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::strong_ordering operator<=>(const ast2_module_declaration& other) const = default;
+    };
+
+    struct ast2_declarations
+    {
+        std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::vector< std::pair< std::string, ast2_declarable > > members;
+        std::strong_ordering operator<=>(const ast2_declarations& other) const = default;
     };
 
 } // namespace rylang

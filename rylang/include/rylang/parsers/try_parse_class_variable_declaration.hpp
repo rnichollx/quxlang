@@ -4,7 +4,6 @@
 
 #ifndef TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
 #define TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
-#include <rylang/ast2/ast2_named_variable_declaration.hpp>
 #include <rylang/parsers/skip_keyword_if_is.hpp>
 #include <rylang/parsers/skip_symbol_if_is.hpp>
 #include <rylang/parsers/try_parse_type_symbol.hpp>
@@ -12,10 +11,10 @@
 namespace rylang::parsers
 {
     template < typename It >
-    std::optional< ast2_named_variable_declaration > try_parse_class_variable_declaration(It& pos, It end)
+    std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_class_variable_declaration(It& pos, It end)
     {
-        std::optional< ast2_named_variable_declaration > out;
-
+        std::string start_str(pos, end);
+        skip_whitespace_and_comments(pos, end);
         auto pos2 = pos;
 
         bool is_member;
@@ -30,7 +29,7 @@ namespace rylang::parsers
         }
         else
         {
-            return out;
+            return std::nullopt;
         }
         std::string name = get_skip_identifier(pos2, end);
 
@@ -43,12 +42,14 @@ namespace rylang::parsers
 
         if (!skip_keyword_if_is(pos2, end, "VAR"))
         {
-            return out;
+            return std::nullopt;
         }
 
         skip_wsc(pos2, end);
 
-        type_symbol type = try_parse_type_symbol(pos, end).value();
+        type_symbol type = try_parse_type_symbol(pos2, end).value();
+
+        std::string typestr = rylang::to_string(type);
 
         skip_wsc(pos2, end);
 
@@ -59,12 +60,11 @@ namespace rylang::parsers
 
         pos = pos2;
 
-        out = ast2_named_variable_declaration{};
-        out->name = name;
-        out->type = type;
-        out->is_member = is_member;
+        ast2_variable_declaration var;
+        var.type = type;
+        // TOOD: offset, include_if
 
-        return out;
+        return {{name, is_member, var}};
     }
 } // namespace rylang::parsers
 

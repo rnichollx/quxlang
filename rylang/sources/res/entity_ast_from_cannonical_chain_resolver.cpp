@@ -41,55 +41,52 @@ namespace rylang
             if (!ready())
                 return;
 
-            module_ast const& module_ast = module_ast_dp->get();
+            ast2_module_declaration const& module_ast = module_ast_dp->get();
 
-            set_value(module_ast.merged_root);
+            set_value(module_ast);
         }
         else if (chain.type() == boost::typeindex::type_id< subentity_reference >())
         {
             auto const& subentity_ref = boost::get< subentity_reference >(chain);
-
             auto parent_ast_dp = get_dependency(
                 [&]
                 {
-                    return c->lk_entity_ast_from_canonical_chain(subentity_ref.parent);
+                    return c->lk_type_map(subentity_ref.parent);
                 });
             if (!ready())
                 return;
-            entity_ast const& ent = parent_ast_dp->get();
+            ast2_type_map const& ent = parent_ast_dp->get();
 
-            auto it = ent.m_sub_entities.find(subentity_ref.subentity_name);
+            auto it = ent.globals.find(subentity_ref.subentity_name);
 
-            if (it == ent.m_sub_entities.end())
+            if (it == ent.globals.end())
+            {
+                throw std::runtime_error("Failed to look up entity");
+            }
+            auto res = it->second;
+
+            set_value(res);
+        }
+        else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
+        {
+            auto const& subentity_ref = boost::get< subentity_reference >(chain);
+            auto parent_ast_dp = get_dependency(
+                [&]
+                {
+                    return c->lk_type_map(subentity_ref.parent);
+                });
+            if (!ready())
+                return;
+            ast2_type_map const& ent = parent_ast_dp->get();
+
+            auto it = ent.members.find(subentity_ref.subentity_name);
+
+            if (it == ent.members.end())
             {
                 throw std::runtime_error("Failed to look up entity");
             }
 
-            set_value(it->second.get());
-        }
-        else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
-        {
-
-            auto const& subdotentity_ref = boost::get< subdotentity_reference >(chain);
-
-            auto parent_ast_dp = get_dependency(
-                [&]
-                {
-                    return c->lk_entity_ast_from_canonical_chain(subdotentity_ref.parent);
-                });
-            if (!ready())
-                return;
-            entity_ast const& ent = parent_ast_dp->get();
-
-            // TODO: Make these lookup differently
-            auto it = ent.m_sub_entities.find(subdotentity_ref.subdotentity_name);
-
-            if (it == ent.m_sub_entities.end())
-            {
-                throw std::runtime_error("Failed to look up entity " + typestring);
-            }
-
-            set_value(it->second.get());
+            set_value(it->second);
         }
         else
         {

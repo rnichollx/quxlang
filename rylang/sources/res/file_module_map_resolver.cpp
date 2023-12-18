@@ -32,7 +32,7 @@ void rylang::file_module_map_resolver::process(compiler* c)
         if (!ready())
             return;
 
-        file_ast ast = file_ast_dp->get();
+        ast2_file_declaration ast = file_ast_dp->get();
 
         assert(ast.module_name == "main");
         // TODO: support multiple modules

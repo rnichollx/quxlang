@@ -27,7 +27,7 @@ rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function
 
     auto entity_ast_v = co_await *c->lk_entity_ast_from_canonical_chain(func_addr);
 
-    if (!typeis<ast2_fuctum>(entity_ast_v))
+    if (!typeis<ast2_functum>(entity_ast_v))
     {
         throw std::runtime_error("Getting function AST for non-functum entity");
     }
@@ -54,7 +54,7 @@ rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function
         std::string();
     }
 
-    for (function_ast const& func : functum_entity_ast_v.m_function_overloads)
+    for (ast2_function_declaration const& func : functum_entity_ast_v.functions)
     {
         call_parameter_information cos_args = co_await *c->lk_call_params_of_function_ast(func, func_addr);
 

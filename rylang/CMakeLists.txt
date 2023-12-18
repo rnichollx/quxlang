@@ -69,7 +69,6 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/res/call_params_of_function_ast_resolver.hpp
         sources/res/call_params_of_function_ast_resolver.cpp
         include/rylang/ast2/ast2_type_map.hpp
-        include/rylang/ast2/ast2_named_variable_declaration.hpp
         include/rylang/res/function_overload_selection_resolver2.hpp
         include/rylang/data/functanoid_instanciation.hpp
         include/rylang/debug.hpp
@@ -78,9 +77,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/ast/class_template_ast.hpp
         include/rylang/ast/class_templex_entity_ast.hpp
         include/rylang/ast2/ast2_entity.hpp
-        include/rylang/ast2/ast2_class_declaration.hpp
         include/rylang/ast2/ast2_function_declaration.hpp
-        include/rylang/ast2/ast2_class_template.hpp
         include/rylang/parsers/parse_class_body.hpp
         include/rylang/parsers/try_parse_class.hpp
         include/rylang/parsers/try_parse_class_template.hpp
@@ -100,7 +97,6 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/parsers/try_parse_type_symbol.hpp
         include/rylang/parsers/try_parse_integral_keyword.hpp
         include/rylang/parsers/try_parse_class_function_declaration.hpp
-        include/rylang/ast2/ast2_named_function_declaration.hpp
         include/rylang/parsers/parse_type_symbol.hpp
         include/rylang/parsers/parse_function_block.hpp
         include/rylang/parsers/parse_function_declaration.hpp
@@ -125,9 +121,17 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/ast2/ast2manip.hpp
         include/rylang/res/type_map_resolver.hpp
         sources/res/type_map_resolver.cpp
-        include/rylang/ast2/ast2_templex.hpp
-        include/rylang/ast2/ast2_functum.hpp
         include/rylang/ast2/ast2_module.hpp
+        include/rylang/parsers/parse_file.hpp
+        include/rylang/parsers/parse_file.hpp
+        include/rylang/parsers/try_parse_declaration.hpp
+        include/rylang/parsers/try_parse_variable_declaration.hpp
+        include/rylang/parsers/try_parse_name.hpp
+        include/rylang/parsers/parse_named_declarations.hpp
+        include/rylang/ast2/ast2_named_declaration.hpp
+        include/rylang/parsers/try_parse_named_declaration.hpp
+        include/rylang/parsers/parse_declaration.hpp
+        include/rylang/parsers/try_parse_namespace.hpp
 
 )
 
@@ -150,7 +154,7 @@ target_sources(rylang PRIVATE sources/compiler.cpp
         sources/res/file_content_resolver.cpp
         sources/res/file_ast_resolver.cpp
         include/rylang/collector.hpp include/rylang/ast/function_ast.hpp ../rpnx/include/rpnx/value.hpp include/rylang/ast/symbol_ref_ast.hpp include/rylang/parser.hpp include/rylang/ex/unexpected_eof.hpp include/rylang/ast/null_object_ast.hpp include/rylang/ast/null_object_ast.hpp
-        include/rylang/ex/unexpected_eof.hpp include/rylang/data/class_list.hpp include/rylang/res/class_list_resolver.hpp sources/res/class_list_resolver.cpp sources/res/classes_per_file_resolver.cpp include/rylang/res/classes_per_file_resolver.hpp)
+        include/rylang/ex/unexpected_eof.hpp include/rylang/data/class_list.hpp)
 target_link_libraries(rylang PUBLIC graphlib Boost::boost)
 target_link_libraries(rylang_main PUBLIC rylang)
 target_precompile_headers(rylang PRIVATE

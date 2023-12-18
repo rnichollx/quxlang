@@ -9,11 +9,7 @@
 
 namespace rylang
 {
-    struct ast2_module
-    {
-        std::string module_name;
-        std::vector< std::pair< std::string, ast2_declaration > > globals;
-    };
+
 }
 
 #endif //AST2_MODULE_HPP

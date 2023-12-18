@@ -9,20 +9,21 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
 {
     std::optional< type_symbol > parent_opt;
     std::string name = to_string(functum);
+
+    std::optional< ast2_class_declaration > class_ent;
     if (typeis< subdotentity_reference >(functum))
     {
         auto parent = as< subdotentity_reference >(functum).parent;
 
-        std::optional< ast2_declaration > decl;
 
         auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
         if (parent_class_exists)
         {
-            decl = co_await *c->lk_entity_ast_from_canonical_chain(parent);
+            auto decl = co_await *c->lk_entity_ast_from_canonical_chain(parent);
 
-            if (!typeis< ast2_class_declaration >(decl.value()))
+            if (typeis< ast2_class_declaration >(decl))
             {
-                decl = std::nullopt;
+                class_ent = as< ast2_class_declaration >(decl);
             }
         }
 
@@ -82,7 +83,7 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
                 co_return (result);
             }
 
-            else if (class_ent_ptr == nullptr || !class_ent_ptr->m_keywords.contains("NO_DEFAULT_CONSTRUCTOR"))
+            else if (!class_ent.has_value() || !class_ent->class_keywords.contains("NO_DEFAULT_CONSTRUCTOR"))
             {
                 std::set< call_parameter_information > result;
                 result.insert({{make_mref(parent)}});

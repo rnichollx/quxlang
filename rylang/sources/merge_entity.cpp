@@ -6,16 +6,16 @@
 
 void rylang::merge_entity(rylang::entity_ast& destination, const rylang::entity_ast& source)
 {
-    //std::cout << "Merge " << destination.to_string() << " and " << source.to_string() << std::endl;
+    // std::cout << "Merge " << destination.to_string() << " and " << source.to_string() << std::endl;
     if (source.type() != destination.type())
     {
         throw std::runtime_error("Cannot merge entities of different types");
     }
 
-    //if (destination.type() == entity_type::class_type)
+    // if (destination.type() == entity_type::class_type)
     //{
-    //    throw std::runtime_error("Cannot merge class entities");
-    //}
+    //     throw std::runtime_error("Cannot merge class entities");
+    // }
 
     for (auto& x : source.m_sub_entities)
     {
@@ -35,5 +35,35 @@ void rylang::merge_entity(rylang::entity_ast& destination, const rylang::entity_
         {
             std::get< functum_entity_ast >(destination.m_specialization.get()).m_function_overloads.push_back(x);
         }
+    }
+}
+void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& source)
+{
+
+    if (typeis< ast2_function_declaration >(source))
+    {
+        if (typeis< std::monostate >(destination))
+        {
+            destination = ast2_functum{};
+        }
+        else if (!typeis< ast2_functum >(destination))
+        {
+            throw std::runtime_error("Cannot merge function into non-function of the same name");
+        }
+
+        ast2_functum& destination_functum = boost::get< ast2_functum >(destination);
+        destination_functum.functions.push_back(boost::get< ast2_function_declaration >(source));
+    }
+    else if (typeis< ast2_class_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::runtime_error("Cannot merge class into non-class of the same name");
+        }
+
+        destination = boost::get< ast2_class_declaration >(source);
+    }
+    else if (typeis< ast2_class_template_declaration >(source))
+    {
     }
 }

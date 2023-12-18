@@ -5,13 +5,14 @@
 #ifndef RYLANG_TRY_PARSE_CLASS_TEMPLATE_HPP
 #define RYLANG_TRY_PARSE_CLASS_TEMPLATE_HPP
 
-#include <rylang/ast2/ast2_class_template.hpp>
 #include <rylang/ast2/ast2_entity.hpp>
+#include <rylang/parsers/parse_class.hpp>
+
 
 namespace rylang::parsers
 {
     template < typename It >
-    std::optional< rylang::ast2_class_template > try_parse_class_template(It& pos, It end)
+    std::optional< rylang::ast2_class_template_declaration > try_parse_class_template(It& pos, It end)
     {
         auto pos2 = pos;
 
@@ -31,11 +32,11 @@ namespace rylang::parsers
         {
             throw std::runtime_error("Expected '(' after CLASS TEMPLATE");
         }
-        std::optional< rylang::ast2_class_template > ct = class_template_ast{};
+        std::optional< rylang::ast2_class_template_declaration > ct = ast2_class_template_declaration{};
     get_arg:
         skip_wsc(pos, end);
 
-        auto arg = collect_qualified_symbol(pos, end);
+        auto arg = parse_type_symbol(pos, end);
 
         ct->m_template_args.push_back(arg);
         skip_wsc(pos, end);

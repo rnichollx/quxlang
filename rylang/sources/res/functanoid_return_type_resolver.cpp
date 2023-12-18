@@ -35,7 +35,7 @@ void rylang::functanoid_return_type_resolver::process(rylang::compiler* c)
         return;
     }
 
-    function_ast func_ast = ast_dp->get();
+    ast2_function_declaration func_ast = ast_dp->get();
 
     contextual_type_reference return_type_contexual;
     return_type_contexual.type = func_ast.return_type.value_or(void_type{});

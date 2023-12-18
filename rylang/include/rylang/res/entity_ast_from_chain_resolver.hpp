@@ -13,16 +13,16 @@
 
 namespace rylang
 {
-    class entity_ast_from_chain_resolver : public rpnx::resolver_base< compiler, ast2_declaration >
+    class entity_ast_from_chain_resolver : public rpnx::resolver_base< compiler, ast2_map_entity >
     {
 
       public:
-        using key_type = std::tuple< type_symbol , type_symbol >;
+        using key_type = std::tuple< type_symbol, type_symbol >;
 
         explicit entity_ast_from_chain_resolver(key_type chains)
         {
-            m_chain = std::get<0>(chains);
-            m_context = std::get<1>(chains);
+            m_chain = std::get< 0 >(chains);
+            m_context = std::get< 1 >(chains);
         }
 
         virtual void process(compiler* c);

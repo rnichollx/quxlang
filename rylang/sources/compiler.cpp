@@ -13,7 +13,7 @@ rpnx::output_ptr< rylang::compiler, std::string > rylang::compiler::file_content
     return m_file_contents_index.lookup(filename);
 }
 
-rylang::compiler::out< rylang::file_ast > rylang::compiler::lk_file_ast(std::string const& filename)
+rylang::compiler::out< rylang::ast2_file_declaration > rylang::compiler::lk_file_ast(std::string const& filename)
 {
     return m_file_ast_index.lookup(filename);
 }

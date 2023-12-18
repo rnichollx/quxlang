@@ -52,6 +52,7 @@ namespace rylang
                     return "Unknown error";
                 }
             }
+            throw std::logic_error("unreachable");
         }
 
       private:

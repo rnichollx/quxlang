@@ -15,7 +15,7 @@
 namespace rylang
 {
    class module_ast_resolver
-   : public rpnx::resolver_base< compiler, ast2_module >
+   : public rpnx::resolver_base< compiler, ast2_module_declaration >
    {
      public:
         using key_type = std::string;

@@ -469,7 +469,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
 
     std::cout << "Begin processing" << std::endl;
 
-    function_ast function_ast_v = co_await *c->lk_function_ast(func_name);
+    ast2_function_declaration function_ast_v = co_await *c->lk_function_ast(func_name);
 
     type_symbol functum_reference = func_name;
     if (typeis< instanciation_reference >(func_name))

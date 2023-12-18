@@ -519,6 +519,7 @@ namespace rpnx
       public:
         using value_type = Result;
         using output_type = Result;
+        using outptr_type = std::shared_ptr< resolver_base< Graph, Result > >;
         using result_type = result< Result >;
 
         resolver_base()

@@ -26,9 +26,11 @@
 #include "rylang/ex/unexpected_eof.hpp"
 #include "rylang/parser.hpp"
 
-#include <rylang/ast2/ast2_named_variable_declaration.hpp>
 #include <rylang/ast2/ast2_type_map.hpp>
+#include <rylang/parsers/parse_file.hpp>
+#include <rylang/parsers/parse_if_statement.hpp>
 #include <rylang/parsers/parse_class_body.hpp>
+#include <rylang/parsers/try_parse_expression.hpp>
 
 namespace rylang
 {
@@ -261,6 +263,12 @@ namespace rylang
         }
 
         template < typename It >
+        auto collect2_file(It begin, It end) -> ast2_file_declaration
+        {
+            return parsers::parse_file(begin, end);
+        }
+
+        template < typename It >
         void collect(It begin, It end)
         {
             auto pos = begin;
@@ -282,6 +290,8 @@ namespace rylang
                 throw std::runtime_error("Unexpected text: " + std::string(pos, pos + use_distance));
             }
         }
+
+
 
         template < typename It >
         bool try_collect_class_template(It& pos, It end, std::optional< class_template_ast >& ct)
@@ -371,6 +381,7 @@ namespace rylang
         {
             return m_root;
         }
+
 
         template < typename It >
         bool try_collect_function(It& pos, It end)
@@ -555,61 +566,6 @@ namespace rylang
             return out;
         }
 
-        template < typename It >
-        std::optional< ast2_named_variable_declaration > try_collect2_class_variable(It& pos, It end)
-        {
-            std::optional< ast2_named_variable_declaration > out;
-
-            auto pos2 = pos;
-
-            bool is_member;
-
-            if (skip_symbol_if_is(pos2, end, "."))
-            {
-                is_member = true;
-            }
-            else if (skip_symbol_if_is(pos2, end, "::"))
-            {
-                is_member = false;
-            }
-            else
-            {
-                return out;
-            }
-            std::string name = get_skip_identifier(pos2, end);
-
-            if (name.empty())
-            {
-                throw std::runtime_error("Expected identifier");
-            }
-
-            skip_wsc(pos2, end);
-
-            if (!skip_keyword_if_is(pos2, end, "VAR"))
-            {
-                return out;
-            }
-
-            skip_wsc(pos2, end);
-
-            type_symbol type = collect_qualified_symbol(pos, end);
-
-            skip_wsc(pos2, end);
-
-            if (!skip_symbol_if_is(pos2, end, ";"))
-            {
-                throw std::runtime_error("Expected ';' after VAR type");
-            }
-
-            pos = pos2;
-
-            out = ast2_named_variable_declaration{};
-            out->name = name;
-            out->type = type;
-            out->is_member = is_member;
-
-            return out;
-        }
 
         template < typename It >
         class_entity_ast collect2_class_body(It& pos, It end)
@@ -1115,6 +1071,24 @@ namespace rylang
             }
         }
 
+
+        template < typename It >
+        std::optional<type_symbol> try_collect2_function_return_type(It& pos, It end)
+        {
+            skip_whitespace_and_comments(pos, end);
+
+            std::string remaining = std::string(pos, end);
+            if (skip_symbol_if_is(pos, end, ":"))
+            {
+                skip_whitespace_and_comments(pos, end);
+
+                return collect_qualified_symbol(pos, end);
+            }
+
+            return std::nullopt;
+        }
+
+
         template < typename It >
         void collect_function_body(It& pos, It end, function_ast& f)
         {
@@ -1159,12 +1133,7 @@ namespace rylang
             throw std::runtime_error("Expected '}' or statement");
         }
 
-        template < typename It >
-        bool try_collect_function_callsite_expression(It& pos, It end, std::optional< expression_call >& output)
-        {
-            output = parsers::try_parse_function_callsite_expression(pos, end);
-            return output.has_value();
-        }
+
 
         template < typename It >
         bool binary_operator_v3(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
@@ -1234,7 +1203,7 @@ namespace rylang
 
             expression* binding_point2 = operator_bindings[priority];
             new_expression.lhs = std::move(*binding_point2);
-            *binding_point2 = rylang::expression(new_expression);
+            *binding_point2 = expression(new_expression);
             expression* binding_pointer = &boost::get< expression_binary >(*binding_point2).rhs;
             for (int i = priority + 1; i < operator_bindings.size(); i++)
             {
@@ -1270,12 +1239,7 @@ namespace rylang
             return true;
         }
 
-        template < typename It >
-        bool try_collect_expression(It& pos, It end, std::optional< expression >& output)
-        {
-            output = parsers::try_parse_expression(pos, end);
-            return output.has_value();
-        }
+
 
         template < typename It >
         function_if_statement collect_if_statement(It& pos, It end)
@@ -1312,26 +1276,11 @@ namespace rylang
         }
 
         template < typename It >
-        bool try_collect_expression_statement(It& pos, It end, std::optional< function_expression_statement >& output)
-        {
-            skip_wsc(pos, end);
-            std::string remaining = std::string(pos, end);
-            std::optional< expression > expr;
-            if (try_collect_expression(pos, end, expr))
-            {
-                skip_wsc(pos, end);
-                remaining = std::string(pos, end);
-                if (!skip_symbol_if_is(pos, end, ";"))
-                {
-                    throw std::runtime_error("Expected ';' after expression");
-                }
-                function_expression_statement result;
-                result.expr = std::move(expr.value());
-                output = result;
-                return true;
-            }
-            return false;
-        }
+        bool try_collect_expression_statement(It& pos, It end, std::optional< function_expression_statement >& output);
+
+
+        template < typename It >
+        bool try_collect_expression(It& pos, It end, std::optional< expression >& output);
 
         template < typename It >
         function_var_statement collect_var_statement(It& pos, It end)

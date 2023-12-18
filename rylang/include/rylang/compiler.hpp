@@ -126,12 +126,16 @@ namespace rylang
       private:
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
-        class_list_resolver m_class_list_resolver;
+        //class_list_resolver m_class_list_resolver;
         singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
+        entity_ast_from_canonical_chain_resolver::outptr_type lk_entity_ast_from_canonical_chain(type_symbol const& chain)
+        {
+            return m_entity_ast_from_cannonical_chain_index.lookup(chain);
+        }
 
         index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
 
@@ -355,7 +359,7 @@ namespace rylang
         // The lk_* functions are used by resolvers to solve the graph
 
         // Get the parsed AST for a file
-        out< file_ast > lk_file_ast(std::string const& filename);
+        out< ast2_file_declaration > lk_file_ast(std::string const& filename);
 
 
 
@@ -396,10 +400,7 @@ namespace rylang
         }
 
         // Look up the AST for a given glass given a paritcular cannonical chain
-        out< ast2_declaration > lk_entity_ast_from_canonical_chain(type_symbol const& chain)
-        {
-            return m_entity_ast_from_cannonical_chain_index.lookup(chain);
-        }
+
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class
         // Each get_* function calls the lk_* function and then solves the graph
@@ -412,7 +413,7 @@ namespace rylang
             return node->get();
         }
 
-        file_ast get_file_ast(std::string const& filename)
+        ast2_file_declaration get_file_ast(std::string const& filename)
         {
             auto node = lk_file_ast(filename);
             m_solver.solve(this, node);
@@ -433,12 +434,7 @@ namespace rylang
             return size->get();
         }
 
-        class_list get_class_list()
-        {
-            auto node = &m_class_list_resolver;
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         filelist get_file_list()
         {

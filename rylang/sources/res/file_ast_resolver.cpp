@@ -9,9 +9,13 @@
 
 
 #include "rylang/collector.hpp"
+#include <rylang/parsers/parse_file.hpp>
 
 #include <exception>
-#include <fstream>
+//#include <iosfwd>
+#include <iostream>
+
+//#include <fstream>
 
 void rylang::file_ast_resolver::process(compiler* c)
 {
@@ -28,10 +32,12 @@ void rylang::file_ast_resolver::process(compiler* c)
 
     collector col;
 
-    file_ast v_file_ast;
-    v_file_ast.filename = input_filename;
+    ast2_file_declaration v_file_ast;
 
-    col.collect_file(content.begin(), content.end(), v_file_ast);
+    auto it = content.begin();
+    v_file_ast = parsers::parse_file(it, content.end());
+
+    v_file_ast.filename = input_filename;
 
 
     set_value(std::move(v_file_ast));

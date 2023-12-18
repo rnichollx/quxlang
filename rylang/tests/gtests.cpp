@@ -100,7 +100,7 @@ TEST_F(collector_tester, order_of_operations)
     std::string::iterator it = test_string.begin();
     std::string::iterator it_end = test_string.end();
 
-    expr = c.collect_expression(it, it_end);
+    expr = rylang::parsers::parse_expression(it, it_end);
 
     std::string str = rylang::to_string(expr);
 

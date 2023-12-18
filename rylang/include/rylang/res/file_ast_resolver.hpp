@@ -14,7 +14,7 @@
 
 namespace rylang
 {
-    class file_ast_resolver : public rpnx::resolver_base< compiler, file_ast >
+    class file_ast_resolver : public rpnx::resolver_base< compiler, ast2_file_declaration >
     {
       private:
         std::string input_filename;

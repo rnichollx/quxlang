@@ -10,35 +10,53 @@
 #include "rylang/manipulators/merge_entity.hpp"
 #include "rylang/res/module_ast_precursor1_resolver.hpp"
 
+#include <rylang/ast2/ast2_entity.hpp>
 #include <rylang/ast2/ast2_module.hpp>
 
 namespace rylang
 {
     void module_ast_resolver::process(compiler* c)
     {
-        auto precursor1_dep = get_dependency(
+        auto files_in_module_dep = get_dependency(
             [&]
             {
-                return c->lk_module_ast_precursor1(m_id);
+                return c->lk_files_in_module(m_id);
             });
 
         if (!ready())
             return;
 
-        module_ast_precursor1 const precursor1 = precursor1_dep->get();
+        auto files_in_module = files_in_module_dep->get();
 
-        // TODO: Perform precursor transformations,
-        //  For now, we don't do any precursor1 -> 2 transformations
+        ast2_module_declaration result;
 
-        ast2_module result;
-
-        result.module_name = this->m_id;
-
-        for (file_ast const& file_ast : precursor1.files)
+        for (auto& file : files_in_module)
         {
-            merge_entity(result.merged_root, file_ast.root);
+            auto file_ast_dep = get_dependency(
+                [&]
+                {
+                    return c->lk_file_ast(file);
+                });
+
+            if (!ready())
+                return;
+
+            ast2_file_declaration file_ast = file_ast_dep->get();
+
+            // TODO: Check for duplicate imports
+            for (auto import : file_ast.imports)
+            {
+                result.imports.insert(import);
+            }
+
+            for (auto global : file_ast.globals)
+            {
+                result.globals.push_back(global);
+            }
+
         }
 
         set_value(result);
+
     }
 } // namespace rylang

@@ -9,7 +9,8 @@
 
 namespace rylang
 {
-   void merge_entity(entity_ast & destination, entity_ast const & source);
-}
+    void merge_entity(entity_ast& destination, entity_ast const& source);
+    void merge_entity(ast2_map_entity& destination, ast2_declarable const& source);
+} // namespace rylang
 
 #endif // RYLANG_MERGE_ENTITY_HEADER_GUARD
