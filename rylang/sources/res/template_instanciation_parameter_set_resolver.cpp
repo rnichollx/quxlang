@@ -6,6 +6,11 @@
 
 namespace rylang
 {
+    std::string template_instanciation_parameter_set_resolver::question() const
+    {
+        return "template_instanciation_parameter_set(" + to_string(input_val) + ")";
+    }
+
     auto template_instanciation_parameter_set_resolver::co_process(compiler* c, input_type input) -> co_type
     {
         // The goal of this function is to extract the named template arguments from the instanciation reference
@@ -22,7 +27,7 @@ namespace rylang
 
         ast2_template_declaration const& template_ast = co_await *c->lk_template_instanciation(input);
 
-        assert(template_ast.m_template_args.size() == input.parameters.size());
+        // assert(template_ast.m_template_args.size() == input.parameters.size());
 
         output_type result;
 
@@ -30,13 +35,12 @@ namespace rylang
         {
             auto template_arg_contextual = template_ast.m_template_args[i];
 
-            auto template_arg = co_await * c->lk_canonical_type_from_contextual_type(template_arg_contextual, template_name);
+            auto template_arg = co_await *c->lk_canonical_type_from_contextual_type(template_arg_contextual, template_name);
             std::string template_arg_str = to_string(template_arg);
 
             type_symbol instanciation_arg = template_instanciation_parameters[i];
             assert(!is_contextual(instanciation_arg));
             std::string instanciation_arg_str = to_string(instanciation_arg);
-
 
             auto match_results = match_template(template_arg, instanciation_arg);
             assert(match_results.has_value());
@@ -49,7 +53,6 @@ namespace rylang
                 }
                 result.parameter_map[x.first] = x.second;
             }
-
         }
 
         co_return result;

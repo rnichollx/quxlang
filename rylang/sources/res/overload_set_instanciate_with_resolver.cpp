@@ -93,7 +93,7 @@ rpnx::resolver_coroutine< compiler, std::optional< call_parameter_information > 
         }
     }
 
-    std::cout << debug_recursive() << std::endl;
+    //std::cout << debug_recursive() << std::endl;
 
     result_opt = result;
     co_return result_opt;

@@ -28,16 +28,28 @@ namespace rylang
             // Get the template argument
             auto ast_dp = get_dependency([&]
             {
-                return c->lk_template_instanciation(inst);
+                return c->lk_temploid_instanciation(inst);
             });
 
             if (!ready())
             {
                 return;
             }
-            ast2_template_declaration templ = ast_dp->get();
+            ast2_node ast = ast_dp->get();
+            // Either a template instanciation or a function
+            // TODO: switch based on functum/template
 
-            set_value(templ.m_class);
+            if (typeis<ast2_template_declaration>(ast))
+            {
+                ast2_template_declaration const & t = as<ast2_template_declaration>(ast);
+
+                set_value(t.m_class);
+                return;
+            }
+
+
+            assert(typeis<ast2_function_declaration>(ast));
+            set_value(ast);
             return;
         }
         else if (chain.type() == boost::typeindex::type_id< module_reference >())

@@ -13,12 +13,12 @@
 
 namespace rylang
 {
-    class function_ast_resolver : public rpnx::co_resolver_base< compiler, ast2_function_declaration, type_symbol >
+    class functum_instanciation_ast_resolver : public rpnx::co_resolver_base< compiler, ast2_function_declaration, type_symbol >
     {
       public:
         using key_type = type_symbol;
 
-        function_ast_resolver(type_symbol input)
+        functum_instanciation_ast_resolver(type_symbol input)
             : co_resolver_base(input)
         {
         }

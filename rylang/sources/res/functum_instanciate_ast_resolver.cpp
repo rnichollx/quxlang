@@ -8,7 +8,7 @@
 
 using namespace rylang;
 
-rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function_ast_resolver::co_process(rylang::compiler* c, type_symbol func_addr)
+rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::functum_instanciation_ast_resolver::co_process(rylang::compiler* c, type_symbol func_addr)
 {
     std::optional< call_parameter_information > overload_set;
 
@@ -16,8 +16,8 @@ rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function
 
     std::string typestr = to_string(func_addr);
 
-    // TODO: We should only strip the overload set from functions, not templates
 
+    // TODO: this will be wrong, because we will allow templates to declare functums
     if (typeis< instanciation_reference >(func_addr))
     {
         auto args = as< instanciation_reference >(func_addr).parameters;
@@ -42,7 +42,7 @@ rpnx::resolver_coroutine< compiler, ast2_function_declaration > rylang::function
         }
         else
         {
-            throw std::runtime_error("Requested resolution of function from funcctum is ambiguous");
+            throw std::runtime_error("Requested resolution of function from funnctum is ambiguous");
         }
     }
 

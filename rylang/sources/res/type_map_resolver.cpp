@@ -12,7 +12,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::ast2_type_map > rylang::type
 
     std::string inputname = to_string(input);
 
-    ast2_map_entity ast = co_await *c->lk_entity_ast_from_canonical_chain(input);
+    ast2_node ast = co_await *c->lk_entity_ast_from_canonical_chain(input);
+
+start:
 
     if (typeis< ast2_class_declaration >(ast))
     {
@@ -28,17 +30,24 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::ast2_type_map > rylang::type
         ast_globals = boost::get< ast2_namespace_declaration >(ast).globals;
     }
 
-    else if (typeis< ast2_templex > (ast))
+    else if (typeis< ast2_templex >(ast))
     {
-        if (typeis<instanciation_reference>(input))
+        if (typeis< instanciation_reference >(input))
         {
-        //    instanciation_reference inst = as<instanciation_reference
+            ast2_node ast2 = co_await *c->lk_temploid_instanciation(as< instanciation_reference >(input));
+
+            // do stuff
+
+            assert(!typeis<ast2_templex>(ast2));
+            goto start;
+            //    instanciation_reference inst = as<instanciation_reference
         }
         // We need to instanciate the template in this case
 
-        //ast2_map_entity ast2 = co_await * c->lk_template_instanciation(input);
+        // wut?
+        co_return {};
     }
-    else if (typeis<ast2_functum>(ast))
+    else if (typeis< ast2_functum >(ast))
     {
         // ignore this
     }

@@ -37,10 +37,10 @@
 #include "rylang/res/filelist_resolver.hpp"
 #include "rylang/res/files_in_module_resolver.hpp"
 #include "rylang/res/functanoid_return_type_resolver.hpp"
-#include "rylang/res/function_ast_resolver.hpp"
 #include "rylang/res/function_overload_selection_resolver.hpp"
 #include "rylang/res/function_qualified_reference_resolver.hpp"
 #include "rylang/res/functum_exists_and_is_callable_with_resolver.hpp"
+#include "rylang/res/functum_instanciation_ast_resolver.hpp"
 #include "rylang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "rylang/res/list_functum_overloads_resolver.hpp"
 #include "rylang/res/list_user_functum_overloads_resolver.hpp"
@@ -57,8 +57,12 @@
 #include "rylang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <rylang/ast2/ast2_type_map.hpp>
+#include <rylang/res/functum_instanciation_parameter_map_resolver.hpp>
+#include <rylang/res/template_instanciation_ast_resolver.hpp>
 #include <rylang/res/template_instanciation_parameter_set_resolver.hpp>
-#include <rylang/res/temploid_instanciation_resolver.hpp>
+#include <rylang/res/temploid_instanciation_parameter_set_resolver.hpp>
+#include <rylang/res/temploid_instanciation_ast_resolver.hpp>
+
 #include <shared_mutex>
 
 namespace rylang
@@ -93,7 +97,7 @@ namespace rylang
         friend class function_overload_selection_resolver;
         friend class function_qualified_reference_resolver;
         friend class contextualized_reference_resolver;
-        friend class function_ast_resolver;
+        friend class functum_instanciation_ast_resolver;
         friend class vm_procedure_from_canonical_functanoid_resolver;
         friend class function_frame_information_resolver;
         friend class operator_is_overloaded_with_resolver;
@@ -108,8 +112,11 @@ namespace rylang
         friend class call_params_of_function_ast_resolver;
         friend class overload_set_instanciate_with_resolver;
         friend class type_map_resolver;
-        friend class temploid_instanciation_resolver;
+        friend class temploid_instanciation_ast_resolver;
         friend class template_instanciation_parameter_set_resolver;
+        friend class template_instanciation_ast_resolver;
+        friend class temploid_instanciation_parameter_set_resolver;
+        friend class functum_instanciation_parameter_map_resolver;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -136,16 +143,34 @@ namespace rylang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
+        index <temploid_instanciation_parameter_set_resolver > m_temploid_instanciation_parameter_set_index;
+        temploid_instanciation_parameter_set_resolver::outptr_type lk_temploid_instanciation_parameter_set(instanciation_reference input)
+        {
+            return m_temploid_instanciation_parameter_set_index.lookup(input);
+        }
+
+        index <functum_instanciation_parameter_map_resolver> m_functum_instanciation_parameter_map_index;
+        functum_instanciation_parameter_map_resolver::outptr_type lk_functum_instanciation_parameter_map(functum_instanciation_parameter_map_resolver::input_type input)
+        {
+            return m_functum_instanciation_parameter_map_index.lookup(input);
+        }
+
         index< template_instanciation_parameter_set_resolver > m_template_instanciation_parameter_set_resolver;
         template_instanciation_parameter_set_resolver::outptr_type lk_template_instanciation_parameter_set(instanciation_reference input)
         {
             return m_template_instanciation_parameter_set_resolver.lookup(input);
         }
 
-        index< temploid_instanciation_resolver > m_template_instanciation_index;
-        out< temploid_instanciation_resolver::output_type > lk_template_instanciation(instanciation_reference input)
+        index< template_instanciation_ast_resolver > m_template_instanciation_index;
+        out< template_instanciation_ast_resolver::output_type > lk_template_instanciation(instanciation_reference input)
         {
             return m_template_instanciation_index.lookup(input);
+        }
+
+        index< temploid_instanciation_ast_resolver > m_temploid_instanciation_index;
+        out< temploid_instanciation_ast_resolver::output_type > lk_temploid_instanciation(instanciation_reference input)
+        {
+            return m_temploid_instanciation_index.lookup(input);
         }
 
         index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
@@ -239,7 +264,7 @@ namespace rylang
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
-        index< function_ast_resolver > m_function_ast_index;
+        index< functum_instanciation_ast_resolver > m_function_ast_index;
         out< ast2_function_declaration > lk_function_ast(type_symbol func_addr)
         {
             return m_function_ast_index.lookup(func_addr);

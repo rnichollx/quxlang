@@ -13,7 +13,7 @@
 
 namespace rylang
 {
-    class entity_ast_from_chain_resolver : public rpnx::resolver_base< compiler, ast2_map_entity >
+    class entity_ast_from_chain_resolver : public rpnx::resolver_base< compiler, ast2_node >
     {
 
       public:

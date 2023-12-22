@@ -8,6 +8,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::call_parameter_information >
     ast2_function_declaration const & f = input.first;
     type_symbol const & functum = input.second;
 
+    // Note: the input to this resolver must be a functum, not the function instanciation.
+    // TODO: check that the input is a functum and not a function instanciation
+
     call_parameter_information info;
 
     std::optional< type_symbol > this_arg_type;

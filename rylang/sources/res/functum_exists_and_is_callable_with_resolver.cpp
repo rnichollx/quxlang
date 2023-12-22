@@ -7,6 +7,10 @@
 
 #include "rylang/debug.hpp"
 
+std::string rylang::functum_exists_and_is_callable_with_resolver::question() const
+{
+   return  "functum_exists_and_is_callable_with(" + to_string(input_val.first) + ", " + to_string(input_val.second) + ")";
+}
 rpnx::resolver_coroutine< rylang::compiler, bool > rylang::functum_exists_and_is_callable_with_resolver::co_process(compiler* c, input_type input)
 {
 
@@ -22,7 +26,7 @@ rpnx::resolver_coroutine< rylang::compiler, bool > rylang::functum_exists_and_is
 
     if (args_str == "call_os(NUMERIC_LITERAL, MUT& T(t1))")
     {
-        std::cout << debug_recursive() << std::endl;
+        //std::cout << debug_recursive() << std::endl;
         int x = 0;
     }
 

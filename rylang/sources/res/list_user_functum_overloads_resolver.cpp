@@ -12,7 +12,7 @@ rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_inf
 
     std::string name = to_string(functum);
     auto exists = co_await *c->lk_entity_canonical_chain_exists(functum);
-    c->lk_entity_canonical_chain_exists(functum)->debug_recursive();
+    //c->lk_entity_canonical_chain_exists(functum)->debug_recursive();
     if (!exists)
     {
         co_return {};

@@ -34,6 +34,20 @@ MODULE main;
 ::box2 TEMPLATE(T(t1)) CLASS // PRIORITY(0)
 {
   .x VAR t1;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+    .x := 1;
+  }
+}
+
+::box3 CLASS {
+   .CONSTRUCTOR FUNCTION()
+   {
+        .x := 1;
+   }
+
+   .x VAR I32;
 }
 
 // ::box TEMPLATE CLASS(->T(t1)) PRIORITY(1)
@@ -73,22 +87,8 @@ MODULE main;
 
         ::buz FUNCTION(%a I32, %b I32): I32
         {
-           VAR lol nux :(3);
-           VAR c I32 :(4);
-           IF (a < 9) {
-             a := a + 2;
-           } ELSE {
-              b := b + 1;
-           }
-
-           IF (a < b) {
-             c := c + a + 2;
-             c := fizz(c);
-           } ELSE {
-             RETURN b;
-           }
-
-           RETURN c;
+           VAR c box3 :();
+           RETURN a;
         }
 
         ::fizz FUNCTION(%a I32) : I32

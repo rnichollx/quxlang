@@ -9,7 +9,7 @@
 
 void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
 {
-    std::cout << this->debug_recursive() << std::endl;
+    //std::cout << this->debug_recursive() << std::endl;
     auto chain = this->m_chain;
     std::string name = to_string(chain);
     assert(!qualified_is_contextual(chain));

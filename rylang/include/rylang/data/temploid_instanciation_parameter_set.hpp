@@ -9,7 +9,7 @@
 
 namespace rylang
 {
-    struct template_instanciation_parameter_set
+    struct temploid_instanciation_parameter_set
     {
         std::map< std::string, type_symbol > parameter_map;
     };

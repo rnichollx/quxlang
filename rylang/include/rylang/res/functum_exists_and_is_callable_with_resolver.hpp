@@ -19,6 +19,7 @@ namespace rylang
             : co_resolver_base(input)
         {
         }
+         virtual std::string question() const override;
 
         virtual rpnx::resolver_coroutine<compiler, bool> co_process(compiler* c, input_type) override;
     };

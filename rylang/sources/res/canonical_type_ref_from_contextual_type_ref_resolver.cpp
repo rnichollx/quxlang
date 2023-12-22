@@ -67,13 +67,13 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
                     auto param_set_dp = get_dependency(
                         [&]
                         {
-                            return c->lk_template_instanciation_parameter_set(inst);
+                            return c->lk_temploid_instanciation_parameter_set(inst);
                         });
                     if (!ready())
                     {
                         return;
                     }
-                    template_instanciation_parameter_set param_set = param_set_dp->get();
+                    temploid_instanciation_parameter_set param_set = param_set_dp->get();
                     auto it = param_set.parameter_map.find(name);
                     if (it != param_set.parameter_map.end())
                     {
