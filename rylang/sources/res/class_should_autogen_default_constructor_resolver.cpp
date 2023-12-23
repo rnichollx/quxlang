@@ -8,7 +8,7 @@
 void rylang::class_should_autogen_default_constructor_resolver::process(compiler* c)
 {
 
-    auto callee = subentity_reference{m_cls, "CONSTRUCTOR"};
+    auto callee = subdotentity_reference{m_cls, "CONSTRUCTOR"};
     auto exists_dp = get_dependency(
         [&]
         {

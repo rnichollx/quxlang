@@ -8,6 +8,8 @@
 
 #include "rylang/manipulators/vmmanip.hpp"
 
+#include <rylang/parsers/parse_type_symbol.hpp>
+
 int main(int argc, char** argv)
 {
     rylang::compiler c(argc, argv);
@@ -57,7 +59,7 @@ int main(int argc, char** argv)
         new_deps.erase(to_compile);
     }
 
-    std::cout << "Got overload:" << name << std::endl;
+    //std::cout << "Got overload:" << name << std::endl;
     // auto vec = cg.get_function_code(rylang::cpu_arch_armv8a(), func_name );
     /*
         auto files = c.get_file_list();
@@ -89,7 +91,9 @@ int main(int argc, char** argv)
         }
     */
 
-    rylang::type_symbol foo = rylang::subentity_reference{rylang::module_reference{"main"}, "foo"};
+
+    //return 0;
+    rylang::type_symbol foo = rylang::instanciation_reference{rylang::subentity_reference{rylang::module_reference{"main"}, "box2"}, {rylang::parsers::parse_type_symbol("I32")}};
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

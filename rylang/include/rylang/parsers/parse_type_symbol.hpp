@@ -27,7 +27,7 @@ namespace rylang::parsers
         return result.value();
     }
 
-    type_symbol parse_type_symbol(std::string str)
+    inline type_symbol parse_type_symbol(std::string str)
     {
         auto pos = str.begin();
         auto end = str.end();

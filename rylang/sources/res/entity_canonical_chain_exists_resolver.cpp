@@ -144,8 +144,27 @@ void rylang::entity_canonical_chain_exists_resolver::process(compiler* c)
     }
     else if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
     {
-        // TODO: support templates
-        set_value(false);
+
+        instanciation_reference const & ref = boost::get< instanciation_reference >(chain);
+
+        // TODO: Check if this set of arguments matches the temploid
+
+
+        auto exists_dep = c->lk_entity_canonical_chain_exists(ref.callee);
+
+        if (!ready())
+        {
+            return;
+        }
+
+        auto exists = exists_dep->get();
+
+
+
+
+
+
+        set_value(exists);
     }
     else
     {

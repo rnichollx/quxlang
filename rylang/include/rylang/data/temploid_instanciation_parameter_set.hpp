@@ -15,4 +15,25 @@ namespace rylang
     };
 }
 
+template <>
+struct rpnx::resolver_traits<rylang::temploid_instanciation_parameter_set>
+{
+    static std::string stringify(rylang::temploid_instanciation_parameter_set const& v)
+    {
+        std::string result = "{";
+        bool first = true;
+        for (auto& [k, v] : v.parameter_map)
+        {
+            if (!first)
+            {
+                result += ", ";
+            }
+            first = false;
+            result += k + ": " + to_string(v);
+        }
+        result += "}";
+        return result;
+    }
+};
+
 #endif //TEMPLATE_INSTANCIATION_PARAMETER_SET_HPP

@@ -264,10 +264,10 @@ namespace rylang
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
-        index< functum_instanciation_ast_resolver > m_function_ast_index;
-        out< ast2_function_declaration > lk_function_ast(type_symbol func_addr)
+        index< functum_instanciation_ast_resolver > m_functum_instanciation_ast_index;
+        out< ast2_function_declaration > lk_functum_instanciation_ast(type_symbol func_addr)
         {
-            return m_function_ast_index.lookup(func_addr);
+            return m_functum_instanciation_ast_index.lookup(func_addr);
         }
 
         index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;

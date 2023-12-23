@@ -27,7 +27,7 @@ void rylang::functanoid_return_type_resolver::process(rylang::compiler* c)
     auto ast_dp = get_dependency(
         [&]
         {
-            return c->lk_function_ast(functanoid_name);
+            return c->lk_functum_instanciation_ast(functanoid_name);
         });
 
     if (!ready())

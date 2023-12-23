@@ -11,9 +11,155 @@
 #include <type_traits>
 
 #include "rpnx/error_explainer.hpp"
+#include <boost/core/demangle.hpp>
+#include <concepts>
 
 namespace rpnx
 {
+    template < typename T >
+    struct resolver_traits;
+    struct resolver_traits_string_visitor
+    {
+        template < typename T2 >
+        std::string operator()(T2 const& v)
+        {
+            return rpnx::resolver_traits< T2 >::stringify(v);
+        }
+    };
+    template < typename T >
+    struct resolver_traits
+    {
+
+        template < typename... Ts >
+        static std::string default_stringify(boost::variant< Ts... > const& v, int)
+        {
+            return boost::apply_visitor(resolver_traits_string_visitor(), v);
+        }
+        static std::string default_stringify(bool v, int)
+        {
+            return v ? "true" : "false";
+        }
+        static std::string default_stringify(std::integral auto v, int)
+        {
+            std::stringstream ss;
+            ss << v;
+            return ss.str();
+        }
+
+        template < typename T2 >
+        static std::string default_stringify(std::optional< T2 > const& v, int)
+        {
+            if (!v.has_value())
+            {
+                return "nullopt";
+            }
+            else
+            {
+                return rpnx::resolver_traits< T2 >::stringify(v.value());
+            }
+        }
+
+        template < typename T2 >
+        static std::string default_stringify(std::set< T2 > const& v, int)
+        {
+            std::stringstream ss;
+            ss << "{";
+            bool first = true;
+            for (auto& e : v)
+            {
+                if (!first)
+                {
+                    ss << ", ";
+                }
+                ss << resolver_traits< T2 >::stringify(e);
+                first = false;
+            }
+            ss << "}";
+            return ss.str();
+        }
+
+        template < typename T2 >
+        static std::string default_stringify(std::vector< T2 > const& v, int)
+        {
+            std::stringstream ss;
+            ss << "{";
+            bool first = true;
+            for (auto& e : v)
+            {
+                if (!first)
+                {
+                    ss << ", ";
+                }
+                ss << resolver_traits< T2 >::stringify(e);
+                first = false;
+            }
+            ss << "}";
+            return ss.str();
+        }
+
+        template <typename ... Ts>
+        static std::string default_stringify(std::tuple< Ts...> const & input)
+        {
+            std::stringstream ss;
+            ss << "{";
+            std::apply([&](auto&&... args)
+            {
+                bool first = true;
+                ((first = (ss << (first ? "" : ", ") << resolver_traits< decltype(args) >::stringify(args))), ...);
+            }, input);
+            ss << "}";
+            return ss.str();
+        }
+
+        template < typename T2, typename T3 >
+        static std::string default_stringify(std::pair< T2, T3 > const& v, int)
+        {
+            std::stringstream ss;
+            ss << "{";
+            ss << resolver_traits< T2 >::stringify(v.first);
+            ss << ", ";
+            ss << resolver_traits< T3 >::stringify(v.second);
+            ss << "}";
+            return ss.str();
+        }
+
+        template < typename T2, typename T3 >
+        static std::string default_stringify(std::map< T2, T3 > const& v, int)
+        {
+            std::stringstream ss;
+            ss << "{";
+            bool first = true;
+            for (auto& e : v)
+            {
+                if (!first)
+                {
+                    ss << ", ";
+                }
+                ss << resolver_traits< T2 >::stringify(e.first);
+                ss << ": " << resolver_traits< T3 >::stringify(e.second);
+                first = false;
+            }
+            ss << "}";
+            return ss.str();
+        }
+
+        template < typename T2, typename T3 >
+        static std::string default_stringify(std::string const& str, int)
+        {
+            return str;
+        }
+
+        template < typename T2 >
+        static std::string default_stringify(T2&&, ...)
+        {
+            return std::string("?(") + boost::core::demangle(typeid(T).name()) + ")";
+        }
+
+        static std::string stringify(T const& t)
+        {
+            return default_stringify(t, 0);
+        };
+    };
     // Resolver shall have
     // key_type
     // result_type
@@ -214,7 +360,59 @@ namespace rpnx
             assert(false);
         }
 
-        std::string debug()
+        std::string debug_line() const
+        {
+            std::stringstream ss;
+
+            ss << question() << " => ";
+
+            if (has_value())
+            {
+                ss << answer();
+            }
+
+            else if (has_error())
+            {
+                try
+                {
+                    auto er = get_error();
+
+                    std::rethrow_exception(er);
+                } catch (std::exception const & er)
+                {
+                    ss << er.what();
+                }
+                catch (...)
+                {
+                    ss << "error";
+                }
+                // TODO: Print error
+            }
+
+            else
+            {
+                ss << "unresolved";
+            }
+
+            return ss.str();
+        }
+
+        std::string debug() const
+        {
+            std::stringstream ss;
+
+            ss << debug_line() << std::endl;
+
+            //ss << "Inputs:" << std::endl;
+            for (auto& d : met_dependencies())
+            {
+                ss << "    " << d->debug_line() << std::endl;
+            }
+
+            return ss.str();
+        }
+
+        std::string debug_old()
         {
             auto unmet_v = unmet_dependencies();
             if (unmet_v.size() == 1 && (*unmet_v.begin())->m_attached_to == this)
@@ -550,6 +748,12 @@ namespace rpnx
             m_result.set_error(er);
         }
 
+        virtual std::string answer() const override
+        {
+            assert(has_value());
+            return resolver_traits< Result >::stringify(get());
+        }
+
       public:
         virtual bool has_value() const override final
         {
@@ -731,6 +935,12 @@ namespace rpnx
                 assert(m_coroutine.has_value());
                 this->set_value(m_coroutine->get());
             }
+        }
+
+        virtual std::string question() const override
+        {
+            std::string typenam = boost::core::demangle(typeid(*this).name());
+            return typenam + "(" + resolver_traits< input_type >::stringify(input_val) + ")";
         }
 
       protected:
@@ -1390,6 +1600,7 @@ namespace rpnx
     template < typename Graph >
     class single_thread_graph_solver
     {
+
       public:
         inline void solve(Graph* graph, std::shared_ptr< node_base< Graph > > node)
         {
@@ -1398,10 +1609,13 @@ namespace rpnx
 
         void solve(Graph* graph, node_base< Graph >* node)
         {
+            std::set< node_base< Graph >* > m_all_nodes;
+
             std::set< node_base< Graph >* > nodes_to_process;
 
             std::vector< coroutine_callback< Graph > > coroutines_to_process;
             nodes_to_process.insert(node);
+            m_all_nodes.insert(node);
 
             while (nodes_to_process.size() > 0 || coroutines_to_process.size() > 0)
             {
@@ -1445,6 +1659,7 @@ namespace rpnx
                 }
 
                 node_base< Graph >* n = *nodes_to_process.begin();
+                m_all_nodes.insert(n);
                 nodes_to_process.erase(n);
                 if (n->resolved() || !n->ready())
                 {
@@ -1472,22 +1687,20 @@ namespace rpnx
 
                     // std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
                 }
-                if (n->has_error())
+
+                for (auto& dep : n->met_dependencies())
                 {
-                    // std::cout << "Error in " << n->question() << std::endl;
-                    // std::cout << "Error: " << explain_error(*n) << std::endl;
+                    m_all_nodes.insert(dep);
+                }
 
-                    std::cout << "Questions asked by " << n->question() << ":" << std::endl;
+                for (auto& dep : n->error_dependencies())
+                {
+                    m_all_nodes.insert(dep);
+                }
 
-                    for (auto& dep : n->met_dependencies())
-                    {
-                        std::cout << "Q: " << dep->question() << " A: " << dep->answer() << std::endl;
-                    }
-
-                    for (auto& dep : n->error_dependencies())
-                    {
-                        std::cout << "Q: " << dep->question() << " A: " << dep->answer() << std::endl;
-                    }
+                for (auto& dep : n->unmet_dependencies())
+                {
+                    m_all_nodes.insert(dep);
                 }
 
                 auto kickoff_coroutines = n->take_kickoff_coroutines();
@@ -1521,6 +1734,11 @@ namespace rpnx
                     }
                     assert(requirements.size() != 0 || n->blocking_coroutine_count() != 0);
                 }
+            }
+
+            for (auto const& n : m_all_nodes)
+            {
+                std::cout << n->debug() << std::endl;
             }
 
             if (!node->resolved())

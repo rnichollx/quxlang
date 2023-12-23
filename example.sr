@@ -87,7 +87,7 @@ MODULE main;
 
         ::buz FUNCTION(%a I32, %b I32): I32
         {
-           VAR c box3 :();
+           VAR c box2@(I32);
            RETURN a;
         }
 

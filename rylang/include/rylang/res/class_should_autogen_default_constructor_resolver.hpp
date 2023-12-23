@@ -21,6 +21,11 @@ namespace rylang
         {
         }
 
+        virtual std::string question() const override
+        {
+            return "class_should_autogen_default_constructor(" + to_string(m_cls) + ")";
+        }
+
         void process(compiler* c);
 
       private:

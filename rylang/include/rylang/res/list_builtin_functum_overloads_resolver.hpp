@@ -19,7 +19,7 @@ namespace rylang
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler,  std::set< call_parameter_information >  > co_process(compiler* c, type_symbol input) override;
+        virtual auto co_process(compiler* c, type_symbol input) -> co_type override;
     };
 } // namespace rylang
 

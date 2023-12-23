@@ -5,7 +5,7 @@
 
 auto rylang::functum_instanciation_parameter_map_resolver::co_process(compiler* c, input_type input) -> co_type
 {
-    ast2_function_declaration const & func_ast = co_await *c->lk_function_ast(input);
+    ast2_function_declaration const & func_ast = co_await *c->lk_functum_instanciation_ast(input);
 
     type_symbol func_name = input.callee;
     auto functum_instanciation_parameters = input.parameters;

@@ -33,7 +33,7 @@ namespace rylang
 
         virtual std::string question() const override
         {
-            return "Is " + to_string(input_val.first) + " callable with " + to_string(input_val.second) + "?";
+            return "overload_set_is_callable_with(" + to_string(input_val.first) + ", " + to_string(input_val.second) + ")";
         }
 
         virtual std::string answer() const override

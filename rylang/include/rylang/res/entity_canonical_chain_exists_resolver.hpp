@@ -24,6 +24,11 @@ namespace rylang
         }
 
         virtual void process(compiler* c);
+
+        virtual std::string question() const override
+        {
+            return "entity_canonical_chain_exists(" + to_string(m_chain) + ")";
+        }
       private:
         type_symbol m_chain;
   };

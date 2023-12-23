@@ -19,6 +19,9 @@ namespace rylang
         {
         }
 
+        virtual std::string question() const override;
+
+
         virtual rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > > co_process(compiler* c, type_symbol input) override;
     };
 } // namespace rylang

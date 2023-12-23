@@ -6,6 +6,7 @@
 #define AST2_ENTITY_HEADER_GUARD
 
 #include <boost/variant.hpp>
+#include <rpnx/resolver_utilities.hpp>
 #include <rylang/ast2/ast2_function_arg.hpp>
 #include <rylang/ast2/ast2_function_delegate.hpp>
 
@@ -120,5 +121,8 @@ namespace rylang
     std::string to_string(ast2_declarable const& ref);
 
 } // namespace rylang
+
+
+
 
 #endif // AST2_ENTITY_HEADER_GUARD

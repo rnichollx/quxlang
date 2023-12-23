@@ -25,6 +25,11 @@ namespace rylang
 
         virtual void process(compiler* c);
 
+        std::string question() const override
+        {
+            return "class_layout_from_canonical_chain(" + to_string(m_chain) + ")";
+        }
+
       private:
         type_symbol m_chain;
     };

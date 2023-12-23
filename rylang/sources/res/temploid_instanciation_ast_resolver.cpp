@@ -24,7 +24,7 @@ auto rylang::temploid_instanciation_ast_resolver::co_process(compiler* c, input_
     }
     else if (typeis< ast2_functum >(maybe_templ_ast))
     {
-        co_return co_await *c->lk_function_ast(input);
+        co_return co_await *c->lk_functum_instanciation_ast(input);
     }
 
     throw std::runtime_error("wut");

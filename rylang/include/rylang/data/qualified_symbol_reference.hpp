@@ -8,6 +8,7 @@
 #include "numeric_literal.hpp"
 #include <boost/variant.hpp>
 #include <compare>
+#include <rpnx/resolver_utilities.hpp>
 
 namespace rylang
 {
@@ -160,5 +161,25 @@ namespace rylang
 } // namespace rylang
 
 #include "rylang/manipulators/qmanip.hpp"
+
+template<>
+struct rpnx::resolver_traits<rylang::type_symbol>
+{
+    static std::string stringify(rylang::type_symbol const& v)
+    {
+        return rylang::to_string(v);
+    }
+};
+
+template<>
+struct rpnx::resolver_traits<rylang::instanciation_reference>
+{
+    static std::string stringify(rylang::type_symbol const& v)
+    {
+        return rylang::to_string(v);
+    }
+};
+
+
 
 #endif // RYLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

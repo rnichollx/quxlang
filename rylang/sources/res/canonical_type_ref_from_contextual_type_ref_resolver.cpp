@@ -13,9 +13,9 @@ void rylang::canonical_symbol_from_contextual_symbol_resolver::process(rylang::c
     type_symbol context = m_ref.context;
     type_symbol const& type = m_ref.type;
 
-    std::cout << "type lookup," << std::endl;
-    std::cout << "Context: " << to_string(context) << std::endl;
-    std::cout << "Type: " << to_string(type) << std::endl;
+   // std::cout << "type lookup," << std::endl;
+   // std::cout << "Context: " << to_string(context) << std::endl;
+   // std::cout << "Type: " << to_string(type) << std::endl;
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {

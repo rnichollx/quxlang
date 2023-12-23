@@ -22,4 +22,13 @@ namespace rylang
     };
 } // namespace rylang
 
+
+template<>
+struct rpnx::resolver_traits<rylang::call_parameter_information>
+{
+    static std::string stringify(rylang::call_parameter_information const& v)
+    {
+        return rpnx::resolver_traits<std::vector< rylang::type_symbol >>::stringify(v.argument_types);
+    }
+};
 #endif // RYLANG_CALL_PARAMETER_INFORMATION_HEADER_GUARD
