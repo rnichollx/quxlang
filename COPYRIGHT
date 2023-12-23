@@ -1,0 +1,19 @@
+See catch2/catch.hpp for information about catch2 license.
+LLVM and boost have their own license, but aren't included in this repo.
+
+Copyright © 2022, 2023, Ryan P. Nicholl, rnicholl@protonmail.com
+Permissions is granted to use this software under the terms of the RPNX Permissive License, Version 4, or, at your option, any later version as published by the author, Ryan P. Nicholl.
+
+RPNX Permissive License, Version 4
+
+Permission is hereby granted, free of charge, to any person or legal entity(the "Licensee") obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+No further restriction shall restrict reverse engineering, nor shall the software be considered part of an anti-circumvention device.
+
+Each person or legal entity which uses, copies, modifies, merges, publishes, distributes, sublicensee and/or sells copies of the Software(the "Licensor") grants Licensee a worldwide, perpetual, royalty free irrevocable patent license to all patents which Licensor is free to license(Covered Patents), for use with software covered under the RPNX Permissive License, Version 4.
+
+Licensee may not file patent infringement claims, maintain a patent-related injunction, or demand patent royalties against any use/distribution/etc. of software licensed under the RPNX Permissive License, Version 4. If the licensee obtains an injunction or damages for a work covered under the RPNX Permissive License, Version 4 in violation of these provisions, then in addition to any direct damages for violation of the license, Licensee agrees to repay any recovered damages involving patent claims against software that was licensed under a Covered License. Furthermore, Licensee must dismiss any injunctions obtained in contravention of this license. If Licensee maintains an injunction in violation of this provision, and a notice of violation containing reference to this provision and full copy of the license is provided to Licensee, licensee must cure the violation within 5 business days. If an injunction is maintained in violation of this license for greater than 5 business days after notification of the violation, then all rights granted to licensee to use, copy, modify, distribute, merge, publish, distribute, sublicense, or sell software covered under the RPNX Permissive License, Version 4 terminate and may not be restored unless such injunction is vacated and Licensee respects the license grant of the prior section. This license termination applies to all works licensed under the RPNX Permissive License, Version 4, regardless of which work under this license is involved. Licensee agrees that the anti-patent suit provisions of this license may have no adequate remedy at law and that equitable relief may be obtained to enforce these provisions. The enforcement of these provisions may not be be impaired by further sublicensees including without limitation arbitration contracts.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
