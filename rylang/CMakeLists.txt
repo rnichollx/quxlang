@@ -173,14 +173,14 @@ target_sources(rylang PRIVATE sources/compiler.cpp
         sources/res/file_ast_resolver.cpp
         include/rylang/collector.hpp include/rylang/ast/function_ast.hpp ../rpnx/include/rpnx/value.hpp include/rylang/ast/symbol_ref_ast.hpp include/rylang/parser.hpp include/rylang/ex/unexpected_eof.hpp include/rylang/ast/null_object_ast.hpp include/rylang/ast/null_object_ast.hpp
         include/rylang/ex/unexpected_eof.hpp include/rylang/data/class_list.hpp)
-target_link_libraries(rylang PUBLIC graphlib Boost::boost)
+target_link_libraries(rylang PUBLIC graphlib Boost::boost Boost::headers)
 target_link_libraries(rylang_main PUBLIC rylang)
 target_precompile_headers(rylang PRIVATE
  [["rylang/compiler.hpp"]]
  <boost/variant.hpp>)
 
 
-add_compile_definitions(-DBOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS -DBOOST_MPL_LIMIT_LIST_SIZE=50)
+add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)
 
 get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
 
