@@ -15,8 +15,8 @@ namespace rylang
     class call_params_of_function_ast_resolver : public rpnx::co_resolver_base< compiler, call_parameter_information, std::pair< ast2_function_declaration, type_symbol > >
     {
       public:
-        call_params_of_function_ast_resolver(input_type input)
-            : co_resolver_base(input)
+        explicit call_params_of_function_ast_resolver(input_type input)
+            : co_resolver_base(std::move(input))
         {
         }
 

@@ -18,7 +18,7 @@ namespace rylang
     {
       public:
         called_functanoids_resolver(type_symbol func_addr)
-            : co_resolver_base(func_addr)
+            : co_resolver_base(std::move(func_addr))
         {
         }
 

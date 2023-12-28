@@ -20,9 +20,9 @@ namespace rylang
     {
       public:
         using key_type = type_symbol;
-        class_field_list_from_canonical_chain_resolver(type_symbol chain)
+        explicit class_field_list_from_canonical_chain_resolver(type_symbol chain)
         {
-            m_chain = chain;
+            m_chain = std::move(chain);
         }
 
         virtual void process(compiler* c);
