@@ -20,7 +20,8 @@ namespace rylang::parsers
         while (pos != end)
         {
             char c = *pos;
-            if (c >= 'a' && c <= 'z' || (started && ((c >= '0' && c <= '9') || c == '_')))
+            if ((c >= 'a' && c <= 'z') || (started && ((c >= '0' && c <= '9') || c == '_')))
+
             {
                 was_underscore = c == '_';
                 ++pos;

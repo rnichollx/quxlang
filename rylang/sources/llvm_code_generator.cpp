@@ -108,43 +108,17 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame, vmf);
 
-    llvm::IRBuilder<> builder(storage);
+    llvm::IRBuilder< > builder(storage);
     builder.CreateBr(entry);
 
     func->print(llvm::outs());
 
-    llvm::legacy::FunctionPassManager FPM(func->getParent());
-
-    // Add necessary analysis passes that mem2reg might require
-    FPM.add(llvm::createBasicAAWrapperPass());
-    FPM.add(llvm::createVerifierPass());
-    FPM.add(llvm::createInstructionCombiningPass());
-
-    // Promote allocas to registers.
-    FPM.add(llvm::createPromoteMemoryToRegisterPass());
-
-    FPM.add(llvm::createSROAPass());
-    // FPM.add(new llvm::SimplifyCFGPass());
-    /*
-        // Do the transformations
-        FPM.doInitialization();
-        FPM.run(*func);
-        FPM.run(*func);
-        FPM.doFinalization();
-        */
-
-    // Create the analysis managers.
-    // These must be declared in this order so that they are destroyed in the
-    // correct order due to inter-analysis-manager references.
     llvm::LoopAnalysisManager LAM;
     llvm::FunctionAnalysisManager FAM;
     llvm::CGSCCAnalysisManager CGAM;
     llvm::ModuleAnalysisManager MAM;
 
-    // Create the new pass manager builder.
-    // Take a look at the PassBuilder constructor parameters for more
-    // customization, e.g. specifying a TargetMachine or various debugging
-    // options.
+
     llvm::PassBuilder PB;
 
     // Register all the basic analyses with the managers.
@@ -233,6 +207,7 @@ llvm::IntegerType* rylang::llvm_code_generator::get_llvm_int_type_ptr(llvm::LLVM
     assert(t.bits != 0);
     return llvm::IntegerType::get(context, t.bits);
 }
+
 llvm::PointerType* rylang::llvm_code_generator::get_llvm_type_opaque_ptr(llvm::LLVMContext& context)
 {
     return llvm::PointerType::get(context, 0);
@@ -258,7 +233,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
         {
-            llvm::IRBuilder<> builder(p_block);
+            llvm::IRBuilder< > builder(p_block);
             vm_store const& store = boost::get< vm_store >(ex);
 
             llvm::Value* where = get_llvm_value(context, builder, frame, store.where);
@@ -275,7 +250,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             if (vmf.interface.return_type.has_value())
             {
                 // TODO: support void return
-                llvm::IRBuilder<> builder(p_block);
+                llvm::IRBuilder< > builder(p_block);
 
                 llvm::Align ret_align = frame.values.at(0).align;
                 llvm::Value* ret_val_reference = frame.values.at(0).get_address;
@@ -287,7 +262,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             }
             else
             {
-                llvm::IRBuilder<> builder(p_block);
+                llvm::IRBuilder< > builder(p_block);
                 builder.CreateRetVoid();
             }
             return false;
@@ -295,14 +270,14 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         else if (typeis< vm_execute_expression >(ex))
         {
             vm_execute_expression const& expr = boost::get< vm_execute_expression >(ex);
-            llvm::IRBuilder<> builder(p_block);
+            llvm::IRBuilder< > builder(p_block);
             get_llvm_value(context, builder, frame, expr.expr);
         }
         else if (typeis< vm_if >(ex))
         {
             // std::cout << "generate if " << p_block << std::endl;
             vm_if const& if_ = boost::get< vm_if >(ex);
-            llvm::IRBuilder<> builder(p_block);
+            llvm::IRBuilder< > builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
             builder.CreateBr(cond_block);
@@ -348,7 +323,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         else if (typeis< vm_while >(ex))
         {
             vm_while const& while_ = boost::get< vm_while >(ex);
-            llvm::IRBuilder<> builder(p_block);
+            llvm::IRBuilder< > builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
             builder.CreateBr(cond_block);
@@ -384,19 +359,21 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
 
     return true;
 }
+
 llvm::Type* rylang::llvm_code_generator::get_llvm_type_from_vm_storage(llvm::LLVMContext& context, vm_allocate_storage typ)
 {
     // Just create an array that contains enough bytes
 
     return llvm::ArrayType::get(llvm::IntegerType::get(context, 8), typ.size);
 }
+
 void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, llvm::BasicBlock* p_block, llvm::Function* p_function, rylang::vm_procedure procedure, rylang::vm_llvm_frame& frame)
 {
     // Push the arguments into the frame
     // this doesn't nessecarily mean that the arguments be pushed on the stack, but we need to push
     // their Value* into the frame so that we can access them later.
 
-    llvm::IRBuilder<> builder(p_block);
+    llvm::IRBuilder< > builder(p_block);
 
     auto arg_it = p_function->arg_begin();
     auto arg_end = p_function->arg_end();
@@ -452,7 +429,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
 
         // Allocate stack space with allocainst
-        llvm::IRBuilder<> builder(frame.storage_block);
+        llvm::IRBuilder< > builder(frame.storage_block);
         llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
         vm_llvm_frame_item item;
         item.type = StorageType;
@@ -461,7 +438,8 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         frame.values.push_back(item);
     }
 }
-llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
+
+llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder< >& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
 
     // std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
@@ -496,6 +474,27 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
 
         auto rhs_vm_type = vm_value_type(binop.rhs);
 
+        bool is_bool_op = false;
+        bool is_int_op = false;
+
+        std::optional< std::size_t > rhs_width;
+        std::optional< std::size_t > lhs_width;
+        std::optional< bool > lhs_signed;
+        std::optional< bool > rhs_signed;
+
+        if (typeis< primitive_type_bool_reference >(lhs_vm_type) && typeis< primitive_type_bool_reference >(rhs_vm_type))
+        {
+            is_bool_op = true;
+        }
+        else if (typeis< primitive_type_integer_reference >(lhs_vm_type) && typeis< primitive_type_integer_reference >(rhs_vm_type))
+        {
+            is_int_op = true;
+            lhs_width = boost::get< primitive_type_integer_reference >(lhs_vm_type).bits;
+            rhs_width = boost::get< primitive_type_integer_reference >(rhs_vm_type).bits;
+            lhs_signed = boost::get< primitive_type_integer_reference >(lhs_vm_type).has_sign;
+            rhs_signed = boost::get< primitive_type_integer_reference >(rhs_vm_type).has_sign;
+        }
+
         std::string lhs_type_str = to_string(lhs_vm_type);
         std::string rhs_type_str = to_string(rhs_vm_type);
 
@@ -529,13 +528,47 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         }
         else if (binop.oper == ">")
         {
-            result = builder.CreateICmpSGT(lhs, rhs);
+            if (is_int_op)
+            {
+                if (*rhs_signed && *lhs_signed)
+                {
+                    result = builder.CreateICmpSGT(lhs, rhs);
+                }
+                else if (!*rhs_signed && !*lhs_signed)
+                {
+                    result = builder.CreateICmpUGT(lhs, rhs);
+                }
+                else
+                {
+                    if (*rhs_signed)
+                    {
+                        auto rhs_negative = builder.CreateICmpSLT(rhs, llvm::ConstantInt::get(rhs->getType(), 0));
+                        auto comparison = builder.CreateICmpUGT(lhs, rhs);
+                        result = builder.CreateOr(rhs_negative, comparison);
+                    }
+                    else
+                    {
+                        assert(*lhs_signed);
+                        auto lhs_nonnegative = builder.CreateICmpSGE(lhs, llvm::ConstantInt::get(lhs->getType(), 0));
+                        auto comparison = builder.CreateICmpUGT(lhs, rhs);
+                        result = builder.CreateAnd(lhs_nonnegative, comparison);
+                    }
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Cannot compare bools for magnituide");
+            }
             return result;
         }
         else if (binop.oper == "<")
         {
             result = builder.CreateICmpSLT(lhs, rhs);
             return result;
+        }
+        else if (binop.oper == "<=")
+        {
+            result = builder.CreateICmpSLE(lhs, rhs);
         }
 
         assert(false);

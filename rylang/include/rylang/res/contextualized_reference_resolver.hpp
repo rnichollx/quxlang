@@ -12,7 +12,7 @@
 
 namespace rylang
 {
-    struct contextualized_reference_resolver : public rpnx::resolver_base< compiler, type_symbol >
+    class contextualized_reference_resolver : public rpnx::resolver_base< compiler, type_symbol >
     {
       private:
         type_symbol m_symbol;

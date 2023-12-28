@@ -26,10 +26,11 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver* res, type_symbol func, class compiler* c, vm_generation_frame_info& frame, vm_procedure& proc)
         : m_c(c)
-        , m_ctx(func)
-        , m_frame(frame)
-        , m_resolver(res)
-        , m_proc(proc)
+
+          , m_frame(frame)
+          , m_ctx(func)
+          , m_resolver(res)
+          , m_proc(proc)
     {
         vm_block& block = proc.body;
         // std::cout << "Enter context frame" << std::endl;
@@ -63,9 +64,9 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(context_frame& other)
         : m_c(other.m_c)
-        , m_frame(other.m_frame)
-        , m_resolver(other.m_resolver)
-        , m_proc(other.m_proc)
+          , m_frame(other.m_frame)
+          , m_resolver(other.m_resolver)
+          , m_proc(other.m_proc)
     {
 
         // std::cout << "Enter duplicate context" << std::endl;
@@ -101,6 +102,7 @@ namespace rylang
         closed = true;
         co_return {};
     }
+
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::discard()
     {
         std::cout << "Context discarded" << std::endl;
@@ -157,6 +159,7 @@ namespace rylang
             insertion_point.condition_block = std::move(b);
         };
     }
+
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::then_t)
         : context_frame(other)
     {
@@ -165,6 +168,7 @@ namespace rylang
             insertion_point.then_block = std::move(b);
         };
     }
+
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_if& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::else_t)
         : context_frame(other)
     {
@@ -177,6 +181,7 @@ namespace rylang
             }
         };
     }
+
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::condition_t)
         : context_frame(other)
     {
@@ -185,6 +190,7 @@ namespace rylang
             insertion_point.condition_block = std::move(b);
         };
     }
+
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver::context_frame& other, vm_while& insertion_point, vm_procedure_from_canonical_functanoid_resolver::context_frame::loop_t)
         : context_frame(other)
     {
@@ -193,16 +199,19 @@ namespace rylang
             insertion_point.loop_block = std::move(b);
         };
     }
+
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_variable(std::string name)
     {
         auto val = try_load_variable(name);
         assert(val.has_value());
         return val.value();
     }
+
     type_symbol vm_procedure_from_canonical_functanoid_resolver::context_frame::current_context() const
     {
         return m_frame.context;
     }
+
     rpnx::general_coroutine< compiler, std::size_t > vm_procedure_from_canonical_functanoid_resolver::context_frame::create_value_storage(std::optional< std::string > name, type_symbol type)
     {
         bool temp = !(name.has_value());
@@ -256,6 +265,7 @@ namespace rylang
     {
         return load_value(index, true, true);
     }
+
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_temporary_as_new(std::size_t index)
     {
         return load_value(index, false, true);
@@ -274,6 +284,7 @@ namespace rylang
 
         co_return {};
     }
+
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_value(std::size_t index, bool alive, bool temp)
     {
         auto th = this;
@@ -323,11 +334,13 @@ namespace rylang
         m_frame.blocks.back().value_states.at(index).alive = true;
         return;
     }
+
     void vm_procedure_from_canonical_functanoid_resolver::context_frame::set_value_dead(std::size_t index)
     {
         m_frame.blocks.back().value_states.at(index).alive = false;
         return;
     }
+
     rpnx::general_coroutine< compiler, std::size_t > vm_procedure_from_canonical_functanoid_resolver::context_frame::create_variable_storage(std::string name, type_symbol type)
     {
         return create_value_storage(name, type);
@@ -337,16 +350,19 @@ namespace rylang
     {
         return create_value_storage(std::nullopt, type);
     }
+
     type_symbol vm_procedure_from_canonical_functanoid_resolver::context_frame::get_variable_type(std::size_t index)
     {
         return m_frame.variables.at(index).type;
     }
+
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::frame_return(vm_value val)
     {
         co_await set_return_value(val);
 
         co_return co_await frame_return();
     }
+
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::frame_return()
     {
         for (std::size_t i = 1; i < m_frame.variables.size(); i++)
@@ -411,6 +427,7 @@ namespace rylang
 
         co_return;
     }
+
     rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::run_value_constructor(std::size_t index, std::vector< vm_value > args)
     {
         auto type = get_variable_type(index);
@@ -556,7 +573,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         for (std::size_t i = 0; i < function_ast_v.args.size(); i++)
         {
             auto arg = function_ast_v.args[i];
-            auto arg_type = boost::get<instanciation_reference>(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis<subdotentity_reference>(functum_reference) ? 1 : 0) );
+            auto arg_type = boost::get< instanciation_reference >(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
 
             // TODO: Check that arg_type matches arg.type
 
@@ -590,7 +607,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         if (is_constructor)
         {
             // TODO: Refector this into separate function?
-           // assert(thistype_type.has_value());
+            // assert(thistype_type.has_value());
             class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
             std::set< std::string > intialized_members;
             for (ast2_function_delegate& delegate : function_ast_v.delegates)
@@ -657,7 +674,9 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         // Then generate the body
         co_await build_generic(ctx, function_ast_v.body);
 
-        if (is_destructor) {}
+        if (is_destructor)
+        {
+        }
 
         // Implied return on void functions
         if (!function_ast_v.return_type.has_value())
@@ -715,6 +734,7 @@ rpnx::general_coroutine< rylang::compiler, void > rylang::vm_procedure_from_cano
     co_await expr_ctx.close();
     co_return;
 }
+
 rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value_generic(context_frame& ctx, expression expr)
 {
     ctx.comment("context generate value generic");
@@ -847,6 +867,7 @@ rpnx::general_coroutine< rylang::compiler, void > rylang::vm_procedure_from_cano
     ctx.push(std::move(if_stmt));
     co_return;
 }
+
 rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, rylang::expression_binary expr)
 {
 
@@ -975,6 +996,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 
     throw std::runtime_error("Cannot convert between these types");
 }
+
 rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_value_to_ref(context_frame& ctx, rylang::vm_value from, rylang::type_symbol to_type)
 {
     assert(is_canonical(to_type));
@@ -1041,7 +1063,7 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 
     assert(!is_ref(type));
 
-    std::string val ;
+    std::string val;
 
     for (auto& i : values)
     {
@@ -1103,10 +1125,12 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
 {
     co_return vm_expr_literal{expr.value};
 }
+
 rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, expression_this_reference expr)
 {
     co_return gen_this(ctx);
 }
+
 rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, expression_thisdot_reference expr)
 {
     auto thisval = gen_this(ctx);
@@ -1239,6 +1263,7 @@ rpnx::general_coroutine< rylang::compiler, std::vector< vm_value > > rylang::vm_
     }
     co_return result;
 }
+
 rpnx::general_coroutine< rylang::compiler, std::optional< rylang::vm_value > > rylang::vm_procedure_from_canonical_functanoid_resolver::try_gen_call_functanoid_builtin(context_frame& ctx, rylang::type_symbol callee_set, std::vector< vm_value > values)
 {
     assert(typeis< instanciation_reference >(callee_set));
@@ -1417,6 +1442,7 @@ rpnx::general_coroutine< compiler, void > rylang::vm_procedure_from_canonical_fu
     co_await block_frame.close();
     co_return;
 }
+
 rpnx::general_coroutine< compiler, vm_value > rylang::vm_procedure_from_canonical_functanoid_resolver::gen_default_destructor(context_frame& ctx, rylang::type_symbol type, std::vector< vm_value > values)
 {
     // TODO: make default constructing references an error
@@ -1462,6 +1488,7 @@ rpnx::general_coroutine< compiler, vm_value > rylang::vm_procedure_from_canonica
 
     co_return void_value();
 }
+
 rpnx::general_coroutine< rylang::compiler, void > rylang::vm_procedure_from_canonical_functanoid_resolver::build_generic(rylang::vm_procedure_from_canonical_functanoid_resolver::context_frame& ctx, rylang::function_statement statement)
 {
 

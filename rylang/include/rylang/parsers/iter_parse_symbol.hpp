@@ -14,7 +14,7 @@ namespace rylang::parsers
     {
         auto pos = begin;
         bool started = false;
-        while (pos != end && !is_space(*pos) && !is_alpha(*pos) && !is_digit(*pos) && (!started || (*pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';')) && *pos != '_')
+        while (pos != end && !is_space(*pos) && !is_alpha(*pos) && !is_digit(*pos) && (!started || ((*pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';'))) && *pos != '_')
         {
             char c = *pos;
             ++pos;

@@ -65,6 +65,8 @@
 
 #include <shared_mutex>
 
+#define COMPILER_INDEX(x) index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { this->m_ ## x ## _index.lookup(input); }
+
 namespace rylang
 {
     class compiler
@@ -298,7 +300,7 @@ namespace rylang
         }
 
       public:
-        type_symbol get_function_qualname(type_symbol name, call_parameter_information args);
+        type_symbol  get_function_qualname [[deprecated]] (type_symbol name, call_parameter_information args);
 
       private:
         // index< class_list_resolver > m_class_list_index;
@@ -408,14 +410,7 @@ namespace rylang
             return m_filelist_resolver.lookup();
         }
 
-        // Look up the precursor AST for the module
-        //  The precursor AST is the non-preprocessed AST
-        //  This works in two steps, first the function looks up the files in the module
-        //  Then it merges the ASTs of all files in the same module.
-        out< module_ast_precursor1 > lk_module_ast_precursor1(std::string module_id)
-        {
-            return m_module_ast_precursor1_index.lookup(module_id);
-        }
+
 
         out< file_module_map > lk_file_module_map()
         {

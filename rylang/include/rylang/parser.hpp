@@ -114,7 +114,7 @@ namespace rylang
         while (pos != end)
         {
             char c = *pos;
-            if (c >= 'a' && c <= 'z' || (started && ((c >= '0' && c <= '9') || c == '_')))
+            if ((c >= 'a' && c <= 'z') || (started && ((c >= '0' && c <= '9') || c == '_')))
             {
                 was_underscore = c == '_';
                 ++pos;
@@ -236,7 +236,7 @@ namespace rylang
         auto pos = begin;
         bool started = false;
         while (pos != end && !std::isspace(*pos) && !std::isalpha(*pos) && !std::isdigit(*pos) &&
-               (!started || (*pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';')) && *pos != '_')
+               (!started || ((*pos != ')') && (*pos != '{' && *pos != '}') && (*pos != ',' && *pos != ';'))) && *pos != '_')
         {
             char c = *pos;
             ++pos;

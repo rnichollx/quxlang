@@ -11,7 +11,7 @@
 
 namespace rylang
 {
-    struct functum_exists_and_is_callable_with_resolver : public rpnx::co_resolver_base< compiler, bool, std::pair< type_symbol, call_parameter_information > >
+    class functum_exists_and_is_callable_with_resolver : public rpnx::co_resolver_base< compiler, bool, std::pair< type_symbol, call_parameter_information > >
     {
       public:
 
