@@ -25,6 +25,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -39,8 +40,8 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <iostream>
-
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/Function.h>
@@ -62,6 +63,11 @@
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
 
     std::unique_ptr< llvm::LLVMContext > context_ptr = std::make_unique< llvm::LLVMContext >();
     vm_llvm_frame frame;
@@ -71,7 +77,25 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     frame.module = std::make_unique< llvm::Module >("MODULE" + vmf.mangled_name, context);
 
     // TODO: This is placeholder
-    frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
+    //frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
+
+    std::string TargetTriple = "x86_64-unknown-unknown-unknown";
+    frame.module->setTargetTriple(TargetTriple);
+
+    std::string Error;
+    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
+    if (!Target)
+    {
+        throw std::runtime_error("Failed to lookup target: " + Error);
+    }
+
+    auto CPU = "generic";
+    auto Features = "";
+    llvm::TargetOptions opt;
+    auto RM = llvm::Optional< llvm::Reloc::Model >();
+    auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+
+    frame.module->setDataLayout(TheTargetMachine->createDataLayout());
 
     std::optional< type_symbol > func_return_type = vmf.interface.return_type;
 
@@ -118,7 +142,6 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     llvm::CGSCCAnalysisManager CGAM;
     llvm::ModuleAnalysisManager MAM;
 
-
     llvm::PassBuilder PB;
 
     // Register all the basic analyses with the managers.
@@ -132,10 +155,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // This one corresponds to a typical -O2 optimization pipeline.
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
-    // Optimize the IR!
-    MPM.run(*frame.module, MAM);
 
-    func->print(llvm::outs());
+
+    //func->print(llvm::outs());
 
     // Serialize the module to a SmallVector
     llvm::SmallVector< char, 128 > buffer;
