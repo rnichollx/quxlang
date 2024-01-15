@@ -60,6 +60,8 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
+#include <fstream>
+
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
@@ -93,9 +95,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     auto Features = "";
     llvm::TargetOptions opt;
     auto RM = llvm::Optional< llvm::Reloc::Model >();
-    auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+    auto target_machine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
-    frame.module->setDataLayout(TheTargetMachine->createDataLayout());
+    frame.module->setDataLayout(target_machine->createDataLayout());
 
     std::optional< type_symbol > func_return_type = vmf.interface.return_type;
 
@@ -155,9 +157,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // This one corresponds to a typical -O2 optimization pipeline.
     llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
 
+    MPM.run(*frame.module, MAM);
 
-
-    //func->print(llvm::outs());
+    func->print(llvm::outs());
 
     // Serialize the module to a SmallVector
     llvm::SmallVector< char, 128 > buffer;
@@ -172,7 +174,36 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
         bytecodeVector.push_back(static_cast< std::byte >(c));
     }
 
-    frame.module = nullptr;
+
+    // New:
+
+    llvm::SmallVector< char, 0 > mcBuffer;
+    llvm::raw_svector_ostream mcBufferStream(mcBuffer);
+
+    llvm::legacy::PassManager pm;
+
+    auto result = target_machine->addPassesToEmitFile(pm, mcBufferStream, nullptr, llvm::CGFT_ObjectFile);
+
+    if (result)
+    {
+        std::cerr << "Failed to emit object file" << std::endl;
+        return {};
+    }
+    pm.run(*frame.module);
+
+    std::cout << "Object code for " << vmf.mangled_name << std::endl;
+    std::cout << mcBuffer.size() << " bytes" << std::endl;
+
+
+
+    std::ofstream outputFile(vmf.mangled_name + ".o", std::ios::out | std::ios::binary);
+    outputFile.write(mcBuffer.data(), mcBuffer.size());
+    outputFile.close();
+
+
+
+
+
     // llvm::orc::LLJITBuilder jitbuilder;
     // auto jite = jitbuilder.create();
     // if (auto err = jite.takeError())
@@ -181,6 +212,8 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     //     return {};
     // }
 
+
+    frame.module = nullptr;
     return bytecodeVector;
 
     // std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
