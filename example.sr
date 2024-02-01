@@ -31,7 +31,7 @@ MODULE main;
   .w VAR -> ::baz;
 }
 
-::box2 TEMPLATE(T(t1)) CLASS // PRIORITY(0)
+::box2 TEMPLATE(T(t1)) CLASS
 {
   .x VAR t1;
 
@@ -88,7 +88,8 @@ MODULE main;
         ::buz FUNCTION(%a I32, %b I32): I32
         {
            VAR c box2@(I32);
-           RETURN a;
+           b := a + b;
+           RETURN a * b;
         }
 
         ::fizz FUNCTION(%a I32) : I32
