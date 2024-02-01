@@ -81,7 +81,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     // TODO: This is placeholder
     //frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
 
-    std::string TargetTriple = "x86_64-unknown-unknown-unknown";
+    std::string TargetTriple = "armv8-a-unknown-unknown-unknown";
     frame.module->setTargetTriple(TargetTriple);
 
     std::string Error;
@@ -95,6 +95,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     auto Features = "";
     llvm::TargetOptions opt;
     auto RM = llvm::Optional< llvm::Reloc::Model >();
+    RM = llvm::Reloc::Model::Static;
     auto target_machine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
 
     frame.module->setDataLayout(target_machine->createDataLayout());
@@ -102,7 +103,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     std::optional< type_symbol > func_return_type = vmf.interface.return_type;
 
     llvm::Type* func_llvm_return_type = nullptr;
-
+    
     if (func_return_type.has_value())
     {
         func_llvm_return_type = get_llvm_type_from_vm_type(context, func_return_type.value());
@@ -173,8 +174,6 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     {
         bytecodeVector.push_back(static_cast< std::byte >(c));
     }
-
-
     // New:
 
     llvm::SmallVector< char, 0 > mcBuffer;
@@ -194,16 +193,28 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     std::cout << "Object code for " << vmf.mangled_name << std::endl;
     std::cout << mcBuffer.size() << " bytes" << std::endl;
 
-
-
-    std::ofstream outputFile(vmf.mangled_name + ".o", std::ios::out | std::ios::binary);
+    std::ofstream outputFile(vmf.mangled_name + ".o", std::ios::out | std::ios::binary | std::ios::trunc);
     outputFile.write(mcBuffer.data(), mcBuffer.size());
     outputFile.close();
 
+    auto objE = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(llvm::StringRef(mcBuffer.data(), mcBuffer.size()), "object"));
 
+    if (objE)
+    {
+    }
+    auto obj = std::move(objE.get());
 
+    for (const llvm::object::SymbolRef& symbol : obj->symbols())
+    {
+        auto nameE = symbol.getName();
+        if (nameE)
+        {
+            // error?
+        }
+        std::string name = nameE.get().data();
 
-
+        std::cout << "symbol with name: " << name << std::endl;
+    }
     // llvm::orc::LLJITBuilder jitbuilder;
     // auto jite = jitbuilder.create();
     // if (auto err = jite.takeError())
@@ -211,7 +222,6 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     //     std::cerr << "Failed to create JIT" << std::endl;
     //     return {};
     // }
-
 
     frame.module = nullptr;
     return bytecodeVector;

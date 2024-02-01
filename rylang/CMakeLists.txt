@@ -150,6 +150,9 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/res/temploid_instanciation_parameter_set_resolver.hpp
         sources/res/temploid_instanciation_parameter_set_resolver.cpp
         sources/res/functum_instanciation_parameter_map_resolver.cpp
+        include/rylang/ast2/ast2_externfunc.hpp
+        include/rylang/data/output_object_symbol.hpp
+        include/rylang/data/code_relocation.hpp
 
 )
 
