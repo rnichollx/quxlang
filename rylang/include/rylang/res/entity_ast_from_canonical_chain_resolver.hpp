@@ -20,6 +20,7 @@ namespace rylang
 
       public:
         using key_type = type_symbol;
+        using input_type = type_symbol;
 
         explicit entity_ast_from_canonical_chain_resolver(type_symbol chain)
         {

@@ -5,6 +5,8 @@ endif ()
 find_package(GTest REQUIRED)
 find_package(Boost REQUIRED)
 find_package(LLVM REQUIRED)
+find_package(yaml-cpp REQUIRED)
+#target_link_libraries(rylang PRIVATE yaml-cpp::yaml-cpp)
 include_directories(${LLVM_INCLUDE_DIRS})
 
 add_executable(rylang_main sources/main.cpp)
@@ -153,6 +155,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/ast2/ast2_externfunc.hpp
         include/rylang/data/output_object_symbol.hpp
         include/rylang/data/code_relocation.hpp
+        include/rylang/macros.hpp
 
 )
 

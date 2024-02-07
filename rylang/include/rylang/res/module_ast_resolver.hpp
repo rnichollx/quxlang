@@ -19,6 +19,7 @@ namespace rylang
    {
      public:
         using key_type = std::string;
+       using input_type = key_type;
         inline module_ast_resolver(std::string module_name)
         : m_id(module_name)
         {

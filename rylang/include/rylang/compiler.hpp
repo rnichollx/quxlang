@@ -65,7 +65,7 @@
 
 #include <shared_mutex>
 
-#define COMPILER_INDEX(x) index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { this->m_ ## x ## _index.lookup(input); }
+#define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { return this->m_ ## x ## _index.lookup(input); }
 
 namespace rylang
 {
@@ -120,23 +120,23 @@ namespace rylang
         friend class temploid_instanciation_parameter_set_resolver;
         friend class functum_instanciation_parameter_map_resolver;
 
-        template < typename G >
+        template <typename G>
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
-        template < typename G >
+        template <typename G>
         friend auto type_placement_info_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
-        template < typename T >
+        template <typename T>
         using index = rpnx::index< compiler, T >;
 
-        template < typename T >
+        template <typename T>
         using singleton = rpnx::singleton< compiler, T >;
 
-      public:
-        template < typename T >
+    public:
+        template <typename T>
         using out = rpnx::output_ptr< compiler, T >;
 
-      private:
+    private:
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         // class_list_resolver m_class_list_resolver;
@@ -145,140 +145,105 @@ namespace rylang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
-        index <temploid_instanciation_parameter_set_resolver > m_temploid_instanciation_parameter_set_index;
-        temploid_instanciation_parameter_set_resolver::outptr_type lk_temploid_instanciation_parameter_set(instanciation_reference input)
-        {
-            return m_temploid_instanciation_parameter_set_index.lookup(input);
-        }
+        COMPILER_INDEX(temploid_instanciation_parameter_set)
+        COMPILER_INDEX(functum_instanciation_parameter_map)
+        COMPILER_INDEX(template_instanciation_parameter_set)
+        COMPILER_INDEX(template_instanciation_ast)
+        COMPILER_INDEX(temploid_instanciation_ast)
+        COMPILER_INDEX(entity_ast_from_canonical_chain)
+        COMPILER_INDEX(type_map)
+        COMPILER_INDEX(module_ast)
 
-        index <functum_instanciation_parameter_map_resolver> m_functum_instanciation_parameter_map_index;
-        functum_instanciation_parameter_map_resolver::outptr_type lk_functum_instanciation_parameter_map(functum_instanciation_parameter_map_resolver::input_type input)
-        {
-            return m_functum_instanciation_parameter_map_index.lookup(input);
-        }
-
-        index< template_instanciation_parameter_set_resolver > m_template_instanciation_parameter_set_resolver;
-        template_instanciation_parameter_set_resolver::outptr_type lk_template_instanciation_parameter_set(instanciation_reference input)
-        {
-            return m_template_instanciation_parameter_set_resolver.lookup(input);
-        }
-
-        index< template_instanciation_ast_resolver > m_template_instanciation_index;
-        out< template_instanciation_ast_resolver::output_type > lk_template_instanciation(instanciation_reference input)
-        {
-            return m_template_instanciation_index.lookup(input);
-        }
-
-        index< temploid_instanciation_ast_resolver > m_temploid_instanciation_index;
-        out< temploid_instanciation_ast_resolver::output_type > lk_temploid_instanciation(instanciation_reference input)
-        {
-            return m_temploid_instanciation_index.lookup(input);
-        }
-
-        index< entity_ast_from_canonical_chain_resolver > m_entity_ast_from_cannonical_chain_index;
-        entity_ast_from_canonical_chain_resolver::outptr_type lk_entity_ast_from_canonical_chain(type_symbol const& chain)
-        {
-            return m_entity_ast_from_cannonical_chain_index.lookup(chain);
-        }
-
-        index< module_ast_precursor1_resolver > m_module_ast_precursor1_index;
-
-        index< type_map_resolver > m_type_map_index;
-        out< ast2_type_map > lk_type_map(type_symbol typ)
-        {
-            return m_type_map_index.lookup(typ);
-        }
-
-        index< module_ast_resolver > m_module_ast_index;
-        out< module_ast_resolver::output_type > lk_module_ast(std::string const& module_name)
-        {
-            return m_module_ast_index.lookup(module_name);
-        }
-
-        index< overload_set_instanciate_with_resolver > m_overload_set_instanciate_with_index;
+        COMPILER_INDEX(overload_set_instanciate_with)
         out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
         {
             return m_overload_set_instanciate_with_index.lookup(std::make_pair(os, args));
         }
 
-        index< call_params_of_function_ast_resolver > m_call_params_of_function_ast_index;
+        COMPILER_INDEX(call_params_of_function_ast)
         out< call_parameter_information > lk_call_params_of_function_ast(ast2_function_declaration f_ast, type_symbol f_symbol)
         {
             return lk_call_params_of_function_ast(std::make_pair(f_ast, f_symbol));
         }
 
-        out< typename call_params_of_function_ast_resolver::output_type > lk_call_params_of_function_ast(call_params_of_function_ast_resolver::input_type input)
-        {
-            return m_call_params_of_function_ast_index.lookup(input);
-        }
-
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
+
         out< std::set< call_parameter_information > > lk_builtin_functum_overloads(type_symbol functum)
         {
             return m_list_builtin_functum_overloads_index.lookup(functum);
         }
 
         index< list_user_functum_overloads_resolver > m_list_user_functum_overloads_index;
+
         out< std::set< call_parameter_information > > lk_user_functum_overloads(type_symbol functum)
         {
             return m_list_user_functum_overloads_index.lookup(functum);
         }
 
         index< called_functanoids_resolver > m_called_functanoids_index;
+
         out< std::set< type_symbol > > lk_called_functanoids(type_symbol func_addr)
         {
             return m_called_functanoids_index.lookup(func_addr);
         }
 
         index< functanoid_return_type_resolver > m_functanoid_return_type_index;
+
         out< type_symbol > lk_functanoid_return_type(instanciation_reference const& chain)
         {
             return m_functanoid_return_type_index.lookup(chain);
         }
 
         index< list_functum_overloads_resolver > m_list_functum_overloads_index;
+
         out< std::optional< std::set< call_parameter_information > > > lk_list_functum_overloads(type_symbol const& chain)
         {
             return m_list_functum_overloads_index.lookup(chain);
         }
 
         index< functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
+
         out< bool > lk_functum_exists_and_is_callable_with(type_symbol const& chain, call_parameter_information const& os)
         {
             return m_functum_exists_and_is_callable_with_index.lookup(std::make_pair(chain, os));
         }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
+
         out< bool > lk_class_should_autogen_default_constructor(type_symbol const& cls)
         {
             return m_class_should_autogen_default_constructor_index.lookup(cls); //
         }
 
         index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
+
         out< bool > lk_symbol_canonical_chain_exists(type_symbol chain)
         {
             return m_symbol_canonical_chain_exists_index.lookup(chain);
         }
 
         index< operator_is_overloaded_with_resolver > m_operator_is_overloaded_with_index;
+
         out< std::optional< type_symbol > > lk_operator_is_overloaded_with(std::string op, type_symbol lhs, type_symbol rhs)
         {
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
         index< functum_instanciation_ast_resolver > m_functum_instanciation_ast_index;
+
         out< ast2_function_declaration > lk_functum_instanciation_ast(type_symbol func_addr)
         {
             return m_functum_instanciation_ast_index.lookup(func_addr);
         }
 
         index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;
+
         out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
         {
             return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
         }
 
-      public:
+    public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
@@ -286,32 +251,36 @@ namespace rylang
             return node->get();
         }
 
-      private:
+    private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
+
         out< type_symbol > lk_contextualized_reference(type_symbol symbol, type_symbol context)
         {
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
         index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]];
-        out< type_symbol > lk_function_qualname [[deprecated]] (type_symbol f, call_parameter_information args)
+
+        out< type_symbol > lk_function_qualname [[deprecated]](type_symbol f, call_parameter_information args)
         {
             return m_function_qualname_index.lookup(std::make_pair(f, args));
         }
 
-      public:
-        type_symbol  get_function_qualname [[deprecated]] (type_symbol name, call_parameter_information args);
+    public:
+        type_symbol get_function_qualname [[deprecated]](type_symbol name, call_parameter_information args);
 
-      private:
+    private:
         // index< class_list_resolver > m_class_list_index;
 
         index< function_overload_selection_resolver > m_function_overload_selection_index;
+
         out< call_parameter_information > lk_function_overload_selection(type_symbol const& chain, call_parameter_information const& os)
         {
             return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
         }
 
         index< overload_set_is_callable_with_resolver > m_overload_set_is_callable_with_index;
+
         out< bool > lk_overload_set_is_callable_with(std::pair< call_parameter_information, call_parameter_information > const& input)
         {
             return m_overload_set_is_callable_with_index.lookup(input);
@@ -323,6 +292,7 @@ namespace rylang
         }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
+
         out< bool > lk_canonical_type_is_implicitly_convertible_to(type_symbol from, type_symbol to)
         {
             return m_canonical_type_is_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
@@ -334,20 +304,23 @@ namespace rylang
         }
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
+
         out< bool > lk_entity_canonical_chain_exists(type_symbol const& chain)
         {
             return m_entity_canonical_chain_exists_index.lookup(chain);
         }
 
-      public:
+    public:
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
+
         out< class_layout > lk_class_layout_from_canonical_chain(type_symbol const& chain)
         {
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
-      private:
+    private:
         rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, type_symbol > m_type_placement_info_from_canonical_chain_index;
+
         out< type_placement_info > lk_type_placement_info_from_canonical_type(type_symbol const& ref)
         {
             // auto tuple = std::tuple<rylang::qualified_symbol_reference>(ref);
@@ -356,12 +329,14 @@ namespace rylang
         }
 
         index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;
+
         out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(type_symbol const& chain)
         {
             return m_class_field_list_from_canonical_chain_index.lookup(chain);
         }
 
         index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
+
         out< std::size_t > lk_class_size_from_canonical_lookup_chain(type_symbol const& chain)
         {
             return m_class_size_from_canonical_chain_index.lookup(chain);
@@ -370,10 +345,12 @@ namespace rylang
         index< files_in_module_resolver > m_files_in_module_resolver;
 
         index< canonical_symbol_from_contextual_symbol_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
+
         out< type_symbol > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
         {
             return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(ref);
         }
+
         out< type_symbol > lk_canonical_type_from_contextual_type(type_symbol type, type_symbol context)
         {
 
@@ -381,6 +358,7 @@ namespace rylang
         }
 
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
+
         out< std::size_t > lk_type_size_from_canonical_type(type_symbol const& ref)
         {
             return m_type_size_from_canonical_type_index.lookup(ref);
@@ -390,16 +368,17 @@ namespace rylang
         rpnx::single_thread_graph_solver< compiler > m_solver;
         std::shared_mutex m_mutex;
         std::size_t m_type_id_next = 1;
+
         std::size_t assign_type_id()
         {
             std::unique_lock< std::shared_mutex > lock(m_mutex);
             return m_type_id_next++;
         }
 
-      public:
+    public:
         compiler(int argc, char** argv);
 
-      private:
+    private:
         // The lk_* functions are used by resolvers to solve the graph
 
         // Get the parsed AST for a file
@@ -409,7 +388,6 @@ namespace rylang
         {
             return m_filelist_resolver.lookup();
         }
-
 
 
         out< file_module_map > lk_file_module_map()
@@ -438,7 +416,7 @@ namespace rylang
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class
         // Each get_* function calls the lk_* function and then solves the graph
-      public:
+    public:
         // Gets the content of a named file
         std::string get_file_contents(std::string const& filename)
         {
@@ -474,6 +452,7 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
+
         llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);
 

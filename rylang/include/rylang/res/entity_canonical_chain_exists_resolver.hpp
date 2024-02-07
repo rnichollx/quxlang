@@ -23,7 +23,7 @@ namespace rylang
             m_chain = chain;
         }
 
-        virtual void process(compiler* c);
+        virtual void process(compiler* c) override;
 
         virtual std::string question() const override
         {

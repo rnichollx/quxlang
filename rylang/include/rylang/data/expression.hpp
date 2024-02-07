@@ -46,6 +46,12 @@ namespace rylang
         std::strong_ordering operator<=>(const expression_thisdot_reference& other) const = default;
     };
 
+    struct expression_quarrow
+    {
+        std::string field_name;
+        auto operator<=>(const expression_quarrow&) const;
+    };
+
     struct expression_lvalue_reference
     {
         std::string identifier;

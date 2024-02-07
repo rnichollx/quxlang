@@ -1,0 +1,11 @@
+::linux NAMESPACE
+{
+  ::syscall NAMESPACE {
+
+    ::exit INCLUDE_IF(TARGET_IS(ARM64)) ASM_FUNCTION(%R0 I32; CLOBBER R7)
+    {
+      MOV R7, 1
+      SVC 0
+    }
+  }
+}

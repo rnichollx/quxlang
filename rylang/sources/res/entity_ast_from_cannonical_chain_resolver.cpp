@@ -3,6 +3,7 @@
 //
 
 #include "rylang/compiler.hpp"
+#include "rylang/macros.hpp"
 
 #include "rylang/res/entity_ast_from_canonical_chain_resolver.hpp"
 
@@ -26,17 +27,9 @@ namespace rylang
             instanciation_reference inst = as<instanciation_reference>(chain);
 
             // Get the template argument
-            auto ast_dp = get_dependency([&]
-            {
-                return c->lk_temploid_instanciation(inst);
-            });
 
-            if (!ready())
-            {
-                return;
-            }
-            ast2_node ast = ast_dp->get();
-            // Either a template instanciation or a function
+            QUX_GETDEP_T(ast, temploid_instanciation_ast, (inst), ast2_node)
+
             // TODO: switch based on functum/template
 
             if (typeis<ast2_template_declaration>(ast))
@@ -110,10 +103,13 @@ namespace rylang
             }
 
             set_value(it->second);
+            return;
         }
         else
         {
             throw std::invalid_argument("Expected module or subentity reference, got primitive or pointer");
         }
     }
+
+
 } // namespace rylang

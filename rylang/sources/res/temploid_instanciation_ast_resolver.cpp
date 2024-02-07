@@ -20,7 +20,7 @@ auto rylang::temploid_instanciation_ast_resolver::co_process(compiler* c, input_
 
     if (typeis< ast2_templex >(maybe_templ_ast))
     {
-        co_return co_await *c->lk_template_instanciation(input);
+        co_return co_await *c->lk_template_instanciation_ast(input);
     }
     else if (typeis< ast2_functum >(maybe_templ_ast))
     {

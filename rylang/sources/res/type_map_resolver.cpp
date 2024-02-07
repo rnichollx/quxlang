@@ -34,7 +34,7 @@ start:
     {
         if (typeis< instanciation_reference >(input))
         {
-            ast2_node ast2 = co_await *c->lk_temploid_instanciation(as< instanciation_reference >(input));
+            ast2_node ast2 = co_await *c->lk_temploid_instanciation_ast(as< instanciation_reference >(input));
 
             // do stuff
 

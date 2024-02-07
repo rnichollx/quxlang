@@ -25,7 +25,7 @@ namespace rylang
         // We have to get the template AST by template instanciation because it's possible that there could be multiple templates
         // attached to the templex.
 
-        ast2_template_declaration const& template_ast = co_await *c->lk_template_instanciation(input);
+        ast2_template_declaration const& template_ast = co_await *c->lk_template_instanciation_ast(input);
 
         // assert(template_ast.m_template_args.size() == input.parameters.size());
 

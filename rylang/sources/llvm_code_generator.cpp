@@ -25,9 +25,9 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Support/TargetSelect.h"
@@ -41,7 +41,6 @@
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include <iostream>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/Support/TargetSelect.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/ExecutionEngine/MCJIT.h>
 #include <llvm/IR/Function.h>
@@ -79,11 +78,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     frame.module = std::make_unique< llvm::Module >("MODULE" + vmf.mangled_name, context);
 
     // TODO: This is placeholder
-    //frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
+    // frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
 
     std::string TargetTriple = "armv8-a-unknown-unknown-unknown";
-    frame.module->setTargetTriple(TargetTriple);
-
     std::string Error;
     auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
     if (!Target)
@@ -92,18 +89,20 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     }
 
     auto CPU = "generic";
-    auto Features = "";
     llvm::TargetOptions opt;
     auto RM = llvm::Optional< llvm::Reloc::Model >();
     RM = llvm::Reloc::Model::Static;
-    auto target_machine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+
+    opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
+    auto target_machine = Target->createTargetMachine(TargetTriple, CPU, "", opt, RM);
 
     frame.module->setDataLayout(target_machine->createDataLayout());
+    frame.module->setTargetTriple(target_machine->getTargetTriple().str());
 
     std::optional< type_symbol > func_return_type = vmf.interface.return_type;
 
     llvm::Type* func_llvm_return_type = nullptr;
-    
+
     if (func_return_type.has_value())
     {
         func_llvm_return_type = get_llvm_type_from_vm_type(context, func_return_type.value());
@@ -204,16 +203,94 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     }
     auto obj = std::move(objE.get());
 
-    for (const llvm::object::SymbolRef& symbol : obj->symbols())
-    {
-        auto nameE = symbol.getName();
-        if (nameE)
-        {
-            // error?
-        }
-        std::string name = nameE.get().data();
+    std::map< std::string, std::vector< std::byte > > functionMachineCodeMap;
 
-        std::cout << "symbol with name: " << name << std::endl;
+    std::cout << "Target Triple: " << target_machine->getTargetTriple().str() << std::endl;
+
+    for (const llvm::object::SectionRef& Section : obj->sections())
+    {
+        llvm::Expected< llvm::StringRef > NameOrErr = Section.getName();
+        if (!NameOrErr)
+        {
+            // Handle error: NameOrErr.takeError()
+            continue;
+        }
+        llvm::StringRef Name = *NameOrErr;
+
+        llvm::Expected< llvm::StringRef > ContentOrErr = Section.getContents();
+        if (!ContentOrErr)
+        {
+            // Handle error: ContentOrErr.takeError()
+            continue;
+        }
+        llvm::StringRef Content = *ContentOrErr;
+        // Now Content holds the bytes of the section
+        // You can process the bytes as needed
+
+        std::cout << "Section " << std::string(Name.bytes().begin(), Name.bytes().end()) << " " << Content.size() << " bytes" << std::endl;
+
+        for (const llvm::object::SymbolRef& Symbol : obj->symbols())
+        {
+            llvm::Expected< llvm::object::section_iterator > SecOrErr = Symbol.getSection();
+            if (!SecOrErr)
+            {
+                // Handle error
+                std::cout << "symbol without section" << std::endl;
+                continue;
+            }
+
+            // Check if the symbol is in the current section
+            if (*SecOrErr == Section)
+            {
+                llvm::Expected< llvm::StringRef > SymNameOrErr = Symbol.getName();
+                if (!SymNameOrErr)
+                {
+                    std::cout << "  No symbol name" << std::endl;
+                    // Handle error
+                    continue;
+                }
+
+                // Print the symbol's name
+
+                auto AddrOrErr = Symbol.getAddress();
+                if (!AddrOrErr)
+                {
+                    std::cout << "  No symbol address" << std::endl;
+                    // Handle error
+                    continue;
+                }
+                uint64_t Addr = *AddrOrErr;
+
+                // Get the symbol's size
+
+                // Print the symbol's name, address, and size
+                std::cout << "  Symbol: " << SymNameOrErr->str()
+                    << ", Address: 0x" << std::hex << Addr << std::endl;
+            }
+
+        }
+
+        for (auto& reloc : Section.relocations())
+        {
+
+            auto relocation_type = reloc.getType();
+            auto reloc_symbol = reloc.getSymbol();
+
+            auto symname = reloc_symbol->getName();
+            if (!symname)
+            {
+                assert(false);
+            }
+
+            auto name = std::string(symname.get());
+
+            llvm::SmallVector<char, 16> TypeName;
+            reloc.getTypeName(TypeName);
+
+            std::string type_str = std::string(TypeName.begin(), TypeName.end());
+
+            std::cout << "Relocation " << name << " of type " << type_str << std::endl;
+        }
     }
     // llvm::orc::LLJITBuilder jitbuilder;
     // auto jite = jitbuilder.create();
@@ -667,6 +744,8 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
         llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
         llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
 
+        externalFunction->setDSOLocal(true);
+
         // TODO: Add stack unwinding support
         return builder.CreateCall(externalFunction, args);
     }
@@ -697,7 +776,6 @@ llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& cont
                 assert(false);
             }
         }
-
         else
         {
             assert(false);

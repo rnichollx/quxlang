@@ -20,20 +20,26 @@ namespace rylang
     struct ast2_template_declaration;
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
+    struct ast2_extern;
 
-    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
-
+    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration >, ast2_extern >;
 
 
     struct ast2_functum;
     struct ast2_templex;
 
-    using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration > >;
+    using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_extern > >;
 
-    using ast2_node = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_function_declaration >, boost::recursive_wrapper< ast2_template_declaration >  >;
+    using ast2_node = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_function_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_extern > >;
 
     using ast2_templatable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
 
+    struct ast2_extern
+    {
+        std::string lang;
+        std::string symbol;
+        std::vector< ast2_function_arg > args;
+    };
 
 
     struct ast2_functum
@@ -69,7 +75,7 @@ namespace rylang
     {
         std::vector< type_symbol > m_template_args;
         ast2_class_declaration m_class;
-        std::optional<std::int64_t> priority;
+        std::optional< std::int64_t > priority;
 
         std::strong_ordering operator<=>(const ast2_template_declaration& other) const = default;
     };
@@ -117,12 +123,10 @@ namespace rylang
         std::strong_ordering operator<=>(const ast2_declarations& other) const = default;
     };
 
-    std::string to_string(ast2_function_declaration const & ref);
+    std::string to_string(ast2_function_declaration const& ref);
     std::string to_string(ast2_declarable const& ref);
 
 } // namespace rylang
-
-
 
 
 #endif // AST2_ENTITY_HEADER_GUARD
