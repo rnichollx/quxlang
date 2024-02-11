@@ -1,8 +1,10 @@
-//
-// Created by Ryan Nicholl on 12/17/23.
-//
+// Copyright (c) 2023, 2024 Ryan P. Nicholl <rnicholl@protonmail.com>
+// All rights reserved.
+// A license
+
 
 #include <rylang/res/temploid_instanciation_ast_resolver.hpp>
+
 auto rylang::temploid_instanciation_ast_resolver::co_process(compiler* c, input_type input) -> co_type
 {
     auto args = input.parameters;
@@ -17,7 +19,6 @@ auto rylang::temploid_instanciation_ast_resolver::co_process(compiler* c, input_
 
     std::string type = to_string(templ);
 
-
     if (typeis< ast2_templex >(maybe_templ_ast))
     {
         co_return co_await *c->lk_template_instanciation_ast(input);
@@ -28,6 +29,5 @@ auto rylang::temploid_instanciation_ast_resolver::co_process(compiler* c, input_
     }
 
     throw std::runtime_error("wut");
-
 
 }

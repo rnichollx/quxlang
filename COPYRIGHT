@@ -1,7 +1,7 @@
 See catch2/catch.hpp for information about catch2 license.
 LLVM and boost have their own license, but aren't included in this repo.
 
-Copyright © 2022, 2023, Ryan P. Nicholl, rnicholl@protonmail.com
+Copyright © 2022, 2023, 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 Permissions is granted to use this software under the terms of the RPNX Permissive License, Version 4, or, at your option, any later version as published by the author, Ryan P. Nicholl.
 
 RPNX Permissive License, Version 4

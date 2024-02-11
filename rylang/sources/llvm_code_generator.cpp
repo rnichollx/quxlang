@@ -10,6 +10,8 @@
 #include "rylang/manipulators/vm_type_alignment.hpp"
 #include "rylang/manipulators/vmmanip.hpp"
 #include "rylang/to_pretty_string.hpp"
+#include "rylang/data/code_relocation.hpp"
+
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
@@ -198,8 +200,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     auto objE = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(llvm::StringRef(mcBuffer.data(), mcBuffer.size()), "object"));
 
-    if (objE)
+    if (!objE)
     {
+        std::cout << "error" << std::endl;
     }
     auto obj = std::move(objE.get());
 
@@ -270,6 +273,9 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
         }
 
+
+        std::string section_name = std::string(Name.bytes().begin(), Name.bytes().end());
+
         for (auto& reloc : Section.relocations())
         {
 
@@ -284,12 +290,34 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
             auto name = std::string(symname.get());
 
-            llvm::SmallVector<char, 16> TypeName;
+            llvm::SmallVector< char, 16 > TypeName;
             reloc.getTypeName(TypeName);
 
             std::string type_str = std::string(TypeName.begin(), TypeName.end());
 
             std::cout << "Relocation " << name << " of type " << type_str << std::endl;
+
+
+            symbol_relocation reloc_info{};
+            switch (type_str)
+            {
+            case "R_ARM_ABS32":
+                reloc_info.target_type = relocation_target_type::address;
+                reloc_info.address_type = relocation_address_type::absolute;
+                reloc_info.write_method = relocation_write_method::clear;
+                reloc_info.byte_ordering = relocation_byte_ordering::little_endian;
+                reloc_info.bit_ordering = relocation_bit_ordering::lsb_to_msb;
+                reloc_info.bits_width = 32;
+                reloc_info.target_symbol = name;
+                reloc_info.relocation_offset = reloc.getOffset();
+                reloc_info.relocation_section = section_name;
+                break;
+            case "R_ARM_CALL": {
+            }
+
+
+
+            }
         }
     }
     // llvm::orc::LLJITBuilder jitbuilder;

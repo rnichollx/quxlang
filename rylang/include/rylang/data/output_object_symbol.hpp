@@ -4,13 +4,15 @@
 
 #ifndef OUTPUT_OBJECT_SYMBOL_HPP
 #define OUTPUT_OBJECT_SYMBOL_HPP
+#include "code_relocation.hpp"
 
 
 namespace rylang
 {
-    struct output_object_symbol
-    {
 
+    struct object_symbol
+    {
+        std::vector< symbol_relocation > relocations;
     };
 }
 
