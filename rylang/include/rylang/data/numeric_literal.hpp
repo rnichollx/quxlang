@@ -15,6 +15,7 @@ namespace rylang
 
        std::strong_ordering operator<=>(numeric_literal const&) const = default;
    };
+
 }
 
 #endif // RYLANG_NUMERIC_LITERAL_HEADER_GUARD

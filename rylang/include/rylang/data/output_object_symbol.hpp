@@ -2,16 +2,17 @@
 // Created by Ryan Nicholl on 1/27/24.
 //
 
-#ifndef OUTPUT_OBJECT_SYMBOL_HPP
-#define OUTPUT_OBJECT_SYMBOL_HPP
+#ifndef RYLANG_OUTPUT_OBJECT_SYMBOL_HPP
+#define RYLANG_OUTPUT_OBJECT_SYMBOL_HPP
 #include "code_relocation.hpp"
 
 
 namespace rylang
 {
-
     struct object_symbol
     {
+        std::string name;
+        std::vector<std::byte> data;
         std::vector< symbol_relocation > relocations;
     };
 }

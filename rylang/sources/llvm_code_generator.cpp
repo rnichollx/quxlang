@@ -11,6 +11,7 @@
 #include "rylang/manipulators/vmmanip.hpp"
 #include "rylang/to_pretty_string.hpp"
 #include "rylang/data/code_relocation.hpp"
+#include "rylang/manipulators/llvm_symbol_relocation.hpp"
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
@@ -53,6 +54,8 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include "rylang/data/output_object_symbol.hpp"
+#include "rylang/manipulators/convert_llvm_object.hpp"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 
 #include <llvm/Bitcode/BitcodeWriter.h>
@@ -210,6 +213,12 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     std::cout << "Target Triple: " << target_machine->getTargetTriple().str() << std::endl;
 
+    rylang::convert_llvm_object(*obj, [&](rylang::object_symbol sym)
+                        {
+                            std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;
+                            functionMachineCodeMap[sym.name] = sym.data;
+                        });
+
     for (const llvm::object::SectionRef& Section : obj->sections())
     {
         llvm::Expected< llvm::StringRef > NameOrErr = Section.getName();
@@ -273,7 +282,6 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
         }
 
-
         std::string section_name = std::string(Name.bytes().begin(), Name.bytes().end());
 
         for (auto& reloc : Section.relocations())
@@ -290,34 +298,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
             auto name = std::string(symname.get());
 
-            llvm::SmallVector< char, 16 > TypeName;
-            reloc.getTypeName(TypeName);
-
-            std::string type_str = std::string(TypeName.begin(), TypeName.end());
-
-            std::cout << "Relocation " << name << " of type " << type_str << std::endl;
-
-
-            symbol_relocation reloc_info{};
-            switch (type_str)
-            {
-            case "R_ARM_ABS32":
-                reloc_info.target_type = relocation_target_type::address;
-                reloc_info.address_type = relocation_address_type::absolute;
-                reloc_info.write_method = relocation_write_method::clear;
-                reloc_info.byte_ordering = relocation_byte_ordering::little_endian;
-                reloc_info.bit_ordering = relocation_bit_ordering::lsb_to_msb;
-                reloc_info.bits_width = 32;
-                reloc_info.target_symbol = name;
-                reloc_info.relocation_offset = reloc.getOffset();
-                reloc_info.relocation_section = section_name;
-                break;
-            case "R_ARM_CALL": {
-            }
-
-
-
-            }
+            to_symbol_relocation(reloc);
         }
     }
     // llvm::orc::LLJITBuilder jitbuilder;

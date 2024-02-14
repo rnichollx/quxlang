@@ -26,7 +26,7 @@ namespace rylang
             return "class_should_autogen_default_constructor(" + to_string(m_cls) + ")";
         }
 
-        void process(compiler* c);
+        void process(compiler* c) override;
 
       private:
         type_symbol m_cls;

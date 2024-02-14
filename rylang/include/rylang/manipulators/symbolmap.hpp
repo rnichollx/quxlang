@@ -4,7 +4,11 @@
 
 #ifndef RYLANG_SYMBOLMAP_HPP
 #define RYLANG_SYMBOLMAP_HPP
+
+#include <algorithm>
+#include <map>
 #include <string>
+#include <utility>
 
 namespace rylang
 {
@@ -32,11 +36,10 @@ namespace rylang
         std::size_t position_end;
     };
 
-    template <typename It, typename F >
+    template < typename It, typename F >
     inline void calc_symbol_positions(It begin, It end, std::size_t size, F output)
     {
-        std::multimap<std::size_t, std::string> symbols;
-
+        std::multimap< std::size_t, std::string > symbols;
 
         for (auto i = begin; i != end; i++)
         {
@@ -44,20 +47,28 @@ namespace rylang
             input.m_position = i->position();
             input.m_name = i->name();
 
-            symbols.insert(std::make_pair<std::size_t, std::string>(input.m_position, std::move(input.m_name)));
+            std::string name = i->name();
+
+
+
+            auto kv = std::make_pair(input.m_position, std::move(input.m_name));
+            symbols.insert(kv);
         }
 
         for (auto it = symbols.begin(); it != symbols.end(); it++)
         {
             auto pos = it->first;
 
-            auto rang_end = std::upper_bound( symbols.begin(), symbols.end(), pos);
+            auto rang = symbols.equal_range(pos);
 
             symbol_map_info_output output_object;
 
-            if (rang_end != symbols.end())
+            output_object.name = it->second;
+            output_object.position = pos;
+
+            if (rang.second != symbols.end())
             {
-                output_object.position_end = rang_end->first;
+                output_object.position_end = rang.second->first;
             }
             else
             {
@@ -67,6 +78,6 @@ namespace rylang
             output(output_object);
         }
     }
-}
+} // namespace rylang
 
-#endif //RYLANG_SYMBOLMAP_HPP
+#endif // RYLANG_SYMBOLMAP_HPP

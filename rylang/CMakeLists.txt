@@ -156,9 +156,12 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/data/output_object_symbol.hpp
         include/rylang/data/code_relocation.hpp
         include/rylang/macros.hpp
-        include/rylang/pure/symbolmap.hpp
+        include/rylang/manipulators/symbolmap.hpp
         include/rylang/res/test.cpp
-        include/rylang/pure/elf_symbol_converter.hpp
+        include/rylang/manipulators/llvm_symbol_relocation.hpp
+        sources/manipulators/llvm_symbol_relocation.cpp
+        include/rylang/manipulators/convert_llvm_object.hpp
+        sources/manipulators/convert_llvm_object.cpp
 
 )
 

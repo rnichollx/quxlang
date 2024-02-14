@@ -25,12 +25,6 @@ namespace rylang
         // Pointer: The value stored is an address to a pointer to the target symbol
         pointer,
 
-        // Stub Call: The value stored is a pointer to a stub function that calls the target symbol
-        stub_call,
-
-        // Stub Address: The value stored is a pointer to a stub function that returns the address of the target symbol
-        stub_address,
-
         // Value copy: Copy the value of the symbol
         value_copy,
     };
