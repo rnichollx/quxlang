@@ -3,12 +3,14 @@
 //
 
 #include "rylang/manipulators/convert_llvm_object.hpp"
+#include "rylang/manipulators/llvm_symbol_relocation.hpp"
 #include "rylang/manipulators/symbolmap.hpp"
 
 void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::function< void(rylang::object_symbol) > callback)
 {
 
     std::vector< rylang::object_symbol > outputs;
+
     for (auto const& section : obj.sections())
     {
         auto section_name_ex = section.getName();
@@ -105,6 +107,16 @@ void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::funct
                               [&](symbol_map_info_output const& output)
                               {
                                   rylang::object_symbol sym;
+
+                                  if (output.position >= data.size())
+                                  {
+                                      throw std::runtime_error("Symbol position is out of range");
+                                  }
+                                  if (output.position_end > data.size())
+                                  {
+                                      throw std::runtime_error("Symbol position_end is out of range");
+                                  }
+
                                   auto vdata = std::vector< std::uint8_t >(data.begin() + output.position, data.begin() + output.position_end);
                                   for (auto i : vdata)
                                   {
@@ -113,9 +125,29 @@ void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::funct
 
                                   sym.name = output.name;
 
+                                  sym.section = section_name;
+
                                   std::cout << "symbol name: " << sym.name << " at " << std::dec << output.position << " to " << std::dec << output.position_end << std::endl;
 
-                                  // TODO: make this more efficient
+                                  for (auto const& relocation : section.relocations())
+                                  {
+                                      auto reloc = to_symbol_relocation(relocation);
+
+                                      if (reloc.relocation_section != section_name)
+                                      {
+                                          continue;
+                                      }
+
+                                      if (reloc.relocation_offset >= output.position && reloc.relocation_offset < output.position_end)
+                                      {
+                                          reloc.relocation_offset -= output.position;
+                                          sym.relocations.push_back(reloc);
+                                      }
+
+                                      // TODO: make this more efficient
+                                  }
+
+                                  callback(sym);
                               });
     }
 }

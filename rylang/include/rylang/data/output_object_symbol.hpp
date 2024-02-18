@@ -12,6 +12,7 @@ namespace rylang
     struct object_symbol
     {
         std::string name;
+        std::string section;
         std::vector<std::byte> data;
         std::vector< symbol_relocation > relocations;
     };
