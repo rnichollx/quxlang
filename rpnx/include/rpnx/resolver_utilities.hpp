@@ -13,6 +13,7 @@
 #include "rpnx/error_explainer.hpp"
 #include <boost/core/demangle.hpp>
 #include <concepts>
+#include <sstream>
 
 namespace rpnx
 {

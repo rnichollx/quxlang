@@ -14,7 +14,7 @@
 #include "rylang/data/function_frame_information.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/lookup_chain.hpp"
-#include "rylang/data/machine_info.hpp"
+#include "rylang/data/machine.hpp"
 #include "rylang/data/symbol_id.hpp"
 #include "rylang/data/vm_procedure.hpp"
 #include "rylang/filelist.hpp"
@@ -376,7 +376,7 @@ namespace rylang
         }
 
     public:
-        compiler(int argc, char** argv);
+        compiler(int argc, char** argv, machine_info target_machine);
 
     private:
         // The lk_* functions are used by resolvers to solve the graph

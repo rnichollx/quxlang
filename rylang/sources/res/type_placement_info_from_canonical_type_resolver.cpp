@@ -12,8 +12,8 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
         machine_info m = c->m_machine_info;
 
         type_placement_info result;
-        result.alignment = m.pointer_align;
-        result.size = m.pointer_size;
+        result.alignment = m.pointer_align();
+        result.size = m.pointer_size();
 
         set_value(result);
         return;
@@ -43,18 +43,16 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
         primitive_type_integer_reference int_kw = boost::get< primitive_type_integer_reference >(type);
 
         int sz = 1;
-        while (sz*8 < int_kw.bits)
+        while (sz * 8 < int_kw.bits)
         {
-          sz *= 2;
+            sz *= 2;
         }
 
         type_placement_info result;
         result.size = sz;
         result.alignment = sz;
-        if (c->m_machine_info.max_int_align.has_value())
-        {
-            result.alignment = std::min(result.alignment, c->m_machine_info.max_int_align.value());
-        }
+        result.alignment = std::min(result.alignment, c->m_machine_info.max_int_align());
+
         set_value(result);
         return;
     }

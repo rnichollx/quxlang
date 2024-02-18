@@ -15,7 +15,7 @@ namespace rylang
     template < typename Graph >
     auto get_class_layout_from_canonical_chain(Graph* g, type_symbol cls) -> rpnx::general_coroutine< Graph, class_layout >
     {
-      //  int four = co_await general_int_4_returner< Graph >();
+        //  int four = co_await general_int_4_returner< Graph >();
         co_return co_await *g->lk_class_layout_from_canonical_chain(cls);
     }
 
@@ -31,8 +31,8 @@ namespace rylang
             machine_info m = g->m_machine_info;
 
             type_placement_info result;
-            result.alignment = m.pointer_align;
-            result.size = m.pointer_size;
+            result.alignment = m.pointer_align();
+            result.size = m.pointer_size();
 
             co_return result;
         }
@@ -59,10 +59,7 @@ namespace rylang
             type_placement_info result;
             result.size = sz;
             result.alignment = sz;
-            if (g->m_machine_info.max_int_align.has_value())
-            {
-                result.alignment = std::min(result.alignment, g->m_machine_info.max_int_align.value());
-            }
+            result.alignment = std::min(result.alignment, g->m_machine_info.max_int_align());
             co_return result;
         }
         else

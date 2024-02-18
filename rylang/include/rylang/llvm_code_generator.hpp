@@ -26,11 +26,10 @@ namespace rylang
 {
     class llvm_code_generator
     {
-        compiler* c;
-
+        machine_info m_machine_info;
       public:
-        llvm_code_generator(compiler* c)
-            : c(c)
+        llvm_code_generator(machine_info m)
+            : m_machine_info(m)
         {
             llvm::InitializeNativeTarget();
             llvm::InitializeNativeTargetAsmPrinter();
