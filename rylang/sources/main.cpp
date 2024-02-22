@@ -12,7 +12,11 @@
 
 int main(int argc, char** argv)
 {
-    rylang::output_info target_machine{.cpu = rylang::cpu::arm_64, .os = rylang::os::macos, .binary = rylang::binary::elf, };
+    rylang::output_info target_machine{
+        .cpu = rylang::cpu::arm_64,
+        .os = rylang::os::macos,
+        .binary = rylang::binary::elf,
+    };
 
     rylang::compiler c(argc, argv, target_machine);
 

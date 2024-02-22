@@ -16,9 +16,20 @@ namespace rylang
             this->path = path;
         }
 
-        inline void build(std::string target)
+        inline std::set< std::filesystem::path > input_files()
         {
-           std::filesystem::path buildfile_path = path / "build.yml"
+            std::set< std::filesystem::path > ret;
+
+            for (auto& p : std::filesystem::recursive_directory_iterator(path))
+            {
+            // If file ends in .qx, add the file to the list of input files
+                if (p.is_regular_file() && p.path().extension() == ".qx")
+                {
+                    ret.insert(p);
+                }
+            }
+
+            return ret;
         }
     };
 
@@ -31,9 +42,10 @@ namespace rylang
     {
         delete p_impl;
     }
-    void input_aggregator::build()
+
+    std::set<std::filesystem::path> input_aggregator::input_files()
     {
-        p_impl->build();
+        return p_impl->input_files();
     }
 
 } // namespace rylang

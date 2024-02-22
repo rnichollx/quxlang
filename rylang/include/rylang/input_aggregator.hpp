@@ -17,7 +17,7 @@ namespace rylang
         input_aggregator(std::filesystem::path const& path);
         ~input_aggregator();
 
-        void build();
+        std::set<std::filesystem::path> input_files();
     };
 
 } // namespace rylang

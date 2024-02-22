@@ -27,10 +27,10 @@ namespace rylang
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(vm_procedure_from_canonical_functanoid_resolver* res, type_symbol func, class compiler* c, vm_generation_frame_info& frame, vm_procedure& proc)
         : m_c(c)
 
-          , m_frame(frame)
-          , m_ctx(func)
-          , m_resolver(res)
-          , m_proc(proc)
+        , m_frame(frame)
+        , m_ctx(func)
+        , m_resolver(res)
+        , m_proc(proc)
     {
         vm_block& block = proc.body;
         // std::cout << "Enter context frame" << std::endl;
@@ -64,9 +64,9 @@ namespace rylang
 
     vm_procedure_from_canonical_functanoid_resolver::context_frame::context_frame(context_frame& other)
         : m_c(other.m_c)
-          , m_frame(other.m_frame)
-          , m_resolver(other.m_resolver)
-          , m_proc(other.m_proc)
+        , m_frame(other.m_frame)
+        , m_resolver(other.m_resolver)
+        , m_proc(other.m_proc)
     {
 
         // std::cout << "Enter duplicate context" << std::endl;
@@ -674,9 +674,7 @@ rpnx::resolver_coroutine< rylang::compiler, rylang::vm_procedure > rylang::vm_pr
         // Then generate the body
         co_await build_generic(ctx, function_ast_v.body);
 
-        if (is_destructor)
-        {
-        }
+        if (is_destructor) {}
 
         // Implied return on void functions
         if (!function_ast_v.return_type.has_value())
@@ -761,6 +759,10 @@ rpnx::general_coroutine< rylang::compiler, rylang::vm_value > rylang::vm_procedu
     else if (typeis< expression_this_reference >(expr))
     {
         co_return co_await gen_value(ctx, boost::get< expression_this_reference >(std::move(expr)));
+    }
+    else if (typeis< expression_dotreference >(expr))
+    {
+        co_return co_await gen_value(ctx, boost::get< expression_dotreference >(std::move(expr)));
     }
 
     else
@@ -1144,10 +1146,9 @@ vm_value vm_procedure_from_canonical_functanoid_resolver::gen_this(context_frame
 
 rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_access_field(context_frame& ctx, vm_value val, std::string field_name)
 {
-    auto th = this;
-    auto thisval = gen_this(ctx);
 
-    auto thisreftype = vm_value_type(thisval);
+
+    auto thisreftype = vm_value_type(val);
     assert(is_ref(thisreftype));
     auto thistype = remove_ref(thisreftype);
 
@@ -1178,7 +1179,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
             {
                 assert(false);
             }
-            access.base = thisval;
+            access.base = val;
             access.offset = field.offset;
             co_return access;
         }
@@ -1535,4 +1536,10 @@ rpnx::general_coroutine< rylang::compiler, void > rylang::vm_procedure_from_cano
         throw std::runtime_error("Unknown function statement type");
     }
     throw std::runtime_error("unimplemented");
+}
+
+rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(vm_procedure_from_canonical_functanoid_resolver::context_frame& ctx, expression_dotreference expr)
+{
+    auto lhsval = co_await gen_value_generic(ctx, expr.lhs);
+    co_return co_await gen_access_field(ctx, lhsval, expr.field_name);
 }

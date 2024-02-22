@@ -176,6 +176,7 @@ namespace rylang
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, numeric_literal expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_this_reference expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_thisdot_reference expr);
+        rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_dotreference expr);
 
         vm_value gen_this(context_frame& ctx);
         rpnx::general_coroutine< compiler, vm_value > gen_access_field(context_frame& ctx, vm_value val, std::string field_name);
