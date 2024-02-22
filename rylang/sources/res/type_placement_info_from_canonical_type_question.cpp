@@ -28,7 +28,7 @@ namespace rylang
 
         if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            machine_info m = g->m_machine_info;
+            output_info m = g->m_machine_info;
 
             type_placement_info result;
             result.alignment = m.pointer_align();

@@ -1,6 +1,6 @@
 #include "rylang/compiler.hpp"
 
-rylang::compiler::compiler(int argc, char** argv, machine_info target_machine)
+rylang::compiler::compiler(int argc, char** argv, output_info target_machine)
     : m_machine_info(target_machine)
 {
     for (int i = 1; i < argc; i++)

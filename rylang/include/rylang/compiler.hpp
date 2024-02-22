@@ -364,7 +364,7 @@ namespace rylang
             return m_type_size_from_canonical_type_index.lookup(ref);
         }
 
-        machine_info m_machine_info;
+        output_info m_machine_info;
         rpnx::single_thread_graph_solver< compiler > m_solver;
         std::shared_mutex m_mutex;
         std::size_t m_type_id_next = 1;
@@ -376,7 +376,7 @@ namespace rylang
         }
 
     public:
-        compiler(int argc, char** argv, machine_info target_machine);
+        compiler(int argc, char** argv, output_info target_machine);
 
     private:
         // The lk_* functions are used by resolvers to solve the graph

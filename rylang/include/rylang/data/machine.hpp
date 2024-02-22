@@ -22,11 +22,11 @@ namespace rylang
 {
     enum class cpu { x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64 };
 
-    enum class os { linux, windows, macos, freebsd, netbsd, openbsd, solaris, aix, vxworks, qnx };
+    enum class os { linux, windows, macos, freebsd, netbsd, openbsd, solaris };
 
     enum class binary { elf, macho, pe, wasm };
 
-    struct machine_info
+    struct output_info
     {
         cpu cpu;
         os os;
@@ -57,5 +57,6 @@ namespace rylang
             return pointer_size();
         }
     };
+
 } // namespace rylang
 #endif // RPNX_QUXLANG_MACHINE_HEADER

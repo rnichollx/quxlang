@@ -9,7 +9,7 @@ void rylang::type_placement_info_from_canonical_type_resolver::process(compiler*
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
-        machine_info m = c->m_machine_info;
+        output_info m = c->m_machine_info;
 
         type_placement_info result;
         result.alignment = m.pointer_align();

@@ -26,9 +26,9 @@ namespace rylang
 {
     class llvm_code_generator
     {
-        machine_info m_machine_info;
+        output_info m_machine_info;
       public:
-        llvm_code_generator(machine_info m)
+        llvm_code_generator(output_info m)
             : m_machine_info(m)
         {
             llvm::InitializeNativeTarget();
