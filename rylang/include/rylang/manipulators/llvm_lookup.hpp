@@ -29,7 +29,7 @@ namespace rylang
             break;
 
         case cpu::arm_64:
-            ret += "armv8-a";
+            ret += "aarch64";
             break;
 
         case cpu::riscv_32:
@@ -70,7 +70,7 @@ namespace rylang
             ret += "unknown";
         }
 
-        ret += '-unknown';
+        ret += "-unknown";
 
         return ret;
     }

@@ -166,6 +166,12 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/manipulators/llvm_lookup.hpp
         include/rylang/input_aggregator.hpp
         sources/input_aggregator.cpp
+        include/rylang/vm/interpreter.hpp
+        include/rylang/linker/elf_linker.hpp
+        include/rylang/parsers/asm/arm_assembler.hpp
+        include/rylang/asm/asm.hpp
+        include/rylang/parsers/parse_asm_procedure.hpp
+        include/rylang/llvm/qux_mc_streamer.hpp
 
 )
 

@@ -26,6 +26,11 @@ MODULE main;
   }
 }
 
+::boxy ASM_PROCEDURE ARM {
+  MOV R7, 1;
+  SVC 0;
+}
+
 ::baz CLASS {
   .z VAR I16;
   .w VAR -> ::baz;
@@ -77,6 +82,7 @@ MODULE main;
           {
             VAR q box2@(I32);
             q.x := 9;
+            boxy();
             bif(.y);
           }
         }

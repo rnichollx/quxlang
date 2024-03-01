@@ -79,7 +79,7 @@ void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& s
 
         destination_templex.templates.push_back(boost::get< ast2_template_declaration >(source));
     }
-    else if (typeis< ast2_namespace_declaration > (source))
+    else if (typeis< ast2_namespace_declaration >(source))
     {
         if (typeis< std::monostate >(destination))
         {
@@ -90,16 +90,14 @@ void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& s
             throw std::runtime_error("Cannot merge namespace into non-namespace of the same name");
         }
 
-
-
-        ast2_namespace_declaration & ns = as< ast2_namespace_declaration >(destination);
+        ast2_namespace_declaration& ns = as< ast2_namespace_declaration >(destination);
 
         for (auto& x : as< ast2_namespace_declaration >(source).globals)
         {
             ns.globals.push_back(x);
         }
     }
-    else if (typeis<ast2_variable_declaration>(source))
+    else if (typeis< ast2_variable_declaration >(source))
     {
         if (!typeis< std::monostate >(destination))
         {
@@ -107,6 +105,16 @@ void rylang::merge_entity(ast2_map_entity& destination, ast2_declarable const& s
         }
 
         destination = boost::get< ast2_variable_declaration >(source);
+    }
+    else if (typeis< ast2_asm_procedure_declaration >(source))
+    {
+
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::runtime_error("Cannot merge asm procedure into already existing entity");
+        }
+
+        destination = boost::get< ast2_asm_procedure_declaration >(source);
     }
     else
     {

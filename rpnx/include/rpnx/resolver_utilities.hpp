@@ -1685,8 +1685,13 @@ namespace rpnx
 
                 if (n->resolved() && !n->m_attached_to)
                 {
-
-                    // std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                    if (n->has_value())
+                    {
+                    std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                    } else
+                    {
+                    std::cout << "Q: " << n->question() << " A: error" << std::endl;
+                    }
                 }
 
                 for (auto& dep : n->met_dependencies())

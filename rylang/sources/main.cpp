@@ -21,6 +21,8 @@ int main(int argc, char** argv)
     rylang::compiler c(argc, argv, target_machine);
 
     rylang::llvm_code_generator cg(target_machine);
+    cg.foo();
+    return 0;
 
     rylang::type_symbol cn = rylang::module_reference{"main"};
     cn = rylang::subentity_reference{cn, "quz"};

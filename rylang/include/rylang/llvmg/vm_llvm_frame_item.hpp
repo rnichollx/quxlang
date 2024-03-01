@@ -10,10 +10,9 @@ namespace rylang
 {
    struct vm_llvm_frame_item
     {
-       llvm::Value * get_address = nullptr;
-     //  llvm::Value * get_value = nullptr;
-       llvm::Type * type = nullptr;
-       llvm::Align align;
+       llvm::Value * get_address = {};
+       llvm::Type * type = {};
+       llvm::Align align = {};
    };
 }
 

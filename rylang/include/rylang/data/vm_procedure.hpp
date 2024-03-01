@@ -18,6 +18,8 @@ namespace rylang
         vm_procedure_interface interface;
         std::vector<vm_allocate_storage> storage;
         std::set< type_symbol > invoked_functanoids;
+        std::set< type_symbol > invoked_asm_procedures;
+        std::set< std::string > invoked_externs;
     };
 } // namespace rylang
 

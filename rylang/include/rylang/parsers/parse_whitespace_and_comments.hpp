@@ -7,6 +7,7 @@
 
 #include <rylang/parsers/parse_comment.hpp>
 #include <rylang/parsers/skip_whitespace.hpp>
+#include <rylang/parsers/parse_keyword.hpp>
 
 namespace rylang::parsers
 {

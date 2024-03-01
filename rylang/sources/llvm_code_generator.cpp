@@ -3,18 +3,37 @@
 //
 #include "rylang/llvm_code_generator.hpp"
 #include "rylang/compiler.hpp"
+#include "rylang/data/code_relocation.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
 #include "rylang/llvmg/vm_llvm_frame.hpp"
+#include "rylang/manipulators/llvm_symbol_relocation.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/manipulators/vm_type_alignment.hpp"
 #include "rylang/manipulators/vmmanip.hpp"
 #include "rylang/to_pretty_string.hpp"
-#include "rylang/data/code_relocation.hpp"
-#include "rylang/manipulators/llvm_symbol_relocation.hpp"
+#include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCObjectWriter.h"
+#include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCTargetAsmParser.h"
+#include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/MCTargetOptionsCommandFlags.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -30,10 +49,21 @@
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
+#include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCObjectStreamer.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
@@ -51,9 +81,9 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
-#include <optional>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <optional>
 
 #include "rylang/data/output_object_symbol.hpp"
 #include "rylang/manipulators/convert_llvm_object.hpp"
@@ -85,22 +115,6 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     // TODO: This is placeholder
     // frame.module->setDataLayout("e-m:o-i64:64-i128:128-n32:64-S128");
-
-    std::string TargetTriple = "armv8-a-unknown-unknown-unknown";
-    std::string Error;
-    auto Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-    if (!Target)
-    {
-        throw std::runtime_error("Failed to lookup target: " + Error);
-    }
-
-    auto CPU = "generic";
-    llvm::TargetOptions opt;
-    auto RM = llvm::Optional< llvm::Reloc::Model >();
-    RM = llvm::Reloc::Model::Static;
-
-    opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
-    auto target_machine = Target->createTargetMachine(TargetTriple, CPU, "", opt, RM);
 
     frame.module->setDataLayout(target_machine->createDataLayout());
     frame.module->setTargetTriple(target_machine->getTargetTriple().str());
@@ -140,7 +154,7 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame, vmf);
 
-    llvm::IRBuilder< > builder(storage);
+    llvm::IRBuilder<> builder(storage);
     builder.CreateBr(entry);
 
     func->print(llvm::outs());
@@ -214,11 +228,12 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
 
     std::cout << "Target Triple: " << target_machine->getTargetTriple().str() << std::endl;
 
-    rylang::convert_llvm_object(*obj, [&](rylang::object_symbol sym)
-                        {
-                            std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;
-                            functionMachineCodeMap[sym.name] = sym.data;
-                        });
+    rylang::convert_llvm_object(*obj,
+                                [&](rylang::object_symbol sym)
+                                {
+                                    std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;
+                                    functionMachineCodeMap[sym.name] = sym.data;
+                                });
 
     for (const llvm::object::SectionRef& Section : obj->sections())
     {
@@ -277,10 +292,8 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
                 // Get the symbol's size
 
                 // Print the symbol's name, address, and size
-                std::cout << "  Symbol: " << SymNameOrErr->str()
-                    << ", Address: 0x" << std::hex << Addr << std::endl;
+                std::cout << "  Symbol: " << SymNameOrErr->str() << ", Address: 0x" << std::hex << Addr << std::endl;
             }
-
         }
 
         std::string section_name = std::string(Name.bytes().begin(), Name.bytes().end());
@@ -385,7 +398,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         }
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
         {
-            llvm::IRBuilder< > builder(p_block);
+            llvm::IRBuilder<> builder(p_block);
             vm_store const& store = boost::get< vm_store >(ex);
 
             llvm::Value* where = get_llvm_value(context, builder, frame, store.where);
@@ -402,7 +415,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             if (vmf.interface.return_type.has_value())
             {
                 // TODO: support void return
-                llvm::IRBuilder< > builder(p_block);
+                llvm::IRBuilder<> builder(p_block);
 
                 llvm::Align ret_align = frame.values.at(0).align;
                 llvm::Value* ret_val_reference = frame.values.at(0).get_address;
@@ -414,7 +427,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
             }
             else
             {
-                llvm::IRBuilder< > builder(p_block);
+                llvm::IRBuilder<> builder(p_block);
                 builder.CreateRetVoid();
             }
             return false;
@@ -422,14 +435,14 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         else if (typeis< vm_execute_expression >(ex))
         {
             vm_execute_expression const& expr = boost::get< vm_execute_expression >(ex);
-            llvm::IRBuilder< > builder(p_block);
+            llvm::IRBuilder<> builder(p_block);
             get_llvm_value(context, builder, frame, expr.expr);
         }
         else if (typeis< vm_if >(ex))
         {
             // std::cout << "generate if " << p_block << std::endl;
             vm_if const& if_ = boost::get< vm_if >(ex);
-            llvm::IRBuilder< > builder(p_block);
+            llvm::IRBuilder<> builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
             builder.CreateBr(cond_block);
@@ -475,7 +488,7 @@ bool rylang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llvm
         else if (typeis< vm_while >(ex))
         {
             vm_while const& while_ = boost::get< vm_while >(ex);
-            llvm::IRBuilder< > builder(p_block);
+            llvm::IRBuilder<> builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
             builder.CreateBr(cond_block);
@@ -525,7 +538,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
     // this doesn't nessecarily mean that the arguments be pushed on the stack, but we need to push
     // their Value* into the frame so that we can access them later.
 
-    llvm::IRBuilder< > builder(p_block);
+    llvm::IRBuilder<> builder(p_block);
 
     auto arg_it = p_function->arg_begin();
     auto arg_end = p_function->arg_end();
@@ -581,7 +594,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
         llvm::Value* one = llvm::ConstantInt::get(context, llvm::APInt(32, 1));
 
         // Allocate stack space with allocainst
-        llvm::IRBuilder< > builder(frame.storage_block);
+        llvm::IRBuilder<> builder(frame.storage_block);
         llvm::AllocaInst* alloca = builder.Insert(new llvm::AllocaInst(StorageType, 0, one, llvm::Align(align)));
         vm_llvm_frame_item item;
         item.type = StorageType;
@@ -591,7 +604,7 @@ void rylang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context, 
     }
 }
 
-llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder< >& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
+llvm::Value* rylang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& context, llvm::IRBuilder<>& builder, rylang::vm_llvm_frame& frame, rylang::vm_value const& value)
 {
 
     // std::cout << "Gen llvm value for: " << rylang::to_string(value) << std::endl;
@@ -855,4 +868,106 @@ llvm::Type* rylang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& cont
 {
     // TODO: check the actual bitwidth on the current platform
     return llvm::IntegerType::get(context, 64);
+}
+
+std::vector< std::byte > rylang::llvm_code_generator::assemble(rylang::ast2_asm_procedure_declaration input, rylang::cpu_arch cpu_type)
+{
+    return rpnx::unimplemented();
+}
+
+rylang::llvm_code_generator::llvm_code_generator(rylang::output_info m)
+    : m_machine_info(m)
+{
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    target_triple_str = lookup_llvm_triple(m_machine_info);
+
+    std::string err;
+
+    target = llvm::TargetRegistry::lookupTarget(target_triple_str, err);
+
+    if (!target)
+    {
+        throw std::runtime_error("Failed to lookup target: " + err);
+    }
+
+    auto CPU = "generic";
+    llvm::TargetOptions opt;
+    auto RM = llvm::Optional< llvm::Reloc::Model >();
+    RM = llvm::Reloc::Model::Static;
+
+    opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
+    target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM);
+}
+
+std::unique_ptr< llvm::MemoryBuffer > to_llvm_buffer(std::string str)
+{
+    return llvm::MemoryBuffer::getMemBufferCopy(str);
+}
+
+void rylang::llvm_code_generator::foo()
+{
+    std::cout << "Target triple is: " << target_triple_str << std::endl;
+    std::string assembly(R"(
+        .text
+        .global _start
+        _start:
+            movz x1, 1
+            movz x7, 1
+            svc 0
+        )");
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+
+    llvm::SmallVector< char, 16 > output;
+    // auto target_triple_str = llvm::Triple("aarch64-none-linux-gnu");
+    std::string Error;
+
+    llvm::SourceMgr source_manager;
+
+    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBufferCopy(assembly), llvm::SMLoc());
+
+    llvm::MCTargetOptions mc_options;
+    std::unique_ptr< llvm::MCSubtargetInfo > subtarget_info(target->createMCSubtargetInfo(target_triple_str, "generic", ""));
+    std::unique_ptr< llvm::MCRegisterInfo > machine_register_info(target->createMCRegInfo(target_triple_str));
+    auto triple = llvm::Triple(target_triple_str);
+
+    std::unique_ptr< llvm::MCAsmInfo > machine_asm_info(target->createMCAsmInfo(*machine_register_info, target_triple_str, mc_options));
+
+    llvm::MCContext machine_context(triple, machine_asm_info.get(), machine_register_info.get(), subtarget_info.get(), &source_manager, &mc_options);
+    std::unique_ptr< llvm::MCObjectFileInfo > machine_object_file_info(target->createMCObjectFileInfo(machine_context, false, true));
+    machine_context.setObjectFileInfo(machine_object_file_info.get());
+
+    std::unique_ptr< llvm::MCAsmBackend > machine_code_asm_backend(target->createMCAsmBackend(*subtarget_info, *machine_register_info, mc_options));
+
+    auto output_stream = std::make_unique< llvm::raw_svector_ostream >(output);
+    std::unique_ptr< llvm::MCObjectWriter > object_writer(machine_code_asm_backend->createObjectWriter(*output_stream));
+
+    std::unique_ptr< llvm::MCInstrInfo > machine_code_instruction_info(target->createMCInstrInfo());
+    std::unique_ptr< llvm::MCCodeEmitter > machine_code_emitter(target->createMCCodeEmitter(*machine_code_instruction_info, machine_context));
+    std::unique_ptr< llvm::MCStreamer > machine_code_streamer(target->createMCObjectStreamer(llvm::Triple(target_triple_str), machine_context, std::move(machine_code_asm_backend), std::move(object_writer), std::move(machine_code_emitter), *subtarget_info, false, false, false));
+
+    llvm::MCAsmParser* asm_parser = llvm::createMCAsmParser(source_manager, machine_context, *machine_code_streamer, *machine_asm_info);
+    std::unique_ptr< llvm::MCTargetAsmParser > target_asm_parser(target->createMCAsmParser(*subtarget_info, *asm_parser, *machine_code_instruction_info, mc_options));
+
+    if (!target_asm_parser)
+    {
+        llvm::errs() << "Failed to create target ASM parser!\n";
+        return;
+    }
+
+    asm_parser->setTargetParser(*target_asm_parser.get());
+
+    if (asm_parser->Run(false))
+    {
+        llvm::errs() << "Assembly parsing failed!\n";
+    }
+
+    std::ofstream output_file("output.o", std::ios::out | std::ios::binary | std::ios::trunc);
+
+    output_file.write(output.data(), output.size());
 }

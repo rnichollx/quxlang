@@ -1,0 +1,7 @@
+sources:
+  - runtime.qx
+copyright:
+  - year: 2023
+    author_name: "Myname"
+    author_email: "myemail@protonmail.com"
+    spdx_license_identifier: "MIT"

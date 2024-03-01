@@ -8,7 +8,6 @@
 #include <rylang/ast2/ast2_type_map.hpp>
 #include <rylang/compiler_fwd.hpp>
 
-
 namespace rylang
 {
 

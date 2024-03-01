@@ -5,12 +5,12 @@
 #ifndef TRY_PARSE_DECLARATION_HPP
 #define TRY_PARSE_DECLARATION_HPP
 #include <rylang/ast2/ast2_entity.hpp>
+#include <rylang/parsers/parse_asm_procedure.hpp>
 #include <rylang/parsers/try_parse_class.hpp>
 #include <rylang/parsers/try_parse_class_template.hpp>
 #include <rylang/parsers/try_parse_function_declaration.hpp>
-#include <rylang/parsers/try_parse_variable_declaration.hpp>
 #include <rylang/parsers/try_parse_namespace.hpp>
-
+#include <rylang/parsers/try_parse_variable_declaration.hpp>
 
 namespace rylang::parsers
 {
@@ -39,6 +39,12 @@ namespace rylang::parsers
         }
         output = try_parse_variable_declaration(pos, end);
 
+        if (output)
+        {
+            return output;
+        }
+
+        output = try_parse_asm_procedure_declaration(pos, end);
         if (output)
         {
             return output;
