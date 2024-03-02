@@ -23,7 +23,7 @@ namespace rylang
         address,
 
         // Pointer: The value stored is an address to a pointer to the target symbol
-        pointer,
+        pointer_to_address,
 
         // Value copy: Copy the value of the symbol
         value_copy,
@@ -32,10 +32,13 @@ namespace rylang
     enum class relocation_write_method
     {
         // Clears the bits before writing
-        clear,
+        set,
 
         // Adds to the value that was previously there
         add,
+
+        // Subtracts from the value that was previously there
+        subtract,
     };
 
     enum class relocation_bit_ordering

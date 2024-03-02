@@ -95,14 +95,26 @@ void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::funct
                 continue;
             }
 
+            // Calculate symbol's offset within its section
+            auto symAddrEx = sym.getAddress();
+            if (!symAddrEx)
+            {
+                throw std::runtime_error("Symbol has no address");
+            }
+            uint64_t symAddr = symAddrEx.get();
+
+            uint64_t sectionAddr = section.getAddress();
+            uint64_t symbolOffset = symAddr - sectionAddr; // Symbol's offset within the section
+
             symbol_map_info_input x{
-                .m_position = section.getAddress(),
+                .m_position = symbolOffset,
                 .m_name = sym_name,
             };
 
             symbol_map.push_back(x);
         }
 
+        // TODO: This code is possibly wrong
         calc_symbol_positions(symbol_map.begin(), symbol_map.end(), data.size(),
                               [&](symbol_map_info_output const& output)
                               {
@@ -110,11 +122,13 @@ void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::funct
 
                                   if (output.position >= data.size())
                                   {
-                                      throw std::runtime_error("Symbol position is out of range");
+                                      // TODO: check if this is correct
+                                      //    throw std::runtime_error("Symbol position is out of range");
                                   }
                                   if (output.position_end > data.size())
                                   {
-                                      throw std::runtime_error("Symbol position_end is out of range");
+                                      // TODO: check if this is correct
+                                      //    throw std::runtime_error("Symbol position_end is out of range");
                                   }
 
                                   auto vdata = std::vector< std::uint8_t >(data.begin() + output.position, data.begin() + output.position_end);
@@ -133,15 +147,19 @@ void rylang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::funct
                                   {
                                       auto reloc = to_symbol_relocation(relocation);
 
-                                      if (reloc.relocation_section != section_name)
+                                      if (!reloc.has_value())
+                                      {
+                                          continue;
+                                      }
+                                      if (reloc->relocation_section != section_name)
                                       {
                                           continue;
                                       }
 
-                                      if (reloc.relocation_offset >= output.position && reloc.relocation_offset < output.position_end)
+                                      if (reloc->relocation_offset >= output.position && reloc->relocation_offset < output.position_end)
                                       {
-                                          reloc.relocation_offset -= output.position;
-                                          sym.relocations.push_back(reloc);
+                                          reloc->relocation_offset -= output.position;
+                                          sym.relocations.push_back(*reloc);
                                       }
 
                                       // TODO: make this more efficient

@@ -1,12 +1,12 @@
 //
 // Created by Ryan Nicholl on 10/28/23.
 //
-#include "rylang/llvm_code_generator.hpp"
+#include "rylang/backends/llvm/llvm_code_generator.hpp"
+#include "rylang/backends/llvm/vm_llvm_frame.hpp"
 #include "rylang/compiler.hpp"
 #include "rylang/data/code_relocation.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
-#include "rylang/llvmg/vm_llvm_frame.hpp"
 #include "rylang/manipulators/llvm_symbol_relocation.hpp"
 #include "rylang/manipulators/qmanip.hpp"
 #include "rylang/manipulators/vm_type_alignment.hpp"
@@ -307,7 +307,11 @@ std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch
             auto symname = reloc_symbol->getName();
             if (!symname)
             {
-                assert(false);
+                llvm::Error err = symname.takeError();
+                llvm::handleAllErrors(std::move(err), [&](llvm::ErrorInfoBase& e) { std::cerr << e.message() << std::endl; });
+                //assert(false);
+
+                continue;
             }
 
             auto name = std::string(symname.get());
@@ -896,6 +900,7 @@ rylang::llvm_code_generator::llvm_code_generator(rylang::output_info m)
     llvm::TargetOptions opt;
     auto RM = llvm::Optional< llvm::Reloc::Model >();
     RM = llvm::Reloc::Model::Static;
+    llvm::Optional<llvm::CodeModel::Model > code_model = llvm::CodeModel::Large;
 
     opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
     target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM);

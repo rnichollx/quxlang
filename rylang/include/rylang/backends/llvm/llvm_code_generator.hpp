@@ -5,12 +5,13 @@
 #ifndef RYLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
 #define RYLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
 
-#include "compiler_fwd.hpp"
+#include "rylang/ast2/ast2_entity.hpp"
+#include "rylang/backends/llvm/vm_llvm_frame.hpp"
+#include "rylang/compiler_fwd.hpp"
 #include "rylang/data/canonical_resolved_function_chain.hpp"
 #include "rylang/data/cpu_architecture.hpp"
 #include "rylang/data/llvm_proxy_types.hpp"
 #include "rylang/data/vm_procedure.hpp"
-#include "rylang/llvmg/vm_llvm_frame.hpp"
 #include "rylang/manipulators/llvm_lookup.hpp"
 
 #include <llvm/IR/IRBuilder.h>

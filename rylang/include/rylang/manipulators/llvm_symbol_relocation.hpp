@@ -8,7 +8,7 @@
 
 namespace rylang
 {
-    symbol_relocation to_symbol_relocation(llvm::object::RelocationRef const & ref);
+    std::optional< symbol_relocation > to_symbol_relocation(llvm::object::RelocationRef const & ref);
 }
 
 #endif //LLVM_SYMBOL_RELOCATION_HPP
