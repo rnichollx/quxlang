@@ -55,6 +55,7 @@ namespace rylang
 
             result += "\n";
         }
+        return result;
     }
 } // namespace rylang
 

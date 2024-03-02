@@ -97,6 +97,10 @@
 
 #include <fstream>
 
+#include "rylang/backends/asm/arm_asm_converter.hpp"
+
+
+
 std::vector< std::byte > rylang::llvm_code_generator::get_function_code(cpu_arch cpu_type, rylang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
@@ -874,9 +878,65 @@ llvm::Type* rylang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& cont
     return llvm::IntegerType::get(context, 64);
 }
 
-std::vector< std::byte > rylang::llvm_code_generator::assemble(rylang::ast2_asm_procedure_declaration input, rylang::cpu_arch cpu_type)
+std::vector< std::byte > rylang::llvm_code_generator::assemble(rylang::asm_procedure input, rylang::cpu_arch cpu_type)
 {
-    return rpnx::unimplemented();
+    std::cout << "Target triple is: " << target_triple_str << std::endl;
+    std::string assembly = rylang::convert_to_arm_asm(input.instructions.begin(), input.instructions.end(), input.name);
+
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
+
+    llvm::SmallVector< char, 16 > output;
+    // auto target_triple_str = llvm::Triple("aarch64-none-linux-gnu");
+    std::string Error;
+
+    llvm::SourceMgr source_manager;
+
+    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBufferCopy(assembly), llvm::SMLoc());
+
+    llvm::MCTargetOptions mc_options;
+    std::unique_ptr< llvm::MCSubtargetInfo > subtarget_info(target->createMCSubtargetInfo(target_triple_str, "generic", ""));
+    std::unique_ptr< llvm::MCRegisterInfo > machine_register_info(target->createMCRegInfo(target_triple_str));
+    auto triple = llvm::Triple(target_triple_str);
+
+    std::unique_ptr< llvm::MCAsmInfo > machine_asm_info(target->createMCAsmInfo(*machine_register_info, target_triple_str, mc_options));
+
+    llvm::MCContext machine_context(triple, machine_asm_info.get(), machine_register_info.get(), subtarget_info.get(), &source_manager, &mc_options);
+    std::unique_ptr< llvm::MCObjectFileInfo > machine_object_file_info(target->createMCObjectFileInfo(machine_context, false, true));
+    machine_context.setObjectFileInfo(machine_object_file_info.get());
+
+    std::unique_ptr< llvm::MCAsmBackend > machine_code_asm_backend(target->createMCAsmBackend(*subtarget_info, *machine_register_info, mc_options));
+
+    auto output_stream = std::make_unique< llvm::raw_svector_ostream >(output);
+    std::unique_ptr< llvm::MCObjectWriter > object_writer(machine_code_asm_backend->createObjectWriter(*output_stream));
+
+    std::unique_ptr< llvm::MCInstrInfo > machine_code_instruction_info(target->createMCInstrInfo());
+    std::unique_ptr< llvm::MCCodeEmitter > machine_code_emitter(target->createMCCodeEmitter(*machine_code_instruction_info, machine_context));
+    std::unique_ptr< llvm::MCStreamer > machine_code_streamer(target->createMCObjectStreamer(llvm::Triple(target_triple_str), machine_context, std::move(machine_code_asm_backend), std::move(object_writer), std::move(machine_code_emitter), *subtarget_info, false, false, false));
+
+    llvm::MCAsmParser* asm_parser = llvm::createMCAsmParser(source_manager, machine_context, *machine_code_streamer, *machine_asm_info);
+    std::unique_ptr< llvm::MCTargetAsmParser > target_asm_parser(target->createMCAsmParser(*subtarget_info, *asm_parser, *machine_code_instruction_info, mc_options));
+
+    if (!target_asm_parser)
+    {
+        throw std::runtime_error("Failed to create target ASM parser!");
+    }
+
+    asm_parser->setTargetParser(*target_asm_parser.get());
+
+    if (asm_parser->Run(false))
+    {
+        throw std::runtime_error("Assembly parsing failed!\n");
+    }
+
+    std::ofstream output_file(input.name +".o", std::ios::out | std::ios::binary | std::ios::trunc);
+
+    output_file.write(output.data(), output.size());
+
+    return {};
 }
 
 rylang::llvm_code_generator::llvm_code_generator(rylang::output_info m)

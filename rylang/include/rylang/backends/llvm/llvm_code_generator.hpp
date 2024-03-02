@@ -50,7 +50,7 @@ namespace rylang
 
       public:
         std::vector< std::byte > get_function_code(cpu_arch cpu_type, vm_procedure vmf);
-        std::vector< std::byte > assemble(ast2_asm_procedure_declaration input, cpu_arch cpu_type);
+        std::vector< std::byte > assemble(asm_procedure input, cpu_arch cpu_type);
 
         void foo();
 

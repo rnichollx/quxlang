@@ -171,9 +171,11 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/asm/asm.hpp
         include/rylang/parsers/parse_asm_procedure.hpp
         include/rylang/backends/llvm/qux_mc_streamer.hpp
-        sources/backends/asm/arm_asm_converter.hpp
+        include/rylang/backends/asm/arm_asm_converter.hpp
         include/rylang/res/type_symbol_kind_resolver.hpp
         sources/res/type_symbol_kind_resolver.cpp
+        sources/res/asm_procedure_from_symbol_resolver.cpp
+        include/rylang/parsers/asm/asm_callable.hpp
 
 )
 

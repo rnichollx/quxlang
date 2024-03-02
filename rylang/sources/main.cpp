@@ -41,30 +41,49 @@ int main(int argc, char** argv)
     std::string name = rylang::mangle(qn);
 
     std::set< rylang::type_symbol > already_compiled;
-    std::set< rylang::type_symbol > new_deps = {qn};
+    std::set< rylang::type_symbol > already_assembled;
+
+    std::set< rylang::type_symbol > new_deps_to_compile = {qn};
+    std::set< rylang::type_symbol > new_deps_to_assemble;
 
     std::map< rylang::type_symbol, std::vector< std::byte > > compiled_code;
 
-    while (new_deps.empty() == false)
+    while (new_deps_to_compile.empty() == false || new_deps_to_assemble.empty() == false)
     {
-        auto to_compile = *new_deps.begin();
-
-        std::cout << "Compiling " << rylang::to_string(to_compile) << std::endl;
-        rylang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(to_compile);
-        // std::cout << rylang::to_string(rylang::vm_executable_unit{vmf.body}) << std::endl;
-        auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
-        compiled_code[to_compile] = code;
-        already_compiled.insert(to_compile);
-
-        for (auto& x : vmf.invoked_functanoids)
+        if (!new_deps_to_compile.empty())
         {
-            if (already_compiled.contains(x))
-                continue;
-            else
-                new_deps.insert(x);
-        }
+            auto to_compile = *new_deps_to_compile.begin();
 
-        new_deps.erase(to_compile);
+            std::cout << "Compiling " << rylang::to_string(to_compile) << std::endl;
+            rylang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(to_compile);
+            // std::cout << rylang::to_string(rylang::vm_executable_unit{vmf.body}) << std::endl;
+            auto code = cg.get_function_code(rylang::cpu_arch_armv8a(), vmf);
+            compiled_code[to_compile] = code;
+            already_compiled.insert(to_compile);
+
+            for (auto& x : vmf.invoked_functanoids)
+            {
+                if (already_compiled.contains(x))
+                    continue;
+                else
+                    new_deps_to_compile.insert(x);
+            }
+            new_deps_to_compile.erase(to_compile);
+
+            for (auto & x: vmf.invoked_asm_procedures)
+            {
+                if (already_assembled.contains(x))
+                    continue;
+                else
+                    new_deps_to_assemble.insert(x);
+            }
+        }
+        else
+        {
+            auto to_assemble = *new_deps_to_assemble.begin();
+
+            rylang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(to_assemble);
+        }
     }
 
     // std::cout << "Got overload:" << name << std::endl;

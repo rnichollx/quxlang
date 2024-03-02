@@ -46,7 +46,31 @@ namespace rylang
     struct ast2_asm_procedure_declaration
     {
         std::vector<asm_instruction> instructions;
+        std::optional<std::string> linkname;
     };
+
+
+    struct ast2_argument_interface
+    {
+        std::string register_name;
+        type_symbol type;
+
+    };
+
+    // ast2_asm_callable defines the interface by which an asm_procedure can be called
+    // if it can be called from within the language
+    struct ast2_asm_callable
+    {
+        std::string calling_conv;
+        std::vector<ast2_argument_interface> args;
+
+        std::set<std::string> clobber;
+        std::optional<type_symbol> return_type;
+
+    };
+
+
+
 
 
     struct ast2_functum

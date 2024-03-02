@@ -63,6 +63,7 @@
 #include <rylang/res/temploid_instanciation_ast_resolver.hpp>
 #include <rylang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <rylang/res/type_symbol_kind_resolver.hpp>
+#include <rylang/res/asm_procedure_from_symbol_resolver.hpp>
 
 #include <shared_mutex>
 
@@ -169,6 +170,8 @@ namespace rylang
 
         COMPILER_INDEX(type_symbol_kind);
 
+COMPILER_INDEX(asm_procedure_from_symbol);
+
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
 
         out< std::set< call_parameter_information > > lk_builtin_functum_overloads(type_symbol functum)
@@ -253,6 +256,16 @@ namespace rylang
             m_solver.solve(this, node);
             return node->get();
         }
+
+
+        asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
+        {
+            auto node = lk_asm_procedure_from_symbol(func_addr);
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
+
 
     private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
