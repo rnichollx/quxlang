@@ -7,6 +7,10 @@
 
 #include <compare>
 
+#include "rpnx/resolver_utilities.hpp"
+#include "rylang/compiler_fwd.hpp"
+#include <string>
+
 
 #define QUX_RESOLVER(name, input, output) \
 class name ## _resolver : public rpnx::resolver_base< compiler, output > { \
@@ -30,6 +34,8 @@ void rylang::nameV ## _resolver::process(compiler * c) \
 
 #define QUX_CO_RESOLVER_IMPL_FUNC_DEF(nameV) \
 rylang::nameV ## _resolver::co_type rylang::nameV ## _resolver::co_process(compiler* c, input_type arg_input)
+
+#define QUX_CO_ANSWER(x) co_return x;
 
 #define QUX_GETDEP(dname, what, args) auto dname ## _dep = get_dependency([&]{ return c->lk_ ## what args ; }); if (!ready()) return; auto const & dname = dname ## _dep ->get();
 #define QUX_GETDEP_T(dname, what, args, T) auto dname ## _dep = get_dependency([&]{ return c->lk_ ## what args ; }); if (!ready()) return; T dname = dname ## _dep ->get();

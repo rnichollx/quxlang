@@ -157,7 +157,6 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/data/code_relocation.hpp
         include/rylang/macros.hpp
         include/rylang/manipulators/symbolmap.hpp
-        include/rylang/res/test.cpp
         include/rylang/manipulators/llvm_symbol_relocation.hpp
         sources/manipulators/llvm_symbol_relocation.cpp
         include/rylang/manipulators/convert_llvm_object.hpp
@@ -173,6 +172,8 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/parsers/parse_asm_procedure.hpp
         include/rylang/backends/llvm/qux_mc_streamer.hpp
         sources/backends/asm/arm_asm_converter.hpp
+        include/rylang/res/type_symbol_kind_resolver.hpp
+        sources/res/type_symbol_kind_resolver.cpp
 
 )
 

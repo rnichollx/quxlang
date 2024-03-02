@@ -60,8 +60,9 @@
 #include <rylang/res/functum_instanciation_parameter_map_resolver.hpp>
 #include <rylang/res/template_instanciation_ast_resolver.hpp>
 #include <rylang/res/template_instanciation_parameter_set_resolver.hpp>
-#include <rylang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <rylang/res/temploid_instanciation_ast_resolver.hpp>
+#include <rylang/res/temploid_instanciation_parameter_set_resolver.hpp>
+#include <rylang/res/type_symbol_kind_resolver.hpp>
 
 #include <shared_mutex>
 
@@ -165,6 +166,8 @@ namespace rylang
         {
             return lk_call_params_of_function_ast(std::make_pair(f_ast, f_symbol));
         }
+
+        COMPILER_INDEX(type_symbol_kind);
 
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
 

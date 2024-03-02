@@ -7,7 +7,7 @@
 
 namespace rylang
 {
-    enum class symbol_type {
+    enum class symbol_kind {
         class_type,
         functum_type,
         function_type,
