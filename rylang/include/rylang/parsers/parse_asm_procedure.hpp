@@ -11,6 +11,7 @@
 #include "rylang/parsers/asm/arm_assembler.hpp"
 #include "rylang/parsers/parse_whitespace_and_comments.hpp"
 #include "rylang/parsers/parse_keyword.hpp"
+#include "rylang/parsers/asm/asm_callable.hpp"
 
 namespace rylang::parsers
 {
@@ -36,6 +37,17 @@ namespace rylang::parsers
         {
             throw std::runtime_error("Expected architecture name");
         }
+
+        skip_whitespace_and_comments(pos, end);
+
+        std::optional< ast2_asm_callable > callable;
+
+        while ((callable = try_parse_asm_callable(pos, end)).has_value())
+        {
+            out.callable_interfaces.push_back(callable.value());
+            skip_whitespace_and_comments(pos, end);
+        }
+
 
         skip_whitespace_and_comments(pos, end);
 

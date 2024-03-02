@@ -26,8 +26,11 @@ MODULE main;
   }
 }
 
-::boxy ASM_PROCEDURE ARM {
-  MOV R7, 1;
+::boxy ASM_PROCEDURE ARM
+  CALLABLE(X1 I32, X2 I32)
+{
+  MOV X7, 1;
+  ADD X3, X4, X5;
   SVC 0;
 }
 

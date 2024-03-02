@@ -40,11 +40,16 @@ int main(int argc, char** argv)
 
     std::string name = rylang::mangle(qn);
 
+
+    std::string boxy_input = "::boxy";
+    std::string::iterator boxy_iter = boxy_input.begin();
+    auto boxy = rylang::parsers::parse_type_symbol<std::string::iterator>(boxy_iter, boxy_input.end());
+
     std::set< rylang::type_symbol > already_compiled;
     std::set< rylang::type_symbol > already_assembled;
 
     std::set< rylang::type_symbol > new_deps_to_compile = {qn};
-    std::set< rylang::type_symbol > new_deps_to_assemble;
+    std::set< rylang::type_symbol > new_deps_to_assemble = { boxy };
 
     std::map< rylang::type_symbol, std::vector< std::byte > > compiled_code;
 
@@ -83,6 +88,11 @@ int main(int argc, char** argv)
             auto to_assemble = *new_deps_to_assemble.begin();
 
             rylang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(to_assemble);
+
+            auto code = cg.assemble(proc, target_machine.cpu);
+            compiled_code[to_assemble] = code;
+
+            new_deps_to_assemble.erase(to_assemble);
         }
     }
 

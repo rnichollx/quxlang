@@ -25,15 +25,15 @@ namespace rylang
     template < typename It >
     inline std::string convert_to_arm_asm(It begin, It end, std::string name)
     {
-        std::string result = "section .text\n";
-        result += "global " + name + "\n";
+        std::string result = ".text\n";
+        result += ".global " + name + "\n";
 
         result += name + ":\n";
         It pos = begin;
 
         while (pos != end)
         {
-            asm_instruction inst = *pos;
+            asm_instruction inst = *pos++;
 
             std::string opcode_str = inst.opcode_mnemonic;
             opcode_str = to_lower_str(opcode_str);

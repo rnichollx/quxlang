@@ -176,6 +176,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         sources/res/type_symbol_kind_resolver.cpp
         sources/res/asm_procedure_from_symbol_resolver.cpp
         include/rylang/parsers/asm/asm_callable.hpp
+        include/rylang/parsers/asm/parse_register.hpp
 
 )
 

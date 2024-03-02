@@ -878,7 +878,7 @@ llvm::Type* rylang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& cont
     return llvm::IntegerType::get(context, 64);
 }
 
-std::vector< std::byte > rylang::llvm_code_generator::assemble(rylang::asm_procedure input, rylang::cpu_arch cpu_type)
+std::vector< std::byte > rylang::llvm_code_generator::assemble(rylang::asm_procedure input, rylang::cpu cpu_type)
 {
     std::cout << "Target triple is: " << target_triple_str << std::endl;
     std::string assembly = rylang::convert_to_arm_asm(input.instructions.begin(), input.instructions.end(), input.name);

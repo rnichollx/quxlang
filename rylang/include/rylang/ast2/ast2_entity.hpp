@@ -43,13 +43,6 @@ namespace rylang
         std::vector< ast2_function_arg > args;
     };
 
-    struct ast2_asm_procedure_declaration
-    {
-        std::vector<asm_instruction> instructions;
-        std::optional<std::string> linkname;
-    };
-
-
     struct ast2_argument_interface
     {
         std::string register_name;
@@ -68,6 +61,16 @@ namespace rylang
         std::optional<type_symbol> return_type;
 
     };
+
+    struct ast2_asm_procedure_declaration
+    {
+        std::vector<asm_instruction> instructions;
+        std::optional<std::string> linkname;
+        std::vector<ast2_asm_callable> callable_interfaces;
+    };
+
+
+
 
 
 
