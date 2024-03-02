@@ -10,9 +10,11 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "rylang/data/qualified_symbol_reference.hpp"
+#include "rylang/macros.hpp"
 
 namespace rylang
 {
+
     class functum_instanciation_ast_resolver : public rpnx::co_resolver_base< compiler, ast2_function_declaration, type_symbol >
     {
       public:

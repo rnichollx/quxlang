@@ -82,7 +82,6 @@ MODULE main;
           {
             VAR q box2@(I32);
             q.x := 9;
-            boxy();
             bif(.y);
           }
         }
@@ -96,6 +95,8 @@ MODULE main;
         {
            VAR c box2@(I32);
            b := a + b;
+
+           boxy();
 
            c.x := 9;
            RETURN a * b;
