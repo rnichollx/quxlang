@@ -14,15 +14,15 @@ private:                                   \
   input m_input;                          \
 input const & get_input() const { return m_input; } \
 using input_type = input; \
-name ## _resolver(in input) : m_input(in) {} \
+name ## _resolver(input in ) : m_input(in) {} \
 virtual void process(compiler * c) override; \
 };
 
-#define QUX_CO_RESOLVER(name, input, output) \
-class name ## _resolver : public rpnx::co_resolver_base< compiler, input, output > { \
+#define QUX_CO_RESOLVER(nameV, outputT, inputT) \
+class nameV ## _resolver : public rpnx::co_resolver_base< compiler, outputT, inputT > { \
  public: \
-name ## _resolver(in input_type) : resolver_base< output >(std::move(in)) {}                                    \
- virtual void process(compiler * c) override;                                                              \
+nameV ## _resolver( input_type in) : rpnx::co_resolver_base< compiler, output_type, input_type >(std::move(in)) {}                                    \
+rpnx::resolver_coroutine< compiler, output_type > co_process(compiler* c, input_type arg_input) override; \
 };
 
 #define QUX_RESOLVER_IMPL_FUNC_DEF(nameV) \

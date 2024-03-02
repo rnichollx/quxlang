@@ -96,7 +96,7 @@ MODULE main;
            VAR c box2@(I32);
            b := a + b;
 
-           boxy();
+    //       boxy();
 
            c.x := 9;
            RETURN a * b;
