@@ -18,7 +18,7 @@ name ## _resolver(input in ) : m_input(in) {} \
 virtual void process(compiler * c) override; \
 };
 
-#define QUX_CO_RESOLVER(nameV, outputT, inputT) \
+#define QUX_CO_RESOLVER(nameV, inputT, outputT) \
 class nameV ## _resolver : public rpnx::co_resolver_base< compiler, outputT, inputT > { \
  public: \
 nameV ## _resolver( input_type in) : rpnx::co_resolver_base< compiler, output_type, input_type >(std::move(in)) {}                                    \
@@ -28,7 +28,8 @@ rpnx::resolver_coroutine< compiler, output_type > co_process(compiler* c, input_
 #define QUX_RESOLVER_IMPL_FUNC_DEF(nameV) \
 void rylang::nameV ## _resolver::process(compiler * c) \
 
-
+#define QUX_CO_RESOLVER_IMPL_FUNC_DEF(nameV) \
+rylang::nameV ## _resolver::co_type rylang::nameV ## _resolver::co_process(compiler* c, input_type arg_input)
 
 #define QUX_GETDEP(dname, what, args) auto dname ## _dep = get_dependency([&]{ return c->lk_ ## what args ; }); if (!ready()) return; auto const & dname = dname ## _dep ->get();
 #define QUX_GETDEP_T(dname, what, args, T) auto dname ## _dep = get_dependency([&]{ return c->lk_ ## what args ; }); if (!ready()) return; T dname = dname ## _dep ->get();

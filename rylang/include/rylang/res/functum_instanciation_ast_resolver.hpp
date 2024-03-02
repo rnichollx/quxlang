@@ -14,7 +14,7 @@
 
 namespace rylang
 {
-    QUX_CO_RESOLVER(functum_instanciation_ast, ast2_function_declaration, type_symbol);
+    QUX_CO_RESOLVER(functum_instanciation_ast, type_symbol, ast2_function_declaration);
 } // namespace rylang
 
 #endif // RYLANG_FUNCTION_AST_RESOLVER_HEADER_GUARD

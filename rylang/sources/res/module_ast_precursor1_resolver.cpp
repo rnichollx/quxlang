@@ -14,7 +14,7 @@ namespace rylang
         auto files_in_module_dep = get_dependency(
             [&]
             {
-                return c->lk_files_in_module(m_id);
+                return c->lk_files_in_module(get_input());
             });
 
         if (!ready())
@@ -23,7 +23,7 @@ namespace rylang
         auto files_in_module = files_in_module_dep->get();
 
         module_ast_precursor1 result;
-        result.module_name = m_id;
+        result.module_name = get_input();
 
         for (auto& file : files_in_module)
         {

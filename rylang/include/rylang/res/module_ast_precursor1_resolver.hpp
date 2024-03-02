@@ -14,20 +14,7 @@
 
 namespace rylang
 {
-    class module_ast_precursor1_resolver : public rpnx::resolver_base< compiler, module_ast_precursor1 >
-    {
-      public:
-        using key_type = std::string;
-        inline module_ast_precursor1_resolver(std::string module_name)
-        : m_id(module_name)
-        {
-        }
-
-        virtual void process(compiler* c);
-
-      private:
-        std::string m_id;
-    };
+    QUX_RESOLVER(module_ast_precursor1, std::string, module_ast_precursor1);
 
 } // namespace rylang
 

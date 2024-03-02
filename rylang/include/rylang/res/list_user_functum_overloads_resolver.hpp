@@ -11,16 +11,7 @@
 
 namespace rylang
 {
-    class list_user_functum_overloads_resolver : public rpnx::co_resolver_base< compiler, std::set< call_parameter_information >, type_symbol >
-    {
-      public:
-        list_user_functum_overloads_resolver(type_symbol functum)
-            : co_resolver_base(functum)
-        {
-        }
-
-        virtual rpnx::resolver_coroutine< compiler, std::set< call_parameter_information > > co_process(compiler* c, type_symbol input) override;
-    };
+    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::set< call_parameter_information >)
 } // namespace rylang
 
 #endif // FUNCTUM_BUILTIN_OVERLOADS_RESOLVER_HEADER_GUARD

@@ -914,6 +914,7 @@ namespace rpnx
         using key_type = Input;
         using co_type = resolver_coroutine< Graph, Result >;
 
+
         co_resolver_base(input_type input_val)
             : input_val(input_val)
         {

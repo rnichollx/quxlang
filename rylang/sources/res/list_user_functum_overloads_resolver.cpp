@@ -7,9 +7,10 @@
 
 #include "rylang/operators.hpp"
 
-rpnx::resolver_coroutine< rylang::compiler, std::set< rylang::call_parameter_information > > rylang::list_user_functum_overloads_resolver::co_process(compiler* c, type_symbol functum)
-{
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
+{
+    auto functum = input_val;
     std::string name = to_string(functum);
     auto exists = co_await *c->lk_entity_canonical_chain_exists(functum);
     //c->lk_entity_canonical_chain_exists(functum)->debug_recursive();
