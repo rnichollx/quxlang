@@ -1,8 +1,0 @@
-//
-// Created by Ryan Nicholl on 10/20/23.
-//
-
-#ifndef RYLANG_SYMBOL_CHAIN_HEADER_GUARD
-#define RYLANG_SYMBOL_CHAIN_HEADER_GUARD
-
-#endif // RYLANG_SYMBOL_CHAIN_HEADER_GUARD

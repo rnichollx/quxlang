@@ -1,0 +1,74 @@
+//
+// Created by Ryan Nicholl on 10/30/23.
+//
+
+#ifndef QUXLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD
+#define QUXLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD
+
+#include <boost/variant.hpp>
+
+#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "vm_allocate_storage.hpp"
+#include "vm_block.hpp"
+#include "vm_expression.hpp"
+
+namespace quxlang
+{
+    struct vm_block;
+    struct vm_allocate_storage;
+    struct vm_store
+    {
+        vm_value what;
+        vm_value where;
+        type_symbol type;
+    };
+    struct vm_execute_expression
+    {
+        vm_value expr;
+    };
+
+    struct vm_return
+    {
+        std::strong_ordering operator<=>(vm_return const&) const = default;
+    };
+
+    struct vm_if;
+    struct vm_while;
+
+    struct vm_disable_storage
+    {
+        std::size_t index;
+    };
+    struct vm_enable_storage
+    {
+        std::size_t index;
+    };
+
+    using vm_executable_unit = boost::variant< vm_store, vm_execute_expression, boost::recursive_wrapper< vm_block >, vm_return, boost::recursive_wrapper< vm_if >, boost::recursive_wrapper< vm_while >, boost::recursive_wrapper< vm_disable_storage >, boost::recursive_wrapper< vm_enable_storage > >;
+
+    struct vm_block
+    {
+        std::vector< vm_executable_unit > code;
+        std::vector< std::string > comments;
+    };
+
+    struct vm_if
+    {
+        std::optional< vm_block > condition_block;
+        vm_value condition;
+        vm_block then_block;
+        std::optional< vm_block > else_block;
+    };
+
+    struct vm_while
+    {
+        std::optional< vm_block > condition_block;
+        vm_value condition;
+        vm_block loop_block;
+    };
+
+} // namespace quxlang
+
+#include "vm_block.hpp"
+
+#endif // QUXLANG_VM_EXECUTABLE_UNIT_HEADER_GUARD

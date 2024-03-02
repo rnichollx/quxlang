@@ -8,7 +8,7 @@ add_subdirectory(rpnx)
 
 add_library(catch2 catch2/catch2/catch2.hpp catch2/catch2.cpp )
 target_include_directories(catch2 PUBLIC catch2/)
-add_subdirectory(rylang)
+add_subdirectory(quxlang)
 target_link_libraries(graphlib_tests PUBLIC graphlib catch2)
 
 

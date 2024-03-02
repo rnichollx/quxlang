@@ -53,4 +53,4 @@ namespace rpnx
 
         return error_string;
     }
-} // namespace rylang
+} // namespace quxlang

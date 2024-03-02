@@ -1,6 +1,6 @@
-# Rylang
+# QuxLang
 
-Rylang is a systems programming language. It's intended as an improvement over C++ for certain uses.
+QuxLang is a systems programming language. It's intended as an improvement over C++ for certain uses.
 
 It is still in active development and is not "usable" yet.
 
@@ -11,5 +11,5 @@ I am compiling with something like:
 
 I am testing the executable with:
 
-rylang_main /Users/rnicholl/Dev/rylang/example.sr
+quxlang_main /Users/rnicholl/Dev/quxlang/example.sr
 

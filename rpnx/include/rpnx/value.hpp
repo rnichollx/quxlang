@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/28/23.
 //
 
-#ifndef RYLANG__VALUE_HEADER
-#define RYLANG__VALUE_HEADER
+#ifndef QUXLANG__VALUE_HEADER
+#define QUXLANG__VALUE_HEADER
 
 #include <memory>
 #include <type_traits>
@@ -128,4 +128,4 @@ namespace rpnx
     };
 } // namespace rpnx
 
-#endif // RYLANG__VALUE_HEADER
+#endif // QUXLANG__VALUE_HEADER
