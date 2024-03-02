@@ -44,6 +44,7 @@ namespace rylang::parsers
 
         ret.opcode_mnemonic = kw;
 
+        int bracket_count = 0;
         while (pos != end)
         {
             auto pstart = pos;
@@ -55,9 +56,21 @@ namespace rylang::parsers
 
             std::string operand;
 
-            while (pos != end && *pos != ',' && *pos != ';' && *pos != '\n' && *pos != '\r' && *pos != '\t' && *pos != '}')
+            while (pos != end && (*pos != ',' || bracket_count == 0) && *pos != ';' && *pos != '\n' && *pos != '\r' && *pos != '\t' && *pos != '}')
             {
                 operand.push_back(*pos);
+                if (*pos == '[')
+                {
+                    bracket_count++;
+                }
+                else if (*pos == ']')
+                {
+                    if (bracket_count == 0)
+                    {
+                      throw std::runtime_error("Mismatched brackets");
+                    }
+                    bracket_count--;
+                }
                 ++pos;
             }
 

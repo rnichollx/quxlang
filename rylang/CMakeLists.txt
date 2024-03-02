@@ -172,6 +172,7 @@ add_library(rylang include/rylang/data/canonical_pointer_type_reference.hpp incl
         include/rylang/asm/asm.hpp
         include/rylang/parsers/parse_asm_procedure.hpp
         include/rylang/backends/llvm/qux_mc_streamer.hpp
+        sources/backends/asm/arm_asm_converter.hpp
 
 )
 
