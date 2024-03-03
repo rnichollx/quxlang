@@ -22,7 +22,7 @@ namespace quxlang
 {
     enum class cpu { x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64 };
 
-    enum class os { linux, windows, macos, freebsd, netbsd, openbsd, solaris };
+    enum class os { none, linux, windows, macos, freebsd, netbsd, openbsd, solaris };
 
     enum class binary { elf, macho, pe, wasm };
 

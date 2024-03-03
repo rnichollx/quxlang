@@ -14,7 +14,7 @@ int main(int argc, char** argv)
 {
     quxlang::output_info target_machine{
         .cpu = quxlang::cpu::arm_64,
-        .os = quxlang::os::macos,
+        .os = quxlang::os::linux,
         .binary = quxlang::binary::elf,
     };
 

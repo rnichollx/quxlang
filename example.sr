@@ -26,28 +26,14 @@ MODULE main;
   }
 }
 
-::boxy ASM_PROCEDURE ARM
-  CALLABLE(X1 I32, X2 I32)
-{
-  MOV X7, 1;
-  ADD X3, X4, X5;
-  SVC 0;
-}
+
 
 ::baz CLASS {
   .z VAR I16;
   .w VAR -> ::baz;
 }
 
-::box2 TEMPLATE(T(t1)) CLASS
-{
-  .x VAR t1;
 
-  .CONSTRUCTOR FUNCTION()
-  {
-    .x := 1;
-  }
-}
 
 ::box3 CLASS {
    .CONSTRUCTOR FUNCTION()
@@ -73,61 +59,33 @@ MODULE main;
   {
      ::box CLASS
      {
-        .foo VAR I32;
-
-        ::nux CLASS
-        {
-          .x VAR I32;
-          .y VAR I32;
-
-          .CONSTRUCTOR FUNCTION(%xa I32)
-          :> .x:(xa + 4)
-          {
-            VAR q box2@(I32);
-            q.x := 9;
-            bif(.y);
-          }
-        }
-
-        ::bif FUNCTION(%a MUT& T(t1))
-        {
-           a := a + 1;
-        }
-
         ::buz FUNCTION(%a I32, %b I32): I32
         {
            VAR c box2@(I32);
            b := a + b;
-
-    //       boxy();
-
            c.x := 9;
            RETURN a * b;
-        }
-
-        ::fizz FUNCTION(%a I32) : I32
-        {
-           RETURN a + 1;
-        }
-
-        ::buz FUNCTION(%a I32) : I32
-        {
-            a := a + a;
-            RETURN a;
-        }
-
-        ::buz FUNCTION(%a I64, %b I64) : I64
-        {
-           VAR c I64 :(4);
-
-           WHILE (a < 9) {
-             a := a + 1;
-           }
-
-           RETURN a;
         }
 
      }
 
   }
+}
+
+::box2 TEMPLATE(T(t1)) CLASS
+{
+  .x VAR t1;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+    .x := 1;
+  }
+}
+
+::boxy ASM_PROCEDURE ARM
+  CALLABLE(X1 I32, X2 I32)
+{
+  MOV X7, 1;
+  ADD X3, X4, X5;
+  SVC 0;
 }

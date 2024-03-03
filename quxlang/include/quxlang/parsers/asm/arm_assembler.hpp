@@ -56,7 +56,7 @@ namespace quxlang::parsers
 
             std::string operand;
 
-            while (pos != end && (*pos != ',' || bracket_count == 0) && *pos != ';' && *pos != '\n' && *pos != '\r' && *pos != '\t' && *pos != '}')
+            while (pos != end && (*pos != ',' || bracket_count != 0) && *pos != ';' && *pos != '\n' && *pos != '\r' && *pos != '\t' && *pos != '}')
             {
                 operand.push_back(*pos);
                 if (*pos == '[')
