@@ -14,7 +14,7 @@ namespace quxlang
     {
         std::string ret;
         "armv8-a-unknown-unknown-unknown";
-        switch (info.cpu)
+        switch (info.cpu_type)
         {
         case cpu::x86_32:
             ret += "i386";
@@ -43,7 +43,7 @@ namespace quxlang
 
         ret += "-unknown-";
 
-        switch (info.os)
+        switch (info.os_type)
         {
         case os::linux:
             ret += "linux";

@@ -117,7 +117,10 @@ namespace quxlang
     {
         type_symbol callee;
         std::vector< type_symbol > parameters;
-        std::strong_ordering operator<=>(const instanciation_reference& other) const = default;
+        inline auto operator<=>(const instanciation_reference& other) const
+        {
+            return std::tie(callee, parameters) <=> std::tie(callee, parameters);
+        }
     };
 
     struct mvalue_reference

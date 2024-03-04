@@ -124,7 +124,7 @@ namespace quxlang
                 m_new_block.code.push_back(std::move(s));
             }
 
-            class compiler* compiler() const
+            class compiler* get_compiler() const
             {
                 return m_c;
             }

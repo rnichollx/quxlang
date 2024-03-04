@@ -218,7 +218,7 @@ namespace quxlang
 
         std::string var_type_str = to_string(type);
 
-        type_placement_info type_placement_info_v = co_await *compiler()->lk_type_placement_info_from_canonical_type(type);
+        type_placement_info type_placement_info_v = co_await *get_compiler()->lk_type_placement_info_from_canonical_type(type);
 
         vm_allocate_storage storage;
         storage.size = type_placement_info_v.size;
@@ -702,7 +702,7 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
 
     std::string var_type_str = to_string(statement.type);
 
-    auto canonical_type = co_await *ctx.compiler()->lk_canonical_type_from_contextual_type(statement.type, ctx.current_context());
+    auto canonical_type = co_await *ctx.get_compiler()->lk_canonical_type_from_contextual_type(statement.type, ctx.current_context());
 
     std::string canonical_var_str = to_string(canonical_type);
 
@@ -887,14 +887,14 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     call_parameter_information lhs_param_info{{lhs_type, rhs_type}};
     call_parameter_information rhs_param_info{{rhs_type, lhs_type}};
-    auto lhs_exists_and_callable_with = co_await *ctx.compiler()->lk_functum_exists_and_is_callable_with(lhs_function, lhs_param_info);
+    auto lhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with(lhs_function, lhs_param_info);
 
     if (lhs_exists_and_callable_with)
     {
         co_return co_await gen_call(ctx, lhs_function, std::vector< vm_value >{lhs, rhs});
     }
 
-    auto rhs_exists_and_callable_with = co_await *ctx.compiler()->lk_functum_exists_and_is_callable_with(rhs_function, rhs_param_info);
+    auto rhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with(rhs_function, rhs_param_info);
 
     if (rhs_exists_and_callable_with)
     {
@@ -938,7 +938,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 
     // assert(ctx.current_context() == m_func_name);
-    auto canonical_symbol = co_await *ctx.compiler()->lk_canonical_type_from_contextual_type(expr.symbol, ctx.funcname());
+    auto canonical_symbol = co_await *ctx.get_compiler()->lk_canonical_type_from_contextual_type(expr.symbol, ctx.funcname());
 
     std::string symbol_str = to_string(canonical_symbol);
     // TODO: Check if global variable
@@ -1050,7 +1050,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
     // TODO: Check if function parameter set already specified.
 
-    call_parameter_information overload = co_await *ctx.compiler()->lk_function_overload_selection(callee, call_set);
+    call_parameter_information overload = co_await *ctx.get_compiler()->lk_function_overload_selection(callee, call_set);
 
     instanciation_reference overload_selected_ref;
     overload_selected_ref.callee = callee;
@@ -1091,7 +1091,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
         co_return void_value{};
     }
 
-    class_layout layout = co_await *ctx.compiler()->lk_class_layout_from_canonical_chain(type);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
 
     auto this_obj = values.at(0);
 
@@ -1152,7 +1152,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
     assert(is_ref(thisreftype));
     auto thistype = remove_ref(thisreftype);
 
-    class_layout layout = co_await *ctx.compiler()->lk_class_layout_from_canonical_chain(thistype);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(thistype);
 
     for (class_field_info const& field : layout.fields)
     {
@@ -1219,7 +1219,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     call.interface = vm_procedure_interface{};
     call.interface.argument_types = overload_selected_ref.parameters;
 
-    auto return_type = co_await *ctx.compiler()->lk_functanoid_return_type(overload_selected_ref);
+    auto return_type = co_await *ctx.get_compiler()->lk_functanoid_return_type(overload_selected_ref);
 
     if (!typeis< void_type >(return_type))
     {
@@ -1385,7 +1385,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
         else if (subdot.subdotentity_name == "CONSTRUCTOR" && values.size() == 1)
         {
             // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
-            auto should_autogen = co_await *ctx.compiler()->lk_class_should_autogen_default_constructor(parent_type);
+            auto should_autogen = co_await *ctx.get_compiler()->lk_class_should_autogen_default_constructor(parent_type);
 
             if (!should_autogen)
             {
@@ -1469,7 +1469,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
         co_return void_value{};
     }
 
-    class_layout layout = co_await *ctx.compiler()->lk_class_layout_from_canonical_chain(type);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
 
     vm_value this_obj = values.at(0);
 

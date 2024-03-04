@@ -6,6 +6,8 @@
 #define RPNX_QUXLANG_ASM_HEADER
 
 #include <string>
+#include <vector>
+
 namespace quxlang
 {
     struct asm_instruction

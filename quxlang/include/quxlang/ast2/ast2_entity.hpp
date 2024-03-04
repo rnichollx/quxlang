@@ -10,6 +10,7 @@
 #include <rpnx/resolver_utilities.hpp>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>
+#include <cinttypes>
 
 namespace quxlang
 {

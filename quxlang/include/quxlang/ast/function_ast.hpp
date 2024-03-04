@@ -46,14 +46,17 @@ namespace quxlang
 
         auto tie() const
         {
-            return std::tie(args, return_type, body);
+
+            return std::tie(args, return_type, this_type, delegates, priority, body);
         }
 
 
-        // auto operator<=>(function_ast const&) const = default;
-        bool operator<(function_ast const& other) const
+
+
+        auto operator<=>(function_ast const & other) const
         {
-            return tie() < other.tie();
+            return tie() <=> other.tie();
+
         }
     };
 } // namespace quxlang

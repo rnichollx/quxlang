@@ -27,6 +27,7 @@ namespace quxlang
         {
             return std::tie(external_name, name, type) < std::tie(external_name, name, type);
         }
+        auto operator<=>(function_arg_ast const & ) const = default;
     };
 
 } // namespace quxlang

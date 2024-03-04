@@ -14,6 +14,8 @@
 #include <boost/core/demangle.hpp>
 #include <concepts>
 #include <sstream>
+#include <boost/variant.hpp>
+#include <memory>
 
 namespace rpnx
 {

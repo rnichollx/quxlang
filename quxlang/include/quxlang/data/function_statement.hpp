@@ -10,6 +10,9 @@
 #include <boost/variant.hpp>
 #include <tuple>
 #include <utility>
+#include <variant>
+#include <utility>
+#include "rpnx/variant.hpp"
 
 namespace quxlang
 {
@@ -26,7 +29,7 @@ namespace quxlang
         type_symbol type;
         // TODO: support named initializers
         std::vector<expression> initializers;
-        std::strong_ordering operator<=>(const function_var_statement& other) const = default;
+        auto operator<=>(const function_var_statement& other) const = default;
     };
 
     using function_statement =

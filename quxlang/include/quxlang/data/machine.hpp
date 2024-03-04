@@ -28,13 +28,13 @@ namespace quxlang
 
     struct output_info
     {
-        cpu cpu;
-        os os;
-        binary binary;
+        cpu cpu_type;
+        os os_type;
+        binary binary_type;
 
         constexpr inline std::size_t pointer_size() const noexcept
         {
-            switch (cpu)
+            switch (cpu_type)
             {
             case cpu::x86_32:
             case cpu::arm_32:

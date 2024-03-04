@@ -13,9 +13,9 @@
 int main(int argc, char** argv)
 {
     quxlang::output_info target_machine{
-        .cpu = quxlang::cpu::arm_64,
-        .os = quxlang::os::linux,
-        .binary = quxlang::binary::elf,
+        .cpu_type = quxlang::cpu::arm_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
     };
 
     quxlang::compiler c(argc, argv, target_machine);
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
 
             quxlang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(to_assemble);
 
-            auto code = cg.assemble(proc, target_machine.cpu);
+            auto code = cg.assemble(proc, target_machine.cpu_type);
             compiled_code[to_assemble] = code;
 
             new_deps_to_assemble.erase(to_assemble);
