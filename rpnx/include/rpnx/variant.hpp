@@ -217,8 +217,13 @@ namespace rpnx {
             constexpr std::size_t index = constructor_index<T2>();
             m_vinf = &s_v_info_for<index>;
             try {
-                m_data = m_alloc.allocate(1);
-                m_alloc.construct(m_data, value);
+                // Rebind allocator to allocate memory for type T2
+                using rebound_alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<T2>;
+                rebound_alloc_type rebound_alloc(alloc); // Rebound allocator
+                m_data = std::allocator_traits<rebound_alloc_type>::allocate(rebound_alloc, 1); // Allocate memory for type T2
+
+                // Construct the value in the allocated memory
+                std::allocator_traits<rebound_alloc_type>::construct(rebound_alloc, m_data, value);
             }
             catch (...) {
                 if (m_data != nullptr) {
@@ -229,6 +234,7 @@ namespace rpnx {
             }
         }
 
+
         template <typename T>
         static constexpr bool can_construct_with() {
             // If T is convertible to any of the types in Ts..., return true
@@ -236,7 +242,7 @@ namespace rpnx {
         }
 
         template <typename T>
-        basic_variant<Allocator, Ts...> & operator=(T const & value) {
+        constexpr basic_variant<Allocator, Ts...> & operator=(T const & value) {
             static_assert(can_construct_with<T>());
 
             auto old_vinf = m_vinf;
@@ -250,7 +256,7 @@ namespace rpnx {
 
             try {
                 // Rebind allocator to allocate memory for type T
-                using rebound_alloc_type = typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+                using rebound_alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<T>;
                 rebound_alloc_type value_alloc(m_alloc); // Rebound allocator
                 m_data = value_alloc.allocate(1); // Allocate memory for type T
 
@@ -275,7 +281,7 @@ namespace rpnx {
         }
 
         template<typename T>
-        T& get_as() {
+        constexpr T& get_as() {
             // Check if the variant is currently holding a value of type T
             if (m_vinf == nullptr || m_vinf->m_index != index_of<T, Ts...>::value) {
                 // If it is not, throw an exception
@@ -283,6 +289,17 @@ namespace rpnx {
             }
             // If it is, return a reference to the value, casted to T
             return *static_cast<T*>(m_data);
+        }
+
+        template<typename T>
+        constexpr T const & get_as() const{
+            // Check if the variant is currently holding a value of type T
+            if (m_vinf == nullptr || m_vinf->m_index != index_of<T, Ts...>::value) {
+                // If it is not, throw an exception
+                throw std::bad_variant_access();
+            }
+            // If it is, return a reference to the value, casted to T
+            return *static_cast<T const*>(m_data);
         }
 
         bool operator==(basic_variant const & other) const {
@@ -336,6 +353,8 @@ namespace rpnx {
             // Check if the variant is currently holding a value of type T
             return m_vinf != nullptr && m_vinf->m_index == index_of<T, Ts...>::value;
         }
+
+
 
 
 
