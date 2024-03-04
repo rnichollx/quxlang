@@ -49,7 +49,10 @@ namespace quxlang
 
 
 
-        std::strong_ordering operator<=>(const function_block& other) const = default;
+        auto operator<=>(const function_block& other) const
+        {
+            return tie() <=> other.tie();
+        }
     };
 
 } // namespace quxlang

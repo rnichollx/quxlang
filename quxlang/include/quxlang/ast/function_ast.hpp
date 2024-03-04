@@ -12,6 +12,7 @@
 #include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/function_block.hpp"
 #include "quxlang/data/function_delegate.hpp"
+#include <cinttypes>
 
 namespace quxlang
 {
