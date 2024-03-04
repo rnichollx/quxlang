@@ -8,6 +8,11 @@
 #include "quxlang/data/machine.hpp"
 #include <string>
 
+#ifdef linux
+#warning Unsetting linux macro
+#undef linux
+#endif
+
 namespace quxlang
 {
     inline std::string lookup_llvm_triple(output_info const& info)

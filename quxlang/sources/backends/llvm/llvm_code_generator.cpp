@@ -363,7 +363,7 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMC
 {
     if (typ.type() == boost::typeindex::type_id< quxlang::primitive_type_integer_reference >())
     {
-        return get_llvm_int_type_ptr(ctx, boost::get< quxlang::primitive_type_integer_reference >(typ));
+        return get_llvm_int_type_ptr(ctx, as< quxlang::primitive_type_integer_reference >(typ));
     }
     else if (quxlang::is_ref(typ))
     {
@@ -394,7 +394,7 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         if (typeis< vm_block >(ex))
         {
             // TODO: consider adding separate frame info here
-            vm_block const& block2 = boost::get< vm_block >(ex);
+            vm_block const& block2 = as< vm_block >(ex);
             if (!generate_code(context, p_block, block2, frame, vmf))
             {
                 return false;
@@ -407,7 +407,7 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         else if (ex.type() == boost::typeindex::type_id< vm_store >())
         {
             llvm::IRBuilder<> builder(p_block);
-            vm_store const& store = boost::get< vm_store >(ex);
+            vm_store const& store = as< vm_store >(ex);
 
             llvm::Value* where = get_llvm_value(context, builder, frame, store.where);
             llvm::Value* what = get_llvm_value(context, builder, frame, store.what);
@@ -418,7 +418,7 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         else if (ex.type() == boost::typeindex::type_id< vm_return >())
         {
             // std::cout << " handle vm return " << std::endl;
-            quxlang::vm_return ret = boost::get< quxlang::vm_return >(ex);
+            quxlang::vm_return ret = as< quxlang::vm_return >(ex);
 
             if (vmf.interface.return_type.has_value())
             {
@@ -442,14 +442,14 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         }
         else if (typeis< vm_execute_expression >(ex))
         {
-            vm_execute_expression const& expr = boost::get< vm_execute_expression >(ex);
+            vm_execute_expression const& expr = as< vm_execute_expression >(ex);
             llvm::IRBuilder<> builder(p_block);
             get_llvm_value(context, builder, frame, expr.expr);
         }
         else if (typeis< vm_if >(ex))
         {
             // std::cout << "generate if " << p_block << std::endl;
-            vm_if const& if_ = boost::get< vm_if >(ex);
+            vm_if const& if_ = as< vm_if >(ex);
             llvm::IRBuilder<> builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
@@ -495,7 +495,7 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         }
         else if (typeis< vm_while >(ex))
         {
-            vm_while const& while_ = boost::get< vm_while >(ex);
+            vm_while const& while_ = as< vm_while >(ex);
             llvm::IRBuilder<> builder(p_block);
 
             llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context, "cond", p_block->getParent());
@@ -619,14 +619,14 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
 
     if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_load_address >())
     {
-        quxlang::vm_expr_load_address lea = boost::get< quxlang::vm_expr_load_address >(value);
+        quxlang::vm_expr_load_address lea = as< quxlang::vm_expr_load_address >(value);
         llvm::Value* addr = frame.values.at(lea.index).get_address;
         assert(addr != nullptr);
         return addr;
     }
     else if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_dereference >())
     {
-        quxlang::vm_expr_dereference const& deref = boost::get< quxlang::vm_expr_dereference >(value);
+        quxlang::vm_expr_dereference const& deref = as< quxlang::vm_expr_dereference >(value);
         llvm::Type* load_type = get_llvm_type_from_vm_type(context, deref.type);
 
         llvm::Value* ptr = get_llvm_value(context, builder, frame, deref.expr);
@@ -636,7 +636,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_primitive_binary_op >())
     {
-        quxlang::vm_expr_primitive_binary_op const& binop = boost::get< quxlang::vm_expr_primitive_binary_op >(value);
+        quxlang::vm_expr_primitive_binary_op const& binop = as< quxlang::vm_expr_primitive_binary_op >(value);
 
         llvm::Value* lhs = get_llvm_value(context, builder, frame, binop.lhs);
         llvm::Value* rhs = get_llvm_value(context, builder, frame, binop.rhs);
@@ -662,10 +662,10 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
         else if (typeis< primitive_type_integer_reference >(lhs_vm_type) && typeis< primitive_type_integer_reference >(rhs_vm_type))
         {
             is_int_op = true;
-            lhs_width = boost::get< primitive_type_integer_reference >(lhs_vm_type).bits;
-            rhs_width = boost::get< primitive_type_integer_reference >(rhs_vm_type).bits;
-            lhs_signed = boost::get< primitive_type_integer_reference >(lhs_vm_type).has_sign;
-            rhs_signed = boost::get< primitive_type_integer_reference >(rhs_vm_type).has_sign;
+            lhs_width = as< primitive_type_integer_reference >(lhs_vm_type).bits;
+            rhs_width = as< primitive_type_integer_reference >(rhs_vm_type).bits;
+            lhs_signed = as< primitive_type_integer_reference >(lhs_vm_type).has_sign;
+            rhs_signed = as< primitive_type_integer_reference >(rhs_vm_type).has_sign;
         }
 
         std::string lhs_type_str = to_string(lhs_vm_type);
@@ -748,7 +748,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (typeis< vm_expr_store >(value))
     {
-        quxlang::vm_expr_store const& store = boost::get< quxlang::vm_expr_store >(value);
+        quxlang::vm_expr_store const& store = as< quxlang::vm_expr_store >(value);
         llvm::Value* lhs = get_llvm_value(context, builder, frame, store.where);
         llvm::Value* rhs = get_llvm_value(context, builder, frame, store.what);
         llvm::Value* result = nullptr;
@@ -758,7 +758,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (typeis< vm_expr_call >(value))
     {
-        quxlang::vm_expr_call const& call = boost::get< quxlang::vm_expr_call >(value);
+        quxlang::vm_expr_call const& call = as< quxlang::vm_expr_call >(value);
 
         // TODO: Implement this
 
@@ -782,11 +782,11 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (typeis< vm_expr_load_literal >(value))
     {
-        vm_expr_load_literal lit = boost::get< vm_expr_load_literal >(value);
+        vm_expr_load_literal lit = as< vm_expr_load_literal >(value);
 
         if (lit.type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {
-            primitive_type_integer_reference int_type = boost::get< primitive_type_integer_reference >(lit.type);
+            primitive_type_integer_reference int_type = as< primitive_type_integer_reference >(lit.type);
             llvm::Type* llvm_int_type = get_llvm_int_type_ptr(context, int_type);
             std::string value_string = lit.literal;
             std::uint64_t value_number = std::stoull(value_string);
@@ -814,7 +814,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (typeis< vm_expr_access_field >(value))
     {
-        vm_expr_access_field const& field = boost::get< vm_expr_access_field >(value);
+        vm_expr_access_field const& field = as< vm_expr_access_field >(value);
 
         llvm::Value* offset = llvm::ConstantInt::get(get_llvm_intptr(context), field.offset);
 
@@ -830,7 +830,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     }
     else if (typeis< vm_expr_reinterpret >(value))
     {
-        vm_expr_reinterpret const& reinterp = boost::get< vm_expr_reinterpret >(value);
+        vm_expr_reinterpret const& reinterp = as< vm_expr_reinterpret >(value);
 
         // TODO: Consider checking that the llvm types are the same
 

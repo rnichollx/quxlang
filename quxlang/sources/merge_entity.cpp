@@ -52,8 +52,8 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge function into non-function of the same name");
         }
 
-        ast2_functum& destination_functum = boost::get< ast2_functum >(destination);
-        destination_functum.functions.push_back(boost::get< ast2_function_declaration >(source));
+        ast2_functum& destination_functum = as< ast2_functum >(destination);
+        destination_functum.functions.push_back(as< ast2_function_declaration >(source));
     }
     else if (typeis< ast2_class_declaration >(source))
     {
@@ -62,7 +62,7 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge class into non-class of the same name");
         }
 
-        destination = boost::get< ast2_class_declaration >(source);
+        destination = as< ast2_class_declaration >(source);
     }
     else if (typeis< ast2_template_declaration >(source))
     {
@@ -75,9 +75,9 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge template into non-template of the same name");
         }
 
-        ast2_templex& destination_templex = boost::get< ast2_templex >(destination);
+        ast2_templex& destination_templex = as< ast2_templex >(destination);
 
-        destination_templex.templates.push_back(boost::get< ast2_template_declaration >(source));
+        destination_templex.templates.push_back(as< ast2_template_declaration >(source));
     }
     else if (typeis< ast2_namespace_declaration >(source))
     {
@@ -104,7 +104,7 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge variable into already existing entity");
         }
 
-        destination = boost::get< ast2_variable_declaration >(source);
+        destination = as< ast2_variable_declaration >(source);
     }
     else if (typeis< ast2_asm_procedure_declaration >(source))
     {
@@ -114,7 +114,7 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge asm procedure into already existing entity");
         }
 
-        destination = boost::get< ast2_asm_procedure_declaration >(source);
+        destination = as< ast2_asm_procedure_declaration >(source);
     }
     else
     {

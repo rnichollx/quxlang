@@ -163,19 +163,19 @@ namespace quxlang
     {
         if (input.type() == boost::typeindex::type_id< subentity_reference >())
         {
-            return boost::get< subentity_reference >(input).parent;
+            return as< subentity_reference >(input).parent;
         }
         else if (input.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            return boost::get< instance_pointer_type >(input).target;
+            return as< instance_pointer_type >(input).target;
         }
         else if (input.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            return boost::get< instanciation_reference >(input).callee;
+            return as< instanciation_reference >(input).callee;
         }
         else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
-            return boost::get< subdotentity_reference >(input).parent;
+            return as< subdotentity_reference >(input).parent;
         }
         else
         {
@@ -191,15 +191,15 @@ namespace quxlang
         }
         else if (ref.type() == boost::typeindex::type_id< subentity_reference >())
         {
-            return subentity_reference{with_context(boost::get< subentity_reference >(ref).parent, context), boost::get< subentity_reference >(ref).subentity_name};
+            return subentity_reference{with_context(as< subentity_reference >(ref).parent, context), as< subentity_reference >(ref).subentity_name};
         }
         else if (ref.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
-            return instance_pointer_type{with_context(boost::get< instance_pointer_type >(ref).target, context)};
+            return instance_pointer_type{with_context(as< instance_pointer_type >(ref).target, context)};
         }
         else if (ref.type() == boost::typeindex::type_id< instanciation_reference >())
         {
-            instanciation_reference output = boost::get< instanciation_reference >(ref);
+            instanciation_reference output = as< instanciation_reference >(ref);
             output.callee = with_context(output.callee, context);
             for (auto& p : output.parameters)
             {
@@ -307,7 +307,7 @@ namespace quxlang
         if (typeis< template_reference >(template_type))
         {
             template_match_results output;
-            auto name = boost::get< template_reference >(template_type).name;
+            auto name = as< template_reference >(template_type).name;
             if (!name.empty())
             {
                 output.matches[name] = type;
@@ -344,8 +344,8 @@ namespace quxlang
 
         if (typeis< instance_pointer_type >(template_type))
         {
-            auto const& ptr_template = boost::get< instance_pointer_type >(template_type);
-            auto const& ptr_type = boost::get< instance_pointer_type >(type);
+            auto const& ptr_template = as< instance_pointer_type >(template_type);
+            auto const& ptr_type = as< instance_pointer_type >(type);
             auto match = match_template(ptr_template.target, ptr_type.target);
             if (!match.has_value())
             {
@@ -357,8 +357,8 @@ namespace quxlang
         }
         else if (typeis< subentity_reference >(template_type))
         {
-            auto const& sub_template = boost::get< subentity_reference >(template_type);
-            auto const& sub_type = boost::get< subentity_reference >(type);
+            auto const& sub_template = as< subentity_reference >(template_type);
+            auto const& sub_type = as< subentity_reference >(type);
             if (sub_template.subentity_name != sub_type.subentity_name)
             {
                 return std::nullopt;
@@ -378,8 +378,8 @@ namespace quxlang
         }
         else if (typeis< cvalue_reference >(template_type))
         {
-            cvalue_reference const& template_cval = boost::get< cvalue_reference >(template_type);
-            cvalue_reference const& type_cval = boost::get< cvalue_reference >(type);
+            cvalue_reference const& template_cval = as< cvalue_reference >(template_type);
+            cvalue_reference const& type_cval = as< cvalue_reference >(type);
             auto match = match_template(template_cval.target, type_cval.target);
             if (!match)
             {
@@ -390,8 +390,8 @@ namespace quxlang
         }
         else if (typeis< mvalue_reference >(template_type))
         {
-            mvalue_reference const& template_mval = boost::get< mvalue_reference >(template_type);
-            mvalue_reference const& type_mval = boost::get< mvalue_reference >(type);
+            mvalue_reference const& template_mval = as< mvalue_reference >(template_type);
+            mvalue_reference const& type_mval = as< mvalue_reference >(type);
             auto match = match_template(template_mval.target, type_mval.target);
             if (!match)
             {
@@ -402,8 +402,8 @@ namespace quxlang
         }
         else if (typeis< ovalue_reference >(template_type))
         {
-            ovalue_reference const& template_oval = boost::get< ovalue_reference >(template_type);
-            ovalue_reference const& type_oval = boost::get< ovalue_reference >(type);
+            ovalue_reference const& template_oval = as< ovalue_reference >(template_type);
+            ovalue_reference const& type_oval = as< ovalue_reference >(type);
             auto match = match_template(template_oval.target, type_oval.target);
             if (!match)
             {
@@ -414,8 +414,8 @@ namespace quxlang
         }
         else if (typeis< tvalue_reference >(template_type))
         {
-            tvalue_reference const& template_tval = boost::get< tvalue_reference >(template_type);
-            tvalue_reference const& type_tval = boost::get< tvalue_reference >(type);
+            tvalue_reference const& template_tval = as< tvalue_reference >(template_type);
+            tvalue_reference const& type_tval = as< tvalue_reference >(type);
             auto match = match_template(template_tval.target, type_tval.target);
             if (!match)
             {
@@ -426,8 +426,8 @@ namespace quxlang
         }
         else if (typeis< instanciation_reference >(template_type))
         {
-            instanciation_reference const& template_funct = boost::get< instanciation_reference >(template_type);
-            instanciation_reference const& type_funct = boost::get< instanciation_reference >(type);
+            instanciation_reference const& template_funct = as< instanciation_reference >(template_type);
+            instanciation_reference const& type_funct = as< instanciation_reference >(type);
 
             if (template_funct.parameters.size() != type_funct.parameters.size())
             {

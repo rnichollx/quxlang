@@ -20,7 +20,7 @@ namespace quxlang
         if (t.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {
             // TODO: This probably isn't right
-            return (boost::get< primitive_type_integer_reference >(t).bits + 7) / 8;
+            return (as< primitive_type_integer_reference >(t).bits + 7) / 8;
         }
         else if (is_ptr(t) || is_ref(t))
         {

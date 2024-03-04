@@ -18,16 +18,16 @@ start:
 
     if (typeis< ast2_class_declaration >(ast))
     {
-        ast_members = boost::get< ast2_class_declaration >(ast).members;
-        ast_globals = boost::get< ast2_class_declaration >(ast).globals;
+        ast_members = as< ast2_class_declaration >(ast).members;
+        ast_globals = as< ast2_class_declaration >(ast).globals;
     }
     else if (typeis< ast2_module_declaration >(ast))
     {
-        ast_globals = boost::get< ast2_module_declaration >(ast).globals;
+        ast_globals = as< ast2_module_declaration >(ast).globals;
     }
     else if (typeis< ast2_namespace_declaration >(ast))
     {
-        ast_globals = boost::get< ast2_namespace_declaration >(ast).globals;
+        ast_globals = as< ast2_namespace_declaration >(ast).globals;
     }
 
     else if (typeis< ast2_templex >(ast))

@@ -54,9 +54,20 @@ namespace quxlang
 
 
 
-        auto operator<=>(function_ast const & other) const
+        auto operator<(function_ast const & other) const
         {
-            return tie() <=> other.tie();
+            if (args < other.args) return true;
+            if (other.args < args) return false;
+            if (return_type < other.return_type) return true;
+            if (other.return_type < return_type) return false;
+            if (this_type < other.this_type) return true;
+            if (other.this_type < this_type) return false;
+            if (delegates < other.delegates) return true;
+            if (other.delegates < delegates) return false;
+            if (priority < other.priority) return true;
+            if (other.priority < priority) return false;
+            if (body < other.body) return true;
+            if (other.body < body) return false;
 
         }
     };

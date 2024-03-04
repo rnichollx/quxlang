@@ -8,6 +8,7 @@
 #include "catch2/catch2.hpp"
 #include "include/rpnx/resolver_utilities.hpp"
 #include <iostream>
+#include <rpnx/variant.hpp>
 
 class test_graph;
 
@@ -140,4 +141,24 @@ TEST_CASE("unsolvable_issue", "[graph_solver]")
     rpnx::single_thread_graph_solver< test_graph > solver;
     auto f = g.rec(7);
     REQUIRE_THROWS( solver.solve(&g, f) );
+}
+
+TEST_CASE("variant", "[variant]")
+{
+    rpnx::variant<int, std::string> v = 5;
+    REQUIRE(v.index() == 0);
+    REQUIRE(v.get_as<int>() == 5);
+    v = std::string("hello");
+    REQUIRE(v.index() == 1);
+    REQUIRE(v.get_as<std::string>() == "hello");
+
+    rpnx::variant<int, std::string> v2;
+
+    REQUIRE_THROWS(v2.get_as<std::string>());
+    REQUIRE(v2 < v);
+
+    std::pair<int, rpnx::variant<int, std::string> > p = {5, std::string("hello")};
+
+    std::map< rpnx::variant<int, std::string>, int > mp;
+    mp[v2] = 9;
 }

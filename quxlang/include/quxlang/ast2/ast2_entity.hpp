@@ -131,7 +131,7 @@ namespace quxlang
         std::optional< std::int64_t > priority;
         function_block body;
 
-        std::strong_ordering operator<=>(const ast2_function_declaration& other) const = default;
+        auto operator<=>(const ast2_function_declaration& other) const = default;
     };
 
     struct ast2_file_declaration

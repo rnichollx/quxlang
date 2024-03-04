@@ -17,9 +17,27 @@ namespace quxlang
     }
 
     template < typename T, typename... Ts >
+    bool typeis(rpnx::variant< Ts... > const& v)
+    {
+        return v.type() == boost::typeindex::type_id< T >() ;
+    }
+
+    template < typename T, typename... Ts >
     T& as(boost::variant< Ts... >& v)
     {
         return boost::get< T >(v);
+    }
+
+    template < typename T, typename... Ts >
+    T& as(rpnx::variant< Ts... >& v)
+    {
+        return v.template get_as< T >();
+    }
+
+    template < typename T, typename... Ts >
+    T const& as(rpnx::variant< Ts... > const& v)
+    {
+        return v.template get_as< T >();
     }
 
     template < typename T, typename... Ts >

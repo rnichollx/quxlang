@@ -11,7 +11,7 @@ void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 
     if (typeis< instanciation_reference >(chain))
     {
-        instanciation_reference const& param_set = boost::get< instanciation_reference >(chain);
+        instanciation_reference const& param_set = as< instanciation_reference >(chain);
         // We only care if the parent exists, we can exist but be an invalid functaniod otherwise?
         // Maybe this resolver should be renamed...
 

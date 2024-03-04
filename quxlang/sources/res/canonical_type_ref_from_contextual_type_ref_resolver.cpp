@@ -19,7 +19,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
-        instance_pointer_type const& ptr = boost::get< instance_pointer_type >(type);
+        instance_pointer_type const& ptr = as< instance_pointer_type >(type);
 
         type_symbol to_type = ptr.target;
 
@@ -47,7 +47,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
     }
     else if (type.type() == boost::typeindex::type_id< subentity_reference >())
     {
-        subentity_reference const& sub = boost::get< subentity_reference >(type);
+        subentity_reference const& sub = as< subentity_reference >(type);
 
         type_symbol const& parent = sub.parent;
 
@@ -126,7 +126,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
     }
     else if (type.type() == boost::typeindex::type_id< subdotentity_reference >())
     {
-        subdotentity_reference const& sub = boost::get< subdotentity_reference >(type);
+        subdotentity_reference const& sub = as< subdotentity_reference >(type);
 
         type_symbol const& parent = sub.parent;
 
@@ -180,7 +180,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
     }
     else if (type.type() == boost::typeindex::type_id< instanciation_reference >())
     {
-        instanciation_reference const& param_set = boost::get< instanciation_reference >(type);
+        instanciation_reference const& param_set = as< instanciation_reference >(type);
 
         instanciation_reference output;
 
@@ -225,7 +225,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
     }
     else if (type.type() == boost::typeindex::type_id< mvalue_reference >())
     {
-        auto target_type = boost::get< mvalue_reference >(type).target;
+        auto target_type = as< mvalue_reference >(type).target;
         auto target_can_dp = get_dependency(
             [&]
             {

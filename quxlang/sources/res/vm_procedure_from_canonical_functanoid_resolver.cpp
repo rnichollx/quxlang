@@ -573,7 +573,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         for (std::size_t i = 0; i < function_ast_v.args.size(); i++)
         {
             auto arg = function_ast_v.args[i];
-            auto arg_type = boost::get< instanciation_reference >(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
+            auto arg_type = as< instanciation_reference >(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
 
             // TODO: Check that arg_type matches arg.type
 
@@ -738,31 +738,31 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     ctx.comment("context generate value generic");
     if (typeis< expression_symbol_reference >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_symbol_reference >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_symbol_reference >(std::move(expr)));
     }
     else if (typeis< expression_binary >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_binary >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_binary >(std::move(expr)));
     }
     else if (typeis< expression_call >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_call >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_call >(std::move(expr)));
     }
     else if (typeis< numeric_literal >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< numeric_literal >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< numeric_literal >(std::move(expr)));
     }
     else if (typeis< expression_thisdot_reference >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_thisdot_reference >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_thisdot_reference >(std::move(expr)));
     }
     else if (typeis< expression_this_reference >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_this_reference >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_this_reference >(std::move(expr)));
     }
     else if (typeis< expression_dotreference >(expr))
     {
-        co_return co_await gen_value(ctx, boost::get< expression_dotreference >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_dotreference >(std::move(expr)));
     }
 
     else
@@ -922,12 +922,12 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, quxlang::expression_symbol_reference expr)
 {
-    bool is_possibly_frame_value = typeis< subentity_reference >(expr.symbol) && typeis< context_reference >(boost::get< subentity_reference >(expr.symbol).parent);
+    bool is_possibly_frame_value = typeis< subentity_reference >(expr.symbol) && typeis< context_reference >(as< subentity_reference >(expr.symbol).parent);
 
     // Frame values are sub-entities of the current context.
     if (is_possibly_frame_value)
     {
-        std::string name = boost::get< subentity_reference >(expr.symbol).subentity_name;
+        std::string name = as< subentity_reference >(expr.symbol).subentity_name;
 
         std::optional< vm_value > val = ctx.try_load_variable(name);
 
@@ -982,7 +982,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     auto underlying_to_type = remove_ref(to);
     if (typeis< primitive_type_integer_reference >(to) && typeis< vm_expr_literal >(from))
     {
-        vm_value result = gen_conversion_to_integer(ctx, boost::get< vm_expr_literal >(from), boost::get< primitive_type_integer_reference >(to));
+        vm_value result = gen_conversion_to_integer(ctx, as< vm_expr_literal >(from), as< primitive_type_integer_reference >(to));
 
         if (is_ref(to))
         {
@@ -1023,7 +1023,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
         throw std::runtime_error("Cannot call non-function reference");
     }
 
-    vm_expr_bound_value callee_binding_value = boost::get< vm_expr_bound_value >(callee);
+    vm_expr_bound_value callee_binding_value = as< vm_expr_bound_value >(callee);
 
     vm_value callee_value = callee_binding_value.value;
     type_symbol callee_func = callee_binding_value.function_ref;
@@ -1191,7 +1191,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, quxlang::type_symbol callee, std::vector< vm_value > call_args)
 {
 
-    instanciation_reference const& overload_selected_ref = boost::get< instanciation_reference >(callee);
+    instanciation_reference const& overload_selected_ref = as< instanciation_reference >(callee);
     std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
 
     auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
@@ -1269,18 +1269,18 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 {
     assert(typeis< instanciation_reference >(callee_set));
 
-    auto callee = boost::get< instanciation_reference >(callee_set).callee;
+    auto callee = as< instanciation_reference >(callee_set).callee;
 
     if (typeis< subdotentity_reference >(callee))
     {
-        subdotentity_reference const& subdot = boost::get< subdotentity_reference >(callee);
+        subdotentity_reference const& subdot = as< subdotentity_reference >(callee);
         type_symbol parent_type = subdot.parent;
 
         assert(!values.empty());
 
         if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
         {
-            primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
+            primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
             if (values.size() != 2)
             {
@@ -1323,7 +1323,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
         }
         if (subdot.subdotentity_name == "CONSTRUCTOR" && typeis< primitive_type_integer_reference >(parent_type))
         {
-            primitive_type_integer_reference const& int_type = boost::get< primitive_type_integer_reference >(parent_type);
+            primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
             // Can't call this... not possible
             if (values.empty())
@@ -1345,7 +1345,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 throw std::runtime_error("Invalid argument type to integer constructor");
             }
 
-            auto int_arg_type = boost::get< primitive_type_integer_reference >(remove_ref(arg_type));
+            auto int_arg_type = as< primitive_type_integer_reference >(remove_ref(arg_type));
             if (int_arg_type != int_type)
             {
                 throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
@@ -1495,37 +1495,37 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
 
     if (typeis< function_var_statement >(statement))
     {
-        function_var_statement var_stmt = boost::get< function_var_statement >(statement);
+        function_var_statement var_stmt = as< function_var_statement >(statement);
         co_await build(ctx, var_stmt);
         co_return;
     }
     else if (typeis< function_expression_statement >(statement))
     {
-        function_expression_statement expr_stmt = boost::get< function_expression_statement >(statement);
+        function_expression_statement expr_stmt = as< function_expression_statement >(statement);
         co_await build(ctx, expr_stmt);
         co_return;
     }
     else if (typeis< function_if_statement >(statement))
     {
-        function_if_statement if_stmt = boost::get< function_if_statement >(statement);
+        function_if_statement if_stmt = as< function_if_statement >(statement);
         co_await build(ctx, if_stmt);
         co_return;
     }
     else if (typeis< function_while_statement >(statement))
     {
-        function_while_statement while_stmt = boost::get< function_while_statement >(statement);
+        function_while_statement while_stmt = as< function_while_statement >(statement);
         co_await build(ctx, while_stmt);
         co_return;
     }
     else if (typeis< function_return_statement >(statement))
     {
-        function_return_statement return_stmt = boost::get< function_return_statement >(statement);
+        function_return_statement return_stmt = as< function_return_statement >(statement);
         co_await build(ctx, return_stmt);
         co_return;
     }
     else if (typeis< function_block >(statement))
     {
-        function_block block_stmt = boost::get< function_block >(statement);
+        function_block block_stmt = as< function_block >(statement);
         context_frame block_ctx(ctx);
         co_await build(ctx, block_stmt);
         co_await block_ctx.close();

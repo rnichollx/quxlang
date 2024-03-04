@@ -166,7 +166,7 @@ TEST_F(collector_tester, order_of_operations)
     std::string str = quxlang::to_string(expr);
 
     ASSERT_TRUE(expr.type() == boost::typeindex::type_id< quxlang::expression_binary >());
-    ASSERT_TRUE(boost::get< quxlang::expression_binary >(expr).operator_str == ":=");
+    ASSERT_TRUE(as< quxlang::expression_binary >(expr).operator_str == ":=");
     ASSERT_EQ(it, it_end);
 };
 

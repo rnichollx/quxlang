@@ -48,7 +48,7 @@ namespace quxlang
         }
         else if (type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
         {
-            primitive_type_integer_reference int_kw = boost::get< primitive_type_integer_reference >(type);
+            primitive_type_integer_reference int_kw = as< primitive_type_integer_reference >(type);
 
             int sz = 1;
             while (sz * 8 < int_kw.bits)

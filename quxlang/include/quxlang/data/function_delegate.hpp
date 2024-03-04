@@ -15,7 +15,7 @@ namespace quxlang
         type_symbol target;
         std::vector< expression > args;
 
-        std::strong_ordering operator<=>(const function_delegate& other) const = default;
+        auto operator<=>(const function_delegate& other) const = default;
     };
 } // namespace quxlang
 

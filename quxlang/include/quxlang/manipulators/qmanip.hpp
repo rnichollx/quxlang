@@ -61,7 +61,7 @@ namespace quxlang
         }
         else if (typeis< tvalue_reference >(ref))
         {
-            return mvalue_reference{boost::get< tvalue_reference >(ref).target};
+            return mvalue_reference{ref.template get_as<tvalue_reference>().target};
         }
         else if (typeis< cvalue_reference >(ref))
         {
@@ -69,7 +69,7 @@ namespace quxlang
         }
         else if (typeis< ovalue_reference >(ref))
         {
-            return mvalue_reference{boost::get< ovalue_reference >(ref).target};
+            return mvalue_reference{ref.get_as<ovalue_reference>().target};
         }
         else
         {
@@ -81,15 +81,15 @@ namespace quxlang
     {
         if (typeis< mvalue_reference >(ref))
         {
-            return ovalue_reference{boost::get< mvalue_reference >(ref).target};
+            return ovalue_reference{ref.get_as<mvalue_reference>().target};
         }
         else if (typeis< tvalue_reference >(ref))
         {
-            return ovalue_reference{boost::get< tvalue_reference >(ref).target};
+            return ovalue_reference{as< tvalue_reference >(ref).target};
         }
         else if (typeis< cvalue_reference >(ref))
         {
-            return ovalue_reference{boost::get< cvalue_reference >(ref).target};
+            return ovalue_reference{as< cvalue_reference >(ref).target};
         }
         else if (typeis< ovalue_reference >(ref))
         {
@@ -105,7 +105,7 @@ namespace quxlang
     {
         if (typeis< mvalue_reference >(ref))
         {
-            return tvalue_reference{boost::get< mvalue_reference >(ref).target};
+            return tvalue_reference{as< mvalue_reference >(ref).target};
         }
         else if (typeis< tvalue_reference >(ref))
         {
@@ -113,11 +113,11 @@ namespace quxlang
         }
         else if (typeis< cvalue_reference >(ref))
         {
-            return tvalue_reference{boost::get< cvalue_reference >(ref).target};
+            return tvalue_reference{as< cvalue_reference >(ref).target};
         }
         else if (typeis< ovalue_reference >(ref))
         {
-            return tvalue_reference{boost::get< ovalue_reference >(ref).target};
+            return tvalue_reference{as< ovalue_reference >(ref).target};
         }
         else
         {
@@ -129,11 +129,11 @@ namespace quxlang
     {
         if (typeis< mvalue_reference >(ref))
         {
-            return cvalue_reference{boost::get< mvalue_reference >(ref).target};
+            return cvalue_reference{as< mvalue_reference >(ref).target};
         }
         else if (typeis< tvalue_reference >(ref))
         {
-            return cvalue_reference{boost::get< tvalue_reference >(ref).target};
+            return cvalue_reference{as< tvalue_reference >(ref).target};
         }
         else if (typeis< cvalue_reference >(ref))
         {
@@ -141,7 +141,7 @@ namespace quxlang
         }
         else if (typeis< ovalue_reference >(ref))
         {
-            return cvalue_reference{boost::get< ovalue_reference >(ref).target};
+            return cvalue_reference{as< ovalue_reference >(ref).target};
         }
         else
         {
@@ -189,19 +189,19 @@ namespace quxlang
     {
         if (typeis< mvalue_reference >(type))
         {
-            return boost::get< mvalue_reference >(type).target;
+            return as< mvalue_reference >(type).target;
         }
         else if (typeis< tvalue_reference >(type))
         {
-            return boost::get< tvalue_reference >(type).target;
+            return as< tvalue_reference >(type).target;
         }
         else if (typeis< cvalue_reference >(type))
         {
-            return boost::get< cvalue_reference >(type).target;
+            return as< cvalue_reference >(type).target;
         }
         else if (typeis< ovalue_reference >(type))
         {
-            return boost::get< ovalue_reference >(type).target;
+            return as< ovalue_reference >(type).target;
         }
         else
         {

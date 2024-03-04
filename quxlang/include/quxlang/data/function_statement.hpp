@@ -33,8 +33,8 @@ namespace quxlang
     };
 
     using function_statement =
-        boost::variant< std::monostate, boost::recursive_wrapper< function_block >, boost::recursive_wrapper< function_expression_statement >, boost::recursive_wrapper< function_if_statement >,
-                        boost::recursive_wrapper< function_while_statement >, boost::recursive_wrapper< function_var_statement >, function_return_statement >;
+        rpnx::variant< std::monostate,  function_block ,  function_expression_statement ,  function_if_statement ,
+                         function_while_statement   ,  function_var_statement , function_return_statement >;
 
 
 

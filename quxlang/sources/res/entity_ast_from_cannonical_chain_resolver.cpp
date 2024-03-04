@@ -51,7 +51,7 @@ namespace quxlang
             auto module_ast_dp = get_dependency(
                 [&]
                 {
-                    return c->lk_module_ast(boost::get< module_reference >(chain).module_name);
+                    return c->lk_module_ast(as< module_reference >(chain).module_name);
                 });
 
             if (!ready())
@@ -63,7 +63,7 @@ namespace quxlang
         }
         else if (chain.type() == boost::typeindex::type_id< subentity_reference >())
         {
-            auto const& subentity_ref = boost::get< subentity_reference >(chain);
+            auto const& subentity_ref = as< subentity_reference >(chain);
             auto parent_ast_dp = get_dependency(
                 [&]
                 {
@@ -85,7 +85,7 @@ namespace quxlang
         }
         else if (chain.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
-            auto const& subentity_ref = boost::get< subdotentity_reference >(chain);
+            auto const& subentity_ref = as< subdotentity_reference >(chain);
             auto parent_ast_dp = get_dependency(
                 [&]
                 {

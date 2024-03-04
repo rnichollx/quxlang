@@ -74,9 +74,7 @@ namespace quxlang
     struct expression_equals;
     struct expression_not_equals;
     struct expression_binary;
-
-    using expression = boost::variant< expression_this_reference, boost::recursive_wrapper< expression_call >, boost::recursive_wrapper< expression_symbol_reference >,  expression_thisdot_reference, boost::recursive_wrapper< expression_dotreference >, boost::recursive_wrapper< expression_binary >, numeric_literal >;
-
+    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference,  expression_thisdot_reference, expression_dotreference, expression_binary, numeric_literal >;
     struct expression_binary
     {
         std::string operator_str;

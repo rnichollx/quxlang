@@ -143,7 +143,17 @@ namespace quxlang
             return "execute(" + to_string(what.expr) + ")";
         }
 
-        std::string operator()(vm_block const& what) const
+        std::string operator()(vm_block  what) const
+        {
+            std::string result = "block{";
+            for (auto const& i : what.code)
+            {
+                result += to_string(i) + "; ";
+            }
+            result += ")";
+            return result;
+        }
+        std::string operator()(vm_block const & what) const
         {
             std::string result = "block{";
             for (auto const& i : what.code)

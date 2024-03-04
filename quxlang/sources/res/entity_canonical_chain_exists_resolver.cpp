@@ -15,7 +15,7 @@ void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
     assert(!qualified_is_contextual(chain));
     if (chain.type() == boost::typeindex::type_id< module_reference >())
     {
-        std::string module_name = boost::get< module_reference >(chain).module_name;
+        std::string module_name = as< module_reference >(chain).module_name;
         // TODO: Check if module exists
         auto module_ast_dp = get_dependency(
             [&]
@@ -61,7 +61,7 @@ void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
 
         auto parent_ast = parent_ast_dp->get();
 
-        auto sub_name = boost::get< subdotentity_reference >(chain).subdotentity_name;
+        auto sub_name = as< subdotentity_reference >(chain).subdotentity_name;
 
         if (!typeis< ast2_class_declaration >(parent_ast))
         {
@@ -127,7 +127,7 @@ void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
         }
         auto const & class_map = class_map_dp->get();
 
-        std::string sub_name = boost::get< subentity_reference >(chain).subentity_name;
+        std::string sub_name = as< subentity_reference >(chain).subentity_name;
 
 
         if (class_map.globals.find(sub_name) == class_map.globals.end())
@@ -145,7 +145,7 @@ void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
     else if (chain.type() == boost::typeindex::type_id< instanciation_reference >())
     {
 
-        instanciation_reference const & ref = boost::get< instanciation_reference >(chain);
+        instanciation_reference const & ref = as< instanciation_reference >(chain);
 
         // TODO: Check if this set of arguments matches the temploid
 

@@ -90,12 +90,12 @@ namespace quxlang::parsers
             expression* binding_point2 = operator_bindings[priority];
             new_expression.lhs = std::move(*binding_point2);
             *binding_point2 = quxlang::expression(new_expression);
-            expression* binding_pointer = &boost::get< expression_binary >(*binding_point2).rhs;
+            expression* binding_pointer = &as< expression_binary >(*binding_point2).rhs;
             for (int i = priority + 1; i < operator_bindings.size(); i++)
             {
                 operator_bindings[i] = binding_pointer;
             }
-            value_binding = &(boost::get< expression_binary >(*binding_point2)).rhs;
+            value_binding = &(as< expression_binary >(*binding_point2)).rhs;
             return true;
         }
     } // namespace detail

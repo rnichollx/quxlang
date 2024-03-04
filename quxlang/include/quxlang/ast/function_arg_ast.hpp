@@ -23,11 +23,14 @@ namespace quxlang
             return "arg";
             //   return "ast_arg{ external_name: " + external_name + ", name: " + name + ", type: " + type.to_string() + " }";
         }
-        bool operator<(function_arg_ast const&) const
+        bool operator<(function_arg_ast const& other) const
         {
-            return std::tie(external_name, name, type) < std::tie(external_name, name, type);
+            return std::tie(external_name, name, type) < std::tie(other.external_name, other.name, other.type);
         }
-        auto operator<=>(function_arg_ast const & ) const = default;
+        auto operator<=>(function_arg_ast const & other) const
+        {
+            return std::tie(external_name, name, type) <=> std::tie(other.external_name, other.name, other.type);
+        }
     };
 
 } // namespace quxlang

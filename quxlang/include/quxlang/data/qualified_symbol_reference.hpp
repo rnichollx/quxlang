@@ -6,6 +6,7 @@
 #define QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
 
 #include "numeric_literal.hpp"
+#include "rpnx/variant.hpp"
 #include <boost/variant.hpp>
 #include <compare>
 #include <rpnx/resolver_utilities.hpp>
@@ -50,7 +51,26 @@ namespace quxlang
     struct bound_function_type_reference;
     // struct function_type_reference;
 
-    using type_symbol = boost::variant< void_type, context_reference, template_reference, module_reference, boost::recursive_wrapper< subentity_reference >, boost::recursive_wrapper< primitive_type_integer_reference >, boost::recursive_wrapper< primitive_type_bool_reference >, boost::recursive_wrapper< instanciation_reference >, boost::recursive_wrapper< value_expression_reference >, boost::recursive_wrapper< subdotentity_reference >, boost::recursive_wrapper< instance_pointer_type >, boost::recursive_wrapper< tvalue_reference >, boost::recursive_wrapper< mvalue_reference >, boost::recursive_wrapper< cvalue_reference >, boost::recursive_wrapper< ovalue_reference >, boost::recursive_wrapper< bound_function_type_reference >, boost::recursive_wrapper< numeric_literal_reference >, boost::recursive_wrapper< avalue_reference > >;
+    using type_symbol = rpnx::variant<
+            void_type,
+            context_reference,
+            template_reference,
+            module_reference,
+            subentity_reference,
+            primitive_type_integer_reference,
+            primitive_type_bool_reference,
+            instanciation_reference,
+            value_expression_reference,
+            subdotentity_reference,
+            instance_pointer_type,
+            tvalue_reference,
+            mvalue_reference,
+            cvalue_reference,
+            ovalue_reference,
+            bound_function_type_reference,
+            numeric_literal_reference,
+            avalue_reference
+    >;
 
     struct module_reference
     {
@@ -121,6 +141,8 @@ namespace quxlang
         {
             return std::tie(callee, parameters) <=> std::tie(callee, parameters);
         }
+
+
     };
 
     struct mvalue_reference
