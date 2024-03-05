@@ -21,12 +21,16 @@ namespace quxlang
         std::vector< function_arg_ast > args;
         std::optional< type_symbol > return_type;
         std::optional< type_symbol > this_type;
-        std::vector < function_delegate > delegates;
-        std::optional<std::int64_t> priority;
+        std::vector< function_delegate > delegates;
+        std::optional< std::int64_t > priority;
         function_block body;
 
+        std::strong_ordering operator<=>(const function_ast& other) const
+        {
+            return rpnx::compare(args, other.args, return_type, other.return_type, this_type, other.this_type, delegates, other.delegates, priority, other.priority, body, other.body);
+        }
 
-        std::string to_string()
+        std::string to_string() const
         {
             std::string result = "ast_function{ args: [";
             auto next_it = args.begin();
@@ -45,31 +49,6 @@ namespace quxlang
             return result;
         }
 
-        auto tie() const
-        {
-
-            return std::tie(args, return_type, this_type, delegates, priority, body);
-        }
-
-
-
-
-        auto operator<(function_ast const & other) const
-        {
-            if (args < other.args) return true;
-            if (other.args < args) return false;
-            if (return_type < other.return_type) return true;
-            if (other.return_type < return_type) return false;
-            if (this_type < other.this_type) return true;
-            if (other.this_type < this_type) return false;
-            if (delegates < other.delegates) return true;
-            if (other.delegates < delegates) return false;
-            if (priority < other.priority) return true;
-            if (other.priority < priority) return false;
-            if (body < other.body) return true;
-            if (other.body < body) return false;
-
-        }
     };
 } // namespace quxlang
 

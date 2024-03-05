@@ -17,7 +17,7 @@ namespace quxlang
         std::string name;
         type_symbol type;
 
-        std::string to_string()
+        std::string to_string() const
         {
 
             return "arg";

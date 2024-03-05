@@ -182,7 +182,7 @@ namespace rpnx {
 
         template<std::size_t N>
         static consteval variant_impl_info calc_info() {
-            using type = std::tuple_element<N, std::tuple<Ts...>>::type;
+            using type = typename std::tuple_element<N, std::tuple<Ts...>>::type;
             variant_impl_info result{};
             auto  v_info = variant_detail<Allocator>::template make_variant_info<type>();
 
@@ -233,10 +233,15 @@ namespace rpnx {
             }
         }
 
+        template<typename T>
+        static constexpr bool can_construct_with() {
+            // If T is convertible to any of the types in Ts..., return true
+            return (std::is_convertible_v<T, Ts> || ...);
+        }
+
         template<typename T2>
-        constexpr basic_variant(T2 const &value, const allocator_type &alloc = allocator_type())
+        constexpr basic_variant(T2 const &value, const allocator_type &alloc = allocator_type(), std::enable_if_t<rpnx::basic_variant<Allocator, Ts...>::can_construct_with<T2>(), int> = 0)
                 : m_alloc(alloc) {
-            static_assert(can_construct_with<T2>());
 
             constexpr std::size_t index = constructor_index<T2>();
             using rebound_alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<T2>;
@@ -262,11 +267,7 @@ namespace rpnx {
         }
 
 
-        template<typename T>
-        static constexpr bool can_construct_with() {
-            // If T is convertible to any of the types in Ts..., return true
-            return (std::is_convertible_v<T, Ts> || ...);
-        }
+
 
         template<typename T>
         constexpr basic_variant<Allocator, Ts...> &operator=(T const &value) {

@@ -29,7 +29,10 @@ namespace quxlang
         type_symbol type;
         // TODO: support named initializers
         std::vector<expression> initializers;
-        auto operator<=>(const function_var_statement& other) const = default;
+        std::strong_ordering operator<=>(const function_var_statement& other) const
+        {
+            return rpnx::compare(name, other.name, type, other.type, initializers, other.initializers);
+        }
     };
 
     using function_statement =

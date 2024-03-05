@@ -17,7 +17,10 @@ namespace quxlang
         function_block then_block;
         std::optional< function_block > else_block;
 
-        std::strong_ordering operator<=>(const function_if_statement& other) const = default;
+        std::strong_ordering operator<=>(const function_if_statement& other) const
+        {
+            return rpnx::compare(condition, other.condition, then_block, other.then_block, else_block, other.else_block);
+        }
     };
 
 } // namespace quxlang

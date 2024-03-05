@@ -131,7 +131,10 @@ namespace quxlang
         std::optional< std::int64_t > priority;
         function_block body;
 
-        auto operator<=>(const ast2_function_declaration& other) const = default;
+        std::strong_ordering operator<=>(const ast2_function_declaration& other) const
+        {
+            return rpnx::compare(args, other.args, return_type, other.return_type, this_type, other.this_type, delegates, other.delegates, priority, other.priority, body, other.body);
+        }
     };
 
     struct ast2_file_declaration

@@ -7,10 +7,15 @@
 
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"
+#include "rpnx/string.hpp"
+
 #include <boost/variant.hpp>
 #include <quxlang/data/qualified_symbol_reference.hpp>
 #include <utility>
 #include <vector>
+#include <rpnx/variant.hpp>
+#include <rpnx/compare.hpp>
+
 
 namespace quxlang
 {
@@ -74,15 +79,19 @@ namespace quxlang
     struct expression_equals;
     struct expression_not_equals;
     struct expression_binary;
-    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference,  expression_thisdot_reference, expression_dotreference, expression_binary, numeric_literal >;
+    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, numeric_literal >;
+
     struct expression_binary
     {
-        std::string operator_str;
+        rpnx::string operator_str;
 
         expression lhs;
         expression rhs;
 
-        std::strong_ordering operator<=>(const expression_binary& other) const = default;
+        std::strong_ordering operator<=>(const expression_binary& other) const
+        {
+            return compare(operator_str, other.operator_str, lhs, other.lhs, rhs, other.rhs);
+        }
     };
 
 } // namespace quxlang
