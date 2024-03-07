@@ -12,16 +12,26 @@
 namespace quxlang
 {
 
-   struct vm_expr_literal
-   {
-      std::string literal;
-   };
+    struct vm_expr_literal
+    {
+        std::string literal;
 
-   struct vm_expr_load_literal
-   {
-       std::string literal;
-       type_symbol type;
-   };
+        std::strong_ordering operator<=>(const vm_expr_literal& other) const
+        {
+            return rpnx::compare(literal, other.literal);
+        }
+    };
+
+    struct vm_expr_load_literal
+    {
+        std::string literal;
+        type_symbol type;
+
+        std::strong_ordering operator<=>(const vm_expr_load_literal& other) const
+        {
+            return rpnx::compare(literal, other.literal, type, other.type);
+        }
+    };
 
 
 }

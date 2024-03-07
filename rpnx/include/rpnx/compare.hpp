@@ -7,8 +7,10 @@
 namespace rpnx
 {
 
-    template <typename... Ts>
-    std::strong_ordering compare(const Ts&... args);
+    inline std::strong_ordering compare()
+    {
+        return std::strong_ordering::equal;
+    }
 
     template <typename T, typename... Ts>
     std::strong_ordering compare(T const& a, T const& b, const Ts&... args)
@@ -18,11 +20,6 @@ namespace rpnx
         if (b < a)
             return std::strong_ordering::greater;
         return compare(args...);
-    }
-
-    std::strong_ordering compare()
-    {
-        return std::strong_ordering::equal;
     }
 
 

@@ -83,7 +83,7 @@ namespace quxlang
 
     struct expression_binary
     {
-        rpnx::string operator_str;
+        std::string operator_str;
 
         expression lhs;
         expression rhs;

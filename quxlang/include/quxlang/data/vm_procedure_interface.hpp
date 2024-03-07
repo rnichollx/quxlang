@@ -18,6 +18,11 @@ namespace quxlang
 
        std::optional<type_symbol> return_type;
        std::vector<type_symbol> argument_types;
+
+       std::strong_ordering operator<=>(const vm_procedure_interface& other) const
+       {
+           return rpnx::compare(return_type, other.return_type, argument_types, other.argument_types);
+       }
    };
 } // namespace quxlang
 

@@ -12,6 +12,11 @@ namespace quxlang
   struct vm_expr_poison
   {
       type_symbol type;
+
+      std::strong_ordering operator<=>(const vm_expr_poison& other) const
+      {
+          return rpnx::compare(type, other.type);
+      }
   };
 }
 

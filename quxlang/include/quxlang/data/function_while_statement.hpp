@@ -18,7 +18,10 @@ namespace quxlang
         expression condition;
         function_block loop_block;
 
-        std::strong_ordering operator<=>(const function_while_statement& other) const = default;
+        std::strong_ordering operator<=>(const function_while_statement& other) const
+        {
+            return rpnx::compare(condition, other.condition, loop_block, other.loop_block);
+        }
     };
 
 } // namespace quxlang

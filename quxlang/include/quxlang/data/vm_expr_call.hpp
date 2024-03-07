@@ -17,6 +17,12 @@ namespace quxlang
         // TODO: Is this interface needed?
         vm_procedure_interface interface;
         std::vector< vm_value > arguments;
+
+
+        std::strong_ordering operator<=>(const vm_expr_call& other) const
+        {
+            return rpnx::compare(mangled_procedure_name, other.mangled_procedure_name, functanoid, other.functanoid, interface, other.interface, arguments, other.arguments);
+        }
     };
 } // namespace quxlang
 

@@ -38,6 +38,11 @@ namespace quxlang
         vm_value rhs;
         std::string oper;
         type_symbol type;
+
+        std::strong_ordering operator<=>(const vm_expr_primitive_binary_op& other) const
+        {
+            return rpnx::compare(lhs, other.lhs, rhs, other.rhs, oper, other.oper, type, other.type);
+        }
     };
 
     struct vm_expr_primitive_unary_op

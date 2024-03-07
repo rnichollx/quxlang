@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cinttypes>
 #include <tuple>
+#include <cassert>
 #include <memory>
 #include <variant>
 #include <typeinfo>
@@ -196,7 +197,7 @@ namespace rpnx
                 const T& l = *static_cast< const T* >(lhs);
                 const T& r = *static_cast< const T* >(rhs);
 
-                static_assert(std::is_same<decltype(l), decltype(r)>::value, "T must be the same type as T");
+                static_assert(std::is_same< decltype(l), decltype(r) >::value, "T must be the same type as T");
                 if (l < r)
                     return std::strong_ordering::less;
                 if (r < l)
@@ -357,7 +358,7 @@ namespace rpnx
 
         if constexpr (N < std::tuple_size_v< std::tuple< Vs... > >)
         {
-            lvalue_invoke_ptr ptr = &apply_nth_visitor< rpnx::basic_variant< A, Vs... >&, F, R, N, call_type::required>;
+            lvalue_invoke_ptr ptr = &apply_nth_visitor< rpnx::basic_variant< A, Vs... >&, F, R, N, call_type::required >;
             table[N] = ptr;
             update_variant_invoke_table_lvalue< N + 1, F, R, A, Vs... >(table);
         }
@@ -393,7 +394,7 @@ namespace rpnx
     template <typename R, typename A, typename... Vs, typename F>
     inline R apply_visitor(F&& func, rpnx::basic_variant< A, Vs... >& variant)
     {
-        return variant_invoke_table< F, A, Vs... >[variant.index()](variant, std::forward< F >(func));
+        return variant_invoke_table< F, R, A, Vs... >[variant.index()](variant, std::forward< F >(func));
     }
 
     template <typename R, typename A, typename... Vs, typename F>
@@ -405,10 +406,7 @@ namespace rpnx
     template <typename R, typename A, typename... Vs, typename F>
     inline R apply_visitor(F&& func, rpnx::basic_variant< A, Vs... >&& variant)
     {
-        return variant_temp_invoke_table< F, R, A, Vs
-                                          ...
-            >
-            [variant.index()](variant, std::forward< F >(func));
+        return variant_temp_invoke_table< F, R, A, Vs... >[variant.index()](variant, std::forward< F >(func));
     }
 
     template <typename A, typename... Ts>
@@ -461,7 +459,6 @@ namespace rpnx
             try
             {
                 m_data = m_vinf->m_general_info.m_default_new(m_alloc);
-
             }
             catch (...)
             {
@@ -470,9 +467,16 @@ namespace rpnx
             }
         }
 
-        constexpr basic_variant(const basic_variant& other)
+        constexpr basic_variant( basic_variant<Allocator, Ts...> const & other)
             : m_alloc(std::allocator_traits< Allocator >::select_on_container_copy_construction(other.m_alloc))
         {
+            assert(&other != nullptr);
+            m_vinf = nullptr;
+            m_data = nullptr;
+            if (other.m_vinf == nullptr)
+            {
+                return;
+            }
             m_vinf = other.m_vinf;
             try
             {
@@ -487,9 +491,17 @@ namespace rpnx
 
         ~basic_variant()
         {
+            reset();
+        }
+
+
+        void reset()
+        {
             if (m_vinf != nullptr)
             {
                 m_vinf->m_general_info.m_destroy(m_alloc, m_data);
+                m_data = nullptr;
+                m_vinf = nullptr;
             }
         }
 
@@ -535,6 +547,10 @@ namespace rpnx
                 m_vinf = nullptr;
                 throw;
             }
+        }
+
+        constexpr basic_variant< Allocator, Ts... >& operator =(basic_variant< Allocator, Ts... > const & other)
+        {
         }
 
 
