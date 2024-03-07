@@ -16,6 +16,10 @@ namespace quxlang
         type_symbol type;
         //vm_type type;
 
+        auto operator<=>(const vm_expr_dereference&other) const
+        {
+            return rpnx::compare(expr, other.expr, type, other.type);
+        }
     };
 } // namespace quxlang
 

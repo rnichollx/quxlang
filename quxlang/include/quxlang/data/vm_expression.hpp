@@ -5,9 +5,10 @@
 #ifndef QUXLANG_VM_EXPRESSION_HEADER_GUARD
 #define QUXLANG_VM_EXPRESSION_HEADER_GUARD
 
-#include <boost/variant.hpp>
+#include <rpnx/variant.hpp>
 
 #include "vm_type.hpp"
+
 namespace quxlang
 {
     struct vm_expr_load_address;
@@ -33,7 +34,7 @@ namespace quxlang
 
     struct vm_expr_poison;
 
-    using vm_value = boost::variant< void_value, boost::recursive_wrapper< vm_expr_primitive_binary_op >, boost::recursive_wrapper< vm_expr_primitive_unary_op >, boost::recursive_wrapper< vm_expr_load_address >, boost::recursive_wrapper< vm_expr_dereference >, boost::recursive_wrapper< vm_expr_store >, boost::recursive_wrapper< vm_expr_load_literal >, boost::recursive_wrapper< vm_expr_access_field >, boost::recursive_wrapper< vm_expr_literal >, boost::recursive_wrapper< vm_expr_call >, boost::recursive_wrapper< vm_expr_bound_value >, boost::recursive_wrapper<vm_expr_reinterpret>, boost::recursive_wrapper<vm_expr_poison> >;
+    using vm_value = rpnx::variant< void_value, vm_expr_primitive_binary_op, vm_expr_primitive_unary_op, vm_expr_load_address, vm_expr_dereference, vm_expr_store, vm_expr_load_literal, vm_expr_access_field, vm_expr_literal, vm_expr_call, vm_expr_bound_value, vm_expr_reinterpret, vm_expr_poison >;
 
 } // namespace quxlang
 

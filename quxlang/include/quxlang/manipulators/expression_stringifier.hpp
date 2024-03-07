@@ -101,7 +101,7 @@ namespace quxlang
 
     inline std::string to_string(expression const& expr)
     {
-        return boost::apply_visitor(expression_stringifier{}, expr);
+        return rpnx::apply_visitor(expression_stringifier{}, expr);
     }
 } // namespace quxlang
 

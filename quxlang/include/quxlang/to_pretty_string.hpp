@@ -55,7 +55,7 @@ namespace quxlang
             for (auto const& arg : call.args)
             {
                 result += indent_string() + "arg: ";
-                result += boost::apply_visitor(*this, arg);
+                result += rpnx::apply_visitor<std::string>(*this, arg);
                 result += "\n";
             }
             current_indent--;
@@ -74,10 +74,10 @@ namespace quxlang
             ++current_indent;
             result += indent_string();
             result += "left: ";
-            result += boost::apply_visitor(*this, op.lhs);
+            result += rpnx::apply_visitor<std::string>(*this, op.lhs);
             result += indent_string();
             result += "right: ";
-            result += boost::apply_visitor(*this, op.rhs);
+            result += rpnx::apply_visitor<std::string>(*this, op.rhs);
             result += indent_string() + "} // binary op\n";
             --current_indent;
             return result;
@@ -107,7 +107,7 @@ namespace quxlang
             for (auto const& unit : block.code)
             {
                 result += indent_string();
-                result += boost::apply_visitor(*this, unit);
+                result += rpnx::apply_visitor<std::string>(*this, unit);
                 result += "\n";
             }
             current_indent--;
@@ -141,7 +141,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "type: ";
-            result += boost::apply_visitor(*this, poison.type);
+            result += rpnx::apply_visitor<std::string>(*this, poison.type);
             current_indent--;
             result += indent_string();
             result += "} end poison\n";
@@ -155,10 +155,10 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "what: ";
-            result += boost::apply_visitor(*this, store.what);
+            result += rpnx::apply_visitor<std::string>(*this, store.what);
             result += indent_string();
             result += "where: ";
-            result += boost::apply_visitor(*this, store.where);
+            result += rpnx::apply_visitor<std::string>(*this, store.where);
             current_indent--;
             result += indent_string();
             result += "} end store\n";
@@ -174,9 +174,9 @@ namespace quxlang
             result += "\n";
             result += indent_string();
             result += "base: ";
-            result += boost::apply_visitor(*this, op.base);
+            result += rpnx::apply_visitor<std::string>(*this, op.base);
             result += "type: ";
-            result += boost::apply_visitor(*this, op.type);
+            result += rpnx::apply_visitor<std::string>(*this, op.type);
             current_indent--;
             result += indent_string() + "} end access_field\n";
             return result;
@@ -188,9 +188,9 @@ namespace quxlang
             result += "vm_expr_store{\n";
             current_indent++;
             result += indent_string() + "what: ";
-            result += boost::apply_visitor(*this, op.what);
+            result += rpnx::apply_visitor<std::string>(*this, op.what);
             result += indent_string() + "where: ";
-            result += boost::apply_visitor(*this, op.where);
+            result += rpnx::apply_visitor<std::string>(*this, op.where);
             current_indent--;
             result += indent_string() + "} end expr_store\n";
             return result;
@@ -217,7 +217,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "parent: ";
-            result += boost::apply_visitor(*this, ref.parent);
+            result += rpnx::apply_visitor<std::string>(*this, ref.parent);
             result += "\n";
             result += indent_string();
             result += "subentity_name: ";
@@ -234,7 +234,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "parent: ";
-            result += boost::apply_visitor(*this, ref.parent);
+            result += rpnx::apply_visitor<std::string>(*this, ref.parent);
             result += "\n";
             result += indent_string();
             result += "subdotentity_name: ";
@@ -260,7 +260,7 @@ namespace quxlang
             for (auto const& arg : field.arguments)
             {
                 result += indent_string();
-                result += "arg:" + boost::apply_visitor(*this, arg);
+                result += "arg:" + rpnx::apply_visitor<std::string>(*this, arg);
                 result += "\n";
             }
             current_indent--;
@@ -276,7 +276,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "type: ";
-            result += boost::apply_visitor(*this, field.type);
+            result += rpnx::apply_visitor<std::string>(*this, field.type);
             result += indent_string() + "index: ";
             result += std::to_string(field.index) + "\n";
             current_indent--;
@@ -291,9 +291,9 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "base: ";
-            result += boost::apply_visitor(*this, field.expr);
+            result += rpnx::apply_visitor<std::string>(*this, field.expr);
             result += indent_string() + "type: ";
-            result += boost::apply_visitor(*this, field.type);
+            result += rpnx::apply_visitor<std::string>(*this, field.type);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -310,7 +310,7 @@ namespace quxlang
             result += "\n";
             result += indent_string();
             result += "base: ";
-            result += boost::apply_visitor(*this, field.expr);
+            result += rpnx::apply_visitor<std::string>(*this, field.expr);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -327,7 +327,7 @@ namespace quxlang
             result += "\n";
             result += indent_string();
             result += "type: ";
-            result += boost::apply_visitor(*this, field.type);
+            result += rpnx::apply_visitor<std::string>(*this, field.type);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -340,10 +340,10 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "value: ";
-            result += boost::apply_visitor(*this, field.value);
+            result += rpnx::apply_visitor<std::string>(*this, field.value);
             result += indent_string();
             result += "function_ref: ";
-            result += boost::apply_visitor(*this, field.function_ref);
+            result += rpnx::apply_visitor<std::string>(*this, field.function_ref);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -356,10 +356,10 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "expr: ";
-            result += boost::apply_visitor(*this, field.expr);
+            result += rpnx::apply_visitor<std::string>(*this, field.expr);
             result += indent_string();
             result += "type: ";
-            result += boost::apply_visitor(*this, field.type);
+            result += rpnx::apply_visitor<std::string>(*this, field.type);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -372,7 +372,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "expr: ";
-            result += boost::apply_visitor(*this, expr.expr);
+            result += rpnx::apply_visitor<std::string>(*this, expr.expr);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -390,7 +390,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "condition: ";
-            result += boost::apply_visitor(*this, ifval.condition);
+            result += rpnx::apply_visitor<std::string>(*this, ifval.condition);
             result += indent_string();
             result += "then_block: ";
             result += operator()(ifval.then_block);
@@ -412,7 +412,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "condition: ";
-            result += boost::apply_visitor(*this, whileval.condition);
+            result += rpnx::apply_visitor<std::string>(*this, whileval.condition);
             result += indent_string();
             result += "loop_block: ";
             result += operator()(whileval.loop_block);
@@ -467,7 +467,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ptr.target);
+            result += rpnx::apply_visitor<std::string>(*this, ptr.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -486,7 +486,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "callee: ";
-            result += boost::apply_visitor(*this, func.callee);
+            result += rpnx::apply_visitor<std::string>(*this, func.callee);
             result += indent_string();
             result += "parameters: ";
             current_indent++;
@@ -494,7 +494,7 @@ namespace quxlang
             {
                 result += indent_string();
                 result += "param: ";
-                result += boost::apply_visitor(*this, param);
+                result += rpnx::apply_visitor<std::string>(*this, param);
                 result += "\n";
             }
             current_indent--;
@@ -510,7 +510,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ref.target);
+            result += rpnx::apply_visitor<std::string>(*this, ref.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -523,7 +523,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ref.target);
+            result += rpnx::apply_visitor<std::string>(*this, ref.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -536,7 +536,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ref.target);
+            result += rpnx::apply_visitor<std::string>(*this, ref.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -549,7 +549,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ref.target);
+            result += rpnx::apply_visitor<std::string>(*this, ref.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -562,7 +562,7 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "target: ";
-            result += boost::apply_visitor(*this, ref.target);
+            result += rpnx::apply_visitor<std::string>(*this, ref.target);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -575,10 +575,10 @@ namespace quxlang
             current_indent++;
             result += indent_string();
             result += "object_type: ";
-            result += boost::apply_visitor(*this, ref.object_type);
+            result += rpnx::apply_visitor<std::string>(*this, ref.object_type);
             result += indent_string();
             result += "function_type: ";
-            result += boost::apply_visitor(*this, ref.function_type);
+            result += rpnx::apply_visitor<std::string>(*this, ref.function_type);
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -603,7 +603,7 @@ namespace quxlang
             result += "field_name: " + what.field_name + "\n";
             result += indent_string();
             result += "base: ";
-            result += boost::apply_visitor(*this, what.lhs);
+            result += rpnx::apply_visitor<std::string>(*this, what.lhs);
             result += indent_string();
             current_indent--;
             result += indent_string() + "}\n";
@@ -626,10 +626,10 @@ namespace quxlang
             result += "\n";
             result += indent_string();
             result += "lhs: ";
-            result += boost::apply_visitor(*this, what.lhs);
+            result += rpnx::apply_visitor<std::string>(*this, what.lhs);
             result += indent_string();
             result += "rhs: ";
-            result += boost::apply_visitor(*this, what.rhs);
+            result += rpnx::apply_visitor<std::string>(*this, what.rhs);
             result += indent_string();
             current_indent--;
             result += indent_string() + "}\n";
@@ -645,13 +645,13 @@ namespace quxlang
     inline std::string to_pretty_string(expression expr)
     {
         to_pretty_string_visitor visitor;
-        return boost::apply_visitor(visitor, expr);
+        return rpnx::apply_visitor<std::string>(visitor, expr);
     }
 
     inline std::string to_pretty_string(vm_executable_unit expr)
     {
         to_pretty_string_visitor visitor;
-        return boost::apply_visitor(visitor, expr);
+        return rpnx::apply_visitor<std::string>(visitor, expr);
     }
 
 } // namespace quxlang

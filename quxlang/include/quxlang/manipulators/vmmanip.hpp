@@ -32,7 +32,7 @@ namespace quxlang
         {
             bound_function_type_reference result;
             result.function_type = op.function_ref;
-            result.object_type = boost::apply_visitor(vm_value_type_vistor{}, op.value);
+            result.object_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor{}, op.value);
             return result;
         }
 
@@ -89,7 +89,7 @@ namespace quxlang
 
     inline type_symbol vm_value_type(vm_value const& val)
     {
-        return boost::apply_visitor(vm_value_type_vistor{}, val);
+        return rpnx::apply_visitor<type_symbol>(vm_value_type_vistor{}, val);
     }
 
     std::string to_string(vm_value const&);
@@ -257,11 +257,11 @@ namespace quxlang
 
     inline std::string to_string(vm_value const& val)
     {
-        return boost::apply_visitor(vm_expression_stringifier{}, val);
+        return rpnx::apply_visitor<std::string>(vm_expression_stringifier{}, val);
     }
     inline std::string to_string(vm_executable_unit const& val)
     {
-        return boost::apply_visitor(vm_expression_stringifier{}, val);
+        return rpnx::apply_visitor<std::string>(vm_expression_stringifier{}, val);
     }
 } // namespace quxlang
 

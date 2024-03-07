@@ -25,29 +25,39 @@ namespace quxlang
     struct ast2_extern;
     struct ast2_asm_procedure_declaration;
 
-    using ast2_declarable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration >, ast2_extern, ast2_asm_procedure_declaration >;
+    using ast2_declarable = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
 
     struct ast2_functum;
     struct ast2_templex;
 
-    using ast2_map_entity = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_extern >, ast2_asm_procedure_declaration>;
+    using ast2_map_entity = rpnx::variant< std::monostate, ast2_functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_node = boost::variant< std::monostate, boost::recursive_wrapper< ast2_functum >, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_variable_declaration >, boost::recursive_wrapper< ast2_templex >, boost::recursive_wrapper< ast2_module_declaration >, boost::recursive_wrapper< ast2_namespace_declaration >, boost::recursive_wrapper< ast2_function_declaration >, boost::recursive_wrapper< ast2_template_declaration >, boost::recursive_wrapper< ast2_extern >, ast2_asm_procedure_declaration >;
+    using ast2_node = rpnx::variant< std::monostate, ast2_functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_templatable = boost::variant< std::monostate, boost::recursive_wrapper< ast2_class_declaration >, boost::recursive_wrapper< ast2_function_declaration > >;
+    using ast2_templatable = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
     struct ast2_extern
     {
         std::string lang;
         std::string symbol;
         std::vector< ast2_function_arg > args;
+
+        auto operator<=>(const ast2_extern& other) const
+        {
+            return rpnx::compare(lang, other.lang, symbol, other.symbol, args, other.args);
+        }
     };
 
     struct ast2_argument_interface
     {
         std::string register_name;
         type_symbol type;
+
+        auto operator<=>(const ast2_argument_interface& other) const
+        {
+            return rpnx::compare(register_name, other.register_name, type, other.type);
+        }
 
     };
 
@@ -56,31 +66,39 @@ namespace quxlang
     struct ast2_asm_callable
     {
         std::string calling_conv;
-        std::vector<ast2_argument_interface> args;
+        std::vector< ast2_argument_interface > args;
 
-        std::set<std::string> clobber;
-        std::optional<type_symbol> return_type;
+        std::set< std::string > clobber;
+        std::optional< type_symbol > return_type;
+
+        std::strong_ordering operator<=>(const ast2_asm_callable& other) const
+        {
+            return rpnx::compare(calling_conv, other.calling_conv, args, other.args, clobber, other.clobber, return_type, other.return_type);
+        }
 
     };
 
     struct ast2_asm_procedure_declaration
     {
-        std::vector<asm_instruction> instructions;
-        std::optional<std::string> linkname;
-        std::vector<ast2_asm_callable> callable_interfaces;
+        std::vector< asm_instruction > instructions;
+        std::optional< std::string > linkname;
+        std::vector< ast2_asm_callable > callable_interfaces;
+
+        std::strong_ordering operator<=>(const ast2_asm_procedure_declaration& other) const
+        {
+            return rpnx::compare(instructions, other.instructions, linkname, other.linkname, callable_interfaces, other.callable_interfaces);
+        }
     };
-
-
-
-
-
-
 
 
     struct ast2_functum
     {
         std::vector< ast2_function_declaration > functions;
-        std::strong_ordering operator<=>(const ast2_functum& other) const = default;
+
+        std::strong_ordering operator<=>(const ast2_functum& other) const
+        {
+            return rpnx::compare(functions, other.functions);
+        }
     };
 
     struct ast2_namespace_declaration

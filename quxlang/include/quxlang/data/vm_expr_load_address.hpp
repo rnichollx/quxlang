@@ -14,6 +14,11 @@ namespace quxlang
     {
         std::size_t index;
         type_symbol type;
+
+        auto operator<=>(const vm_expr_load_address& other) const
+        {
+            return rpnx::compare(index, other.index, type, other.type);
+        }
     };
 } // namespace quxlang
 

@@ -156,7 +156,7 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref)
     {
-        return boost::apply_visitor(is_template_visitor{}, ref);
+        return rpnx::apply_visitor<bool>(is_template_visitor{}, ref);
     }
 
     std::optional< type_symbol > qualified_parent(type_symbol input)
@@ -219,11 +219,11 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(instance_pointer_type const& ref) const
     {
-        return "->" + boost::apply_visitor(*this, ref.target);
+        return "->" + rpnx::apply_visitor<std::string>(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
-        std::string output = boost::apply_visitor(*this, ref.callee) + "(";
+        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "(";
         bool first = true;
         for (auto& p : ref.parameters)
         {
@@ -231,26 +231,26 @@ namespace quxlang
                 first = false;
             else
                 output += ", ";
-            output += boost::apply_visitor(*this, p);
+            output += rpnx::apply_visitor<std::string>(*this, p);
         }
         output += ")";
         return output;
     }
     std::string qualified_symbol_stringifier::operator()(mvalue_reference const& ref) const
     {
-        return "MUT& " + boost::apply_visitor(*this, ref.target);
+        return "MUT& " + rpnx::apply_visitor<std::string>(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(tvalue_reference const& ref) const
     {
-        return "TEMP& " + boost::apply_visitor(*this, ref.target);
+        return "TEMP& " + rpnx::apply_visitor<std::string>(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(cvalue_reference const& ref) const
     {
-        return "CONST& " + boost::apply_visitor(*this, ref.target);
+        return "CONST& " + rpnx::apply_visitor<std::string>(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(ovalue_reference const& ref) const
     {
-        return "OUT&" + boost::apply_visitor(*this, ref.target);
+        return "OUT&" + rpnx::apply_visitor<std::string>(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
     {
@@ -455,7 +455,7 @@ namespace quxlang
     }
     std::string to_string(type_symbol const& ref)
     {
-        return boost::apply_visitor(qualified_symbol_stringifier{}, ref);
+        return rpnx::apply_visitor<std::string>(qualified_symbol_stringifier{}, ref);
     }
 
 } // namespace quxlang

@@ -783,10 +783,10 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // TODO: Support implicit casts
 
-    type_symbol lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
+    type_symbol lhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), lhs);
     std::string lhs_type_string = to_string(lhs_type);
 
-    type_symbol rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
+    type_symbol rhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), rhs);
     std::string rhs_type_string = to_string(rhs_type);
 
     if (!is_ref(lhs_type))
@@ -876,8 +876,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     auto lhs = co_await gen_value_generic(ctx, expr.lhs);
     auto rhs = co_await gen_value_generic(ctx, expr.rhs);
 
-    type_symbol lhs_type = boost::apply_visitor(vm_value_type_vistor(), lhs);
-    type_symbol rhs_type = boost::apply_visitor(vm_value_type_vistor(), rhs);
+    type_symbol lhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), lhs);
+    type_symbol rhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), rhs);
 
     type_symbol lhs_underlying_type = remove_ref(lhs_type);
     type_symbol rhs_underlying_type = remove_ref(rhs_type);
