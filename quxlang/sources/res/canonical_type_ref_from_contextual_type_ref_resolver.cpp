@@ -13,9 +13,9 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
     type_symbol context = m_ref.context;
     type_symbol const& type = m_ref.type;
 
-   // std::cout << "type lookup," << std::endl;
-   // std::cout << "Context: " << to_string(context) << std::endl;
-   // std::cout << "Type: " << to_string(type) << std::endl;
+    std::cout << "type lookup," << std::endl;
+    std::cout << "With Context: " << to_string(context) << std::endl;
+    std::cout << "Looking up type: " << to_string(type) << std::endl;
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
@@ -62,8 +62,12 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
                 std::string name = sub.subentity_name;
                 if (typeis< instanciation_reference >(*current_context))
                 {
+                    std::cout << "Instanciation:  within "<< to_string(*current_context) << " check  " << to_string(type) << std::endl;
+
                     // Two possibilities, 1 = this is a template, 2 = this is a function
                     instanciation_reference inst = as< instanciation_reference >(*current_context);
+
+                    std::cout << "current inst: " << to_string(inst) << std::endl;
                     auto param_set_dp = get_dependency(
                         [&]
                         {
@@ -74,6 +78,15 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
                         return;
                     }
                     temploid_instanciation_parameter_set param_set = param_set_dp->get();
+
+                    std::cout  << "dep str=" << param_set_dp->question() << " answer: " << param_set_dp->answer() << std::endl;
+                    std::cout << "Param set, name=" << name << std::endl;
+
+                    std::cout << "Param map " << to_string(inst) << " / " << to_string(*current_context) << " " << param_set.parameter_map.size() << std::endl;
+                    for (auto it = param_set.parameter_map.begin(); it != param_set.parameter_map.end(); it++)
+                    {
+                        std::cout << "Param map: k=" << it->first << " v=" << to_string(it->second) << std::endl;
+                    }
                     auto it = param_set.parameter_map.find(name);
                     if (it != param_set.parameter_map.end())
                     {

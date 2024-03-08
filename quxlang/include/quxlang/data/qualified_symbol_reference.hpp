@@ -10,6 +10,7 @@
 #include <boost/variant.hpp>
 #include <compare>
 #include <rpnx/resolver_utilities.hpp>
+#include <rpnx/compare.hpp>
 
 namespace quxlang
 {
@@ -137,9 +138,9 @@ namespace quxlang
     {
         type_symbol callee;
         std::vector< type_symbol > parameters;
-        inline auto operator<=>(const instanciation_reference& other) const
+        auto operator<=>(const instanciation_reference& other) const
         {
-            return std::tie(callee, parameters) <=> std::tie(callee, parameters);
+            return rpnx::compare(callee, other.callee, parameters, other.parameters);
         }
 
 

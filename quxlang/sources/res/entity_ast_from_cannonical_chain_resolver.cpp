@@ -28,7 +28,7 @@ namespace quxlang
 
             // Get the template argument
 
-            QUX_GETDEP_T(ast, temploid_instanciation_ast, (inst), ast2_node)
+            QUX_GETDEP_T(ast, temploid_instanciation_ast, (inst), ast2_declarable)
 
             // TODO: switch based on functum/template
 
@@ -42,7 +42,7 @@ namespace quxlang
 
 
             assert(typeis<ast2_function_declaration>(ast));
-            set_value(ast);
+            set_value(as<ast2_function_declaration>(ast));
             return;
         }
         else if (chain.type() == boost::typeindex::type_id< module_reference >())

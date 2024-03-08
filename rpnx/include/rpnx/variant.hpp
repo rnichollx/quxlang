@@ -17,6 +17,9 @@
 
 namespace rpnx
 {
+
+
+
     template <typename T, typename... Ts>
     struct index_of;
 
@@ -35,10 +38,24 @@ namespace rpnx
     template <typename Allocator, typename... Ts>
     class basic_variant;
 
+
+
+
     template <typename Allocator>
     class variant_detail
     {
     public:
+
+        template <typename T>
+        class is_supported_variant : public std::false_type
+        {
+        };
+
+        template <typename Allocator2, typename... Ts>
+        class is_supported_variant< basic_variant< Allocator2, Ts... > > : public std::true_type
+        {
+        };
+
         using default_new_func = void *(*)(Allocator&);
         using copy_func = void *(*)(Allocator&, void const*);
         using delete_func = void (*)(Allocator&, void*) noexcept;
@@ -305,118 +322,68 @@ namespace rpnx
     template <typename V, std::size_t N>
     using variant_nth_member_t = typename variant_nth_member< V, N >::type;
 
-    template <typename F, typename R, typename V>
+    template <typename F, typename R, typename V, call_type C>
     auto constexpr variant_invoke_table_gen2()
     {
         using vexecptr = variant_invoke_executor< V, F, R >;
-        std::array< vexecptr, variant_size_v< std::remove_reference_t< V > > > result{};
+        std::array< vexecptr, variant_size_v< std::remove_cvref_t< V > > > result{};
 
-        update_variant_invoke_table2< 0, F, R, V >(result);
+        update_variant_invoke_table2< 0, F, R, V, C >(result);
 
         return result;
     }
 
-    template <std::size_t N, typename F, typename R, typename V>
-    constexpr void update_variant_invoke_table2(std::array< variant_invoke_executor< V, F, R >, variant_size_v< V > >& table)
+    template <std::size_t N, typename F, typename R, typename V, call_type C>
+    constexpr void update_variant_invoke_table2(std::array< variant_invoke_executor< V, F, R >, variant_size_v< std::remove_cvref_t< V > > >& table)
     {
         using invoke_ptr = variant_invoke_executor< V, F, R >;
 
-        if constexpr (N < variant_size_v< std::remove_reference_t< V > >)
+        if constexpr (N < variant_size_v< std::remove_cvref_t< V > >)
         {
-            invoke_ptr ptr = &apply_nth_visitor< V, F, R, N, call_type::required >;
+            invoke_ptr ptr = &apply_nth_visitor< V, F, R, N, C >;
             table[N] = ptr;
-            update_variant_invoke_table2< N + 1, F, R, V >(table);
+            update_variant_invoke_table2< N + 1, F, R, V, C >(table);
         }
     }
 
-    template <typename F, typename R, typename A, typename... Vs>
-    auto constexpr variant_invoke_const_table_gen()
+
+    template <typename F, typename R, typename V, call_type C>
+    inline constexpr auto variant_invoke_table2 = variant_invoke_table_gen2< F, R, V, C >();
+
+
+    template <typename R, typename V, typename F>
+    inline R apply_visitor(F&& func, V&& variant)
     {
-        using vexecptr = variant_invoke_executor< rpnx::basic_variant< A, Vs... > const&, F, R >;
-        std::array< vexecptr, std::tuple_size_v< std::tuple< Vs... > > > result{};
-
-        update_variant_invoke_table_const< 0, F, R, A, Vs... >(result);
-
-        return result;
+        return variant_invoke_table2< F, R, V&&, call_type::required >[variant.index()](std::forward< V >(variant), std::forward< F >(func));
     }
 
-    template <typename F, typename R, typename A, typename... Vs>
-    auto consteval variant_invoke_temp_table_gen()
+    template <typename R, typename V, typename F>
+    inline R apply_visitor_checked(F&& func, V&& variant)
     {
-        using vexecptr = variant_invoke_executor< rpnx::basic_variant< A, Vs... >&&, F, R >;
-        std::array< vexecptr, std::tuple_size_v< std::tuple< Vs... > > > result{};
-
-        update_variant_invoke_table_temp< 0, F, R, A, Vs... >(result);
-
-        return result;
+        return variant_invoke_table2< F, R, V&&, call_type::except_on_missing >[variant.index()](std::forward< V >(variant), std::forward< F >(func));
     }
 
-    template <std::size_t N, typename F, typename R, typename A, typename... Vs>
-    consteval void update_variant_invoke_table_lvalue(std::array< variant_invoke_executor< rpnx::basic_variant< A, Vs... >&, F, R >, std::tuple_size_v< std::tuple< Vs... > > >& table)
+    template <typename R, typename V, typename F>
+    inline R try_apply_visitor(F&& func, V&& variant)
     {
-        using lvalue_invoke_ptr = variant_invoke_executor< rpnx::basic_variant< A, Vs... >&, F, R >;
-
-        if constexpr (N < std::tuple_size_v< std::tuple< Vs... > >)
-        {
-            lvalue_invoke_ptr ptr = &apply_nth_visitor< rpnx::basic_variant< A, Vs... >&, F, R, N, call_type::required >;
-            table[N] = ptr;
-            update_variant_invoke_table_lvalue< N + 1, F, R, A, Vs... >(table);
-        }
+        return variant_invoke_table2< F, R, V&&, call_type::optional >[variant.index()](std::forward< V >(variant), std::forward< F >(func));
     }
 
-    template <std::size_t N, typename F, typename R, typename A, typename... Vs>
-    constexpr void update_variant_invoke_table_const(std::array< variant_invoke_executor< rpnx::basic_variant< A, Vs... > const&, F, R >, std::tuple_size_v< std::tuple< Vs... > > >& table)
-    {
-        if constexpr (N < std::tuple_size_v< std::tuple< Vs... > >)
-        {
-            table[N] = &apply_nth_visitor< rpnx::basic_variant< A, Vs... > const&, F, R, N, call_type::required >;
-            update_variant_invoke_table_const< N + 1, F, R, A, Vs... >(table);
-        }
-    }
-
-    template <std::size_t N, typename F, typename R, typename A, typename... Vs>
-    constexpr void update_variant_invoke_table_temp(std::array< variant_invoke_executor< rpnx::basic_variant< A, Vs... >&&, F, R >, std::tuple_size_v< std::tuple< Vs... > > >& table)
-    {
-        if constexpr (N < std::tuple_size_v< std::tuple< Vs... > >)
-        {
-            table[N] = &apply_nth_visitor< rpnx::basic_variant< A, Vs... >&&, F, N, call_type::required >;
-            update_variant_invoke_table< N + 1, F, A, Vs... >(table);
-        }
-    }
-
-    template <typename F, typename R, typename A, typename... Vs>
-    inline constexpr auto variant_invoke_table = variant_invoke_table_gen< F, R, A, Vs... >();
-    template <typename F, typename R, typename A, typename... Vs>
-    inline constexpr auto variant_const_invoke_table = variant_invoke_const_table_gen< F, R, A, Vs... >();
-    template <typename F, typename R, typename A, typename... Vs>
-    inline constexpr auto variant_temp_invoke_table = variant_invoke_temp_table_gen< F, R, A, Vs... >();
-
-    template <typename R, typename A, typename... Vs, typename F>
-    inline R apply_visitor(F&& func, rpnx::basic_variant< A, Vs... >& variant)
-    {
-        return variant_invoke_table< F, R, A, Vs... >[variant.index()](variant, std::forward< F >(func));
-    }
-
-    template <typename R, typename A, typename... Vs, typename F>
-    inline R apply_visitor(F&& func, rpnx::basic_variant< A, Vs... > const& variant)
-    {
-        return variant_const_invoke_table< F, R, A, Vs... >[variant.index()](variant, std::forward< F >(func));
-    }
-
-    template <typename R, typename A, typename... Vs, typename F>
-    inline R apply_visitor(F&& func, rpnx::basic_variant< A, Vs... >&& variant)
-    {
-        return variant_temp_invoke_table< F, R, A, Vs... >[variant.index()](variant, std::forward< F >(func));
-    }
 
     template <typename A, typename... Ts>
     class variant_convert_to
     {
+        basic_variant< A, Ts... >& m_val;
     public:
-        template <typename T2>
-        basic_variant< A, Ts... > operator()(T2&& other) const
+        variant_convert_to(basic_variant< A, Ts... > & val)
+            : m_val(val)
         {
-            return std::forward< T2 >(other);
+        }
+        template <typename T2>
+        bool operator()(T2&& other) const
+        {
+            m_val = std::forward< T2 >(other);
+            return true;
         }
     };
 
@@ -454,7 +421,7 @@ namespace rpnx
         constexpr basic_variant(const allocator_type& alloc = allocator_type())
             : m_alloc(alloc)
         {
-
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             m_vinf = &s_v_info_for< 0 >;
             try
             {
@@ -465,14 +432,31 @@ namespace rpnx
                 m_vinf = nullptr;
                 throw;
             }
+
         }
 
-        constexpr basic_variant( basic_variant<Allocator, Ts...> const & other)
+        constexpr basic_variant(basic_variant< Allocator, Ts... >&& other)
+            : m_alloc(std::move(other.m_alloc))
+        {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+
+            m_vinf = nullptr;
+            m_data = nullptr;
+
+            std::swap(m_vinf, other.m_vinf);
+            std::swap(m_data, other.m_data);
+
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+        }
+
+        constexpr basic_variant(basic_variant< Allocator, Ts... > const& other)
             : m_alloc(std::allocator_traits< Allocator >::select_on_container_copy_construction(other.m_alloc))
         {
             assert(&other != nullptr);
             m_vinf = nullptr;
             m_data = nullptr;
+            assert((other.m_vinf == nullptr) == (other.m_data == nullptr));
+
             if (other.m_vinf == nullptr)
             {
                 return;
@@ -491,35 +475,51 @@ namespace rpnx
 
         ~basic_variant()
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             reset();
+            assert((m_vinf == nullptr) == (m_data == nullptr));
         }
 
 
         void reset()
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             if (m_vinf != nullptr)
             {
+                assert(m_data != nullptr);
                 m_vinf->m_general_info.m_destroy(m_alloc, m_data);
                 m_data = nullptr;
                 m_vinf = nullptr;
             }
+            assert((m_vinf == nullptr) == (m_data == nullptr));
         }
 
         template <typename... Ts2>
-        basic_variant(basic_variant< Allocator, Ts2... > const& other)
-            : basic_variant(rpnx::apply_visitor< basic_variant< Allocator, Ts... > >(variant_convert_to< Allocator, Ts2... >{}, other))
+        basic_variant(basic_variant< Allocator, Ts2... > const& other, std::enable_if_t< !std::is_same_v< basic_variant< Allocator, Ts... >, basic_variant< Allocator, Ts2... > >, int > = 0)
+            : basic_variant()
         {
+            reset();
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+            rpnx::apply_visitor< bool >(variant_convert_to< Allocator, Ts... >(*this), other);
         }
 
+
         template <typename T>
-        static constexpr bool can_construct_with()
+        static consteval bool can_construct_subtype_with()
         {
-            // If T is convertible to any of the types in Ts..., return true
-            return (std::is_convertible_v< T, Ts > || ...);
+            // Don't construct members using a reference to selftype, even if this looks possible
+            // because this is usually not what was intended.
+            // This can occur for example,  expression = variant<plus, negate>, struct negate { expression expr; }
+            // In this case, a negate can be constructed using a single expression argument, which can ab
+            auto constexpr ok1 = !std::is_same_v< std::remove_cvref_t< T >, basic_variant< Allocator, Ts... > >;
+
+            // And there must be some constructible member type
+            auto constexpr ok2 = (std::is_convertible_v< T, Ts > || ...);
+            return ok1 && ok2;
         }
 
         template <typename T2>
-        constexpr basic_variant(T2 const& value, const allocator_type& alloc = allocator_type(), std::enable_if_t< rpnx::basic_variant< Allocator, Ts... >::can_construct_with< T2 >(), int >  = 0)
+        constexpr basic_variant(T2 const& value, const allocator_type& alloc = allocator_type(), std::enable_if_t< rpnx::basic_variant< Allocator, Ts... >::can_construct_subtype_with< T2 >(), int >  = 0)
             : m_alloc(alloc)
         {
 
@@ -545,19 +545,18 @@ namespace rpnx
                     rebound_alloc.deallocate(static_cast< T2* >(m_data), 1);
                 }
                 m_vinf = nullptr;
+
                 throw;
             }
-        }
-
-        constexpr basic_variant< Allocator, Ts... >& operator =(basic_variant< Allocator, Ts... > const & other)
-        {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
         }
 
 
         template <typename T>
         constexpr basic_variant< Allocator, Ts... >& operator=(T const& value)
         {
-            static_assert(can_construct_with< T >());
+            static_assert(can_construct_subtype_with< T >());
+            assert((m_vinf == nullptr) == (m_data == nullptr));
 
             auto old_vinf = m_vinf;
             auto old_data = m_data;
@@ -573,9 +572,7 @@ namespace rpnx
             rebound_alloc_type value_alloc(m_alloc); // Rebound allocator
             try
             {
-
                 m_data = value_alloc.allocate(1); // Allocate memory for type T
-
                 // Construct the value in the allocated memory
                 std::allocator_traits< rebound_alloc_type >::construct(value_alloc, static_cast< T* >(m_data), value);
             }
@@ -589,6 +586,8 @@ namespace rpnx
 
                 m_vinf = old_vinf;
                 m_data = old_data;
+                old_vinf = nullptr;
+                old_data = nullptr;
                 throw;
             }
 
@@ -596,12 +595,27 @@ namespace rpnx
             {
                 old_vinf->m_general_info.m_destroy(m_alloc, old_data);
             }
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+            return *this;
+        }
+
+        basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > const& other)
+        {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+            reset();
+
+            m_alloc = other.m_alloc;
+            m_vinf = other.m_vinf;
+            m_data = m_vinf->m_general_info.m_copy(m_alloc, other.m_data);
+
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             return *this;
         }
 
         template <typename T>
         T& get_as()
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             //static_assert(has_cvref_removed_identical_type<T>(), "Must be in type list");
             // Check if the variant is currently holding a value of type T
             if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
@@ -616,6 +630,7 @@ namespace rpnx
         template <typename T>
         T const& get_as() const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             static_assert(has_cvref_removed_identical_type< T >(), "Must be in type list");
 
             // Check if the variant is currently holding a value of type T
@@ -624,6 +639,7 @@ namespace rpnx
                 // If it is not, throw an exception
                 throw std::bad_variant_access();
             }
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             // If it is, return a reference to the value, casted to T
             return *static_cast< T const* >(m_data);
         }
@@ -631,6 +647,7 @@ namespace rpnx
         template <std::size_t N>
         auto const& get_n() const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
 
             // Check if the variant is currently holding a value of type T
             if (m_vinf == nullptr || m_vinf->m_index != N)
@@ -639,6 +656,7 @@ namespace rpnx
                 throw std::bad_variant_access();
             }
 
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             using type = std::tuple_element_t< N, std::tuple< Ts... > >;
             // If it is, return a reference to the value, casted to T
             return *static_cast< type const* >(m_data);
@@ -647,6 +665,7 @@ namespace rpnx
 
         bool operator==(basic_variant< Allocator, Ts... > const& other) const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             if (m_vinf == nullptr || other.m_vinf == nullptr)
             {
                 throw std::bad_variant_access();
@@ -655,17 +674,20 @@ namespace rpnx
             {
                 return false;
             }
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             return m_vinf->m_general_info.m_equals(m_data, other.m_data);
         }
 
         bool operator!=(basic_variant< Allocator, Ts... > const& other) const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             return !(*this == other);
         }
 
     public:
         bool operator<(basic_variant< Allocator, Ts... > const& other) const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             if (m_vinf == nullptr || other.m_vinf == nullptr)
             {
                 throw std::bad_variant_access();
@@ -674,31 +696,19 @@ namespace rpnx
             {
                 return m_vinf->m_index < other.m_vinf->m_index;
             }
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             return m_vinf->m_general_info.m_less(m_data, other.m_data);
         }
 
     public:
-        bool operator>(basic_variant const& other) const
-        {
-            return other < *this;
-        }
 
-        bool operator<=(basic_variant const& other) const
-        {
-            return !(other < *this);
-        }
-
-        bool operator>=(basic_variant const& other) const
-        {
-            return !(*this < other);
-        }
-
-        std::strong_ordering operator<=>(basic_variant const& other) const
+        std::strong_ordering operator<=>(basic_variant<Allocator, Ts...> const& other) const
         {
             if (m_vinf == nullptr || other.m_vinf == nullptr)
             {
                 throw std::bad_variant_access();
             }
+
             if (m_vinf->m_index != other.m_vinf->m_index)
             {
                 return m_vinf->m_index <=> other.m_vinf->m_index;
@@ -709,6 +719,7 @@ namespace rpnx
         template <typename T>
         bool type_is() const
         {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
             // Check if the variant is currently holding a value of type T
             return m_vinf != nullptr && m_vinf->m_index == index_of< T, Ts... >::value;
         }
@@ -778,7 +789,7 @@ namespace rpnx
         template <typename T>
         static constexpr std::size_t constructor_index()
         {
-            static_assert(can_construct_with< T >());
+            static_assert(can_construct_subtype_with< T >());
 
             // If T is the same as any of the types in Ts..., return the index of the first match assuming it is convertible
             // otherwise, return the index of the first type in Ts... that T is convertible to
@@ -798,7 +809,7 @@ namespace rpnx
         template <typename T, std::size_t N>
         static constexpr std::size_t convertible_index()
         {
-            static_assert(can_construct_with< T >());
+            static_assert(can_construct_subtype_with< T >());
             if constexpr (std::is_convertible_v< T, std::tuple_element_t< N, std::tuple< Ts... > > >)
             {
                 return N;

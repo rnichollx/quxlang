@@ -12,6 +12,11 @@ namespace quxlang
     struct temploid_instanciation_parameter_set
     {
         std::map< std::string, type_symbol > parameter_map;
+
+        auto operator<=>(const temploid_instanciation_parameter_set& other) const
+        {
+            return rpnx::compare(parameter_map, other.parameter_map);
+        }
     };
 }
 

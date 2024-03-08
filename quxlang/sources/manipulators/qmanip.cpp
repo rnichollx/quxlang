@@ -223,7 +223,7 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "(";
+        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@(";
         bool first = true;
         for (auto& p : ref.parameters)
         {

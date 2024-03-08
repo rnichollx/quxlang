@@ -19,29 +19,33 @@
 
 namespace rpnx
 {
-    template < typename T >
+    template <typename T>
     struct resolver_traits;
+
     struct resolver_traits_string_visitor
     {
-        template < typename T2 >
+        template <typename T2>
         std::string operator()(T2 const& v)
         {
             return rpnx::resolver_traits< T2 >::stringify(v);
         }
     };
-    template < typename T >
+
+    template <typename T>
     struct resolver_traits
     {
 
-        template < typename... Ts >
+        template <typename... Ts>
         static std::string default_stringify(boost::variant< Ts... > const& v, int)
         {
             return boost::apply_visitor(resolver_traits_string_visitor(), v);
         }
+
         static std::string default_stringify(bool v, int)
         {
             return v ? "true" : "false";
         }
+
         static std::string default_stringify(std::integral auto v, int)
         {
             std::stringstream ss;
@@ -49,7 +53,7 @@ namespace rpnx
             return ss.str();
         }
 
-        template < typename T2 >
+        template <typename T2>
         static std::string default_stringify(std::optional< T2 > const& v, int)
         {
             if (!v.has_value())
@@ -62,7 +66,7 @@ namespace rpnx
             }
         }
 
-        template < typename T2 >
+        template <typename T2>
         static std::string default_stringify(std::set< T2 > const& v, int)
         {
             std::stringstream ss;
@@ -81,7 +85,7 @@ namespace rpnx
             return ss.str();
         }
 
-        template < typename T2 >
+        template <typename T2>
         static std::string default_stringify(std::vector< T2 > const& v, int)
         {
             std::stringstream ss;
@@ -100,8 +104,8 @@ namespace rpnx
             return ss.str();
         }
 
-        template <typename ... Ts>
-        static std::string default_stringify(std::tuple< Ts...> const & input)
+        template <typename... Ts>
+        static std::string default_stringify(std::tuple< Ts... > const& input)
         {
             std::stringstream ss;
             ss << "{";
@@ -114,7 +118,7 @@ namespace rpnx
             return ss.str();
         }
 
-        template < typename T2, typename T3 >
+        template <typename T2, typename T3>
         static std::string default_stringify(std::pair< T2, T3 > const& v, int)
         {
             std::stringstream ss;
@@ -126,7 +130,7 @@ namespace rpnx
             return ss.str();
         }
 
-        template < typename T2, typename T3 >
+        template <typename T2, typename T3>
         static std::string default_stringify(std::map< T2, T3 > const& v, int)
         {
             std::stringstream ss;
@@ -146,13 +150,13 @@ namespace rpnx
             return ss.str();
         }
 
-        template < typename T2, typename T3 >
+        template <typename T2, typename T3>
         static std::string default_stringify(std::string const& str, int)
         {
             return str;
         }
 
-        template < typename T2 >
+        template <typename T2>
         static std::string default_stringify(T2&&, ...)
         {
             return std::string("?(") + boost::core::demangle(typeid(T).name()) + ")";
@@ -163,18 +167,19 @@ namespace rpnx
             return default_stringify(t, 0);
         };
     };
+
     // Resolver shall have
     // key_type
     // result_type
     // graph_type
 
-    template < typename Graph >
+    template <typename Graph>
     struct coroutine_callback;
 
-    template < typename Graph >
+    template <typename Graph>
     class node_base;
 
-    template < typename Graph >
+    template <typename Graph>
     struct coroutine_exec_result
     {
         std::vector< node_base< Graph >* > ready_nodes;
@@ -182,22 +187,22 @@ namespace rpnx
         std::vector< std::unique_ptr< coroutine_callback< Graph > > > ready_callbacks;
     };
 
-    template < typename Graph >
+    template <typename Graph>
     struct coroutine_callback
     {
         std::function< coroutine_exec_result< Graph >() > callback;
     };
 
-    template < typename Graph, typename Resolver >
+    template <typename Graph, typename Resolver>
     class index;
 
-    template < typename T >
+    template <typename T>
     class result
     {
         std::optional< T > t;
         std::exception_ptr er;
 
-      public:
+    public:
         result(T t)
             : t(t)
         {
@@ -258,7 +263,7 @@ namespace rpnx
         bool t = false;
         std::exception_ptr er;
 
-      public:
+    public:
         result()
         {
         }
@@ -310,19 +315,30 @@ namespace rpnx
         }
     };
 
-    template < typename Graph >
+    template <typename Graph>
     class single_thread_graph_solver;
 
-    template < typename Graph >
+    template <typename Graph>
     class node_base
     {
         friend class single_thread_graph_solver< Graph >;
 
-      public:
+
+        std::stringstream m_outstr;
+
+    public:
+        std::stringstream& out()
+        {
+            return m_outstr;
+        }
+
+    public:
         node_base< Graph >* m_attached_to = nullptr;
 
-      public:
-        virtual ~node_base(){};
+    public:
+        virtual ~node_base()
+        {
+        };
 
         virtual std::string question() const
         {
@@ -381,7 +397,8 @@ namespace rpnx
                     auto er = get_error();
 
                     std::rethrow_exception(er);
-                } catch (std::exception const & er)
+                }
+                catch (std::exception const& er)
                 {
                     ss << er.what();
                 }
@@ -524,7 +541,7 @@ namespace rpnx
             return ss.str();
         }
 
-      public:
+    public:
         void refresh_dependency(node_base< Graph >* n)
         {
             if (n->resolved() && !n->has_error())
@@ -546,6 +563,7 @@ namespace rpnx
                 m_error_dependencies.erase(n);
             }
         }
+
         void add_dependency(node_base< Graph >* n)
         {
 
@@ -583,7 +601,7 @@ namespace rpnx
             add_dependency(n.get());
         }
 
-        template < typename F >
+        template <typename F>
         auto get_dependency(F f)
         {
             auto result = f();
@@ -591,7 +609,7 @@ namespace rpnx
             return result;
         }
 
-        template < typename Resolver, typename Key >
+        template <typename Resolver, typename Key>
         auto get_dep_value(index< Graph, Resolver >& index, Key key)
         {
             auto dep = get_dependency(
@@ -621,10 +639,12 @@ namespace rpnx
         virtual void set_error(std::exception_ptr) = 0;
 
         virtual void process(Graph* graph) = 0;
+
         bool has_unresolved_dependencies() const
         {
             return m_unmet_dependencies.size() > 0;
         }
+
         bool has_error_dependencies() const
         {
             return m_error_dependencies.size() > 0;
@@ -696,7 +716,7 @@ namespace rpnx
             return m_kickoff_coroutines.size() + m_busy_coroutines;
         }
 
-      private:
+    private:
         std::set< node_base< Graph >* > m_met_dependencies;
         std::set< node_base< Graph >* > m_unmet_dependencies;
         std::set< node_base< Graph >* > m_error_dependencies;
@@ -706,17 +726,17 @@ namespace rpnx
         std::vector< coroutine_callback< Graph > > m_waiting_coroutines;
     };
 
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     class resolver_coroutine;
 
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     class general_coroutine;
 
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     class resolver_base : public virtual node_base< Graph >
     {
 
-      public:
+    public:
         using value_type = Result;
         using output_type = Result;
         using outptr_type = std::shared_ptr< resolver_base< Graph, Result > >;
@@ -727,7 +747,10 @@ namespace rpnx
         }
 
         resolver_base(resolver_base< Graph, Result > const&) = delete;
-        virtual ~resolver_base(){};
+
+        virtual ~resolver_base()
+        {
+        };
 
         Result get() const
         {
@@ -739,13 +762,13 @@ namespace rpnx
             return m_result.get_error();
         }
 
-      protected:
+    protected:
         void set_value(Result r)
         {
             m_result.set_value(r);
         }
 
-      public:
+    public:
         virtual void set_error(std::exception_ptr er) override
         {
             m_result.set_error(er);
@@ -757,7 +780,7 @@ namespace rpnx
             return resolver_traits< Result >::stringify(get());
         }
 
-      public:
+    public:
         virtual bool has_value() const override final
         {
             return m_result.has_value();
@@ -780,13 +803,13 @@ namespace rpnx
         }
 
         // The compiler isn't smart enough to do nested type deduction, so we have to do it manually.
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
         {
             pr.cr->add_dependency(this);
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
         {
             coroutine_callback< Graph > cb;
@@ -802,7 +825,7 @@ namespace rpnx
             this->coroutine_callback_suspend_until_ready(cb);
         }
 
-        template < typename T >
+        template <typename T>
         void await_suspend(std::coroutine_handle< T > ch)
         {
             auto& pr = ch.promise();
@@ -810,15 +833,15 @@ namespace rpnx
             await_suspend_helper< result_type >(pr);
         }
 
-      private:
+    private:
         result_type m_result;
     };
 
-    template < typename Graph >
+    template <typename Graph>
     class resolver_base< Graph, void > : public virtual node_base< Graph >
     {
 
-      public:
+    public:
         using value_type = void;
         using result_type = result< void >;
 
@@ -827,7 +850,10 @@ namespace rpnx
         }
 
         resolver_base(resolver_base< Graph, void > const&) = delete;
-        virtual ~resolver_base(){};
+
+        virtual ~resolver_base()
+        {
+        };
 
         void get() const
         {
@@ -839,19 +865,19 @@ namespace rpnx
             return m_result.get_error();
         }
 
-      protected:
+    protected:
         void set_value()
         {
             m_result.set_value();
         }
 
-      public:
+    public:
         virtual void set_error(std::exception_ptr er) override
         {
             m_result.set_error(er);
         }
 
-      public:
+    public:
         virtual bool has_value() const override final
         {
             return m_result.has_value();
@@ -874,13 +900,13 @@ namespace rpnx
         }
 
         // The compiler isn't smart enough to do nested type deduction, so we have to do it manually.
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
         {
             pr.cr->add_dependency(this);
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
         {
             coroutine_callback< Graph > cb;
@@ -896,7 +922,7 @@ namespace rpnx
             this->coroutine_callback_suspend_until_ready(cb);
         }
 
-        template < typename T >
+        template <typename T>
         void await_suspend(std::coroutine_handle< T > ch)
         {
             auto& pr = ch.promise();
@@ -904,14 +930,14 @@ namespace rpnx
             await_suspend_helper< result_type >(pr);
         }
 
-      private:
+    private:
         result_type m_result;
     };
 
-    template < typename Graph, typename Result, typename Input >
+    template <typename Graph, typename Result, typename Input>
     class co_resolver_base : public resolver_base< Graph, Result >
     {
-      public:
+    public:
         using input_type = Input;
         using key_type = Input;
         using co_type = resolver_coroutine< Graph, Result >;
@@ -947,18 +973,18 @@ namespace rpnx
             return typenam + "(" + resolver_traits< input_type >::stringify(input_val) + ")";
         }
 
-      protected:
+    protected:
         input_type input_val;
         virtual resolver_coroutine< Graph, Result > co_process(Graph* g, input_type) = 0;
 
-      private:
+    private:
         std::optional< resolver_coroutine< Graph, Result > > m_coroutine;
     };
 
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     using output_ptr = std::shared_ptr< resolver_base< Graph, Result > >;
 
-    template < typename Graph >
+    template <typename Graph>
     class coroutine_base
     {
     };
@@ -966,31 +992,32 @@ namespace rpnx
     // This class implements a general purpose coroutine that can be
     // used with a processor, but which is not itself a resolver.
     // It is expected to be called from within a resolver.
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     class general_coroutine
     {
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class resolver_coroutine;
 
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class resolver_base;
 
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class general_coroutine;
 
-      public:
+    public:
         using result_type = Result;
+
         class promise_type
         {
             friend class general_coroutine< Graph, Result >;
 
-            template < typename Graph2, typename Result2 >
+            template <typename Graph2, typename Result2>
             friend class resolver_coroutine;
 
-          private:
+        private:
             general_coroutine* cr = nullptr;
 
-          public:
+        public:
             using result_type = Result;
             using coroutine_type = general_coroutine< Graph, Result >;
 
@@ -999,7 +1026,9 @@ namespace rpnx
                 assert(cr->m_result);
                 cr->co_promise_ptr = nullptr;
             }
+
             promise_type(promise_type const&) = delete;
+
             promise_type()
             {
             }
@@ -1042,7 +1071,7 @@ namespace rpnx
             }
         };
 
-      private:
+    private:
         promise_type* co_promise_ptr = nullptr;
         result< Result > m_result;
 
@@ -1061,14 +1090,14 @@ namespace rpnx
         std::optional< node_base< Graph >* > waiting_on_node;
         bool dead = false;
 
-      private:
+    private:
         general_coroutine(promise_type* arg_ptr_pr)
             : co_promise_ptr(arg_ptr_pr)
         {
             co_promise_ptr->cr = this;
         }
 
-      public:
+    public:
         coroutine_exec_result< Graph > resume()
         {
             assert(co_promise_ptr);
@@ -1149,7 +1178,7 @@ namespace rpnx
             return m_result;
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
 
         {
@@ -1157,12 +1186,12 @@ namespace rpnx
             assert(waiter_node == nullptr);
             waiter_node = waiter_promise.cr;
             waiter_node->kickoff_coroutine({[this]()
-                                            {
-                                                return resume();
-                                            }});
+            {
+                return resume();
+            }});
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
 
         {
@@ -1170,16 +1199,16 @@ namespace rpnx
             assert(waiter_node == nullptr);
             auto& waiter_coroutine = waiter_promise.get_coroutine();
             waiter_coroutine.kickoff_coroutines.push_back(std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[this]()
-                                                                                                                                      {
-                                                                                                                                          return resume();
-                                                                                                                                      }}));
+            {
+                return resume();
+            }}));
             this->waiter_coroutine = std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[&waiter_coroutine]()
-                                                                                                                 {
-                                                                                                                     return waiter_coroutine.resume();
-                                                                                                                 }});
+            {
+                return waiter_coroutine.resume();
+            }});
         }
 
-        template < typename T >
+        template <typename T>
         void await_suspend(std::coroutine_handle< T > handle)
         {
             using promise_type = typename std::remove_reference_t< decltype(handle.promise()) >;
@@ -1189,6 +1218,7 @@ namespace rpnx
         }
 
         bool await_resume_already_called = false;
+
         auto await_resume()
         {
             assert(!await_resume_already_called);
@@ -1197,31 +1227,32 @@ namespace rpnx
         }
     };
 
-    template < typename Graph >
+    template <typename Graph>
     class general_coroutine< Graph, void >
     {
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class resolver_coroutine;
 
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class resolver_base;
 
-        template < typename Graph2, typename Result2 >
+        template <typename Graph2, typename Result2>
         friend class general_coroutine;
 
-      public:
+    public:
         using result_type = void;
+
         class promise_type
         {
             friend class general_coroutine< Graph, void >;
 
-            template < typename Graph2, typename Result2 >
+            template <typename Graph2, typename Result2>
             friend class resolver_coroutine;
 
-          private:
+        private:
             general_coroutine* cr = nullptr;
 
-          public:
+        public:
             using result_type = void;
             using coroutine_type = general_coroutine< Graph, void >;
 
@@ -1230,7 +1261,9 @@ namespace rpnx
                 assert(cr->m_result);
                 cr->co_promise_ptr = nullptr;
             }
+
             promise_type(promise_type const&) = delete;
+
             promise_type()
             {
             }
@@ -1273,7 +1306,7 @@ namespace rpnx
             }
         };
 
-      private:
+    private:
         promise_type* co_promise_ptr = nullptr;
         result< void > m_result;
 
@@ -1292,14 +1325,14 @@ namespace rpnx
         std::optional< node_base< Graph >* > waiting_on_node;
         bool dead = false;
 
-      private:
+    private:
         general_coroutine(promise_type* arg_ptr_pr)
             : co_promise_ptr(arg_ptr_pr)
         {
             co_promise_ptr->cr = this;
         }
 
-      public:
+    public:
         coroutine_exec_result< Graph > resume()
         {
             assert(co_promise_ptr);
@@ -1380,7 +1413,7 @@ namespace rpnx
             return m_result;
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
 
         {
@@ -1388,12 +1421,12 @@ namespace rpnx
             assert(waiter_node == nullptr);
             waiter_node = waiter_promise.cr;
             waiter_node->kickoff_coroutine({[this]()
-                                            {
-                                                return resume();
-                                            }});
+            {
+                return resume();
+            }});
         }
 
-        template < typename Result2 >
+        template <typename Result2>
         void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
 
         {
@@ -1401,16 +1434,16 @@ namespace rpnx
             assert(waiter_node == nullptr);
             auto& waiter_coroutine = waiter_promise.get_coroutine();
             waiter_coroutine.kickoff_coroutines.push_back(std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[this]()
-                                                                                                                                      {
-                                                                                                                                          return resume();
-                                                                                                                                      }}));
+            {
+                return resume();
+            }}));
             this->waiter_coroutine = std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[&waiter_coroutine]()
-                                                                                                                 {
-                                                                                                                     return waiter_coroutine.resume();
-                                                                                                                 }});
+            {
+                return waiter_coroutine.resume();
+            }});
         }
 
-        template < typename T >
+        template <typename T>
         void await_suspend(std::coroutine_handle< T > handle)
         {
             using promise_type = typename std::remove_reference_t< decltype(handle.promise()) >;
@@ -1425,11 +1458,11 @@ namespace rpnx
         }
     };
 
-    template < typename Graph, typename Result >
+    template <typename Graph, typename Result>
     class resolver_coroutine : public resolver_base< Graph, Result >
     {
-      protected:
-      public:
+    protected:
+    public:
         struct promise_type
         {
             using result_type = Result;
@@ -1437,6 +1470,7 @@ namespace rpnx
             promise_type()
             {
             }
+
             promise_type(promise_type const&) = delete;
             using coroutine_type = resolver_coroutine< Graph, Result >;
             resolver_coroutine* cr;
@@ -1487,10 +1521,11 @@ namespace rpnx
                 cr->set_value(r);
             }
         };
+
         promise_type* pr{};
         bool movable = true;
 
-      public:
+    public:
         resolver_coroutine(promise_type* pr)
             : pr(pr)
         {
@@ -1532,15 +1567,15 @@ namespace rpnx
         }
     };
 
-    template < typename Graph, typename Result, typename Question, typename... Args >
+    template <typename Graph, typename Result, typename Question, typename... Args>
     class co_index
     {
-      public:
+    public:
         using input_type = std::tuple< Args... >;
         using result_type = result< Result >;
         using output_ptr = std::shared_ptr< resolver_coroutine< Graph, Result > >;
 
-        template < typename... Ts >
+        template <typename... Ts>
         output_ptr lookup(Graph* g, Ts&&... ts)
         {
             input_type lookup_tuple(ts...);
@@ -1551,15 +1586,15 @@ namespace rpnx
             return m_resolvers[lookup_tuple];
         }
 
-      private:
+    private:
         std::map< input_type, output_ptr > m_resolvers;
     };
 
-    template < typename Graph, typename Resolver >
+    template <typename Graph, typename Resolver>
     class index
     {
 
-      public:
+    public:
         using key_type = typename Resolver::key_type;
         using value_type = typename Resolver::value_type;
         using result_type = result< value_type >;
@@ -1577,20 +1612,20 @@ namespace rpnx
             return m_resolvers[k];
         }
 
-      private:
+    private:
         std::map< key_type, resolver_ptr > m_resolvers;
     };
 
-    template < typename Graph, typename Resolver >
+    template <typename Graph, typename Resolver>
     class singleton
     {
-      public:
+    public:
         using resolver_ptr = std::shared_ptr< Resolver >;
 
-      private:
+    private:
         resolver_ptr m_resolver;
 
-      public:
+    public:
         resolver_ptr lookup()
         {
             if (!m_resolver)
@@ -1601,11 +1636,11 @@ namespace rpnx
         }
     };
 
-    template < typename Graph >
+    template <typename Graph>
     class single_thread_graph_solver
     {
 
-      public:
+    public:
         inline void solve(Graph* graph, std::shared_ptr< node_base< Graph > > node)
         {
             solve(graph, node.get());
@@ -1672,6 +1707,7 @@ namespace rpnx
 
                 try
                 {
+                    n->out() = std::stringstream();
                     n->process(graph);
                 }
                 catch (...)
@@ -1690,10 +1726,11 @@ namespace rpnx
                 {
                     if (n->has_value())
                     {
-                    std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
-                    } else
+                        std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                    }
+                    else
                     {
-                    std::cout << "Q: " << n->question() << " A: error" << std::endl;
+                        std::cout << "Q: " << n->question() << " A: error" << std::endl;
                     }
                 }
 
@@ -1757,21 +1794,22 @@ namespace rpnx
         }
     };
 
-    template < typename T >
-    concept awaitable = requires(T&& t, std::coroutine_handle<> h) {
+    template <typename T>
+    concept awaitable = requires(T&& t, std::coroutine_handle< > h)
+    {
         {
             t.await_ready()
         } -> std::convertible_to< bool >;
         t.await_resume();
     };
 
-    template < typename Graph, awaitable T >
+    template <typename Graph, awaitable T>
     auto co_call(T t) -> general_coroutine< Graph, typename T::result_type >
     {
         co_return co_await t;
     }
 
-    template < typename Graph, typename T >
+    template <typename Graph, typename T>
         requires(!awaitable< T >)
     auto co_call(T t) -> general_coroutine< Graph, T >
     {

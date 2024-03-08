@@ -68,6 +68,9 @@ namespace quxlang
     {
         type_symbol symbol;
 
+        expression_symbol_reference() {}
+        explicit expression_symbol_reference(type_symbol const&) = delete;
+
         std::strong_ordering operator<=>(const expression_symbol_reference& other) const = default;
     };
 

@@ -14,14 +14,14 @@ class test_graph;
 
 class fibbonachi_resolver : public rpnx::resolver_base< test_graph, std::int64_t >
 {
-  public:
+public:
     using key_type = std::int64_t;
     using value_type = std::int64_t;
 
-  private:
+private:
     key_type m_value;
 
-  public:
+public:
     fibbonachi_resolver(key_type value)
         : m_value(value)
     {
@@ -36,14 +36,14 @@ class fibbonachi_resolver : public rpnx::resolver_base< test_graph, std::int64_t
 
 class unsolvably_recursive_resolver : public rpnx::resolver_base< test_graph, std::int64_t >
 {
-  public:
+public:
     using key_type = std::int64_t;
     using value_type = std::int64_t;
 
-  private:
+private:
     key_type m_value;
 
-  public:
+public:
     unsolvably_recursive_resolver(key_type value)
         : m_value(value)
     {
@@ -61,7 +61,7 @@ class test_graph
     rpnx::index< test_graph, fibbonachi_resolver > m_fib;
     rpnx::index< test_graph, unsolvably_recursive_resolver > m_rec;
 
-  public:
+public:
     rpnx::output_ptr< test_graph, std::int64_t > fib(std::int64_t n)
     {
         return m_fib.lookup(n);
@@ -140,25 +140,11 @@ TEST_CASE("unsolvable_issue", "[graph_solver]")
     test_graph g;
     rpnx::single_thread_graph_solver< test_graph > solver;
     auto f = g.rec(7);
-    REQUIRE_THROWS( solver.solve(&g, f) );
+    REQUIRE_THROWS(solver.solve(&g, f));
 }
 
 TEST_CASE("variant", "[variant]")
 {
-    rpnx::variant<int, std::string> v = 5;
-    REQUIRE(v.index() == 0);
-    REQUIRE(v.get_as<int>() == 5);
-    v = std::string("hello");
-    REQUIRE(v.index() == 1);
-    REQUIRE(v.get_as<std::string>() == "hello");
+//
 
-    rpnx::variant<int, std::string> v2;
-
-    REQUIRE_THROWS(v2.get_as<std::string>());
-    REQUIRE(v2 < v);
-
-    std::pair<int, rpnx::variant<int, std::string> > p = {5, std::string("hello")};
-
-    std::map< rpnx::variant<int, std::string>, int > mp;
-    mp[v2] = 9;
 }

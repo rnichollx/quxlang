@@ -5,6 +5,9 @@
 
 auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler* c, input_type input) -> co_type
 {
+    std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;
+
+
 
     auto ast = co_await *c->lk_entity_ast_from_canonical_chain(input.callee);
 
