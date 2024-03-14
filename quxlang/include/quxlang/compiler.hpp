@@ -64,6 +64,8 @@
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
+#include <quxlang/res/extern_linksymbol_resolver.hpp>
+#include <quxlang/res/procedure_linksymbol_resolver.hpp>
 
 #include <shared_mutex>
 
@@ -155,14 +157,18 @@ namespace quxlang
         COMPILER_INDEX(entity_ast_from_canonical_chain)
         COMPILER_INDEX(type_map)
         COMPILER_INDEX(module_ast)
+        COMPILER_INDEX(extern_linksymbol)
+        COMPILER_INDEX(procedure_linksymbol)
 
         COMPILER_INDEX(overload_set_instanciate_with)
+
         out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
         {
             return m_overload_set_instanciate_with_index.lookup(std::make_pair(os, args));
         }
 
         COMPILER_INDEX(call_params_of_function_ast)
+
         out< call_parameter_information > lk_call_params_of_function_ast(ast2_function_declaration f_ast, type_symbol f_symbol)
         {
             return lk_call_params_of_function_ast(std::make_pair(f_ast, f_symbol));
@@ -170,7 +176,7 @@ namespace quxlang
 
         COMPILER_INDEX(type_symbol_kind);
 
-COMPILER_INDEX(asm_procedure_from_symbol);
+        COMPILER_INDEX(asm_procedure_from_symbol);
 
         index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
 
@@ -265,8 +271,6 @@ COMPILER_INDEX(asm_procedure_from_symbol);
             return node->get();
         }
 
-
-
     private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
 
@@ -360,17 +364,12 @@ COMPILER_INDEX(asm_procedure_from_symbol);
 
         index< files_in_module_resolver > m_files_in_module_resolver;
 
-        index< canonical_symbol_from_contextual_symbol_resolver > m_canonical_type_ref_from_contextual_type_ref_resolver;
+        COMPILER_INDEX(canonical_symbol_from_contextual_symbol);
 
-        out< type_symbol > lk_canonical_type_from_contextual_type(contextual_type_reference const& ref)
+
+        out< type_symbol > lk_canonical_symbol_from_contextual_symbol(type_symbol type, type_symbol context)
         {
-            return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(ref);
-        }
-
-        out< type_symbol > lk_canonical_type_from_contextual_type(type_symbol type, type_symbol context)
-        {
-
-            return m_canonical_type_ref_from_contextual_type_ref_resolver.lookup(contextual_type_reference{context, type});
+            return m_canonical_symbol_from_contextual_symbol_index.lookup(contextual_type_reference{.context = context, .type = type});
         }
 
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;

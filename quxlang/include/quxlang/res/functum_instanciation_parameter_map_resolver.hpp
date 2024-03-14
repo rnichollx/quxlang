@@ -5,7 +5,7 @@
 #ifndef FUNCTUM_INSTANCIATION_PARAMETER_MAP_RESOLVER_HPP
 #define FUNCTUM_INSTANCIATION_PARAMETER_MAP_RESOLVER_HPP
 #include <rpnx/resolver_utilities.hpp>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>
 
 namespace quxlang

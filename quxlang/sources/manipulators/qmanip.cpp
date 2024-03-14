@@ -28,10 +28,13 @@ namespace quxlang
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(avalue_reference const&) const;
         std::string operator()(template_reference const&) const;
+        std::string operator()(selection_reference const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
     };
+
+
 
     std::string to_string(call_parameter_information const& ref)
     {
@@ -75,6 +78,13 @@ namespace quxlang
                 if (is_template(p))
                     return true;
             }
+            return false;
+        }
+
+        bool operator()(selection_reference const& ref) const
+        {
+            if (is_template(ref.callee))
+                return true;
             return false;
         }
 
@@ -295,6 +305,22 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(template_reference const& val) const
     {
         return "T(" + val.name + ")";
+    }
+
+    std::string qualified_symbol_stringifier::operator()(selection_reference const&ref) const
+    {
+        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@(";
+        bool first = true;
+        for (auto& p : ref.parameters)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += rpnx::apply_visitor<std::string>(*this, p);
+        }
+        output += ")";
+        return output;
     }
 
     std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type)

@@ -40,7 +40,7 @@ void quxlang::class_layout_from_canonical_chain_resolver::process(compiler* c)
         auto canonical_type_dp = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(ctx_type_ref);
+                return c->lk_canonical_symbol_from_contextual_symbol(ctx_type_ref);
             });
 
         if (!ready())

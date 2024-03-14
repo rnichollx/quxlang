@@ -27,6 +27,7 @@ namespace quxlang
     struct ovalue_reference;
     struct cvalue_reference;
     struct avalue_reference;
+    struct selection_reference;
 
     struct void_type
     {
@@ -53,24 +54,25 @@ namespace quxlang
     // struct function_type_reference;
 
     using type_symbol = rpnx::variant<
-            void_type,
-            context_reference,
-            template_reference,
-            module_reference,
-            subentity_reference,
-            primitive_type_integer_reference,
-            primitive_type_bool_reference,
-            instanciation_reference,
-            value_expression_reference,
-            subdotentity_reference,
-            instance_pointer_type,
-            tvalue_reference,
-            mvalue_reference,
-            cvalue_reference,
-            ovalue_reference,
-            bound_function_type_reference,
-            numeric_literal_reference,
-            avalue_reference
+        void_type,
+        context_reference,
+        template_reference,
+        module_reference,
+        subentity_reference,
+        primitive_type_integer_reference,
+        primitive_type_bool_reference,
+        instanciation_reference,
+        selection_reference,
+        value_expression_reference,
+        subdotentity_reference,
+        instance_pointer_type,
+        tvalue_reference,
+        mvalue_reference,
+        cvalue_reference,
+        ovalue_reference,
+        bound_function_type_reference,
+        numeric_literal_reference,
+        avalue_reference
     >;
 
     struct module_reference
@@ -138,13 +140,25 @@ namespace quxlang
     {
         type_symbol callee;
         std::vector< type_symbol > parameters;
+
         auto operator<=>(const instanciation_reference& other) const
         {
             return rpnx::compare(callee, other.callee, parameters, other.parameters);
         }
 
-
     };
+
+    struct selection_reference
+    {
+        type_symbol callee;
+        std::vector< type_symbol > parameters;
+
+        auto operator<=>(const selection_reference& other) const
+        {
+            return rpnx::compare(callee, other.callee, parameters, other.parameters);
+        }
+    };
+
 
     struct mvalue_reference
     {
@@ -157,6 +171,7 @@ namespace quxlang
         type_symbol target;
         std::strong_ordering operator<=>(const cvalue_reference& other) const = default;
     };
+
     struct ovalue_reference
     {
         type_symbol target;
@@ -188,8 +203,8 @@ namespace quxlang
 
 #include "quxlang/manipulators/qmanip.hpp"
 
-template<>
-struct rpnx::resolver_traits<quxlang::type_symbol>
+template <>
+struct rpnx::resolver_traits< quxlang::type_symbol >
 {
     static std::string stringify(quxlang::type_symbol const& v)
     {
@@ -197,15 +212,14 @@ struct rpnx::resolver_traits<quxlang::type_symbol>
     }
 };
 
-template<>
-struct rpnx::resolver_traits<quxlang::instanciation_reference>
+template <>
+struct rpnx::resolver_traits< quxlang::instanciation_reference >
 {
     static std::string stringify(quxlang::type_symbol const& v)
     {
         return quxlang::to_string(v);
     }
 };
-
 
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

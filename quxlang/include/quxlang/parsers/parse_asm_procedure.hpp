@@ -5,6 +5,7 @@
 #ifndef RPNX_QUXLANG_PARSE_ASM_PROCEDURE_HEADER
 #define RPNX_QUXLANG_PARSE_ASM_PROCEDURE_HEADER
 
+#include "linkname.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 #include <optional>
 
@@ -42,11 +43,21 @@ namespace quxlang::parsers
 
         std::optional< ast2_asm_callable > callable;
 
-        while ((callable = try_parse_asm_callable(pos, end)).has_value())
+        loop:
+        skip_whitespace_and_comments(pos, end);
+        if ((callable = try_parse_asm_callable(pos, end)).has_value())
         {
             out.callable_interfaces.push_back(callable.value());
             skip_whitespace_and_comments(pos, end);
+            goto loop;
         }
+        else if (auto linkname = try_parse_linkname(pos, end); linkname.has_value())
+        {
+            out.linkname = linkname;
+            skip_whitespace_and_comments(pos, end);
+            goto loop;
+        }
+
 
 
         skip_whitespace_and_comments(pos, end);

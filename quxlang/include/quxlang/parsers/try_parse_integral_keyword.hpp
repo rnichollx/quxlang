@@ -6,7 +6,7 @@
 #define TRY_PARSE_INTEGRAL_KEYWORD_HPP
 
 #include <optional>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/ctype.hpp>
 
 namespace quxlang::parsers

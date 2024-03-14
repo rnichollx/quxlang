@@ -6,7 +6,7 @@
 #define QUXLANG_CLASS_FIELD_INFO_HEADER_GUARD
 
 #include "canonical_type_reference.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include <vector>
 
 namespace quxlang

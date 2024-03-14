@@ -30,19 +30,19 @@ namespace quxlang::parsers
 
         std::optional< function_expression_statement > exp_st;
 
-        if (get_keyword(pos, end) == "IF")
+        if (next_keyword(pos, end) == "IF")
         {
             return parse_if_statement(pos, end);
         }
-        else if (get_keyword(pos, end) == "VAR")
+        else if (next_keyword(pos, end) == "VAR")
         {
             return parse_var_statement(pos, end);
         }
-        else if (get_keyword(pos, end) == "RETURN")
+        else if (next_keyword(pos, end) == "RETURN")
         {
             return parse_return_statement(pos, end);
         }
-        else if (get_keyword(pos, end) == "WHILE")
+        else if (next_keyword(pos, end) == "WHILE")
         {
             return parse_while_statement(pos, end);
         }

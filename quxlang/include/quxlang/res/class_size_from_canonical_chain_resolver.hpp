@@ -8,7 +8,7 @@
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/canonical_lookup_chain.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/symbol_id.hpp"
 
 namespace quxlang

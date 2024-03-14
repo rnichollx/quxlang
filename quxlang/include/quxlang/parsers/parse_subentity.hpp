@@ -7,7 +7,7 @@
 #include <string>
 #include <set>
 #include <quxlang/parsers/iter_parse_identifier.hpp>
-#include <quxlang/parsers/iter_parse_keyword.hpp>
+#include <quxlang/parsers/keyword.hpp>
 
 namespace quxlang::parsers
 {

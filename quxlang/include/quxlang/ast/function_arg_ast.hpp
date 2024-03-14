@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

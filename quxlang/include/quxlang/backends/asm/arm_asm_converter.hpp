@@ -33,27 +33,40 @@ namespace quxlang
 
         while (pos != end)
         {
-            asm_instruction inst = *pos++;
-
-            std::string opcode_str = inst.opcode_mnemonic;
-            opcode_str = to_lower_str(opcode_str);
-
-            result += "    " + opcode_str;
-            for (std::size_t i = 0; i < inst.operands.size(); i++)
+            asm_statement inst_or_label = *pos++;
+            if (typeis<asm_instruction>(inst_or_label))
             {
-                if (i != 0)
+                asm_instruction const & inst = as<asm_instruction>(inst_or_label);
+
+                std::string opcode_str = inst.opcode_mnemonic;
+                opcode_str = to_lower_str(opcode_str);
+
+                result += "    " + opcode_str;
+                for (std::size_t i = 0; i < inst.operands.size(); i++)
                 {
-                    result += ", ";
-                }
-                else
-                {
-                    result += " ";
+                    if (i != 0)
+                    {
+                        result += ", ";
+                    }
+                    else
+                    {
+                        result += " ";
+                    }
+
+                    result += inst.operands[i];
                 }
 
-                result += inst.operands[i];
+                result += "\n";
             }
-
-            result += "\n";
+            else if (typeis<asm_label>(inst_or_label))
+            {
+                asm_label const & label = as<asm_label>(inst_or_label);
+                result += label.name + ":\n";
+            }
+            else
+            {
+                rpnx::unimplemented();
+            }
         }
         return result;
     }

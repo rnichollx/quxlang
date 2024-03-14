@@ -38,7 +38,7 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, "@"))
         {
-            arg.api_name = get_skip_identifier(pos, end);
+            arg.api_name = parse_identifier(pos, end);
             if (arg.api_name->empty())
             {
                 throw std::runtime_error("Expected identifier after '@' ");
@@ -58,7 +58,7 @@ namespace quxlang::parsers
         std::string& arg_name = arg.name;
         type_symbol& arg_type = arg.type;
 
-        arg_name = get_skip_identifier(pos, end);
+        arg_name = parse_identifier(pos, end);
         if (arg_name.empty())
         {
             throw std::runtime_error("Expected identifier");

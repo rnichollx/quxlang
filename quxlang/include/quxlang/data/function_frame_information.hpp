@@ -5,7 +5,7 @@
 #ifndef QUXLANG_FUNCTION_FRAME_INFORMATION_HEADER_GUARD
 #define QUXLANG_FUNCTION_FRAME_INFORMATION_HEADER_GUARD
 
-#include "qualified_symbol_reference.hpp"
+#include "type_symbol.hpp"
 #include <string>
 
 namespace quxlang

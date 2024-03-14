@@ -34,7 +34,7 @@ namespace quxlang::parsers
         auto arg = parse_type_symbol(pos, end);
 
         ct->m_template_args.push_back(arg);
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, ","))
         {

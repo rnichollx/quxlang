@@ -6,7 +6,7 @@
 #define QUXLANG_CLASS_TEMPLATE_AST_HEADER_GUARD
 
 #include "class_entity_ast.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 #include <optional>
 

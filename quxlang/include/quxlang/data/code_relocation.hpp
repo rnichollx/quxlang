@@ -14,7 +14,13 @@ namespace quxlang
         absolute,
 
         // Stores the relative address of the symbol
-        relative
+        relative,
+
+        // Stores the relative address of the symbol
+        // unsigned (increase only)
+        relative_unsigned,
+
+
     };
 
     enum class relocation_target_type
@@ -27,6 +33,16 @@ namespace quxlang
 
         // Value copy: Copy the value of the symbol
         value_copy,
+
+        // Call: The value stored is a pointer to a function,
+        // either a direct call or a linker-generated stub that
+        // calls the function
+        call,
+
+        // Stub: The value stored is a pointer to a function which
+        // returns the address of the target symbol
+        stub
+
     };
 
     enum class relocation_write_method

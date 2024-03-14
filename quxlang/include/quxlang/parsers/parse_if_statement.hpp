@@ -46,11 +46,11 @@ namespace quxlang::parsers
 
         if_statement.then_block = parse_function_block(pos, end);
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (skip_keyword_if_is(pos, end, "ELSE"))
         {
-            skip_wsc(pos, end);
+            skip_whitespace_and_comments(pos, end);
             if_statement.else_block = parse_function_block(pos, end);
         }
 

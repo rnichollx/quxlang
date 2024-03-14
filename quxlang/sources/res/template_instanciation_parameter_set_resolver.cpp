@@ -37,7 +37,7 @@ namespace quxlang
         {
             auto template_arg_contextual = template_ast.m_template_args[i];
 
-            auto template_arg = co_await *c->lk_canonical_type_from_contextual_type(template_arg_contextual, template_name);
+            auto template_arg = co_await *c->lk_canonical_symbol_from_contextual_symbol(template_arg_contextual, template_name);
             std::string template_arg_str = to_string(template_arg);
 
             type_symbol instanciation_arg = template_instanciation_parameters[i];

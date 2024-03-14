@@ -41,7 +41,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::call_parameter_information
         contextual_type_reference ctx_type;
         ctx_type.context = functum;
         ctx_type.type = arg.type;
-        auto type = co_await *c->lk_canonical_type_from_contextual_type(ctx_type);
+        auto type = co_await *c->lk_canonical_symbol_from_contextual_symbol(ctx_type);
         info.argument_types.push_back(type);
     }
 

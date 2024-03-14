@@ -5,7 +5,7 @@
 #ifndef QUXLANG_VMMANIP_HEADER_GUARD
 #define QUXLANG_VMMANIP_HEADER_GUARD
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_expr_primitive_op.hpp"
 #include "quxlang/data/vm_expression.hpp"
 #include <boost/variant.hpp>

@@ -5,7 +5,7 @@
 #ifndef TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
 #define TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
 #include <quxlang/parsers/parse_function_block.hpp>
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_symbol_if_is.hpp>
 
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
@@ -31,7 +31,7 @@ namespace quxlang::parsers
         {
             return std::nullopt;
         }
-        std::string name = get_skip_identifier(pos2, end);
+        std::string name = parse_identifier(pos2, end);
 
         if (name.empty())
         {
@@ -45,7 +45,7 @@ namespace quxlang::parsers
             return std::nullopt;
         }
 
-        skip_wsc(pos2, end);
+        skip_whitespace_and_comments(pos2, end);
 
         auto function_opt = try_parse_function_declaration(pos2, end);
         if (!function_opt)

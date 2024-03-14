@@ -5,7 +5,7 @@
 #ifndef QUXLANG_VM_EXPR_UNDEF_HEADER_GUARD
 #define QUXLANG_VM_EXPR_UNDEF_HEADER_GUARD
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

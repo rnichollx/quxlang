@@ -21,11 +21,11 @@ namespace quxlang::parsers
             return output;
         }
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         type_symbol type = try_parse_type_symbol(pos, end).value();
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {

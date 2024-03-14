@@ -40,16 +40,15 @@ int main(int argc, char** argv)
 
     std::string name = quxlang::mangle(qn);
 
-
     std::string boxy_input = "::boxy";
     std::string::iterator boxy_iter = boxy_input.begin();
-    auto boxy = quxlang::parsers::parse_type_symbol<std::string::iterator>(boxy_iter, boxy_input.end());
+    auto boxy = quxlang::parsers::parse_type_symbol< std::string::iterator >(boxy_iter, boxy_input.end());
 
     std::set< quxlang::type_symbol > already_compiled;
     std::set< quxlang::type_symbol > already_assembled;
 
     std::set< quxlang::type_symbol > new_deps_to_compile = {qn};
-    std::set< quxlang::type_symbol > new_deps_to_assemble = { boxy };
+    std::set< quxlang::type_symbol > new_deps_to_assemble = {boxy};
 
     std::map< quxlang::type_symbol, std::vector< std::byte > > compiled_code;
 
@@ -75,7 +74,7 @@ int main(int argc, char** argv)
             }
             new_deps_to_compile.erase(to_compile);
 
-            for (auto & x: vmf.invoked_asm_procedures)
+            for (auto& x : vmf.invoked_asm_procedures)
             {
                 if (already_assembled.contains(x))
                     continue;
@@ -129,7 +128,10 @@ int main(int argc, char** argv)
     */
 
     // return 0;
-    quxlang::type_symbol foo = quxlang::instanciation_reference{quxlang::subentity_reference{quxlang::module_reference{"main"}, "box2"}, {quxlang::parsers::parse_type_symbol("I32")}};
+    quxlang::type_symbol foo = quxlang::instanciation_reference{
+        .callee = quxlang::subentity_reference{quxlang::module_reference{.module_name = "main"}, "box2"},
+        .parameters = {quxlang::parsers::parse_type_symbol("I32")}
+    };
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

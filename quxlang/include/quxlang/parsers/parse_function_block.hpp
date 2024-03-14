@@ -43,7 +43,7 @@ namespace quxlang::parsers
             }
         }
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, "}"))
         {

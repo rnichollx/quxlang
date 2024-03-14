@@ -6,10 +6,10 @@
 #define TRY_PARSE_TYPE_SYMBOL_HPP
 
 #include <optional>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_symbol_if_is.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>

@@ -9,7 +9,7 @@
 #include "quxlang/compiler_fwd.hpp"
 
 #include "rpnx/resolver_utilities.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/macros.hpp"
 
 namespace quxlang

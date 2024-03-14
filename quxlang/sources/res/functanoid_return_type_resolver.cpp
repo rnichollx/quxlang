@@ -44,7 +44,7 @@ void quxlang::functanoid_return_type_resolver::process(quxlang::compiler* c)
     auto return_type_dp = get_dependency(
         [&]
         {
-            return c->lk_canonical_type_from_contextual_type(return_type_contexual);
+            return c->lk_canonical_symbol_from_contextual_symbol(return_type_contexual);
         });
 
     if (!ready())

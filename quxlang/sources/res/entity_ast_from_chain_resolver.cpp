@@ -12,7 +12,7 @@ void quxlang::entity_ast_from_chain_resolver::process(compiler* c)
             contextual_type_reference typ;
             typ.context = m_context;
             typ.type = m_chain;
-            return c->lk_canonical_type_from_contextual_type(m_chain, m_context);
+            return c->lk_canonical_symbol_from_contextual_symbol(m_chain, m_context);
         });
 
     if (!ready())

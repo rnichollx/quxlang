@@ -35,7 +35,11 @@ namespace quxlang
 
     using ast2_node = rpnx::variant< std::monostate, ast2_functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_templatable = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
+    using ast2_temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
+
+    using ast2_templexoid = rpnx::variant< std::monostate, ast2_functum, ast2_templex >;
+
+
 
     struct ast2_extern
     {
@@ -49,6 +53,19 @@ namespace quxlang
         }
     };
 
+
+
+    struct ast2_procedure_ref
+    {
+        std::string cc;
+        type_symbol functanoid;
+
+        auto operator<=>(const ast2_procedure_ref& other) const
+        {
+            return rpnx::compare(cc, other.cc, functanoid, other.functanoid);
+        }
+    };
+
     struct ast2_argument_interface
     {
         std::string register_name;
@@ -59,6 +76,35 @@ namespace quxlang
             return rpnx::compare(register_name, other.register_name, type, other.type);
         }
 
+    };
+
+    using ast2_asm_operand_component = rpnx::variant<std::string, ast2_extern, ast2_procedure_ref>;
+
+    struct ast2_asm_operand
+    {
+        std::vector<ast2_asm_operand_component> components;
+
+        auto operator<=>(const ast2_asm_operand& other) const
+        {
+            return rpnx::compare(components, other.components);
+        }
+    };
+
+    struct ast2_asm_instruction
+    {
+        std::string opcode_mnemonic;
+        std::vector< ast2_asm_operand > operands;
+
+        auto operator<=>(const ast2_asm_instruction& other) const
+        {
+            return rpnx::compare(opcode_mnemonic, other.opcode_mnemonic, operands, other.operands);
+        }
+    };
+
+    struct ast2_asm_procedure
+    {
+        std::string name;
+        std::vector< asm_instruction > instructions;
     };
 
     // ast2_asm_callable defines the interface by which an asm_procedure can be called
@@ -80,9 +126,10 @@ namespace quxlang
 
     struct ast2_asm_procedure_declaration
     {
-        std::vector< asm_instruction > instructions;
+        std::vector< ast2_asm_instruction > instructions;
         std::optional< std::string > linkname;
         std::vector< ast2_asm_callable > callable_interfaces;
+        std::vector< type_symbol > imports;
 
         std::strong_ordering operator<=>(const ast2_asm_procedure_declaration& other) const
         {

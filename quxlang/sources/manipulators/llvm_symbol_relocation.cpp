@@ -94,7 +94,7 @@ namespace quxlang
              [](llvm::object::RelocationRef const& reloc, symbol_relocation& reloc_info, std::string const& name)
              {
                  reloc_info = {};
-                 reloc_info.target_type = relocation_target_type::address;
+                 reloc_info.target_type = relocation_target_type::call;
                  reloc_info.address_type = relocation_address_type::relative;
                  reloc_info.write_method = relocation_write_method::set;
                  reloc_info.byte_ordering = relocation_byte_ordering::little_endian;
@@ -147,6 +147,20 @@ namespace quxlang
                  reloc_info.relocation_offset = reloc.getOffset();
                  reloc_info.target_bit_shift = 0;
              }},
+            {"R_AARCH64_PREL64",
+                [](llvm::object::RelocationRef const& reloc, symbol_relocation& reloc_info, std::string const& name)
+                {
+                    reloc_info = {};
+                    reloc_info.target_type = relocation_target_type::address;
+                    reloc_info.address_type = relocation_address_type::relative;
+                    reloc_info.write_method = relocation_write_method::set;
+                    reloc_info.byte_ordering = relocation_byte_ordering::little_endian;
+                    reloc_info.bit_ordering = relocation_bit_ordering::lsb_to_msb;
+                    reloc_info.bits_width = 64;
+                    reloc_info.target_symbol = name;
+                    reloc_info.relocation_offset = reloc.getOffset();
+                    reloc_info.target_bit_shift = 0;
+                }},
         };
 
         auto& func = reloc_map.at(type_str);

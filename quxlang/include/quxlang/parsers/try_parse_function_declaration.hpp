@@ -10,7 +10,7 @@
 #include <quxlang/ast2/ast2_function_delegate.hpp>
 #include <quxlang/parsers/parse_function_args.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/try_parse_function_delegates.hpp>
 #include <quxlang/parsers/try_parse_function_return_type.hpp>
 

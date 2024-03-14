@@ -6,7 +6,7 @@
 #define TRY_PARSE_FUNCTION_RETURN_TYPE_HPP
 
 #include <optional>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 
 namespace quxlang::parsers

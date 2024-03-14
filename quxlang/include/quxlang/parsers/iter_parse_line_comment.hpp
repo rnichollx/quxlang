@@ -5,7 +5,7 @@
 #ifndef ITER_PARSE_LINE_COMMENT_HPP
 #define ITER_PARSE_LINE_COMMENT_HPP
 
-#include <quxlang/parsers/iter_parse_symbol.hpp>
+#include <quxlang/parsers/symbol.hpp>
 
 namespace quxlang::parsers
 {

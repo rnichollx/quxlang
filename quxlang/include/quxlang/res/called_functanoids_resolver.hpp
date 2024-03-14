@@ -6,7 +6,7 @@
 #define CALLED_FUNCTANOIDS_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_procedure.hpp"
 
 #include <set>

@@ -702,7 +702,7 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
 
     std::string var_type_str = to_string(statement.type);
 
-    auto canonical_type = co_await *ctx.get_compiler()->lk_canonical_type_from_contextual_type(statement.type, ctx.current_context());
+    auto canonical_type = co_await *ctx.get_compiler()->lk_canonical_symbol_from_contextual_symbol(statement.type, ctx.current_context());
 
     std::string canonical_var_str = to_string(canonical_type);
 
@@ -938,7 +938,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 
     // assert(ctx.current_context() == m_func_name);
-    auto canonical_symbol = co_await *ctx.get_compiler()->lk_canonical_type_from_contextual_type(expr.symbol, ctx.funcname());
+    auto canonical_symbol = co_await *ctx.get_compiler()->lk_canonical_symbol_from_contextual_symbol(expr.symbol, ctx.funcname());
 
     std::string symbol_str = to_string(canonical_symbol);
     // TODO: Check if global variable

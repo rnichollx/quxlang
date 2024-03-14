@@ -7,7 +7,7 @@
 
 #include "data/expression.hpp"
 #include "data/function_block.hpp"
-#include "data/qualified_symbol_reference.hpp"
+#include "data/type_symbol.hpp"
 #include "data/vm_executable_unit.hpp"
 #include "data/vm_expression.hpp"
 #include <string>
@@ -503,6 +503,30 @@ namespace quxlang
             return result;
         }
 
+        std::string operator()(selection_reference const& func)
+        {
+            std::string result;
+            result = "functanoid_reference{\n";
+            current_indent++;
+            result += indent_string();
+            result += "callee: ";
+            result += rpnx::apply_visitor<std::string>(*this, func.callee);
+            result += indent_string();
+            result += "parameters: ";
+            current_indent++;
+            for (auto const& param : func.parameters)
+            {
+                result += indent_string();
+                result += "param: ";
+                result += rpnx::apply_visitor<std::string>(*this, param);
+                result += "\n";
+            }
+            current_indent--;
+            current_indent--;
+            result += indent_string() + "}\n";
+            return result;
+        }
+
         std::string operator()(tvalue_reference const& ref)
         {
             std::string result;
@@ -640,6 +664,8 @@ namespace quxlang
         {
             return "template_reference{ name: " + ref.name + " }\n";
         }
+
+
     };
 
     inline std::string to_pretty_string(expression expr)

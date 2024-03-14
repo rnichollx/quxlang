@@ -4,7 +4,7 @@
 
 #ifndef TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
 #define TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_symbol_if_is.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
@@ -31,7 +31,7 @@ namespace quxlang::parsers
         {
             return std::nullopt;
         }
-        std::string name = get_skip_identifier(pos2, end);
+        std::string name = parse_identifier(pos2, end);
 
         if (name.empty())
         {
@@ -45,13 +45,13 @@ namespace quxlang::parsers
             return std::nullopt;
         }
 
-        skip_wsc(pos2, end);
+        skip_whitespace_and_comments(pos2, end);
 
         type_symbol type = try_parse_type_symbol(pos2, end).value();
 
         std::string typestr = quxlang::to_string(type);
 
-        skip_wsc(pos2, end);
+        skip_whitespace_and_comments(pos2, end);
 
         if (!skip_symbol_if_is(pos2, end, ";"))
         {

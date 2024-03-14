@@ -16,38 +16,38 @@ namespace quxlang::parsers
     {
         ast2_file_declaration output;
         It& pos = begin;
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "MODULE"))
         {
             throw std::runtime_error("expected module here");
         }
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
-        std::string module_name = get_skip_identifier(pos, end);
+        std::string module_name = parse_identifier(pos, end);
 
         output.module_name = module_name;
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ";"))
         {
             throw std::runtime_error("Expected ; here");
         }
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (skip_keyword_if_is(pos, end, "IMPORT"))
         {
-            skip_wsc(pos, end);
-            std::string module_name = get_skip_identifier(pos, end);
-            skip_wsc(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            std::string module_name = parse_identifier(pos, end);
+            skip_whitespace_and_comments(pos, end);
 
             std::string import_name = module_name;
 
             if (skip_symbol_if_is(pos, end, "AS"))
             {
-                skip_wsc(pos, end);
-                import_name = get_skip_identifier(pos, end);
-                skip_wsc(pos, end);
+                skip_whitespace_and_comments(pos, end);
+                import_name = parse_identifier(pos, end);
+                skip_whitespace_and_comments(pos, end);
             }
 
             if (!skip_symbol_if_is(pos, end, ";"))

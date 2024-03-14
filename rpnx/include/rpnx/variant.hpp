@@ -452,7 +452,6 @@ namespace rpnx
         constexpr basic_variant(basic_variant< Allocator, Ts... > const& other)
             : m_alloc(std::allocator_traits< Allocator >::select_on_container_copy_construction(other.m_alloc))
         {
-            assert(&other != nullptr);
             m_vinf = nullptr;
             m_data = nullptr;
             assert((other.m_vinf == nullptr) == (other.m_data == nullptr));

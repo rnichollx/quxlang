@@ -26,7 +26,7 @@ namespace quxlang::parsers
             throw std::runtime_error("Expected '('");
         }
         output.condition = parse_expression(pos, end);
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
             throw std::runtime_error("Expected ')'");

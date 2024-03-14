@@ -6,7 +6,7 @@
 #define TRY_PARSE_NAMESPACE_HPP
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_named_declarations.hpp>
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 
 namespace quxlang::parsers
 {

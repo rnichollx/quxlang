@@ -5,7 +5,7 @@
 #ifndef QUXLANG_MEMBER_VARIABLE_AST_HEADER_GUARD
 #define QUXLANG_MEMBER_VARIABLE_AST_HEADER_GUARD
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include <string>
 
 namespace quxlang

@@ -2,7 +2,7 @@
 // Created by Ryan Nicholl on 11/12/23.
 //
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/variant_utils.hpp"
 
 void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)

@@ -6,7 +6,7 @@
 #define VM_PROCEDURE_BUILDER_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_generation_frameinfo.hpp"
 
 namespace quxlang

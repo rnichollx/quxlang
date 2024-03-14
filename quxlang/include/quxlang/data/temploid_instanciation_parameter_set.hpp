@@ -5,7 +5,7 @@
 #ifndef TEMPLATE_INSTANCIATION_PARAMETER_SET_HPP
 #define TEMPLATE_INSTANCIATION_PARAMETER_SET_HPP
 #include <map>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 
 namespace quxlang
 {

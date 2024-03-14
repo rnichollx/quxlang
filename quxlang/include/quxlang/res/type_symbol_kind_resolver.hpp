@@ -6,7 +6,7 @@
 #define RPNX_QUXLANG_TYPE_SYMBOL_KIND_RESOLVER_HEADER
 
 #include "quxlang/macros.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 namespace quxlang
 {
     enum class symbol_kind {

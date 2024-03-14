@@ -12,25 +12,25 @@ namespace quxlang::parsers
     template < typename It >
     function_var_statement parse_var_statement(It& pos, It end)
     {
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "VAR"))
         {
             throw std::runtime_error("Expected 'VAR'");
         }
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         function_var_statement var_statement;
 
-        var_statement.name = get_skip_identifier(pos, end);
+        var_statement.name = parse_identifier(pos, end);
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         std::string remaining{pos, end};
         var_statement.type = parse_type_symbol(pos, end);
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, ":("))
         {
@@ -38,7 +38,7 @@ namespace quxlang::parsers
             while (true)
             {
 
-                skip_wsc(pos, end);
+                skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, ")"))
                 {
                     break;
@@ -66,7 +66,7 @@ namespace quxlang::parsers
 
         std::string remaining2{pos, end};
 
-        skip_wsc(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {

@@ -9,9 +9,11 @@
 #include <vector>
 
 #include <rpnx/compare.hpp>
+#include <rpnx/variant.hpp>
 
 namespace quxlang
 {
+
     struct asm_instruction
     {
         std::string opcode_mnemonic;
@@ -23,11 +25,25 @@ namespace quxlang
         }
     };
 
+    struct asm_label
+    {
+        std::string name;
+
+        auto operator<=>(const asm_label&other) const
+        {
+            return rpnx::compare(name, other.name);
+        }
+    };
+
+    using asm_statement = rpnx::variant< asm_instruction, asm_label >;
+
     struct asm_procedure
     {
         std::string name;
-        std::vector< asm_instruction > instructions;
+        std::vector< asm_statement > instructions;
     };
+
+
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_ASM_HEADER

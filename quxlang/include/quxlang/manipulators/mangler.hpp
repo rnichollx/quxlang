@@ -10,7 +10,7 @@
 
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include "quxlang/data/canonical_type_reference.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

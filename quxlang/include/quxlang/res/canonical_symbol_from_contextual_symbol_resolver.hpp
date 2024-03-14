@@ -20,6 +20,7 @@ namespace quxlang
     {
       public:
         using key_type = contextual_type_reference;
+        using input_type = contextual_type_reference;
         canonical_symbol_from_contextual_symbol_resolver(contextual_type_reference ref)
         {
             m_ref = ref;

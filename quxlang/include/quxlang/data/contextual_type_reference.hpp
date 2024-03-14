@@ -7,7 +7,7 @@
 
 #include "lookup_chain.hpp"
 #include "quxlang/data/lookup_type.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

@@ -5,7 +5,7 @@
 #ifndef PARSE_TYPE_SYMBOL_HPP
 #define PARSE_TYPE_SYMBOL_HPP
 
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 

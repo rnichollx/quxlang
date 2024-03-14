@@ -51,6 +51,10 @@ start:
     {
         // ignore this
     }
+    else if (typeis< ast2_asm_procedure_declaration >(ast))
+    {
+        // Procedures don't contain anything.
+    }
     else
     {
         std::string typenam = to_string(input);

@@ -5,7 +5,7 @@
 #ifndef QUXLANG_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER_GUARD
 #define QUXLANG_CANONICAL_RESOLVED_FUNCTION_CHAIN_HEADER_GUARD
 
-#include "qualified_symbol_reference.hpp"
+#include "type_symbol.hpp"
 
 namespace quxlang
 {

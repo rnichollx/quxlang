@@ -6,7 +6,7 @@
 #define QUXLANG_QUAL_CONVERTERS_HEADER_GUARD
 
 #include "quxlang/data/canonical_type_reference.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

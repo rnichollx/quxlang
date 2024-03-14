@@ -6,7 +6,7 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/code_relocation.hpp"
 #include "quxlang/data/llvm_proxy_types.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/manipulators/vm_type_alignment.hpp"
@@ -963,7 +963,7 @@ quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
     llvm::Optional<llvm::CodeModel::Model > code_model = llvm::CodeModel::Large;
 
     opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
-    target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM);
+    target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM, llvm::CodeModel::Large);
 }
 
 std::unique_ptr< llvm::MemoryBuffer > to_llvm_buffer(std::string str)

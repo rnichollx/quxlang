@@ -6,7 +6,7 @@
 #define TRY_PARSE_EXPRESSION_HPP
 #include <optional>
 #include <quxlang/data/expression.hpp>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>

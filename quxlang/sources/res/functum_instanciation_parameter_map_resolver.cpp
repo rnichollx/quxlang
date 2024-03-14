@@ -18,7 +18,7 @@ auto quxlang::functum_instanciation_parameter_map_resolver::co_process(compiler*
     {
         auto template_arg_contextual = func_args.argument_types[i];
 
-        auto template_arg = co_await *c->lk_canonical_type_from_contextual_type(template_arg_contextual, func_name);
+        auto template_arg = co_await *c->lk_canonical_symbol_from_contextual_symbol(template_arg_contextual, func_name);
         std::string template_arg_str = to_string(template_arg);
 
         type_symbol instanciation_arg = func_args.argument_types[i];

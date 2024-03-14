@@ -10,7 +10,7 @@
 #include "rpnx/string.hpp"
 
 #include <boost/variant.hpp>
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 #include <utility>
 #include <vector>
 #include <rpnx/variant.hpp>

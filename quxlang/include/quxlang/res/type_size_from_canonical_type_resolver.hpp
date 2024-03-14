@@ -9,7 +9,7 @@
 #include "quxlang/data/canonical_type_reference.hpp"
 
 #include "rpnx/resolver_utilities.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang
 {

@@ -7,7 +7,7 @@
 
 #include <boost/variant.hpp>
 
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "vm_allocate_storage.hpp"
 #include "vm_block.hpp"
 #include "vm_expression.hpp"

@@ -4,8 +4,7 @@
 
 #ifndef PARSE_NAMED_DECLARATIONS_HPP
 #define PARSE_NAMED_DECLARATIONS_HPP
-#include <quxlang/parser.hpp>
-#include <quxlang/parsers/skip_keyword_if_is.hpp>
+#include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/try_parse_named_declaration.hpp>
 
 namespace quxlang::parsers

@@ -4,7 +4,7 @@
 
 #ifndef AST2_FUNCTION_ARG_HPP
 #define AST2_FUNCTION_ARG_HPP
-#include <quxlang/data/qualified_symbol_reference.hpp>
+#include <quxlang/data/type_symbol.hpp>
 
 namespace quxlang
 {

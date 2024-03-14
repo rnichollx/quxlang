@@ -6,7 +6,7 @@
 #define QUXLANG_FUNCTION_DELEGATE_HEADER_GUARD
 
 #include "expression.hpp"
-#include "qualified_symbol_reference.hpp"
+#include "type_symbol.hpp"
 
 namespace quxlang
 {

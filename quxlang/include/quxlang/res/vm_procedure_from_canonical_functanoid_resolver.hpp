@@ -10,7 +10,7 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/data/function_statement.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_generation_frameinfo.hpp"
 
 namespace quxlang

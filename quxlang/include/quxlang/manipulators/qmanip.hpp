@@ -6,7 +6,7 @@
 #define QUXLANG_MANIPULATORS_QUALIFIED_REFERENCE_HEADER_GUARD
 
 #include "quxlang/data/call_parameter_information.hpp"
-#include "quxlang/data/qualified_symbol_reference.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/variant_utils.hpp"
 
 namespace quxlang

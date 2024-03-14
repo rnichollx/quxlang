@@ -32,7 +32,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
         auto canonical_to_type_dep = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(to_type_ref);
+                return c->lk_canonical_symbol_from_contextual_symbol(to_type_ref);
             });
 
         if (!ready())
@@ -127,7 +127,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
         auto parent_dp = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(parent, context);
+                return c->lk_canonical_symbol_from_contextual_symbol(parent, context);
             });
 
         if (!ready())
@@ -181,7 +181,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
         auto parent_dp = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(parent, context);
+                return c->lk_canonical_symbol_from_contextual_symbol(parent, context);
             });
 
         if (!ready())
@@ -200,7 +200,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
         auto callee_dp = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(param_set.callee, context);
+                return c->lk_canonical_symbol_from_contextual_symbol(param_set.callee, context);
             });
 
         if (!ready())
@@ -213,7 +213,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
             auto param_dp = get_dependency(
                 [&]
                 {
-                    return c->lk_canonical_type_from_contextual_type(p, context);
+                    return c->lk_canonical_symbol_from_contextual_symbol(p, context);
                 });
 
             if (!ready())
@@ -242,7 +242,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
         auto target_can_dp = get_dependency(
             [&]
             {
-                return c->lk_canonical_type_from_contextual_type(target_type, context);
+                return c->lk_canonical_symbol_from_contextual_symbol(target_type, context);
             });
         if (!ready())
         {
