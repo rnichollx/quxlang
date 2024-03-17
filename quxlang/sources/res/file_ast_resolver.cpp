@@ -50,7 +50,7 @@ void quxlang::file_ast_resolver::process(compiler* c)
         std::cout << "At:  " << snippet << std::endl;
         std::cout << "Error: " << e.what() << std::endl;
 
-        throw e;
+        throw;
     }
 
     v_file_ast.filename = input_filename;
