@@ -22,6 +22,8 @@
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
 
+#include "rpnx/serializer.hpp"
+
 struct foo
 {
     int a;
@@ -539,4 +541,86 @@ TEST(dyn_bidirectional_input_iter, IteratorsWithNonDefaultConstructibleType)
     EXPECT_EQ((*iter).value, 2);
 }
 
-// Add more test cases for different iterator types, non-copyable types, non-default-constructible types, and dyn_input_range.
+
+
+
+TEST(SerializationTest, IntegralTypes)
+{
+    std::vector<std::byte> buffer;
+
+    // Serialize integral types
+    std::uint32_t uint32_value = 0x12345678;
+    std::int64_t int64_value = -0x1234567890ABCDEF;
+
+    rpnx::serialize_iter(uint32_value, std::back_inserter(buffer));
+    rpnx::serialize_iter(int64_value, std::back_inserter(buffer));
+
+    // Deserialize integral types
+    auto it = buffer.begin();
+    std::uint32_t deserialized_uint32;
+    std::int64_t deserialized_int64;
+
+    it = rpnx::deserialize_iter(deserialized_uint32, it);
+    it = rpnx::deserialize_iter(deserialized_int64, it);
+
+    EXPECT_EQ(uint32_value, deserialized_uint32);
+    EXPECT_EQ(int64_value, deserialized_int64);
+}
+
+TEST(SerializationTest, Map)
+{
+    std::vector<std::byte> buffer;
+
+    // Serialize map
+    std::map<std::uint32_t, std::string> map = {
+        {1, "one"},
+        {2, "two"},
+        {3, "three"}
+    };
+
+    rpnx::serialize_iter(map, std::back_inserter(buffer));
+
+    // Deserialize map
+    std::map<std::uint32_t, std::string> deserialized_map;
+    auto it = buffer.begin();
+
+    it = rpnx::deserialize_iter(deserialized_map, it);
+
+    EXPECT_EQ(map, deserialized_map);
+}
+
+TEST(SerializationTest, Vector)
+{
+    std::vector<std::byte> buffer;
+
+    // Serialize vector
+    std::vector<std::uint32_t> vector = {1, 2, 3, 4, 5};
+
+    rpnx::serialize_iter(vector, std::back_inserter(buffer));
+
+    // Deserialize vector
+    std::vector<std::uint32_t> deserialized_vector;
+    auto it = buffer.begin();
+
+    it = rpnx::deserialize_iter(deserialized_vector, it);
+
+    EXPECT_EQ(vector, deserialized_vector);
+}
+
+TEST(SerializationTest, Set)
+{
+    std::vector<std::byte> buffer;
+
+    // Serialize set
+    std::set<std::string> set = {"one", "two", "three"};
+
+    rpnx::serialize_iter(set, std::back_inserter(buffer));
+
+    // Deserialize set
+    std::set<std::string> deserialized_set;
+    auto it = buffer.begin();
+
+    it = rpnx::deserialize_iter(deserialized_set, it);
+
+    EXPECT_EQ(set, deserialized_set);
+}

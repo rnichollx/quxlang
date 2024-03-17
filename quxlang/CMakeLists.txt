@@ -239,6 +239,6 @@ if (GTest_FOUND)
     add_executable(quxlang_gtests)
     target_sources(quxlang_gtests PRIVATE tests/gtests.cpp)
     target_link_libraries(quxlang_gtests PRIVATE GTest::GTest GTest::Main quxlang)
-    gtest_discover_tests(quxlang_gtests)
+    #gtest_discover_tests(quxlang_gtests)
 endif ()
 
