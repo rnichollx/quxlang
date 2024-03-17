@@ -5,7 +5,6 @@
 
 namespace rpnx
 {
-
     // A pure question is a question that depends only on the input and
     // any sub-questions it may ask.
     // It can be cached between runs if the executable version is the same.
@@ -45,15 +44,54 @@ namespace rpnx
     template <typename G, typename Q>
     struct question_impl_traits;
 
-    namespace detail
+
+    class question_graph
     {
-        struct askable_state
+        virtual ~question_graph()
+        {
+        }
+    };
+
+
+    template <typename Q>
+    class static_answerer
+        : public virtual question_graph
+    {
+        std::map< question_traits< Q >::input_type, question_traits< Q >::output_type > m_answers;
+
+        friend class question_impl_traits< static_answerer< Q >, Q >;
+
+    public:
+        template <typename It>
+        static_answerer(It begin, It end)
         {
 
+            for (auto it = begin; it != end; ++it)
+            {
+                m_answers[it->first] = it->second;
+            }
+        }
+
+    };
+
+    template <typename Q>
+    struct question_impl_traits< static_answerer< Q >, Q >
+    {
+        using question_tag = impure_question_tag;
+
+        template <typename Co>
+        Co co_process(static_answerer< Q > & graph, question_traits< Q >::input_type input)
+        {
+            co_return graph.m_answers[input];
+        }
+    };
+
+    class question_coroutine
+    {
+    public:
+        class promise_type
+        {
         };
-    }
-
-
+    };
 }
-
 #endif //RESOLVER2_HPP

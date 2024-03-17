@@ -188,6 +188,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/res/temploid_ast_resolver.hpp
         sources/res/procedure_linksymbol_resolver.cpp
         include/quxlang/parsers/linkname.hpp
+        include/quxlang/questions/questions.hpp
 
 )
 
