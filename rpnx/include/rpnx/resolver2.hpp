@@ -33,6 +33,15 @@ namespace rpnx
     template <typename T>
     struct question_traits;
 
+    /**
+     * A specialization of question_impl_traits should implement:
+     *
+     * question_tag (pure_question_tag or impure_question_tag)
+     *
+     * template <typename Co>
+     * Co co_process(G & graph, question_traits<Q>::input_type input);
+     *
+     * */
     template <typename G, typename Q>
     struct question_impl_traits;
 
