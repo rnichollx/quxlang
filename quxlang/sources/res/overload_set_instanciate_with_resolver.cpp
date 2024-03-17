@@ -4,7 +4,7 @@
 
 #include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
 
-#include "quxlang/debug.hpp"
+#include "../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include <vector>
 

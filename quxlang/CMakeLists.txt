@@ -73,7 +73,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         sources/res/call_params_of_function_ast_resolver.cpp
         include/quxlang/ast2/ast2_type_map.hpp
         include/quxlang/data/functanoid_instanciation.hpp
-        include/quxlang/debug.hpp
+        ../rpnx/include/rpnx/debug.hpp
         include/quxlang/res/overload_set_instanciate_with_resolver.hpp
         sources/res/overload_set_instanciate_with_resolver.cpp
         include/quxlang/ast/class_template_ast.hpp

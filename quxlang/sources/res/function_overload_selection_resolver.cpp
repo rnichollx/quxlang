@@ -56,7 +56,7 @@ rpnx::resolver_coroutine<quxlang::compiler, quxlang::call_parameter_information>
     }
 
     // TODO: Remove this
-    std::cout << ss.str() << std::endl;
+    QUXLANG_DEBUG({std::cout << ss.str() << std::endl;});
 
     if (eligible_overloads == 0)
     {

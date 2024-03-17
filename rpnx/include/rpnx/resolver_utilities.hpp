@@ -16,6 +16,7 @@
 #include <sstream>
 #include <boost/variant.hpp>
 #include <memory>
+#include "debug.hpp"
 
 namespace rpnx
 {
@@ -1718,19 +1719,20 @@ namespace rpnx
 
                 if (!(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0))
                 {
-                    std::cout << "failed resolution:" << n->question() << std::endl;
+                    QUXLANG_DEBUG({std::cout << "failed resolution:" << n->question() << std::endl;});
                 }
                 assert(n->resolved() || n->has_unresolved_dependencies() || n->blocking_coroutine_count() != 0);
 
                 if (n->resolved() && !n->m_attached_to)
                 {
+
                     if (n->has_value())
                     {
-                        std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;
+                        QUXLANG_DEBUG({std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl;});
                     }
                     else
                     {
-                        std::cout << "Q: " << n->question() << " A: error" << std::endl;
+                        QUXLANG_DEBUG({std::cout << "Q: " << n->question() << " A: error" << std::endl;});
                     }
                 }
 
@@ -1784,7 +1786,7 @@ namespace rpnx
 
             for (auto const& n : m_all_nodes)
             {
-                std::cout << n->debug() << std::endl;
+                QUXLANG_DEBUG({std::cout << n->debug() << std::endl;});
             }
 
             if (!node->resolved())

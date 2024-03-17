@@ -1,7 +1,7 @@
 //
 // Created by Ryan Nicholl on 11/5/23.
 //
-#include "quxlang/debug.hpp"
+#include "../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/manipulators/argmanip.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/variant_utils.hpp"

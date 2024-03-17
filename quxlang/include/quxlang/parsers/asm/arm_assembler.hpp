@@ -5,6 +5,7 @@
 #ifndef RPNX_QUXLANG_ARM_ASSEMBLER_HEADER
 #define RPNX_QUXLANG_ARM_ASSEMBLER_HEADER
 
+#include "../../../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/parsers/extern.hpp"
 
@@ -23,7 +24,7 @@ namespace quxlang::parsers
     template <typename It>
     std::optional< ast2_asm_operand_component > try_parse_arm_asm_operand_component(It& pos, It end)
     {
-        std::cout << "try_parse_arm_asm_operand_component" << std::endl;
+        QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand_component" << std::endl;});
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_extern > exte = try_parse_ast2_extern(pos, end);
         if (exte)
@@ -82,7 +83,7 @@ namespace quxlang::parsers
     inline std::optional< ast2_asm_operand > try_parse_arm_asm_operand(It& it, It end)
     {
 
-        std::cout << "try_parse_arm_asm_operand" << std::endl;
+        QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand" << std::endl;});
         ast2_asm_operand ret;
         std::size_t bracket_count = 0;
 
@@ -119,22 +120,24 @@ namespace quxlang::parsers
 
         if (comp)
         {
-            if (typeis<std::string>(*comp))
-            {
-                std::cout << "comp: " << as<std::string>(*comp) << std::endl;
-            }
-                else if (typeis<ast2_extern>(*comp))
+            QUXLANG_DEBUG({
+                if (typeis< std::string >(*comp))
                 {
-                        std::cout << "comp: EXTERNAL" << std::endl;
+                std::cout << "comp: " << as< std::string >(*comp) << std::endl;
                 }
-                else if (typeis<ast2_procedure_ref>(*comp))
+                else if (typeis< ast2_extern >(*comp))
                 {
-                        std::cout << "comp: PROCEDURE" << std::endl;
+                std::cout << "comp: EXTERNAL" << std::endl;
+                }
+                else if (typeis< ast2_procedure_ref >(*comp))
+                {
+                std::cout << "comp: PROCEDURE" << std::endl;
                 }
                 else
                 {
-                        std::cout << "comp: err?" << std::endl;
+                std::cout << "comp: err?" << std::endl;
                 }
+                });
             ret.components.push_back(*comp);
             goto get_part;
         }

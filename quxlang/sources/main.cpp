@@ -40,6 +40,8 @@ int main(int argc, char** argv)
 
     std::string name = quxlang::mangle(qn);
 
+    std::chrono::time_point start_time = std::chrono::high_resolution_clock::now();
+
     std::string boxy_input = "::boxy";
     std::string::iterator boxy_iter = boxy_input.begin();
     auto boxy = quxlang::parsers::parse_type_symbol< std::string::iterator >(boxy_iter, boxy_input.end());
@@ -59,9 +61,20 @@ int main(int argc, char** argv)
             auto to_compile = *new_deps_to_compile.begin();
 
             std::cout << "Compiling " << quxlang::to_string(to_compile) << std::endl;
+
+            auto get_procedure_start = std::chrono::high_resolution_clock::now();
             quxlang::vm_procedure vmf = c.get_vm_procedure_from_canonical_functanoid(to_compile);
+
+            auto get_procedure_duration = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::high_resolution_clock::now() - get_procedure_start);
+
+            std::cout << "Got procedure "  << quxlang::to_string(to_compile) << " in " << std::dec << get_procedure_duration.count() << " microseconds" << std::endl;
             // std::cout << quxlang::to_string(quxlang::vm_executable_unit{vmf.body}) << std::endl;
+
+            auto generate_code_start = std::chrono::high_resolution_clock::now();
             auto code = cg.get_function_code(quxlang::cpu_arch_armv8a(), vmf);
+                auto generate_code_duration = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::high_resolution_clock::now() - generate_code_start);
+
+              std::cout << "Generated machine code for " << quxlang::to_string(to_compile) << " in " << std::dec << generate_code_duration.count() << " microseconds" << std::endl;
             compiled_code[to_compile] = code;
             already_compiled.insert(to_compile);
 
@@ -126,6 +139,12 @@ int main(int argc, char** argv)
             std::cout << "Class name: " << elm << "\n";
         }
     */
+
+    std::chrono::time_point< std::chrono::high_resolution_clock > end_time = std::chrono::high_resolution_clock::now();
+
+    auto duration = std::chrono::duration_cast< std::chrono::microseconds >(end_time - start_time);
+
+    std::cout << "Compilation took " << std::dec << duration.count() << " microseconds" << std::endl;
 
     // return 0;
     quxlang::type_symbol foo = quxlang::instanciation_reference{

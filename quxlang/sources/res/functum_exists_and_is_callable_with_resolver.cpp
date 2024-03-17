@@ -5,12 +5,13 @@
 
 #include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
 
-#include "quxlang/debug.hpp"
+#include "../../../rpnx/include/rpnx/debug.hpp"
 
 std::string quxlang::functum_exists_and_is_callable_with_resolver::question() const
 {
-   return  "functum_exists_and_is_callable_with(" + to_string(input_val.first) + ", " + to_string(input_val.second) + ")";
+    return "functum_exists_and_is_callable_with(" + to_string(input_val.first) + ", " + to_string(input_val.second) + ")";
 }
+
 rpnx::resolver_coroutine< quxlang::compiler, bool > quxlang::functum_exists_and_is_callable_with_resolver::co_process(compiler* c, input_type input)
 {
 
@@ -24,11 +25,12 @@ rpnx::resolver_coroutine< quxlang::compiler, bool > quxlang::functum_exists_and_
     QUXLANG_DEBUG(std::string args_str = to_string(args));
     QUXLANG_DEBUG(std::string func_str = to_string(func));
 
-    if (args_str == "call_os(NUMERIC_LITERAL, MUT& T(t1))")
-    {
+    QUXLANG_DEBUG({if (args_str == "call_os(NUMERIC_LITERAL, MUT& T(t1))")
+        {
         //std::cout << debug_recursive() << std::endl;
         int x = 0;
-    }
+        }
+        })
 
     auto overloads_opt = co_await *c->lk_list_functum_overloads(func);
 

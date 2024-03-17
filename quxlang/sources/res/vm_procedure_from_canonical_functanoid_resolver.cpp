@@ -14,7 +14,7 @@
 #include <exception>
 
 // TODO: Debugging, remove this
-#include "quxlang/debug.hpp"
+#include "../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/to_pretty_string.hpp"
 
 #include <iostream>
@@ -485,7 +485,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         std::cout << std::endl;
     }
 
-    std::cout << "Begin processing" << std::endl;
+    QUXLANG_DEBUG({std::cout << "Begin processing" << std::endl;});
 
     ast2_function_declaration function_ast_v = co_await *c->lk_functum_instanciation_ast(func_name);
 

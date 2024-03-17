@@ -13,7 +13,7 @@ namespace quxlang::parsers
     template <typename It>
     std::optional< ast2_extern > try_parse_ast2_extern(It& it, It end)
     {
-        std::cout << "try_parse_ast2_extern" << std::endl;
+        QUXLANG_DEBUG({std::cout << "try_parse_ast2_extern" << std::endl;});
         auto pos = it;
         skip_whitespace_and_comments(pos, end);
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef SERIALIZER_HPP
-#define SERIALIZER_HPP
+#ifndef RPNX_SERIALIZER_HPP
+#define RPNX_SERIALIZER_HPP
 
 #include <concepts>
 #include <optional>
@@ -37,22 +37,75 @@ namespace rpnx
     }
 
 
-    inline void write_byte(std::byte& out, std::byte in)
+    namespace detail
     {
-        out = in;
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto serialize_tuple(Tuple const& tuple, std::index_sequence< Is... >, It output, It end) -> It
+        {
+            ((output = rpnx::serialize_iter(std::get< Is >(tuple), output, end)), ...);
+            return output;
+        }
+
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto serialize_tuple(Tuple const& tuple, std::index_sequence< Is... >, It output) -> It
+        {
+            ((output = rpnx::serialize_iter(std::get< Is >(tuple), output)), ...);
+            return output;
+        }
+
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto deserialize_tuple(Tuple& tuple, std::index_sequence< Is... >, It input, It end) -> It
+        {
+            ((input = rpnx::deserialize_iter(std::get< Is >(tuple), input, end)), ...);
+            return input;
+        }
+
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto deserialize_tuple(Tuple& tuple, std::index_sequence< Is... >, It input) -> It
+        {
+            ((input = rpnx::deserialize_iter(std::get< Is >(tuple), input)), ...);
+            return input;
+        }
+
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto deserialize_tuple(Tuple&& tuple, std::index_sequence< Is... >, It input, It end) -> It
+        {
+            ((input = rpnx::deserialize_iter(std::get< Is >(std::forward< Tuple >(tuple)), input, end)), ...);
+            return input;
+        }
+
+        template <typename Tuple, std::size_t... Is, typename It>
+        auto deserialize_tuple(Tuple&& tuple, std::index_sequence< Is... >, It input) -> It
+        {
+            ((input = rpnx::deserialize_iter(std::get< Is >(std::forward< Tuple >(tuple)), input)), ...);
+            return input;
+        }
     }
 
-    inline void write_byte(std::uint8_t& out, std::byte in)
+    template <typename... Ts, typename It>
+    class default_serialization_traits< std::tuple< Ts... >, It >
     {
-        out = static_cast< std::uint8_t >(in);
-    }
+    public:
+        static auto constexpr serialize_iter(std::tuple< Ts... > const& tuple, It output, It end) -> It
+        {
+            return detail::serialize_tuple(tuple, std::index_sequence_for< Ts... >{}, output, end);
+        }
 
-    inline void write_byte(std::int8_t& out, std::byte in)
-    {
-        out = static_cast< std::int8_t >(in);
-    }
+        static auto constexpr serialize_iter(std::tuple< Ts... > const& tuple, It output) -> It
+        {
+            return detail::serialize_tuple(tuple, std::index_sequence_for< Ts... >{}, output);
+        }
 
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input, It end) -> It
+        {
+            return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input, end);
+        }
 
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input) -> It
+        {
+            return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input);
+        }
+    };
 
 
     template <std::integral I, typename It>
@@ -179,7 +232,7 @@ namespace rpnx
             uintmax_t n2 = 0;
             while (true)
             {
-                std::uint8_t a = static_cast<std::uint8_t>( *input++);
+                std::uint8_t a = static_cast< std::uint8_t >(*input++);
                 std::uint8_t read_value = a & 0b1111111;
                 output += (uintmax_t(read_value) << (n2 * 7));
                 if (!(a & 0b10000000))
@@ -203,7 +256,7 @@ namespace rpnx
                 {
                     throw std::out_of_range("deserialization input range error");
                 }
-                std::uint8_t a = *input++;
+                std::uint8_t a = static_cast< std::uint8_t >(*input++);
                 std::uint8_t read_value = a & 0b1111111;
                 output += (uintmax_t(read_value) << (n2 * 7));
                 if (!(a & 0b10000000))
@@ -243,8 +296,8 @@ namespace rpnx
             output = uintany_serialization_traits< std::size_t, It >::serialize_iter(input.size(), output);
             for (auto& pair : input)
             {
-                auto const & key = pair.first;
-                auto const & value = pair.second;
+                auto const& key = pair.first;
+                auto const& value = pair.second;
                 output = rpnx::serialize_iter(key, output);
                 output = rpnx::serialize_iter(value, output);
             }
@@ -393,6 +446,18 @@ namespace rpnx
         }
     };
 
+    template <typename... Ts, typename It>
+    auto deserialize_iter(std::tuple< Ts... >&& tuple, It input, It end) -> It
+    {
+        return detail::deserialize_tuple(std::move(tuple), std::index_sequence_for< Ts... >{}, input, end);
+    }
+
+    template <typename... Ts, typename It>
+    auto deserialize_iter(std::tuple< Ts... >&& tuple, It input) -> It
+    {
+        return detail::deserialize_tuple(std::move(tuple), std::index_sequence_for< Ts... >{}, input);
+    }
+
 
     template <std::integral I, typename It>
     class default_serialization_traits< I, It >
@@ -412,7 +477,7 @@ namespace rpnx
     {
     };
 
-    template < typename It>
+    template <typename It>
     class default_serialization_traits< std::string, It >
         : public default_vector_serialization_traits< std::string, It >
     {
@@ -426,3 +491,8 @@ namespace rpnx
 
 }
 #endif //SERIALIZER_HPP
+
+
+#ifdef RPNX_VARIANT_HPP
+#include "rpnx/compat/variant_serializer.hpp"
+#endif

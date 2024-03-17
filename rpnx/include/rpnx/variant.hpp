@@ -2,8 +2,8 @@
 // Created by rnicholl on 3/3/24.
 //
 
-#ifndef QUXLANG_VARIANT_HPP
-#define QUXLANG_VARIANT_HPP
+#ifndef RPNX_VARIANT_HPP
+#define RPNX_VARIANT_HPP
 
 #include <compare>
 #include <cstdint>
@@ -824,3 +824,7 @@ namespace rpnx
 }
 
 #endif //QUXLANG_VARIANT_HPP
+
+#ifdef RPNX_SERIALIZER_HPP
+#include "rpnx/compat/variant_serializer.hpp"
+#endif

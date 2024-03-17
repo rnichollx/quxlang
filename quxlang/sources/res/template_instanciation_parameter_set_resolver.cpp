@@ -27,7 +27,9 @@ namespace quxlang
 
         ast2_template_declaration const& template_ast = co_await *c->lk_template_instanciation_ast(input);
 
+        QUXLANG_DEBUG({
         std:: cout << "template ast: " << to_string(template_ast) << std::endl;
+            });
 
         // assert(template_ast.m_template_args.size() == input.parameters.size());
 

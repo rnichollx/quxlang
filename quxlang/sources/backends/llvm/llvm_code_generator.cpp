@@ -143,7 +143,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::get_function_code(cpu_arc
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
-    std::cout << "New function name: " << vmf.mangled_name << std::endl;
+    QUXLANG_DEBUG({std::cout << "New function name: " << vmf.mangled_name << std::endl;});
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, vmf.mangled_name, frame.module.get());
 
     llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
@@ -235,7 +235,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::get_function_code(cpu_arc
     quxlang::convert_llvm_object(*obj,
                                 [&](quxlang::object_symbol sym)
                                 {
-                                    std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;
+                                    QUXLANG_DEBUG({std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;});
                                     functionMachineCodeMap[sym.name] = sym.data;
                                 });
 
@@ -770,7 +770,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             args.push_back(get_llvm_value(context, builder, frame, arg));
         }
 
-        std::cout << "mangled name: " << call.mangled_procedure_name << std::endl;
+        QUXLANG_DEBUG({std::cout << "mangled name: " << call.mangled_procedure_name << std::endl;});
 
         llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
         llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());

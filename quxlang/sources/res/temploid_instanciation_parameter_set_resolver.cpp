@@ -5,7 +5,7 @@
 
 auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler* c, input_type input) -> co_type
 {
-    std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;
+    QUXLANG_DEBUG({std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;});
 
 
 
