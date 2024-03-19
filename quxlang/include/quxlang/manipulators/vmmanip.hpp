@@ -53,7 +53,7 @@ namespace quxlang
             return op.type;
         }
 
-        type_symbol operator()(vm_expr_call const& op) const
+        type_symbol operator()(vm_invoke const& op) const
         {
             return op.interface.return_type.value_or(void_type{});
         }
@@ -212,7 +212,7 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(vm_expr_call const& obj) const
+        std::string operator()(vm_invoke const& obj) const
         {
             std::string result = "call<" + to_string(obj.functanoid) + ">[" + obj.mangled_procedure_name + "](";
             for (int i = 0; i < obj.arguments.size(); i++)

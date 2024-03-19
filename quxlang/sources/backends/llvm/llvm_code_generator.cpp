@@ -756,9 +756,9 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
         result = builder.CreateAlignedStore(rhs, lhs, llvm::Align(vm_type_alignment(underlying_type)));
         return result;
     }
-    else if (typeis< vm_expr_call >(value))
+    else if (typeis< vm_invoke >(value))
     {
-        quxlang::vm_expr_call const& call = as< quxlang::vm_expr_call >(value);
+        quxlang::vm_invoke const& call = as< quxlang::vm_invoke >(value);
 
         // TODO: Implement this
 

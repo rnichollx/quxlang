@@ -1208,7 +1208,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instanciation_reference const& overload_selected_ref, std::vector< vm_value > call_args)
 {
 
-    vm_expr_call call;
+    vm_invoke call;
 
     std::string typestr = to_string(overload_selected_ref);
     // std::cout << "gen invoke of " << typestr << std::endl;

@@ -244,7 +244,7 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(vm_expr_call const& field)
+        std::string operator()(vm_invoke const& field)
         {
             std::string result;
             result = "vm_expr_call{\n";
