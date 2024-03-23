@@ -5,6 +5,7 @@
 #ifndef QUXLANG_COMPILER_HEADER_GUARD
 #define QUXLANG_COMPILER_HEADER_GUARD
 
+#include "data/target_configuration.hpp"
 #include "quxlang/ast/file_ast.hpp"
 #include "quxlang/ast/module_ast_precursor1.hpp"
 #include "quxlang/compiler_fwd.hpp"
@@ -57,15 +58,17 @@
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <quxlang/ast2/ast2_type_map.hpp>
+#include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
+#include <quxlang/res/extern_linksymbol_resolver.hpp>
 #include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
+#include <quxlang/res/module_sources_resolver.hpp>
+#include <quxlang/res/procedure_linksymbol_resolver.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_ast_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
-#include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
-#include <quxlang/res/extern_linksymbol_resolver.hpp>
-#include <quxlang/res/procedure_linksymbol_resolver.hpp>
+#include <quxlang/res/module_source_name_resolver.hpp>
 
 #include <shared_mutex>
 
@@ -144,11 +147,11 @@ namespace quxlang
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         // class_list_resolver m_class_list_resolver;
-        singleton< file_module_map_resolver > m_file_module_map_resolver;
         index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
+        COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
         COMPILER_INDEX(functum_instanciation_parameter_map)
         COMPILER_INDEX(template_instanciation_parameter_set)
@@ -362,7 +365,7 @@ namespace quxlang
             return m_class_size_from_canonical_chain_index.lookup(chain);
         }
 
-        index< files_in_module_resolver > m_files_in_module_resolver;
+        COMPILER_INDEX(module_sources);
 
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol);
 
@@ -390,32 +393,24 @@ namespace quxlang
             return m_type_id_next++;
         }
 
+        cow<source_bundle> m_source_code;
+        std::string m_configured_target;
+
     public:
-        compiler(int argc, char** argv, output_info target_machine);
+
+        compiler(cow<source_bundle> source_code, std::string target);
 
     private:
         // The lk_* functions are used by resolvers to solve the graph
 
         // Get the parsed AST for a file
-        out< ast2_file_declaration > lk_file_ast(std::string const& filename);
-
-        out< filelist > lk_file_list()
-        {
-            return m_filelist_resolver.lookup();
-        }
 
 
-        out< file_module_map > lk_file_module_map()
-        {
-            return m_file_module_map_resolver.lookup();
-        }
 
-        // This function lists the files that belong to a module
-        //   It works by looking up the file list, then checking the AST of every file to see if it is in the module
-        inline out< filelist > lk_files_in_module(std::string module_id)
-        {
-            return m_files_in_module_resolver.lookup(module_id);
-        }
+
+
+
+
 
         // Should actually be named lk_file_contents, but kept for legacy reasons
         // DEPRECATED: Use lk_file_contents instead
@@ -440,12 +435,7 @@ namespace quxlang
             return node->get();
         }
 
-        ast2_file_declaration get_file_ast(std::string const& filename)
-        {
-            auto node = lk_file_ast(filename);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         std::size_t get_class_size(type_symbol const& chain)
         {
@@ -461,12 +451,7 @@ namespace quxlang
             return size->get();
         }
 
-        filelist get_file_list()
-        {
-            auto node = lk_file_list();
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);

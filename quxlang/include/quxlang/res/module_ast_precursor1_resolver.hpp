@@ -14,7 +14,6 @@
 
 namespace quxlang
 {
-    QUX_RESOLVER(module_ast_precursor1, std::string, module_ast_precursor1);
 
 } // namespace quxlang
 

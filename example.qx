@@ -1,8 +1,5 @@
 MODULE main;
 
-
-
-
 ::foo CLASS {
   .x VAR ::bar;
   .f VAR ::bar;

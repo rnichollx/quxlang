@@ -12,51 +12,58 @@
 
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/ast2/ast2_module.hpp>
+#include <quxlang/parsers/parse_file.hpp>
 
-namespace quxlang
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(module_ast)
 {
-    void module_ast_resolver::process(compiler* c)
+
+    QUX_CO_GETDEP(srcs, module_sources, (input_val));
+
+    ast2_module_declaration result;
+
+    for (auto& file : srcs.files)
     {
-        auto files_in_module_dep = get_dependency(
-            [&]
-            {
-                return c->lk_files_in_module(m_id);
-            });
+        ast2_file_declaration v_file_ast;
 
-        if (!ready())
-            return;
+        auto content = file.second->contents;
+        auto input_filename = input_val + "/" + file.first;
 
-        auto files_in_module = files_in_module_dep->get();
+        auto it = content.begin();
 
-        ast2_module_declaration result;
-
-        for (auto& file : files_in_module)
+        try
         {
-            auto file_ast_dep = get_dependency(
-                [&]
-                {
-                    return c->lk_file_ast(file);
-                });
+            v_file_ast = parsers::parse_file(it, content.end());
+        }
+        catch (std::exception& e)
+        {
+            auto distance_to_end = std::distance(it, content.end());
 
-            if (!ready())
-                return;
+            std::string::iterator end_snippet_iter = it + std::min(distance_to_end, ptrdiff_t(100));
 
-            ast2_file_declaration file_ast = file_ast_dep->get();
+            std::string snippet(it, end_snippet_iter);
 
-            // TODO: Check for duplicate imports
-            for (auto import : file_ast.imports)
-            {
-                result.imports.insert(import);
-            }
+            std::cout << "At:  " << snippet << std::endl;
+            std::cout << "Error: " << e.what() << std::endl;
 
-            for (auto global : file_ast.globals)
-            {
-                result.globals.push_back(global);
-            }
-
+            throw;
         }
 
-        set_value(result);
+        // TODO: consider if we should keep v_file_ast.filename
+        v_file_ast.filename = input_filename;
 
+
+        // TODO: Check for duplicate imports
+        for (auto import : v_file_ast.imports)
+        {
+            result.imports.insert(import);
+        }
+
+        for (auto global : v_file_ast.globals)
+        {
+            result.globals.push_back(global);
+        }
     }
+
+    QUX_CO_ANSWER(result);
+
 } // namespace quxlang

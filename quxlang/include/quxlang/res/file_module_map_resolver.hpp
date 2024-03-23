@@ -11,17 +11,6 @@
 
 namespace quxlang
 {
-  class file_module_map_resolver
-  : public rpnx::resolver_base< compiler, file_module_map >
-  {
-    public:
-      using key_type = void;
-
-      inline file_module_map_resolver() {}
-
-      virtual void process(compiler* c);
-
-  };
 
 
 }

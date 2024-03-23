@@ -2,7 +2,8 @@
 {
   ::syscall NAMESPACE {
 
-    INCLUDE_IF(TARGET_IS(ARM64)) ::exit ASM_FUNCTION(%R0 I32; CLOBBER R7)
+    INCLUDE_IF(TARGET_IS(ARM64))
+    ::exit ASM_FUNCTION(%R0 I32; CLOBBER R7)
     {
       MOV R7, 1
       SVC 0
