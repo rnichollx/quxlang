@@ -16,10 +16,7 @@ namespace quxlang
     {
         std::string literal;
 
-        std::strong_ordering operator<=>(const vm_expr_literal& other) const
-        {
-            return rpnx::compare(literal, other.literal);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_literal, literal);
     };
 
     struct vm_expr_load_literal
@@ -27,10 +24,7 @@ namespace quxlang
         std::string literal;
         type_symbol type;
 
-        std::strong_ordering operator<=>(const vm_expr_load_literal& other) const
-        {
-            return rpnx::compare(literal, other.literal, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_load_literal, literal, type);
     };
 
 

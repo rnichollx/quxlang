@@ -64,7 +64,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(asm_procedure_from_symbol)
                     };
 
                     QUX_CO_GETDEP(procedure_canonical, canonical_symbol_from_contextual_symbol, (proc_ctx));
-                    QUX_CO_GETDEP(linkname, procedure_linksymbol, (ast2_procedure_ref{.functanoid=procedure_canonical, .cc=proc.cc}));
+                    QUX_CO_GETDEP(linkname, procedure_linksymbol, (ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical}));
                     operand_str += "=" + linkname;
                 }
                 else

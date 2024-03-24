@@ -1,0 +1,35 @@
+---
+BasedOnStyle: LLVM
+IndentWidth: 4
+---
+Language: Cpp
+# Force pointers to the type for C++.
+DerivePointerAlignment: false
+PointerAlignment: Left
+SpacesInAngles: true
+AllowShortIfStatementsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: true
+UseTab: Never
+ColumnLimit: 99999
+NamespaceIndentation: All
+AllowShortBlocksOnASingleLine: Always
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: None
+BreakConstructorInitializers: BeforeComma
+LambdaBodyIndentation: Signature
+AlignAfterOpenBracket: Align
+BraceWrapping:
+  AfterFunction: true
+  AfterControlStatement: true
+  AfterClass: true
+  AfterNamespace: true
+  BeforeLambdaBody: true
+  AfterStruct: true
+  AfterUnion: true
+  IndentBraces: false
+  BeforeElse: true
+  BeforeCatch: true
+BreakBeforeBraces: Custom
+
+
+---

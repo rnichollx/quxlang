@@ -8,7 +8,7 @@
 #include "vm_expression.hpp"
 namespace quxlang
 {
-    enum class vm_primitive_binary_operator {
+    enum class vm_primitive_binary_operator : std::uint16_t {
         add,
         sub,
         mul,
@@ -29,9 +29,11 @@ namespace quxlang
         greaterequals,
         lessequals
     };
+}
+RPNX_ENUM(quxlang,vm_primitive_unary_operator, std::uint16_t, negate, bitflip, logicnot);
 
-    enum class vm_primitive_unary_operator { negate, bitflip, logicnot };
-
+namespace quxlang
+{
     struct vm_expr_primitive_binary_op
     {
         vm_value lhs;
@@ -39,10 +41,7 @@ namespace quxlang
         std::string oper;
         type_symbol type;
 
-        std::strong_ordering operator<=>(const vm_expr_primitive_binary_op& other) const
-        {
-            return rpnx::compare(lhs, other.lhs, rhs, other.rhs, oper, other.oper, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_primitive_binary_op, lhs, rhs, oper, type);
     };
 
     struct vm_expr_primitive_unary_op
@@ -50,6 +49,8 @@ namespace quxlang
         vm_value expr;
         vm_primitive_unary_operator oper;
         type_symbol type;
+
+        RPNX_MEMBER_METADATA(vm_expr_primitive_unary_op, expr, oper, type);
     };
 } // namespace quxlang
 

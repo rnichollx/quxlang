@@ -13,10 +13,7 @@ namespace quxlang
   {
       type_symbol type;
 
-      std::strong_ordering operator<=>(const vm_expr_poison& other) const
-      {
-          return rpnx::compare(type, other.type);
-      }
+      RPNX_MEMBER_METADATA(vm_expr_poison, type);
   };
 }
 

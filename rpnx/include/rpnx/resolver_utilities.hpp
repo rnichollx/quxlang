@@ -1786,11 +1786,17 @@ namespace rpnx
 
             for (auto const& n : m_all_nodes)
             {
-                QUXLANG_DEBUG({std::cout << n->debug() << std::endl;});
+                if (!n->resolved())
+                {
+                    QUXLANG_DEBUG({std::cout << "missing:" << n->debug_recursive() << std::endl;});
+                    throw std::runtime_error("Could not resolve node, probably recursive dependency");
+                }
+               // QUXLANG_DEBUG({std::cout << n->debug() << std::endl;});
             }
 
             if (!node->resolved())
             {
+                //QUXLANG_DEBUG({std::cout << "missing:" << node->question() << std::endl;});
                 throw std::runtime_error("Could not resolve node, probably recursive dependency");
             }
         }

@@ -1,125 +1,15 @@
 MODULE main;
 
-
-
-
-::foo CLASS {
-  .x VAR ::bar;
-  .f VAR ::bar;
-  .g VAR ::baz;
-  .h VAR -> ::qux;
-  .z VAR ::bar::zig;
-  .z2 VAR -> ::bar::zig;
-  .q VAR zam;
-
-  ::zam CLASS {
-    .x VAR I16;
-  }
-}
-
-::bar CLASS {
-  .y VAR I32;
-  .z VAR I64;
-
-  ::zig CLASS {
-     .x VAR I128;
-  }
-}
-
-::baz CLASS {
-  .z VAR I16;
-  .w VAR -> ::baz;
-}
-
-::box2 TEMPLATE(T(t1)) CLASS
+::foo FUNCTION(%a I32, %b I32): I32
 {
-  .x VAR t1;
-
-  .CONSTRUCTOR FUNCTION()
-  {
-    .x := 1;
-  }
-}
-
-::box3 CLASS {
-   .CONSTRUCTOR FUNCTION()
-   {
-        .x := 1;
-   }
-
-   .x VAR I32;
-}
-
-// ::box TEMPLATE CLASS(->T(t1)) PRIORITY(1)
-// {
-// .x VAR t1;
-//  .size VAR I64;
-// }
-
-::qux CLASS {}
-
-::quz CLASS
-{
-  .f VAR I32;
-  ::bif NAMESPACE
-  {
-     ::box CLASS
-     {
-        .foo VAR I32;
-
-        ::nux CLASS
-        {
-          .x VAR I32;
-          .y VAR I32;
-
-          .CONSTRUCTOR FUNCTION(%xa I32)
-          :> .x:(xa + 4)
-          {
-            VAR q box2@(I32);
-            bif(.y);
-          }
-        }
-
-        ::bif FUNCTION(%a MUT& T(t1))
-        {
-           a := a + 1;
-        }
-
-        ::buz FUNCTION(%a I32, %b I32): I32
-        {
-           VAR c box2@(I32);
-           b := a + b;
-           RETURN a * b;
-        }
-
-        ::fizz FUNCTION(%a I32) : I32
-        {
-           RETURN a + 1;
-        }
-
-        ::buz FUNCTION(%a I32) : I32
-        {
-            a := a + a;
-            RETURN a;
-        }
-
-        ::buz FUNCTION(%a I64, %b I64) : I64
-        {
-           VAR c I64 :(4);
-
-           WHILE (a < 9) {
-             a := a + 1;
-           }
-
-           RETURN a;
-        }
-
-     }
-
-  }
+  RETURN a + b;
 }
 
 ::main FUNCTION()
 {
-
+  VAR x I32;
+  x := 1;
+  VAR y I32;
+  y := 1;
+  ::foo(x, y);
 }

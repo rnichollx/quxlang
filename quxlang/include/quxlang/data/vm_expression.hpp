@@ -22,7 +22,7 @@ namespace quxlang
 
     struct void_value
     {
-        std::strong_ordering operator<=>(const void_value&) const = default;
+        RPNX_MEMBER_METADATA(void_value);
     };
 
     struct vm_expr_bound_value;

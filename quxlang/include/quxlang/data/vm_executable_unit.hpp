@@ -8,6 +8,7 @@
 #include <boost/variant.hpp>
 
 #include "quxlang/data/type_symbol.hpp"
+#include "rpnx/metadata.hpp"
 #include "vm_allocate_storage.hpp"
 #include "vm_block.hpp"
 #include "vm_expression.hpp"
@@ -23,25 +24,20 @@ namespace quxlang
         vm_value where;
         type_symbol type;
 
-        auto operator<=>(const vm_store& other) const
-        {
-            return rpnx::compare(what, other.what, where, other.where, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_store, what, where, type);
     };
 
     struct vm_execute_expression
     {
         vm_value expr;
 
-        std::strong_ordering operator<=>(const vm_execute_expression& other) const
-        {
-            return rpnx::compare(expr, other.expr);
-        }
+        RPNX_MEMBER_METADATA(vm_execute_expression, expr);
     };
 
     struct vm_return
     {
-        std::strong_ordering operator<=>(vm_return const&) const = default;
+
+        RPNX_MEMBER_METADATA(vm_return)
     };
 
     struct vm_if;
@@ -50,11 +46,15 @@ namespace quxlang
     struct vm_disable_storage
     {
         std::size_t index;
+
+        RPNX_MEMBER_METADATA(vm_disable_storage, index);
     };
 
     struct vm_enable_storage
     {
         std::size_t index;
+
+        RPNX_MEMBER_METADATA(vm_enable_storage, index);
     };
 
     using vm_executable_unit = rpnx::variant< vm_store, vm_execute_expression, vm_block, vm_return, vm_if, vm_while, vm_disable_storage, vm_enable_storage >;
@@ -64,11 +64,7 @@ namespace quxlang
         std::vector< vm_executable_unit > code;
         std::vector< std::string > comments;
 
-        auto operator<=>(const vm_block& other) const
-        {
-            return rpnx::compare(code, other.code, comments, other.comments);
-
-        }
+        RPNX_MEMBER_METADATA(vm_block, code, comments);
     };
 
     struct vm_if
@@ -78,10 +74,7 @@ namespace quxlang
         vm_block then_block;
         std::optional< vm_block > else_block;
 
-        std::strong_ordering operator<=>(const vm_if& other) const
-        {
-            return rpnx::compare(condition_block, other.condition_block, condition, other.condition, then_block, other.then_block, else_block, other.else_block);
-        }
+        RPNX_MEMBER_METADATA(vm_if, condition_block, condition, then_block, else_block);
     };
 
     struct vm_while
@@ -89,6 +82,8 @@ namespace quxlang
         std::optional< vm_block > condition_block;
         vm_value condition;
         vm_block loop_block;
+
+        RPNX_MEMBER_METADATA(vm_while, condition_block, condition, loop_block);
     };
 
 } // namespace quxlang

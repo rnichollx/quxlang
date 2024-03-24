@@ -14,15 +14,13 @@ namespace quxlang
     {
         std::string mangled_procedure_name;
         type_symbol functanoid;
+
         // TODO: Is this interface needed?
         vm_procedure_interface interface;
         std::vector< vm_value > arguments;
 
 
-        std::strong_ordering operator<=>(const vm_invoke& other) const
-        {
-            return rpnx::compare(mangled_procedure_name, other.mangled_procedure_name, functanoid, other.functanoid, interface, other.interface, arguments, other.arguments);
-        }
+        RPNX_MEMBER_METADATA(vm_invoke, mangled_procedure_name, functanoid, interface, arguments);
     };
 } // namespace quxlang
 

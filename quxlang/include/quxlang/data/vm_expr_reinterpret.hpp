@@ -14,10 +14,7 @@ namespace quxlang
         vm_value expr;
         type_symbol type;
 
-        std::strong_ordering operator<=>(const vm_expr_reinterpret&other) const
-        {
-            return rpnx::compare(expr, other.expr, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_reinterpret, expr, type);
     };
 } // namespace quxlang
 

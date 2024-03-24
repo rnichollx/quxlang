@@ -15,10 +15,7 @@ namespace quxlang
         std::size_t offset;
         type_symbol type;
 
-        auto operator<=>(const vm_expr_access_field& other) const
-        {
-            return rpnx::compare(base, other.base, offset, other.offset, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_access_field, base, offset, type);
     };
 } // namespace quxlang
 

@@ -6,11 +6,18 @@
 #define QUXLANG_VM_ALLOCATE_STORAGE_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
+#include <compare>
 #include <cstddef>
+
+#include <rpnx/serializer.hpp>
+#include <rpnx/metadata.hpp>
+
+RPNX_ENUM(quxlang, storage_type, std::int16_t, return_value, argument, local, temporary);
 
 namespace quxlang
 {
-    enum class storage_type { return_value, argument, local, temporary };
+    //enum class storage_type { return_value, argument, local, temporary };
+
     struct vm_allocate_storage
     {
         std::size_t size = 0;
@@ -18,12 +25,9 @@ namespace quxlang
         type_symbol type;
         storage_type kind;
 
-        bool valid() const
-        {
-            assert(kind == storage_type::return_value || kind == storage_type::argument || (align != 0 && size != 0));
+        RPNX_MEMBER_METADATA(vm_allocate_storage, size, align, type, kind);
 
-            return kind == storage_type::return_value || kind == storage_type::argument || (align != 0 && size != 0);
-        }
+        bool valid() const { return true; }
     };
 } // namespace quxlang
 

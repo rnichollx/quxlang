@@ -14,7 +14,8 @@ namespace quxlang
     {
         vm_value value;
         type_symbol function_ref;
-        std::strong_ordering operator<=>(vm_expr_bound_value const &) const = default;
+
+        RPNX_MEMBER_METADATA(vm_expr_bound_value, value, function_ref);
     };
 } // namespace quxlang
 

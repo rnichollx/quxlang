@@ -14,12 +14,8 @@ namespace quxlang
     {
         vm_value expr;
         type_symbol type;
-        //vm_type type;
 
-        auto operator<=>(const vm_expr_dereference&other) const
-        {
-            return rpnx::compare(expr, other.expr, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(vm_expr_dereference, expr, type);
     };
 } // namespace quxlang
 
