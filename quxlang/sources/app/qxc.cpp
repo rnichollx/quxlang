@@ -62,10 +62,11 @@ int main(int argc, char** argv)
                 if (to_compile_vmir.size() != 0)
                 {
                     auto sym = *to_compile_vmir.begin();
+                    std::cout << "Compiling symbol: " << quxlang::mangle(sym) << std::endl;
 
-                    quxlang::vm_procedure proc = c.get_vm_procedure_from_canonical_functanoid(mainfunc_sym);
+                    quxlang::vm_procedure proc = c.get_vm_procedure_from_canonical_functanoid(sym);
 
-                    std::string procname = quxlang::mangle(mainfunc_sym);
+                    std::string procname = quxlang::mangle(sym);
 
                     std::vector< std::byte > proc_data;
                     std::vector< std::byte > proc_json;
@@ -73,7 +74,7 @@ int main(int argc, char** argv)
                     rpnx::serialize_iter(proc, std::back_inserter(proc_data));
                     rpnx::json_serialize_iter(proc, std::back_inserter(proc_json));
 
-                    std::ofstream outfile(output / target_name / "build" / (procname + ".qxvmir"), std::ios::binary| std::ios::trunc);
+                    std::ofstream outfile(output / target_name / "build" / (procname + ".qxvmir"), std::ios::binary | std::ios::trunc);
                     std::ofstream outfile2(output / target_name / "build" / (procname + ".json"), std::ios::binary | std::ios::trunc);
 
                     outfile.write(reinterpret_cast< char const* >(proc_data.data()), proc_data.size());
@@ -82,16 +83,28 @@ int main(int argc, char** argv)
                     to_compile_vmir.erase(sym);
                     compiled_vmir.insert(sym);
 
+                    outfile.close();
+                    outfile2.close();
+
                     for (auto const& sym2 : proc.invoked_functanoids)
                     {
+                        std::cout << "Invoked: " << quxlang::mangle(sym2) << std::endl;
                         if (compiled_vmir.find(sym2) == compiled_vmir.end())
                         {
+                            std::cout << "should compile: " << quxlang::mangle(sym2) << std::endl;
                             to_compile_vmir.insert(sym2);
+
+                            std::cout << "to_compile_vmir.size() = " << to_compile_vmir.size() << std::endl;
+                        }
+                        else
+                        {
+                            std::cout << "already compiled: " << quxlang::mangle(sym2) << std::endl;
                         }
                     }
 
                     for (auto const& sym2 : proc.invoked_asm_procedures)
                     {
+                        std::cout << "Invoked asm: " << quxlang::mangle(sym2) << std::endl;
                         if (compiled_asm.find(sym2) == compiled_asm.end())
                         {
                             to_compile_asm.insert(sym2);
