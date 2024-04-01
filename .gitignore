@@ -1,5 +1,7 @@
 cmake-build-*
 example-out
+build
+out
 .*
 !.gitignore
 !.clang-format
