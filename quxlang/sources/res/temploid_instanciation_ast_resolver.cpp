@@ -28,6 +28,6 @@ auto quxlang::temploid_instanciation_ast_resolver::co_process(compiler* c, input
         co_return co_await *c->lk_functum_instanciation_ast(input);
     }
 
-    throw std::runtime_error("wut");
+    throw std::runtime_error("Cannot instanciate non-temploid entity.");
 
 }

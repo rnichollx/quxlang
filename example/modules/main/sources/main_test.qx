@@ -5,11 +5,23 @@ MODULE main;
   RETURN a + b;
 }
 
+
+
+::runtime_main ASM_PROCEDURE ARM LINKNAME("_start")
+  CALLABLE(X1 I32, X2 I32)
+{
+  MOV X7, 1; // Comment
+  ADD X3, X4, X5;
+  LDR X1, PROCEDURE_REF("stdcall", main@());
+  SVC 0;
+}
+
+
 ::main FUNCTION()
 {
   VAR x I32;
   x := 1;
   VAR y I32;
-  y := 1;
+  y := 3;
   ::foo(x, y);
 }

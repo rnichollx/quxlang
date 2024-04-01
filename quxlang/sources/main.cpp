@@ -21,8 +21,8 @@ int main(int argc, char** argv)
     quxlang::compiler c(argc, argv, target_machine);
 
     quxlang::llvm_code_generator cg(target_machine);
-    //cg.foo();
-    //return 0;
+    // cg.foo();
+    // return 0;
 
     quxlang::type_symbol cn = quxlang::module_reference{"main"};
     cn = quxlang::subentity_reference{cn, "quz"};
@@ -67,15 +67,15 @@ int main(int argc, char** argv)
 
             auto get_procedure_duration = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::high_resolution_clock::now() - get_procedure_start);
 
-            std::cout << "Got procedure "  << quxlang::to_string(to_compile) << " in " << std::dec << get_procedure_duration.count() << " microseconds" << std::endl;
+            std::cout << "Got procedure " << quxlang::to_string(to_compile) << " in " << std::dec << get_procedure_duration.count() << " microseconds" << std::endl;
             // std::cout << quxlang::to_string(quxlang::vm_executable_unit{vmf.body}) << std::endl;
 
             auto generate_code_start = std::chrono::high_resolution_clock::now();
-            auto code = cg.get_function_code(quxlang::cpu_arch_armv8a(), vmf);
-                auto generate_code_duration = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::high_resolution_clock::now() - generate_code_start);
+            auto llvm_bitcode = cg.qxbc_to_llvm_bc(vmf);
+            auto generate_code_duration = std::chrono::duration_cast< std::chrono::microseconds >(std::chrono::high_resolution_clock::now() - generate_code_start);
 
-              std::cout << "Generated machine code for " << quxlang::to_string(to_compile) << " in " << std::dec << generate_code_duration.count() << " microseconds" << std::endl;
-            compiled_code[to_compile] = code;
+            std::cout << "Generated LLVM bitcode for " << quxlang::to_string(to_compile) << " in " << std::dec << generate_code_duration.count() << " microseconds" << std::endl;
+            compiled_code[to_compile] = llvm_bitcode;
             already_compiled.insert(to_compile);
 
             for (auto& x : vmf.invoked_functanoids)
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 
             quxlang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(to_assemble);
 
-            auto code = cg.assemble(proc, target_machine.cpu_type);
+            auto code = cg.assemble(proc);
             compiled_code[to_assemble] = code;
 
             new_deps_to_assemble.erase(to_assemble);
@@ -109,7 +109,7 @@ int main(int argc, char** argv)
     }
 
     // std::cout << "Got overload:" << name << std::endl;
-    //  auto vec = cg.get_function_code(quxlang::cpu_arch_armv8a(), func_name );
+    //  auto vec = cg.qxbc_to_llvm_bc(quxlang::cpu_arch_armv8a(), func_name );
     /*
         auto files = c.get_file_list();
 
@@ -147,10 +147,7 @@ int main(int argc, char** argv)
     std::cout << "Compilation took " << std::dec << duration.count() << " microseconds" << std::endl;
 
     // return 0;
-    quxlang::type_symbol foo = quxlang::instanciation_reference{
-        .callee = quxlang::subentity_reference{quxlang::module_reference{.module_name = "main"}, "box2"},
-        .parameters = {quxlang::parsers::parse_type_symbol("I32")}
-    };
+    quxlang::type_symbol foo = quxlang::instanciation_reference{.callee = quxlang::subentity_reference{quxlang::module_reference{.module_name = "main"}, "box2"}, .parameters = {quxlang::parsers::parse_type_symbol("I32")}};
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

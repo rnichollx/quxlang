@@ -49,10 +49,12 @@ namespace quxlang
         llvm::FunctionType* get_llvm_type_from_func_interface(llvm::LLVMContext& context, vm_procedure_interface ifc);
 
       public:
-        std::vector< std::byte > get_function_code(cpu_arch cpu_type, vm_procedure vmf);
-        std::vector< std::byte > assemble(asm_procedure input, quxlang::cpu cpu_type);
+        std::vector< std::byte > qxbc_to_llvm_bc(quxlang::vm_procedure vmf);
+        std::vector< std::byte > compile_llvm_ir_to_elf(std::vector<std::byte> ir);
+        std::vector< std::byte > assemble(quxlang::asm_procedure input);
 
         void foo();
+      private:
 
         bool generate_code(llvm::LLVMContext& context, llvm::BasicBlock*& p_block, quxlang::vm_block const& block, quxlang::vm_llvm_frame& frame, vm_procedure& vmf);
         void generate_arg_push(llvm::LLVMContext& context, llvm::BasicBlock* p_block, llvm::Function* p_function, quxlang::vm_procedure procedure, quxlang::vm_llvm_frame& frame);

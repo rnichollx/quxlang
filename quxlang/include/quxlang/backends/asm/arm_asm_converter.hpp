@@ -6,6 +6,8 @@
 #define RPNX_QUXLANG_ARM_ASM_CONVERTER_HEADER
 
 #include "quxlang/asm/asm.hpp"
+#include "quxlang/variant_utils.hpp"
+#include "rpnx/value.hpp"
 #include <string>
 
 namespace quxlang

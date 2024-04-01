@@ -1,5 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
+#include "quxlang/backends/asm/arm_asm_converter.hpp"
+#include "quxlang/backends/llvm/llvm_code_generator.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/manipulators/mangler.hpp"
@@ -36,6 +38,8 @@ int main(int argc, char** argv)
 
         quxlang::compiler c(input_srcs, target_name);
 
+        quxlang::llvm_code_generator cg(target_config.target_output_config);
+
         for (auto const& [output_name, output_config] : target_config.outputs)
         {
             if (verbose)
@@ -54,8 +58,11 @@ int main(int argc, char** argv)
             auto mainfunc_sym = quxlang::parsers::parse_type_symbol(main_function_name);
             mainfunc_sym = quxlang::with_context(mainfunc_sym, quxlang::module_reference{main_module_name});
 
+            auto start_sym = quxlang::parsers::parse_type_symbol("::runtime_main");
+            start_sym = quxlang::with_context(start_sym, quxlang::module_reference{main_module_name});
+
             std::set< quxlang::type_symbol > to_compile_vmir{mainfunc_sym};
-            std::set< quxlang::type_symbol > to_compile_asm;
+            std::set< quxlang::type_symbol > to_compile_asm{start_sym};
 
             while (to_compile_vmir.size() != 0 || to_compile_asm.size() != 0)
             {
@@ -70,21 +77,32 @@ int main(int argc, char** argv)
 
                     std::vector< std::byte > proc_data;
                     std::vector< std::byte > proc_json;
+                    std::vector< std::byte > proc_llvm_bc;
+                    std::vector< std::byte > proc_elf;
 
                     rpnx::serialize_iter(proc, std::back_inserter(proc_data));
                     rpnx::json_serialize_iter(proc, std::back_inserter(proc_json));
 
-                    std::ofstream outfile(output / target_name / "build" / (procname + ".qxvmir"), std::ios::binary | std::ios::trunc);
+                    proc_llvm_bc = cg.qxbc_to_llvm_bc(proc);
+                    proc_elf = cg.compile_llvm_ir_to_elf(proc_llvm_bc);
+
+                    std::ofstream outfile(output / target_name / "build" / (procname + ".qxbc"), std::ios::binary | std::ios::trunc);
                     std::ofstream outfile2(output / target_name / "build" / (procname + ".json"), std::ios::binary | std::ios::trunc);
+                    std::ofstream outfile3(output / target_name / "build" / (procname + ".bc"), std::ios::binary | std::ios::trunc);
+                    std::ofstream outfile4(output / target_name / "build" / (procname + ".o"), std::ios::binary | std::ios::trunc);
 
                     outfile.write(reinterpret_cast< char const* >(proc_data.data()), proc_data.size());
                     outfile2.write(reinterpret_cast< char const* >(proc_json.data()), proc_json.size());
+                    outfile3.write(reinterpret_cast< char const* >(proc_llvm_bc.data()), proc_llvm_bc.size());
+                    outfile4.write(reinterpret_cast< char const* >(proc_elf.data()), proc_elf.size());
 
                     to_compile_vmir.erase(sym);
                     compiled_vmir.insert(sym);
 
                     outfile.close();
                     outfile2.close();
+                    outfile3.close();
+                    outfile4.close();
 
                     for (auto const& sym2 : proc.invoked_functanoids)
                     {
@@ -115,6 +133,22 @@ int main(int argc, char** argv)
                 {
                     auto sym = *to_compile_asm.begin();
                     // TODO: compile this
+
+                    std::cout << "Compiling asm symbol: " << quxlang::mangle(sym) << std::endl;
+
+                    quxlang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(sym);
+
+
+
+                    std::vector< std::byte > proc_data;
+
+                    std::string assembler_string = quxlang::convert_to_arm_asm(proc.instructions.begin(), proc.instructions.end(), proc.name);
+
+                    std::ofstream outfile(output / target_name / "build" / (proc.name + ".s"), std::ios::binary | std::ios::trunc);
+
+                    outfile.write(assembler_string.data(), assembler_string.size());
+                    outfile.close();
+
                     to_compile_asm.erase(sym);
                     compiled_asm.insert(sym);
                 }

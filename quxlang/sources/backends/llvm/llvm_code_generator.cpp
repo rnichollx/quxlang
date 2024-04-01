@@ -12,6 +12,7 @@
 #include "quxlang/manipulators/vm_type_alignment.hpp"
 #include "quxlang/manipulators/vmmanip.hpp"
 #include "quxlang/to_pretty_string.hpp"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -99,9 +100,7 @@
 
 #include "quxlang/backends/asm/arm_asm_converter.hpp"
 
-
-
-std::vector< std::byte > quxlang::llvm_code_generator::get_function_code(cpu_arch cpu_type, quxlang::vm_procedure vmf)
+std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::vm_procedure vmf)
 {
     // TODO: support multiple CPU architectures
     llvm::InitializeAllTargetInfos();
@@ -143,7 +142,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::get_function_code(cpu_arc
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
-    QUXLANG_DEBUG({std::cout << "New function name: " << vmf.mangled_name << std::endl;});
+    QUXLANG_DEBUG({ std::cout << "New function name: " << vmf.mangled_name << std::endl; });
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, vmf.mangled_name, frame.module.get());
 
     llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
@@ -199,139 +198,6 @@ std::vector< std::byte > quxlang::llvm_code_generator::get_function_code(cpu_arc
     }
     // New:
 
-    llvm::SmallVector< char, 0 > mcBuffer;
-    llvm::raw_svector_ostream mcBufferStream(mcBuffer);
-
-    llvm::legacy::PassManager pm;
-
-    auto result = target_machine->addPassesToEmitFile(pm, mcBufferStream, nullptr, llvm::CGFT_ObjectFile);
-
-    if (result)
-    {
-        std::cerr << "Failed to emit object file" << std::endl;
-        return {};
-    }
-    pm.run(*frame.module);
-
-    std::cout << "Object code for " << vmf.mangled_name << std::endl;
-    std::cout << mcBuffer.size() << " bytes" << std::endl;
-
-    std::ofstream outputFile(vmf.mangled_name + ".o", std::ios::out | std::ios::binary | std::ios::trunc);
-    outputFile.write(mcBuffer.data(), mcBuffer.size());
-    outputFile.close();
-
-    auto objE = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(llvm::StringRef(mcBuffer.data(), mcBuffer.size()), "object"));
-
-    if (!objE)
-    {
-        std::cout << "error" << std::endl;
-    }
-    auto obj = std::move(objE.get());
-
-    std::map< std::string, std::vector< std::byte > > functionMachineCodeMap;
-
-    std::cout << "Target Triple: " << target_machine->getTargetTriple().str() << std::endl;
-
-    quxlang::convert_llvm_object(*obj,
-                                [&](quxlang::object_symbol sym)
-                                {
-                                    QUXLANG_DEBUG({std::cout << "Symbol " << sym.name << " " << sym.data.size() << " bytes" << std::endl;});
-                                    functionMachineCodeMap[sym.name] = sym.data;
-                                });
-
-    for (const llvm::object::SectionRef& Section : obj->sections())
-    {
-        llvm::Expected< llvm::StringRef > NameOrErr = Section.getName();
-        if (!NameOrErr)
-        {
-            // Handle error: NameOrErr.takeError()
-            continue;
-        }
-        llvm::StringRef Name = *NameOrErr;
-
-        llvm::Expected< llvm::StringRef > ContentOrErr = Section.getContents();
-        if (!ContentOrErr)
-        {
-            // Handle error: ContentOrErr.takeError()
-            continue;
-        }
-        llvm::StringRef Content = *ContentOrErr;
-        // Now Content holds the bytes of the section
-        // You can process the bytes as needed
-
-        std::cout << "Section " << std::string(Name.bytes().begin(), Name.bytes().end()) << " " << Content.size() << " bytes" << std::endl;
-
-        for (const llvm::object::SymbolRef& Symbol : obj->symbols())
-        {
-            llvm::Expected< llvm::object::section_iterator > SecOrErr = Symbol.getSection();
-            if (!SecOrErr)
-            {
-                // Handle error
-                std::cout << "symbol without section" << std::endl;
-                continue;
-            }
-
-            // Check if the symbol is in the current section
-            if (*SecOrErr == Section)
-            {
-                llvm::Expected< llvm::StringRef > SymNameOrErr = Symbol.getName();
-                if (!SymNameOrErr)
-                {
-                    std::cout << "  No symbol name" << std::endl;
-                    // Handle error
-                    continue;
-                }
-
-                // Print the symbol's name
-
-                auto AddrOrErr = Symbol.getAddress();
-                if (!AddrOrErr)
-                {
-                    std::cout << "  No symbol address" << std::endl;
-                    // Handle error
-                    continue;
-                }
-                uint64_t Addr = *AddrOrErr;
-
-                // Get the symbol's size
-
-                // Print the symbol's name, address, and size
-                std::cout << "  Symbol: " << SymNameOrErr->str() << ", Address: 0x" << std::hex << Addr << std::endl;
-            }
-        }
-
-        std::string section_name = std::string(Name.bytes().begin(), Name.bytes().end());
-
-        for (auto& reloc : Section.relocations())
-        {
-
-            auto relocation_type = reloc.getType();
-            auto reloc_symbol = reloc.getSymbol();
-
-            auto symname = reloc_symbol->getName();
-            if (!symname)
-            {
-                llvm::Error err = symname.takeError();
-                llvm::handleAllErrors(std::move(err), [&](llvm::ErrorInfoBase& e) { std::cerr << e.message() << std::endl; });
-                //assert(false);
-
-                continue;
-            }
-
-            auto name = std::string(symname.get());
-
-            to_symbol_relocation(reloc);
-        }
-    }
-    // llvm::orc::LLJITBuilder jitbuilder;
-    // auto jite = jitbuilder.create();
-    // if (auto err = jite.takeError())
-    //{
-    //     std::cerr << "Failed to create JIT" << std::endl;
-    //     return {};
-    // }
-
-    frame.module = nullptr;
     return bytecodeVector;
 
     // std::unique_ptr< llvm::orc::LLJIT > jit = std::move(jite.get());
@@ -770,7 +636,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             args.push_back(get_llvm_value(context, builder, frame, arg));
         }
 
-        QUXLANG_DEBUG({std::cout << "mangled name: " << call.mangled_procedure_name << std::endl;});
+        QUXLANG_DEBUG({ std::cout << "mangled name: " << call.mangled_procedure_name << std::endl; });
 
         llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
         llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
@@ -878,16 +744,19 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& con
     return llvm::IntegerType::get(context, 64);
 }
 
-std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_procedure input, quxlang::cpu cpu_type)
+std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_procedure input)
 {
     std::cout << "Target triple is: " << target_triple_str << std::endl;
-    std::string assembly = quxlang::convert_to_arm_asm(input.instructions.begin(), input.instructions.end(), input.name);
+    std::string assembly;
 
-    llvm::InitializeAllTargetInfos();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllTargetMCs();
-    llvm::InitializeAllAsmParsers();
-    llvm::InitializeAllAsmPrinters();
+    if (m_machine_info.cpu_type == quxlang::cpu::arm_32 || m_machine_info.cpu_type == cpu::arm_64)
+    {
+        assembly = quxlang::convert_to_arm_asm(input.instructions.begin(), input.instructions.end(), input.name);
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported CPU type");
+    }
 
     llvm::SmallVector< char, 16 > output;
     // auto target_triple_str = llvm::Triple("aarch64-none-linux-gnu");
@@ -932,7 +801,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
         throw std::runtime_error("Assembly parsing failed!\n");
     }
 
-    std::ofstream output_file(input.name +".o", std::ios::out | std::ios::binary | std::ios::trunc);
+    std::ofstream output_file(input.name + ".o", std::ios::out | std::ios::binary | std::ios::trunc);
 
     output_file.write(output.data(), output.size());
 
@@ -942,8 +811,11 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
 quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
     : m_machine_info(m)
 {
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmParsers();
+    llvm::InitializeAllAsmPrinters();
 
     target_triple_str = lookup_llvm_triple(m_machine_info);
 
@@ -960,10 +832,19 @@ quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
     llvm::TargetOptions opt;
     auto RM = llvm::Optional< llvm::Reloc::Model >();
     RM = llvm::Reloc::Model::Static;
-    llvm::Optional<llvm::CodeModel::Model > code_model = llvm::CodeModel::Large;
+
+    llvm::Optional< llvm::CodeModel::Model > code_model;
+    if (m_machine_info.cpu_type == quxlang::cpu::arm_64 || m_machine_info.cpu_type == quxlang::cpu::x86_64 || m_machine_info.cpu_type == quxlang::cpu::riscv_64)
+    {
+        code_model = llvm::CodeModel::Large;
+    }
+    else
+    {
+        code_model = llvm::CodeModel::Medium;
+    }
 
     opt.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
-    target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM, llvm::CodeModel::Large);
+    target_machine = target->createTargetMachine(target_triple_str, CPU, "", opt, RM, code_model);
 }
 
 std::unique_ptr< llvm::MemoryBuffer > to_llvm_buffer(std::string str)
@@ -1035,4 +916,53 @@ void quxlang::llvm_code_generator::foo()
     std::ofstream output_file("output.o", std::ios::out | std::ios::binary | std::ios::trunc);
 
     output_file.write(output.data(), output.size());
+}
+
+static std::unique_ptr< llvm::Module > parse_llvm_bitcode(llvm::LLVMContext& llvm_ctx, const std::vector< std::byte >& ir)
+{
+    llvm::StringRef ir_data(reinterpret_cast< const char* >(ir.data()), ir.size());
+    auto mem_buffer = llvm::MemoryBuffer::getMemBuffer(ir_data, "", false);
+
+    llvm::Expected< std::unique_ptr< llvm::Module > > module_or_e = llvm::parseBitcodeFile(mem_buffer->getMemBufferRef(), llvm_ctx);
+
+    if (module_or_e)
+    {
+        return std::move(module_or_e.get());
+    }
+    else
+    {
+        throw std::runtime_error(llvm::toString(module_or_e.takeError()));
+    }
+}
+
+std::vector< std::byte > quxlang::llvm_code_generator::compile_llvm_ir_to_elf(std::vector< std::byte > ir)
+{
+    llvm::LLVMContext llvm_ctx;
+    auto module = parse_llvm_bitcode(llvm_ctx, ir);
+
+    llvm::SmallVector< char, 0 > mc_buffer;
+    llvm::raw_svector_ostream mc_buffer_stream(mc_buffer);
+
+    llvm::legacy::PassManager pm;
+
+    auto result = target_machine->addPassesToEmitFile(pm, mc_buffer_stream, nullptr, llvm::CGFT_ObjectFile);
+
+    if (result)
+    {
+        std::cerr << "Failed to emit object file" << std::endl;
+        return {};
+    }
+    pm.run(*module);
+
+    // std::cout << "Object code for " << vmf.mangled_name << std::endl;
+    std::cout << mc_buffer.size() << " bytes" << std::endl;
+
+    std::vector< std::byte > bytecode_vector;
+
+    for (char c : mc_buffer)
+    {
+        bytecode_vector.push_back(std::byte(c));
+    }
+
+    return bytecode_vector;
 }
