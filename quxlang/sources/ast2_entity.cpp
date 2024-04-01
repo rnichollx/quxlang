@@ -5,26 +5,7 @@
 
 namespace quxlang
 {
-    struct ast2_entity_stringifier : boost::static_visitor< std::string >
-    {
-        std::string operator()(std::monostate) const
-        {
-            return "error/monostate";
-        }
 
-        std::string operator()(ast2_namespace_declaration const& ref) const
-        {
-            std::string out = "namespace {\n";
-            for (auto const& [name, decl] : ref.globals)
-            {
-                out += "    " + name + " = " + to_string(decl) + "\n";
-            }
-            out += "}";
-            return out;
-        }
-
-
-    };
 } // namespace quxlang
 std::string quxlang::to_string(ast2_declarable const& ref)
 {

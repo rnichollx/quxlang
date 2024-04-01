@@ -17,6 +17,9 @@ namespace quxlang::parsers
     std::vector< ast2_named_declaration > parse_named_declarations(It& pos, It end);
 
     template < typename It >
+    std::vector< ast2_top_declaration > parse_top_declarations(It& pos, It end);
+
+    template < typename It >
     ast2_class_declaration parse_class_body(It& pos, It end)
     {
         skip_whitespace_and_comments(pos, end);
@@ -29,25 +32,14 @@ namespace quxlang::parsers
     member:
 
         skip_whitespace_and_comments(pos, end);
-        auto declarations = parse_named_declarations(pos, end);
+        auto declarations = parse_top_declarations(pos, end);
 
-        for (auto& decl: declarations)
+        for (ast2_top_declaration const & decl: declarations)
         {
-            if (typeis<ast2_named_member>(decl))
-            {
-                auto member = as<ast2_named_member>(decl);
-                result.members.push_back({member.name, member.declaration});
-            }
-            else if (typeis<ast2_named_global>(decl))
-            {
-                auto global = as<ast2_named_global>(decl);
-                result.globals.push_back({global.name, global.declaration});
-            }
-            else
-            {
-                rpnx::unimplemented();
-            }
+            result.declarations.push_back(decl);
         }
+
+        skip_whitespace_and_comments(pos, end);
 
         std::string rem (pos, end);
 

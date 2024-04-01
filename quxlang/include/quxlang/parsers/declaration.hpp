@@ -7,8 +7,15 @@
 #include <optional>
 #include <quxlang/ast2/ast2_entity.hpp>
 
-#include <quxlang/parsers/skip_whitespace.hpp>
+#include <quxlang/parsers/declaration.hpp>
+#include <quxlang/parsers/include_if.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
+#include <quxlang/parsers/skip_whitespace.hpp>
+#include <quxlang/parsers/try_parse_class.hpp>
+#include <quxlang/parsers/try_parse_class_template.hpp>
+#include <quxlang/parsers/try_parse_function_declaration.hpp>
+#include <quxlang/parsers/try_parse_name.hpp>
+#include <quxlang/parsers/try_parse_variable_declaration.hpp>
 
 namespace quxlang::parsers
 {
@@ -16,8 +23,13 @@ namespace quxlang::parsers
     std::optional< ast2_class_declaration > try_parse_class(It& pos, It end);
 
     template < typename It >
-    std::optional<ast2_top_declaration> try_parse_top_declaration(It& pos, It end);
+    std::optional< ast2_top_declaration > try_parse_top_declaration(It& pos, It end);
 
+    template < typename It >
+    ast2_declarable parse_declarable(It& pos, It end);
+
+    template < typename It >
+    std::optional< ast2_declarable > try_parse_declarable(It& pos, It end);
 
     template < typename It >
     std::vector< ast2_top_declaration > parse_top_declarations(It& pos, It end)
@@ -27,7 +39,8 @@ namespace quxlang::parsers
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            auto decl = try_parse_top_declaration(pos, end);
+            std::optional< ast2_top_declaration > decl;
+            decl = try_parse_top_declaration(pos, end);
             if (!decl)
             {
                 break;
@@ -43,7 +56,6 @@ namespace quxlang::parsers
     {
         std::optional< ast2_named_declaration > output;
 
-
         auto name_opt = try_parse_name(pos, end);
         if (!name_opt)
         {
@@ -54,7 +66,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         std::string remaning(pos, end);
 
-        auto decl = parse_declaration(pos, end);
+        auto decl = parse_declarable(pos, end);
 
         if (member)
         {
@@ -110,11 +122,10 @@ namespace quxlang::parsers
         return output;
     }
 
-
     template < typename It >
-    std::optional<ast2_top_declaration> try_parse_top_declaration(It& pos, It end)
+    std::optional< ast2_top_declaration > try_parse_top_declaration(It& pos, It end)
     {
-        std::optional<ast2_include_if> include_if = try_parse_include_if(pos, end);
+        std::optional< ast2_include_if > include_if = try_parse_include_if(pos, end);
         if (include_if)
 
         {

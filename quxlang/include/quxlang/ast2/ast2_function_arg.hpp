@@ -14,10 +14,7 @@ namespace quxlang
         std::optional< std::string > api_name;
         type_symbol type;
 
-        std::strong_ordering operator<=>(const ast2_function_arg& other) const
-        {
-            return rpnx::compare(name, other.name, api_name, other.api_name, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(ast2_function_arg, name, api_name, type)
     };
 }
 

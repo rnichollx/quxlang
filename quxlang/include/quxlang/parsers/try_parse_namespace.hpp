@@ -5,8 +5,8 @@
 #ifndef TRY_PARSE_NAMESPACE_HPP
 #define TRY_PARSE_NAMESPACE_HPP
 #include <quxlang/ast2/ast2_entity.hpp>
-#include <quxlang/parsers/parse_named_declarations.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/parse_named_declarations.hpp>
 
 namespace quxlang::parsers
 {
@@ -34,15 +34,7 @@ namespace quxlang::parsers
 
         for (auto& decl : decls)
         {
-            if (typeis< ast2_named_global >(decl))
-            {
-                auto ng = as< ast2_named_global >(decl);
-                out.globals.push_back({ng.name, ng.declaration});
-            }
-            else
-            {
-                throw std::runtime_error("unexpected element inside namespace");
-            }
+            out.declarations.push_back(decl);
         }
 
         skip_whitespace_and_comments(pos, end);

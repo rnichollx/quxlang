@@ -7,12 +7,11 @@
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/function_return_statement.hpp"
+#include "rpnx/variant.hpp"
 #include <boost/variant.hpp>
 #include <tuple>
 #include <utility>
 #include <variant>
-#include <utility>
-#include "rpnx/variant.hpp"
 
 namespace quxlang
 {
@@ -28,34 +27,18 @@ namespace quxlang
         std::string name;
         type_symbol type;
         // TODO: support named initializers
-        std::vector<expression> initializers;
-        std::strong_ordering operator<=>(const function_var_statement& other) const
-        {
-            return rpnx::compare(name, other.name, type, other.type, initializers, other.initializers);
-        }
+        std::vector< expression > initializers;
+
+        RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers);
     };
 
-    using function_statement =
-        rpnx::variant< std::monostate,  function_block ,  function_expression_statement ,  function_if_statement ,
-                         function_while_statement   ,  function_var_statement , function_return_statement >;
-
-
+    using function_statement = rpnx::variant< std::monostate, function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement >;
 
     struct function_block
     {
         std::vector< function_statement > statements;
 
-        auto tie() const
-        {
-            return std::tie(statements);
-        }
-
-
-
-        auto operator<=>(const function_block& other) const
-        {
-            return tie() <=> other.tie();
-        }
+        RPNX_MEMBER_METADATA(function_block, statements);
     };
 
 } // namespace quxlang

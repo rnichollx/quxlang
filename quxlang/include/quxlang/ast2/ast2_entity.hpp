@@ -7,6 +7,7 @@
 
 #include "ast2_named_declaration.hpp"
 #include "quxlang/asm/asm.hpp"
+#include "quxlang/data/variants.hpp"
 #include <boost/variant.hpp>
 #include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
@@ -143,9 +144,9 @@ namespace quxlang
 
     struct ast2_namespace_declaration
     {
-        std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::vector< ast2_top_declaration > declarations;
 
-        std::strong_ordering operator<=>(const ast2_namespace_declaration& other) const = default;
+        RPNX_MEMBER_METADATA(ast2_namespace_declaration, declarations);
     };
 
     struct ast2_variable_declaration
@@ -153,15 +154,16 @@ namespace quxlang
         type_symbol type;
         std::optional< std::size_t > offset;
         std::optional< expression > include_if;
-        std::strong_ordering operator<=>(const ast2_variable_declaration& other) const = default;
+
+        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, offset, include_if);
     };
 
     struct ast2_class_declaration
     {
-        std::vector< std::pair< std::string, ast2_declarable > > members;
-        std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::vector< ast2_top_declaration > declarations;
         std::set< std::string > class_keywords;
-        std::strong_ordering operator<=>(const ast2_class_declaration& other) const = default;
+
+        RPNX_MEMBER_METADATA(ast2_class_declaration, declarations, class_keywords);
     };
 
     struct ast2_template_declaration
@@ -170,13 +172,14 @@ namespace quxlang
         ast2_class_declaration m_class;
         std::optional< std::int64_t > priority;
 
-        std::strong_ordering operator<=>(const ast2_template_declaration& other) const = default;
+        RPNX_MEMBER_METADATA(ast2_template_declaration, m_template_args, m_class, priority);
     };
 
     struct ast2_templex
     {
         std::vector< ast2_template_declaration > templates;
-        std::strong_ordering operator<=>(const ast2_templex& other) const = default;
+
+        RPNX_MEMBER_METADATA(ast2_templex, templates);
     };
 
     struct ast2_function_declaration
@@ -188,10 +191,7 @@ namespace quxlang
         std::optional< std::int64_t > priority;
         function_block body;
 
-        std::strong_ordering operator<=>(const ast2_function_declaration& other) const
-        {
-            return rpnx::compare(args, other.args, return_type, other.return_type, this_type, other.this_type, delegates, other.delegates, priority, other.priority, body, other.body);
-        }
+        RPNX_MEMBER_METADATA(ast2_function_declaration, args, return_type, this_type, delegates, priority, body);
     };
 
     struct ast2_named_global
@@ -212,12 +212,6 @@ namespace quxlang
 
     struct ast2_include_if;
 
-
-
-    using ast2_named_declaration = rpnx::variant< ast2_named_global, ast2_named_member >;
-
-    using ast2_top_declaration = rpnx::variant< ast2_named_declaration, ast2_include_if >;
-
     struct ast2_include_if
     {
         expression condition;
@@ -231,7 +225,7 @@ namespace quxlang
         std::string filename;
         std::string module_name;
         std::map< std::string, std::string > imports;
-        //std::vector< std::pair< std::string, ast2_declarable > > globals;
+        // std::vector< std::pair< std::string, ast2_declarable > > globals;
         std::vector< ast2_top_declaration > declarations;
 
         RPNX_MEMBER_METADATA(ast2_file_declaration, filename, module_name, imports, declarations);
@@ -250,7 +244,8 @@ namespace quxlang
     {
         std::vector< std::pair< std::string, ast2_declarable > > globals;
         std::vector< std::pair< std::string, ast2_declarable > > members;
-        std::strong_ordering operator<=>(const ast2_declarations& other) const = default;
+
+        RPNX_MEMBER_METADATA(ast2_declarations, globals, members);
     };
 
     std::string to_string(ast2_function_declaration const& ref);

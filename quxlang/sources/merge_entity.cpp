@@ -92,9 +92,9 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
 
         ast2_namespace_declaration& ns = as< ast2_namespace_declaration >(destination);
 
-        for (auto& x : as< ast2_namespace_declaration >(source).globals)
+        for (auto& x : as< ast2_namespace_declaration >(source).declarations)
         {
-            ns.globals.push_back(x);
+            ns.declarations.push_back(x);
         }
     }
     else if (typeis< ast2_variable_declaration >(source))

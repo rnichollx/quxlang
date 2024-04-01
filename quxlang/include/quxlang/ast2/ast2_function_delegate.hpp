@@ -16,10 +16,9 @@ namespace quxlang
     {
         type_symbol target;
         std::vector< expression > args;
-        auto  operator<=>(const ast2_function_delegate& other) const
-        {
-            return rpnx::compare(target, other.target, args, other.args);
-        }
+
+
+        RPNX_MEMBER_METADATA(ast2_function_delegate, target, args)
     };
 
 

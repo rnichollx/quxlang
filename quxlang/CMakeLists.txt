@@ -204,6 +204,8 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/res/interpret_bool_resolver.hpp
         sources/res/interpret_bool_resolver.cpp
         include/quxlang/parsers/declaration.hpp
+        include/quxlang/data/variants.hpp
+        include/quxlang/parsers/include_if.hpp
 
 )
 
