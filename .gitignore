@@ -1,2 +1,5 @@
 cmake-build-*
-.idea
+example-out
+.*
+!.gitignore
+!.clang-format
