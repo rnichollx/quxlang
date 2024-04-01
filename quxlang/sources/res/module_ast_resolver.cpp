@@ -58,9 +58,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(module_ast)
             result.imports.insert(import);
         }
 
-        for (auto global : v_file_ast.globals)
+        for (auto decl : v_file_ast.declarations)
         {
-            result.globals.push_back(global);
+            result.declarations.push_back(decl);
         }
     }
 

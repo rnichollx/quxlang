@@ -7,8 +7,8 @@
 rpnx::resolver_coroutine< quxlang::compiler, quxlang::ast2_type_map > quxlang::type_map_resolver::co_process(compiler* c, key_type input)
 {
 
-    std::vector< std::pair< std::string, ast2_declarable > > ast_members;
-    std::vector< std::pair< std::string, ast2_declarable > > ast_globals;
+    std::vector< ast2_named_declaration > ast_members;
+    std::vector< ast2_named_declaration > ast_globals;
 
     std::string inputname = to_string(input);
 
@@ -23,7 +23,26 @@ start:
     }
     else if (typeis< ast2_module_declaration >(ast))
     {
-        ast_globals = as< ast2_module_declaration >(ast).globals;
+        auto& mod = as< ast2_module_declaration >(ast);
+
+        for (auto const& decl : mod.declarations)
+        {
+            if (typeis< ast2_include_if >(decl))
+            {
+                auto& inc = as< ast2_include_if >(decl);
+                interp_input i_input{.context = input, .expression = inc.condition};
+
+                bool should_include = co_await *c->lk_interpret_bool(i_input);
+
+                if (should_include)
+                {
+                   ast_globals.push_back(inc.declaration);
+                }
+
+                // TODO: here
+
+            }
+        }
     }
     else if (typeis< ast2_namespace_declaration >(ast))
     {
@@ -38,7 +57,7 @@ start:
 
             // do stuff
 
-            assert(!typeis<ast2_templex>(ast2));
+            assert(!typeis< ast2_templex >(ast2));
             goto start;
             //    instanciation_reference inst = as<instanciation_reference
         }

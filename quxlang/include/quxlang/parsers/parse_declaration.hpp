@@ -9,10 +9,6 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    ast2_declarable parse_declaration(It& pos, It end)
-    {
-        return try_parse_declarable(pos, end).value();
-    }
+
 } // namespace quxlang::parsers
 #endif // PARSE_DECLARATION_HPP

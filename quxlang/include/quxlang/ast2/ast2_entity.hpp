@@ -5,12 +5,13 @@
 #ifndef AST2_ENTITY_HEADER_GUARD
 #define AST2_ENTITY_HEADER_GUARD
 
+#include "ast2_named_declaration.hpp"
 #include "quxlang/asm/asm.hpp"
 #include <boost/variant.hpp>
-#include <rpnx/resolver_utilities.hpp>
+#include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>
-#include <cinttypes>
+#include <rpnx/resolver_utilities.hpp>
 
 namespace quxlang
 {
@@ -27,7 +28,6 @@ namespace quxlang
 
     using ast2_declarable = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-
     struct ast2_functum;
     struct ast2_templex;
 
@@ -38,8 +38,6 @@ namespace quxlang
     using ast2_temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
     using ast2_templexoid = rpnx::variant< std::monostate, ast2_functum, ast2_templex >;
-
-
 
     struct ast2_extern
     {
@@ -52,8 +50,6 @@ namespace quxlang
             return rpnx::compare(lang, other.lang, symbol, other.symbol, args, other.args);
         }
     };
-
-
 
     struct ast2_procedure_ref
     {
@@ -75,14 +71,13 @@ namespace quxlang
         {
             return rpnx::compare(register_name, other.register_name, type, other.type);
         }
-
     };
 
-    using ast2_asm_operand_component = rpnx::variant<std::string, ast2_extern, ast2_procedure_ref>;
+    using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref >;
 
     struct ast2_asm_operand
     {
-        std::vector<ast2_asm_operand_component> components;
+        std::vector< ast2_asm_operand_component > components;
 
         auto operator<=>(const ast2_asm_operand& other) const
         {
@@ -121,7 +116,6 @@ namespace quxlang
         {
             return rpnx::compare(calling_conv, other.calling_conv, args, other.args, clobber, other.clobber, return_type, other.return_type);
         }
-
     };
 
     struct ast2_asm_procedure_declaration
@@ -136,7 +130,6 @@ namespace quxlang
             return rpnx::compare(instructions, other.instructions, linkname, other.linkname, callable_interfaces, other.callable_interfaces);
         }
     };
-
 
     struct ast2_functum
     {
@@ -186,7 +179,6 @@ namespace quxlang
         std::strong_ordering operator<=>(const ast2_templex& other) const = default;
     };
 
-
     struct ast2_function_declaration
     {
         std::vector< ast2_function_arg > args;
@@ -202,21 +194,56 @@ namespace quxlang
         }
     };
 
+    struct ast2_named_global
+    {
+        std::string name;
+        ast2_declarable declaration;
+
+        RPNX_MEMBER_METADATA(ast2_named_global, name, declaration);
+    };
+
+    struct ast2_named_member
+    {
+        std::string name;
+        ast2_declarable declaration;
+
+        RPNX_MEMBER_METADATA(ast2_named_member, name, declaration);
+    };
+
+    struct ast2_include_if;
+
+
+
+    using ast2_named_declaration = rpnx::variant< ast2_named_global, ast2_named_member >;
+
+    using ast2_top_declaration = rpnx::variant< ast2_named_declaration, ast2_include_if >;
+
+    struct ast2_include_if
+    {
+        expression condition;
+        ast2_named_declaration declaration;
+
+        RPNX_MEMBER_METADATA(ast2_include_if, condition, declaration);
+    };
+
     struct ast2_file_declaration
     {
         std::string filename;
         std::string module_name;
         std::map< std::string, std::string > imports;
-        std::vector< std::pair< std::string, ast2_declarable > > globals;
-        std::strong_ordering operator<=>(const ast2_file_declaration& other) const = default;
+        //std::vector< std::pair< std::string, ast2_declarable > > globals;
+        std::vector< ast2_top_declaration > declarations;
+
+        RPNX_MEMBER_METADATA(ast2_file_declaration, filename, module_name, imports, declarations);
     };
 
     struct ast2_module_declaration
     {
         std::string module_name;
         std::map< std::string, std::string > imports;
-        std::vector< std::pair< std::string, ast2_declarable > > globals;
-        std::strong_ordering operator<=>(const ast2_module_declaration& other) const = default;
+        std::vector< ast2_top_declaration > declarations;
+
+        RPNX_MEMBER_METADATA(ast2_module_declaration, module_name, imports, declarations);
     };
 
     struct ast2_declarations
@@ -230,6 +257,5 @@ namespace quxlang
     std::string to_string(ast2_declarable const& ref);
 
 } // namespace quxlang
-
 
 #endif // AST2_ENTITY_HEADER_GUARD

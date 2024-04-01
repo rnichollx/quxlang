@@ -6,7 +6,7 @@ MODULE main;
 }
 
 
-
+INCLUDE_IF(TARGET_IS(ARM64))
 ::runtime_main ASM_PROCEDURE ARM LINKNAME("_start")
   CALLABLE(X1 I32, X2 I32)
 {

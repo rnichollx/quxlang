@@ -69,6 +69,8 @@
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <quxlang/res/module_source_name_resolver.hpp>
+#include <quxlang/res/interpret_value_resolver.hpp>
+#include <quxlang/res/interpret_bool_resolver.hpp>
 
 #include <shared_mutex>
 
@@ -151,6 +153,8 @@ namespace quxlang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
+        COMPILER_INDEX(interpret_value)
+        COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
         COMPILER_INDEX(functum_instanciation_parameter_map)

@@ -5,6 +5,7 @@
 #ifndef QUXLANG_PARSE_FILE_HPP
 #define QUXLANG_PARSE_FILE_HPP
 
+#include "declaration.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_named_declarations.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
@@ -60,15 +61,17 @@ namespace quxlang::parsers
 
     entry:
         skip_whitespace_and_comments(pos, end);
-        auto decl = parse_named_declarations(pos, end);
+        auto decl = parse_top_declarations(pos, end);
+        skip_whitespace_and_comments(pos, end);
 
         for (auto d : decl)
         {
-            if (typeis< ast2_named_global >(d))
-            {
-                auto element = as< ast2_named_global >(d);
-                output.globals.push_back({element.name, element.declaration});
-            }
+            output.declarations.push_back(d);
+        }
+
+        if (pos != end)
+        {
+            throw std::runtime_error("Expected parse_named_declarations to consume the remainder of the file");
         }
 
         return output;

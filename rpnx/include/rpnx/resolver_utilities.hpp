@@ -945,7 +945,7 @@ namespace rpnx
 
 
         co_resolver_base(input_type input_val)
-            : input_val(input_val)
+            : input_val(input_val), input(this->input_val)
         {
         }
 
@@ -976,6 +976,7 @@ namespace rpnx
 
     protected:
         input_type input_val;
+        input_type const & input;
         virtual resolver_coroutine< Graph, Result > co_process(Graph* g, input_type) = 0;
 
     private:

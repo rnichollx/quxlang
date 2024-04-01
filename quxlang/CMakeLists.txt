@@ -197,6 +197,13 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/source_loader.hpp
         include/quxlang/res/module_source_name_resolver.hpp
         sources/res/module_source_name_resolver.cpp
+        include/quxlang/data/interp_value.hpp
+        sources/interpreter.cpp
+        include/quxlang/res/interpret_value_resolver.hpp
+        sources/res/interpret_value_resolver.cpp
+        include/quxlang/res/interpret_bool_resolver.hpp
+        sources/res/interpret_bool_resolver.cpp
+        include/quxlang/parsers/declaration.hpp
 
 )
 
