@@ -127,7 +127,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (auto num_str = parse_int(pos, end); !num_str.empty())
         {
-            numeric_literal num;
+            expression_numeric_literal num;
             num.value = num_str;
             *value_bind_point = num;
             have_anything = true;

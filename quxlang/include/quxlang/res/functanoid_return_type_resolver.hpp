@@ -11,21 +11,7 @@
 
 namespace quxlang
 {
-   class functanoid_return_type_resolver : public rpnx::resolver_base< compiler, type_symbol >
-   {
-     public:
-       using key_type = instanciation_reference;
-
-       functanoid_return_type_resolver(instanciation_reference input)
-           : m_function_name(input)
-       {
-       }
-
-       void process(compiler* c);
-
-     private:
-       instanciation_reference m_function_name;
-   };
+    QUX_CO_RESOLVER(functanoid_return_type, type_symbol, type_symbol);
 } // namespace quxlang
 
 #endif // QUXLANG_FUNCTION_RETURN_TYPE_RESOLVER_HEADER_GUARD

@@ -5,7 +5,18 @@
 
 auto quxlang::functum_instanciation_parameter_map_resolver::co_process(compiler* c, input_type input) -> co_type
 {
-    ast2_function_declaration const & func_ast = co_await *c->lk_functum_instanciation_ast(input);
+    instanciation_reference func_ast = input;
+
+    type_symbol selection = input.callee;
+
+    if (!typeis<selection_reference>(selection))
+    {
+        selection = co_await *c->lk_callee_temploid_selection(input);
+    }
+
+
+
+
 
     type_symbol func_name = input.callee;
     auto functum_instanciation_parameters = input.parameters;

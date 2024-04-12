@@ -29,6 +29,7 @@ namespace quxlang
         std::string operator()(avalue_reference const&) const;
         std::string operator()(template_reference const&) const;
         std::string operator()(selection_reference const&) const;
+        std::string operator()(function_arg const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -307,19 +308,26 @@ namespace quxlang
         return "T(" + val.name + ")";
     }
 
+    std::string qualified_symbol_stringifier::operator()(function_arg const&ref) const
+    {
+        return "TODO";
+        // TODO: implement this
+    }
+
+
     std::string qualified_symbol_stringifier::operator()(selection_reference const&ref) const
     {
-        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@(";
+        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@[";
         bool first = true;
-        for (auto& p : ref.parameters)
+        for (auto const & arg : ref.header.call_parameters.positional_parameters)
         {
             if (first)
                 first = false;
             else
                 output += ", ";
-            output += rpnx::apply_visitor<std::string>(*this, p);
+            output += to_string(arg);
         }
-        output += ")";
+        output += "]";
         return output;
     }
 

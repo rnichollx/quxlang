@@ -12,6 +12,6 @@
 
 namespace quxlang
 {
-   QUX_CO_RESOLVER(interpret_bool, interp_input, bool);
+   QUX_CO_RESOLVER(interpret_bool, expr_interp_input, bool);
 }
 #endif // RPNX_QUXLANG_INTERPRET_BOOL_RESOLVER_HEADER

@@ -15,7 +15,7 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
     {
         co_return co_await *c->lk_template_instanciation_parameter_set(input);
     }
-    else if (typeis< ast2_functum >(ast))
+    else if (typeis< functum >(ast))
     {
         co_return co_await *c->lk_functum_instanciation_parameter_map(input);
     }

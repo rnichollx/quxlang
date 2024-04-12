@@ -10,28 +10,7 @@
 
 using namespace quxlang;
 
-rpnx::resolver_coroutine< compiler, bool > quxlang::overload_set_is_callable_with_resolver::co_process(compiler* c, input_type input)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_is_callable_with)
 {
-    auto os = input.first;
-    auto args = input.second;
-
-    std::string mos_str = to_string(os);
-    std::string args_str = to_string(args);
-
-    if (args_str == "call_os(MUT& T(t1))")
-    {
-        int x = 0;
-    }
-
-    auto result = co_await *c->lk_overload_set_instanciate_with(os, args);
-
-    auto result_str = result.has_value() ? to_string(result.value()) : "nullopt";
-
-    if (args_str == "call_os(MUT& T(t1))")
-    {
-        //std::cout << debug_recursive() << std::endl;
-        int x = 0;
-    }
-
-    co_return result.has_value();
+   // TODO: Rewrite this
 }

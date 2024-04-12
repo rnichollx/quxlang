@@ -22,9 +22,10 @@ start:
             if (typeis< ast2_include_if >(decl))
             {
                 auto& inc = as< ast2_include_if >(decl);
-                interp_input i_input{.context = input, .expression = inc.condition};
+                expr_interp_input i_input{.context = input, .expression = inc.condition};
 
-                bool should_include = co_await *c->lk_interpret_bool(i_input);
+                bool should_include = true;//co_await *c->lk_interpret_bool(i_input);
+                // TODO
 
                 if (should_include)
                 {
@@ -72,7 +73,7 @@ start:
             co_return {};
         }
     }
-    else if (typeis< ast2_functum >(ast))
+    else if (typeis< functum >(ast))
     {
         // Functums cannot have member variables or global variables at the moment.
         co_return {};

@@ -17,6 +17,7 @@
 #include <rpnx/compare.hpp>
 
 
+
 namespace quxlang
 {
 
@@ -82,7 +83,9 @@ namespace quxlang
     struct expression_equals;
     struct expression_not_equals;
     struct expression_binary;
-    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, numeric_literal >;
+    struct target_expr;
+    struct sizeof_expr;
+    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, target_expr, sizeof_expr >;
 
     struct expression_binary
     {
@@ -99,6 +102,8 @@ namespace quxlang
 
 } // namespace quxlang
 
+
+#include <quxlang/data/builtins.hpp>
 #include "quxlang/data/expression_add.hpp"
 #include "quxlang/data/expression_bool.hpp"
 #include "quxlang/data/expression_call.hpp"

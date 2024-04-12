@@ -7,17 +7,15 @@
 
 #include "quxlang/operators.hpp"
 
-std::string quxlang::list_functum_overloads_resolver::question() const
-{
-    return "list_functum_overloads(" + to_string(input_val) + ")";
-}
-rpnx::resolver_coroutine< quxlang::compiler, std::optional< std::set< quxlang::call_parameter_information > > > quxlang::list_functum_overloads_resolver::co_process(compiler* c, type_symbol functum)
-{
-    auto builtins = co_await *c->lk_builtin_functum_overloads(functum);
-    auto user_defined = co_await *c->lk_user_functum_overloads(functum);
 
-    std::string name = to_string(functum);
-    std::set< call_parameter_information > all_overloads;
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
+{
+    auto builtins = co_await *c->lk_list_builtin_functum_overloads(input);
+    auto user_defined = co_await *c->lk_list_user_functum_overloads(input);
+
+    std::string name = to_string(input);
+    std::set< function_header > all_overloads;
     for (auto const& o : builtins)
     {
         all_overloads.insert(o);

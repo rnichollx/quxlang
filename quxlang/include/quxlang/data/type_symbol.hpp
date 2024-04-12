@@ -11,8 +11,8 @@
 #include <boost/variant.hpp>
 #include <compare>
 #include <rpnx/compare.hpp>
-#include <rpnx/resolver_utilities.hpp>
 #include <rpnx/metadata.hpp>
+#include <rpnx/resolver_utilities.hpp>
 
 namespace quxlang
 {
@@ -30,6 +30,46 @@ namespace quxlang
     struct cvalue_reference;
     struct avalue_reference;
     struct selection_reference;
+
+    struct function_arg;
+    struct function_header;
+    struct void_type;
+    struct numeric_literal_reference;
+    struct context_reference;
+    struct template_reference;
+    struct bound_function_type_reference;
+
+    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subentity_reference, primitive_type_integer_reference, primitive_type_bool_reference, instanciation_reference, selection_reference, value_expression_reference, subdotentity_reference, instance_pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, ovalue_reference, bound_function_type_reference, numeric_literal_reference, avalue_reference >;
+
+    struct call_type
+    {
+        std::optional< type_symbol > this_parameter;
+        std::vector< type_symbol > positional_parameters;
+        std::map< std::string, type_symbol > named_parameters;
+
+
+        RPNX_MEMBER_METADATA(call_type, this_parameter, positional_parameters, named_parameters)
+    };
+
+    struct function_arg
+    {
+        std::string name;
+        std::optional< std::string > api_name;
+        type_symbol type;
+
+        RPNX_MEMBER_METADATA(function_arg, name, api_name, type)
+    };
+
+
+
+    struct function_header
+    {
+        call_type call_parameters;
+        std::optional< std::int64_t > priority;
+
+
+        RPNX_MEMBER_METADATA(function_header, call_parameters, priority);
+    };
 
     struct void_type
     {
@@ -54,8 +94,6 @@ namespace quxlang
 
     struct bound_function_type_reference;
     // struct function_type_reference;
-
-    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subentity_reference, primitive_type_integer_reference, primitive_type_bool_reference, instanciation_reference, selection_reference, value_expression_reference, subdotentity_reference, instance_pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, ovalue_reference, bound_function_type_reference, numeric_literal_reference, avalue_reference >;
 
     struct module_reference
     {
@@ -120,6 +158,7 @@ namespace quxlang
     struct instanciation_reference
     {
         type_symbol callee;
+
         std::vector< type_symbol > parameters;
         RPNX_MEMBER_METADATA(instanciation_reference, callee, parameters);
     };
@@ -127,8 +166,8 @@ namespace quxlang
     struct selection_reference
     {
         type_symbol callee;
-        std::vector< type_symbol > parameters;
-        RPNX_MEMBER_METADATA(selection_reference, callee, parameters);
+        function_header header;
+        RPNX_MEMBER_METADATA(selection_reference, callee, header);
     };
 
     struct mvalue_reference

@@ -19,10 +19,18 @@ namespace quxlang
         RPNX_MEMBER_METADATA(interp_value, type, data);
     };
 
-    struct interp_input
+    struct expr_interp_input
     {
         type_symbol context;
         expression expression;
+
+        RPNX_MEMBER_METADATA(expr_interp_input, context, expression);
+    };
+
+    struct interp_input
+    {
+        type_symbol context;
+        vm_execute_expression expression;
 
         RPNX_MEMBER_METADATA(interp_input, context, expression);
     };

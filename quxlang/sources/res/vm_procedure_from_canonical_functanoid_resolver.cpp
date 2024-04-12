@@ -487,7 +487,9 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     QUXLANG_DEBUG({std::cout << "Begin processing" << std::endl;});
 
-    ast2_function_declaration function_ast_v = co_await *c->lk_functum_instanciation_ast(func_name);
+    QUX_CO_GETDEP(insta, callee_temploid_instanciation, (func_name));
+
+    ast2_function_definition function_ast_v = co_await *c-> lk_functum_selection_ast(func_name);
 
     type_symbol functum_reference = func_name;
     if (typeis< instanciation_reference >(func_name))
@@ -748,9 +750,9 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     {
         co_return co_await gen_value(ctx, as< expression_call >(std::move(expr)));
     }
-    else if (typeis< numeric_literal >(expr))
+    else if (typeis< expression_numeric_literal >(expr))
     {
-        co_return co_await gen_value(ctx, as< numeric_literal >(std::move(expr)));
+        co_return co_await gen_value(ctx, as< expression_numeric_literal >(std::move(expr)));
     }
     else if (typeis< expression_thisdot_reference >(expr))
     {
@@ -1123,7 +1125,7 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
     co_return;
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, quxlang::numeric_literal expr)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, quxlang::expression_numeric_literal expr)
 {
     co_return vm_expr_literal{expr.value};
 }

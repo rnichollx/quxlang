@@ -65,6 +65,16 @@ namespace quxlang
             return result;
         }
 
+        std::string operator()(target_expr const & t)
+        {
+          return "target_expr{<omitted>}\n";
+        }
+
+        std::string operator()(sizeof_expr const & t)
+        {
+          return "sizeof_expr{<omitted>}\n";
+        }
+
         std::string operator()(vm_expr_primitive_binary_op const& op)
         {
             std::string result;
@@ -506,24 +516,7 @@ namespace quxlang
         std::string operator()(selection_reference const& func)
         {
             std::string result;
-            result = "functanoid_reference{\n";
-            current_indent++;
-            result += indent_string();
-            result += "callee: ";
-            result += rpnx::apply_visitor<std::string>(*this, func.callee);
-            result += indent_string();
-            result += "parameters: ";
-            current_indent++;
-            for (auto const& param : func.parameters)
-            {
-                result += indent_string();
-                result += "param: ";
-                result += rpnx::apply_visitor<std::string>(*this, param);
-                result += "\n";
-            }
-            current_indent--;
-            current_indent--;
-            result += indent_string() + "}\n";
+            result = "functanoid_reference{TODO}\n";
             return result;
         }
 
@@ -634,9 +627,9 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(numeric_literal const& literal)
+        std::string operator()(expression_numeric_literal const& literal)
         {
-            return "numeric_literal{ " + literal.value + " }\n";
+            return "expression_numeric_literal{ " + literal.value + " }\n";
         }
 
         std::string operator()(expression_binary const& what)

@@ -43,17 +43,28 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
     std::string kind = source.type().name();
     if (typeis< ast2_function_declaration >(source))
     {
+
+        auto const& func = as< ast2_function_declaration >(source);
+
         if (typeis< std::monostate >(destination))
         {
-            destination = ast2_functum{};
+            destination = functum{};
         }
-        else if (!typeis< ast2_functum >(destination))
+
+        else if (!typeis< functum >(destination))
         {
             throw std::runtime_error("Cannot merge function into non-function of the same name");
         }
 
-        ast2_functum& destination_functum = as< ast2_functum >(destination);
-        destination_functum.functions.push_back(as< ast2_function_declaration >(source));
+        functum& destination_functum = as< functum >(destination);
+
+        auto it = destination_functum.functions.find(func.header);
+        if (it != destination_functum.functions.end())
+        {
+            throw std::runtime_error("Functum already declared with the same header");
+        }
+
+        destination_functum.functions[func.header] = func.definition;
     }
     else if (typeis< ast2_class_declaration >(source))
     {

@@ -9,11 +9,7 @@
 
 namespace quxlang
 {
-    struct expression_numeric_literal
-    {
-        std::string value;
-        std::optional< std::string > type;
-    };
+
 }
 
 #endif // QUXLANG_EXPRESSION_NUMERIC_LITERAL_HEADER_GUARD

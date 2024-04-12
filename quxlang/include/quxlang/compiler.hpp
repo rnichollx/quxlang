@@ -41,7 +41,7 @@
 #include "quxlang/res/function_overload_selection_resolver.hpp"
 #include "quxlang/res/function_qualified_reference_resolver.hpp"
 #include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
-#include "quxlang/res/functum_instanciation_ast_resolver.hpp"
+#include "quxlang/res/functum_selection_ast_resolver.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/list_functum_overloads_resolver.hpp"
 #include "quxlang/res/list_user_functum_overloads_resolver.hpp"
@@ -59,22 +59,26 @@
 #include <mutex>
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
+#include <quxlang/res/callee_temploid_instanciation_resolver.hpp>
+#include <quxlang/res/callee_temploid_selection_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
 #include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
+#include <quxlang/res/interpret_bool_resolver.hpp>
+#include <quxlang/res/interpret_value_resolver.hpp>
+#include <quxlang/res/module_source_name_resolver.hpp>
 #include <quxlang/res/module_sources_resolver.hpp>
 #include <quxlang/res/procedure_linksymbol_resolver.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
+#include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_ast_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
-#include <quxlang/res/module_source_name_resolver.hpp>
-#include <quxlang/res/interpret_value_resolver.hpp>
-#include <quxlang/res/interpret_bool_resolver.hpp>
-
 #include <shared_mutex>
 
+// clang-format off
 #define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { return this->m_ ## x ## _index.lookup(input); }
+// clang-format on
 
 namespace quxlang
 {
@@ -108,7 +112,6 @@ namespace quxlang
         friend class function_overload_selection_resolver;
         friend class function_qualified_reference_resolver;
         friend class contextualized_reference_resolver;
-        friend class functum_instanciation_ast_resolver;
         friend class vm_procedure_from_canonical_functanoid_resolver;
         friend class function_frame_information_resolver;
         friend class operator_is_overloaded_with_resolver;
@@ -128,24 +131,25 @@ namespace quxlang
         friend class template_instanciation_ast_resolver;
         friend class temploid_instanciation_parameter_set_resolver;
         friend class functum_instanciation_parameter_map_resolver;
+        friend class co_vmir_expression_emitter;
 
-        template <typename G>
+        template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
-        template <typename G>
+        template < typename G >
         friend auto type_placement_info_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
-        template <typename T>
+        template < typename T >
         using index = rpnx::index< compiler, T >;
 
-        template <typename T>
+        template < typename T >
         using singleton = rpnx::singleton< compiler, T >;
 
-    public:
-        template <typename T>
+      public:
+        template < typename T >
         using out = rpnx::output_ptr< compiler, T >;
 
-    private:
+      private:
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         // class_list_resolver m_class_list_resolver;
@@ -153,6 +157,8 @@ namespace quxlang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
+        COMPILER_INDEX(list_builtin_functum_overloads)
+        COMPILER_INDEX(functum_selection_ast)
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(module_source_name)
@@ -166,37 +172,18 @@ namespace quxlang
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(procedure_linksymbol)
-
+        COMPILER_INDEX(callee_temploid_selection)
+        COMPILER_INDEX(list_user_functum_overloads)
+        COMPILER_INDEX(list_functum_overloads)
         COMPILER_INDEX(overload_set_instanciate_with)
+        COMPILER_INDEX(type_symbol_kind)
+        COMPILER_INDEX(asm_procedure_from_symbol)
+        COMPILER_INDEX(callee_temploid_instanciation)
+        COMPILER_INDEX(overload_set_is_callable_with)
 
         out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
         {
             return m_overload_set_instanciate_with_index.lookup(std::make_pair(os, args));
-        }
-
-        COMPILER_INDEX(call_params_of_function_ast)
-
-        out< call_parameter_information > lk_call_params_of_function_ast(ast2_function_declaration f_ast, type_symbol f_symbol)
-        {
-            return lk_call_params_of_function_ast(std::make_pair(f_ast, f_symbol));
-        }
-
-        COMPILER_INDEX(type_symbol_kind);
-
-        COMPILER_INDEX(asm_procedure_from_symbol);
-
-        index< list_builtin_functum_overloads_resolver > m_list_builtin_functum_overloads_index;
-
-        out< std::set< call_parameter_information > > lk_builtin_functum_overloads(type_symbol functum)
-        {
-            return m_list_builtin_functum_overloads_index.lookup(functum);
-        }
-
-        index< list_user_functum_overloads_resolver > m_list_user_functum_overloads_index;
-
-        out< std::set< call_parameter_information > > lk_user_functum_overloads(type_symbol functum)
-        {
-            return m_list_user_functum_overloads_index.lookup(functum);
         }
 
         index< called_functanoids_resolver > m_called_functanoids_index;
@@ -213,12 +200,7 @@ namespace quxlang
             return m_functanoid_return_type_index.lookup(chain);
         }
 
-        index< list_functum_overloads_resolver > m_list_functum_overloads_index;
 
-        out< std::optional< std::set< call_parameter_information > > > lk_list_functum_overloads(type_symbol const& chain)
-        {
-            return m_list_functum_overloads_index.lookup(chain);
-        }
 
         index< functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
 
@@ -248,13 +230,6 @@ namespace quxlang
             return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
         }
 
-        index< functum_instanciation_ast_resolver > m_functum_instanciation_ast_index;
-
-        out< ast2_function_declaration > lk_functum_instanciation_ast(type_symbol func_addr)
-        {
-            return m_functum_instanciation_ast_index.lookup(func_addr);
-        }
-
         index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;
 
         out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
@@ -262,14 +237,13 @@ namespace quxlang
             return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
         }
 
-    public:
+      public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
             m_solver.solve(this, node);
             return node->get();
         }
-
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {
@@ -278,7 +252,7 @@ namespace quxlang
             return node->get();
         }
 
-    private:
+      private:
         index< contextualized_reference_resolver > m_contextualized_reference_index;
 
         out< type_symbol > lk_contextualized_reference(type_symbol symbol, type_symbol context)
@@ -286,32 +260,16 @@ namespace quxlang
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
-        index< function_qualified_reference_resolver > m_function_qualname_index [[deprecated]];
 
-        out< type_symbol > lk_function_qualname [[deprecated]](type_symbol f, call_parameter_information args)
-        {
-            return m_function_qualname_index.lookup(std::make_pair(f, args));
-        }
+      public:
+        type_symbol get_function_qualname [[deprecated]] (type_symbol name, call_parameter_information args);
 
-    public:
-        type_symbol get_function_qualname [[deprecated]](type_symbol name, call_parameter_information args);
-
-    private:
+      private:
         // index< class_list_resolver > m_class_list_index;
 
-        index< function_overload_selection_resolver > m_function_overload_selection_index;
 
-        out< call_parameter_information > lk_function_overload_selection(type_symbol const& chain, call_parameter_information const& os)
-        {
-            return m_function_overload_selection_index.lookup(std::make_pair(chain, os));
-        }
 
-        index< overload_set_is_callable_with_resolver > m_overload_set_is_callable_with_index;
 
-        out< bool > lk_overload_set_is_callable_with(std::pair< call_parameter_information, call_parameter_information > const& input)
-        {
-            return m_overload_set_is_callable_with_index.lookup(input);
-        }
 
         out< bool > lk_overload_set_is_callable_with(call_parameter_information what, call_parameter_information with)
         {
@@ -337,7 +295,7 @@ namespace quxlang
             return m_entity_canonical_chain_exists_index.lookup(chain);
         }
 
-    public:
+      public:
         index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
 
         out< class_layout > lk_class_layout_from_canonical_chain(type_symbol const& chain)
@@ -345,7 +303,7 @@ namespace quxlang
             return m_class_layout_from_canonical_chain_index.lookup(chain);
         }
 
-    private:
+      private:
         rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, type_symbol > m_type_placement_info_from_canonical_chain_index;
 
         out< type_placement_info > lk_type_placement_info_from_canonical_type(type_symbol const& ref)
@@ -373,7 +331,6 @@ namespace quxlang
 
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol);
 
-
         out< type_symbol > lk_canonical_symbol_from_contextual_symbol(type_symbol type, type_symbol context)
         {
             return m_canonical_symbol_from_contextual_symbol_index.lookup(contextual_type_reference{.context = context, .type = type});
@@ -397,24 +354,16 @@ namespace quxlang
             return m_type_id_next++;
         }
 
-        cow<source_bundle> m_source_code;
+        cow< source_bundle > m_source_code;
         std::string m_configured_target;
 
-    public:
+      public:
+        compiler(cow< source_bundle > source_code, std::string target);
 
-        compiler(cow<source_bundle> source_code, std::string target);
-
-    private:
+      private:
         // The lk_* functions are used by resolvers to solve the graph
 
         // Get the parsed AST for a file
-
-
-
-
-
-
-
 
         // Should actually be named lk_file_contents, but kept for legacy reasons
         // DEPRECATED: Use lk_file_contents instead
@@ -430,7 +379,7 @@ namespace quxlang
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class
         // Each get_* function calls the lk_* function and then solves the graph
-    public:
+      public:
         // Gets the content of a named file
         std::string get_file_contents(std::string const& filename)
         {
@@ -438,8 +387,6 @@ namespace quxlang
             m_solver.solve(this, node);
             return node->get();
         }
-
-
 
         std::size_t get_class_size(type_symbol const& chain)
         {
@@ -454,8 +401,6 @@ namespace quxlang
             m_solver.solve(this, size);
             return size->get();
         }
-
-
 
         llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);

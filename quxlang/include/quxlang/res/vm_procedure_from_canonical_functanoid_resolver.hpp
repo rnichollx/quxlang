@@ -173,7 +173,7 @@ namespace quxlang
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_binary expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_copy_assign expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_call expr);
-        rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, numeric_literal expr);
+        rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_numeric_literal expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_this_reference expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_thisdot_reference expr);
         rpnx::general_coroutine< compiler, vm_value > gen_value(context_frame& ctx, expression_dotreference expr);

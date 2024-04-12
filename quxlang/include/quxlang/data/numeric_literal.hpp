@@ -9,11 +9,11 @@
 
 namespace quxlang
 {
-   struct numeric_literal
-   {
+   struct expression_numeric_literal
+    {
        std::string value;
 
-       std::strong_ordering operator<=>(numeric_literal const&) const = default;
+       std::strong_ordering operator<=>(expression_numeric_literal const&) const = default;
    };
 
 }

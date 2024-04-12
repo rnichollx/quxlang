@@ -8,6 +8,8 @@ namespace rpnx
     template <typename E> struct enum_traits;
 }
 
+#include "rpnx/compare.hpp"
+
 #define RPNX_MEMBER_METADATA(ty, ...) \
     auto tie() const { return std::tie(__VA_ARGS__); } \
         auto tie() { return std::tie(__VA_ARGS__); } \

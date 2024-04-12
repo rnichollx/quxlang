@@ -7,15 +7,31 @@
 
 #include "ast2_named_declaration.hpp"
 #include "quxlang/asm/asm.hpp"
+#include "quxlang/data/function_header.hpp"
 #include "quxlang/data/variants.hpp"
 #include <boost/variant.hpp>
 #include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>
+#include <quxlang/macros.hpp>
 #include <rpnx/resolver_utilities.hpp>
 
 namespace quxlang
 {
+    struct ast2_source_location
+    {
+        std::size_t file_id = {};
+        std::size_t begin_index = {};
+        std::size_t end_index = {};
+
+        template < typename It >
+        void set(It begin, It end)
+        {
+            // TODO: Do something here later maybe
+        }
+
+        RPNX_MEMBER_METADATA(ast2_source_location, file_id, begin_index, end_index);
+    };
     struct ast2_namespace_declaration;
     struct ast2_variable_declaration;
     struct ast2_file_declaration;
@@ -26,31 +42,18 @@ namespace quxlang
     struct ast2_module_declaration;
     struct ast2_extern;
     struct ast2_asm_procedure_declaration;
+    struct functum;
+    struct ast2_templex;
 
     using ast2_declarable = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    struct ast2_functum;
-    struct ast2_templex;
+    using ast2_map_entity = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_map_entity = rpnx::variant< std::monostate, ast2_functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
-
-    using ast2_node = rpnx::variant< std::monostate, ast2_functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using ast2_node = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
     using ast2_temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
-    using ast2_templexoid = rpnx::variant< std::monostate, ast2_functum, ast2_templex >;
-
-    struct ast2_extern
-    {
-        std::string lang;
-        std::string symbol;
-        std::vector< ast2_function_arg > args;
-
-        auto operator<=>(const ast2_extern& other) const
-        {
-            return rpnx::compare(lang, other.lang, symbol, other.symbol, args, other.args);
-        }
-    };
+    using ast2_templexoid = rpnx::variant< std::monostate, functum, ast2_templex >;
 
     struct ast2_procedure_ref
     {
@@ -132,16 +135,6 @@ namespace quxlang
         }
     };
 
-    struct ast2_functum
-    {
-        std::vector< ast2_function_declaration > functions;
-
-        std::strong_ordering operator<=>(const ast2_functum& other) const
-        {
-            return rpnx::compare(functions, other.functions);
-        }
-    };
-
     struct ast2_namespace_declaration
     {
         std::vector< ast2_top_declaration > declarations;
@@ -182,16 +175,40 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_templex, templates);
     };
 
-    struct ast2_function_declaration
+    struct ast2_function_arg
     {
-        std::vector< ast2_function_arg > args;
-        std::optional< type_symbol > return_type;
-        std::optional< type_symbol > this_type;
-        std::vector< ast2_function_delegate > delegates;
+        std::string name;
+        std::optional< std::string > api_name;
+        type_symbol type;
+
+        QUX_AST_METADATA(function_arg, name, api_name, type)
+    };
+
+    struct ast2_function_header
+    {
+        call_type call_parameters;
         std::optional< std::int64_t > priority;
+
+        QUX_AST_METADATA(function_header, call_parameters, priority);
+    };
+
+    struct ast2_function_definition
+    {
+        ast2_source_location location;
+        std::optional< type_symbol > return_type;
+        std::vector< ast2_function_delegate > delegates;
         function_block body;
 
-        RPNX_MEMBER_METADATA(ast2_function_declaration, args, return_type, this_type, delegates, priority, body);
+        RPNX_MEMBER_METADATA(ast2_function_definition, location, return_type, delegates, body);
+    };
+
+    struct ast2_function_declaration
+    {
+        ast2_source_location location;
+        ast2_function_header header;
+        ast2_function_definition definition;
+
+        RPNX_MEMBER_METADATA(ast2_function_declaration, header, definition);
     };
 
     struct ast2_named_global
@@ -225,7 +242,6 @@ namespace quxlang
         std::string filename;
         std::string module_name;
         std::map< std::string, std::string > imports;
-        // std::vector< std::pair< std::string, ast2_declarable > > globals;
         std::vector< ast2_top_declaration > declarations;
 
         RPNX_MEMBER_METADATA(ast2_file_declaration, filename, module_name, imports, declarations);
@@ -246,6 +262,22 @@ namespace quxlang
         std::vector< std::pair< std::string, ast2_declarable > > members;
 
         RPNX_MEMBER_METADATA(ast2_declarations, globals, members);
+    };
+
+    struct functum
+    {
+        std::map< function_header, ast2_function_definition > functions;
+
+        RPNX_MEMBER_METADATA(functum, functions);
+    };
+
+    struct ast2_extern
+    {
+        std::string lang;
+        std::string symbol;
+        std::vector< ast2_function_arg > args;
+
+        QUX_AST_METADATA_NOCONV(extern, lang, symbol, args);
     };
 
     std::string to_string(ast2_function_declaration const& ref);

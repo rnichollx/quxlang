@@ -20,6 +20,8 @@ namespace quxlang::parsers
     std::optional< ast2_function_declaration > try_parse_function_declaration(It& pos, It end)
     {
         std::string str (pos, end);
+
+        It begin = pos;
         std::optional< ast2_function_declaration > out;
 
         if (!skip_keyword_if_is(pos, end, "FUNCTION"))
@@ -28,11 +30,14 @@ namespace quxlang::parsers
         }
         out = ast2_function_declaration{};
 
-        out->args = parse_function_args(pos, end);
-        out->return_type = try_parse_function_return_type(pos, end);
+        // TODO: Add support for named arguments
+        out->header.call_parameters.positional_parameters = parse_function_args(pos, end);
+        // TODO: Parse enable if and other attributes
 
-        out->delegates = parse_function_delegates(pos, end);
-        out->body = parse_function_block(pos, end);
+        out->definition.return_type = try_parse_function_return_type(pos, end);
+        out->definition.delegates = parse_function_delegates(pos, end);
+        out->definition.body = parse_function_block(pos, end);
+        out->location.set(begin, pos);
         return out;
     }
 } // namespace quxlang::parsers

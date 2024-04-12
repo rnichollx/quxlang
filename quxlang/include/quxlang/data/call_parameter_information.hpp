@@ -15,20 +15,18 @@ namespace quxlang
     {
         std::vector< type_symbol > argument_types;
 
-        std::strong_ordering operator<=>(const call_parameter_information& other) const
-        {
-            return strong_ordering_from_less(argument_types, other.argument_types);
-        }
+        RPNX_MEMBER_METADATA(call_parameter_information, argument_types)
     };
+
+
 } // namespace quxlang
 
-
-template<>
-struct rpnx::resolver_traits<quxlang::call_parameter_information>
+template <>
+struct rpnx::resolver_traits< quxlang::call_parameter_information >
 {
     static std::string stringify(quxlang::call_parameter_information const& v)
     {
-        return rpnx::resolver_traits<std::vector< quxlang::type_symbol >>::stringify(v.argument_types);
+        return rpnx::resolver_traits< std::vector< quxlang::type_symbol > >::stringify(v.argument_types);
     }
 };
 #endif // QUXLANG_CALL_PARAMETER_INFORMATION_HEADER_GUARD

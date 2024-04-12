@@ -11,19 +11,7 @@
 
 namespace quxlang
 {
-    class list_functum_overloads_resolver : public rpnx::co_resolver_base< compiler, std::optional< std::set< call_parameter_information > >,type_symbol >
-    {
-      public:
-        list_functum_overloads_resolver(type_symbol functum)
-            : co_resolver_base(functum)
-        {
-        }
-
-        virtual std::string question() const override;
-
-
-        virtual rpnx::resolver_coroutine< compiler, std::optional< std::set< call_parameter_information > > > co_process(compiler* c, type_symbol input) override;
-    };
+    QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set<function_header>);
 } // namespace quxlang
 
 

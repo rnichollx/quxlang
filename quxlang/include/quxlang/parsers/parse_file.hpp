@@ -9,6 +9,7 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_named_declarations.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
+#include <quxlang/parsers/declaration.hpp>
 
 namespace quxlang::parsers
 {
