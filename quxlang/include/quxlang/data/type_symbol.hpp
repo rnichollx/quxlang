@@ -32,7 +32,7 @@ namespace quxlang
     struct selection_reference;
 
     struct function_arg;
-    struct function_header;
+    struct function_overload;
     struct void_type;
     struct numeric_literal_reference;
     struct context_reference;
@@ -62,13 +62,12 @@ namespace quxlang
 
 
 
-    struct function_header
+    struct function_overload
     {
         call_type call_parameters;
         std::optional< std::int64_t > priority;
 
-
-        RPNX_MEMBER_METADATA(function_header, call_parameters, priority);
+        RPNX_MEMBER_METADATA(function_overload, call_parameters, priority);
     };
 
     struct void_type
@@ -159,14 +158,14 @@ namespace quxlang
     {
         type_symbol callee;
 
-        std::vector< type_symbol > parameters;
+        call_type parameters;
         RPNX_MEMBER_METADATA(instanciation_reference, callee, parameters);
     };
 
     struct selection_reference
     {
         type_symbol callee;
-        function_header header;
+        function_overload header;
         RPNX_MEMBER_METADATA(selection_reference, callee, header);
     };
 

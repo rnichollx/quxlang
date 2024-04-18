@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::set<ast2_function_header>)
+    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::set<function_overload>)
 } // namespace quxlang
 
 #endif // FUNCTUM_BUILTIN_OVERLOADS_RESOLVER_HEADER_GUARD

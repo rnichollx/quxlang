@@ -17,7 +17,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
         co_return {};
     }
 
-    std::set< ast2_function_header > result;
+    std::set< function_overload > result;
 
     QUX_CO_GETDEP(maybe_functum_ast, entity_ast_from_canonical_chain, (functum_v));
 

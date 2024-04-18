@@ -14,9 +14,7 @@ namespace quxlang
 
     std::string to_string(type_symbol const& ref);
 
-    struct call_parameter_information;
 
-    std::string to_string(call_parameter_information const& ref);
 
 
 

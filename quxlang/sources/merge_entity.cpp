@@ -56,15 +56,28 @@ void quxlang::merge_entity(ast2_map_entity& destination, ast2_declarable const& 
             throw std::runtime_error("Cannot merge function into non-function of the same name");
         }
 
-        functum& destination_functum = as< functum >(destination);
+        functum & destination_functum = as< functum >(destination);
 
-        auto it = destination_functum.functions.find(func.header);
+        function_overload ol;
+
+        // TODO: Consider exporting the extraction of call_type
+        //  from call_paramters to a function
+        for (ast2_function_parameter const& param : func.header.call_parameters)
+        {
+            if (param.api_name.has_value())
+            {
+                rpnx::unimplemented();
+            }
+            ol.call_parameters.positional_parameters.push_back(param.type);
+        }
+
+        auto it = destination_functum.functions.find(ol);
         if (it != destination_functum.functions.end())
         {
             throw std::runtime_error("Functum already declared with the same header");
         }
 
-        destination_functum.functions[func.header] = func.definition;
+        destination_functum.functions[ol] = func.definition;
     }
     else if (typeis< ast2_class_declaration >(source))
     {

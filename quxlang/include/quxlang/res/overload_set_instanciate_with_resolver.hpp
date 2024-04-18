@@ -5,28 +5,22 @@
 #ifndef QUXLANG_OVERLOAD_SET_INSTANCIATE_WITH_RESOLVER_HEADER_GUARD
 #define QUXLANG_OVERLOAD_SET_INSTANCIATE_WITH_RESOLVER_HEADER_GUARD
 
-#include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/canonical_type_reference.hpp"
+#include "rpnx/resolver_utilities.hpp"
 
 namespace quxlang
 {
-    class overload_set_instanciate_with_resolver : public rpnx::co_resolver_base< compiler, std::optional< call_parameter_information >, std::pair< call_parameter_information, call_parameter_information > >
+    struct overload_set_instanciate_with_q
     {
+        function_overload overload;
+        call_type call;
 
-      public:
-        overload_set_instanciate_with_resolver(input_type input)
-            : co_resolver_base(input)
-        {
-            for (auto & arg: input.second.argument_types)
-            {
-                assert(!is_template(arg));
-            }
-        }
-
-        virtual rpnx::resolver_coroutine< compiler, std::optional< call_parameter_information > > co_process(compiler* c, input_type input) override;
+        RPNX_MEMBER_METADATA(overload_set_instanciate_with_q, overload, call);
     };
+
+    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< call_type >);
 
 } // namespace quxlang
 

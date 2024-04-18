@@ -11,22 +11,9 @@
 
 namespace quxlang
 {
-    struct call_parameter_information
-    {
-        std::vector< type_symbol > argument_types;
 
-        RPNX_MEMBER_METADATA(call_parameter_information, argument_types)
-    };
 
 
 } // namespace quxlang
 
-template <>
-struct rpnx::resolver_traits< quxlang::call_parameter_information >
-{
-    static std::string stringify(quxlang::call_parameter_information const& v)
-    {
-        return rpnx::resolver_traits< std::vector< quxlang::type_symbol > >::stringify(v.argument_types);
-    }
-};
 #endif // QUXLANG_CALL_PARAMETER_INFORMATION_HEADER_GUARD

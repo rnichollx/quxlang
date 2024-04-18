@@ -7,12 +7,12 @@
 
 #include <optional>
 #include <quxlang/data/type_symbol.hpp>
-#include <quxlang/parsers/parse_identifier.hpp>
-#include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_subentity.hpp>
+#include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_symbol_if_is.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
-#include <quxlang/parsers/parse_subentity.hpp>
 
 namespace quxlang::parsers
 {
@@ -146,7 +146,9 @@ namespace quxlang::parsers
             }
         next_arg:
             skip_whitespace_and_comments(pos, end);
-            param_set.parameters.push_back(parse_type_symbol(pos, end));
+            param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+            // TODO: support named parameters
+
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ")"))
             {

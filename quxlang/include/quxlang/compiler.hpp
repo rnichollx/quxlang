@@ -179,12 +179,9 @@ namespace quxlang
         COMPILER_INDEX(type_symbol_kind)
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(callee_temploid_instanciation)
-        COMPILER_INDEX(overload_set_is_callable_with)
+        //COMPILER_INDEX(overload_set_is_callable_with)
 
-        out< std::optional< call_parameter_information > > lk_overload_set_instanciate_with(call_parameter_information os, call_parameter_information args)
-        {
-            return m_overload_set_instanciate_with_index.lookup(std::make_pair(os, args));
-        }
+
 
         index< called_functanoids_resolver > m_called_functanoids_index;
 
@@ -202,12 +199,6 @@ namespace quxlang
 
 
 
-        index< functum_exists_and_is_callable_with_resolver > m_functum_exists_and_is_callable_with_index;
-
-        out< bool > lk_functum_exists_and_is_callable_with(type_symbol const& chain, call_parameter_information const& os)
-        {
-            return m_functum_exists_and_is_callable_with_index.lookup(std::make_pair(chain, os));
-        }
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
 
@@ -223,22 +214,10 @@ namespace quxlang
             return m_symbol_canonical_chain_exists_index.lookup(chain);
         }
 
-        index< operator_is_overloaded_with_resolver > m_operator_is_overloaded_with_index;
 
-        out< std::optional< type_symbol > > lk_operator_is_overloaded_with(std::string op, type_symbol lhs, type_symbol rhs)
-        {
-            return m_operator_is_overloaded_with_index.lookup(std::make_tuple(op, lhs, rhs));
-        }
-
-        index< vm_procedure_from_canonical_functanoid_resolver > m_vm_procedure_from_canonical_functanoid_index;
-
-        out< vm_procedure > lk_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
-        {
-            return m_vm_procedure_from_canonical_functanoid_index.lookup(func_addr);
-        }
-
+        COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
       public:
-        vm_procedure get_vm_procedure_from_canonical_functanoid(type_symbol func_addr)
+        vm_procedure get_vm_procedure_from_canonical_functanoid(instanciation_reference func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
             m_solver.solve(this, node);
@@ -262,7 +241,6 @@ namespace quxlang
 
 
       public:
-        type_symbol get_function_qualname [[deprecated]] (type_symbol name, call_parameter_information args);
 
       private:
         // index< class_list_resolver > m_class_list_index;
@@ -271,10 +249,6 @@ namespace quxlang
 
 
 
-        out< bool > lk_overload_set_is_callable_with(call_parameter_information what, call_parameter_information with)
-        {
-            return m_overload_set_is_callable_with_index.lookup(std::make_pair(std::move(what), std::move(with)));
-        }
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
 
@@ -406,7 +380,6 @@ namespace quxlang
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);
 
         function_ast get_function_ast_of_overload(type_symbol chain);
-        call_parameter_information get_function_overload_selection(type_symbol chain, call_parameter_information args);
     };
 
 } // namespace quxlang

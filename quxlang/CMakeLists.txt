@@ -213,6 +213,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/res/functum_selection_ast_resolver.hpp
         include/quxlang/data/function_header.hpp
         include/quxlang/res/callee_temploid_instanciation_resolver.hpp
+        include/quxlang/res/function_selection_call_parameters_resolver.hpp
 
 )
 

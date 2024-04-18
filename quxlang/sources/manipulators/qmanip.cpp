@@ -37,15 +37,16 @@ namespace quxlang
 
 
 
-    std::string to_string(call_parameter_information const& ref)
+    std::string to_string(call_type const& ref)
     {
         std::string result = "call_os(";
-        for (std::size_t i = 0; i < ref.argument_types.size(); i++)
+        for (std::size_t i = 0; i < ref.positional_parameters.size(); i++)
         {
             if (i != 0)
                 result += ", ";
-            result += to_string(ref.argument_types[i]);
+            result += to_string(ref.positional_parameters.at(i));
         }
+        // TODO: named parameters
         result += ")";
 
         return result;
@@ -74,11 +75,12 @@ namespace quxlang
         {
             if (is_template(ref.callee))
                 return true;
-            for (auto& p : ref.parameters)
+            for (auto& p : ref.parameters.positional_parameters)
             {
                 if (is_template(p))
                     return true;
             }
+            // TODO: Support named parameters here
             return false;
         }
 
@@ -212,7 +214,7 @@ namespace quxlang
         {
             instanciation_reference output = as< instanciation_reference >(ref);
             output.callee = with_context(output.callee, context);
-            for (auto& p : output.parameters)
+            for (auto& p : output.parameters.positional_parameters)
             {
                 p = with_context(p, context);
             }
@@ -236,7 +238,7 @@ namespace quxlang
     {
         std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@(";
         bool first = true;
-        for (auto& p : ref.parameters)
+        for (auto& p : ref.parameters.positional_parameters)
         {
             if (first)
                 first = false;
@@ -244,6 +246,7 @@ namespace quxlang
                 output += ", ";
             output += rpnx::apply_visitor<std::string>(*this, p);
         }
+        // TODO: Named parameters here
         output += ")";
         return output;
     }
@@ -463,10 +466,12 @@ namespace quxlang
             instanciation_reference const& template_funct = as< instanciation_reference >(template_type);
             instanciation_reference const& type_funct = as< instanciation_reference >(type);
 
-            if (template_funct.parameters.size() != type_funct.parameters.size())
+            if (template_funct.parameters.positional_parameters.size() != type_funct.parameters.positional_parameters.size())
             {
                 return std::nullopt;
             }
+
+            // TODO: support named parameters
 
             auto callee_match = match_template(template_funct.callee, type_funct.callee);
             if (!callee_match)

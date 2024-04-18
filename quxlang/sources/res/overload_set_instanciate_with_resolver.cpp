@@ -10,23 +10,19 @@
 
 using namespace quxlang;
 
-rpnx::resolver_coroutine< compiler, std::optional< call_parameter_information > > quxlang::overload_set_instanciate_with_resolver::co_process(compiler* c, input_type input)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 {
-    auto os = input.first;
-    auto args = input.second;
+    auto os = input.overload;
+    auto args = input.call;
     // TODO: support default values for arguments
 
     auto val = this;
 
-    std::string to = to_string(os);
-    std::string from = to_string(args);
+    //  std::string to = to_string(os);
+    //  std::string from = to_string(args);
 
-    if (to == "call_os(MUT& T(t1))")
-    {
-        int x = 0;
-    }
 
-    if (os.argument_types.size() != args.argument_types.size())
+    if (os.call_parameters.positional_parameters.size() != args.positional_parameters.size())
     {
         co_return std::nullopt;
     }
@@ -62,7 +58,6 @@ rpnx::resolver_coroutine< compiler, std::optional< call_parameter_information > 
         }
     }
 
-
     call_parameter_information result;
 
     std::optional< call_parameter_information > result_opt;
@@ -93,7 +88,7 @@ rpnx::resolver_coroutine< compiler, std::optional< call_parameter_information > 
         }
     }
 
-    //std::cout << debug_recursive() << std::endl;
+    // std::cout << debug_recursive() << std::endl;
 
     result_opt = result;
     co_return result_opt;

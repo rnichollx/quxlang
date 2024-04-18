@@ -15,15 +15,15 @@
 
 namespace quxlang
 {
-    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, type_symbol >
+    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, instanciation_reference >
     {
       public:
-        vm_procedure_from_canonical_functanoid_resolver(type_symbol func_addr)
-            : rpnx::co_resolver_base< compiler, vm_procedure, type_symbol >(func_addr)
+        vm_procedure_from_canonical_functanoid_resolver(instanciation_reference func_addr)
+            : rpnx::co_resolver_base< compiler, vm_procedure, instanciation_reference >(func_addr)
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, type_symbol func_addr) override final;
+        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, instanciation_reference func_addr) override final;
 
         virtual std::string question() const override
         {

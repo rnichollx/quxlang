@@ -478,21 +478,23 @@ namespace quxlang
     }
 } // namespace quxlang
 
-rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm_procedure_from_canonical_functanoid_resolver::co_process(compiler* c, type_symbol func_name)
+rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm_procedure_from_canonical_functanoid_resolver::co_process(compiler* c, instanciation_reference func_name)
 {
     for (std::size_t i = 0; i < 3; i++)
     {
         std::cout << std::endl;
     }
 
-    QUXLANG_DEBUG({std::cout << "Begin processing" << std::endl;});
+    QUXLANG_DEBUG({ std::cout << "Begin processing" << std::endl; });
 
     QUX_CO_GETDEP(insta, callee_temploid_instanciation, (func_name));
 
-    ast2_function_definition function_ast_v = co_await *c-> lk_functum_selection_ast(func_name);
+    QUX_CO_GETDEP(sel, callee_temploid_selection, (func_name));
+
+    ast2_function_definition function_ast_v = co_await *c->lk_functum_selection_ast(sel);
 
     type_symbol functum_reference = func_name;
-    if (typeis< instanciation_reference >(func_name))
+    if (typeis< quxlang::instanciation_reference >(func_name))
     {
         functum_reference = qualified_parent(func_name).value();
     }
@@ -785,10 +787,10 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // TODO: Support implicit casts
 
-    type_symbol lhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), lhs);
+    type_symbol lhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), lhs);
     std::string lhs_type_string = to_string(lhs_type);
 
-    type_symbol rhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), rhs);
+    type_symbol rhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), rhs);
     std::string rhs_type_string = to_string(rhs_type);
 
     if (!is_ref(lhs_type))
@@ -878,8 +880,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     auto lhs = co_await gen_value_generic(ctx, expr.lhs);
     auto rhs = co_await gen_value_generic(ctx, expr.rhs);
 
-    type_symbol lhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), lhs);
-    type_symbol rhs_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor(), rhs);
+    type_symbol lhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), lhs);
+    type_symbol rhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), rhs);
 
     type_symbol lhs_underlying_type = remove_ref(lhs_type);
     type_symbol rhs_underlying_type = remove_ref(rhs_type);
@@ -1148,7 +1150,6 @@ vm_value vm_procedure_from_canonical_functanoid_resolver::gen_this(context_frame
 
 rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_access_field(context_frame& ctx, vm_value val, std::string field_name)
 {
-
 
     auto thisreftype = vm_value_type(val);
     assert(is_ref(thisreftype));

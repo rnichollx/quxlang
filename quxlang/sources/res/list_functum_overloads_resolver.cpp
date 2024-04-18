@@ -15,7 +15,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
     auto user_defined = co_await *c->lk_list_user_functum_overloads(input);
 
     std::string name = to_string(input);
-    std::set< function_header > all_overloads;
+    std::set< function_overload > all_overloads;
     for (auto const& o : builtins)
     {
         all_overloads.insert(o);

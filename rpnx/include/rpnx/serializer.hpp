@@ -781,11 +781,11 @@ namespace rpnx
         static auto constexpr serialize_iter(T const& value, It output) -> It
         {
             *output++ = std::byte('{');
-            //std::string type_str = "__TYPE__";
-            //output = rpnx::json_serialize_iter(type_str, output);
+            // std::string type_str = "__TYPE__";
+            // output = rpnx::json_serialize_iter(type_str, output);
             //*output++ = std::byte(':');
-            //std::string type_name = meta_info< T >::type_name();
-            //output = rpnx::json_serialize_iter(type_name, output);
+            // std::string type_name = meta_info< T >::type_name();
+            // output = rpnx::json_serialize_iter(type_name, output);
 
             serialize_member< 0 >(value, output);
 
@@ -870,7 +870,7 @@ namespace rpnx
             std::string type_str = "variant_value_type";
             output = rpnx::json_serialize_iter(type_str, output);
             *output++ = std::byte(':');
-            std::string type_name = boost::core::demangle( value.type().name());
+            std::string type_name = boost::core::demangle(value.type().name());
             // meta_info<rpnx::basic_variant<A, Ts...>>::type_name();
             output = rpnx::json_serialize_iter(type_name, output);
 
@@ -909,10 +909,10 @@ namespace rpnx
         }
     };
 
-    template < typename It>
-    class json_serialization_traits<bool, It>
+    template < typename It >
+    class json_serialization_traits< bool, It >
     {
-    public:
+      public:
         static auto constexpr serialize_iter(bool const& value, It output) -> It
         {
             if (value)
@@ -930,6 +930,33 @@ namespace rpnx
                 *output++ = std::byte('s');
                 *output++ = std::byte('e');
             }
+            return output;
+        }
+    };
+
+    template < typename T, typename It >
+    class json_serialization_traits< std::map< std::string, T >, It >
+    {
+      public:
+        static auto constexpr serialize_iter(std::map< std::string, T > const& input, It output) -> It
+        {
+            *output++ = std::byte('{');
+            bool first = true;
+            for (const auto& [key, value] : input)
+            {
+                if (!first)
+                {
+                    *output++ = std::byte(',');
+                }
+                else
+                {
+                    first = false;
+                }
+                output = rpnx::json_serialize_iter(key, output);
+                *output++ = std::byte(':');
+                output = rpnx::json_serialize_iter(value, output);
+            }
+            *output++ = std::byte('}');
             return output;
         }
     };

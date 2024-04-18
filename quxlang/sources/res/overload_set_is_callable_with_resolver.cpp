@@ -10,7 +10,3 @@
 
 using namespace quxlang;
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_is_callable_with)
-{
-   // TODO: Rewrite this
-}

@@ -175,21 +175,23 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_templex, templates);
     };
 
-    struct ast2_function_arg
+    struct ast2_function_parameter
     {
+        ast2_source_location location;
         std::string name;
         std::optional< std::string > api_name;
         type_symbol type;
 
-        QUX_AST_METADATA(function_arg, name, api_name, type)
+        RPNX_MEMBER_METADATA(ast2_function_parameter, location, name, api_name, type)
     };
 
     struct ast2_function_header
     {
-        call_type call_parameters;
+        ast2_source_location location;
+        std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
 
-        QUX_AST_METADATA(function_header, call_parameters, priority);
+        RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority);
     };
 
     struct ast2_function_definition
@@ -266,7 +268,7 @@ namespace quxlang
 
     struct functum
     {
-        std::map< function_header, ast2_function_definition > functions;
+        std::map< function_overload, ast2_function_definition > functions;
 
         RPNX_MEMBER_METADATA(functum, functions);
     };
@@ -275,7 +277,7 @@ namespace quxlang
     {
         std::string lang;
         std::string symbol;
-        std::vector< ast2_function_arg > args;
+        std::vector< ast2_function_parameter > args;
 
         QUX_AST_METADATA_NOCONV(extern, lang, symbol, args);
     };

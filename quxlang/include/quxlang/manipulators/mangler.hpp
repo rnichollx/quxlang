@@ -80,11 +80,12 @@ namespace quxlang
             std::string out = mangle_internal(as< instanciation_reference >(qt).callee);
             out += "C";
             // out += std::to_string(as< functanoid_reference >(qt).parameters.size());
-            for (auto const& p : as< instanciation_reference >(qt).parameters)
+            for (auto const& p : as< instanciation_reference >(qt).parameters.positional_parameters)
             {
                 out += "A";
                 out += mangle_internal(p);
             }
+            // TODO: Named parameters, this type
             out += "E";
             return out;
         }

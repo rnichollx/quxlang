@@ -31,7 +31,7 @@ namespace quxlang::parsers
         out = ast2_function_declaration{};
 
         // TODO: Add support for named arguments
-        out->header.call_parameters.positional_parameters = parse_function_args(pos, end);
+        out->header.call_parameters = parse_function_args(pos, end);
         // TODO: Parse enable if and other attributes
 
         out->definition.return_type = try_parse_function_return_type(pos, end);

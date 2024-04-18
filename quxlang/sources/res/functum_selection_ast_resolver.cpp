@@ -10,8 +10,6 @@ using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_selection_ast)
 {
-    std::optional< call_parameter_information > overload_set;
-
     auto func_addr = input;
 
     assert(!qualified_is_contextual(func_addr));

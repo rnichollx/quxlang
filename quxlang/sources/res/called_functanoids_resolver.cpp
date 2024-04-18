@@ -1,15 +1,17 @@
 // Created by Ryan Nicholl on 11/30/23.
 //
 
-
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/compiler.hpp"
 
-namespace quxlang
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(called_functanoids)
 {
-    rpnx::resolver_coroutine< compiler, std::set< type_symbol > > called_functanoids_resolver::co_process(compiler* c, type_symbol func_addr)
+    auto func_addr = input_val;
+    if (!typeis< instanciation_reference >(func_addr))
     {
-        vm_procedure vmf = co_await *c->lk_vm_procedure_from_canonical_functanoid(func_addr);
-        co_return vmf.invoked_functanoids;
+        throw std::runtime_error("Not supported or not a functanoid");
     }
+    auto func_addr_inst = as< instanciation_reference >(func_addr);
+    vm_procedure vmf = co_await *c->lk_vm_procedure_from_canonical_functanoid(func_addr_inst);
+    co_return vmf.invoked_functanoids;
 }

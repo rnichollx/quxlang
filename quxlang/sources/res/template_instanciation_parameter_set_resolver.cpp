@@ -42,7 +42,7 @@ namespace quxlang
             auto template_arg = co_await *c->lk_canonical_symbol_from_contextual_symbol(template_arg_contextual, template_name);
             std::string template_arg_str = to_string(template_arg);
 
-            type_symbol instanciation_arg = template_instanciation_parameters[i];
+            type_symbol instanciation_arg = template_instanciation_parameters.positional_parameters[i];
             assert(!is_contextual(instanciation_arg));
             std::string instanciation_arg_str = to_string(instanciation_arg);
 

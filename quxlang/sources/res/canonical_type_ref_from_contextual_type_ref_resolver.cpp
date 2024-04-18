@@ -211,7 +211,7 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
 
         output.callee = callee_dp->get();
 
-        for (auto& p : param_set.parameters)
+        for (auto& p : param_set.parameters.positional_parameters)
         {
             auto param_dp = get_dependency(
                 [&]
@@ -222,7 +222,8 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
             if (!ready())
                 return;
 
-            output.parameters.push_back(param_dp->get());
+            output.parameters.positional_parameters.push_back(param_dp->get());
+            // TODO: support named parameters
         }
 
         set_value(output);

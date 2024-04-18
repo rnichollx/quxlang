@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-     QUX_CO_RESOLVER(callee_temploid_instanciation, instanciation_reference, instanciation_reference);
+     QUX_CO_RESOLVER(callee_temploid_instanciation, type_symbol, instanciation_reference);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_CALLEE_TEMPLOID_INSTANCIATION_RESOLVER_HEADER
