@@ -4,6 +4,7 @@
 
 #include "quxlang/res/interpret_bool_resolver.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
+#include <quxlang/compiler.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_bool)
 {

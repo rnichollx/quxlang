@@ -6,6 +6,7 @@
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
+#include <quxlang/compiler.hpp>
 
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(asm_procedure_from_symbol)

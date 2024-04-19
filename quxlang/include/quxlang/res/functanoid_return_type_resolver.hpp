@@ -9,6 +9,8 @@
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/type_symbol.hpp"
 
+#include "quxlang/macros.hpp"
+
 namespace quxlang
 {
     QUX_CO_RESOLVER(functanoid_return_type, type_symbol, type_symbol);

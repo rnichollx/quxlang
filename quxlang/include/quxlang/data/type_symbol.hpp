@@ -14,32 +14,10 @@
 #include <rpnx/metadata.hpp>
 #include <rpnx/resolver_utilities.hpp>
 
+#include <quxlang/data/fwd.hpp>
+
 namespace quxlang
 {
-    struct module_reference;
-    struct subentity_reference;
-    struct subdotentity_reference;
-    struct instanciation_reference;
-    struct value_expression_reference;
-    struct instance_pointer_type;
-    struct primitive_type_integer_reference;
-    struct primitive_type_bool_reference;
-    struct mvalue_reference;
-    struct tvalue_reference;
-    struct ovalue_reference;
-    struct cvalue_reference;
-    struct avalue_reference;
-    struct selection_reference;
-
-    struct function_arg;
-    struct function_overload;
-    struct void_type;
-    struct numeric_literal_reference;
-    struct context_reference;
-    struct template_reference;
-    struct bound_function_type_reference;
-
-    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subentity_reference, primitive_type_integer_reference, primitive_type_bool_reference, instanciation_reference, selection_reference, value_expression_reference, subdotentity_reference, instance_pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, ovalue_reference, bound_function_type_reference, numeric_literal_reference, avalue_reference >;
 
     struct call_type
     {
@@ -47,8 +25,26 @@ namespace quxlang
         std::vector< type_symbol > positional_parameters;
         std::map< std::string, type_symbol > named_parameters;
 
+        RPNX_MEMBER_METADATA(call_type, this_parameter, positional_parameters, named_parameters);
+    };
 
-        RPNX_MEMBER_METADATA(call_type, this_parameter, positional_parameters, named_parameters)
+    struct parameter
+    {
+        type_symbol type;
+        std::optional< expression > default_value;
+
+        RPNX_MEMBER_METADATA(parameter, type, default_value);
+    };
+
+    // TODO: Replace use of call_type in temploid parameters with this type
+    struct temploid_parameters
+    {
+        // The "this" special parameter is replaced with a
+        // named parameter with the name "THIS"
+        std::vector< parameter > positional_parameters;
+        std::map< std::string, parameter > named_parameters;
+
+        RPNX_MEMBER_METADATA(temploid_parameters, positional_parameters, named_parameters)
     };
 
     struct function_arg
@@ -60,8 +56,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(function_arg, name, api_name, type)
     };
 
-
-
+    // TODO: Rename this to temploid_header or something
     struct function_overload
     {
         call_type call_parameters;

@@ -1,6 +1,9 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
 
+#include <iostream>
+#include <map>
+
 namespace quxlang
 {
     std::optional< symbol_relocation > to_symbol_relocation(llvm::object::RelocationRef const& reloc)

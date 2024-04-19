@@ -8,6 +8,8 @@
 #include "quxlang/manipulators/qmanip.hpp"
 #include <vector>
 
+#include "quxlang/compiler.hpp"
+
 using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
@@ -29,10 +31,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
     std::vector< quxlang::compiler::out< bool > > convertibles_dp;
 
-    for (int i = 0; i < os.argument_types.size(); i++)
+    for (int i = 0; i < os.call_parameters.positional_parameters.size(); i++)
     {
-        auto arg_type = args.argument_types[i];
-        auto param_type = os.argument_types[i];
+        auto arg_type = args.positional_parameters.at(i);
+        auto param_type = os.call_parameters.positional_parameters.at(i);
         if (is_template(param_type))
         {
 
@@ -58,21 +60,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    call_parameter_information result;
+    call_type result;
 
-    std::optional< call_parameter_information > result_opt;
+    std::optional< call_type > result_opt;
 
-    for (std::size_t i = 0; i < args.argument_types.size(); i++)
+    for (std::size_t i = 0; i < args.positional_parameters.size(); i++)
     {
-        auto arg_type = args.argument_types[i];
-        auto param_type = os.argument_types[i];
+        auto arg_type = args.positional_parameters[i];
+        auto param_type = os.call_parameters.positional_parameters[i];
 
         if (is_template(param_type))
         {
             auto match = match_template(param_type, arg_type);
             assert(match); // checked already above
 
-            result.argument_types.push_back(std::move(match.value().type));
+            result.positional_parameters.push_back(std::move(match.value().type));
         }
         else
         {
@@ -84,11 +86,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
                 co_return std::nullopt;
             }
 
-            result.argument_types.push_back(param_type);
+            result.positional_parameters.push_back(param_type);
         }
     }
-
-    // std::cout << debug_recursive() << std::endl;
 
     result_opt = result;
     co_return result_opt;

@@ -3,6 +3,8 @@
 //
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 
+#include <quxlang/compiler.hpp>
+
 auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler* c, input_type input) -> co_type
 {
     QUXLANG_DEBUG({std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;});

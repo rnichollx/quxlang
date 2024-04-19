@@ -75,17 +75,7 @@ namespace quxlang
         std::strong_ordering operator<=>(const expression_symbol_reference& other) const = default;
     };
 
-    struct expression_multiply;
 
-    struct expression_modulus;
-
-    struct expression_divide;
-    struct expression_equals;
-    struct expression_not_equals;
-    struct expression_binary;
-    struct target_expr;
-    struct sizeof_expr;
-    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, target_expr, sizeof_expr >;
 
     struct expression_binary
     {

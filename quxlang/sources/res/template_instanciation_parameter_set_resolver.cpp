@@ -3,6 +3,8 @@
 //
 
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
+#include <quxlang/ast2/ast2_entity.hpp>
+#include <quxlang/compiler.hpp>
 
 namespace quxlang
 {

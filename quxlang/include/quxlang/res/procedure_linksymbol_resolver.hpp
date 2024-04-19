@@ -7,6 +7,7 @@
 #include "quxlang/data/type_symbol.hpp"
 
 #include <quxlang/macros.hpp>
+#include <quxlang/ast2/ast2_entity.hpp>
 namespace quxlang
 {
     QUX_CO_RESOLVER(procedure_linksymbol, ast2_procedure_ref, std::string);

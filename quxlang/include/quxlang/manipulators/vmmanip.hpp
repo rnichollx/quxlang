@@ -9,6 +9,7 @@
 #include "quxlang/data/vm_expr_primitive_op.hpp"
 #include "quxlang/data/vm_expression.hpp"
 #include <boost/variant.hpp>
+#include "quxlang/data/vm_executable_unit.hpp"
 
 namespace quxlang
 {

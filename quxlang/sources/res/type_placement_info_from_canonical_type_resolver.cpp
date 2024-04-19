@@ -1,6 +1,11 @@
 //
 // Created by Ryan Nicholl on 10/23/23.
 //
+#include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
+#include "quxlang/data/machine.hpp"
+
+#include "quxlang/compiler.hpp"
+
 void quxlang::type_placement_info_from_canonical_type_resolver::process(compiler* c)
 
 {

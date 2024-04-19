@@ -1,6 +1,7 @@
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/manipulators/merge_entity.hpp>
 #include <quxlang/res/type_map_resolver.hpp>
+#include <quxlang/compiler.hpp>
 //
 // Created by Ryan Nicholl on 12/12/23.
 //

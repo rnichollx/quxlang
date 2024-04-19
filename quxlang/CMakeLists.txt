@@ -214,6 +214,8 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/data/function_header.hpp
         include/quxlang/res/callee_temploid_instanciation_resolver.hpp
         include/quxlang/res/function_selection_call_parameters_resolver.hpp
+        include/quxlang/data/fwd.hpp
+        include/quxlang/res/function_positional_parameter_names_resolver.hpp
 
 )
 
@@ -247,9 +249,9 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         include/quxlang/data/target_configuration.hpp)
 target_link_libraries(quxlang PUBLIC graphlib Boost::boost Boost::headers)
 target_link_libraries(quxlang_main PUBLIC quxlang)
-target_precompile_headers(quxlang PRIVATE
-        [["quxlang/compiler.hpp"]]
-        <boost/variant.hpp>)
+#target_precompile_headers(quxlang PRIVATE
+#        [["quxlang/compiler.hpp"]]
+#        <boost/variant.hpp>)
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)

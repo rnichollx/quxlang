@@ -36,6 +36,14 @@ namespace quxlang
 
     using vm_value = rpnx::variant< void_value, vm_expr_primitive_binary_op, vm_expr_primitive_unary_op, vm_expr_load_address, vm_expr_dereference, vm_expr_store, vm_expr_load_literal, vm_expr_access_field, vm_expr_literal, vm_invoke, vm_expr_bound_value, vm_expr_reinterpret, vm_expr_poison >;
 
+    struct vm_callargs
+    {
+        std::vector< vm_value > positional;
+        std::map< std::string, vm_value > named;
+
+        RPNX_MEMBER_METADATA(vm_callargs, positional, named);
+    };
+
 } // namespace quxlang
 
 #include "vm_expr_access_field.hpp"

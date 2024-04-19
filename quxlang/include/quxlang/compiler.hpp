@@ -75,6 +75,7 @@
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <shared_mutex>
+#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 
 // clang-format off
 #define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { return this->m_ ## x ## _index.lookup(input); }
@@ -179,6 +180,8 @@ namespace quxlang
         COMPILER_INDEX(type_symbol_kind)
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(callee_temploid_instanciation)
+        COMPILER_INDEX(functum_exists_and_is_callable_with)
+        COMPILER_INDEX(function_positional_parameter_names)
         //COMPILER_INDEX(overload_set_is_callable_with)
 
 

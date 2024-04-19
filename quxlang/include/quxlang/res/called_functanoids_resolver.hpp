@@ -10,6 +10,7 @@
 #include "rpnx/resolver_utilities.hpp"
 
 #include <set>
+#include <quxlang/macros.hpp>
 
 namespace quxlang
 {

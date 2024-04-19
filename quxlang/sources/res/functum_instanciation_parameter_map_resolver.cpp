@@ -2,6 +2,7 @@
 // Created by Ryan Nicholl on 12/21/23.
 //
 #include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
+#include <quxlang/compiler.hpp>
 
 auto quxlang::functum_instanciation_parameter_map_resolver::co_process(compiler* c, input_type input) -> co_type
 {

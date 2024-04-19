@@ -19,18 +19,3 @@ quxlang::function_ast quxlang::compiler::get_function_ast_of_overload(type_symbo
 {
     return quxlang::function_ast{};
 }
-
-quxlang::call_parameter_information quxlang::compiler::get_function_overload_selection(type_symbol chain, call_parameter_information args)
-
-{
-    auto node = lk_function_overload_selection(chain, args);
-    m_solver.solve(this, node);
-    return node->get();
-}
-
-quxlang::type_symbol quxlang::compiler::get_function_qualname(quxlang::type_symbol name, quxlang::call_parameter_information args)
-{
-    auto node = lk_function_qualname(name, args);
-    m_solver.solve(this, node);
-    return node->get();
-}

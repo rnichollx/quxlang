@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
 #include "quxlang/res/module_source_name_resolver.hpp"
+#include <quxlang/compiler.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(module_source_name)
 {

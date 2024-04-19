@@ -3,6 +3,7 @@
 //
 
 #include "quxlang/res/type_placement_info_from_canonical_type_question.hpp"
+#include "quxlang/compiler.hpp"
 
 namespace quxlang
 {

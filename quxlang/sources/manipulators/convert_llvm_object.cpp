@@ -5,6 +5,8 @@
 #include "quxlang/manipulators/convert_llvm_object.hpp"
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
 #include "quxlang/manipulators/symbolmap.hpp"
+#include <iostream>
+#include <rpnx/debug.hpp>
 
 void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::function< void(quxlang::object_symbol) > callback)
 {

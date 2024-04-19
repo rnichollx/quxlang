@@ -104,6 +104,8 @@ rpnx::general_coroutine< quxlang::compiler, retT> quxlang::classN::nameV argsV
 #define QUX_GETDEP(retnameV, Q, args) auto retnameV ## _dep = get_dependency([&]{ return c->lk_ ## Q args ; }); if (!ready()) return; auto const & retnameV = retnameV ## _dep ->get();
 #define QUX_GETDEP_T(retnameV, Q, args, T) auto retnameV ## _dep = get_dependency([&]{ return c->lk_ ## Q args ; }); if (!ready()) return; T retnameV = retnameV ## _dep ->get();
 
+#define QUX_CO_DEP(depname, args) *c->lk_ ## depname args;
+
 #define QUX_CO_GETDEP(retname, depname, args) auto retname = co_await *c->lk_ ## depname args;
 
 #define QUX_TIECMP(c, x) auto tie() const { return  std::tie x ; } auto tie() const { return std::tie x ; } std::strong_ordering operator <=>(c const & other) { if (tie() < other.tie()) return std::strong_ordering::less; else if (other.tie() < tie()) return std::strong_ordering::greater; return std::strong_ordering::equal; }

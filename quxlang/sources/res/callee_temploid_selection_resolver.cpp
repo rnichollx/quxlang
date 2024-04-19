@@ -3,6 +3,7 @@
 //
 
 #include <quxlang/res/callee_temploid_selection_resolver.hpp>
+#include <quxlang/compiler.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(callee_temploid_selection)
 {
@@ -34,12 +35,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(callee_temploid_selection)
 
     auto const& func = as< functum >(ast);
 
-    std::set<function_header> eligible_overloads;
+    std::set<function_overload> eligible_overloads;
 
     for (auto const& overload : func.functions) {
-       function_header func_header = overload.first;
-       auto func_args = func_header.args;
+       function_overload func_header = overload.first;
+       auto func_args = func_header.call_parameters;
 
+       // TODO: Finish this code
 
     }
 }

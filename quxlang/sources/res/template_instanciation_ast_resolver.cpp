@@ -2,7 +2,8 @@
 // Created by Ryan Nicholl on 12/18/23.
 //
 
-#include <quxlang/res/temploid_instanciation_ast_resolver.hpp>
+#include <quxlang/res/template_instanciation_ast_resolver.hpp>
+#include <quxlang/compiler.hpp>
 
 std::string quxlang::template_instanciation_ast_resolver::question() const
 {
@@ -19,10 +20,9 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
     ast2_node maybe_templ_ast = co_await *c->lk_entity_ast_from_canonical_chain(templ);
 
-    //std::cout << debug_recursive() << std::endl;
+    // std::cout << debug_recursive() << std::endl;
 
     std::string type = to_string(templ);
-
 
     if (!typeis< ast2_templex >(maybe_templ_ast))
     {
@@ -36,9 +36,8 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
     ast2_template_declaration const* selected_template = nullptr;
     std::optional< std::int64_t > template_priority;
 
-
-    call_parameter_information templ_instanciation_args;
-    templ_instanciation_args.argument_types = args;
+    call_type templ_instanciation_args;
+    templ_instanciation_args = args;
     for (ast2_template_declaration const& decl : templ_ast.templates)
     {
         std::size_t priority = decl.priority.value_or(0);
@@ -47,12 +46,12 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
             continue;
         }
 
-        call_parameter_information decl_args;
-        decl_args.argument_types = decl.m_template_args;
-        bool can_use_this_template = co_await * c->lk_overload_set_is_callable_with(decl_args, templ_instanciation_args);
+        call_type decl_args;
+        decl_args.positional_parameters = decl.m_template_args;
+        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.call = decl_args, .overload = templ_instanciation_args});
         if (can_use_this_template)
         {
-            if (! template_priority.has_value() || priority > *template_priority)
+            if (!template_priority.has_value() || priority > *template_priority)
             {
                 eligible_templates = 0;
                 template_priority = priority;

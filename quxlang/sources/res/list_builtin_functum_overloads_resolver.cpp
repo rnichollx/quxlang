@@ -76,9 +76,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
                 auto int_type = as< primitive_type_integer_reference >(parent);
 
                 std::set< function_overload > result;
-                result.insert({.call_parameters = {
-                .this_parameter = make_mref(parent),
-                .positional_parameters = {parent}}});
+                result.insert({.call_parameters = {.this_parameter = make_mref(parent), .positional_parameters = {parent}}});
                 result.insert({.call_parameters{make_mref(parent)}});
                 co_return (result);
             }
@@ -87,16 +85,16 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
 
             if (!class_ent.has_value() || should_autogen_constructor)
             {
-                std::set< call_parameter_information > result;
-                result.insert({{make_mref(parent)}});
-                co_return (result);
+                std::set< function_overload > result;
+                result.insert(function_overload{.call_parameters = call_type{.this_parameter = make_mref(parent)}});
+                co_return result;
             }
         }
 
         else if (name == "DESTRUCTOR")
         {
-            std::set< call_parameter_information > result;
-            result.insert({{make_mref(parent)}});
+            std::set< function_overload > result;
+            result.insert(function_overload{.call_parameters = {make_mref(parent)}});
             co_return (result);
         }
     }

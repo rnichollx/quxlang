@@ -4,6 +4,8 @@
 
 #include "quxlang/res/type_size_from_canonical_type_question.hpp"
 
+#include "quxlang/compiler.hpp"
+
 namespace quxlang
 {
     template < typename Graph >

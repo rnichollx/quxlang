@@ -7,6 +7,7 @@
 
 #include "type_symbol.hpp"
 #include <rpnx/variant.hpp>
+#include <quxlang/data/vm_executable_unit.hpp>
 
 namespace quxlang
 {

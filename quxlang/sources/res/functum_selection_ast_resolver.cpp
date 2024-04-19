@@ -6,7 +6,11 @@
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/variant_utils.hpp"
 
+#include "quxlang/res/functum_selection_ast_resolver.hpp"
+
 using namespace quxlang;
+
+#include "quxlang/compiler.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_selection_ast)
 {

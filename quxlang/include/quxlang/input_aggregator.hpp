@@ -6,6 +6,8 @@
 #define RPNX_QUXLANG_INPUT_AGGREGATOR_HEADER
 
 #include <filesystem>
+#include <set>
+
 namespace quxlang
 {
     class input_aggregator

@@ -11,13 +11,17 @@
 #include "quxlang/operators.hpp"
 #include "quxlang/variant_utils.hpp"
 
+#include "quxlang/data/type_placement_info.hpp"
+
 #include <exception>
 
 // TODO: Debugging, remove this
-#include "../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/to_pretty_string.hpp"
+#include "rpnx/debug.hpp"
 
 #include <iostream>
+
+#include <quxlang/compiler.hpp>
 
 using namespace quxlang;
 
@@ -491,13 +495,9 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     QUX_CO_GETDEP(sel, callee_temploid_selection, (func_name));
 
-    ast2_function_definition function_ast_v = co_await *c->lk_functum_selection_ast(sel);
+    ast2_function_definition function_ast_v = co_await QUX_CO_DEP(functum_selection_ast, (sel));
 
-    type_symbol functum_reference = func_name;
-    if (typeis< quxlang::instanciation_reference >(func_name))
-    {
-        functum_reference = qualified_parent(func_name).value();
-    }
+    type_symbol functum_reference = func_name.callee;
 
     bool is_member = false;
 
@@ -544,18 +544,21 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             vm_proc.interface.return_type = function_ast_v.return_type.value();
         }
 
-        if (function_ast_v.this_type || typeis< subdotentity_reference >(functum_reference))
-        {
+        std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel));
 
+        if (insta.parameters.this_parameter || typeis< subdotentity_reference >(functum_reference))
+        {
+            assert(typeis< subdotentity_reference >(functum_reference));
+            assert(insta.parameters.this_parameter.has_value());
             vm_frame_variable var;
             var.name = "THIS";
-            if (!function_ast_v.this_type.has_value() || typeis< context_reference >(function_ast_v.this_type.value()))
+            if (typeis< context_reference >(insta.parameters.this_parameter.value()))
             {
                 var.type = make_mref(parent_type.value());
             }
             else
             {
-                var.type = function_ast_v.this_type.value();
+                var.type = insta.parameters.this_parameter.value();
             }
 
             // var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
@@ -574,10 +577,10 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             vm_proc.interface.argument_types.push_back(var.type);
         }
 
-        for (std::size_t i = 0; i < function_ast_v.args.size(); i++)
+        for (std::size_t i = 0; i < insta.parameters.positional_parameters.size(); i++)
         {
-            auto arg = function_ast_v.args[i];
-            auto arg_type = as< instanciation_reference >(func_name).parameters.at(i + (function_ast_v.this_type.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
+            auto arg = insta.parameters.positional_parameters.at(i);
+            auto arg_type = insta.parameters.positional_parameters.at(i + (insta.parameters.this_parameter.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
 
             // TODO: Check that arg_type matches arg.type
 
@@ -589,13 +592,16 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
             // TODO: Make sure no name conflicts are allowed.
             assert(!qualified_is_contextual(arg_type));
-            var.name = arg.name;
+
+            std::string arg_name = param_names.at(i);
+            // TODO: Arg.name
+            // var.name =
             var.type = arg_type;
             var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
-            frame.blocks.back().variable_lookup_index[arg.name] = frame.variables.size() - 1;
+            frame.blocks.back().variable_lookup_index[arg_name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
             vm_proc.interface.argument_types.push_back(arg_type);
@@ -685,7 +691,8 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         {
             co_await ctx.frame_return();
         }
-        // TODO: Else, insert termination here.
+        // TODO: Currently undefined behavior, (does not compile with llvm)
+        //  instead, insert termination here.
 
         co_await ctx.close();
     }
@@ -889,16 +896,16 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + expr.operator_str};
     type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
 
-    call_parameter_information lhs_param_info{{lhs_type, rhs_type}};
-    call_parameter_information rhs_param_info{{rhs_type, lhs_type}};
-    auto lhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with(lhs_function, lhs_param_info);
+    call_type lhs_param_info{.this_parameter = lhs_type, .positional_parameters = {rhs_type}};
+    call_type rhs_param_info{.this_parameter = rhs_type, .positional_parameters = {lhs_type}};
+    auto lhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with({.functum = lhs_function, .call = lhs_param_info});
 
     if (lhs_exists_and_callable_with)
     {
         co_return co_await gen_call(ctx, lhs_function, std::vector< vm_value >{lhs, rhs});
     }
 
-    auto rhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with(rhs_function, rhs_param_info);
+    auto rhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with({.functum = rhs_function, .call = rhs_param_info});
 
     if (rhs_exists_and_callable_with)
     {
@@ -1045,22 +1052,24 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call(context_frame& ctx, quxlang::type_symbol callee, std::vector< vm_value > call_args)
 {
-    call_parameter_information call_set;
-    call_set.argument_types = {};
+    call_type call_set;
 
     for (vm_value const& val : call_args)
     {
-        call_set.argument_types.push_back(vm_value_type(val));
+        call_set.positional_parameters.push_back(vm_value_type(val));
     }
     // TODO: Check if function parameter set already specified.
 
-    call_parameter_information overload = co_await *ctx.get_compiler()->lk_function_overload_selection(callee, call_set);
+    // TODO: Reimplement this
 
-    instanciation_reference overload_selected_ref;
-    overload_selected_ref.callee = callee;
-    overload_selected_ref.parameters = overload.argument_types;
+    assert(false);
+    // call_type overload = co_await *ctx.get_compiler()->lk_function_overload_selection(callee, call_set);
 
-    co_return co_await gen_call_functanoid(ctx, overload_selected_ref, call_args);
+    // instanciation_reference overload_selected_ref;
+    // overload_selected_ref.callee = callee;
+    // overload_selected_ref.parameters = overload.argument_types;
+
+    // co_return co_await gen_call_functanoid(ctx, overload_selected_ref, call_args);
 }
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_constructor(context_frame& ctx, quxlang::type_symbol type, std::vector< vm_value > values)
