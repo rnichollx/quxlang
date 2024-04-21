@@ -1,8 +1,8 @@
 #include "quxlang/compiler.hpp"
 
-#include "quxlang/res/class_field_list_from_canonical_chain_resolver.hpp"
+#include "quxlang/res/class_field_list_resolver.hpp"
 
-void quxlang::class_field_list_from_canonical_chain_resolver::process(compiler* c)
+void quxlang::class_field_list_resolver::process(compiler* c)
 {
     type_symbol canonical_chain = m_chain;
 

@@ -16,11 +16,11 @@
 
 namespace quxlang
 {
-    class class_field_list_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, std::vector< class_field_declaration > >
+    class class_field_list_resolver : public rpnx::resolver_base< compiler, std::vector< class_field_declaration > >
     {
       public:
         using key_type = type_symbol;
-        explicit class_field_list_from_canonical_chain_resolver(type_symbol chain)
+        explicit class_field_list_resolver(type_symbol chain)
         {
             m_chain = std::move(chain);
         }

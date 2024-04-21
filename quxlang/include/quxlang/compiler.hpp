@@ -23,7 +23,7 @@
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
-#include "quxlang/res/class_field_list_from_canonical_chain_resolver.hpp"
+#include "quxlang/res/class_field_list_resolver.hpp"
 #include "quxlang/res/class_layout_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/class_list_resolver.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
@@ -95,7 +95,7 @@ namespace quxlang
         friend class class_id_ast_resolver;
         friend class files_in_module_resolver;
         friend class file_module_map_resolver;
-        friend class class_field_list_from_canonical_chain_resolver;
+        friend class class_field_list_resolver;
         friend class entity_ast_from_canonical_chain_resolver;
         friend class entity_ast_from_chain_resolver;
         friend class module_ast_precursor1_resolver;
@@ -290,7 +290,7 @@ namespace quxlang
             return m_type_placement_info_from_canonical_chain_index.lookup(this, ref);
         }
 
-        index< class_field_list_from_canonical_chain_resolver > m_class_field_list_from_canonical_chain_index;
+        index< class_field_list_resolver > m_class_field_list_from_canonical_chain_index;
 
         out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(type_symbol const& chain)
         {
