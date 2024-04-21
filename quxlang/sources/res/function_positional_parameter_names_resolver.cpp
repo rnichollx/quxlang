@@ -17,18 +17,19 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
         throw std::logic_error("Expected functum");
     }
 
-        functum const& f = as< functum >(ast);
+    functum const& f = as< functum >(ast);
 
-        for (auto const& func : f.functions)
+    for (auto const& func : f.functions)
+    {
+        auto head = func.first;
+        if (head == input_val.header)
         {
-           auto head = func.first;
-           if (head == input_val.header)
-           {
-             std::vector<std::string> strs;
+            std::vector< std::string > strs;
 
-                   for (auto const& param : func.first.parameters.)
-
-           }
-
+            // TODO: Implement this
+            //  for (auto const& param : func.first.parameters.)
         }
+    }
 
+    rpnx::unimplemented();
+}

@@ -61,21 +61,23 @@
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/callee_temploid_instanciation_resolver.hpp>
 #include <quxlang/res/callee_temploid_selection_resolver.hpp>
+#include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
+#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 #include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
+#include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
 #include <quxlang/res/module_source_name_resolver.hpp>
 #include <quxlang/res/module_sources_resolver.hpp>
 #include <quxlang/res/procedure_linksymbol_resolver.hpp>
+#include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
-#include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_ast_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <shared_mutex>
-#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 
 // clang-format off
 #define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { return this->m_ ## x ## _index.lookup(input); }
@@ -158,6 +160,8 @@ namespace quxlang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
+        COMPILER_INDEX(symboid)
+        COMPILER_INDEX(declaroids)
         COMPILER_INDEX(list_builtin_functum_overloads)
         COMPILER_INDEX(functum_selection_ast)
         COMPILER_INDEX(interpret_value)

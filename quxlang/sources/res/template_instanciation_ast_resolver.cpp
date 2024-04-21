@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/18/23.
 //
 
-#include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/compiler.hpp>
+#include <quxlang/res/template_instanciation_ast_resolver.hpp>
 
 std::string quxlang::template_instanciation_ast_resolver::question() const
 {
@@ -48,7 +48,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
         call_type decl_args;
         decl_args.positional_parameters = decl.m_template_args;
-        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.call = decl_args, .overload = templ_instanciation_args});
+        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.call = decl_args, .overload = function_overload{.call_parameters = templ_instanciation_args}});
         if (can_use_this_template)
         {
             if (!template_priority.has_value() || priority > *template_priority)

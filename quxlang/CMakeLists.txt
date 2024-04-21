@@ -217,9 +217,10 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/data/fwd.hpp
         include/quxlang/res/function_positional_parameter_names_resolver.hpp
         sources/res/function_positional_parameter_names_resolver.cpp
-        include/quxlang/res/entity_declarations_resolver.hpp
+        include/quxlang/res/declaroids_resolver.hpp
         include/quxlang/res/resolver.hpp
         sources/res/entity_declarations_resolver.cpp
+        include/quxlang/res/symboid_resolver.hpp
 
 )
 
@@ -247,7 +248,6 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         include/quxlang/filelist.hpp
         include/quxlang/res/file_content_resolver.hpp
         sources/res/file_content_resolver.cpp
-        sources/res/file_ast_resolver.cpp
         include/quxlang/ast/function_ast.hpp ../rpnx/include/rpnx/value.hpp include/quxlang/ast/symbol_ref_ast.hpp include/quxlang/ex/unexpected_eof.hpp include/quxlang/ast/null_object_ast.hpp include/quxlang/ast/null_object_ast.hpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)
