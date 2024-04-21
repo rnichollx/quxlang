@@ -1206,7 +1206,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     instanciation_reference const& overload_selected_ref = as< instanciation_reference >(callee);
     std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
 
-    auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
+    auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters.positional_parameters);
     std::optional< vm_value > value_maybe = co_await try_gen_call_functanoid_builtin(ctx, callee, args);
 
     if (value_maybe.has_value())
@@ -1229,7 +1229,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     call.functanoid = overload_selected_ref;
 
     call.interface = vm_procedure_interface{};
-    call.interface.argument_types = overload_selected_ref.parameters;
+    call.interface.argument_types = overload_selected_ref.parameters.positional_parameters;
 
     auto return_type = co_await *ctx.get_compiler()->lk_functanoid_return_type(overload_selected_ref);
 

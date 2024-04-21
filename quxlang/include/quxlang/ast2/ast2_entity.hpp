@@ -204,6 +204,12 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_function_definition, location, return_type, delegates, body);
     };
 
+    struct ast2_functum
+    {
+        std::vector< ast2_function_definition > functions;
+        RPNX_MEMBER_METADATA(ast2_functum, functions);
+    };
+
     struct ast2_function_declaration
     {
         ast2_source_location location;
@@ -266,8 +272,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_declarations, globals, members);
     };
 
+    struct function
+    {
+    };
+
     struct functum
     {
+
         std::map< function_overload, ast2_function_definition > functions;
 
         RPNX_MEMBER_METADATA(functum, functions);

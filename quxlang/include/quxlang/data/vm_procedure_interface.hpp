@@ -15,7 +15,7 @@ namespace quxlang
 {
     struct vm_procedure_interface
     {
-
+        // TODO: replace with call_type
         std::optional< type_symbol > return_type;
         std::vector< type_symbol > argument_types;
 
