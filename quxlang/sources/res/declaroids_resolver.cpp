@@ -134,11 +134,12 @@ start:
 
     else if (typeis< ast2_templex >(sym))
     {
-        // TODO: probably redo this in a less hacky way.
+        // TODO: impelment this
+        rpnx::unimplemented();
         if (typeis< instanciation_reference >(input))
         {
-            auto ast2 = co_await *c->lk_temploid_instanciation_ast(as< instanciation_reference >(input));
-            assert(!typeis< ast2_templex >(ast2));
+           // auto ast2 = co_await *c->lk_temploid_instanciation_ast(as< instanciation_reference >(input));
+           // assert(!typeis< ast2_templex >(ast2));
             goto start;
         }
         else

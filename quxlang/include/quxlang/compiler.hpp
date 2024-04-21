@@ -51,7 +51,6 @@
 #include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
 #include "quxlang/res/overload_set_is_callable_with_resolver.hpp"
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
-#include "quxlang/res/type_map_resolver.hpp"
 #include "quxlang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
@@ -74,7 +73,6 @@
 #include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
-#include <quxlang/res/temploid_instanciation_ast_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <shared_mutex>
@@ -171,9 +169,7 @@ namespace quxlang
         COMPILER_INDEX(functum_instanciation_parameter_map)
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(template_instanciation_ast)
-        COMPILER_INDEX(temploid_instanciation_ast)
         COMPILER_INDEX(entity_ast_from_canonical_chain)
-        COMPILER_INDEX(type_map)
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(procedure_linksymbol)
