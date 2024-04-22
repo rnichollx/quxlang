@@ -11,27 +11,12 @@
 #include "quxlang/data/canonical_lookup_chain.hpp"
 #include "quxlang/data/lookup_chain.hpp"
 
+#include <quxlang/res/resolver.hpp>
+
 namespace quxlang
 {
-  class entity_canonical_chain_exists_resolver : public rpnx::resolver_base< compiler, bool >
-  {
-    public:
-        using key_type = type_symbol;
-
-        explicit entity_canonical_chain_exists_resolver(type_symbol chain)
-        {
-            m_chain = chain;
-        }
-
-        virtual void process(compiler* c) override;
-
-        virtual std::string question() const override
-        {
-            return "entity_canonical_chain_exists(" + to_string(m_chain) + ")";
-        }
-      private:
-        type_symbol m_chain;
-  };
+    class [[deprecated("Use symbol_type instead")]] entity_canonical_chain_exists ;
+    QUX_CO_RESOLVER(entity_canonical_chain_exists, type_symbol, bool);
 }
 
 #endif // QUXLANG_ENTITY_CANONICAL_CHAIN_EXISTS_RESOLVER_HEADER_GUARD

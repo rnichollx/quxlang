@@ -491,9 +491,9 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     QUXLANG_DEBUG({ std::cout << "Begin processing" << std::endl; });
 
-    QUX_CO_GETDEP(insta, callee_temploid_instanciation, (func_name));
+    QUX_CO_GETDEP(insta, functum_instanciation, (func_name));
 
-    QUX_CO_GETDEP(sel, callee_temploid_selection, (func_name));
+    QUX_CO_GETDEP(sel, functum_selection, (func_name));
 
     ast2_function_definition function_ast_v = co_await QUX_CO_DEP(functum_selection_ast, (sel));
 

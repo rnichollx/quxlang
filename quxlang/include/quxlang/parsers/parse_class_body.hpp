@@ -7,17 +7,17 @@
 
 #include <optional>
 #include <quxlang/ast2/ast2_type_map.hpp>
-#include <quxlang/parsers/parse_named_declarations.hpp>
 #include <quxlang/parsers/try_parse_class_function_declaration.hpp>
 #include <quxlang/parsers/try_parse_class_variable_declaration.hpp>
+#include <quxlang/parsers/declaration.hpp>
 
 namespace quxlang::parsers
 {
     template < typename It >
     std::vector< ast2_named_declaration > parse_named_declarations(It& pos, It end);
 
-    template < typename It >
-    std::vector< ast2_top_declaration > parse_top_declarations(It& pos, It end);
+    template <typename It>
+    std::vector< subdeclaroid > parse_subdeclaroids(It& pos, It end);
 
     template < typename It >
     ast2_class_declaration parse_class_body(It& pos, It end)
@@ -32,9 +32,9 @@ namespace quxlang::parsers
     member:
 
         skip_whitespace_and_comments(pos, end);
-        auto declarations = parse_top_declarations(pos, end);
+        auto subdecls = parse_subdeclaroids(pos, end);
 
-        for (ast2_top_declaration const & decl: declarations)
+        for ( subdeclaroid const & decl: subdecls)
         {
             result.declarations.push_back(decl);
         }

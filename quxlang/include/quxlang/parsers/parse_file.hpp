@@ -7,7 +7,6 @@
 
 #include "declaration.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>
-#include <quxlang/parsers/parse_named_declarations.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
 #include <quxlang/parsers/declaration.hpp>
 
@@ -62,7 +61,7 @@ namespace quxlang::parsers
 
     entry:
         skip_whitespace_and_comments(pos, end);
-        auto decl = parse_top_declarations(pos, end);
+        auto decl = parse_subdeclaroids(pos, end);
         skip_whitespace_and_comments(pos, end);
 
         for (auto d : decl)

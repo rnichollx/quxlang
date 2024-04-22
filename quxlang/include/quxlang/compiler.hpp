@@ -58,21 +58,24 @@
 #include <mutex>
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
-#include <quxlang/res/callee_temploid_instanciation_resolver.hpp>
-#include <quxlang/res/callee_temploid_selection_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
+#include <quxlang/res/functanoid_parameter_map.hpp>
 #include <quxlang/res/function_positional_parameter_names_resolver.hpp>
-#include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
+#include <quxlang/res/functum_instanciation.hpp>
+#include <quxlang/res/functum_selection.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
 #include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
 #include <quxlang/res/module_source_name_resolver.hpp>
 #include <quxlang/res/module_sources_resolver.hpp>
 #include <quxlang/res/procedure_linksymbol_resolver.hpp>
+#include <quxlang/res/symboid_declaroids_resolver.hpp>
 #include <quxlang/res/symboid_resolver.hpp>
+#include <quxlang/res/symboid_subdeclaroids.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
+#include <quxlang/res/temploid_instanciation.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <shared_mutex>
@@ -166,22 +169,26 @@ namespace quxlang
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
-        COMPILER_INDEX(functum_instanciation_parameter_map)
+        COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(template_instanciation_ast)
         COMPILER_INDEX(entity_ast_from_canonical_chain)
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(procedure_linksymbol)
-        COMPILER_INDEX(callee_temploid_selection)
         COMPILER_INDEX(list_user_functum_overloads)
         COMPILER_INDEX(list_functum_overloads)
         COMPILER_INDEX(overload_set_instanciate_with)
         COMPILER_INDEX(type_symbol_kind)
         COMPILER_INDEX(asm_procedure_from_symbol)
-        COMPILER_INDEX(callee_temploid_instanciation)
+        COMPILER_INDEX(functum_instanciation)
         COMPILER_INDEX(functum_exists_and_is_callable_with)
         COMPILER_INDEX(function_positional_parameter_names)
+        COMPILER_INDEX(symboid_subdeclaroids)
+        COMPILER_INDEX(templexoid_instanciation)
+        //COMPILER_INDEX(temploid_instanciation)
+        COMPILER_INDEX(functum_selection)
+        //COMPILER_INDEX(template_selection)
         //COMPILER_INDEX(overload_set_is_callable_with)
 
 

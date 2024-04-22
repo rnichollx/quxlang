@@ -11,6 +11,5 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(symboid_declaroids, type_symbol, std::vector<ast2_declarable>);
 }
 #endif // RPNX_QUXLANG_SYMBOID_DECLAROIDS_RESOLVER_HEADER

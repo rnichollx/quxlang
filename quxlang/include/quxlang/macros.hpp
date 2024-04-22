@@ -75,6 +75,7 @@ rpnx::resolver_coroutine< compiler, output_type > co_process(compiler* c, input_
 void quxlang::nameV ## _resolver::process(compiler * c) \
 
 /// This implements a resolver coroutine, inside C++ files.
+// Usage: QUX_CO_RESOLVER_IMPL_FUNC_DEF(foo) { ... }
 #define QUX_CO_RESOLVER_IMPL_FUNC_DEF(nameV) \
 quxlang::nameV ## _resolver::co_type quxlang::nameV ## _resolver::co_process(compiler* c, input_type arg_input)
 

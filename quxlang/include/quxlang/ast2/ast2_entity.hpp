@@ -43,19 +43,46 @@ namespace quxlang
     struct ast2_extern;
     struct ast2_asm_procedure_declaration;
     struct functum;
+    struct member_subdeclaroid;
+    struct global_subdeclaroid;
     struct ast2_templex;
+    struct function;
+    struct templex;
 
-    using ast2_declarable = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using ast2_declarable [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_map_entity = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_node = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
+
+    using ast2_map_entity [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+
+    using ast2_node [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
     using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
     using ast2_temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
     using ast2_templexoid = rpnx::variant< std::monostate, functum, ast2_templex >;
+
+    struct member_subdeclaroid
+    {
+        std::string name;
+        declaroid decl;
+        std::optional<expression> include_if;
+
+        RPNX_MEMBER_METADATA(member_subdeclaroid, name, decl, include_if);
+    };
+
+    struct global_subdeclaroid
+    {
+        std::string name;
+        declaroid decl;
+        std::optional<expression> include_if;
+
+        RPNX_MEMBER_METADATA(global_subdeclaroid, name, decl, include_if);
+    };
+
 
     struct ast2_procedure_ref
     {
@@ -139,7 +166,7 @@ namespace quxlang
 
     struct ast2_namespace_declaration
     {
-        std::vector< ast2_top_declaration > declarations;
+        std::vector< subdeclaroid > declarations;
 
         RPNX_MEMBER_METADATA(ast2_namespace_declaration, declarations);
     };
@@ -155,7 +182,7 @@ namespace quxlang
 
     struct ast2_class_declaration
     {
-        std::vector< ast2_top_declaration > declarations;
+        std::vector< subdeclaroid > declarations;
         std::set< std::string > class_keywords;
 
         RPNX_MEMBER_METADATA(ast2_class_declaration, declarations, class_keywords);
@@ -239,7 +266,7 @@ namespace quxlang
 
     struct ast2_include_if;
 
-    struct ast2_include_if
+    struct [[deprecated("use include_if")]] ast2_include_if
     {
         expression condition;
         ast2_named_declaration declaration;
@@ -252,7 +279,7 @@ namespace quxlang
         std::string filename;
         std::string module_name;
         std::map< std::string, std::string > imports;
-        std::vector< ast2_top_declaration > declarations;
+        std::vector< subdeclaroid > declarations;
 
         RPNX_MEMBER_METADATA(ast2_file_declaration, filename, module_name, imports, declarations);
     };
@@ -261,7 +288,7 @@ namespace quxlang
     {
         std::string module_name;
         std::map< std::string, std::string > imports;
-        std::vector< ast2_top_declaration > declarations;
+        std::vector< subdeclaroid > declarations;
 
         RPNX_MEMBER_METADATA(ast2_module_declaration, module_name, imports, declarations);
     };

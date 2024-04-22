@@ -16,6 +16,7 @@
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
 #include <quxlang/parsers/try_parse_name.hpp>
 #include <quxlang/parsers/try_parse_variable_declaration.hpp>
+#include <quxlang/parsers/parse_asm_procedure.hpp>
 
 namespace quxlang::parsers
 {
@@ -26,21 +27,27 @@ namespace quxlang::parsers
     std::optional< ast2_top_declaration > try_parse_top_declaration(It& pos, It end);
 
     template < typename It >
-    ast2_declarable parse_declarable(It& pos, It end);
+    ast2_declarable parse_declaroid(It& pos, It end);
 
     template < typename It >
-    std::optional< ast2_declarable > try_parse_declarable(It& pos, It end);
+    std::optional< ast2_declarable > try_parse_declaroid(It& pos, It end);
 
     template < typename It >
-    std::vector< ast2_top_declaration > parse_top_declarations(It& pos, It end)
+    std::optional< subdeclaroid > try_parse_subdeclaroid(It& pos, It end);
+
+    template < typename It >
+    std::optional< ast2_namespace_declaration > try_parse_namespace(It& pos, It end);
+
+    template < typename It >
+    std::vector< subdeclaroid > parse_subdeclaroids(It& pos, It end)
     {
-        std::vector< ast2_top_declaration > output;
+        std::vector< subdeclaroid > output;
 
         while (true)
         {
             skip_whitespace_and_comments(pos, end);
-            std::optional< ast2_top_declaration > decl;
-            decl = try_parse_top_declaration(pos, end);
+            std::optional< subdeclaroid > decl;
+            decl = try_parse_subdeclaroid(pos, end);
             if (!decl)
             {
                 break;
@@ -51,10 +58,12 @@ namespace quxlang::parsers
         return output;
     }
 
+
+
     template < typename It >
-    std::optional< ast2_named_declaration > try_parse_named_declaration(It& pos, It end)
+    std::optional< subdeclaroid > try_parse_subdeclaroid(It& pos, It end)
     {
-        std::optional< ast2_named_declaration > output;
+        std::optional< subdeclaroid > output;
 
         auto name_opt = try_parse_name(pos, end);
         if (!name_opt)
@@ -66,27 +75,26 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         std::string remaning(pos, end);
 
-        auto decl = parse_declarable(pos, end);
+        auto ifl = try_parse_include_if(pos, end);
+
+
+        auto decl = parse_declaroid(pos, end);
 
         if (member)
         {
-            ast2_named_member m{};
-            m.name = name;
-            m.declaration = decl;
-            output = m;
+            output = member_subdeclaroid {.decl = decl, .name = name, .include_if = ifl};
         }
         else
         {
-            ast2_named_global g{};
-            g.name = name;
-            g.declaration = decl;
-            output = g;
+            output = global_subdeclaroid {.decl = decl, .name = name, .include_if = ifl};
         }
+
         return output;
     }
 
+
     template < typename It >
-    std::optional< ast2_declarable > try_parse_declarable(It& pos, It end)
+    std::optional< ast2_declarable > try_parse_declaroid(It& pos, It end)
     {
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_declarable > output;
@@ -123,24 +131,55 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    std::optional< ast2_top_declaration > try_parse_top_declaration(It& pos, It end)
+    std::optional< subdeclaroid > try_parse_subdeclaration(It& pos, It end)
     {
-        std::optional< ast2_include_if > include_if = try_parse_include_if(pos, end);
-        if (include_if)
 
-        {
-            return include_if;
-        }
 
         auto decl = try_parse_named_declaration(pos, end);
 
         return decl;
     }
 
+
+
     template < typename It >
-    ast2_declarable parse_declarable(It& pos, It end)
+    declaroid parse_declaroid(It& pos, It end)
     {
-        return try_parse_declarable(pos, end).value();
+        return try_parse_declaroid(pos, end).value();
+    }
+
+    template < typename It >
+    std::optional< ast2_namespace_declaration > try_parse_namespace(It& pos, It end)
+    {
+        ast2_namespace_declaration out;
+
+        if (!skip_keyword_if_is(pos, end, "NAMESPACE"))
+        {
+            return std::nullopt;
+        }
+
+        skip_whitespace_and_comments(pos, end);
+
+        if (!skip_symbol_if_is(pos, end, "{"))
+        {
+            throw std::runtime_error("expected { after namespace");
+        }
+
+        auto decls = parse_subdeclaroids(pos, end);
+
+        for (auto& decl : decls)
+        {
+            out.declarations.push_back(decl);
+        }
+
+        skip_whitespace_and_comments(pos, end);
+
+        if (!skip_symbol_if_is(pos, end, "}"))
+        {
+            throw std::runtime_error("expected } after namespace");
+        }
+
+        return out;
     }
 } // namespace quxlang::parsers
 #endif // RPNX_QUXLANG_DECLARATION_HEADER

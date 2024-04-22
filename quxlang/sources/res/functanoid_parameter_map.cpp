@@ -1,10 +1,10 @@
 //
 // Created by Ryan Nicholl on 12/21/23.
 //
-#include <quxlang/res/functum_instanciation_parameter_map_resolver.hpp>
 #include <quxlang/compiler.hpp>
+#include <quxlang/res/functanoid_parameter_map.hpp>
 
-auto quxlang::functum_instanciation_parameter_map_resolver::co_process(compiler* c, input_type input) -> co_type
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 {
     instanciation_reference func_ast = input;
 
@@ -14,7 +14,7 @@ auto quxlang::functum_instanciation_parameter_map_resolver::co_process(compiler*
 
     if (!typeis< selection_reference >(selection))
     {
-        selection = co_await *c->lk_callee_temploid_selection(input);
+        selection = co_await *c->lk_functum_selection(input);
     }
 
     type_symbol func_name = input.callee;

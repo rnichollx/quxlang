@@ -2,10 +2,10 @@
 // Created by Ryan Nicholl on 4/6/24.
 //
 
-#include <quxlang/res/callee_temploid_selection_resolver.hpp>
 #include <quxlang/compiler.hpp>
+#include <quxlang/res/functum_selection.hpp>
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(callee_temploid_selection)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_selection)
 {
 
     if (typeis< selection_reference >(input.callee))
@@ -26,7 +26,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(callee_temploid_selection)
 
 
 
-    QUX_CO_GETDEP(ast, entity_ast_from_canonical_chain, (input.callee));
+    QUX_CO_GETDEP(sym, symboid, (input.callee));
 
     if (!typeis< functum >(ast))
     {
@@ -44,4 +44,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(callee_temploid_selection)
        // TODO: Finish this code
 
     }
+
+    rpnx::unimplemented();
 }

@@ -8,28 +8,17 @@
 // input: canonical_lookup_chain
 // output: class_field_list
 
-#include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
+#include "rpnx/resolver_utilities.hpp"
 
 #include "quxlang/data/canonical_lookup_chain.hpp"
 #include "quxlang/data/class_field_declaration.hpp"
 
+#include <quxlang/res/resolver.hpp>
+
 namespace quxlang
 {
-    class class_field_list_resolver : public rpnx::resolver_base< compiler, std::vector< class_field_declaration > >
-    {
-      public:
-        using key_type = type_symbol;
-        explicit class_field_list_resolver(type_symbol chain)
-        {
-            m_chain = std::move(chain);
-        }
-
-        virtual void process(compiler* c);
-
-      private:
-        type_symbol m_chain;
-    };
+    QUX_CO_RESOLVER(class_field_list, type_symbol, std::vector< class_field_declaration >);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_FIELD_LIST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

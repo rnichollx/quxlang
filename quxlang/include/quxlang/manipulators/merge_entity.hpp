@@ -11,7 +11,7 @@
 namespace quxlang
 {
     void merge_entity(entity_ast& destination, entity_ast const& source);
-    void merge_entity(ast2_map_entity& destination, ast2_declarable const& source);
+    void merge_entity(ast2_symboid& destination, ast2_declarable const& source);
 } // namespace quxlang
 
 #endif // QUXLANG_MERGE_ENTITY_HEADER_GUARD

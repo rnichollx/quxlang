@@ -15,7 +15,7 @@
 namespace quxlang::parsers
 {
     template < typename It >
-    std::optional< ast2_include_if > try_parse_include_if(It& pos, It end)
+    std::optional< expression > try_parse_include_if(It& pos, It end)
     {
         if (!skip_keyword_if_is(pos, end, "INCLUDE_IF"))
         {
@@ -31,9 +31,9 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        ast2_include_if out;
+        expression out;
 
-        out.condition = parse_expression(pos, end);
+        out = parse_expression(pos, end);
 
         skip_whitespace_and_comments(pos, end);
 
@@ -41,6 +41,8 @@ namespace quxlang::parsers
         {
             throw std::runtime_error("expected ) after INCLUDE_IF condition");
         }
+
+        skip_whitespace_and_comments(pos, end);
 
         return out;
     }
