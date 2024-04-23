@@ -56,8 +56,8 @@ namespace quxlang
         uint64_t entry_point_address;
 
         /**
-         * Offset from the start of the file to the start of the program overload table.
-         * If the file has no program overload table, this field holds zero.
+         * Offset from the start of the file to the start of the program header table.
+         * If the file has no program header table, this field holds zero.
          */
         uint64_t program_header_offset;
 
@@ -78,13 +78,13 @@ namespace quxlang
         uint16_t elf_header_size;
 
         /**
-         * The size, in bytes, of an entry in the program overload table. All entries
+         * The size, in bytes, of an entry in the program header table. All entries
          * are the same size.
          */
         uint16_t program_header_entry_size;
 
         /**
-         * The number of entries in the program overload table. If there is no program
+         * The number of entries in the program header table. If there is no program
          * overload table, this field holds zero.
          */
         uint16_t program_header_entry_count;
