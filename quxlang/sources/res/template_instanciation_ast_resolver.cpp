@@ -18,7 +18,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
     assert(!is_contextual(templ));
 
-    ast2_node maybe_templ_ast = co_await *c->lk_entity_ast_from_canonical_chain(templ);
+    ast2_node maybe_templ_ast = co_await QUX_CO_DEP(symboid, (templ));
 
     // std::cout << debug_recursive() << std::endl;
 

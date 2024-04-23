@@ -18,7 +18,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
         auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
         if (parent_class_exists)
         {
-            auto decl = co_await *c->lk_entity_ast_from_canonical_chain(parent);
+            auto decl = co_await QUX_CO_DEP(symboid, (parent));
 
             if (typeis< ast2_class_declaration >(decl))
             {

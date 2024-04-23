@@ -11,7 +11,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(asm_procedure_from_symbol)
 {
-    QUX_CO_GETDEP(ast, entity_ast_from_canonical_chain, (input_val));
+    QUX_CO_GETDEP(ast, symboid, (input_val));
 
     asm_procedure out;
 

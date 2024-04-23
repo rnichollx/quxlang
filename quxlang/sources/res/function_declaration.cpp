@@ -20,7 +20,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
     std::string typestr = to_string(func_addr);
 
-    auto entity_ast_v = co_await *c->lk_entity_ast_from_canonical_chain(func_addr.callee);
+    auto entity_ast_v = co_await QUX_CO_DEP(symboid, (func_addr.callee));
 
     if (!typeis< functum >(entity_ast_v))
     {
@@ -34,8 +34,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
         function_overload func_ol;
         func_ol.priority = func.header.priority;
         // TODO: Add enable_if here?
-
-
 
         if (func_ol == func_addr.overload)
         {

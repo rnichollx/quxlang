@@ -11,7 +11,7 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
 
 
 
-    auto ast = co_await *c->lk_entity_ast_from_canonical_chain(input.callee);
+    auto ast = co_await QUX_CO_DEP(symboid, (input.callee));
 
     if (typeis< ast2_templex >(ast))
     {
