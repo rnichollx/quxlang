@@ -436,6 +436,12 @@ namespace quxlang
             return "expression_this_reference{}\n";
         }
 
+        std::string operator()(expression_string_literal const&)
+        {
+            return "string_literal{}\n";
+        }
+
+
         std::string operator()(expression_thisdot_reference const& what)
         {
             return "expression_thisdot_reference{ field_name: " + what.field_name + " }\n";

@@ -1073,14 +1073,19 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // TODO: Reimplement this
 
-    assert(false);
-    // call_type overload = co_await *ctx.get_compiler()->lk_function_overload_selection(callee, call_set);
+   // assert(false);
+    auto selected_overload = co_await *ctx.get_compiler()->lk_functum_instanciation(instanciation_reference{.callee=callee, .parameters=call_set});
+
+    if (!selected_overload.has_value())
+    {
+        throw std::logic_error("No overload found for " + to_string(callee));
+    }
 
     // instanciation_reference overload_selected_ref;
     // overload_selected_ref.callee = callee;
     // overload_selected_ref.parameters = overload.argument_types;
 
-    // co_return co_await gen_call_functanoid(ctx, overload_selected_ref, call_args);
+    co_return co_await gen_call_functanoid(ctx, selected_overload.value(), call_args);
 }
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_constructor(context_frame& ctx, quxlang::type_symbol type, std::vector< vm_value > values)

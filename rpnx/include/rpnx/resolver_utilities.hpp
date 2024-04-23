@@ -1738,7 +1738,6 @@ namespace rpnx
             {
                 draw(d);
             }
-            indent -= 4;
 
             for (std::size_t i = 0; i < indent; i++)
             {
@@ -1757,6 +1756,8 @@ namespace rpnx
             {
                 ss << "FAILED (dependency failed)\n";
             }
+
+            indent -= 4;
         }
     };
 

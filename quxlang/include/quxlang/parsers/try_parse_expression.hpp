@@ -12,6 +12,7 @@
 #include <quxlang/parsers/peek_symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
+#include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
 
 namespace quxlang::parsers
@@ -125,7 +126,32 @@ namespace quxlang::parsers
         remaining = std::string(pos, end);
         std::optional< type_symbol > sym;
         skip_whitespace_and_comments(pos, end);
-        if (auto num_str = parse_int(pos, end); !num_str.empty())
+        if (auto str = try_parse_string_literal(pos, end); str)
+        {
+            expression_string_literal str_lit;
+            str_lit.value = str.value();
+            *value_bind_point = str_lit;
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "TARGET"))
+        {
+            target_expr tg;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after TARGET");
+            }
+            tg.target = try_parse_string_literal(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after TARGET(\"...\"");
+            }
+            *value_bind_point = tg;
+            have_anything = true;
+            skip_whitespace_and_comments(pos, end);
+        }
+        else if (auto num_str = parse_int(pos, end); !num_str.empty())
         {
             expression_numeric_literal num;
             num.value = num_str;
