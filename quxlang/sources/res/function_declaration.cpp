@@ -37,6 +37,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
         for (auto& param : func.header.call_parameters)
         {
+            // TODO: Ideally we would somehow have this be in a separate resolver, which could aggregate the results and ensure there are no duplicates.
+
             auto type_cannonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (contextual_type_reference{.context = func_addr.callee, .type = param.type}));
 
             if (param.api_name)
@@ -51,6 +53,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
         if (func_ol == func_addr.overload)
         {
+            // TODO: this should check for multiple/duplicate matches.
+            //  I wont do this now, it can be finished later on.
             QUX_CO_ANSWER(func);
         }
     }
