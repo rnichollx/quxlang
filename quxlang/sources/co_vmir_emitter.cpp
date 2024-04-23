@@ -67,14 +67,14 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     call_type lhs_param_info{.this_parameter = lhs_type, .positional_parameters = {rhs_type}};
     call_type rhs_param_info{.this_parameter = rhs_type, .positional_parameters = {lhs_type}};
 
-    auto lhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.functum = lhs_function, .call = lhs_param_info});
+    auto lhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
 
     if (lhs_exists_and_callable_with)
     {
         co_return co_await inter->invoke_functanoid(lhs_function, std::vector< vm_value >{lhs, rhs});
     }
 
-    auto rhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.functum = rhs_function, .call = rhs_param_info});
+    auto rhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
 
     if (rhs_exists_and_callable_with)
     {

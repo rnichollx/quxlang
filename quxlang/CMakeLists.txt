@@ -224,6 +224,8 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/res/template_instanciation.hpp
         include/quxlang/res/templex_select_template.hpp
         include/quxlang/res/resolvers.hpp
+        sources/res/function_instanciation.cpp
+        sources/res/functum_exists_and_is_callable_with.cpp
 
 )
 

@@ -15,29 +15,6 @@
 
 namespace quxlang
 {
-    class entity_ast_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, ast2_node >
-    {
-
-      public:
-        using key_type = type_symbol;
-        using input_type = type_symbol;
-
-        explicit entity_ast_from_canonical_chain_resolver(type_symbol chain)
-        {
-            m_chain = chain;
-        }
-
-        virtual void process(compiler* c) override;
-
-        virtual std::string question() const override
-        {
-            return "entity_ast_from_canonical_chain(" + to_string(m_chain) + ")";
-        }
-
-      private:
-        type_symbol m_chain;
-    };
-
 } // namespace quxlang
 
 #endif // QUXLANG_ENTITY_AST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

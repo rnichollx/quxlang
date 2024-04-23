@@ -163,7 +163,6 @@ namespace quxlang
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
         // COMPILER_INDEX(class_layout)
         COMPILER_INDEX(declaroids)
-        COMPILER_INDEX(entity_ast_from_canonical_chain)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
