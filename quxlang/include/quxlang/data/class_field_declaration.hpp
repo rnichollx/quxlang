@@ -9,12 +9,14 @@
 #include "quxlang/data/type_symbol.hpp"
 namespace quxlang
 {
-  struct class_field_declaration
+    struct class_field_declaration
     {
-      std::string name;
-      type_symbol type;
-  };
+        std::string name;
+        type_symbol type;
 
-}
+        RPNX_MEMBER_METADATA(class_field_declaration, name, type);
+    };
+
+} // namespace quxlang
 
 #endif // QUXLANG_CLASS_FIELD_DECLARATION_HEADER_GUARD

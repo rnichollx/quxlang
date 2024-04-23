@@ -3,17 +3,29 @@
 #ifndef RPNX_SERIALIZER_HPP
 #define RPNX_SERIALIZER_HPP
 
+#include <boost/core/demangle.hpp>
 #include <concepts>
 #include <optional>
 
 namespace rpnx
 {
+    template < typename A, typename... Ts >
+    class basic_variant;
+
+    template < typename E >
+    struct enum_traits;
+
+    template < typename R, typename V, typename F >
+    inline R apply_visitor(F&& func, V&& variant);
 
     template < typename T, typename It >
     class default_serialization_traits;
 
     template < typename T, typename It >
     class json_serialization_traits;
+
+    template < typename T, typename It >
+    class cxx_serialization_traits;
 
     template < typename T >
     class meta_info
@@ -77,6 +89,12 @@ namespace rpnx
     auto json_serialize_iter(T const& value, OutputIt output)
     {
         return json_serialization_traits< T, OutputIt >::serialize_iter(value, output);
+    }
+
+    template < typename T, typename OutputIt >
+    auto cxx_serialize_iter(T const& value, OutputIt output)
+    {
+        return cxx_serialization_traits< T, OutputIt >::serialize_iter(value, output);
     }
 
     namespace detail
@@ -680,13 +698,261 @@ namespace rpnx
     };
 
     template < typename T, typename It >
-    class json_serialization_traits;
+    class cxx_serialization_traits;
 
-    template < std::integral T, typename It >
-    class json_serialization_traits< T, It >
+    template < typename T, typename It >
+    class cxx_serialization_traits< std::optional< T >, It >
+    {
+
+      public:
+        static auto constexpr serialize_iter(std::optional< T > const& value, It output) -> It
+        {
+            if (value.has_value())
+            {
+                output = rpnx::cxx_serialize_iter(value.value(), output);
+            }
+            else
+            {
+                std::string null = "std::nullopt";
+                for (auto c : null)
+                {
+                    *output++ = std::byte(c);
+                }
+            }
+
+            return output;
+        }
+    };
+
+    template < typename T, typename It >
+    class cxx_serialization_traits< std::shared_ptr< T >, It >
+    {
+
+      public:
+        static auto constexpr serialize_iter(std::shared_ptr< T > const& value, It output) -> It
+        {
+            if (value != nullptr)
+            {
+                std::string output_str = "std::make_shared(";
+                for (auto c : output_str)
+                {
+                    *output++ = std::byte(c);
+                }
+
+                output = rpnx::cxx_serialize_iter(*value, output);
+                *output++ = std::byte(')');
+            }
+            else
+            {
+                std::string null = "nullptr";
+                for (auto c : null)
+                {
+                    *output++ = std::byte(c);
+                }
+            }
+
+            return output;
+        }
+    };
+
+    template < typename T, typename It >
+    class cxx_list_serialization_traits
     {
       public:
         static auto constexpr serialize_iter(T const& value, It output) -> It
+        {
+            // std::string demangled_typename = typeid(T).name();
+            *output++ = std::byte('{');
+            bool first = true;
+            for (auto it = value.begin(); it != value.end(); ++it)
+            {
+                if (!first)
+                {
+                    *output++ = std::byte(',');
+                }
+                else
+                {
+                    first = false;
+                }
+                output = rpnx::cxx_serialize_iter(*it, output);
+            }
+            *output++ = std::byte(']');
+            return output;
+        }
+    };
+
+    template < has_serial_interface T, typename It >
+    class cxx_serialization_traits< T, It >
+    {
+      private:
+        template < std::size_t N >
+        static auto constexpr serialize_member(T const& value, It& output)
+        {
+            if constexpr (N == meta_info< T >::member_count)
+            {
+                return output;
+            }
+            else
+            {
+                if (N != 0)
+                {
+                    *output++ = std::byte(',');
+                    *output++ = std::byte(' ');
+                }
+                std::string name = meta_info< T >::template nth_member_name< N >();
+
+                *output++ = std::byte('.');
+                for (auto c : name)
+                {
+                    *output++ = std::byte(c);
+                }
+                *output++ = std::byte(' ');
+                *output++ = std::byte('=');
+                *output++ = std::byte(' ');
+                // output = rpnx::cxx_serialize_iter(name, output);
+
+                auto member = std::get< N >(value.tie());
+
+                output = rpnx::cxx_serialize_iter(member, output);
+
+                return serialize_member< N + 1 >(value, output);
+            }
+        }
+
+      public:
+        static auto constexpr serialize_iter(T const& value, It output) -> It
+        {
+            std::string typename_str = boost::core::demangle(typeid(T).name());
+
+            for (auto c : typename_str)
+            {
+                *output++ = std::byte(c);
+            }
+            *output++ = std::byte('{');
+            // std::string type_str = "__TYPE__";
+            // output = rpnx::json_serialize_iter(type_str, output);
+            //*output++ = std::byte(':');
+            // std::string type_name = meta_info< T >::type_name();
+            // output = rpnx::json_serialize_iter(type_name, output);
+
+            serialize_member< 0 >(value, output);
+
+            *output++ = std::byte('}');
+            return output;
+        }
+    };
+
+    template < typename It >
+    class cxx_serialization_traits< std::string, It >
+    {
+      public:
+        static auto constexpr serialize_iter(std::string const& value, It output) -> It
+        {
+            *output++ = std::byte('"');
+            for (auto c : value)
+            {
+                if (c == '"')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('"');
+                }
+                else if (c == '\\')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('\\');
+                }
+                else if (c == '\n')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('n');
+                }
+                else if (c == '\r')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('r');
+                }
+                else if (c == '\t')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('t');
+                }
+                else if (c == '\b')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('b');
+                }
+                else if (c == '\f')
+                {
+                    *output++ = std::byte('\\');
+                    *output++ = std::byte('f');
+                }
+                else
+                {
+                    *output++ = std::byte(c);
+                }
+            }
+            *output++ = std::byte('"');
+            return output;
+        }
+    };
+
+    template < typename It >
+    class cxx_serialization_traits< std::monostate, It >
+    {
+      public:
+        static auto constexpr serialize_iter(std::monostate const& value, It output) -> It
+        {
+            std::string output_str = "std::monostate{}";
+            for (auto c : output_str)
+            {
+                *output++ = std::byte(c);
+            }
+            return output;
+        }
+    };
+
+    template < typename It >
+    class cxx_serialization_traits< std::byte, It >
+    {
+      public:
+        static auto constexpr serialize_iter(std::byte const& b, It output) -> It
+        {
+            std::string output_str = "0x";
+            output_str += '0' + (std::to_integer< std::uint8_t >(b) >> 4);
+            output_str += '0' + (std::to_integer< std::uint8_t >(b) & 0xF);
+
+            for (auto c : output_str)
+            {
+                *output++ = std::byte(c);
+            }
+            return output;
+        }
+    };
+
+    template < typename T, typename It >
+    class json_serialization_traits;
+
+    template < std::integral Int, typename It >
+    class json_serialization_traits< Int, It >
+    {
+      public:
+        static auto constexpr serialize_iter(Int const& value, It output) -> It
+        {
+            std::string int_out;
+            int_out = std::to_string(value);
+            for (auto c : int_out)
+            {
+                *output++ = std::byte(c);
+            }
+            return output;
+        }
+    };
+
+    template < std::integral Int, typename It >
+    class cxx_serialization_traits< Int, It >
+    {
+      public:
+        static auto constexpr serialize_iter(Int const& value, It output) -> It
         {
             std::string int_out;
             int_out = std::to_string(value);
@@ -747,14 +1013,14 @@ namespace rpnx
         }
     };
 
-    template < has_serial_interface T, typename It >
-    class json_serialization_traits< T, It >
+    template < has_serial_interface Struct, typename It >
+    class json_serialization_traits< Struct, It >
     {
       private:
         template < std::size_t N >
-        static auto constexpr serialize_member(T const& value, It& output)
+        static auto constexpr serialize_member(Struct const& value, It& output)
         {
-            if constexpr (N == meta_info< T >::member_count)
+            if constexpr (N == meta_info< Struct >::member_count)
             {
                 return output;
             }
@@ -764,7 +1030,7 @@ namespace rpnx
                 {
                     *output++ = std::byte(',');
                 }
-                std::string name = meta_info< T >::template nth_member_name< N >();
+                std::string name = meta_info< Struct >::template nth_member_name< N >();
 
                 output = rpnx::json_serialize_iter(name, output);
 
@@ -778,7 +1044,7 @@ namespace rpnx
         }
 
       public:
-        static auto constexpr serialize_iter(T const& value, It output) -> It
+        static auto constexpr serialize_iter(Struct const& value, It output) -> It
         {
             *output++ = std::byte('{');
             // std::string type_str = "__TYPE__";
@@ -854,9 +1120,19 @@ namespace rpnx
     {
     };
 
+    template < typename T, typename A, typename It >
+    class cxx_serialization_traits< std::vector< T, A >, It > : public cxx_list_serialization_traits< std::vector< T, A >, It >
+    {
+    };
+
     // Set
     template < typename T, typename C, typename It >
     class json_serialization_traits< std::set< T, C >, It > : public json_list_serialization_traits< std::set< T, C >, It >
+    {
+    };
+
+    template < typename T, typename C, typename It >
+    class cxx_serialization_traits< std::set< T, C >, It > : public cxx_list_serialization_traits< std::set< T, C >, It >
     {
     };
 
@@ -898,6 +1174,28 @@ namespace rpnx
         }
     };
 
+    template < typename A, typename... Ts, typename It >
+    class cxx_serialization_traits< rpnx::basic_variant< A, Ts... >, It >
+    {
+      public:
+        static auto constexpr serialize_iter(rpnx::basic_variant< A, Ts... > const& value, It output) -> It
+        {
+
+            std::string type_name = boost::core::demangle(typeid(rpnx::basic_variant< A, Ts... >).name());
+            // meta_info<rpnx::basic_variant<A, Ts...>>::type_name();
+            // output = rpnx::cxx_serialize_iter(type_name, output);
+            *output++ = std::byte('{');
+            rpnx::apply_visitor< void >(
+                [&](auto const& v)
+                {
+                    output = rpnx::cxx_serialize_iter(v, output);
+                },
+                value);
+            *output++ = std::byte('}');
+            return output;
+        }
+    };
+
     template < enum_concept E, typename It >
     class json_serialization_traits< E, It >
     {
@@ -909,8 +1207,52 @@ namespace rpnx
         }
     };
 
+    template < enum_concept E, typename It >
+    class cxx_serialization_traits< E, It >
+    {
+      public:
+        static auto constexpr serialize_iter(E const& value, It output) -> It
+        {
+            std::string type_name = boost::core::demangle(typeid(E).name());
+            auto name = enum_traits< E >::to_string(value);
+            type_name += "::";
+            type_name += name;
+            for (auto c : type_name)
+            {
+                *output++ = std::byte(c);
+            }
+
+            return output;
+        }
+    };
+
     template < typename It >
     class json_serialization_traits< bool, It >
+    {
+      public:
+        static auto constexpr serialize_iter(bool const& value, It output) -> It
+        {
+            if (value)
+            {
+                *output++ = std::byte('t');
+                *output++ = std::byte('r');
+                *output++ = std::byte('u');
+                *output++ = std::byte('e');
+            }
+            else
+            {
+                *output++ = std::byte('f');
+                *output++ = std::byte('a');
+                *output++ = std::byte('l');
+                *output++ = std::byte('s');
+                *output++ = std::byte('e');
+            }
+            return output;
+        }
+    };
+
+    template < typename It >
+    class cxx_serialization_traits< bool, It >
     {
       public:
         static auto constexpr serialize_iter(bool const& value, It output) -> It
@@ -961,6 +1303,36 @@ namespace rpnx
         }
     };
 
+    template < typename T, typename It >
+    class cxx_serialization_traits< std::map< std::string, T >, It >
+    {
+      public:
+        static auto constexpr serialize_iter(std::map< std::string, T > const& input, It output) -> It
+        {
+
+            *output++ = std::byte('{');
+            bool first = true;
+            for (const auto& [key, value] : input)
+            {
+                if (!first)
+                {
+                    *output++ = std::byte(',');
+                }
+                else
+                {
+                    first = false;
+                }
+                *output++ = std::byte('{');
+                output = rpnx::cxx_serialize_iter(key, output);
+                *output++ = std::byte(',');
+                *output++ = std::byte(' ');
+                output = rpnx::cxx_serialize_iter(value, output);
+                *output++ = std::byte('}');
+            }
+            *output++ = std::byte('}');
+            return output;
+        }
+    };
 } // namespace rpnx
 #endif // SERIALIZER_HPP
 

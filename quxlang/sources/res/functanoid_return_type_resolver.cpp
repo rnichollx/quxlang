@@ -7,5 +7,5 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
 {
     // TODO: Rewrite
-    rpnx::unimplemented();
+    throw rpnx::unimplemented();
 }

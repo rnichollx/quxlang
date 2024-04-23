@@ -14,7 +14,7 @@ namespace quxlang
         expression lhs;
         std::string field_name;
 
-        std::strong_ordering operator<=>(const expression_dotreference& other) const = default;
+        RPNX_MEMBER_METADATA(expression_dotreference, lhs, field_name);
     };
 }
 

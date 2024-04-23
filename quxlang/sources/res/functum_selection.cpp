@@ -22,5 +22,5 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     auto sym_kind = co_await QUX_CO_DEP(symbol_type, (input.callee));
 
 
-    rpnx::unimplemented();
+    throw rpnx::unimplemented();
 }

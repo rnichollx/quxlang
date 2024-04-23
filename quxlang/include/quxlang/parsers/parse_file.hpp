@@ -71,7 +71,7 @@ namespace quxlang::parsers
 
         if (pos != end)
         {
-            throw std::runtime_error("Expected parse_named_declarations to consume the remainder of the file");
+            throw std::runtime_error("Expected parse_subdeclaroids to consume the remainder of the file");
         }
 
         return output;

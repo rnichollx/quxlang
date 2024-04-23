@@ -11,12 +11,10 @@
 
 #include <boost/variant.hpp>
 #include <quxlang/data/type_symbol.hpp>
+#include <rpnx/compare.hpp>
+#include <rpnx/variant.hpp>
 #include <utility>
 #include <vector>
-#include <rpnx/variant.hpp>
-#include <rpnx/compare.hpp>
-
-
 
 namespace quxlang
 {
@@ -41,7 +39,7 @@ namespace quxlang
 
     struct expression_this_reference
     {
-        std::strong_ordering operator<=>(const expression_this_reference& other) const = default;
+        RPNX_MEMBER_METADATA(expression_this_reference);
     };
 
     struct expression_dotreference;
@@ -49,33 +47,30 @@ namespace quxlang
     struct expression_thisdot_reference
     {
         std::string field_name;
-        std::strong_ordering operator<=>(const expression_thisdot_reference& other) const = default;
+
+        RPNX_MEMBER_METADATA(expression_thisdot_reference, field_name);
     };
 
     struct expression_quarrow
     {
         std::string field_name;
-        auto operator<=>(const expression_quarrow&) const;
+
+        RPNX_MEMBER_METADATA(expression_quarrow, field_name);
     };
 
     struct expression_lvalue_reference
     {
         std::string identifier;
 
-        std::strong_ordering operator<=>(const expression_lvalue_reference& other) const = default;
+        RPNX_MEMBER_METADATA(expression_lvalue_reference, identifier);
     };
 
     struct expression_symbol_reference
     {
         type_symbol symbol;
 
-        expression_symbol_reference() {}
-        explicit expression_symbol_reference(type_symbol const&) = delete;
-
-        std::strong_ordering operator<=>(const expression_symbol_reference& other) const = default;
+        RPNX_MEMBER_METADATA(expression_symbol_reference, symbol);
     };
-
-
 
     struct expression_binary
     {
@@ -84,16 +79,11 @@ namespace quxlang
         expression lhs;
         expression rhs;
 
-        std::strong_ordering operator<=>(const expression_binary& other) const
-        {
-            return compare(operator_str, other.operator_str, lhs, other.lhs, rhs, other.rhs);
-        }
+        RPNX_MEMBER_METADATA(expression_binary, operator_str, lhs, rhs);
     };
 
 } // namespace quxlang
 
-
-#include <quxlang/data/builtins.hpp>
 #include "quxlang/data/expression_add.hpp"
 #include "quxlang/data/expression_bool.hpp"
 #include "quxlang/data/expression_call.hpp"
@@ -103,5 +93,6 @@ namespace quxlang
 #include "quxlang/data/expression_move_assign.hpp"
 #include "quxlang/data/expression_multiply.hpp"
 #include "quxlang/data/expression_subtract.hpp"
+#include <quxlang/data/builtins.hpp>
 
 #endif // QUXLANG_EXPRESSION_HEADER_GUARD

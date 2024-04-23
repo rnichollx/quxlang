@@ -5,12 +5,15 @@
 
 #include <map>
 #include <string>
+#include <rpnx/metadata.hpp>
 
 namespace quxlang
 {
     struct source_file
     {
         std::string contents;
+
+        RPNX_MEMBER_METADATA(source_file, contents);
     };
 
     struct module_source
@@ -22,6 +25,8 @@ namespace quxlang
         // of ram cache.
         // TODO: Reuse the same source file object for multiple targets.
         std::map< std::string, std::shared_ptr< source_file > > files;
+
+        RPNX_MEMBER_METADATA(module_source, files);
     };
 
     /// module_configuration contains the configuration for a module within a given target.
@@ -45,6 +50,8 @@ namespace quxlang
         // Example, if the module uses "IMPORT foolib;"  the mapping could be:
         // "foolib" -> "foolib1"
         std::map< std::string, std::string > import_mappings;
+
+        RPNX_MEMBER_METADATA(module_configuration, source, import_mappings);
     };
 
     enum class output_kind

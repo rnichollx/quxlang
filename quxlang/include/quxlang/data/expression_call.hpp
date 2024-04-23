@@ -15,7 +15,7 @@ namespace quxlang
         expression callee;
         std::vector< expression > args;
 
-        std::strong_ordering operator<=>(const expression_call& other) const = default;
+        RPNX_MEMBER_METADATA(expression_call, callee, args);
     };
 } // namespace quxlang
 

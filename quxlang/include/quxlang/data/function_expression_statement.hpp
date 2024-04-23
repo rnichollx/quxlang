@@ -15,9 +15,7 @@ namespace quxlang
     {
         expression expr;
 
-        std::strong_ordering operator<=>(const function_expression_statement& other) const = default;
-
-
+        RPNX_MEMBER_METADATA(function_expression_statement, expr);
     };
 } // namespace quxlang
 

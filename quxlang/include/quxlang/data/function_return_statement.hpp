@@ -14,9 +14,7 @@ namespace quxlang
     {
         std::optional<expression> expr;
 
-        std::strong_ordering operator<=>(const function_return_statement& other) const = default;
-        inline bool operator==(const function_return_statement& other) const = default;
-        inline bool operator!=(const function_return_statement& other) const = default;
+        RPNX_MEMBER_METADATA(function_return_statement, expr);
     };
 } // namespace quxlang
 

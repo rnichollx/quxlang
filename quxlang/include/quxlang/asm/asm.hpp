@@ -10,6 +10,7 @@
 
 #include <rpnx/compare.hpp>
 #include <rpnx/variant.hpp>
+#include <rpnx/metadata.hpp>
 
 namespace quxlang
 {
@@ -19,20 +20,14 @@ namespace quxlang
         std::string opcode_mnemonic;
         std::vector< std::string > operands;
 
-        auto operator<=>(const asm_instruction& other) const
-        {
-            return rpnx::compare(opcode_mnemonic, other.opcode_mnemonic, operands, other.operands);
-        }
+        RPNX_MEMBER_METADATA(asm_instruction, opcode_mnemonic, operands);
     };
 
     struct asm_label
     {
         std::string name;
 
-        auto operator<=>(const asm_label&other) const
-        {
-            return rpnx::compare(name, other.name);
-        }
+        RPNX_MEMBER_METADATA(asm_label, name);
     };
 
     using asm_statement = rpnx::variant< asm_instruction, asm_label >;
@@ -41,6 +36,8 @@ namespace quxlang
     {
         std::string name;
         std::vector< asm_statement > instructions;
+
+        RPNX_MEMBER_METADATA(asm_procedure, name, instructions);
     };
 
 

@@ -89,10 +89,7 @@ namespace quxlang
         std::string cc;
         type_symbol functanoid;
 
-        auto operator<=>(const ast2_procedure_ref& other) const
-        {
-            return rpnx::compare(cc, other.cc, functanoid, other.functanoid);
-        }
+        RPNX_MEMBER_METADATA(ast2_procedure_ref, cc, functanoid);
     };
 
     struct ast2_argument_interface
@@ -100,10 +97,7 @@ namespace quxlang
         std::string register_name;
         type_symbol type;
 
-        auto operator<=>(const ast2_argument_interface& other) const
-        {
-            return rpnx::compare(register_name, other.register_name, type, other.type);
-        }
+        RPNX_MEMBER_METADATA(ast2_argument_interface, register_name, type);
     };
 
     using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref >;
@@ -112,10 +106,7 @@ namespace quxlang
     {
         std::vector< ast2_asm_operand_component > components;
 
-        auto operator<=>(const ast2_asm_operand& other) const
-        {
-            return rpnx::compare(components, other.components);
-        }
+        RPNX_MEMBER_METADATA(ast2_asm_operand, components);
     };
 
     struct ast2_asm_instruction
@@ -123,16 +114,15 @@ namespace quxlang
         std::string opcode_mnemonic;
         std::vector< ast2_asm_operand > operands;
 
-        auto operator<=>(const ast2_asm_instruction& other) const
-        {
-            return rpnx::compare(opcode_mnemonic, other.opcode_mnemonic, operands, other.operands);
-        }
+        RPNX_MEMBER_METADATA(ast2_asm_instruction, opcode_mnemonic, operands);
     };
 
     struct ast2_asm_procedure
     {
         std::string name;
         std::vector< asm_instruction > instructions;
+
+        RPNX_MEMBER_METADATA(ast2_asm_procedure, name, instructions);
     };
 
     // ast2_asm_callable defines the interface by which an asm_procedure can be called
@@ -145,10 +135,7 @@ namespace quxlang
         std::set< std::string > clobber;
         std::optional< type_symbol > return_type;
 
-        std::strong_ordering operator<=>(const ast2_asm_callable& other) const
-        {
-            return rpnx::compare(calling_conv, other.calling_conv, args, other.args, clobber, other.clobber, return_type, other.return_type);
-        }
+        RPNX_MEMBER_METADATA(ast2_asm_callable, calling_conv, args, clobber, return_type);
     };
 
     struct ast2_asm_procedure_declaration
@@ -158,10 +145,7 @@ namespace quxlang
         std::vector< ast2_asm_callable > callable_interfaces;
         std::vector< type_symbol > imports;
 
-        std::strong_ordering operator<=>(const ast2_asm_procedure_declaration& other) const
-        {
-            return rpnx::compare(instructions, other.instructions, linkname, other.linkname, callable_interfaces, other.callable_interfaces);
-        }
+        RPNX_MEMBER_METADATA(ast2_asm_procedure_declaration, instructions, linkname, callable_interfaces, imports);
     };
 
     struct ast2_namespace_declaration

@@ -13,10 +13,7 @@ namespace quxlang
     {
         std::map< std::string, type_symbol > parameter_map;
 
-        auto operator<=>(const temploid_instanciation_parameter_set& other) const
-        {
-            return rpnx::compare(parameter_map, other.parameter_map);
-        }
+        RPNX_MEMBER_METADATA(temploid_instanciation_parameter_set, parameter_map);
     };
 }
 

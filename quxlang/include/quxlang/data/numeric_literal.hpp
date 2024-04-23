@@ -6,16 +6,17 @@
 #define QUXLANG_NUMERIC_LITERAL_HEADER_GUARD
 
 #include <string>
+#include <rpnx/metadata.hpp>
 
 namespace quxlang
 {
-   struct expression_numeric_literal
+    struct expression_numeric_literal
     {
-       std::string value;
+        std::string value;
 
-       std::strong_ordering operator<=>(expression_numeric_literal const&) const = default;
-   };
+        RPNX_MEMBER_METADATA(expression_numeric_literal, value);
+    };
 
-}
+} // namespace quxlang
 
 #endif // QUXLANG_NUMERIC_LITERAL_HEADER_GUARD
