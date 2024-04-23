@@ -39,7 +39,7 @@
 #include "quxlang/res/files_in_module_resolver.hpp"
 #include "quxlang/res/functanoid_return_type_resolver.hpp"
 #include "quxlang/res/function_declaration.hpp"
-#include "quxlang/res/function_overload_selection_resolver.hpp"
+#include "quxlang/res/function_instanciation.hpp"
 #include "quxlang/res/function_qualified_reference_resolver.hpp"
 #include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
@@ -64,7 +64,7 @@
 #include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 #include <quxlang/res/functum_instanciation.hpp>
 #include <quxlang/res/functum_select_function.hpp>
-#include <quxlang/res/functum_selection.hpp>
+#include <quxlang/res/template_instanciation.hpp>
 #include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
@@ -79,10 +79,13 @@
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
+#include <quxlang/res/template_instanciation.hpp>
+#include <quxlang/res/templex_select_template.hpp>
+#include <quxlang/res/resolvers.hpp>
 #include <shared_mutex>
 
 // clang-format off
-#define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type input ) { return this->m_ ## x ## _index.lookup(input); }
+#define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type const & input ) { return this->m_ ## x ## _index.lookup(input); }
 // clang-format on
 
 namespace quxlang
@@ -94,13 +97,7 @@ namespace quxlang
         friend class class_list_resolver;
         friend class file_ast_resolver;
         friend class file_content_resolver;
-        friend class classes_per_file_resolver;
-        friend class type_id_assignment_resolver;
-        friend class class_id_ast_resolver;
-        friend class files_in_module_resolver;
-        friend class file_module_map_resolver;
         friend class class_field_list_resolver;
-        friend class entity_ast_from_canonical_chain_resolver;
         friend class entity_ast_from_chain_resolver;
         friend class module_ast_precursor1_resolver;
         friend class class_size_from_canonical_chain_resolver;
@@ -164,7 +161,7 @@ namespace quxlang
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
-        //COMPILER_INDEX(class_layout)
+        // COMPILER_INDEX(class_layout)
         COMPILER_INDEX(declaroids)
         COMPILER_INDEX(entity_ast_from_canonical_chain)
         COMPILER_INDEX(extern_linksymbol)
@@ -175,6 +172,7 @@ namespace quxlang
         COMPILER_INDEX(functum_instanciation)
         COMPILER_INDEX(functum_select_function)
         COMPILER_INDEX(function_declaration)
+        COMPILER_INDEX(function_instanciation)
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(list_builtin_functum_overloads)
@@ -187,13 +185,14 @@ namespace quxlang
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
         COMPILER_INDEX(symboid_subdeclaroids)
+        COMPILER_INDEX(template_instanciation)
         COMPILER_INDEX(template_instanciation_ast)
+        COMPILER_INDEX(templex_instanciation)
+        COMPILER_INDEX(templex_select_template)
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
-
-
 
         index< called_functanoids_resolver > m_called_functanoids_index;
 
@@ -201,10 +200,6 @@ namespace quxlang
         {
             return m_called_functanoids_index.lookup(func_addr);
         }
-
-
-
-
 
         index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
 
@@ -243,16 +238,9 @@ namespace quxlang
             return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
         }
 
-
       public:
-
       private:
         // index< class_list_resolver > m_class_list_index;
-
-
-
-
-
 
         index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
 
@@ -306,7 +294,6 @@ namespace quxlang
         }
 
         COMPILER_INDEX(module_sources);
-
 
         out< type_symbol > lk_canonical_symbol_from_contextual_symbol(type_symbol type, type_symbol context)
         {

@@ -68,4 +68,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
     {
         throw rpnx::unimplemented();
     }
+
+    throw rpnx::unimplemented();
 }

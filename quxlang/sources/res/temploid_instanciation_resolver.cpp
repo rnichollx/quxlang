@@ -10,7 +10,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
 
     type_symbol templexoid_symbol;
 
-    auto kind = co_await QUX_CO_DEP(symbol_kind, (templexoid_symbol));
+    auto kind = co_await QUX_CO_DEP(symbol_type, (templexoid_symbol));
 
     if (kind == symbol_kind::functum)
     {

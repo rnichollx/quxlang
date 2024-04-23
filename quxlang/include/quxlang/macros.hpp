@@ -10,7 +10,9 @@
 #include "quxlang/compiler_fwd.hpp"
 #include "rpnx/resolver_utilities.hpp"
 #include <string>
+#include "rpnx/metadata.hpp"
 
+#include "rpnx/value.hpp"
 // clang-format off
 
 
@@ -78,6 +80,8 @@ void quxlang::nameV ## _resolver::process(compiler * c) \
 // Usage: QUX_CO_RESOLVER_IMPL_FUNC_DEF(foo) { ... }
 #define QUX_CO_RESOLVER_IMPL_FUNC_DEF(nameV) \
 quxlang::nameV ## _resolver::co_type quxlang::nameV ## _resolver::co_process(compiler* c, input_type arg_input)
+
+#define QUX_WHY( strs )
 
 
 #define QUX_SUBCO_CLASS_BEGIN(nameV) \

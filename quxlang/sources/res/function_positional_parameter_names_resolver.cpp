@@ -9,27 +9,26 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
 {
-    QUX_CO_GETDEP(ast, entity_ast_from_canonical_chain, (input_val));
+    std::vector< std::string > result;
+    auto const& func = co_await QUX_CO_DEP(function_declaration, (input_val));
 
-    if (!typeis< functum >(ast))
+    std::set< std::string > names;
+
+    for (auto const& param : func.header.call_parameters)
     {
-
-        throw std::logic_error("Expected functum");
-    }
-
-    functum const& f = as< functum >(ast);
-
-    for (auto const& func : f.functions)
-    {
-        auto head = func.first;
-        if (head == input_val.overload)
+        if (param.api_name.has_value())
         {
-            std::vector< std::string > strs;
-
-            // TODO: Implement this
-            //  for (auto const& param : func.first.parameters.)
+            // non-positional parameter
+            continue;
         }
+
+        if (names.contains(param.name))
+        {
+            throw std::logic_error("Duplicate parameter name");
+        }
+
+        result.push_back(param.name);
     }
 
-    rpnx::unimplemented();
+    QUX_CO_ANSWER(result);
 }

@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(template_instanciation, type_symbol, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(template_instanciation, instanciation_reference, std::optional< instanciation_reference >);
 }
 
-#endif // RPNX_QUXLANG_FUNCTUM_INSTANCIATION_HEADER
+#endif // RPNX_QUXLANG_TEMPLATE_INSTANCIATION_HEADER

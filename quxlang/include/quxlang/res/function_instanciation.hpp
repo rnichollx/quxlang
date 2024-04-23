@@ -10,8 +10,11 @@
 #include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/type_symbol.hpp"
 
+#include <quxlang/res/resolver.hpp>
+
 namespace quxlang
 {
+    QUX_CO_RESOLVER(function_instanciation, instanciation_reference, std::optional<instanciation_reference>);
 
 } // namespace quxlang
 

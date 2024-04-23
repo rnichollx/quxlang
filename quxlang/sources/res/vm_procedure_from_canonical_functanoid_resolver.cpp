@@ -551,10 +551,11 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             frame.blocks.back().variable_lookup_index["return"] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = false;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = false;
-            vm_proc.interface.return_type = function_ast_v.return_type.value();
+            // TODO: use a lookup for the return type instead
+            vm_proc.interface.return_type = function_ast_v.definition.return_type.value();
         }
 
-        std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel));
+        std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel.value()));
 
         if (insta->parameters.this_parameter || typeis< subdotentity_reference >(functum_reference))
         {
@@ -619,7 +620,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             // TODO: Maybe consider adding ctx.add_argument instead of doing this inside this function
         }
 
-        assert(!function_ast_v.return_type.has_value() || frame.blocks.back().value_states[0].alive == false);
+        assert(!function_ast_v.definition.return_type.has_value() || frame.blocks.back().value_states[0].alive == false);
 
         bool is_constructor = func_name_str.has_value() && func_name_str.value() == "CONSTRUCTOR" && is_member;
         bool is_destructor = false;
@@ -692,12 +693,12 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         }
 
         // Then generate the body
-        co_await build_generic(ctx, function_ast_v.body);
+        co_await build_generic(ctx, function_ast_v.definition.body);
 
         if (is_destructor) {}
 
         // Implied return on void functions
-        if (!function_ast_v.return_type.has_value())
+        if (!function_ast_v.definition.return_type.has_value())
         {
             co_await ctx.frame_return();
         }

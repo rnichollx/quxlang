@@ -56,7 +56,8 @@ namespace quxlang
         RPNX_MEMBER_METADATA(function_arg, name, api_name, type)
     };
 
-    // TODO: Rename this to temploid_header or something
+    // TODO: Rename this to temploid_header or something,
+    //  it is called "function header" but is also used for templates...
     struct function_overload
     {
         call_type call_parameters;

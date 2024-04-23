@@ -3,11 +3,9 @@
 //
 
 #include <quxlang/compiler.hpp>
-#include <quxlang/res/functum_selection.hpp>
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_selection)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 {
-
     if (typeis< selection_reference >(input.callee))
     {
         // TODO: We should identify a real match and error if this isn't a valid selection.

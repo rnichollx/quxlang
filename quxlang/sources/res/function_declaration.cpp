@@ -35,21 +35,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
         func_ol.priority = func.header.priority;
         // TODO: Add enable_if here?
 
-        for (auto& param : func.header.call_parameters)
-        {
-            // TODO: Ideally we would somehow have this be in a separate resolver, which could aggregate the results and ensure there are no duplicates.
 
-            auto type_cannonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (contextual_type_reference{.context = func_addr.callee, .type = param.type}));
-
-            if (param.api_name)
-            {
-                func_ol.call_parameters.named_parameters[param.api_name.value()] = type_cannonical;
-            }
-            else
-            {
-                func_ol.call_parameters.positional_parameters.push_back(type_cannonical);
-            }
-        }
 
         if (func_ol == func_addr.overload)
         {

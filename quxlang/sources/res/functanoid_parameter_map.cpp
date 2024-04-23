@@ -14,7 +14,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 
     if (!typeis< selection_reference >(selection))
     {
-        selection = co_await *c->lk_functum_selection(input);
+        auto selection_opt = co_await *c->lk_functum_select_function(input);
+        if (!selection_opt.has_value())
+        {
+            throw std::logic_error("No selection reference for functum.");
+        }
+
+        selection = selection_opt.value();
     }
 
     type_symbol func_name = input.callee;
@@ -22,9 +28,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 
     output_type result;
 
-
-    selection_reference selection_sl = as<selection_reference>(selection);
-
+    selection_reference selection_sl = as< selection_reference >(selection);
 
     // TODO: support named parameters?
     for (std::size_t i = 0; i < functum_instanciation_parameters.positional_parameters.size(); i++)

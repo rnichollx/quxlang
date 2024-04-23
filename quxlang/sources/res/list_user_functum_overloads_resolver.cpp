@@ -9,17 +9,13 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
 {
-    auto functum_v = input_val;
-    std::string name = to_string(functum_v);
-    QUX_CO_GETDEP(exists, entity_canonical_chain_exists, (functum_v));
-    if (!exists)
-    {
-        co_return {};
-    }
+    std::string name = to_string(input_val);
 
-    std::set< function_overload > result;
+    auto const& func_addr = input_val;
 
-    QUX_CO_GETDEP(maybe_functum_ast, entity_ast_from_canonical_chain, (functum_v));
+    std::vector< function_overload > result;
+
+    QUX_CO_GETDEP(maybe_functum_ast, entity_ast_from_canonical_chain, (input_val));
 
     if (!typeis< functum >(maybe_functum_ast))
     {
@@ -27,11 +23,30 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
         co_return {};
     }
 
-    functum const& functum_ast = as< functum >(maybe_functum_ast);
+    auto const& functum_v = as< functum >(maybe_functum_ast);
 
-    for (auto const& f : functum_ast.functions)
+    for (auto const& func : functum_v.functions)
     {
-        result.insert(f.first);
+        function_overload func_ol;
+        func_ol.priority = func.header.priority;
+
+        for (auto& param : func.header.call_parameters)
+        {
+            // TODO: Ideally we would somehow have this be in a separate resolver, which could aggregate the results and ensure there are no duplicates.
+
+            auto type_cannonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (contextual_type_reference{.context = qualified_parent(func_addr).value(), .type = param.type}));
+
+            if (param.api_name)
+            {
+                func_ol.call_parameters.named_parameters[param.api_name.value()] = type_cannonical;
+            }
+            else
+            {
+                func_ol.call_parameters.positional_parameters.push_back(type_cannonical);
+            }
+        }
+
+        result.push_back(std::move(func_ol));
     }
 
     QUX_CO_ANSWER(result);
