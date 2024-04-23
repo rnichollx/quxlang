@@ -220,6 +220,7 @@ namespace quxlang
         std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
 
+
         RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority);
     };
 
@@ -307,8 +308,7 @@ namespace quxlang
 
     struct functum
     {
-
-        std::map< function_overload, ast2_function_definition > functions;
+        std::vector< ast2_function_declaration > functions;
 
         RPNX_MEMBER_METADATA(functum, functions);
     };

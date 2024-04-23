@@ -3,25 +3,33 @@
 //
 
 #include <quxlang/compiler.hpp>
-#include <quxlang/res/temploid_instanciation.hpp>
+#include <quxlang/res/instanciation.hpp>
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(templexoid_instanciation)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
 {
 
     type_symbol templexoid_symbol;
-    if (typeis< selection_reference >(input_val.callee))
+
+    auto kind = co_await QUX_CO_DEP(symbol_kind, (templexoid_symbol));
+
+    if (kind == symbol_kind::functum)
     {
-        templexoid_symbol = as< selection_reference >(input_val.callee).callee;
+        co_return co_await QUX_CO_DEP(functum_instanciation, (input_val));
+    }
+    else if (kind == symbol_kind::user_function || kind == symbol_kind::builtin_function)
+    {
+        co_return co_await QUX_CO_DEP(function_instanciation, (input_val));
+    }
+    else if (kind == symbol_kind::template_)
+    {
+        co_return co_await QUX_CO_DEP(template_instanciation, (input_val));
+    }
+    else if (kind == symbol_kind::templex)
+    {
+        co_return co_await QUX_CO_DEP(templex_instanciation, (input_val));
     }
     else
     {
-        templexoid_symbol = input_val.callee;
-    }
-
-    auto sym = co_await QUX_CO_DEP(symboid, (input_val.callee));
-
-    if (typeis< functum >(sym))
-    {
-        auto sel = co_await QUX_CO_DEP(callee_temploid_instanciation, (sym));
+        throw std::logic_error("Cannot instanciate non-templexoid");
     }
 }

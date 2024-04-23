@@ -56,14 +56,14 @@ namespace quxlang
         uint64_t entry_point_address;
 
         /**
-         * Offset from the start of the file to the start of the program header table.
-         * If the file has no program header table, this field holds zero.
+         * Offset from the start of the file to the start of the program overload table.
+         * If the file has no program overload table, this field holds zero.
          */
         uint64_t program_header_offset;
 
         /**
-         * Offset from the start of the file to the start of the section header table.
-         * If the file has no section header table, this field holds zero.
+         * Offset from the start of the file to the start of the section overload table.
+         * If the file has no section overload table, this field holds zero.
          */
         uint64_t section_header_offset;
 
@@ -73,36 +73,36 @@ namespace quxlang
         uint32_t processor_specific_flags;
 
         /**
-         * The size, in bytes, of the ELF header.
+         * The size, in bytes, of the ELF overload.
          */
         uint16_t elf_header_size;
 
         /**
-         * The size, in bytes, of an entry in the program header table. All entries
+         * The size, in bytes, of an entry in the program overload table. All entries
          * are the same size.
          */
         uint16_t program_header_entry_size;
 
         /**
-         * The number of entries in the program header table. If there is no program
-         * header table, this field holds zero.
+         * The number of entries in the program overload table. If there is no program
+         * overload table, this field holds zero.
          */
         uint16_t program_header_entry_count;
 
         /**
-         * The size, in bytes, of an entry in the section header table. All entries
+         * The size, in bytes, of an entry in the section overload table. All entries
          * are the same size.
          */
         uint16_t section_header_entry_size;
 
         /**
-         * The number of entries in the section header table. If there is no section
-         * header table, this field holds zero.
+         * The number of entries in the section overload table. If there is no section
+         * overload table, this field holds zero.
          */
         uint16_t section_header_entry_count;
 
         /**
-         * The section header table index of the entry associated with the section
+         * The section overload table index of the entry associated with the section
          * name string table. If the file has no section name string table, this field
          * holds the value SHN_UNDEF (0).
          */

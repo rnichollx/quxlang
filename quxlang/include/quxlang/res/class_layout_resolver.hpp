@@ -14,11 +14,11 @@
 
 namespace quxlang
 {
-    class class_layout_from_canonical_chain_resolver : public rpnx::resolver_base< compiler, class_layout >
+    class class_layout_resolver : public rpnx::resolver_base< compiler, class_layout >
     {
       public:
         using key_type = type_symbol;
-        class_layout_from_canonical_chain_resolver(type_symbol chain)
+        class_layout_resolver(type_symbol chain)
         {
            m_chain = chain;
         }

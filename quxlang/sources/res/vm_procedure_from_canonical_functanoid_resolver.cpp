@@ -493,9 +493,19 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     QUX_CO_GETDEP(insta, functum_instanciation, (func_name));
 
-    QUX_CO_GETDEP(sel, functum_selection, (func_name));
+    if (!insta.has_value())
+    {
+        throw std::logic_error("Could not resolve function instanciation");
+    }
 
-    ast2_function_definition function_ast_v = co_await QUX_CO_DEP(functum_selection_ast, (sel));
+    QUX_CO_GETDEP(sel, functum_select_function, (func_name));
+
+    if (!sel.has_value())
+    {
+        throw std::logic_error("something wrong this should not be possible");
+    }
+
+    ast2_function_declaration function_ast_v = co_await QUX_CO_DEP(function_declaration, (sel.value()));
 
     type_symbol functum_reference = func_name.callee;
 
@@ -530,11 +540,11 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         // If the function returns a value, that is the first variable
 
-        if (function_ast_v.return_type)
+        if (function_ast_v.definition.return_type)
         {
             vm_frame_variable var;
             var.name = "RETURN_VALUE";
-            var.type = function_ast_v.return_type.value();
+            var.type = function_ast_v.definition.return_type.value();
             var.storage.kind = storage_type::return_value;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
@@ -546,19 +556,19 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel));
 
-        if (insta.parameters.this_parameter || typeis< subdotentity_reference >(functum_reference))
+        if (insta->parameters.this_parameter || typeis< subdotentity_reference >(functum_reference))
         {
             assert(typeis< subdotentity_reference >(functum_reference));
-            assert(insta.parameters.this_parameter.has_value());
+            assert(insta->parameters.this_parameter.has_value());
             vm_frame_variable var;
             var.name = "THIS";
-            if (typeis< context_reference >(insta.parameters.this_parameter.value()))
+            if (typeis< context_reference >(insta->parameters.this_parameter.value()))
             {
                 var.type = make_mref(parent_type.value());
             }
             else
             {
-                var.type = insta.parameters.this_parameter.value();
+                var.type = insta->parameters.this_parameter.value();
             }
 
             // var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
@@ -577,10 +587,10 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             vm_proc.interface.argument_types.push_back(var.type);
         }
 
-        for (std::size_t i = 0; i < insta.parameters.positional_parameters.size(); i++)
+        for (std::size_t i = 0; i < insta->parameters.positional_parameters.size(); i++)
         {
-            auto arg = insta.parameters.positional_parameters.at(i);
-            auto arg_type = insta.parameters.positional_parameters.at(i + (insta.parameters.this_parameter.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
+            auto arg = insta->parameters.positional_parameters.at(i);
+            auto arg_type = insta->parameters.positional_parameters.at(i + (insta->parameters.this_parameter.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
 
             // TODO: Check that arg_type matches arg.type
 
@@ -620,7 +630,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             // assert(thistype_type.has_value());
             class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
             std::set< std::string > intialized_members;
-            for (ast2_function_delegate& delegate : function_ast_v.delegates)
+            for (ast2_function_delegate& delegate : function_ast_v.definition.delegates)
             {
                 // TODO: Support intializing base classes (after we add inheritance)
 

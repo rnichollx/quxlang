@@ -3,13 +3,13 @@
 //
 #include "quxlang/compiler.hpp"
 
-#include "quxlang/res/class_layout_from_canonical_chain_resolver.hpp"
+#include "quxlang/res/class_layout_resolver.hpp"
 
 #include "quxlang/data/class_field_declaration.hpp"
 #include "quxlang/manipulators/struct_math.hpp"
 
 
-void quxlang::class_layout_from_canonical_chain_resolver::process(compiler* c)
+void quxlang::class_layout_resolver::process(compiler* c)
 {
     auto& chain = this->m_chain;
     std::string class_str = to_string(chain);

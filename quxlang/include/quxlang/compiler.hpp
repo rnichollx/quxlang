@@ -24,7 +24,7 @@
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
-#include "quxlang/res/class_layout_from_canonical_chain_resolver.hpp"
+#include "quxlang/res/class_layout_resolver.hpp"
 #include "quxlang/res/class_list_resolver.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "quxlang/res/class_size_from_canonical_chain_resolver.hpp"
@@ -38,10 +38,10 @@
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/files_in_module_resolver.hpp"
 #include "quxlang/res/functanoid_return_type_resolver.hpp"
+#include "quxlang/res/function_declaration.hpp"
 #include "quxlang/res/function_overload_selection_resolver.hpp"
 #include "quxlang/res/function_qualified_reference_resolver.hpp"
 #include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
-#include "quxlang/res/functum_selection_ast_resolver.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/list_functum_overloads_resolver.hpp"
 #include "quxlang/res/list_user_functum_overloads_resolver.hpp"
@@ -63,7 +63,9 @@
 #include <quxlang/res/functanoid_parameter_map.hpp>
 #include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 #include <quxlang/res/functum_instanciation.hpp>
+#include <quxlang/res/functum_select_function.hpp>
 #include <quxlang/res/functum_selection.hpp>
+#include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
 #include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
@@ -73,11 +75,10 @@
 #include <quxlang/res/symboid_declaroids_resolver.hpp>
 #include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/symboid_subdeclaroids.hpp>
+#include <quxlang/res/symbol_type.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
-#include <quxlang/res/temploid_instanciation.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
-#include <quxlang/res/type_symbol_kind_resolver.hpp>
 #include <shared_mutex>
 
 // clang-format off
@@ -106,7 +107,7 @@ namespace quxlang
         friend class module_ast_resolver;
         friend class canonical_symbol_from_contextual_symbol_resolver;
         friend class type_size_from_canonical_type_resolver;
-        friend class class_layout_from_canonical_chain_resolver;
+        friend class class_layout_resolver;
         friend class class_placement_info_from_cannonical_chain_resolver;
         friend class type_placement_info_from_canonical_type_resolver;
         friend class entity_canonical_chain_exists_resolver;
@@ -161,35 +162,36 @@ namespace quxlang
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
-        COMPILER_INDEX(symboid)
-        COMPILER_INDEX(declaroids)
-        COMPILER_INDEX(list_builtin_functum_overloads)
-        COMPILER_INDEX(functum_selection_ast)
-        COMPILER_INDEX(interpret_value)
-        COMPILER_INDEX(interpret_bool)
-        COMPILER_INDEX(module_source_name)
-        COMPILER_INDEX(temploid_instanciation_parameter_set)
-        COMPILER_INDEX(functanoid_parameter_map)
-        COMPILER_INDEX(template_instanciation_parameter_set)
-        COMPILER_INDEX(template_instanciation_ast)
-        COMPILER_INDEX(entity_ast_from_canonical_chain)
-        COMPILER_INDEX(module_ast)
-        COMPILER_INDEX(extern_linksymbol)
-        COMPILER_INDEX(procedure_linksymbol)
-        COMPILER_INDEX(list_user_functum_overloads)
-        COMPILER_INDEX(list_functum_overloads)
-        COMPILER_INDEX(overload_set_instanciate_with)
-        COMPILER_INDEX(type_symbol_kind)
         COMPILER_INDEX(asm_procedure_from_symbol)
-        COMPILER_INDEX(functum_instanciation)
-        COMPILER_INDEX(functum_exists_and_is_callable_with)
+        COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
+        //COMPILER_INDEX(class_layout)
+        COMPILER_INDEX(declaroids)
+        COMPILER_INDEX(entity_ast_from_canonical_chain)
+        COMPILER_INDEX(extern_linksymbol)
+        COMPILER_INDEX(functanoid_parameter_map)
+        COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(function_positional_parameter_names)
+        COMPILER_INDEX(functum_exists_and_is_callable_with)
+        COMPILER_INDEX(functum_instanciation)
+        COMPILER_INDEX(functum_select_function)
+        COMPILER_INDEX(function_declaration)
+        COMPILER_INDEX(interpret_bool)
+        COMPILER_INDEX(interpret_value)
+        COMPILER_INDEX(list_builtin_functum_overloads)
+        COMPILER_INDEX(list_functum_overloads)
+        COMPILER_INDEX(list_user_functum_overloads)
+        COMPILER_INDEX(module_ast)
+        COMPILER_INDEX(module_source_name)
+        COMPILER_INDEX(overload_set_instanciate_with)
+        COMPILER_INDEX(procedure_linksymbol)
+        COMPILER_INDEX(symbol_type)
+        COMPILER_INDEX(symboid)
         COMPILER_INDEX(symboid_subdeclaroids)
-        COMPILER_INDEX(templexoid_instanciation)
-        //COMPILER_INDEX(temploid_instanciation)
-        COMPILER_INDEX(functum_selection)
-        //COMPILER_INDEX(template_selection)
-        //COMPILER_INDEX(overload_set_is_callable_with)
+        COMPILER_INDEX(template_instanciation_ast)
+        COMPILER_INDEX(instanciation)
+        COMPILER_INDEX(template_instanciation_parameter_set)
+        COMPILER_INDEX(temploid_instanciation_parameter_set)
+        COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
 
 
 
@@ -200,12 +202,6 @@ namespace quxlang
             return m_called_functanoids_index.lookup(func_addr);
         }
 
-        index< functanoid_return_type_resolver > m_functanoid_return_type_index;
-
-        out< type_symbol > lk_functanoid_return_type(instanciation_reference const& chain)
-        {
-            return m_functanoid_return_type_index.lookup(chain);
-        }
 
 
 
@@ -224,8 +220,6 @@ namespace quxlang
             return m_symbol_canonical_chain_exists_index.lookup(chain);
         }
 
-
-        COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
       public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(instanciation_reference func_addr)
         {
@@ -280,7 +274,7 @@ namespace quxlang
         }
 
       public:
-        index< class_layout_from_canonical_chain_resolver > m_class_layout_from_canonical_chain_index;
+        index< class_layout_resolver > m_class_layout_from_canonical_chain_index;
 
         out< class_layout > lk_class_layout_from_canonical_chain(type_symbol const& chain)
         {
@@ -313,7 +307,6 @@ namespace quxlang
 
         COMPILER_INDEX(module_sources);
 
-        COMPILER_INDEX(canonical_symbol_from_contextual_symbol);
 
         out< type_symbol > lk_canonical_symbol_from_contextual_symbol(type_symbol type, type_symbol context)
         {

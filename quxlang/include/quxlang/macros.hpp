@@ -63,7 +63,7 @@ virtual void process(compiler * c) override; \
 };
 
 
-/// This implements a coroutine resolver declaration, to be used in header files.
+/// This implements a coroutine resolver declaration, to be used in overload files.
 #define QUX_CO_RESOLVER(nameV, inputT, outputT) \
 class nameV ## _resolver : public rpnx::co_resolver_base< compiler, outputT, inputT > { \
  public: \

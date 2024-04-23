@@ -52,9 +52,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
             QUX_CO_ANSWER(false);
         }
 
-        auto val = co_await QUX_CO_DEP(templexoid_instanciation, (ref));
 
-        co_return val.has_value();
+    /// TODO: Fix this
+       // auto val = co_await QUX_CO_DEP(templexoid_instanciation, (ref));
+
+        //co_return val.has_value();
+
+        rpnx::unimplemented();
     }
     else if (typeis< primitive_type_bool_reference >(input_val) || typeis< primitive_type_integer_reference >(input_val) || typeis< numeric_literal_reference >(input_val))
     {

@@ -7991,7 +7991,7 @@ namespace Catch
                     hexEscapeChar(os, c);
                     break;
                 }
-                // The header is valid, check data
+                // The overload is valid, check data
                 // The next encBytes bytes must together be a valid utf-8
                 // This means: bitpattern 10XX XXXX and the extracted value is sane (ish)
                 bool valid = true;
@@ -8756,7 +8756,7 @@ namespace Catch
 
     // This is the general overload that takes a any string matcher
     // There is another overload, in catch_assertionhandler.h/.cpp, that only takes a string and infers
-    // the Equals matcher (so the header does not mention matchers)
+    // the Equals matcher (so the overload does not mention matchers)
     void handleExceptionMatchExpr(AssertionHandler& handler, StringMatcher const& matcher)
     {
         std::string exceptionMessage = Catch::translateActiveException();

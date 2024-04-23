@@ -19,7 +19,7 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
     }
     else if (typeis< functum >(ast))
     {
-        co_return co_await *c->lk_functum_instanciation_parameter_map(input);
+        co_return co_await *c->lk_functanoid_parameter_map(input);
     }
 
     assert(false);

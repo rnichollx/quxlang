@@ -22,7 +22,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
     for (auto const& func : f.functions)
     {
         auto head = func.first;
-        if (head == input_val.header)
+        if (head == input_val.overload)
         {
             std::vector< std::string > strs;
 

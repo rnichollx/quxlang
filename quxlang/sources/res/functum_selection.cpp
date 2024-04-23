@@ -18,32 +18,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_selection)
         // Would result in the following selection:
         // calle=foo@[::myint] params=(...) -> foo@[I32]
 
-
-        QUX_CO_ANSWER(as<selection_reference>(input.callee));
+        QUX_CO_ANSWER(as< selection_reference >(input.callee));
     }
 
+    auto sym_kind = co_await QUX_CO_DEP(symbol_type, (input.callee));
 
-
-
-
-    QUX_CO_GETDEP(sym, symboid, (input.callee));
-
-    if (!typeis< functum >(ast))
-    {
-        throw std::logic_error("Cannot call non-functum");
-    }
-
-    auto const& func = as< functum >(ast);
-
-    std::set<function_overload> eligible_overloads;
-
-    for (auto const& overload : func.functions) {
-       function_overload func_header = overload.first;
-       auto func_args = func_header.call_parameters;
-
-       // TODO: Finish this code
-
-    }
 
     rpnx::unimplemented();
 }

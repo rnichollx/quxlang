@@ -29,7 +29,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
     // TODO: support named parameters?
     for (std::size_t i = 0; i < functum_instanciation_parameters.positional_parameters.size(); i++)
     {
-        auto template_arg_contextual = selection_sl.header.call_parameters.positional_parameters.at(i);
+        auto template_arg_contextual = selection_sl.overload.call_parameters.positional_parameters.at(i);
         // TODO: should the selection reference be decontextualized early?
 
         auto template_arg = co_await *c->lk_canonical_symbol_from_contextual_symbol(template_arg_contextual, func_name);

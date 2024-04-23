@@ -160,8 +160,8 @@ namespace quxlang
     struct selection_reference
     {
         type_symbol callee;
-        function_overload header;
-        RPNX_MEMBER_METADATA(selection_reference, callee, header);
+        function_overload overload;
+        RPNX_MEMBER_METADATA(selection_reference, callee, overload);
     };
 
     struct mvalue_reference

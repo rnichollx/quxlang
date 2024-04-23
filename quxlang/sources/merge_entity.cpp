@@ -39,13 +39,13 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
             ol.call_parameters.positional_parameters.push_back(param.type);
         }
 
-        auto it = destination_functum.functions.find(ol);
-        if (it != destination_functum.functions.end())
-        {
-            throw std::runtime_error("Functum already declared with the same header");
-        }
+       // auto it = destination_functum.functions.find(ol);
+       // if (it != destination_functum.functions.end())
+       // {
+       //     throw std::runtime_error("Functum already declared with the same overload");
+       // }
 
-        destination_functum.functions[ol] = func.definition;
+        destination_functum.functions.push_back(func);
     }
     else if (typeis< ast2_class_declaration >(source))
     {
