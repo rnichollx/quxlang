@@ -776,7 +776,7 @@ namespace rpnx
                 }
                 output = rpnx::cxx_serialize_iter(*it, output);
             }
-            *output++ = std::byte(']');
+            *output++ = std::byte('}');
             return output;
         }
     };

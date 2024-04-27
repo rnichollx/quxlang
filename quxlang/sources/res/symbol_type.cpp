@@ -7,7 +7,15 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
 {
-    if (typeis< module_reference >(input_val))
+    auto type_str = to_string(input_val);
+
+    auto functions = co_await QUX_CO_DEP(list_functum_overloads, (input_val));
+    if (functions.size() > 0)
+    {
+      co_return symbol_kind::functum;
+    }
+
+        if (typeis< module_reference >(input_val))
     {
         // TODO: Check if the module exists or not.
         co_return symbol_kind::module;

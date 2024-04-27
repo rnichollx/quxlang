@@ -21,11 +21,12 @@ namespace quxlang
 
     struct call_type
     {
-        std::optional< type_symbol > this_parameter;
+        // Special this_type is removed, replaced with "THIS" named paramter.
+        // DELETED: std::optional< type_symbol > this_parameter;
         std::vector< type_symbol > positional_parameters;
         std::map< std::string, type_symbol > named_parameters;
 
-        RPNX_MEMBER_METADATA(call_type, this_parameter, positional_parameters, named_parameters);
+        RPNX_MEMBER_METADATA(call_type, positional_parameters, named_parameters);
     };
 
     struct parameter

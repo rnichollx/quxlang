@@ -598,7 +598,7 @@ namespace rpnx
             }
         }
 
-        void add_dependency(std::shared_ptr< node_base< Graph > > n)
+        virtual void add_dependency(std::shared_ptr< node_base< Graph > > n)
         {
             add_dependency(n.get());
         }
@@ -766,12 +766,14 @@ namespace rpnx
         void set_value(Result r)
         {
             m_result.set_value(r);
+            this->update_dependents();
         }
 
       public:
         virtual void set_error(std::exception_ptr er) override
         {
             m_result.set_error(er);
+            this->update_dependents();
         }
 
         virtual std::string answer() const override
@@ -821,7 +823,10 @@ namespace rpnx
 
         Result await_resume()
         {
+
             assert(await_ready());
+            this->update_dependents();
+            //  assert(this->dependents().size() != 0);
             return get();
         }
 
@@ -830,12 +835,15 @@ namespace rpnx
         void await_suspend_helper(typename resolver_coroutine< Graph, Result2 >::promise_type& pr)
         {
             pr.cr->add_dependency(this);
+            assert(this->dependents().size() != 0);
         }
 
         template < typename Result2 >
         void await_suspend_helper(typename general_coroutine< Graph, Result2 >::promise_type& pr)
         {
             coroutine_callback< Graph > cb;
+
+            assert(pr.get_coroutine().owning_node != nullptr);
 
             pr.get_coroutine().waiting_on_node = this;
 
@@ -845,6 +853,11 @@ namespace rpnx
                 return general_coroutine_handle.resume();
             };
 
+            assert(pr.get_coroutine().owning_node->m_attached_by == nullptr);
+
+            pr.get_coroutine().owning_node->add_dependency(this);
+
+            assert(this->dependents().size() != 0);
             this->coroutine_callback_suspend_until_ready(cb);
         }
 
@@ -933,12 +946,15 @@ namespace rpnx
             coroutine_callback< Graph > cb;
 
             pr.get_coroutine().waiting_on_node = this;
+            pr.get_coroutine().owning_node = this;
 
             cb.callback = [&pr]()
             {
                 general_coroutine< Graph, Result2 >& general_coroutine_handle = pr.get_coroutine();
                 return general_coroutine_handle.resume();
             };
+
+            assert(this->dependents().size() != 0);
 
             this->coroutine_callback_suspend_until_ready(cb);
         }
@@ -949,6 +965,7 @@ namespace rpnx
             auto& pr = ch.promise();
             using result_type = typename std::remove_reference_t< decltype(pr) >::result_type;
             await_suspend_helper< result_type >(pr);
+            assert(this->dependents().size() != 0);
         }
 
       private:
@@ -1044,8 +1061,17 @@ namespace rpnx
         input_type const& input;
         virtual resolver_coroutine< Graph, Result > co_process(Graph* g, input_type) = 0;
 
-      private:
         std::optional< resolver_coroutine< Graph, Result > > m_coroutine;
+
+        void add_co_dependency(node_base< Graph >* n)
+        {
+            this->m_coroutine.value().add_dependency(n);
+        }
+
+        void add_co_dependency(std::shared_ptr< node_base< Graph > > n)
+        {
+            this->m_coroutine.value().add_dependency(&*n);
+        }
     };
 
     template < typename Graph, typename Result >
@@ -1151,6 +1177,8 @@ namespace rpnx
 
         node_base< Graph >* waiter_node = nullptr;
 
+        node_base< Graph >* owning_node = nullptr;
+
         std::unique_ptr< coroutine_callback< Graph > > waiter_coroutine;
 
         std::vector< std::unique_ptr< coroutine_callback< Graph > > > kickoff_coroutines;
@@ -1251,7 +1279,9 @@ namespace rpnx
         {
             auto& waiter_promise = pr;
             assert(waiter_node == nullptr);
+            assert(owning_node == nullptr);
             waiter_node = waiter_promise.cr;
+            owning_node = waiter_node;
             waiter_node->kickoff_coroutine({[this]()
                                             {
                                                 return resume();
@@ -1264,11 +1294,14 @@ namespace rpnx
         {
             auto& waiter_promise = pr;
             assert(waiter_node == nullptr);
+            assert(owning_node == nullptr);
             auto& waiter_coroutine = waiter_promise.get_coroutine();
             waiter_coroutine.kickoff_coroutines.push_back(std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[this]()
                                                                                                                                       {
                                                                                                                                           return resume();
                                                                                                                                       }}));
+            assert(waiter_coroutine.owning_node != nullptr);
+            this->owning_node = waiter_coroutine.owning_node;
             this->waiter_coroutine = std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[&waiter_coroutine]()
                                                                                                                  {
                                                                                                                      return waiter_coroutine.resume();
@@ -1282,6 +1315,7 @@ namespace rpnx
             using coroutine_type = typename promise_type::coroutine_type;
             using result_type = typename promise_type::result_type;
             await_suspend_helper< result_type >(handle.promise());
+            assert(this->owning_node != nullptr);
         }
 
         bool await_resume_already_called = false;
@@ -1386,6 +1420,8 @@ namespace rpnx
 
         node_base< Graph >* waiter_node = nullptr;
 
+        node_base< Graph >* owning_node = nullptr;
+
         std::unique_ptr< coroutine_callback< Graph > > waiter_coroutine;
 
         std::vector< std::unique_ptr< coroutine_callback< Graph > > > kickoff_coroutines;
@@ -1487,6 +1523,7 @@ namespace rpnx
             auto& waiter_promise = pr;
             assert(waiter_node == nullptr);
             waiter_node = waiter_promise.cr;
+            owning_node = waiter_node;
             waiter_node->kickoff_coroutine({[this]()
                                             {
                                                 return resume();
@@ -1500,6 +1537,7 @@ namespace rpnx
             auto& waiter_promise = pr;
             assert(waiter_node == nullptr);
             auto& waiter_coroutine = waiter_promise.get_coroutine();
+            owning_node = waiter_coroutine.owning_node;
             waiter_coroutine.kickoff_coroutines.push_back(std::make_unique< coroutine_callback< Graph > >(coroutine_callback< Graph >{[this]()
                                                                                                                                       {
                                                                                                                                           return resume();
@@ -1711,20 +1749,27 @@ namespace rpnx
         template < typename Graph >
         void draw(node_base< Graph >* n)
         {
+
             if (n->m_attached_by)
             {
+
                 assert(n->error_dependencies().size() + n->met_dependencies().size() == 1);
+                // Note: can be caused by using add_dependency instead of add_co_dependency
 
                 n = n->m_attached_by;
+
+                assert(n->m_attached_by == nullptr);
             }
 
             for (std::size_t i = 0; i < indent; i++)
             {
                 ss << " ";
             }
+
             ss << "ASK " << n->question();
 
             ss << "\n";
+
             indent += 4;
 
             // ss << n->error_dependencies().size() << " error deps\n";
@@ -1748,7 +1793,7 @@ namespace rpnx
             {
                 ss << "ANSWER " << n->answer() << "\n";
             }
-            else if (n->has_error() && !n->has_error_dependencies())
+            else if (n->has_error())
             {
                 ss << "ERROR " << n->answer() << "\n";
             }

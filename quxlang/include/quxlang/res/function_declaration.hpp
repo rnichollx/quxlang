@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-   QUX_CO_RESOLVER(function_declaration, selection_reference, ast2_function_declaration);
+   QUX_CO_RESOLVER(function_declaration, selection_reference, std::optional<ast2_function_declaration>);
 }
 
 #endif // RPNX_QUXLANG_FUNCTION_DECLARATION_HEADER

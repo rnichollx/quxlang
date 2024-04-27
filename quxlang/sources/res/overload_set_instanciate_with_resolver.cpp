@@ -56,7 +56,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         {
             convertibles_dp.push_back(c->lk_canonical_type_is_implicitly_convertible_to(std::make_pair(arg_type, param_type)));
 
-            add_dependency(convertibles_dp.back());
+            add_co_dependency(convertibles_dp.back());
         }
     }
 

@@ -6,6 +6,9 @@
 #include <boost/any.hpp>
 #include <rpnx/serializer.hpp>
 #include <shared_mutex>
+#include <set>
+#include <vector>
+#include <coroutine>
 
 namespace rpnx
 {

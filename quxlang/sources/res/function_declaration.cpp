@@ -24,7 +24,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
     if (!typeis< functum >(entity_ast_v))
     {
-        throw std::runtime_error("Getting function AST for non-functum entity");
+        co_return std::nullopt;
+        // throw std::runtime_error("Getting function AST for non-functum entity");
     }
 
     functum const& functum_entity_ast_v = as< functum >(entity_ast_v);

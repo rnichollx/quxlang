@@ -18,6 +18,7 @@ namespace quxlang
 
     struct vm_generation_frame_info
     {
+
         std::vector< vm_frame_variable > variables;
         std::vector< vm_generation_block > blocks;
         type_symbol context;

@@ -39,7 +39,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (operator_name.ends_with("RHS"))
             {
                 operator_name = operator_name.substr(0, operator_name.size() - 3);
-                allowed_operations.insert(function_overload{.call_parameters = call_type{.this_parameter = int_type, .positional_parameters = {int_type}}});
+                allowed_operations.insert(function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}});
                 is_rhs = true;
             }
 
@@ -52,11 +52,12 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
 
             if (assignment_operators.contains(operator_name))
             {
-                allowed_operations.insert(function_overload{.call_parameters = call_type{.this_parameter = make_oref(int_type), .positional_parameters = {int_type}}});
+                allowed_operations.insert(
+                function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", make_oref(int_type)}}, .positional_parameters = {int_type}}});
                 co_return allowed_operations;
             }
 
-            allowed_operations.insert(function_overload{.call_parameters = call_type{.this_parameter = int_type, .positional_parameters = {int_type}}});
+            allowed_operations.insert(function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}});
             co_return (allowed_operations);
         }
 
@@ -64,7 +65,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
         {
             std::set< function_overload > allowed_operations;
 
-            allowed_operations.insert({.call_parameters = {.this_parameter = numeric_literal_reference{}, .positional_parameters = {numeric_literal_reference{}}}});
+            allowed_operations.insert({.call_parameters = {.named_parameters = {{"THIS", numeric_literal_reference{}}}, .positional_parameters = {numeric_literal_reference{}}}});
             // TODO: MAYBE: Allow composing any integer operation?
             // allowed_operations.push_back(call_parameter_information{{numeric_literal_reference{}, }});
             co_return (allowed_operations);
@@ -76,8 +77,8 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
                 auto int_type = as< primitive_type_integer_reference >(parent);
 
                 std::set< function_overload > result;
-                result.insert({.call_parameters = {.this_parameter = make_mref(parent), .positional_parameters = {parent}}});
-                result.insert({.call_parameters{make_mref(parent)}});
+                result.insert({.call_parameters = {.named_parameters = {{"THIS", make_mref(parent)}}, .positional_parameters = {parent}}});
+                result.insert({.call_parameters{.named_parameters = {{"THIS", make_mref(parent)}}}});
                 co_return (result);
             }
 
@@ -86,7 +87,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (!class_ent.has_value() || should_autogen_constructor)
             {
                 std::set< function_overload > result;
-                result.insert(function_overload{.call_parameters = call_type{.this_parameter = make_mref(parent)}});
+                result.insert(function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", make_mref(parent)}}}});
                 co_return result;
             }
         }
@@ -94,7 +95,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
         else if (name == "DESTRUCTOR")
         {
             std::set< function_overload > result;
-            result.insert(function_overload{.call_parameters = {make_mref(parent)}});
+            result.insert(function_overload{.call_parameters = {.named_parameters = {{"THIS", make_mref(parent)}}}});
             co_return (result);
         }
     }

@@ -425,7 +425,7 @@ namespace quxlang
 
         instanciation_reference destructor_reference;
         destructor_reference.callee = destructor_symbol;
-        destructor_reference.parameters = {make_mref(type)};
+        destructor_reference.parameters = {.named_parameters = {{"THIS", make_mref(type)}}};
 
         auto res = co_await m_resolver->gen_call(*this, destructor_symbol, {val});
 
@@ -543,7 +543,8 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         if (function_ast_v.definition.return_type)
         {
             vm_frame_variable var;
-            var.name = "RETURN_VALUE";
+            var.name = "RESULT";
+            // TODO: check any "result_val" references
             var.type = function_ast_v.definition.return_type.value();
             var.storage.kind = storage_type::return_value;
             frame.variables.push_back(var);
@@ -557,41 +558,37 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel.value()));
 
-        if (insta->parameters.this_parameter || typeis< subdotentity_reference >(functum_reference))
+        for (auto const & param : insta->parameters.named_parameters)
         {
-            assert(typeis< subdotentity_reference >(functum_reference));
-            assert(insta->parameters.this_parameter.has_value());
-            vm_frame_variable var;
-            var.name = "THIS";
-            if (typeis< context_reference >(insta->parameters.this_parameter.value()))
-            {
-                var.type = make_mref(parent_type.value());
-            }
-            else
-            {
-                var.type = insta->parameters.this_parameter.value();
-            }
+            std::string name = param.first;
 
-            // var.get_addr = vm_expr_dereference{vm_expr_load_address{frame.variables.size(), qualified_symbol_reference(pointer_to_reference(var.type))}, make_mref(var.type)};
+            auto arg_type = param.second;
+
+            // TODO: consider pass by pointer of large values instead of by value?
+            vm_frame_variable var;
+            // NOTE: Make sure that we can handle contextual types in arg list.
+            //  They should be decontextualized somewhere else probably.. so maybe this will
+            //  be impossible.
+
+            // TODO: Make sure no name conflicts are allowed.
+            assert(!qualified_is_contextual(arg_type));
+
+            std::string arg_name = name;
+            var.type = arg_type;
+            // TODO: handle references correctly
+            var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
-            assert(is_member && !this_value.has_value());
-
-            this_value = var.get_addr;
-            assert(is_ref(var.type));
-            this_type = var.type;
-            thistype_type = remove_ref(var.type);
             assert(!frame.blocks.empty());
-            frame.blocks.back().variable_lookup_index["THIS"] = frame.variables.size() - 1;
+            frame.blocks.back().variable_lookup_index[arg_name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
-            vm_proc.interface.argument_types.push_back(var.type);
+            vm_proc.interface.argument_types.push_back(arg_type);
         }
 
         for (std::size_t i = 0; i < insta->parameters.positional_parameters.size(); i++)
         {
-            auto arg = insta->parameters.positional_parameters.at(i);
-            auto arg_type = insta->parameters.positional_parameters.at(i + (insta->parameters.this_parameter.has_value() || typeis< subdotentity_reference >(functum_reference) ? 1 : 0));
+            auto arg_type = insta->parameters.positional_parameters.at(i);
 
             // TODO: Check that arg_type matches arg.type
 
@@ -608,7 +605,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             // TODO: Arg.name
             // var.name =
             var.type = arg_type;
-            var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
+            var.get_addr = vm_expr_load_address{frame.variables.size(), instance_pointer_type{.target=var.type}};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
@@ -907,8 +904,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + expr.operator_str};
     type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
 
-    call_type lhs_param_info{.this_parameter = lhs_type, .positional_parameters = {rhs_type}};
-    call_type rhs_param_info{.this_parameter = rhs_type, .positional_parameters = {lhs_type}};
+    call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}}, .positional_parameters = {rhs_type}};
+    call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}}, .positional_parameters = {lhs_type}};
     auto lhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
 
     if (lhs_exists_and_callable_with)
@@ -1073,8 +1070,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // TODO: Reimplement this
 
-   // assert(false);
-    auto selected_overload = co_await *ctx.get_compiler()->lk_functum_instanciation(instanciation_reference{.callee=callee, .parameters=call_set});
+    // assert(false);
+    auto selected_overload = co_await *ctx.get_compiler()->lk_functum_instanciation(instanciation_reference{.callee = callee, .parameters = call_set});
 
     if (!selected_overload.has_value())
     {

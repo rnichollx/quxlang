@@ -63,9 +63,8 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
 
     type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + input.operator_str};
     type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
-
-    call_type lhs_param_info{.this_parameter = lhs_type, .positional_parameters = {rhs_type}};
-    call_type rhs_param_info{.this_parameter = rhs_type, .positional_parameters = {lhs_type}};
+    call_type lhs_param_info{.named_parameters = { {"THIS", lhs_type} }, .positional_parameters = {rhs_type}};
+    call_type rhs_param_info{.named_parameters = { {"THIS", rhs_type} }, .positional_parameters = {lhs_type}};
 
     auto lhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
 

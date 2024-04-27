@@ -8,10 +8,11 @@
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/data/builtin_functions.hpp"
 
 namespace quxlang
 {
-    class list_builtin_functum_overloads_resolver : public rpnx::co_resolver_base< compiler,  std::set< function_overload > ,type_symbol >
+    class list_builtin_functum_overloads_resolver : public rpnx::co_resolver_base< compiler,  std::set< primitive_function_info > ,type_symbol >
     {
     public:
         list_builtin_functum_overloads_resolver(type_symbol functum)

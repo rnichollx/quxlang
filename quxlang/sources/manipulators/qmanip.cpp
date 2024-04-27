@@ -322,6 +322,14 @@ namespace quxlang
     {
         std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@[";
         bool first = true;
+        for (auto const & arg : ref.overload.call_parameters.named_parameters)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + arg.first + " " + to_string(arg.second);
+        }
         for (auto const & arg : ref.overload.call_parameters.positional_parameters)
         {
             if (first)

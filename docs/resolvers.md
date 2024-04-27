@@ -83,3 +83,94 @@ converted value and the original `v64`.
 ## callee_temploid_instanciation
 
 Similar to callee_temploid_selection, but also applies the instanciation to the callee.
+
+## class_destructor_reset_elision(type) -> bool
+
+True if the type can elide the destructor after a reset operation.
+
+## class_trivially_resettable(type) -> bool
+
+A type is trivally resettable if it can be reset setting all bits to 0.
+
+## class_trivially_relocatable(type) -> bool
+
+True if a type can be relocated by copying bits only.
+
+## class_trivially_movable(type) -> bool
+
+A type is trivially movable if it can be moved by copying bits and resetting all fields or setting all bits to zero.
+
+## class_trivially
+
+## class_contiguous(type) -> bool
+
+True if the class layout does not contain holes. If a type is contiguous and trivially resettable, it can be reset by
+using memset-like zeroing operations.
+
+In Qux, types can have holes, for example, supposing we have nested structs:
+
+```qux
+::foo CLASS
+{
+  .baz VAR I32;
+  .bar VAR I8;
+}
+
+::buz CLASS
+{
+  .x VAR foo;
+  .y VAR I32;
+}
+```
+
+The `buz` class in this case will be laid out like this:
+
+```
+00 | buz.x(foo).baz(I32)
+01 | buz.x(foo).baz(I32)
+02 | buz.x(foo).baz(I32)
+03 | buz.x(foo).baz(I32)
+04 | buz.x(foo).bar(I8)
+05 |  
+06 |  
+07 |  
+08 | buz.y(I32)
+09 | buz.y(I32)
+0A | buz.y(I32)
+0B | buz.y(I32)
+```
+
+In this case, the `buz` class is not contiguous because there are holes between the `foo` and `y` fields for alignment.
+In C and C++, this is solved with "padding". However, unlike C and C++, Qux produces "holes" instead of padding. The
+difference is illustrated in the following example:
+
+```qux
+::bif CLASS
+{
+  .w VAR buz;
+  .u VAR I16;
+}
+```
+
+Might have a layout like this:
+
+```
+00 | bif.w(buz).x(foo).baz(I32)
+01 | bif.w(buz).x(foo).baz(I32)
+02 | bif.w(buz).x(foo).baz(I32)
+03 | bif.w(buz).x(foo).baz(I32)
+04 | bif.w(buz).x(foo).bar(I8)
+05 |
+06 | bif.u(I16)
+07 | bif.u(I16)
+08 | bif.w(buz).y(I32)
+09 | bif.w(buz).y(I32)
+0A | bif.w(buz).y(I32)
+0B | bif.w(buz).y(I32)
+```
+
+In this case, we can see that the bif class has the same size as the buz class which is a member of bif, because the u
+variable filled a hole in the layout of the buz class. In general, it is not safe to use memset to initialize objects in
+Qux because of this behavior. Instead, the reset operation should be used.
+
+    

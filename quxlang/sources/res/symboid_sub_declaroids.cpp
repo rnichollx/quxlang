@@ -29,9 +29,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symboid_subdeclaroids)
     }
     else
     {
-        auto type_str = to_string(input_val);
-        rpnx::unimplemented();
+       co_return {};
     }
-
-    throw rpnx::unimplemented();
 }

@@ -14,7 +14,7 @@
 
 namespace quxlang
 {
-    inline std::string mangle_internal(std::string const & str)
+    inline std::string mangle_internal(std::string const& str)
     {
         std::string result;
         bool upper = false;
@@ -82,10 +82,16 @@ namespace quxlang
             // out += std::to_string(as< functanoid_reference >(qt).parameters.size());
             for (auto const& p : as< instanciation_reference >(qt).parameters.positional_parameters)
             {
-                out += "A";
+                out += "AP";
                 out += mangle_internal(p);
             }
-            // TODO: Named parameters, this type
+            for (auto const& p : as< instanciation_reference >(qt).parameters.named_parameters)
+            {
+                out += "AN";
+                out += p.first;
+                out += "A";
+                out += mangle_internal(p.second);
+            }
             out += "E";
             return out;
         }
@@ -106,9 +112,34 @@ namespace quxlang
         {
             return "RO" + mangle_internal(as< ovalue_reference >(qt).target);
         }
-        if (typeis< tvalue_reference >(qt))
+        else if (typeis< tvalue_reference >(qt))
         {
             return "RT" + mangle_internal(as< tvalue_reference >(qt).target);
+        }
+        else if (typeis< selection_reference >(qt))
+        {
+
+            std::string str;
+
+            str += mangle_internal(as< selection_reference >(qt).callee);
+            str += "S";
+
+            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.positional_parameters)
+            {
+                str += "AP";
+                str += mangle_internal(p);
+            }
+            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.named_parameters)
+            {
+                str += "AN";
+                str += p.first;
+                str += "A";
+                str += mangle_internal(p.second);
+            }
+            str += "E";
+            // TODO: Named parameters here
+
+            return str;
         }
 
         throw std::runtime_error("unimplemented");

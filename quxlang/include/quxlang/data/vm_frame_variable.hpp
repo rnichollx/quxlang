@@ -16,6 +16,7 @@ namespace quxlang
         type_symbol type;
         bool is_temporary = false;
         vm_value get_addr;
+
         vm_allocate_storage storage;
     };
 
