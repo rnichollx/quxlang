@@ -228,6 +228,8 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         sources/res/functum_exists_and_is_callable_with.cpp
         include/quxlang/builtins.hpp
         include/quxlang/data/builtin_functions.hpp
+        include/quxlang/res/function_builtin.hpp
+        sources/res/function_builtin.cpp
 
 )
 

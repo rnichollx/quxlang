@@ -10,7 +10,7 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
 {
 
-   // Probably consider this deprecated
+    // Probably consider this deprecated
 
     assert(!qualified_is_contextual(input_val));
     if (typeis< module_reference >(input_val))
@@ -18,7 +18,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
         std::string module_name = as< module_reference >(input_val).module_name;
         // TODO: Check if module exists
         co_await QUX_CO_DEP(module_ast, (module_name));
-
 
         QUX_CO_ANSWER(true);
     }
@@ -45,18 +44,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
         // Return false if non-match
 
         // TODO: check this
-        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (ref.callee))
+        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (ref.callee));
 
-            if (!parent_exists)
+        if (!parent_exists)
         {
             QUX_CO_ANSWER(false);
         }
 
+        /// TODO: Fix this
+        // auto val = co_await QUX_CO_DEP(templexoid_instanciation, (ref));
 
-    /// TODO: Fix this
-       // auto val = co_await QUX_CO_DEP(templexoid_instanciation, (ref));
-
-        //co_return val.has_value();
+        // co_return val.has_value();
 
         rpnx::unimplemented();
     }

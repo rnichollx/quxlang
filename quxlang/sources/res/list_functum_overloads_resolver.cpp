@@ -18,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
     std::set< function_overload > all_overloads;
     for (auto const& o : builtins)
     {
-        all_overloads.insert(o);
+        all_overloads.insert(o.overload);
     }
     for (auto const& o : user_defined)
     {

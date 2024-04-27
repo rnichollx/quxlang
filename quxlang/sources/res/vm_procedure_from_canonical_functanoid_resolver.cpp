@@ -275,12 +275,12 @@ namespace quxlang
         return load_value(index, false, true);
     }
 
-    rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::construct_new_variable(std::string name, type_symbol type, std::vector< vm_value > args)
+    rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::construct_new_variable(std::string name, type_symbol type, vm_callargs args)
     {
 
         auto index = co_await create_variable_storage(name, type);
 
-        auto val = load_variable_as_new(index);
+        // auto val = load_variable_as_new(index);
 
         co_await run_value_constructor(index, args);
 
@@ -427,20 +427,20 @@ namespace quxlang
         destructor_reference.callee = destructor_symbol;
         destructor_reference.parameters = {.named_parameters = {{"THIS", make_mref(type)}}};
 
-        auto res = co_await m_resolver->gen_call(*this, destructor_symbol, {val});
+        auto res = co_await m_resolver->gen_call(*this, destructor_symbol, vm_callargs{.named = {{"THIS", val}}});
 
         co_return;
     }
 
-    rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::run_value_constructor(std::size_t index, std::vector< vm_value > args)
+    rpnx::general_coroutine< compiler, std::monostate > vm_procedure_from_canonical_functanoid_resolver::context_frame::run_value_constructor(std::size_t index, vm_callargs args)
     {
         auto type = get_variable_type(index);
 
         auto val = load_variable_as_new(index);
         subdotentity_reference constructor_symbol = {type, "CONSTRUCTOR"};
-        args.insert(args.begin(), val);
+        args.named["THIS"] = val;
 
-        auto res = co_await m_resolver->gen_call(*this, constructor_symbol, args);
+        co_await m_resolver->gen_call(*this, constructor_symbol, args);
 
         co_return {};
     }
@@ -476,7 +476,7 @@ namespace quxlang
         // std::cout << "Set return value: " << to_string(val) << std::endl;
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
-        co_await run_value_constructor(0, {std::move(val)});
+        co_await run_value_constructor(0, {.positional = {std::move(val)}});
         set_value_alive(0);
         co_return {};
     }
@@ -505,7 +505,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         throw std::logic_error("something wrong this should not be possible");
     }
 
-    ast2_function_declaration function_ast_v = co_await QUX_CO_DEP(function_declaration, (sel.value()));
+    ast2_function_declaration function_ast_v = (co_await QUX_CO_DEP(function_declaration, (sel.value()))).value();
 
     type_symbol functum_reference = func_name.callee;
 
@@ -558,7 +558,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel.value()));
 
-        for (auto const & param : insta->parameters.named_parameters)
+        for (auto const& param : insta->parameters.named_parameters)
         {
             std::string name = param.first;
 
@@ -605,7 +605,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             // TODO: Arg.name
             // var.name =
             var.type = arg_type;
-            var.get_addr = vm_expr_load_address{frame.variables.size(), instance_pointer_type{.target=var.type}};
+            var.get_addr = vm_expr_load_address{frame.variables.size(), instance_pointer_type{.target = var.type}};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
@@ -645,7 +645,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
                         {
                             // We should generate the args for this call and then call the constructor
 
-                            std::vector< vm_value > args;
+                            vm_callargs args;
 
                             // The first arg is the
 
@@ -653,12 +653,12 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
                             auto get_element_ptr = vm_expr_access_field{th, field.offset, make_mref(field.type)};
 
-                            args.push_back(get_element_ptr);
+                            args.positional.push_back(get_element_ptr);
 
                             for (auto& arg_expr : delegate.args)
                             {
                                 auto val = co_await gen_value_generic(ctx, arg_expr);
-                                args.push_back(val);
+                                args.positional.push_back(val);
                             }
 
                             co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
@@ -675,13 +675,13 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
                 {
                     continue;
                 }
-                std::vector< vm_value > args;
+                vm_callargs args;
 
                 auto th = gen_this(ctx);
 
                 auto get_element_ptr = vm_expr_access_field{th, field.offset, make_mref(field.type)};
 
-                args.push_back(get_element_ptr);
+                args.positional.push_back(get_element_ptr);
 
                 co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
             }
@@ -725,11 +725,11 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
 
     std::string canonical_var_str = to_string(canonical_type);
 
-    std::vector< vm_value > args;
+    vm_callargs args;
     for (auto& arg : statement.initializers)
     {
         auto val = co_await gen_value_generic(ctx, arg);
-        args.push_back(val);
+        args.positional.push_back(val);
     }
 
     co_await ctx.construct_new_variable(statement.name, canonical_type, args);
@@ -910,14 +910,14 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     if (lhs_exists_and_callable_with)
     {
-        co_return co_await gen_call(ctx, lhs_function, std::vector< vm_value >{lhs, rhs});
+        co_return co_await gen_call(ctx, lhs_function, vm_callargs{.named = {{"THIS", lhs}}, .positional = {rhs}});
     }
 
     auto rhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
 
     if (rhs_exists_and_callable_with)
     {
-        co_return co_await gen_call(ctx, rhs_function, std::vector< vm_value >{rhs, lhs});
+        co_return co_await gen_call(ctx, rhs_function, vm_callargs{.named = {{"THIS", rhs}}, .positional = {lhs}});
     }
 
     throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
@@ -926,14 +926,15 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, quxlang::expression_call expr)
 {
     vm_value callee = co_await gen_value_generic(ctx, expr.callee);
-    std::vector< vm_value > args;
+    vm_callargs args;
 
     for (auto& arg_ast : expr.args)
     {
         // TODO: Translate arg types from references
         vm_value arg_val = co_await gen_value_generic(ctx, arg_ast);
-        args.push_back(arg_val);
+        args.positional.push_back(arg_val);
     }
+    // TODO: Support named arguments
 
     auto cv = co_await gen_call_expr(ctx, callee, args);
     co_return cv;
@@ -1034,7 +1035,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     co_return vm_expr_dereference{val, to_type};
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_expr(context_frame& ctx, vm_value callee, vm_callargs values)
 {
     // TODO: support overloaded operator() of non-functions
     if (!typeis< vm_expr_bound_value >(callee))
@@ -1052,19 +1053,23 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     // TODO: Consider omitting the callee if size of type is 0
     if (!typeis< void_value >(callee_value))
     {
-        values.insert(values.begin(), callee_value);
+        values.named.insert({"THIS", callee_value});
     }
 
-    co_return co_await gen_call(ctx, callee_func, values);
+    co_return co_await gen_call(ctx, callee_func, std::move(values));
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call(context_frame& ctx, quxlang::type_symbol callee, std::vector< vm_value > call_args)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call(context_frame& ctx, quxlang::type_symbol callee, vm_callargs call_args)
 {
     call_type call_set;
 
-    for (vm_value const& val : call_args)
+    for (vm_value const& val : call_args.positional)
     {
         call_set.positional_parameters.push_back(vm_value_type(val));
+    }
+    for (auto const& [name, val] : call_args.named)
+    {
+        call_set.named_parameters[name] = vm_value_type(val);
     }
     // TODO: Check if function parameter set already specified.
 
@@ -1085,7 +1090,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     co_return co_await gen_call_functanoid(ctx, selected_overload.value(), call_args);
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_constructor(context_frame& ctx, quxlang::type_symbol type, std::vector< vm_value > values)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_constructor(context_frame& ctx, quxlang::type_symbol type, vm_callargs values)
 {
     // TODO: make default constructing references an error
 
@@ -1093,24 +1098,32 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     std::string val;
 
-    for (auto& i : values)
+    for (auto& i : values.positional)
     {
         val += to_string(i) + " ";
     }
+    // TODO: Why are we using vm_callargs for default constructor???
 
-    if (values.size() != 1)
-    {
-        throw std::runtime_error("Invalid number of arguments to default constructor");
-    }
 
-    auto arg_type = vm_value_type(values.at(0));
+    // TODO: Rewrite this function
+
+    // if (values.size() != 1)
+    // {
+    //    throw std::runtime_error("Invalid number of arguments to default constructor");
+    // }
+
+    assert(values.positional.empty());
+    assert(values.named.size() == 1);
+
+    auto const & thisvalue = values.named.at("THIS");
+    auto arg_type = vm_value_type(thisvalue);
     assert(arg_type == make_mref(type) || arg_type == make_oref(type));
 
     if (is_ptr(type))
     {
         vm_expr_store set_nullptr;
         set_nullptr.type = type;
-        set_nullptr.where = values.at(0);
+        set_nullptr.where = thisvalue;
         set_nullptr.what = vm_expr_load_literal{"NULLPTR", type};
         ctx.push(vm_execute_expression{set_nullptr});
 
@@ -1119,16 +1132,15 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
 
-    auto this_obj = values.at(0);
 
     for (auto const& field : layout.fields)
     {
         vm_expr_access_field access;
         access.type = make_mref(field.type);
-        access.base = this_obj;
+        access.base = thisvalue;
         access.offset = field.offset;
         auto field_constructor = subdotentity_reference{field.type, "CONSTRUCTOR"};
-        co_await gen_call(ctx, field_constructor, {access});
+        co_await gen_call(ctx, field_constructor, {.named={{"THIS", access}}});
     }
 
     co_return void_value();
@@ -1213,13 +1225,13 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
     throw std::runtime_error("No such field");
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, quxlang::type_symbol callee, std::vector< vm_value > call_args)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, quxlang::type_symbol callee, quxlang::vm_callargs call_args)
 {
 
     instanciation_reference const& overload_selected_ref = as< instanciation_reference >(callee);
     std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
 
-    auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters.positional_parameters);
+    auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
     std::optional< vm_value > value_maybe = co_await try_gen_call_functanoid_builtin(ctx, callee, args);
 
     if (value_maybe.has_value())
@@ -1276,11 +1288,10 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 }
 
-rpnx::general_coroutine< quxlang::compiler, std::vector< vm_value > > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< type_symbol > const& to_types)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, quxlang::call_type const& to_types)
 {
     // TODO: Add support for default parameters.
-    std::vector< vm_value > result;
-    assert(values.size() == to_types.size());
+    vm_callargs result;
 
     for (std::size_t i = 0; i < values.size(); i++)
     {

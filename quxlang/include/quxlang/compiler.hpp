@@ -82,6 +82,7 @@
 #include <quxlang/res/template_instanciation.hpp>
 #include <quxlang/res/templex_select_template.hpp>
 #include <quxlang/res/resolvers.hpp>
+#include <quxlang/res/function_builtin.hpp>
 #include <shared_mutex>
 
 // clang-format off
@@ -167,6 +168,7 @@ namespace quxlang
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(function_positional_parameter_names)
+        COMPILER_INDEX(function_builtin)
         COMPILER_INDEX(functum_exists_and_is_callable_with)
         COMPILER_INDEX(functum_instanciation)
         COMPILER_INDEX(functum_select_function)

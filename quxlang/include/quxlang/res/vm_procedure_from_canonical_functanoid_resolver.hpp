@@ -99,12 +99,12 @@ namespace quxlang
             [[nodiscard]] vm_value load_value_as_desctructable(std::size_t index);
 
             [[nodiscard]] vm_value load_variable(std::string name);
-            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > construct_new_variable(std::string name, type_symbol type, std::vector< vm_value > args);
+            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > construct_new_variable(std::string name, type_symbol type, vm_callargs args);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > destroy_value(std::size_t index);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > frame_return(vm_value val);
             [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > frame_return();
             [[nodiscard]] rpnx::general_coroutine< compiler, void > run_value_destructor(std::size_t index);
-            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > run_value_constructor(std::size_t index, std::vector< vm_value > args);
+            [[nodiscard]] rpnx::general_coroutine< compiler, std::monostate > run_value_constructor(std::size_t index, vm_callargs args);
 
             vm_procedure& procedure()
             {
@@ -156,16 +156,16 @@ namespace quxlang
         [[nodiscard]] rpnx::general_coroutine< compiler, void > build(context_frame& ctx, function_block statement);
 
         vm_value gen_conversion_to_integer(context_frame& ctx, vm_expr_literal val, primitive_type_integer_reference to_type);
-        rpnx::general_coroutine< compiler, vm_value > gen_call_expr(context_frame& ctx, vm_value callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_call(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, std::optional< vm_value > > try_gen_call_functanoid_builtin(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_call_functanoid(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
-        rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, type_symbol callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_call_expr(context_frame& ctx, vm_value callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_call(context_frame& ctx, type_symbol callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, std::optional< vm_value > > try_gen_call_functanoid_builtin(context_frame& ctx, type_symbol callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_call_functanoid(context_frame& ctx, type_symbol callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, type_symbol callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, type_symbol callee, vm_callargs values);
 
-        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instanciation_reference const& callee, std::vector< vm_value > values);
+        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instanciation_reference const& callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
-        rpnx::general_coroutine< compiler, std::vector< vm_value > > gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, std::vector< type_symbol > const& to_types);
+        rpnx::general_coroutine< compiler, vm_callargs > gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, call_type const& to_types);
         rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, type_symbol to);
         rpnx::general_coroutine< compiler, vm_value > gen_ref_to_value(context_frame& ctx, vm_value val);
         rpnx::general_coroutine< compiler, vm_value > gen_value_to_ref(context_frame& ctx, vm_value from, type_symbol to_type);

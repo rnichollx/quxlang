@@ -109,7 +109,9 @@ rpnx::general_coroutine< quxlang::compiler, retT> quxlang::classN::nameV argsV
 #define QUX_GETDEP(retnameV, Q, args) auto retnameV ## _dep = get_dependency([&]{ return c->lk_ ## Q args ; }); if (!ready()) return; auto const & retnameV = retnameV ## _dep ->get();
 #define QUX_GETDEP_T(retnameV, Q, args, T) auto retnameV ## _dep = get_dependency([&]{ return c->lk_ ## Q args ; }); if (!ready()) return; T retnameV = retnameV ## _dep ->get();
 
-#define QUX_CO_DEP(depname, args) *c->lk_ ## depname args;
+#define QUX_CO_DEP(depname, args) *c->lk_ ## depname args
+
+#define QUX_CO_ASK(depname, args) (co_await *c->lk_ ## depname args )
 
 #define QUX_CO_GETDEP(retname, depname, args) auto retname = co_await *c->lk_ ## depname args;
 
