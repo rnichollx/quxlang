@@ -17,7 +17,7 @@ namespace quxlang
 
         // TODO: Is this interface needed?
         vm_procedure_interface interface;
-        std::vector< vm_value > arguments;
+        vm_callargs arguments;
 
 
         RPNX_MEMBER_METADATA(vm_invoke, mangled_procedure_name, functanoid, interface, arguments);

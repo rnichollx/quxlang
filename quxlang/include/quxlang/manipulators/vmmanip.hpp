@@ -6,10 +6,10 @@
 #define QUXLANG_VMMANIP_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expr_primitive_op.hpp"
 #include "quxlang/data/vm_expression.hpp"
 #include <boost/variant.hpp>
-#include "quxlang/data/vm_executable_unit.hpp"
 
 namespace quxlang
 {
@@ -33,7 +33,7 @@ namespace quxlang
         {
             bound_function_type_reference result;
             result.function_type = op.function_ref;
-            result.object_type = rpnx::apply_visitor<type_symbol>(vm_value_type_vistor{}, op.value);
+            result.object_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor{}, op.value);
             return result;
         }
 
@@ -90,7 +90,7 @@ namespace quxlang
 
     inline type_symbol vm_value_type(vm_value const& val)
     {
-        return rpnx::apply_visitor<type_symbol>(vm_value_type_vistor{}, val);
+        return rpnx::apply_visitor< type_symbol >(vm_value_type_vistor{}, val);
     }
 
     std::string to_string(vm_value const&);
@@ -144,8 +144,7 @@ namespace quxlang
             return "execute(" + to_string(what.expr) + ")";
         }
 
-
-        std::string operator()(vm_block const & what) const
+        std::string operator()(vm_block const& what) const
         {
             std::string result = "block{";
             for (auto const& i : what.code)
@@ -216,12 +215,13 @@ namespace quxlang
         std::string operator()(vm_invoke const& obj) const
         {
             std::string result = "call<" + to_string(obj.functanoid) + ">[" + obj.mangled_procedure_name + "](";
-            for (int i = 0; i < obj.arguments.size(); i++)
+            for (int i = 0; i < obj.arguments.positional.size(); i++)
             {
                 if (i != 0)
                     result += ", ";
-                result += to_string(obj.arguments[i]);
+                result += to_string(obj.arguments.positional[i]);
             }
+            // TODO: named
             result += ")";
             return result;
         }
@@ -258,11 +258,43 @@ namespace quxlang
 
     inline std::string to_string(vm_value const& val)
     {
-        return rpnx::apply_visitor<std::string>(vm_expression_stringifier{}, val);
+        return rpnx::apply_visitor< std::string >(vm_expression_stringifier{}, val);
     }
     inline std::string to_string(vm_executable_unit const& val)
     {
-        return rpnx::apply_visitor<std::string>(vm_expression_stringifier{}, val);
+        return rpnx::apply_visitor< std::string >(vm_expression_stringifier{}, val);
+    }
+
+    inline std::string to_string(call_type const& val)
+    {
+
+        std::string result;
+
+        result += "CALL_TYPE(";
+        bool first = true;
+        for (auto const& [name, type] : val.named_parameters)
+        {
+            if (!first)
+            {
+                result += ", ";
+            }
+            result += "@" + name + " " + to_string(type);
+            first = false;
+        }
+        for (auto const& type : val.positional_parameters)
+        {
+            if (!first)
+            {
+                result += ", ";
+            }
+
+            auto type_str = to_string(type);
+            assert(!type_str.empty());
+            result += type_str;
+            first = false;
+        }
+        result += ")";
+        return result;
     }
 } // namespace quxlang
 

@@ -62,9 +62,10 @@ namespace quxlang
     struct function_overload
     {
         call_type call_parameters;
+        bool builtin;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(function_overload, call_parameters, priority);
+        RPNX_MEMBER_METADATA(function_overload, call_parameters, builtin, priority);
     };
 
     struct void_type

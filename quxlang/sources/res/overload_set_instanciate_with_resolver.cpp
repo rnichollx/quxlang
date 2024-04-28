@@ -29,7 +29,43 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         co_return std::nullopt;
     }
 
+    if (os.call_parameters.named_parameters.size() != args.named_parameters.size())
+    {
+        co_return std::nullopt;
+    }
+
     std::vector< quxlang::compiler::out< bool > > convertibles_dp;
+
+
+    for (auto const & [name, type] : args.named_parameters)
+    {
+        auto it = os.call_parameters.named_parameters.find(name);
+        if (it == os.call_parameters.named_parameters.end())
+        {
+            co_return std::nullopt;
+        }
+
+        auto arg_type = type;
+        auto param_type = it->second;
+
+        if (is_template(param_type))
+        {
+            auto match = match_template(param_type, arg_type);
+            if (match.has_value())
+            {
+                continue;
+            }
+            else
+            {
+                co_return std::nullopt;
+            }
+        }
+        else
+        {
+            convertibles_dp.push_back(c->lk_canonical_type_is_implicitly_convertible_to(std::make_pair(arg_type, param_type)));
+            add_co_dependency(convertibles_dp.back());
+        }
+    }
 
     for (int i = 0; i < os.call_parameters.positional_parameters.size(); i++)
     {
@@ -63,6 +99,48 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
     call_type result;
 
     std::optional< call_type > result_opt;
+
+    for (auto & dp : convertibles_dp)
+    {
+        auto is_convertible = co_await *dp;
+        if (is_convertible == false)
+        {
+            co_return std::nullopt;
+        }
+    }
+
+    for (auto const & [name, type] : args.named_parameters)
+    {
+        auto it = os.call_parameters.named_parameters.find(name);
+        if (it == os.call_parameters.named_parameters.end())
+        {
+            co_return std::nullopt;
+        }
+
+        auto arg_type = type;
+        auto param_type = it->second;
+
+        if (is_template(param_type))
+        {
+            auto match = match_template(param_type, arg_type);
+            assert(match); // checked already above
+
+            result.named_parameters[name] = std::move(match.value().type);
+        }
+        else
+        {
+            auto dp = convertibles_dp.back();
+            convertibles_dp.pop_back();
+            auto arg_is_convertible = co_await *dp;
+
+            if (arg_is_convertible == false)
+            {
+                co_return std::nullopt;
+            }
+
+            result.named_parameters[name] = param_type;
+        }
+    }
 
     for (std::size_t i = 0; i < args.positional_parameters.size(); i++)
     {

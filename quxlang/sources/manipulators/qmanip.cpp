@@ -7,7 +7,6 @@
 namespace quxlang
 {
 
-
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {
         std::string operator()(context_reference const& ref) const;
@@ -35,18 +34,36 @@ namespace quxlang
         qualified_symbol_stringifier() = default;
     };
 
-
-
     std::string to_string(call_type const& ref)
     {
-        std::string result = "call_os(";
+        std::string result = "call_type(";
+        bool first = true;
+        for (auto const& [name, type] : ref.named_parameters)
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                result += ", ";
+            }
+            result += "@" + name + " " + to_string(type);
+        }
         for (std::size_t i = 0; i < ref.positional_parameters.size(); i++)
         {
-            if (i != 0)
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
                 result += ", ";
-            result += to_string(ref.positional_parameters.at(i));
+            }
+            auto typestr = to_string(ref.positional_parameters.at(i));
+            assert(!typestr.empty());
+            result += typestr;
         }
-        // TODO: named parameters
         result += ")";
 
         return result;
@@ -169,7 +186,7 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref)
     {
-        return rpnx::apply_visitor<bool>(is_template_visitor{}, ref);
+        return rpnx::apply_visitor< bool >(is_template_visitor{}, ref);
     }
 
     std::optional< type_symbol > qualified_parent(type_symbol input)
@@ -185,6 +202,10 @@ namespace quxlang
         else if (input.type() == boost::typeindex::type_id< instanciation_reference >())
         {
             return as< instanciation_reference >(input).callee;
+        }
+        else if (input.type() == boost::typeindex::type_id< selection_reference >())
+        {
+            return as< selection_reference >(input).callee;
         }
         else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
@@ -232,39 +253,46 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(instance_pointer_type const& ref) const
     {
-        return "->" + rpnx::apply_visitor<std::string>(*this, ref.target);
+        return "->" + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@(";
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@(";
         bool first = true;
+        for (auto const & [name, type] : ref.parameters.named_parameters)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + name + " " + to_string(type);
+        }
         for (auto& p : ref.parameters.positional_parameters)
         {
             if (first)
                 first = false;
             else
                 output += ", ";
-            output += rpnx::apply_visitor<std::string>(*this, p);
+            output += rpnx::apply_visitor< std::string >(*this, p);
         }
-        // TODO: Named parameters here
         output += ")";
         return output;
     }
     std::string qualified_symbol_stringifier::operator()(mvalue_reference const& ref) const
     {
-        return "MUT& " + rpnx::apply_visitor<std::string>(*this, ref.target);
+        return "MUT& " + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(tvalue_reference const& ref) const
     {
-        return "TEMP& " + rpnx::apply_visitor<std::string>(*this, ref.target);
+        return "TEMP& " + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(cvalue_reference const& ref) const
     {
-        return "CONST& " + rpnx::apply_visitor<std::string>(*this, ref.target);
+        return "CONST& " + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(ovalue_reference const& ref) const
     {
-        return "OUT&" + rpnx::apply_visitor<std::string>(*this, ref.target);
+        return "OUT&" + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
     {
@@ -311,18 +339,17 @@ namespace quxlang
         return "T(" + val.name + ")";
     }
 
-    std::string qualified_symbol_stringifier::operator()(function_arg const&ref) const
+    std::string qualified_symbol_stringifier::operator()(function_arg const& ref) const
     {
         return "TODO";
         // TODO: implement this
     }
 
-
-    std::string qualified_symbol_stringifier::operator()(selection_reference const&ref) const
+    std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor<std::string>(*this, ref.callee) + "@[";
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@[";
         bool first = true;
-        for (auto const & arg : ref.overload.call_parameters.named_parameters)
+        for (auto const& arg : ref.overload.call_parameters.named_parameters)
         {
             if (first)
                 first = false;
@@ -330,7 +357,7 @@ namespace quxlang
                 output += ", ";
             output += "@" + arg.first + " " + to_string(arg.second);
         }
-        for (auto const & arg : ref.overload.call_parameters.positional_parameters)
+        for (auto const& arg : ref.overload.call_parameters.positional_parameters)
         {
             if (first)
                 first = false;
@@ -502,7 +529,7 @@ namespace quxlang
     }
     std::string to_string(type_symbol const& ref)
     {
-        return rpnx::apply_visitor<std::string>(qualified_symbol_stringifier{}, ref);
+        return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
     }
 
 } // namespace quxlang

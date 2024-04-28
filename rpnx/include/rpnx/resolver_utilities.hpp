@@ -1126,6 +1126,40 @@ namespace rpnx
             {
             }
 
+            template < typename R2 >
+            auto& await_transform(general_coroutine< Graph, R2 >& cr)
+            {
+                return cr;
+            }
+
+            template < typename R2 >
+            auto& await_transform(general_coroutine< Graph, R2 >&& cr)
+            {
+                return cr;
+            }
+
+            template < typename R2 >
+            auto& await_transform(resolver_base< Graph, R2 >& cr)
+            {
+                assert(this->cr->owning_node != nullptr);
+                this->cr->owning_node->add_dependency(&cr);
+                return cr;
+            }
+
+             template < typename R2 >
+            auto& await_transform(resolver_base< Graph, R2 >&& cr)
+            {
+                this->cr->owning_node->add_dependency(&cr);
+                return cr;
+            }
+
+            template < typename R2 >
+            auto& await_transform(resolver_base< Graph, R2 > const& cr)
+            {
+                this->cr->owning_node->add_dependency(&cr);
+                return cr;
+            }
+
             general_coroutine< Graph, Result >& get_coroutine() const
             {
                 assert(cr);
@@ -1579,6 +1613,30 @@ namespace rpnx
             promise_type(promise_type const&) = delete;
             using coroutine_type = resolver_coroutine< Graph, Result >;
             resolver_coroutine* cr;
+
+            template < typename R2 >
+            auto & await_transform(resolver_base< Graph, R2 >& n)
+            {
+                this->cr->add_dependency(&n);
+                return n;
+            }
+
+            template < typename R2 >
+            auto & await_transform(general_coroutine< Graph, R2 >& n)
+            {
+                return n;
+            }
+            template < typename R2 >
+            auto & await_transform(general_coroutine< Graph, R2 >&& n)
+            {
+                return n;
+            }
+
+            template < typename R2 >
+            auto & await_transform(general_coroutine< Graph, R2 > const & n)
+            {
+                return n;
+            }
 
             auto get_return_object()
             {

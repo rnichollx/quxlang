@@ -17,7 +17,7 @@ namespace quxlang
     {
         // TODO: replace with call_type
         std::optional< type_symbol > return_type;
-        std::vector< type_symbol > argument_types;
+        call_type argument_types;
 
         RPNX_MEMBER_METADATA(vm_procedure_interface, return_type, argument_types);
     };

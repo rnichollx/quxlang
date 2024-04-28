@@ -631,7 +631,11 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
         std::string call_expr_str = to_string(call);
 
         std::vector< llvm::Value* > args;
-        for (auto arg : call.arguments)
+        for (auto arg : call.arguments.named)
+        {
+           args.push_back(get_llvm_value(context, builder, frame, arg.second));
+        }
+        for (auto arg : call.arguments.positional)
         {
             args.push_back(get_llvm_value(context, builder, frame, arg));
         }

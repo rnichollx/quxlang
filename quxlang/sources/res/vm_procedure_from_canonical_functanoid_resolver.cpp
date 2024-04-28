@@ -1104,7 +1104,6 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
     // TODO: Why are we using vm_callargs for default constructor???
 
-
     // TODO: Rewrite this function
 
     // if (values.size() != 1)
@@ -1115,7 +1114,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     assert(values.positional.empty());
     assert(values.named.size() == 1);
 
-    auto const & thisvalue = values.named.at("THIS");
+    auto const& thisvalue = values.named.at("THIS");
     auto arg_type = vm_value_type(thisvalue);
     assert(arg_type == make_mref(type) || arg_type == make_oref(type));
 
@@ -1132,7 +1131,6 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
 
-
     for (auto const& field : layout.fields)
     {
         vm_expr_access_field access;
@@ -1140,7 +1138,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
         access.base = thisvalue;
         access.offset = field.offset;
         auto field_constructor = subdotentity_reference{field.type, "CONSTRUCTOR"};
-        co_await gen_call(ctx, field_constructor, {.named={{"THIS", access}}});
+        co_await gen_call(ctx, field_constructor, {.named = {{"THIS", access}}});
     }
 
     co_return void_value();
@@ -1242,7 +1240,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     co_return co_await gen_invoke(ctx, overload_selected_ref, std::move(args));
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instanciation_reference const& overload_selected_ref, std::vector< vm_value > call_args)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instanciation_reference const& overload_selected_ref, vm_callargs call_args)
 {
 
     vm_invoke call;
@@ -1288,20 +1286,27 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, std::vector< vm_value > values, quxlang::call_type const& to_types)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, quxlang::call_type const& to_types)
 {
     // TODO: Add support for default parameters.
     vm_callargs result;
 
-    for (std::size_t i = 0; i < values.size(); i++)
+    std::string dbg_to_types = quxlang::to_string(to_types);
+
+    for (auto const& [name, val] : values.named)
     {
-        auto converted_value = co_await gen_implicit_conversion(ctx, values.at(i), to_types.at(i));
-        result.push_back(converted_value);
+        auto converted_value = co_await gen_implicit_conversion(ctx, val, to_types.named_parameters.at(name));
+        result.named[name] = converted_value;
+    }
+    for (std::size_t i = 0; i < values.positional.size(); i++)
+    {
+        auto converted_value = co_await gen_implicit_conversion(ctx, values.positional.at(i), to_types.positional_parameters.at(i));
+        result.positional.push_back(converted_value);
     }
     co_return result;
 }
 
-rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > > quxlang::vm_procedure_from_canonical_functanoid_resolver::try_gen_call_functanoid_builtin(context_frame& ctx, quxlang::type_symbol callee_set, std::vector< vm_value > values)
+rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > > quxlang::vm_procedure_from_canonical_functanoid_resolver::try_gen_call_functanoid_builtin(context_frame& ctx, quxlang::type_symbol callee_set, vm_callargs values)
 {
     assert(typeis< instanciation_reference >(callee_set));
 
@@ -1312,19 +1317,20 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
         subdotentity_reference const& subdot = as< subdotentity_reference >(callee);
         type_symbol parent_type = subdot.parent;
 
-        assert(!values.empty());
+        //assert(!values.empty());
 
         if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
         {
             primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
-            if (values.size() != 2)
-            {
-                throw std::runtime_error("Invalid number of arguments to integer operator");
-            }
+            //if (values.size() != 2)
+           // {
+           //     throw std::runtime_error("Invalid number of arguments to integer operator");
+            //}
 
-            vm_value lhs = values[0];
-            vm_value rhs = values[1];
+            vm_value lhs = values.named.at("THIS");
+            vm_value rhs = values.positional.at(1);
+            // TODO: Use "other" instead?
 
             bool is_rhs = false;
 
@@ -1362,17 +1368,18 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
             primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
             // Can't call this... not possible
-            if (values.empty())
-            {
-                throw std::runtime_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
-            }
+            //if (values.empty())
+            //{
+            //    throw std::runtime_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
+            //}
+            // TODO: Make asserts
 
-            if (values.size() > 2)
-            {
-                throw std::runtime_error("Invalid number of arguments to integer constructor");
-            }
+            //if (values.size() > 2)
+            //{
+            //    throw std::runtime_error("Invalid number of arguments to integer constructor");
+            //}
 
-            vm_value arg = values[0];
+            vm_value arg = values.named.at("THIS");
 
             type_symbol arg_type = vm_value_type(arg);
 
@@ -1387,7 +1394,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
             }
 
-            if (values.size() == 1)
+            if (values.named.size() == 1 && values.positional.empty())
             {
                 // default constructor
                 vm_expr_store initalizer;
@@ -1399,11 +1406,11 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 co_return void_value{};
             }
 
-            else if (values.size() == 2)
+            else if (values.named.size() == 1 && values.positional.size() == 1)
             {
                 // copy constructor
                 vm_expr_store initalizer;
-                vm_value arg_to_copy = values.at(1);
+                vm_value arg_to_copy = values.positional.at(0);
                 type_symbol arg_copy_type = vm_value_type(arg_to_copy);
                 // TODO: conversion to integer?
                 if (arg_copy_type != remove_ref(arg_type))
@@ -1418,7 +1425,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 co_return void_value{};
             }
         }
-        else if (subdot.subdotentity_name == "CONSTRUCTOR" && values.size() == 1)
+        else if (subdot.subdotentity_name == "CONSTRUCTOR" && values.named.size() == 1 && values.positional.size() == 0)
         {
             // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
             auto should_autogen = co_await *ctx.get_compiler()->lk_class_should_autogen_default_constructor(parent_type);
@@ -1480,25 +1487,25 @@ rpnx::general_coroutine< compiler, void > quxlang::vm_procedure_from_canonical_f
     co_return;
 }
 
-rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_destructor(context_frame& ctx, quxlang::type_symbol type, std::vector< vm_value > values)
+rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_default_destructor(context_frame& ctx, quxlang::type_symbol type, vm_callargs values)
 {
     // TODO: make default constructing references an error
     std::string typestr = to_string(type);
     // assert(!is_ref(type));
 
-    if (values.size() != 1)
+    if (values.named.size() != 1)
     {
         throw std::runtime_error("Invalid number of arguments to default constructor");
     }
 
-    auto arg_type = vm_value_type(values.at(0));
+    auto arg_type = vm_value_type(values.named.at("THIS"));
     assert(arg_type == make_mref(type) || arg_type == make_oref(type));
 
     if (is_ptr(type) || is_primitive(type) || is_ref(type))
     {
         vm_expr_store set_poison;
         set_poison.type = type;
-        set_poison.where = values.at(0);
+        set_poison.where = values.named.at("THIS");
         set_poison.what = vm_expr_poison{type};
         ctx.push(vm_execute_expression{set_poison});
 
@@ -1507,7 +1514,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
 
     class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
 
-    vm_value this_obj = values.at(0);
+    vm_value this_obj = values.positional.at(0);
 
     for (auto const& field : layout.fields)
     {
@@ -1520,7 +1527,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
 
         auto field_destructor = subdotentity_reference{field.type, "DESTRUCTOR"};
 
-        co_await gen_call(ctx, field_destructor, {access});
+        co_await gen_call(ctx, field_destructor, {.named = {{"THIS", access}}});
     }
 
     co_return void_value();
