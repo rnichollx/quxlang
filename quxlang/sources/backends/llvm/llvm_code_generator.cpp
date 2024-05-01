@@ -137,7 +137,13 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
     std::vector< llvm::Type* > func_llvm_arg_types;
 
-    for (auto arg_type : vmf.interface.argument_types)
+
+    for (auto const & [name, type] : vmf.interface.argument_types.named_parameters)
+    {
+        func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, type));
+    }
+
+    for (auto arg_type : vmf.interface.argument_types.positional_parameters)
     {
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
@@ -432,7 +438,27 @@ void quxlang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context,
         frame.values.push_back(item);
     }
 
-    for (auto arg_type : procedure.interface.argument_types)
+    for (auto const & [name, arg_type] : procedure.interface.argument_types.named_parameters)
+    {
+        assert(arg_it != arg_end);
+        llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
+        llvm::Value* arg_value = &*arg_it;
+
+        llvm::Align arg_align = llvm::Align(vm_type_alignment(arg_type));
+        llvm::Value* one_value = llvm::ConstantInt::get(context, llvm::APInt(64, 1));
+
+        llvm::AllocaInst* alloca = builder.CreateAlloca(arg_llvm_type, 0, one_value);
+        vm_llvm_frame_item item;
+        item.type = arg_llvm_type;
+        item.get_address = alloca;
+        item.align = arg_align;
+        frame.values.push_back(item);
+        // store the value in the alloca
+        builder.CreateAlignedStore(arg_value, alloca, arg_align);
+        arg_it++;
+    }
+
+    for (auto arg_type : procedure.interface.argument_types.positional_parameters)
     {
         assert(arg_it != arg_end);
         llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
@@ -726,7 +752,11 @@ llvm::FunctionType* quxlang::llvm_code_generator::get_llvm_type_from_func_interf
 {
     std::vector< llvm::Type* > arg_types;
     llvm::Type* return_type{};
-    for (auto arg_type : ifc.argument_types)
+    for (auto [name, arg_type] : ifc.argument_types.named_parameters)
+    {
+        arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
+    }
+    for (auto arg_type : ifc.argument_types.positional_parameters)
     {
         arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }

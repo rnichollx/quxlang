@@ -5,6 +5,7 @@
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 
 #include "quxlang/data/vm_generation_frameinfo.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/manipulators/vmmanip.hpp"
@@ -505,9 +506,13 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         throw std::logic_error("something wrong this should not be possible");
     }
 
+    std::string dbg_func_name = quxlang::to_string(func_name);
+
     ast2_function_declaration function_ast_v = (co_await QUX_CO_DEP(function_declaration, (sel.value()))).value();
 
-    type_symbol functum_reference = func_name.callee;
+    type_symbol functum_reference = sel->callee;
+
+    std::string dbg_functum_reference_name = quxlang::to_string(functum_reference);
 
     bool is_member = false;
 
@@ -558,6 +563,8 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         std::vector< std::string > param_names = co_await QUX_CO_DEP(function_positional_parameter_names, (sel.value()));
 
+        vm_proc.interface.argument_types = insta->parameters;
+
         for (auto const& param : insta->parameters.named_parameters)
         {
             std::string name = param.first;
@@ -583,7 +590,6 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             frame.blocks.back().variable_lookup_index[arg_name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
-            vm_proc.interface.argument_types.push_back(arg_type);
         }
 
         for (std::size_t i = 0; i < insta->parameters.positional_parameters.size(); i++)
@@ -612,7 +618,6 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             frame.blocks.back().variable_lookup_index[arg_name] = frame.variables.size() - 1;
             frame.blocks.back().value_states[frame.variables.size() - 1].alive = true;
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
-            vm_proc.interface.argument_types.push_back(arg_type);
 
             // TODO: Maybe consider adding ctx.add_argument instead of doing this inside this function
         }
@@ -1227,14 +1232,23 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 {
 
     instanciation_reference const& overload_selected_ref = as< instanciation_reference >(callee);
-    std::string overload_string = to_string(callee) + "  " + to_string(overload_selected_ref);
+    std::string overload_string = to_string(callee);
 
     auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
-    std::optional< vm_value > value_maybe = co_await try_gen_call_functanoid_builtin(ctx, callee, args);
 
-    if (value_maybe.has_value())
+    auto selected_ref = co_await *ctx.get_compiler()->lk_functum_select_function(overload_selected_ref);
+    if (selected_ref.value().overload.builtin)
     {
-        co_return value_maybe.value();
+        std::optional< vm_value > value_maybe = co_await try_gen_call_functanoid_builtin(ctx, callee, args);
+
+        if (value_maybe.has_value())
+        {
+            co_return value_maybe.value();
+        }
+        else
+        {
+            throw std::logic_error("Failed to generate call for builtin function");
+        }
     }
 
     co_return co_await gen_invoke(ctx, overload_selected_ref, std::move(args));
@@ -1252,7 +1266,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     call.functanoid = overload_selected_ref;
 
     call.interface = vm_procedure_interface{};
-    call.interface.argument_types = overload_selected_ref.parameters.positional_parameters;
+    call.interface.argument_types = overload_selected_ref.parameters;
 
     auto return_type = co_await *ctx.get_compiler()->lk_functanoid_return_type(overload_selected_ref);
 
@@ -1312,24 +1326,28 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
     auto callee = as< instanciation_reference >(callee_set).callee;
 
-    if (typeis< subdotentity_reference >(callee))
+    auto functum_ref = as< selection_reference >(callee).callee;
+
+    std::string dbg_callee = to_string(callee);
+
+    if (typeis< subdotentity_reference >(functum_ref))
     {
-        subdotentity_reference const& subdot = as< subdotentity_reference >(callee);
+        subdotentity_reference const& subdot = as< subdotentity_reference >(functum_ref);
         type_symbol parent_type = subdot.parent;
 
-        //assert(!values.empty());
+        // assert(!values.empty());
 
         if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
         {
             primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
-            //if (values.size() != 2)
-           // {
-           //     throw std::runtime_error("Invalid number of arguments to integer operator");
+            // if (values.size() != 2)
+            // {
+            //     throw std::runtime_error("Invalid number of arguments to integer operator");
             //}
 
             vm_value lhs = values.named.at("THIS");
-            vm_value rhs = values.positional.at(1);
+            vm_value rhs = values.positional.at(0);
             // TODO: Use "other" instead?
 
             bool is_rhs = false;
@@ -1368,16 +1386,16 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
             primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
 
             // Can't call this... not possible
-            //if (values.empty())
+            // if (values.empty())
             //{
             //    throw std::runtime_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
             //}
             // TODO: Make asserts
 
-            //if (values.size() > 2)
+            // if (values.size() > 2)
             //{
-            //    throw std::runtime_error("Invalid number of arguments to integer constructor");
-            //}
+            //     throw std::runtime_error("Invalid number of arguments to integer constructor");
+            // }
 
             vm_value arg = values.named.at("THIS");
 
@@ -1432,7 +1450,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             if (!should_autogen)
             {
-                co_return std::nullopt;
+                throw std::logic_error("Not a builtin function");
             }
 
             co_return co_await gen_default_constructor(ctx, parent_type, values);
@@ -1460,7 +1478,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
         }
     }
 
-    co_return std::nullopt;
+    throw std::logic_error("Unimplemented builtin function");
 }
 
 quxlang::vm_value quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_conversion_to_integer(context_frame& ctx, quxlang::vm_expr_literal val, quxlang::primitive_type_integer_reference to_type)

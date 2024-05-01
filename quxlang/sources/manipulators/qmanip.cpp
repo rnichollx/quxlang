@@ -259,7 +259,7 @@ namespace quxlang
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@(";
         bool first = true;
-        for (auto const & [name, type] : ref.parameters.named_parameters)
+        for (auto const& [name, type] : ref.parameters.named_parameters)
         {
             if (first)
                 first = false;
@@ -349,6 +349,10 @@ namespace quxlang
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@[";
         bool first = true;
+        if (ref.overload.builtin)
+        {
+            output += "BUILTIN; ";
+        }
         for (auto const& arg : ref.overload.call_parameters.named_parameters)
         {
             if (first)
