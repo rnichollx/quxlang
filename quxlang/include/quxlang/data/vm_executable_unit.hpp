@@ -36,7 +36,6 @@ namespace quxlang
 
     struct vm_return
     {
-
         RPNX_MEMBER_METADATA(vm_return)
     };
 
@@ -57,7 +56,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(vm_enable_storage, index);
     };
 
-    using vm_executable_unit = rpnx::variant< vm_store, vm_execute_expression, vm_block, vm_return, vm_if, vm_while, vm_disable_storage, vm_enable_storage >;
+    using vm_executable_unit = rpnx::variant< vm_store, vm_invoke, vm_execute_expression, vm_block, vm_return, vm_if, vm_while, vm_disable_storage, vm_enable_storage >;
 
     struct vm_block
     {

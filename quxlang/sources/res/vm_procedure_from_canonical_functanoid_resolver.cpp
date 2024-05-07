@@ -477,8 +477,12 @@ namespace quxlang
         // std::cout << "Set return value: " << to_string(val) << std::endl;
         assert(m_frame.blocks.back().value_states[0].alive == false);
 
+
+
         co_await run_value_constructor(0, {.positional = {std::move(val)}});
         set_value_alive(0);
+
+        rpnx::unimplemented();
         co_return {};
     }
 } // namespace quxlang
@@ -1280,22 +1284,28 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     assert(call.mangled_procedure_name != "");
 
     ctx.procedure().invoked_functanoids.insert(overload_selected_ref);
+
     if (call.interface.return_type.has_value())
     {
         auto temp_index = co_await ctx.create_temporary_storage(call.interface.return_type.value());
 
         auto tempval = ctx.load_temporary_as_new(temp_index);
-        vm_store call_result;
-        call_result.type = call.interface.return_type.value();
-        call_result.where = tempval;
-        call_result.what = std::move(call);
-        ctx.push(call_result);
+        //vm_store call_result;
+        //call_result.type = call.interface.return_type.value();
+        //call_result.where = tempval;
+
+        bool return_via_pointer = true;
+        // TODO: Return other ways;
+
+        call.arguments.named.insert({"RESULT", tempval});
+       // call_result.what = std::move(call);
+        ctx.push(call);
         ctx.set_value_alive(temp_index);
         co_return ctx.load_temporary(temp_index);
     }
     else
     {
-        ctx.push(vm_execute_expression{call});
+        ctx.push(call);
         co_return void_value();
     }
 }

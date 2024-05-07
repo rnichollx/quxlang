@@ -137,8 +137,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
     std::vector< llvm::Type* > func_llvm_arg_types;
 
-
-    for (auto const & [name, type] : vmf.interface.argument_types.named_parameters)
+    for (auto const& [name, type] : vmf.interface.argument_types.named_parameters)
     {
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, type));
     }
@@ -289,27 +288,9 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
         }
         else if (ex.type() == boost::typeindex::type_id< vm_return >())
         {
-            // std::cout << " handle vm return " << std::endl;
-            quxlang::vm_return ret = as< quxlang::vm_return >(ex);
 
-            if (vmf.interface.return_type.has_value())
-            {
-                // TODO: support void return
-                llvm::IRBuilder<> builder(p_block);
-
-                llvm::Align ret_align = frame.values.at(0).align;
-                llvm::Value* ret_val_reference = frame.values.at(0).get_address;
-                llvm::Type* ret_type = frame.values.at(0).type;
-                llvm::Value* ret_val = builder.CreateAlignedLoad(ret_type, ret_val_reference, ret_align);
-                // get a true value
-
-                builder.CreateRet(ret_val);
-            }
-            else
-            {
-                llvm::IRBuilder<> builder(p_block);
-                builder.CreateRetVoid();
-            }
+            llvm::IRBuilder<> builder(p_block);
+            builder.CreateRetVoid();
             return false;
         }
         else if (typeis< vm_execute_expression >(ex))
@@ -396,6 +377,34 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
 
             p_block = after_block;
         }
+        else if (typeis< vm_invoke >(ex))
+        {
+            quxlang::vm_invoke const& call = as< quxlang::vm_invoke >(ex);
+            llvm::IRBuilder<> builder(p_block);
+
+            std::string call_expr_str = to_string(call);
+
+            std::vector< llvm::Value* > args;
+            for (auto arg : call.arguments.named)
+            {
+                args.push_back(get_llvm_value(context, builder, frame, arg.second));
+            }
+            for (auto arg : call.arguments.positional)
+            {
+                args.push_back(get_llvm_value(context, builder, frame, arg));
+            }
+
+            QUXLANG_DEBUG({ std::cout << "mangled name: " << call.mangled_procedure_name << std::endl; });
+
+            llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
+            llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
+
+            externalFunction->setDSOLocal(true);
+
+            // TODO: Add stack unwinding support
+            return builder.CreateCall(externalFunction, args);
+        }
+
         else
         {
             rpnx::unimplemented();
@@ -438,7 +447,7 @@ void quxlang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context,
         frame.values.push_back(item);
     }
 
-    for (auto const & [name, arg_type] : procedure.interface.argument_types.named_parameters)
+    for (auto const& [name, arg_type] : procedure.interface.argument_types.named_parameters)
     {
         assert(arg_it != arg_end);
         llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
@@ -648,34 +657,6 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
         result = builder.CreateAlignedStore(rhs, lhs, llvm::Align(vm_type_alignment(underlying_type)));
         return result;
     }
-    else if (typeis< vm_invoke >(value))
-    {
-        quxlang::vm_invoke const& call = as< quxlang::vm_invoke >(value);
-
-        // TODO: Implement this
-
-        std::string call_expr_str = to_string(call);
-
-        std::vector< llvm::Value* > args;
-        for (auto arg : call.arguments.named)
-        {
-           args.push_back(get_llvm_value(context, builder, frame, arg.second));
-        }
-        for (auto arg : call.arguments.positional)
-        {
-            args.push_back(get_llvm_value(context, builder, frame, arg));
-        }
-
-        QUXLANG_DEBUG({ std::cout << "mangled name: " << call.mangled_procedure_name << std::endl; });
-
-        llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
-        llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
-
-        externalFunction->setDSOLocal(true);
-
-        // TODO: Add stack unwinding support
-        return builder.CreateCall(externalFunction, args);
-    }
     else if (typeis< vm_expr_load_literal >(value))
     {
         vm_expr_load_literal lit = as< vm_expr_load_literal >(value);
@@ -752,6 +733,16 @@ llvm::FunctionType* quxlang::llvm_code_generator::get_llvm_type_from_func_interf
 {
     std::vector< llvm::Type* > arg_types;
     llvm::Type* return_type{};
+
+    // TODO: Support non-void llvm return types for types which are trivially relocatable.
+
+    if (ifc.return_type.has_value())
+    {
+        return_type = get_llvm_type_from_vm_type(context, ifc.return_type.value());
+        auto ptr_to_ret_type = llvm::PointerType::get(return_type, 0);
+        arg_types.push_back(ptr_to_ret_type);
+    }
+
     for (auto [name, arg_type] : ifc.argument_types.named_parameters)
     {
         arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
@@ -760,16 +751,8 @@ llvm::FunctionType* quxlang::llvm_code_generator::get_llvm_type_from_func_interf
     {
         arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
-    if (ifc.return_type.has_value())
-    {
-        return_type = get_llvm_type_from_vm_type(context, ifc.return_type.value());
-    }
-    else
-    {
-        return_type = llvm::Type::getVoidTy(context);
-    }
 
-    return llvm::FunctionType::get(return_type, arg_types, false);
+    return llvm::FunctionType::get(llvm::Type::getVoidTy(context), arg_types, false);
 }
 
 llvm::Type* quxlang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& context)
