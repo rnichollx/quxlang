@@ -10,12 +10,12 @@
 
 namespace quxlang
 {
-    struct vm_expr_load_address
+    struct vm_expr_load_reference
     {
         std::size_t index;
         type_symbol type;
 
-        RPNX_MEMBER_METADATA(vm_expr_load_address, index, type);
+        RPNX_MEMBER_METADATA(vm_expr_load_reference, index, type);
     };
 } // namespace quxlang
 

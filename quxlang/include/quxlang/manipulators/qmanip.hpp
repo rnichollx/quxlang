@@ -14,12 +14,9 @@ namespace quxlang
 
     std::string to_string(type_symbol const& ref);
 
-
-
-
+    bool is_ref(type_symbol type);
 
     bool is_template(type_symbol const& ref);
-
 
     struct template_match_results
     {
@@ -51,8 +48,22 @@ namespace quxlang
 
     std::string to_string(type_symbol const& ref);
 
-
-
+    // Gets the type of
+    inline type_symbol load_type(type_symbol t)
+    {
+        // When loading a reference like a or b, there are two cases,
+        // case 1 is that it is a reference, then we load the value as-is,
+        // case 2 is that it is a value, then we load the value as a reference.
+        // for case 2, that should be a mutable reference.
+        if (!is_ref(t))
+        {
+            return make_mref(t);
+        }
+        else
+        {
+            return t;
+        }
+    }
 
     inline type_symbol make_mref(type_symbol ref)
     {
@@ -62,7 +73,7 @@ namespace quxlang
         }
         else if (typeis< tvalue_reference >(ref))
         {
-            return mvalue_reference{ref.template get_as<tvalue_reference>().target};
+            return mvalue_reference{ref.template get_as< tvalue_reference >().target};
         }
         else if (typeis< cvalue_reference >(ref))
         {
@@ -70,7 +81,7 @@ namespace quxlang
         }
         else if (typeis< ovalue_reference >(ref))
         {
-            return mvalue_reference{ref.get_as<ovalue_reference>().target};
+            return mvalue_reference{ref.get_as< ovalue_reference >().target};
         }
         else
         {
@@ -82,7 +93,7 @@ namespace quxlang
     {
         if (typeis< mvalue_reference >(ref))
         {
-            return ovalue_reference{ref.get_as<mvalue_reference>().target};
+            return ovalue_reference{ref.get_as< mvalue_reference >().target};
         }
         else if (typeis< tvalue_reference >(ref))
         {

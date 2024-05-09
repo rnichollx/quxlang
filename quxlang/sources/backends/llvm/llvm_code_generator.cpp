@@ -518,9 +518,9 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
 
     // std::cout << "Gen llvm value for: " << quxlang::to_string(value) << std::endl;
 
-    if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_load_address >())
+    if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_load_reference >())
     {
-        quxlang::vm_expr_load_address lea = as< quxlang::vm_expr_load_address >(value);
+        quxlang::vm_expr_load_reference lea = as< quxlang::vm_expr_load_reference >(value);
         llvm::Value* addr = frame.values.at(lea.index).get_address;
         assert(addr != nullptr);
         return addr;

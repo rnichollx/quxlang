@@ -280,10 +280,10 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(vm_expr_load_address const& field)
+        std::string operator()(vm_expr_load_reference const& field)
         {
             std::string result;
-            result = "vm_expr_load_address{\n";
+            result = "vm_expr_load_reference{\n";
             current_indent++;
             result += indent_string();
             result += "type: ";

@@ -41,7 +41,7 @@ namespace quxlang
         {
             return op.type;
         }
-        type_symbol operator()(vm_expr_load_address const& op) const
+        type_symbol operator()(vm_expr_load_reference const& op) const
         {
             return op.type;
         }
@@ -170,7 +170,7 @@ namespace quxlang
             return "deref_expr<" + to_string(what.type) + ">(expr=" + to_string(what.expr) + ")";
         }
 
-        std::string operator()(vm_expr_load_address what) const
+        std::string operator()(vm_expr_load_reference what) const
         {
             return "load_addr<" + to_string(what.type) + ">(" + std::to_string(what.index) + ")";
         }

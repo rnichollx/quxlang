@@ -127,7 +127,7 @@ namespace quxlang
             return std::nullopt;
         }
         auto index = pos->second;
-        vm_expr_load_address load;
+        vm_expr_load_reference load;
         load.index = index;
         auto vartype = m_frame.variables.at(index).type;
 
@@ -244,7 +244,7 @@ namespace quxlang
         var.is_temporary = temp;
         var.storage = storage;
         assert(var.storage.valid());
-        vm_expr_load_address load;
+        vm_expr_load_reference load;
         if (temp)
         {
             load.type = make_tref(type);
@@ -293,7 +293,7 @@ namespace quxlang
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_value(std::size_t index, bool alive, bool temp)
     {
         auto th = this;
-        vm_expr_load_address load;
+        vm_expr_load_reference load;
         load.index = index;
         auto vartype = m_frame.variables.at(index).type;
 
@@ -449,7 +449,7 @@ namespace quxlang
     vm_value vm_procedure_from_canonical_functanoid_resolver::context_frame::load_value_as_desctructable(std::size_t index)
     {
         bool alive = true;
-        vm_expr_load_address load;
+        vm_expr_load_reference load;
         load.index = index;
         auto vartype = m_frame.variables.at(index).type;
 
@@ -587,7 +587,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             std::string arg_name = name;
             var.type = arg_type;
             // TODO: handle references correctly
-            var.get_addr = vm_expr_load_address{frame.variables.size(), make_mref(var.type)};
+            var.get_addr = vm_expr_load_reference{frame.variables.size(), make_mref(var.type)};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
@@ -615,7 +615,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             // TODO: Arg.name
             // var.name =
             var.type = arg_type;
-            var.get_addr = vm_expr_load_address{frame.variables.size(), instance_pointer_type{.target = var.type}};
+            var.get_addr = vm_expr_load_reference{frame.variables.size(), instance_pointer_type{.target = var.type}};
             var.storage.kind = storage_type::argument;
             frame.variables.push_back(var);
             assert(!frame.blocks.empty());
