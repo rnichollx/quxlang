@@ -47,6 +47,7 @@ namespace quxlang
     }
 
     std::string to_string(type_symbol const& ref);
+    type_symbol make_mref(type_symbol ref);
 
     // Gets the type of
     inline type_symbol load_type(type_symbol t)

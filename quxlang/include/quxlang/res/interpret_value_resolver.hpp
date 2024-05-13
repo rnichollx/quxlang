@@ -28,9 +28,10 @@ namespace quxlang
             {
             }
 
-            QUX_SUBCO_MEMBER_FUNC(create_temporary, storage_index, (vm_type type, std::vector< vm_value > ctor_params)) override;
+            QUX_SUBCO_MEMBER_FUNC(create_temporary, storage_index, (vm_type type)) override;
             QUX_SUBCO_MEMBER_FUNC(lookup_symbol, std::optional< vm_value >, (expression_symbol_reference sym)) override;
-            QUX_SUBCO_MEMBER_FUNC(invoke_functanoid, vm_value, (type_symbol func, std::vector< vm_value > params)) override;
+            QUX_SUBCO_MEMBER_FUNC(invoke_functanoid, vm_value, (type_symbol func)) override;
+            QUX_SUBCO_MEMBER_FUNC(emit, void, (vm_executable_unit what)) override;
 
         };
 

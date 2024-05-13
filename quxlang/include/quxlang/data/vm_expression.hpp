@@ -44,6 +44,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(vm_callargs, positional, named);
     };
 
+    struct vm_invokeargs
+    {
+        std::vector< std::size_t > indexes;
+
+        RPNX_MEMBER_METADATA(vm_invokeargs, indexes);
+    };
+
 } // namespace quxlang
 
 #include "vm_expr_access_field.hpp"

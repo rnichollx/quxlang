@@ -63,21 +63,23 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
 
     type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + input.operator_str};
     type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
-    call_type lhs_param_info{.named_parameters = { {"THIS", lhs_type} }, .positional_parameters = {rhs_type}};
-    call_type rhs_param_info{.named_parameters = { {"THIS", rhs_type} }, .positional_parameters = {lhs_type}};
+    call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}}, .positional_parameters = {rhs_type}};
+    call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}}, .positional_parameters = {lhs_type}};
 
     auto lhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
 
     if (lhs_exists_and_callable_with)
     {
-        co_return co_await inter->invoke_functanoid(lhs_function, std::vector< vm_value >{lhs, rhs});
+        auto lhs_args = vm_callargs{.named = {{"THIS", lhs}}, .positional = {rhs}};
+        co_return co_await gen_call(lhs_function, lhs_args);
     }
 
     auto rhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
 
     if (rhs_exists_and_callable_with)
     {
-        co_return co_await emit_call(rhs_function, {.positional = std::vector< vm_value >{rhs, lhs}});
+        auto rhs_args = vm_callargs{.named = {{"THIS", rhs}}, .positional = {lhs}};
+        co_return co_await gen_call(rhs_function, rhs_args);
     }
 
     throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");

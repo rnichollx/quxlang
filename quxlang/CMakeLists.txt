@@ -230,6 +230,8 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/data/builtin_functions.hpp
         include/quxlang/res/function_builtin.hpp
         sources/res/function_builtin.cpp
+        include/quxlang/res/vm_procedure2.hpp
+        sources/res/vm_procedure2.cpp
 
 )
 
