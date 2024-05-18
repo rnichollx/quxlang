@@ -25,10 +25,10 @@ namespace quxlang
             virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, storage_index, (type_symbol type)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(get_temporary_storage_ref, storage_index, (type_symbol type)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_reference, storage_index, (type_symbol type, vm_value init)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(defer, deferral_index, (type_symbol what, std::vector< storage_index > with)) = 0;
+            virtual QUX_SUBCO_MEMBER_FUNC(defer, deferral_index, (type_symbol what, vm_invocation_args with)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(cancel_deferral, void, (deferral_index)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(lookup_symbol, std::optional< vm_value >, (type_symbol sym)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(invoke_functanoid, vm_value, (type_symbol function)) = 0;
+            virtual QUX_SUBCO_MEMBER_FUNC(mark_invoked, vm_value, (type_symbol function)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(emit, void, (vm_executable_unit)) = 0;
             //virtual QUX_SUBCO_MEMBER_FUNC(set_lifetime, void, (storage_index, bool)) = 0;
             virtual QUX_SUBCO_MEMBER_FUNC(set_expression_result, void, (vm_value)) = 0;
@@ -54,8 +54,8 @@ namespace quxlang
         QUX_SUBCO_MEMBER_FUNC(gen_call_expr, vm_value, (expression_call call));
 
         QUX_SUBCO_MEMBER_FUNC(gen_call_functum, vm_value, (type_symbol what, vm_callargs input));
-        QUX_SUBCO_MEMBER_FUNC(gen_call_functanoid, vm_value, (type_symbol what, vm_callargs input));
-        QUX_SUBCO_MEMBER_FUNC(gen_invoke_functanoid, vm_value, (type_symbol what, vm_callargs input));
+        QUX_SUBCO_MEMBER_FUNC(gen_call_functanoid, vm_value, (instanciation_reference what, vm_callargs input));
+        QUX_SUBCO_MEMBER_FUNC(gen_invoke_functanoid, vm_value, (instanciation_reference what, vm_invocation_args input));
 
         QUX_SUBCO_MEMBER_FUNC(gen_invoke, vm_value, (type_symbol what, vm_callargs input));
         QUX_SUBCO_MEMBER_FUNC(emit_value, vm_value, (expression_symbol_reference sym));

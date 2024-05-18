@@ -61,7 +61,6 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vm
 
     vm_callargs args;
 
-
     call_type call_t;
 
     for (auto& arg : call.args)
@@ -93,7 +92,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang:
     call_type calltype;
     for (auto& arg : args.positional)
     {
-        calltype.positional_parameters.push_back( vm_value_type(arg));
+        calltype.positional_parameters.push_back(vm_value_type(arg));
     }
     for (auto& [name, arg] : args.named)
     {
@@ -101,17 +100,66 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang:
     }
 
     instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
-
     // Get call type
     auto instanciation = QUX_CO_ASK(instanciation, (functanoid_unnormalized));
     if (!instanciation)
     {
-        throw std::logic_error("Cannot call " + to_string(func) + " with " + to_string(call_t));
+        throw std::logic_error("Cannot call " + to_string(func) + " with " + to_string(calltype));
     }
-
-    auto selection = QUX_CO_ASK(functum_select_function, (functanoid_unnormalized));
-
     co_return co_await gen_call_functanoid(instanciation.value(), args);
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxlang::vm_value, (instanciation_reference what, vm_callargs args))
+{
+    auto const& call_args_types = what.parameters;
+
+    // TODO: Support defaulted parameters.
+
+    std::vector< co_interface::deferral_index > deferrals;
+
+    vm_invocation_args invocation_args;
+
+    for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
+    {
+
+        auto arg_expr = args.named.at(name);
+        auto arg_expr_type = vm_value_type(arg_expr);
+
+        // TODO: Support PRValue args
+        assert(is_ref(arg_expr_type));
+
+        if (!is_ref(arg_accepted_type))
+        {
+            auto index = co_await inter->create_temporary_storage(arg_accepted_type);
+
+
+            auto arg_final_ctor_func = subdotentity_reference{arg_accepted_type, "CONSTRUCTOR"};
+            auto arg_final_dtor_func = subdotentity_reference{arg_accepted_type, "DESTRUCTOR"};
+
+            vm_callargs ctor_args = {.named = {{"THIS", vm_expr_load_reference{.index= index, .type=make_mref(arg_accepted_type)}}}, .positional = {arg_expr}};
+
+            // These both need to be references or the constructor will probably infinite loop.
+            assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_accepted_type)));
+
+            // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
+            co_await gen_call_functum(arg_final_ctor_func, ctor_args);
+
+            // When we complete the constructor of the argument, we need to queue the destructor of the argument.
+            // We also need to save the deferral so we can remove it from the deferral list prior to invoking
+            // the target procedure (since ownership of the argument is transferred to the target procedure).
+
+            invocation_args.named[name] = index;
+
+            vm_invocation_args dtor_args = {.named = {{"THIS", index}}};
+
+            co_interface::deferral_index defer_index = co_await inter->defer(arg_dtor_functum, dtor_args);
+            deferrals.push_back(defer_index);
+        }
+        else
+        {
+            throw rpnx::unimplemented();
+        }
+    }
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_symbol_reference expr))
