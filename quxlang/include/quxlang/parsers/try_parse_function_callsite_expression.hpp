@@ -15,6 +15,20 @@ namespace quxlang::parsers
     expression parse_expression(It& pos, It end);
 
     template < typename It >
+    expression_arg parse_expression_arg(It& pos, It end)
+    {
+        expression_arg result;
+        if (skip_symbol_if_is(pos, end, "@"))
+        {
+            result.name = parse_identifier(pos, end);
+            skip_whitespace_and_comments(pos, end);
+        }
+
+        result.value = parse_expression(pos, end);
+        return result;
+    }
+
+    template < typename It >
     std::optional< expression_call > try_parse_function_callsite_expression(It& pos, It end)
     {
 
@@ -35,7 +49,7 @@ namespace quxlang::parsers
         }
     get_arg:
 
-        expression expr = parse_expression(pos, end);
+        expression_arg expr = parse_expression_arg(pos, end);
         result.args.push_back(std::move(expr));
 
         if (skip_symbol_if_is(pos, end, ","))
@@ -50,7 +64,6 @@ namespace quxlang::parsers
 
         return std::move(result);
     }
-
 
 } // namespace quxlang::parsers
 

@@ -55,7 +55,7 @@ namespace quxlang
             for (auto const& arg : call.args)
             {
                 result += indent_string() + "arg: ";
-                result += rpnx::apply_visitor< std::string >(*this, arg);
+                result += rpnx::apply_visitor< std::string >(*this, arg.value);
                 result += "\n";
             }
             current_indent--;
@@ -125,6 +125,13 @@ namespace quxlang
             current_indent--;
             result += indent_string() + "} end block\n";
             return result;
+        }
+
+        template < typename T >
+        std::string operator()(T const& t, int i = 0)
+        {
+
+            return "???";
         }
 
         std::string operator()(void_type const&)

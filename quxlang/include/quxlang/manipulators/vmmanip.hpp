@@ -93,6 +93,8 @@ namespace quxlang
         return rpnx::apply_visitor< type_symbol >(vm_value_type_vistor{}, val);
     }
 
+    inline
+
     std::string to_string(vm_value const&);
     std::string to_string(vm_executable_unit const&);
 

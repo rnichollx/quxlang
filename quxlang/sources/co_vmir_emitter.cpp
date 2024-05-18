@@ -1,6 +1,7 @@
 //
 // Created by Ryan Nicholl on 4/2/24.
 //
+#include "quxlang/data/expression_call.hpp"
 #include "quxlang/manipulators/vmmanip.hpp"
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include <quxlang/compiler.hpp>
@@ -45,9 +46,77 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm
     assert(false);
 }
 
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vm_value, (quxlang::expression_call call))
+{
+    auto callee = co_await emit_vm_value(call.callee);
+
+    // TODO: Support OPERATOR() here
+
+    if (!typeis< vm_expr_bound_value >(callee))
+    {
+        throw std::logic_error("Cannot call non-callable value");
+    }
+
+    auto const& callee_value = as< vm_expr_bound_value >(callee);
+
+    vm_callargs args;
+
+
+    call_type call_t;
+
+    for (auto& arg : call.args)
+    {
+        auto arg_val = co_await emit_vm_value(arg.value);
+
+        if (arg.name)
+        {
+            args.named[*arg.name] = arg_val;
+            call_t.named_parameters[*arg.name] = vm_value_type(arg_val);
+        }
+        else
+        {
+            args.positional.push_back(arg_val);
+            call_t.positional_parameters.push_back(vm_value_type(arg_val));
+        }
+    }
+
+    if (!callee_value.value.type_is< void_value >())
+    {
+        call_t.named_parameters["THIS"] = vm_value_type(callee_value.value);
+    }
+
+    co_return co_await gen_call_functum(callee_value.function_ref, args);
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang::vm_value, (type_symbol func, vm_callargs args))
+{
+    call_type calltype;
+    for (auto& arg : args.positional)
+    {
+        calltype.positional_parameters.push_back( vm_value_type(arg));
+    }
+    for (auto& [name, arg] : args.named)
+    {
+        calltype.named_parameters[name] = vm_value_type(arg);
+    }
+
+    instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
+
+    // Get call type
+    auto instanciation = QUX_CO_ASK(instanciation, (functanoid_unnormalized));
+    if (!instanciation)
+    {
+        throw std::logic_error("Cannot call " + to_string(func) + " with " + to_string(call_t));
+    }
+
+    auto selection = QUX_CO_ASK(functum_select_function, (functanoid_unnormalized));
+
+    co_return co_await gen_call_functanoid(instanciation.value(), args);
+}
+
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_symbol_reference expr))
 {
-    co_return (co_await inter->lookup_symbol(expr)).value();
+    co_return (co_await inter->lookup_symbol(expr.symbol)).value();
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_binary input))
@@ -71,7 +140,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     if (lhs_exists_and_callable_with)
     {
         auto lhs_args = vm_callargs{.named = {{"THIS", lhs}}, .positional = {rhs}};
-        co_return co_await gen_call(lhs_function, lhs_args);
+        co_return co_await gen_call_functanoid(lhs_function, lhs_args);
     }
 
     auto rhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
@@ -79,7 +148,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     if (rhs_exists_and_callable_with)
     {
         auto rhs_args = vm_callargs{.named = {{"THIS", rhs}}, .positional = {lhs}};
-        co_return co_await gen_call(rhs_function, rhs_args);
+        co_return co_await gen_call_functanoid(rhs_function, rhs_args);
     }
 
     throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");

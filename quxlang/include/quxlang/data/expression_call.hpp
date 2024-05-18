@@ -10,10 +10,18 @@
 
 namespace quxlang
 {
+    struct expression_arg
+    {
+        std::optional<std::string> name;
+        expression value;
+
+        RPNX_MEMBER_METADATA(expression_arg, name, value);
+    };
+
     struct expression_call
     {
         expression callee;
-        std::vector< expression > args;
+        std::vector< expression_arg > args;
 
         RPNX_MEMBER_METADATA(expression_call, callee, args);
     };
