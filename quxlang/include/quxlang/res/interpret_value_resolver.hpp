@@ -28,10 +28,10 @@ namespace quxlang
             {
             }
 
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, storage_index, (vm_type type)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_reference, storage_index, (vm_type type, vm_value init)) override;
+            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, storage_index, (type_symbol type)) override;
+            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_reference, storage_index, (type_symbol type, vm_value init)) override;
 
-            QUX_SUBCO_MEMBER_FUNC(invoke_functanoid, vm_value, (type_symbol func)) override;
+            QUX_SUBCO_MEMBER_FUNC(mark_invoked, vm_value, (type_symbol func)) override;
             QUX_SUBCO_MEMBER_FUNC(emit, void, (vm_executable_unit what)) override;
         };
 

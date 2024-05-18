@@ -119,27 +119,21 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
 
     vm_invocation_args invocation_args;
 
-    for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
+    auto create_arg_value = [&](vm_value arg_expr_val, type_symbol arg_target_type) -> rpnx::general_coroutine< compiler, co_interface::storage_index >
     {
-
-        auto arg_expr = args.named.at(name);
-        auto arg_expr_type = vm_value_type(arg_expr);
-
         // TODO: Support PRValue args
+        auto arg_expr_type = vm_value_type(arg_expr_val);
+
         assert(is_ref(arg_expr_type));
 
-        if (!is_ref(arg_accepted_type))
+        if (!is_ref(arg_target_type))
         {
-            auto index = co_await inter->create_temporary_storage(arg_accepted_type);
-
-
-            auto arg_final_ctor_func = subdotentity_reference{arg_accepted_type, "CONSTRUCTOR"};
-            auto arg_final_dtor_func = subdotentity_reference{arg_accepted_type, "DESTRUCTOR"};
-
-            vm_callargs ctor_args = {.named = {{"THIS", vm_expr_load_reference{.index= index, .type=make_mref(arg_accepted_type)}}}, .positional = {arg_expr}};
-
+            auto index = co_await inter->create_temporary_storage(arg_target_type);
+            auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
+            auto arg_final_dtor_func = subdotentity_reference{arg_target_type, "DESTRUCTOR"};
+            vm_callargs ctor_args = {.named = {{"THIS", vm_expr_load_reference{.index = index, .type = make_mref(arg_target_type)}}}, .positional = {arg_expr_val}};
             // These both need to be references or the constructor will probably infinite loop.
-            assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_accepted_type)));
+            assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
             // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
             co_await gen_call_functum(arg_final_ctor_func, ctor_args);
@@ -148,18 +142,31 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
             // We also need to save the deferral so we can remove it from the deferral list prior to invoking
             // the target procedure (since ownership of the argument is transferred to the target procedure).
 
-            invocation_args.named[name] = index;
-
             vm_invocation_args dtor_args = {.named = {{"THIS", index}}};
 
-            co_interface::deferral_index defer_index = co_await inter->defer(arg_dtor_functum, dtor_args);
+            co_interface::deferral_index defer_index = co_await inter->defer_always(arg_final_dtor_func, dtor_args);
             deferrals.push_back(defer_index);
+
+            co_return index;
         }
         else
         {
             throw rpnx::unimplemented();
         }
+    };
+
+    for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
+    {
+
+        auto arg_expr = args.named.at(name);
+        auto arg_expr_type = vm_value_type(arg_expr);
+
+        auto arg_index = co_await create_arg_value(arg_expr, arg_accepted_type);
+
+        invocation_args.named[name] = arg_index;
     }
+
+    throw rpnx::unimplemented();
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_symbol_reference expr))
@@ -188,7 +195,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     if (lhs_exists_and_callable_with)
     {
         auto lhs_args = vm_callargs{.named = {{"THIS", lhs}}, .positional = {rhs}};
-        co_return co_await gen_call_functanoid(lhs_function, lhs_args);
+        co_return co_await gen_call_functum(lhs_function, lhs_args);
     }
 
     auto rhs_exists_and_callable_with = co_await *c->lk_functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
@@ -196,7 +203,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     if (rhs_exists_and_callable_with)
     {
         auto rhs_args = vm_callargs{.named = {{"THIS", rhs}}, .positional = {lhs}};
-        co_return co_await gen_call_functanoid(rhs_function, rhs_args);
+        co_return co_await gen_call_functum(rhs_function, rhs_args);
     }
 
     throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
