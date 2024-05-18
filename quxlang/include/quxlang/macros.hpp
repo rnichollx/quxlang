@@ -104,6 +104,9 @@ nameV (compiler * c) : c(c) {}
 rpnx::general_coroutine< quxlang::compiler, retT> quxlang::classN::nameV argsV
 
 
+#define QUX_SUBCO_MEMBER_FUNC_DEF2(classNamespace, className, nameV, retT, argsV) \
+rpnx::general_coroutine< quxlang::compiler, retT> classNamespace :: className ::nameV argsV
+
 #define QUX_CO_ANSWER(x) co_return x;
 
 #define QUX_GETDEP(retnameV, Q, args) auto retnameV ## _dep = get_dependency([&]{ return c->lk_ ## Q args ; }); if (!ready()) return; auto const & retnameV = retnameV ## _dep ->get();

@@ -6,6 +6,7 @@
 #define QUXLANG_VM_EXPR_ACCESS_FIELD_HEADER_GUARD
 
 #include "vm_expression.hpp"
+#include "type_symbol.hpp"
 
 namespace quxlang
 {

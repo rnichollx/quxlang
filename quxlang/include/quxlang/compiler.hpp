@@ -83,6 +83,7 @@
 #include <quxlang/res/templex_select_template.hpp>
 #include <quxlang/res/resolvers.hpp>
 #include <quxlang/res/function_builtin.hpp>
+#include <quxlang/res/vm_procedure2.hpp>
 #include <shared_mutex>
 
 // clang-format off
@@ -194,6 +195,7 @@ namespace quxlang
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
+        COMPILER_INDEX(vm_procedure2)
 
         index< called_functanoids_resolver > m_called_functanoids_index;
 
@@ -220,6 +222,13 @@ namespace quxlang
         vm_procedure get_vm_procedure_from_canonical_functanoid(instanciation_reference func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
+        vm_procedure get_vm_procedure2(instanciation_reference func_addr)
+        {
+            auto node = lk_vm_procedure2(func_addr);
             m_solver.solve(this, node);
             return node->get();
         }

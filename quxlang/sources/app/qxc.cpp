@@ -76,7 +76,7 @@ int main(int argc, char** argv)
                         throw std::runtime_error("Expected instanciation reference");
                     }
 
-                    quxlang::vm_procedure proc = c.get_vm_procedure_from_canonical_functanoid(quxlang::as<quxlang::instanciation_reference>(sym));
+                    quxlang::vm_procedure proc = c.get_vm_procedure2(quxlang::as<quxlang::instanciation_reference>(sym));
 
                     std::string procname = quxlang::mangle(sym);
 

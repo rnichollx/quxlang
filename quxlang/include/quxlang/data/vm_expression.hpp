@@ -6,6 +6,9 @@
 #define QUXLANG_VM_EXPRESSION_HEADER_GUARD
 
 #include <rpnx/variant.hpp>
+#include <rpnx/metadata.hpp>
+
+#include <map>
 
 #include "vm_type.hpp"
 

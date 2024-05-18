@@ -7,6 +7,7 @@
 
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/vm_expression.hpp"
+#include "quxlang/data/vm_executable_unit.hpp"
 #include <quxlang/macros.hpp>
 namespace quxlang
 {

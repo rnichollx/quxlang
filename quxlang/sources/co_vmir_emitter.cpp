@@ -106,7 +106,56 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang:
     {
         throw std::logic_error("Cannot call " + to_string(func) + " with " + to_string(calltype));
     }
-    co_return co_await gen_call_functanoid(instanciation.value(), args);
+
+    auto return_type = QUX_CO_ASK(functanoid_return_type, (instanciation.value()));
+
+    std::optional< vm_value > return_value;
+
+    if (!typeis< void_type >(return_type))
+    {
+        auto return_slot_type = nvalue_slot{.target = return_type};
+        auto return_slot = co_await inter->create_temporary_storage(return_type);
+
+        calltype.named_parameters["RETURN"] = return_slot_type;
+        args.named["RETURN"] = vm_expr_load_reference{.index = return_slot, .type = return_slot_type};
+
+        return_value = vm_expr_load_reference{.index = return_slot, .type = return_slot_type};
+
+        co_await gen_call_functanoid(instanciation.value(), args);
+
+        // TODO: We should call destructor even for references, because the
+        // destructor can provide inline poisons on llvm backend.
+
+        // TODO: implement dvalue slots
+        // Because we don't have dvalue slots, we can't implement the destructor completely here for references.
+        if (!is_ref(return_type))
+        {
+            // This requires the implementation of dtor slots first.
+            auto return_type_dtor = subdotentity_reference{return_type, "DESTRUCTOR"};
+
+            // call_type dtor_calltype = call_type{.named_parameters = {{"THIS", make_dslot(return_type)}}};
+
+            call_type dtor_calltype = call_type{.named_parameters = {{"THIS", make_mref(return_type)}}};
+
+            auto dtor_instanciation1 = instanciation_reference{.callee = return_type_dtor, .parameters = dtor_calltype};
+
+            auto dtor_instanciation2 = QUX_CO_ASK(instanciation, (dtor_instanciation1));
+
+            if (!dtor_instanciation2)
+            {
+                throw std::logic_error("Cannot find destructor for " + to_string(return_type));
+            }
+            // TODO: Make destructors use nvalue and dvalue slots only.
+
+            co_await inter->defer_always(dtor_instanciation2.value(), {.named = {{"THIS", return_slot}}});
+        }
+        else
+        {
+            return_value = vm_expr_load_reference{.index = return_slot, .type = make_tref(return_type)};
+        }
+    }
+
+    co_return return_value.value_or(void_value{});
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxlang::vm_value, (instanciation_reference what, vm_callargs args))

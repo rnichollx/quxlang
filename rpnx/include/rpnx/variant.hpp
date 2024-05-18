@@ -586,6 +586,22 @@ namespace rpnx
             return *this;
         }
 
+        basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... >&& other)
+        {
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+            reset();
+
+            m_alloc = std::move(other.m_alloc);
+            m_vinf = nullptr;
+            m_data = nullptr;
+
+            std::swap(m_vinf, other.m_vinf);
+            std::swap(m_data, other.m_data);
+
+            assert((m_vinf == nullptr) == (m_data == nullptr));
+            return *this;
+        }
+
         template < typename T >
         T& get_as()
         {

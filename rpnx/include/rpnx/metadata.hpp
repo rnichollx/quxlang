@@ -19,7 +19,8 @@ namespace rpnx
         bool operator==(ty const& other) const { return tie() == other.tie(); } \
         bool operator!=(ty const& other) const { return tie() != other.tie(); } \
         static auto constexpr strings()  { std::string str = #__VA_ARGS__; std::string s; std::vector<std::string> result{ }; \
-        for (char c: str) { if (c == ',') { result.push_back(std::move(s)); s.clear(); } else if (c != ' ') { s.push_back(c); } } if (!s.empty()) result.push_back(std::move(s)); return result; }
+        for (char c: str) { if (c == ',') { result.push_back(std::move(s)); s.clear(); } else if (c != ' ') { s.push_back(c); } } if (!s.empty()) result.push_back(std::move(s)); return result; } \
+        static constexpr std::string class_name() { return #ty; }
 
 #define RPNX_ENUM(ns, ty, int_ty, ...) \
     namespace ns { \

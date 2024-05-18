@@ -12,6 +12,9 @@ namespace quxlang::parsers
     template < typename It >
     std::optional< expression > try_parse_expression(It& pos, It end);
 
+
+
+
     template < typename It >
     expression parse_expression(It& pos, It end)
     {
@@ -20,6 +23,12 @@ namespace quxlang::parsers
             return output.value();
         }
         throw std::runtime_error("Expected expression");
+    }
+
+    expression parse_expression(std::string str)
+    {
+        auto it = str.begin();
+        return parse_expression(it, str.end());
     }
 } // namespace quxlang::parsers
 

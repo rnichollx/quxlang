@@ -197,6 +197,18 @@ namespace quxlang
         RPNX_MEMBER_METADATA(tvalue_reference, target);
     };
 
+    struct nvalue_slot
+    {
+        type_symbol target;
+        RPNX_MEMBER_METADATA(nvalue_slot, target);
+    };
+
+    struct dvalue_slot
+    {
+        type_symbol target;
+        RPNX_MEMBER_METADATA(dvalue_slot, target);
+    };
+
     struct bound_function_type_reference
     {
         type_symbol object_type;

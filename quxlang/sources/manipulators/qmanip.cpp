@@ -29,6 +29,7 @@ namespace quxlang
         std::string operator()(template_reference const&) const;
         std::string operator()(selection_reference const&) const;
         std::string operator()(function_arg const&) const;
+        std::string operator()(nvalue_slot const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -71,7 +72,7 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref);
 
-    struct is_template_visitor : boost::static_visitor< bool >
+    struct is_template_visitor
     {
       public:
         is_template_visitor()
@@ -86,6 +87,11 @@ namespace quxlang
         bool operator()(instance_pointer_type const& ref) const
         {
             return is_template(ref.target);
+        }
+
+        bool operator()(nvalue_slot const&) const
+        {
+            return false;
         }
 
         bool operator()(instanciation_reference const& ref) const
@@ -345,6 +351,11 @@ namespace quxlang
         // TODO: implement this
     }
 
+    std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
+    {
+        return "RET_SLOT[" + to_string(ref.target) + "]";
+    }
+
     std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@[";
@@ -523,6 +534,9 @@ namespace quxlang
             all_results.matches = std::move(callee_match->matches);
 
             std::vector< type_symbol > instanciated_parameters;
+
+            // TODO: here
+            //rpnx::unimplemented();
         }
 
         // In other cases, we are talking about a non-composite reference

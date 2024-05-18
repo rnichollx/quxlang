@@ -237,11 +237,16 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
 
 add_executable(qxc sources/app/qxc.cpp)
 
+add_executable(aprinter_test tests/aprinter_test.cpp)
+
 add_library(quxlang-loaders
         sources/loaders/module_loader.cpp
         sources/loaders/source_loader.cpp)
 target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
+
 target_link_libraries(qxc PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
+
+target_link_libraries(aprinter_test PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
 
 target_include_directories(quxlang PUBLIC include)
 
