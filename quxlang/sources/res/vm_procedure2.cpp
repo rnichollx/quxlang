@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/11/24.
 //
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
-#include <quxlang/res/vm_procedure2.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
+#include <quxlang/res/vm_procedure2.hpp>
 
 namespace quxlang
 {
@@ -89,6 +89,63 @@ namespace quxlang
         }
     };
 } // namespace quxlang
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, create_temporary_storage, quxlang::co_vmir_expression_emitter::co_interface::storage_index, (type_symbol type))
+{
+    auto index = this->gen->slot_info.size();
+    this->gen->slot_info.push_back({.type = type, .kind = slot_kind::temporary});
+    co_return index;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, get_temporary_storage_ref, quxlang::co_vmir_expression_emitter::co_interface::storage_index, (type_symbol type))
+{
+    co_return -1;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, create_temporary_reference, quxlang::co_vmir_expression_emitter::co_interface::storage_index, (type_symbol type, vm_value init))
+{
+    co_return -1;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, defer_always, quxlang::co_vmir_expression_emitter::co_interface::deferral_index, (type_symbol what, vm_invocation_args with))
+{
+    co_return 0;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, defer_exception, quxlang::co_vmir_expression_emitter::co_interface::deferral_index, (type_symbol what, vm_invocation_args with))
+{
+    co_return 0;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, defer_noexception, quxlang::co_vmir_expression_emitter::co_interface::deferral_index, (type_symbol what, vm_invocation_args with))
+{
+    co_return 0;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, cancel_deferral, void, (deferral_index))
+{
+    co_return;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, lookup_symbol, std::optional< quxlang::vm_value >, (type_symbol sym))
+{
+    throw rpnx::unimplemented();
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, mark_invoked, quxlang::vm_value, (type_symbol function))
+{
+    throw rpnx::unimplemented();
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, emit, void, (vm_executable_unit))
+{
+    throw rpnx::unimplemented();
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, set_expression_result, void, (vm_value))
+{
+    throw rpnx::unimplemented();
+}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 {
