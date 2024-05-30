@@ -19,7 +19,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm
     }
     else if (typeis< expression_call >(expr))
     {
-        co_return co_await emit_value(as< expression_call >(std::move(expr)));
+        co_return co_await gen_call_expr(as< expression_call >(std::move(expr)));
     }
     else if (typeis< expression_numeric_literal >(expr))
     {
@@ -44,6 +44,64 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm
     }
 
     assert(false);
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_thisdot_reference what))
+{
+    auto this_reference = subdotentity_reference{.parent = context_reference{}, .subdotentity_name = "THIS"};
+    auto value = co_await inter->lookup_symbol(this_reference);
+    if (!value)
+    {
+        throw std::logic_error("Cannot find " + to_string(this_reference));
+    }
+    co_return value.value();
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_dotreference what))
+{
+    auto parent = co_await emit_vm_value(what.lhs);
+
+    co_return co_await emit_field_access(parent, what.field_name);
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_field_access, quxlang::vm_value, (vm_value base, std::string field_name))
+{
+    auto base_type = vm_value_type(base);
+
+    class_layout layout = co_await *c->lk_class_layout_from_canonical_chain(base_type);
+
+    for (class_field_info const& field : layout.fields)
+    {
+        if (field.name == field_name)
+        {
+            vm_expr_access_field access;
+            if (typeis< mvalue_reference >(thisreftype))
+            {
+                access.type = make_mref(field.type);
+            }
+            else if (typeis< tvalue_reference >(thisreftype))
+            {
+                access.type = make_tref(field.type);
+            }
+            else if (typeis< ovalue_reference >(thisreftype))
+            {
+                access.type = make_oref(field.type);
+            }
+            else if (typeis< cvalue_reference >(thisreftype))
+            {
+                access.type = make_cref(field.type);
+            }
+            else
+            {
+                assert(false);
+            }
+            access.base = base;
+            access.offset = field.offset;
+            co_return access;
+        }
+    }
+
+    throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vm_value, (quxlang::expression_call call))

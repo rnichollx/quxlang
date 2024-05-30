@@ -68,6 +68,10 @@ namespace quxlang
         QUX_SUBCO_MEMBER_FUNC(emit_value, vm_value, (expression_numeric_literal sym));
         QUX_SUBCO_MEMBER_FUNC(emit_value, vm_value, (expression_call sym));
         QUX_SUBCO_MEMBER_FUNC(emit_value, vm_value, (expression_this_reference sym));
+
+
+
+        QUX_SUBCO_MEMBER_FUNC(emit_field_access, vm_value, (vm_value what, std::string field_name));
     };
 } // namespace quxlang
 

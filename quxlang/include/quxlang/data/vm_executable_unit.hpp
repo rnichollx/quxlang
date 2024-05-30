@@ -58,6 +58,10 @@ namespace quxlang
 
     using vm_executable_unit = rpnx::variant< vm_store, vm_invoke, vm_execute_expression, vm_block, vm_return, vm_if, vm_while, vm_disable_storage, vm_enable_storage >;
 
+    struct vm_exec_access_field;
+
+    using vm_executable_unit2 = rpnx::variant< vm_exec_access_field >;
+
     struct vm_block
     {
         std::vector< vm_executable_unit > code;
