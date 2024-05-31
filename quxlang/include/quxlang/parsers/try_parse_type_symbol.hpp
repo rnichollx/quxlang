@@ -11,7 +11,7 @@
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
-#include <quxlang/parsers/skip_symbol_if_is.hpp>
+#include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
 
 namespace quxlang::parsers

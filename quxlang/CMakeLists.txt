@@ -82,7 +82,6 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/parsers/try_parse_class_template.hpp
         include/quxlang/parsers/skip_whitespace.hpp
         include/quxlang/parsers/keyword.hpp
-        include/quxlang/parsers/skip_symbol_if_is.hpp
         include/quxlang/parsers/iter_parse_symbol.hpp
         include/quxlang/parsers/try_parse_class_variable_declaration.hpp
         include/quxlang/parsers/parse_comment.hpp

@@ -198,6 +198,37 @@ namespace quxlang
         }
     }
 
+    inline type_symbol recast_reference(type_symbol obj, type_symbol field_type)
+    {
+        if (is_ref(field_type))
+        {
+            return field_type;
+        }
+        else if (typeis< mvalue_reference >(obj))
+        {
+            return make_mref(field_type);
+        }
+        else if (typeis< tvalue_reference >(obj))
+        {
+            return make_tref(field_type);
+        }
+        else if (typeis< cvalue_reference >(obj))
+        {
+            return make_cref(field_type);
+        }
+        else if (typeis< ovalue_reference >(obj))
+        {
+            return make_oref(field_type);
+        }
+        else
+        {
+            //throw rpnx::unimplemented();
+            throw "unimplemented";
+            // shouldn't get here?
+            return field_type;
+        }
+    }
+
     inline type_symbol remove_ref(type_symbol type)
     {
         if (typeis< mvalue_reference >(type))

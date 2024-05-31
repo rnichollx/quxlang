@@ -4,7 +4,7 @@
 #define QUXLANG_LINKNAME_HPP
 #include "keyword.hpp"
 #include "parse_whitespace_and_comments.hpp"
-#include "skip_symbol_if_is.hpp"
+#include "symbol.hpp"
 #include "string_literal.hpp"
 
 #include <string>

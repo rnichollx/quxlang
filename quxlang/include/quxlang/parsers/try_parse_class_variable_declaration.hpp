@@ -5,7 +5,7 @@
 #ifndef TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
 #define TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
 #include <quxlang/parsers/keyword.hpp>
-#include <quxlang/parsers/skip_symbol_if_is.hpp>
+#include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
 namespace quxlang::parsers

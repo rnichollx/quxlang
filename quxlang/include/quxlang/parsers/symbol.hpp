@@ -9,7 +9,7 @@
 namespace quxlang::parsers
 {
 
-    template <typename It>
+    template < typename It >
     constexpr auto iter_parse_symbol(It begin, It end) -> It
     {
         auto pos = begin;
@@ -29,7 +29,7 @@ namespace quxlang::parsers
         return pos;
     }
 
-    template <typename It>
+    template < typename It >
     constexpr std::string parse_symbol(It& pos, It end)
     {
         auto sym_end = iter_parse_symbol(pos, end);
@@ -47,5 +47,37 @@ namespace quxlang::parsers
 
     static_assert(parse_symbol("hello world") == "");
     static_assert(parse_symbol("%%a asdf") == "%%");
-}
-#endif //SYMBOL_HPP
+
+    template < typename It >
+    inline bool skip_symbol_if_is(It& begin, It end, std::string_view symbol)
+    {
+        auto pos = iter_parse_symbol(begin, end);
+        if (pos == begin)
+        {
+            return false;
+        }
+        if (std::string(begin, pos) == symbol)
+        {
+            begin = pos;
+            return true;
+        }
+        return false;
+    }
+
+    template < typename It >
+    inline void consume_symbol(It& begin, It end, std::string_view symbol)
+    {
+        auto pos = iter_parse_symbol(begin, end);
+        if (pos == begin)
+        {
+            throw std::runtime_error("Expected symbol");
+        }
+        if (std::string(begin, pos) != symbol)
+        {
+            throw std::runtime_error("Expected symbol");
+        }
+        begin = pos;
+    }
+
+} // namespace quxlang::parsers
+#endif // SYMBOL_HPP

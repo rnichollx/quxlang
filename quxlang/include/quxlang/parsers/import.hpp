@@ -6,7 +6,7 @@
 
 #include "parse_type_symbol.hpp"
 #include "parse_whitespace_and_comments.hpp"
-#include "skip_symbol_if_is.hpp"
+#include "symbol.hpp"
 
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/keyword.hpp>

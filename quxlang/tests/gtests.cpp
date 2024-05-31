@@ -32,10 +32,11 @@ struct foo
 struct bar
 {
 };
-
+/*
 class collector_tester : public ::testing::Test
 {
 };
+ */
 
 TEST(parsing, parse_empty_class)
 {
@@ -56,18 +57,17 @@ TEST(parsing, parse_class_with_variables)
 
     auto cl2 = cl.value();
 
-    ASSERT_EQ(cl2.globals.size(), 1);
-    ASSERT_EQ(cl2.members.size(), 2);
+    ASSERT_EQ(cl2.declarations.size(), 3);
 
-    auto member1 = cl2.members[0];
-    auto member2 = cl2.members[1];
-    auto global = cl2.globals[0];
+    auto member1 = cl2.declarations[0];
+    auto member2 = cl2.declarations[1];
+    auto global = cl2.declarations[2];
 
-    std::pair< std::string, quxlang::ast2_declarable > member1_expected = {"a", quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
+    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{.name = "a", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
 
-    std::pair< std::string, quxlang::ast2_declarable > member2_expected = {"b", quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true})}};
+    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{.name = "b", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true})}};
 
-    std::pair< std::string, quxlang::ast2_declarable > global_expected = {"c", quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
+    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{.name = "c", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
 
     ASSERT_TRUE(member1 == member1_expected);
     ASSERT_TRUE(member2 == member2_expected);
@@ -99,9 +99,9 @@ TEST(parsing, functum_combining)
     quxlang::ast2_file_declaration file;
     file = quxlang::parsers::parse_file(test_string);
 
-    ASSERT_EQ(file.globals.size(), 2);
-    ASSERT_EQ(file.globals[0].first, "foo");
-    ASSERT_EQ(file.globals[1].first, "foo");
+    ASSERT_EQ(file.declarations.size(), 2);
+
+    // ASSERT_EQ(file.globals[1].first, "foo");
 }
 
 TEST(parsing, parse_function_args)
@@ -144,15 +144,15 @@ TEST(mangling, name_mangling_new)
 
     quxlang::instanciation_reference param_set{subentity3, {}};
 
-    param_set.parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
-    param_set.parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
+    param_set.parameters.positional_parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
+    param_set.parameters.positional_parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
-    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAI32AI32E");
+    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAPI32API32E");
 }
 
-TEST_F(collector_tester, order_of_operations)
+TEST(collector_tester, order_of_operations)
 {
     // quxlang::collector c;
 
@@ -239,7 +239,7 @@ TEST(cow, cow_tests)
     ASSERT_NE(&strings->at(1).get(), &strings2->at(1).get());
 }
 
-TEST_F(collector_tester, function_call)
+TEST(collector_tester, function_call)
 {
 
     std::string test_string = "e.a.b(c, d, e.f)";
@@ -266,29 +266,7 @@ TEST(boost_assumptions, type_index)
 
 TEST(quxlang_modules, merge_entities)
 {
-    quxlang::entity_ast a(quxlang::class_entity_ast{}, false, {{"foo", quxlang::entity_ast{quxlang::class_entity_ast{}, false, {}}}});
-
-    quxlang::entity_ast b(quxlang::class_entity_ast{}, false, {{"bar", quxlang::entity_ast{quxlang::class_entity_ast{}, false, {}}}});
-
-    quxlang::entity_ast c(quxlang::class_entity_ast{}, false, {});
-
-    quxlang::entity_ast e(quxlang::class_entity_ast{}, false, {{"foo", quxlang::entity_ast{quxlang::class_entity_ast{}, false, {}}}, {"bar", quxlang::entity_ast{quxlang::class_entity_ast{}, false, {}}}});
-
-    quxlang::entity_ast e2(quxlang::class_entity_ast{}, false, {{"foo", quxlang::entity_ast{quxlang::class_entity_ast{}, false, {}}}});
-
-    ASSERT_NE(a, b);
-    ASSERT_NE(a, c);
-    ASSERT_NE(b, c);
-    quxlang::merge_entity(c, a);
-
-    ASSERT_EQ(c, a);
-    ASSERT_EQ(c, e2);
-    ASSERT_NE(c, b);
-    ASSERT_NE(c, e);
-
-    quxlang::merge_entity(c, b);
-
-    ASSERT_EQ(c, e);
+    // TODO: Needs rewrite with the replaced merger
 }
 
 TEST(qual, template_matching)
@@ -343,14 +321,14 @@ TEST(variant, variant_meta)
 {
     rpnx::variant< int, std::string > v = 5;
     ASSERT_TRUE(v.index() == 0);
-    ASSERT_TRUE(v.get_as<int>() == 5);
+    ASSERT_TRUE(v.get_as< int >() == 5);
     v = std::string("hello");
     ASSERT_TRUE(v.index() == 1);
-    ASSERT_TRUE(v.get_as<std::string>() == "hello");
+    ASSERT_TRUE(v.get_as< std::string >() == "hello");
 
     rpnx::variant< int, std::string > v2;
 
-    //ASSERT_THROW(v2.get_as<std::string>());
+    // ASSERT_THROW(v2.get_as<std::string>());
     ASSERT_TRUE(v2 < v);
 
     std::pair< int, rpnx::variant< int, std::string > > p = {5, std::string("hello")};
@@ -363,7 +341,7 @@ TEST(variant, variant_meta)
     ASSERT_TRUE(mp[0] == 9);
     ASSERT_TRUE(mp[5] == 6);
     ASSERT_TRUE(mp[5] != 7);
-    //ASSERT_TRUE(mp[5] == 7);
+    // ASSERT_TRUE(mp[5] == 7);
 }
 
 TEST(range, iterator_copy_constructor_and_assignment)
@@ -410,12 +388,11 @@ TEST(range, iterator_advance)
     ASSERT_EQ(*iter, 3);
 }
 
-#include <gtest/gtest.h>
 #include "rpnx/range.hpp"
-#include <vector>
+#include <gtest/gtest.h>
 #include <list>
 #include <string>
-
+#include <vector>
 
 TEST(dyn_bidirectional_input_iter, construct_comparison)
 {
@@ -525,7 +502,8 @@ TEST(dyn_bidirectional_input_iter, IteratorsWithNonDefaultConstructibleType)
     {
         NonDefaultConstructible() = delete;
 
-        explicit NonDefaultConstructible(int x) : value(x)
+        explicit NonDefaultConstructible(int x)
+            : value(x)
         {
         }
 
@@ -542,7 +520,6 @@ TEST(dyn_bidirectional_input_iter, IteratorsWithNonDefaultConstructibleType)
     ++iter;
     EXPECT_EQ((*iter).value, 2);
 }
-
 
 TEST(SerializationTest, IntegralTypes)
 {
@@ -572,11 +549,7 @@ TEST(SerializationTest, Map)
     std::vector< std::byte > buffer;
 
     // Serialize map
-    std::map< std::uint32_t, std::string > map = {
-        {1, "one"},
-        {2, "two"},
-        {3, "three"}
-    };
+    std::map< std::uint32_t, std::string > map = {{1, "one"}, {2, "two"}, {3, "three"}};
 
     rpnx::serialize_iter(map, std::back_inserter(buffer));
 
@@ -667,14 +640,14 @@ TEST(SerializerTest, TieSerializationDeserialization)
 
 TEST(SerializerTest, EmptyTuple)
 {
-    std::tuple< > original;
+    std::tuple<> original;
 
     // Serialization
     std::vector< std::byte > bytes;
     rpnx::serialize_iter(original, std::back_inserter(bytes));
 
     // Deserialization
-    std::tuple< > deserialized;
+    std::tuple<> deserialized;
     auto it = rpnx::deserialize_iter(deserialized, bytes.begin(), bytes.end());
     EXPECT_EQ(it, bytes.end());
 
@@ -701,6 +674,4 @@ TEST(VariantTest, Serialization)
     EXPECT_EQ(v2, v4);
 
     EXPECT_EQ(v4, std::string("hello"));
-
-
 }

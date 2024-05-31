@@ -7,15 +7,21 @@
 #include <quxlang/compiler.hpp>
 #include <quxlang/data/expression.hpp>
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm_value, (expression expr))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, typeof_vm_value, quxlang::type_symbol, (expression expr))
+{
+    rpnx::unimplemented();
+    return {};
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate_expr, quxlang::vmir2::storage_index, (expression expr))
 {
     if (typeis< expression_symbol_reference >(expr))
     {
-        co_return co_await emit_value(as< expression_symbol_reference >(std::move(expr)));
+        co_return co_await generate(as< expression_symbol_reference >(std::move(expr)));
     }
     else if (typeis< expression_binary >(expr))
     {
-        co_return co_await emit_value(as< expression_binary >(std::move(expr)));
+        co_return co_await generate(as< expression_binary >(std::move(expr)));
     }
     else if (typeis< expression_call >(expr))
     {
@@ -23,19 +29,19 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm
     }
     else if (typeis< expression_numeric_literal >(expr))
     {
-        co_return co_await emit_value(as< expression_numeric_literal >(std::move(expr)));
+        co_return co_await generate(as< expression_numeric_literal >(std::move(expr)));
     }
     else if (typeis< expression_thisdot_reference >(expr))
     {
-        co_return co_await emit_value(as< expression_thisdot_reference >(std::move(expr)));
+        co_return co_await generate(as< expression_thisdot_reference >(std::move(expr)));
     }
     else if (typeis< expression_this_reference >(expr))
     {
-        co_return co_await emit_value(as< expression_this_reference >(std::move(expr)));
+        co_return co_await generate(as< expression_this_reference >(std::move(expr)));
     }
     else if (typeis< expression_dotreference >(expr))
     {
-        co_return co_await emit_value(as< expression_dotreference >(std::move(expr)));
+        co_return co_await generate(as< expression_dotreference >(std::move(expr)));
     }
 
     else
@@ -46,7 +52,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_vm_value, quxlang::vm
     assert(false);
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_thisdot_reference what))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_thisdot_reference what))
 {
     auto this_reference = subdotentity_reference{.parent = context_reference{}, .subdotentity_name = "THIS"};
     auto value = co_await inter->lookup_symbol(this_reference);
@@ -57,104 +63,91 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
     co_return value.value();
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_dotreference what))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_dotreference what))
 {
-    auto parent = co_await emit_vm_value(what.lhs);
+    auto parent = co_await generate_expr(what.lhs);
 
-    co_return co_await emit_field_access(parent, what.field_name);
+    co_return co_await generate_field_access(parent, what.field_name);
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_field_access, quxlang::vm_value, (vm_value base, std::string field_name))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate_field_access, quxlang::vmir2::storage_index, (storage_index base, std::string field_name))
 {
-    auto base_type = vm_value_type(base);
+    auto base_type = co_await inter->index_type(base);
+    auto base_type_noref = quxlang::remove_ref(base_type);
 
-    class_layout layout = co_await *c->lk_class_layout_from_canonical_chain(base_type);
+    class_layout layout = co_await *c->lk_class_layout_from_canonical_chain(base_type_noref);
 
     for (class_field_info const& field : layout.fields)
     {
         if (field.name == field_name)
         {
-            vm_expr_access_field access;
-            if (typeis< mvalue_reference >(thisreftype))
-            {
-                access.type = make_mref(field.type);
-            }
-            else if (typeis< tvalue_reference >(thisreftype))
-            {
-                access.type = make_tref(field.type);
-            }
-            else if (typeis< ovalue_reference >(thisreftype))
-            {
-                access.type = make_oref(field.type);
-            }
-            else if (typeis< cvalue_reference >(thisreftype))
-            {
-                access.type = make_cref(field.type);
-            }
-            else
-            {
-                assert(false);
-            }
-            access.base = base;
+            vmir2::access_field access;
+            access.base_index = base;
             access.offset = field.offset;
-            co_return access;
+            type_symbol result_ref_type = recast_reference(base_type, field.type);
+            access.store_index = co_await inter->create_temporary_storage(result_ref_type);
+
+            co_await inter->emit(access);
+            co_return access.store_index;
         }
     }
 
     throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vm_value, (quxlang::expression_call call))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vmir2::storage_index, (quxlang::expression_call call))
 {
-    auto callee = co_await emit_vm_value(call.callee);
+    auto callee = co_await generate_expr(call.callee);
 
-    // TODO: Support OPERATOR() here
+    type_symbol callee_type = co_await inter->index_type(callee);
 
-    if (!typeis< vm_expr_bound_value >(callee))
+    if (!typeis< bound_function_type_reference >(callee_type))
     {
+        // TODO: Call OPERATOR() here instead of throwing
         throw std::logic_error("Cannot call non-callable value");
     }
 
-    auto const& callee_value = as< vm_expr_bound_value >(callee);
+    auto const& callee_type_value = as< bound_function_type_reference >(callee_type);
 
-    vm_callargs args;
+    vmir2::invocation_args args;
 
     call_type call_t;
 
     for (auto& arg : call.args)
     {
-        auto arg_val = co_await emit_vm_value(arg.value);
+        auto arg_val_idx = co_await generate_expr(arg.value);
 
         if (arg.name)
         {
-            args.named[*arg.name] = arg_val;
-            call_t.named_parameters[*arg.name] = vm_value_type(arg_val);
+            args.named[*arg.name] = arg_val_idx;
+            call_t.named_parameters[*arg.name] = co_await inter->index_type(arg_val_idx);
         }
         else
         {
-            args.positional.push_back(arg_val);
-            call_t.positional_parameters.push_back(vm_value_type(arg_val));
+            args.positional.push_back(arg_val_idx);
+            call_t.positional_parameters.push_back(co_await inter->index_type(arg_val_idx));
         }
     }
 
-    if (!callee_value.value.type_is< void_value >())
+    if (!typeis<void_type>(callee_type_value.object_type))
     {
-        call_t.named_parameters["THIS"] = vm_value_type(callee_value.value);
+        call_t.named_parameters["THIS"] = callee_type;
+        args.named["THIS"] = callee;
     }
 
-    co_return co_await gen_call_functum(callee_value.function_ref, args);
+    co_return co_await gen_call_functum(callee_type_value.function_type, args);
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang::vm_value, (type_symbol func, vm_callargs args))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang::vmir2::storage_index, (type_symbol func, vmir2::invocation_args args))
 {
     call_type calltype;
     for (auto& arg : args.positional)
     {
-        calltype.positional_parameters.push_back(vm_value_type(arg));
+        calltype.positional_parameters.push_back(co_await inter->index_type(arg));
     }
     for (auto& [name, arg] : args.named)
     {
-        calltype.named_parameters[name] = vm_value_type(arg);
+        calltype.named_parameters[name] = co_await inter->index_type(arg);
     }
 
     instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
@@ -167,69 +160,38 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang:
 
     auto return_type = QUX_CO_ASK(functanoid_return_type, (instanciation.value()));
 
-    std::optional< vm_value > return_value;
+    // Index 0 is defined to be the special "void" value.
+    vmir2::storage_index return_value = 0;
 
     if (!typeis< void_type >(return_type))
     {
         auto return_slot_type = nvalue_slot{.target = return_type};
         auto return_slot = co_await inter->create_temporary_storage(return_type);
 
-        calltype.named_parameters["RETURN"] = return_slot_type;
-        args.named["RETURN"] = vm_expr_load_reference{.index = return_slot, .type = return_slot_type};
+        //calltype.named_parameters["RETURN"] = return_slot_type;
+        args.named["RETURN"] = return_slot;
 
-        return_value = vm_expr_load_reference{.index = return_slot, .type = return_slot_type};
+        return_value = return_slot;
 
         co_await gen_call_functanoid(instanciation.value(), args);
-
-        // TODO: We should call destructor even for references, because the
-        // destructor can provide inline poisons on llvm backend.
-
-        // TODO: implement dvalue slots
-        // Because we don't have dvalue slots, we can't implement the destructor completely here for references.
-        if (!is_ref(return_type))
-        {
-            // This requires the implementation of dtor slots first.
-            auto return_type_dtor = subdotentity_reference{return_type, "DESTRUCTOR"};
-
-            // call_type dtor_calltype = call_type{.named_parameters = {{"THIS", make_dslot(return_type)}}};
-
-            call_type dtor_calltype = call_type{.named_parameters = {{"THIS", make_mref(return_type)}}};
-
-            auto dtor_instanciation1 = instanciation_reference{.callee = return_type_dtor, .parameters = dtor_calltype};
-
-            auto dtor_instanciation2 = QUX_CO_ASK(instanciation, (dtor_instanciation1));
-
-            if (!dtor_instanciation2)
-            {
-                throw std::logic_error("Cannot find destructor for " + to_string(return_type));
-            }
-            // TODO: Make destructors use nvalue and dvalue slots only.
-
-            co_await inter->defer_always(dtor_instanciation2.value(), {.named = {{"THIS", return_slot}}});
-        }
-        else
-        {
-            return_value = vm_expr_load_reference{.index = return_slot, .type = make_tref(return_type)};
-        }
     }
 
-    co_return return_value.value_or(void_value{});
+    co_return return_value;
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxlang::vm_value, (instanciation_reference what, vm_callargs args))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, void, (instanciation_reference what, vmir2::invocation_args args))
 {
     auto const& call_args_types = what.parameters;
 
     // TODO: Support defaulted parameters.
 
-    std::vector< co_interface::deferral_index > deferrals;
 
     vm_invocation_args invocation_args;
 
-    auto create_arg_value = [&](vm_value arg_expr_val, type_symbol arg_target_type) -> rpnx::general_coroutine< compiler, co_interface::storage_index >
+    auto create_arg_value = [&](storage_index arg_expr_val, type_symbol arg_target_type) -> rpnx::general_coroutine< compiler, storage_index >
     {
         // TODO: Support PRValue args
-        auto arg_expr_type = vm_value_type(arg_expr_val);
+        auto arg_expr_type = co_await inter->index_type(arg_expr_val);
 
         assert(is_ref(arg_expr_type));
 
@@ -238,7 +200,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
             auto index = co_await inter->create_temporary_storage(arg_target_type);
             auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
             auto arg_final_dtor_func = subdotentity_reference{arg_target_type, "DESTRUCTOR"};
-            vm_callargs ctor_args = {.named = {{"THIS", vm_expr_load_reference{.index = index, .type = make_mref(arg_target_type)}}}, .positional = {arg_expr_val}};
+            vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_val}};
             // These both need to be references or the constructor will probably infinite loop.
             assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
@@ -248,12 +210,6 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
             // When we complete the constructor of the argument, we need to queue the destructor of the argument.
             // We also need to save the deferral so we can remove it from the deferral list prior to invoking
             // the target procedure (since ownership of the argument is transferred to the target procedure).
-
-            vm_invocation_args dtor_args = {.named = {{"THIS", index}}};
-
-            co_interface::deferral_index defer_index = co_await inter->defer_always(arg_final_dtor_func, dtor_args);
-            deferrals.push_back(defer_index);
-
             co_return index;
         }
         else
@@ -266,7 +222,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
     {
 
         auto arg_expr = args.named.at(name);
-        auto arg_expr_type = vm_value_type(arg_expr);
+        auto arg_expr_type = co_await inter->index_type(arg_expr);
 
         auto arg_index = co_await create_arg_value(arg_expr, arg_accepted_type);
 
@@ -276,18 +232,18 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, quxla
     throw rpnx::unimplemented();
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_symbol_reference expr))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_symbol_reference expr))
 {
     co_return (co_await inter->lookup_symbol(expr.symbol)).value();
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_binary input))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_binary input))
 {
-    auto lhs = co_await emit_vm_value(input.lhs);
-    auto rhs = co_await emit_vm_value(input.rhs);
+    auto lhs = co_await generate_expr(input.lhs);
+    auto rhs = co_await generate_expr(input.rhs);
 
-    type_symbol lhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), lhs);
-    type_symbol rhs_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor(), rhs);
+    type_symbol lhs_type = co_await inter->index_type(lhs);
+    type_symbol rhs_type = co_await inter->index_type(rhs);
 
     type_symbol lhs_underlying_type = remove_ref(lhs_type);
     type_symbol rhs_underlying_type = remove_ref(rhs_type);
@@ -301,7 +257,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
 
     if (lhs_exists_and_callable_with)
     {
-        auto lhs_args = vm_callargs{.named = {{"THIS", lhs}}, .positional = {rhs}};
+        auto lhs_args = vmir2::invocation_args{.named = {{"THIS", lhs}}, .positional = {rhs}};
         co_return co_await gen_call_functum(lhs_function, lhs_args);
     }
 
@@ -309,14 +265,14 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_va
 
     if (rhs_exists_and_callable_with)
     {
-        auto rhs_args = vm_callargs{.named = {{"THIS", rhs}}, .positional = {lhs}};
+        auto rhs_args = vmir2::invocation_args{.named = {{"THIS", rhs}}, .positional = {lhs}};
         co_return co_await gen_call_functum(rhs_function, rhs_args);
     }
 
     throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, emit_value, quxlang::vm_value, (expression_numeric_literal input))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_numeric_literal input))
 {
-    co_return vm_expr_load_literal{.literal = input.value, .type = numeric_literal_reference{}};
+    co_return co_await inter->create_numeric_literal(input.value);
 }

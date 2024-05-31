@@ -4,7 +4,7 @@
 #define EXTERN_HPP
 
 #include "parse_whitespace_and_comments.hpp"
-#include "skip_symbol_if_is.hpp"
+#include "symbol.hpp"
 #include "string_literal.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 

@@ -7,6 +7,7 @@
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/expression_numeric_literal.hpp"
+#include "quxlang/data/numeric_literal.hpp"
 #include <string>
 
 namespace quxlang
@@ -39,7 +40,7 @@ namespace quxlang
             std::string result = "(" + to_string(expr.callee) + "(";
             for (int i = 0; i < expr.args.size(); i++)
             {
-                auto arg = expr.args[i];
+                auto arg = expr.args[i].value;
                 result += to_string(arg);
                 if (i != expr.args.size() - 1)
                     result += ", ";
@@ -93,15 +94,26 @@ namespace quxlang
             return to_string(expr.symbol);
         }
 
-        std::string operator()(numeric_literal const& expr) const
+        std::string operator()(target_expr const& expr) const
         {
-            return expr.value;
+            return "TARGET" + expr.target;
+        }
+
+        std::string operator()(sizeof_expr const& expr) const
+        {
+            return "SIZEOF(" + to_string(expr.what) + ")";
+        }
+
+        std::string operator()(expression_string_literal const& expr) const
+        {
+            // TODO: Escape
+            return "\"" + expr.value + "\"";
         }
     };
 
     inline std::string to_string(expression const& expr)
     {
-        return rpnx::apply_visitor<std::string>(expression_stringifier{}, expr);
+        return rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
     }
 } // namespace quxlang
 

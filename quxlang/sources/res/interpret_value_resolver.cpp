@@ -18,7 +18,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_interpreter, eval, quxlang::interp_value, (quxlang:
    throw rpnx::unimplemented();
 }
 
-QUX_SUBCO_MEMBER_FUNC_DEF(co_interpreter::co_expr_interface, create_temporary_storage, quxlang::co_interpreter::co_expr_interface::storage_index, (type_symbol type))
+QUX_SUBCO_MEMBER_FUNC_DEF(co_interpreter::co_expr_interface, create_temporary_storage, quxlang::vmir2::storage_index, (type_symbol type))
 {
    throw rpnx::unimplemented();
 }

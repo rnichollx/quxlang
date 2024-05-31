@@ -16,7 +16,7 @@
 
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
 #include "quxlang/parsers/procedure_ref.hpp"
-#include "quxlang/parsers/skip_symbol_if_is.hpp"
+#include "quxlang/parsers/symbol.hpp"
 
 namespace quxlang::parsers
 {

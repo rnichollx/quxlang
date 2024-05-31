@@ -6,7 +6,7 @@
 #include "quxlang/parsers/parse_symbol.hpp"
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
 #include "quxlang/parsers/keyword.hpp"
-#include "quxlang/parsers/skip_symbol_if_is.hpp"
+#include "quxlang/parsers/symbol.hpp"
 #include "quxlang/parsers/asm/parse_register.hpp"
 #include "quxlang/parsers/parse_identifier.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"

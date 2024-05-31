@@ -9,6 +9,7 @@
 #include "quxlang/data/interp_value.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
+#include "quxlang/vmir2/vmir2.hpp"
 
 namespace quxlang
 {
@@ -28,11 +29,9 @@ namespace quxlang
             {
             }
 
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, storage_index, (type_symbol type)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_reference, storage_index, (type_symbol type, vm_value init)) override;
+            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, vmir2::storage_index, (type_symbol type)) override;
 
-            QUX_SUBCO_MEMBER_FUNC(mark_invoked, vm_value, (type_symbol func)) override;
-            QUX_SUBCO_MEMBER_FUNC(emit, void, (vm_executable_unit what)) override;
+            QUX_SUBCO_MEMBER_FUNC(emit, void, (vmir2::vm_instruction what)) override;
         };
 
       public:
