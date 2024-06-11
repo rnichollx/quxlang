@@ -67,7 +67,7 @@ namespace quxlang
             virtual QUX_SUBCO_MEMBER_FUNC(emit, void, (vmir2::vm_instruction)) override;
             virtual QUX_SUBCO_MEMBER_FUNC(index_type, type_symbol, (vmir2::storage_index)) override;
             virtual QUX_SUBCO_MEMBER_FUNC(create_string_literal, vmir2::storage_index, (std::string)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_integer_literal, vmir2::storage_index, (std::string)) override;
+            virtual QUX_SUBCO_MEMBER_FUNC(create_numeric_literal, vmir2::storage_index, (std::string)) override;
         };
 
       private:

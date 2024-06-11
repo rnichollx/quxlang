@@ -25,7 +25,7 @@ namespace quxlang::parsers
         throw std::runtime_error("Expected expression");
     }
 
-    expression parse_expression(std::string str)
+    inline expression parse_expression(std::string str)
     {
         auto it = str.begin();
         return parse_expression(it, str.end());

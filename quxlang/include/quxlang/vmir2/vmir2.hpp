@@ -20,6 +20,7 @@ namespace quxlang
         struct access_field;
         struct invoke;
 
+
         using vm_instruction = rpnx::variant< access_field, invoke >;
 
         using storage_index = std::size_t;
@@ -53,6 +54,7 @@ namespace quxlang
         {
             type_symbol type;
             std::optional< std::string > name;
+            std::optional< std::string > literal_value;
         };
 
         struct vm_context

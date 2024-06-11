@@ -388,6 +388,7 @@ TEST(range, iterator_advance)
     ASSERT_EQ(*iter, 3);
 }
 
+#include "expr_test_provider.hpp"
 #include "rpnx/range.hpp"
 #include <gtest/gtest.h>
 #include <list>
@@ -674,4 +675,11 @@ TEST(VariantTest, Serialization)
     EXPECT_EQ(v2, v4);
 
     EXPECT_EQ(v4, std::string("hello"));
+}
+
+TEST(expression_ir, generation)
+{
+    quxlang::expr_test_provider pv;
+
+
 }

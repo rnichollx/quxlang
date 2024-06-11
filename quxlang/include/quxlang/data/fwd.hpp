@@ -28,6 +28,7 @@ namespace quxlang
     struct function_overload;
     struct void_type;
     struct numeric_literal_reference;
+    struct string_literal_reference;
     struct context_reference;
     struct template_reference;
     struct bound_function_type_reference;
