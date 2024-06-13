@@ -21,6 +21,7 @@
 #include <boost/variant.hpp>
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
+#include <quxlang/vmir2/assembly.hpp>
 
 #include "rpnx/serializer.hpp"
 
@@ -389,6 +390,7 @@ TEST(range, iterator_advance)
 }
 
 #include "expr_test_provider.hpp"
+#include "quxlang/compiler.hpp"
 #include "rpnx/range.hpp"
 #include <gtest/gtest.h>
 #include <list>
@@ -680,6 +682,38 @@ TEST(VariantTest, Serialization)
 TEST(expression_ir, generation)
 {
     quxlang::expr_test_provider pv;
+    quxlang::source_bundle sources;
+    sources.targets["foo"].target_output_config = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    quxlang::compiler c(sources, "foo");
+    quxlang::expr_test_provider::interface pvi(&pv);
+    quxlang::co_vmir_expression_emitter em(&c, &pvi);
 
+    // TODO: We could probably make the tester look at named variable slots instead of having a lookup table
+    pv.slots.push_back(quxlang::vmir2::vm_slot{
+        .type = quxlang::parsers::parse_type_symbol("I32"),
+        .name = "a",
+    });
+    pv.slots.push_back(quxlang::vmir2::vm_slot{
+        .type = quxlang::parsers::parse_type_symbol("I32"),
+        .name = "b",
+    });
 
+    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("a")] = 1;
+    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = 2;
+
+    quxlang::expression expr = quxlang::parsers::parse_expression("a + b - 4");
+
+    em.generate_expr(expr);
+
+    quxlang::vmir2::functanoid_routine r;
+    r.slots = pv.slots;
+    r.instructions = pv.instructions;
+
+    std::string result = quxlang::vmir2::assembler().to_string(r);
+
+    std::cout << result << std::endl;
 }

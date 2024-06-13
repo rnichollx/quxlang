@@ -88,7 +88,7 @@ namespace quxlang::parsers
         // TODO: Check for duplicate argument names here?
     }
 
-    std::vector< ast2_function_parameter > parse_function_args(std::string str)
+    inline std::vector< ast2_function_parameter > parse_function_args(std::string str)
     {
         auto it = str.begin();
         return parse_function_args(it, str.end());

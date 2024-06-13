@@ -26,7 +26,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
     }
     else if (kind == symbol_kind::templex)
     {
-        co_return co_await QUX_CO_DEP(templex_instanciation, (input_val));
+       throw rpnx::unimplemented();
+       // co_return co_await QUX_CO_DEP(templex_instanciation, (input_val));
     }
     else
     {

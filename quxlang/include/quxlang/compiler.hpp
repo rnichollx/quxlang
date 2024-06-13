@@ -189,7 +189,7 @@ namespace quxlang
         COMPILER_INDEX(symboid_subdeclaroids)
         COMPILER_INDEX(template_instanciation)
         COMPILER_INDEX(template_instanciation_ast)
-        COMPILER_INDEX(templex_instanciation)
+        //COMPILER_INDEX(templex_instanciation)
         COMPILER_INDEX(templex_select_template)
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)

@@ -15,43 +15,28 @@ namespace quxlang
 
     // This class is meant to replace the expression generator in vm_procedure_from_canonical_functanoid_resolver,
     // The goal is to generalize the expression emitter that can produce QXVM IR in non-function contexts as
+    template < typename CoroutineProvider >
     class co_vmir_expression_emitter
     {
         using storage_index = std::size_t;
         using deferral_index = std::size_t;
 
-      public:
-        class co_interface
-        {
-          public:
-            virtual QUX_SUBCO_MEMBER_FUNC(emit, void, (quxlang::vmir2::vm_instruction)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, storage_index, (type_symbol type)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(lookup_symbol, std::optional< storage_index >, (type_symbol sym)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(index_type, type_symbol, (storage_index index)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_string_literal, storage_index, (std::string str)) = 0;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_numeric_literal, storage_index, (std::string str)) = 0;
-
-        };
-
       private:
-        compiler* c;
-        co_interface* inter;
+        CoroutineProvider prv;
 
       public:
-        co_vmir_expression_emitter(compiler* c, co_interface* inter)
-            : c(c)
-            , inter(inter)
+        co_vmir_expression_emitter(CoroutineProvider prv)
+            : prv(prv)
+
         {
         }
 
-        QUX_SUBCO_MEMBER_FUNC(generate_expr, vmir2::storage_index, (expression input));
-        QUX_SUBCO_MEMBER_FUNC(typeof_vm_value, type_symbol, (expression input));
+        auto generate_expr(expression input) -> typename CoroutineProvider::template co_type< vmir2::storage_index >;
+
+        auto typeof_vm_value(expression input) -> typename CoroutineProvider::template co_type< vmir2::type_symbol >;
 
       private:
-        QUX_SUBCO_MEMBER_FUNC(emit_invoke, storage_index, (type_symbol what, vmir2::invocation_args input));
-
-        QUX_SUBCO_MEMBER_FUNC(gen_call_expr, storage_index, (expression_call call));
-
+        auto gen_call_expr(expression_call call) -> typename CoroutineProvider::template co_type< vmir2::storage_index >;
         QUX_SUBCO_MEMBER_FUNC(gen_call_functum, storage_index, (type_symbol what, vmir2::invocation_args input));
         QUX_SUBCO_MEMBER_FUNC(gen_call_functanoid, void, (instanciation_reference what, vmir2::invocation_args input));
         QUX_SUBCO_MEMBER_FUNC(gen_invoke, void, (instanciation_reference what, vmir2::invocation_args input));
@@ -64,7 +49,7 @@ namespace quxlang
         QUX_SUBCO_MEMBER_FUNC(generate, storage_index, (expression_call sym));
         QUX_SUBCO_MEMBER_FUNC(generate, storage_index, (expression_this_reference sym));
 
-        QUX_SUBCO_MEMBER_FUNC(generate_field_access, storage_index , (storage_index what, std::string field_name));
+        QUX_SUBCO_MEMBER_FUNC(generate_field_access, storage_index, (storage_index what, std::string field_name));
     };
 } // namespace quxlang
 

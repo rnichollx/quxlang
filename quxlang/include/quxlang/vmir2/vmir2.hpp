@@ -20,7 +20,6 @@ namespace quxlang
         struct access_field;
         struct invoke;
 
-
         using vm_instruction = rpnx::variant< access_field, invoke >;
 
         using storage_index = std::size_t;
@@ -45,7 +44,7 @@ namespace quxlang
         struct invoke
         {
             type_symbol what;
-            vm_invocation_args args;
+            invocation_args args;
 
             RPNX_MEMBER_METADATA(invoke, what, args);
         };
@@ -60,6 +59,12 @@ namespace quxlang
         struct vm_context
         {
             std::vector< vm_slot > slots;
+        };
+
+        struct functanoid_routine
+        {
+            std::vector< vm_slot > slots;
+            std::vector< vm_instruction > instructions;
         };
     } // namespace vmir2
 

@@ -129,7 +129,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_expr, quxlang::vm
         }
     }
 
-    if (!typeis<void_type>(callee_type_value.object_type))
+    if (!typeis< void_type >(callee_type_value.object_type))
     {
         call_t.named_parameters["THIS"] = callee_type;
         args.named["THIS"] = callee;
@@ -165,10 +165,9 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functum, quxlang:
 
     if (!typeis< void_type >(return_type))
     {
-        auto return_slot_type = nvalue_slot{.target = return_type};
         auto return_slot = co_await inter->create_temporary_storage(return_type);
 
-        //calltype.named_parameters["RETURN"] = return_slot_type;
+        // calltype.named_parameters["RETURN"] = return_slot_type;
         args.named["RETURN"] = return_slot;
 
         return_value = return_slot;
@@ -185,8 +184,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, void,
 
     // TODO: Support defaulted parameters.
 
-
-    vm_invocation_args invocation_args;
+    vmir2::invocation_args invocation_args;
 
     auto create_arg_value = [&](storage_index arg_expr_val, type_symbol arg_target_type) -> rpnx::general_coroutine< compiler, storage_index >
     {
@@ -199,7 +197,6 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, void,
         {
             auto index = co_await inter->create_temporary_storage(arg_target_type);
             auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
-            auto arg_final_dtor_func = subdotentity_reference{arg_target_type, "DESTRUCTOR"};
             vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_val}};
             // These both need to be references or the constructor will probably infinite loop.
             assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
@@ -229,12 +226,33 @@ QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_call_functanoid, void,
         invocation_args.named[name] = arg_index;
     }
 
-    throw rpnx::unimplemented();
+    co_await gen_invoke(what, invocation_args);
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, gen_invoke, void, (instanciation_reference what, vmir2::invocation_args input))
+{
+    vmir2::invoke ivk;
+    ivk.args = std::move(input);
+    ivk.what = std::move(what);
+    inter->emit(std::move(ivk));
+    co_return;
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_symbol_reference expr))
 {
     co_return (co_await inter->lookup_symbol(expr.symbol)).value();
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_this_reference expr))
+{
+    throw rpnx::unimplemented();
+    co_return 0;
+}
+
+QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_call expr))
+{
+    throw rpnx::unimplemented();
+    co_return 0;
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(co_vmir_expression_emitter, generate, quxlang::vmir2::storage_index, (expression_binary input))

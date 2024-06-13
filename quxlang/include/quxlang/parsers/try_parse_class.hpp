@@ -30,7 +30,7 @@ namespace quxlang::parsers
         return out;
     }
 
-    std::optional< ast2_class_declaration > try_parse_class(std::string str)
+    inline std::optional< ast2_class_declaration > try_parse_class(std::string str)
     {
         auto it = str.begin();
         return try_parse_class(it, str.end());
