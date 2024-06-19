@@ -47,44 +47,25 @@ namespace quxlang
       public:
         vm_procedure2_generator_state(type_symbol what)
             : func(what)
-            , ifc(this)
         {
         }
 
       public:
-        class interface : public co_vmir_expression_emitter::co_interface
-        {
-            vm_procedure2_generator_state* gen;
-
-          public:
-            interface(vm_procedure2_generator_state* gen)
-                : gen(gen)
-            {
-            }
-
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, vmir2::storage_index, (type_symbol type)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(lookup_symbol, std::optional< vmir2::storage_index >, (type_symbol sym)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(emit, void, (vmir2::vm_instruction)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(index_type, type_symbol, (vmir2::storage_index)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_string_literal, vmir2::storage_index, (std::string)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_numeric_literal, vmir2::storage_index, (std::string)) override;
-        };
+        class interface
+        {};
 
       private:
-        interface ifc;
+       // interface ifc;
 
       public:
-        interface* get_interface()
-        {
-            return &ifc;
-        }
+
 
         void print()
         {
         }
     };
 } // namespace quxlang
-
+/*
 QUX_SUBCO_MEMBER_FUNC_DEF2(quxlang::vm_procedure2_generator_state, interface, create_temporary_storage, quxlang::vmir2::storage_index, (type_symbol type))
 {
     auto index = this->gen->slot_info.size();
@@ -121,3 +102,4 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 
     throw rpnx::unimplemented();
 }
+ */

@@ -8,17 +8,8 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_value)
 {
-    co_interpreter interp(c);
-    auto result = co_await interp.eval(input);
-    QUX_CO_ANSWER(result);
-}
-
-QUX_SUBCO_MEMBER_FUNC_DEF(co_interpreter, eval, quxlang::interp_value, (quxlang::expr_interp_input input))
-{
-   throw rpnx::unimplemented();
-}
-
-QUX_SUBCO_MEMBER_FUNC_DEF(co_interpreter::co_expr_interface, create_temporary_storage, quxlang::vmir2::storage_index, (type_symbol type))
-{
-   throw rpnx::unimplemented();
+    rpnx::unimplemented();
+    // co_interpreter interp(c);
+    // auto result = co_await interp.eval(input);
+    // QUX_CO_ANSWER(result);
 }

@@ -19,6 +19,7 @@ virtual QUX_SUBCO_MEMBER_FUNC(index_type, type_symbol, (vmir2::storage_index)) o
 virtual QUX_SUBCO_MEMBER_FUNC(create_string_literal, vmir2::storage_index, (std::string)) override;
 virtual QUX_SUBCO_MEMBER_FUNC(create_numeric_literal, vmir2::storage_index, (std::string)) override;
             */
+            /*
 QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, lookup_symbol, std::optional< quxlang::vmir2::storage_index >, (type_symbol sym))
 {
     if (auto it = gen->loadable_symbols.find(sym); it != gen->loadable_symbols.end())
@@ -68,3 +69,4 @@ QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, create_numeric_literal,
     gen->slots.back().literal_value = value;
     co_return gen->slots.size() - 1;
 }
+*/

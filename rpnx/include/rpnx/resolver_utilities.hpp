@@ -12,6 +12,7 @@
 
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
+#include <rpnx/result.hpp>
 #include "serializer.hpp"
 #include <boost/core/demangle.hpp>
 #include <boost/variant.hpp>
@@ -200,124 +201,7 @@ namespace rpnx
     template < typename Graph, typename Resolver >
     class index;
 
-    template < typename T >
-    class result
-    {
-        std::optional< T > t;
-        std::exception_ptr er;
 
-      public:
-        result(T t)
-            : t(t)
-        {
-        }
-
-        result()
-        {
-        }
-
-        result(std::exception_ptr er)
-            : er(er)
-        {
-        }
-
-        T get() const
-        {
-            if (er)
-                std::rethrow_exception(er);
-            return t.value();
-        }
-
-        void set_value(T t)
-        {
-            this->er = nullptr;
-            this->t = t;
-        }
-
-        void set_error(std::exception_ptr er)
-        {
-            this->t.reset();
-            this->er = er;
-        }
-
-        bool has_value() const
-        {
-            return t.has_value();
-        }
-
-        bool has_error() const
-        {
-            return er != nullptr;
-        }
-
-        std::exception_ptr get_error() const
-        {
-            return er;
-        }
-
-        inline operator bool() const
-        {
-            return has_value() || has_error();
-        }
-    };
-
-    template <>
-    class result< void >
-    {
-        bool t = false;
-        std::exception_ptr er;
-
-      public:
-        result()
-        {
-        }
-
-        result(std::exception_ptr er)
-            : er(er)
-        {
-        }
-
-        void get() const
-        {
-            if (er)
-                std::rethrow_exception(er);
-            if (!t)
-                throw std::logic_error("No value");
-            return;
-        }
-
-        void set_value()
-        {
-            this->er = nullptr;
-            this->t = true;
-        }
-
-        void set_error(std::exception_ptr er)
-        {
-            this->t = false;
-            this->er = er;
-        }
-
-        bool has_value() const
-        {
-            return t;
-        }
-
-        bool has_error() const
-        {
-            return er != nullptr;
-        }
-
-        std::exception_ptr get_error() const
-        {
-            return er;
-        }
-
-        inline operator bool() const
-        {
-            return has_value() || has_error();
-        }
-    };
 
     template < typename Graph >
     class single_thread_graph_solver;

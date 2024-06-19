@@ -8,6 +8,7 @@
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
+#include <rpnx/simple_coroutine.hpp>
 
 namespace quxlang
 {
@@ -19,25 +20,71 @@ namespace quxlang
 
         std::vector< vmir2::vm_instruction > instructions;
 
-        std::map<type_symbol, vmir2::storage_index> loadable_symbols;
+        std::map< type_symbol, vmir2::storage_index > loadable_symbols;
 
-        struct interface : public co_vmir_expression_emitter::co_interface
+        struct co_provider
         {
-            expr_test_provider* gen;
-
-          public:
-            interface(expr_test_provider* gen)
-                : gen(gen)
+            expr_test_provider& parent;
+            co_provider(expr_test_provider& parent)
+                : parent(parent)
             {
             }
 
-            virtual QUX_SUBCO_MEMBER_FUNC(create_temporary_storage, vmir2::storage_index, (type_symbol type)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(lookup_symbol, std::optional< vmir2::storage_index >, (type_symbol sym)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(emit, void, (vmir2::vm_instruction)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(index_type, type_symbol, (vmir2::storage_index)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_string_literal, vmir2::storage_index, (std::string)) override;
-            virtual QUX_SUBCO_MEMBER_FUNC(create_numeric_literal, vmir2::storage_index, (std::string)) override;
+            template < typename T >
+            using co_type = rpnx::simple_coroutine< T >;
+
+            rpnx::awaitable_result< std::optional< vmir2::storage_index > > lookup_symbol(type_symbol sym)
+            {
+                auto it = parent.loadable_symbols.find(sym);
+                if (it != parent.loadable_symbols.end())
+                {
+                    return rpnx::result< std::optional< vmir2::storage_index > >(it->second);
+                }
+                else
+                {
+                    throw std::logic_error("Not found");
+                }
+            }
+
+            rpnx::awaitable_result< quxlang::type_symbol > index_type(vmir2::storage_index idx)
+            {
+                if (idx < parent.slots.size())
+                {
+                    return parent.slots[idx].type;
+                }
+                else
+                {
+                    return std::make_exception_ptr(std::logic_error("Not found"));
+                }
+            }
+
+            rpnx::awaitable_result< bool > functum_exists_and_is_callable_with(instanciation_reference)
+            {
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
+            rpnx::awaitable_result< std::optional< instanciation_reference > > instanciation(type_symbol type)
+            {
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
+            rpnx::awaitable_result< quxlang::type_symbol > functanoid_return_type(instanciation_reference)
+            {
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
+            rpnx::awaitable_result< vmir2::storage_index > create_temporary_storage(type_symbol type)
+            {
+                vmir2::storage_index idx = parent.slots.size();
+                parent.slots.push_back(vmir2::vm_slot{.type = type, .name = "TEMP" + std::to_string(idx)});
+                return idx;
+            }
         };
+
+        auto provider()
+        {
+            return co_provider{*this};
+        }
     };
 
 }; // namespace quxlang

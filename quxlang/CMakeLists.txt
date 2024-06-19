@@ -234,6 +234,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         sources/res/template_instanciation_resolver.cpp
         include/quxlang/vmir2/assembly.hpp
         sources/vmir2/assembler.cpp
+        ../rpnx/include/rpnx/simple_coroutine.hpp
 
 )
 

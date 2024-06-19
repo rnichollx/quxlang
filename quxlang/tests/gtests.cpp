@@ -679,6 +679,9 @@ TEST(VariantTest, Serialization)
     EXPECT_EQ(v4, std::string("hello"));
 }
 
+
+
+
 TEST(expression_ir, generation)
 {
     quxlang::expr_test_provider pv;
@@ -689,8 +692,7 @@ TEST(expression_ir, generation)
         .binary_type = quxlang::binary::elf,
     };
     quxlang::compiler c(sources, "foo");
-    quxlang::expr_test_provider::interface pvi(&pv);
-    quxlang::co_vmir_expression_emitter em(&c, &pvi);
+    quxlang::co_vmir_expression_emitter<quxlang::expr_test_provider::co_provider> em(pv.provider());
 
     // TODO: We could probably make the tester look at named variable slots instead of having a lookup table
     pv.slots.push_back(quxlang::vmir2::vm_slot{
@@ -707,7 +709,7 @@ TEST(expression_ir, generation)
 
     quxlang::expression expr = quxlang::parsers::parse_expression("a + b - 4");
 
-    em.generate_expr(expr);
+    em.generate_expr(expr).await_sync();
 
     quxlang::vmir2::functanoid_routine r;
     r.slots = pv.slots;

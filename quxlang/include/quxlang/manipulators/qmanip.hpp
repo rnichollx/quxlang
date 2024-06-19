@@ -14,6 +14,7 @@ namespace quxlang
 
     std::string to_string(type_symbol const& ref);
 
+    std::string to_string(call_type const& ref);
     bool is_ref(type_symbol type);
 
     bool is_template(type_symbol const& ref);
@@ -222,7 +223,7 @@ namespace quxlang
         }
         else
         {
-            //throw rpnx::unimplemented();
+            // throw rpnx::unimplemented();
             throw "unimplemented";
             // shouldn't get here?
             return field_type;

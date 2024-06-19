@@ -135,7 +135,7 @@ namespace quxlang
         friend class template_instanciation_ast_resolver;
         friend class temploid_instanciation_parameter_set_resolver;
         friend class functum_instanciation_parameter_map_resolver;
-        friend class co_vmir_expression_emitter;
+        //friend class co_vmir_expression_emitter;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
