@@ -5,7 +5,6 @@
 #ifndef QUXLANG_MODULE_AST_RESOLVER_HEADER_GUARD
 #define QUXLANG_MODULE_AST_RESOLVER_HEADER_GUARD
 
-#include "quxlang/ast/module_ast.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/symbol_id.hpp"
 #include "rpnx/resolver_utilities.hpp"

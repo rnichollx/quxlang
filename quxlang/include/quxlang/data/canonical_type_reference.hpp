@@ -8,7 +8,6 @@
 #include <boost/variant.hpp>
 
 #include "canonical_lookup_chain.hpp"
-#include "quxlang/ast/integral_keyword_ast.hpp"
 
 namespace quxlang
 {

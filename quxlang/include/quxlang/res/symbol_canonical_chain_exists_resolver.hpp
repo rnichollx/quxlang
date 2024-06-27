@@ -6,7 +6,6 @@
 #define QUXLANG_SYMBOL_CANONICAL_CHAIN_EXISTS_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
-#include "quxlang/ast/file_ast.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/class_list.hpp"
 #include "quxlang/data/type_symbol.hpp"

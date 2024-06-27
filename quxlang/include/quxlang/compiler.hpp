@@ -6,8 +6,6 @@
 #define QUXLANG_COMPILER_HEADER_GUARD
 
 #include "data/target_configuration.hpp"
-#include "quxlang/ast/file_ast.hpp"
-#include "quxlang/ast/module_ast_precursor1.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
@@ -379,7 +377,7 @@ namespace quxlang
         llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
         std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);
 
-        function_ast get_function_ast_of_overload(type_symbol chain);
+        //function_ast get_function_ast_of_overload(type_symbol chain);
     };
 
 } // namespace quxlang

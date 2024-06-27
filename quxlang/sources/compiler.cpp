@@ -15,7 +15,3 @@ rpnx::output_ptr< quxlang::compiler, std::string > quxlang::compiler::file_conte
 }
 
 
-quxlang::function_ast quxlang::compiler::get_function_ast_of_overload(type_symbol chain)
-{
-    return quxlang::function_ast{};
-}

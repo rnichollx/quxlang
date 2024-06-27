@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "rpnx/resolver_utilities.hpp"
-#include "quxlang/ast/file_ast.hpp"
 #include "quxlang/compiler_fwd.hpp"
 
 namespace quxlang
