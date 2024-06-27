@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <quxlang/data/type_symbol.hpp>
+#include <quxlang/parsers/function.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>
@@ -125,6 +126,7 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, "::."))
         {
             auto ident = parse_subentity(pos, end);
+            remaining = std::string(pos, end);
             if (ident.empty())
             {
                 return output;
@@ -146,8 +148,16 @@ namespace quxlang::parsers
             }
         next_arg:
             skip_whitespace_and_comments(pos, end);
-            param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
-            // TODO: support named parameters
+
+            if (skip_symbol_if_is(pos, end, "@"))
+            {
+                std::string param_name = parse_argument_name(pos, end);
+                param_set.parameters.named_parameters[param_name] = parse_type_symbol(pos, end);
+            }
+            else
+            {
+                param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+            }
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ")"))

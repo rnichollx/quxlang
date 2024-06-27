@@ -4,34 +4,59 @@
 
 #ifndef PARSE_SUBENTITY_HPP
 #define PARSE_SUBENTITY_HPP
-#include <string>
-#include <set>
 #include <quxlang/parsers/iter_parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/skip_whitespace.hpp>
+#include <quxlang/parsers/symbol.hpp>
+#include <set>
+#include <string>
 
 namespace quxlang::parsers
 {
     template < typename It >
-   inline std::string parse_subentity(It& begin, It end)
+    inline std::string parse_subentity(It& begin, It end)
     {
         static std::set< std::string > subentity_keywords = {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR"};
 
         auto pos = iter_parse_identifier(begin, end);
-        if (pos == begin)
+        if (pos != begin)
         {
-            pos = iter_parse_keyword(begin, end);
-            auto kw = std::string(begin, pos);
+            auto result = std::string(begin, pos);
+            begin = pos;
+            return result;
+        }
 
-            if (pos == begin || !subentity_keywords.contains(kw))
+        std::string result;
+
+        pos = iter_parse_keyword(begin, end);
+        auto kw = std::string(begin, pos);
+
+        if (!subentity_keywords.contains(kw))
+        {
+            return {};
+        }
+        result = kw;
+
+        if (kw == "OPERATOR")
+        {
+            skip_whitespace(pos, end);
+            auto sym = parse_symbol(pos, end);
+            if (sym.empty())
             {
-                return {};
+                throw std::runtime_error("Expected operator symbol");
+            }
+            result += sym;
+            skip_whitespace(pos, end);
+
+            if (skip_keyword_if_is(pos, end, "RHS"))
+            {
+                result += "RHS";
             }
         }
-        auto result = std::string(begin, pos);
+        std::string remaining(pos, end);
         begin = pos;
         return result;
     }
+} // namespace quxlang::parsers
 
-}
-
-#endif //PARSE_SUBENTITY_HPP
+#endif // PARSE_SUBENTITY_HPP
