@@ -13,30 +13,36 @@ namespace quxlang
     template < typename T >
     class cow
     {
+        // Shared pointer to manage the memory of the object
         std::shared_ptr< T > ptr;
 
       public:
+        // Default constructor that initializes the shared pointer with a new object of type T
         cow()
             : ptr(std::make_shared< T >())
         {
         }
 
+        // Constructor that initializes the shared pointer with nullptr
         cow(std::nullptr_t n)
             : ptr(n)
         {
         }
 
+        // Constructor that initializes the shared pointer with an object of type T
         cow(T t)
             : ptr(std::make_shared< T >(std::move(t)))
         {
         }
 
+        // Variadic template constructor to allow construction with an arbitrary number of arguments
         template < typename... Ts >
         cow(Ts&&... ts)
             : ptr(std::make_shared< T >(std::forward< Ts >(ts)...))
         {
         }
 
+        // Copy constructors
         cow(cow< T > const& other)
             : ptr(other.ptr)
         {
@@ -47,6 +53,7 @@ namespace quxlang
         {
         }
 
+        // Move constructors
         cow(cow< T > const&& other)
             : ptr(other.ptr)
         {
@@ -57,6 +64,7 @@ namespace quxlang
         {
         }
 
+        // Comparison operators
         bool operator==(cow< T > const& other) const
         {
             return get() == other.get();
@@ -67,18 +75,21 @@ namespace quxlang
             return get() < other.get();
         }
 
+        // Copy assignment operators
         cow< T >& operator=(cow< T > const& other)
         {
             ptr = other.ptr;
             return *this;
         }
 
+        // Move assignment operators
         cow< T >& operator=(cow< T >&& other)
         {
             ptr = std::move(other.ptr);
             return *this;
         }
 
+        // Assignment operators for objects of type T
         cow< T >& operator=(T&& other)
         {
             if (ptr.use_count() == 1)
@@ -105,11 +116,13 @@ namespace quxlang
             return *this;
         }
 
+        // Getter for the object of type T
         T const& get() const
         {
             return *ptr;
         }
 
+        // Method to modify the object of type T
         T& edit()
         {
             if (ptr.use_count() > 1)
@@ -119,11 +132,13 @@ namespace quxlang
             return *ptr;
         }
 
+        // Method to set a new object of type T
         void set(T t)
         {
             ptr = std::make_shared< T >(std::move(t));
         }
 
+        // Dereference operators
         T const& operator*() const
         {
             return *ptr;
@@ -134,6 +149,7 @@ namespace quxlang
             return ptr.get();
         }
 
+        // Method to swap the shared pointers of two cow objects
         void swap(cow< T >& other)
         {
             ptr.swap(other.ptr);
