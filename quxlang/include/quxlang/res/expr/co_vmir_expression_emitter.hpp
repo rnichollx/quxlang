@@ -22,8 +22,7 @@ namespace quxlang
         CoroutineProvider prv;
 
       public:
-        co_vmir_expression_emitter(CoroutineProvider prv)
-            : prv(prv)
+        co_vmir_expression_emitter(CoroutineProvider prv) : prv(prv)
         {
         }
 
@@ -155,7 +154,8 @@ namespace quxlang
             co_return return_value;
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args args) -> rpnx::simple_coroutine<void>// typename CoroutineProvider::template co_type< void >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args args)
+            -> rpnx::simple_coroutine< void > // typename CoroutineProvider::template co_type< void >
         {
             auto const& call_args_types = what.parameters;
 
@@ -264,7 +264,8 @@ namespace quxlang
                 co_return co_await gen_call_functum(rhs_function, rhs_args);
             }
 
-            throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
+            throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " +
+                                   to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
         }
 
         auto generate(expression_numeric_literal input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -315,6 +316,6 @@ namespace quxlang
             throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
     };
-}
+} // namespace quxlang
 
 #endif // RPNX_QUXLANG_CO_VMIR_EXPRESSION_EMITTER_HEADER

@@ -15,6 +15,12 @@ namespace quxlang
 {
     struct expr_test_provider
     {
+
+        inline expr_test_provider()
+        {
+            auto type = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ @(@THIS I32, I32)");
+            this->testmap_instanciation_presets[as< instanciation_reference >(type)] = quxlang::instanciation_reference{.callee = quxlang::selection_reference{.callee = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .overload = function_overload{.builtin = true, .call_parameters = quxlang::call_type{.positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}, .named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}}}}, .parameters = quxlang::call_type{.positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}, .named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}}};
+        }
         // Slot 0 is always reserved for the void slot
         // Including as data to avoid special-casing this.
         std::vector< vmir2::vm_slot > slots{vmir2::vm_slot{.type = void_type{}, .name = "VOID"}};
@@ -25,13 +31,13 @@ namespace quxlang
 
         std::map< type_symbol, bool > testmap_functum_exists_presets{{quxlang::parsers::parse_type_symbol(std::string("I32::.OPERATOR+ @(@THIS I32, I32)")), true}};
 
-        std::map< instanciation_reference, std::optional<instanciation_reference> > testmap_instanciation_presets;
+        std::map< instanciation_reference, std::optional< instanciation_reference > > testmap_instanciation_presets{};
+        std::map< type_symbol, type_symbol > testmap_functanoid_return_type_presets{};
 
         struct co_provider
         {
             expr_test_provider& parent;
-            co_provider(expr_test_provider& parent)
-                : parent(parent)
+            co_provider(expr_test_provider& parent) : parent(parent)
             {
             }
 
@@ -67,7 +73,6 @@ namespace quxlang
             {
                 std::cout << "functum_exists_and_is_callable_with(" << quxlang::to_string(what) << ")" << std::endl;
 
-
                 auto it = parent.testmap_functum_exists_presets.find(what);
                 if (it != parent.testmap_functum_exists_presets.end())
                 {
@@ -82,13 +87,25 @@ namespace quxlang
                 auto it = parent.testmap_instanciation_presets.find(type);
                 if (it != parent.testmap_instanciation_presets.end())
                 {
-                    return it->second;
+                    auto result = it->second;
+                    if (result)
+                    {
+                        std::cout << "instanciation(" << quxlang::to_string(type) << ") -> " << quxlang::to_string(result.value()) << std::endl;
+                    }
+                    return result;
                 }
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< quxlang::type_symbol > functanoid_return_type(instanciation_reference)
+            rpnx::awaitable_result< quxlang::type_symbol > functanoid_return_type(type_symbol type)
             {
+                std::cout << "functanoid_return_type(" << quxlang::to_string(type) << ")" << std::endl;
+                auto it = parent.testmap_functanoid_return_type_presets.find(type);
+                if (it != parent.testmap_functanoid_return_type_presets.end())
+                {
+                    return it->second;
+                }
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
