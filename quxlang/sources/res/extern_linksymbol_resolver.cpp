@@ -19,6 +19,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(extern_linksymbol)
     }
     else
     {
-        throw std::runtime_error("Extern language '" + lang + "' not supported");
+        throw std::logic_error("Extern language '" + lang + "' not supported");
     }
 }

@@ -26,7 +26,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
     if (!typeis< ast2_templex >(maybe_templ_ast))
     {
-        throw std::runtime_error("Cannot create template instanciation of non-template symbol.");
+        throw std::logic_error("Cannot create template instanciation of non-template symbol.");
     }
 
     ast2_templex templ_ast = as< ast2_templex >(maybe_templ_ast);
@@ -64,12 +64,12 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
     if (selected_template == nullptr)
     {
-        throw std::runtime_error("Found no matching template");
+        throw std::logic_error("Found no matching template");
     }
 
     if (eligible_templates > 1)
     {
-        throw std::runtime_error("Ambiguous template selection");
+        throw std::logic_error("Ambiguous template selection");
     }
 
     co_return *selected_template;

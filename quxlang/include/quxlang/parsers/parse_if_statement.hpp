@@ -22,14 +22,14 @@ namespace quxlang::parsers
 
         if (!skip_keyword_if_is(pos, end, "IF"))
         {
-            throw std::runtime_error("Expected 'IF'");
+            throw std::logic_error("Expected 'IF'");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '('");
+            throw std::logic_error("Expected '('");
         }
 
         function_if_statement if_statement;
@@ -39,7 +39,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("Expected ')'");
+            throw std::logic_error("Expected ')'");
         }
 
         skip_whitespace_and_comments(pos, end);

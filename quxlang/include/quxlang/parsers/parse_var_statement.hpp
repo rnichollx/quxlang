@@ -16,7 +16,7 @@ namespace quxlang::parsers
 
         if (!skip_keyword_if_is(pos, end, "VAR"))
         {
-            throw std::runtime_error("Expected 'VAR'");
+            throw std::logic_error("Expected 'VAR'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -59,7 +59,7 @@ namespace quxlang::parsers
                 }
                 else
                 {
-                    throw std::runtime_error("Expected ',' or ')'");
+                    throw std::logic_error("Expected ',' or ')'");
                 }
             }
         }
@@ -70,7 +70,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::runtime_error("Expected ';'");
+            throw std::logic_error("Expected ';'");
         }
 
         return var_statement;

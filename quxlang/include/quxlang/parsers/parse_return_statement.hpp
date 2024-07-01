@@ -17,7 +17,7 @@ namespace quxlang::parsers
     {
         if (!skip_keyword_if_is(pos, end, "RETURN"))
         {
-            throw std::runtime_error("Expected 'RETURN'");
+            throw std::logic_error("Expected 'RETURN'");
         }
 
         function_return_statement output;
@@ -33,7 +33,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::runtime_error("Expected ';'");
+            throw std::logic_error("Expected ';'");
         }
 
         return output;

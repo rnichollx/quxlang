@@ -24,7 +24,7 @@ namespace quxlang::parsers
 
         if (output.has_value() && output->second.empty())
         {
-            throw std::runtime_error("Expected identifier");
+            throw std::logic_error("Expected identifier");
         }
 
         return output;

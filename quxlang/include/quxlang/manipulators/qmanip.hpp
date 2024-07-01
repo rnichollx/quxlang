@@ -79,7 +79,7 @@ namespace quxlang
         }
         else if (typeis< cvalue_reference >(ref))
         {
-            throw std::runtime_error("cannot convert cvalue to mvalue");
+            throw std::logic_error("cannot convert cvalue to mvalue");
         }
         else if (typeis< ovalue_reference >(ref))
         {

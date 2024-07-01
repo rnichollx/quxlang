@@ -25,7 +25,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '(' after CLASS TEMPLATE");
+            throw std::logic_error("Expected '(' after CLASS TEMPLATE");
         }
         std::optional< quxlang::ast2_template_declaration > ct = ast2_template_declaration{};
     get_arg:
@@ -52,7 +52,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::runtime_error("Expected ',' or ')' after CLASS TEMPLATE(...");
+            throw std::logic_error("Expected ',' or ')' after CLASS TEMPLATE(...");
         }
     }
 

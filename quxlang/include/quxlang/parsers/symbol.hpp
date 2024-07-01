@@ -70,11 +70,11 @@ namespace quxlang::parsers
         auto pos = iter_parse_symbol(begin, end);
         if (pos == begin)
         {
-            throw std::runtime_error("Expected symbol");
+            throw std::logic_error("Expected symbol");
         }
         if (std::string(begin, pos) != symbol)
         {
-            throw std::runtime_error("Expected symbol");
+            throw std::logic_error("Expected symbol");
         }
         begin = pos;
     }

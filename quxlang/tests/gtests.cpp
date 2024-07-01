@@ -703,9 +703,10 @@ TEST(expression_ir, generation)
         .type = quxlang::parsers::parse_type_symbol("I32"),
         .name = "b",
     });
+    pv.slot_alive = { true, true, true };
 
-    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("a")] = 1;
-    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = 2;
+    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("a")] = quxlang::expr_test_provider::loadable_symbol{.type = quxlang::parsers::parse_type_symbol("I32"), .index = 1};
+    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = quxlang::expr_test_provider::loadable_symbol{.type=quxlang::parsers::parse_type_symbol("I32"), .index = 2};
 
     quxlang::expression expr = quxlang::parsers::parse_expression("a + b - 4");
 

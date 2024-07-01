@@ -22,7 +22,7 @@ namespace quxlang::parsers
         {
             return output.value();
         }
-        throw std::runtime_error("Expected expression");
+        throw std::logic_error("Expected expression");
     }
 
     inline expression parse_expression(std::string str)

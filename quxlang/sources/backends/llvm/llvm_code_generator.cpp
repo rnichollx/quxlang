@@ -242,7 +242,7 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMC
     }
     else
     {
-        throw std::runtime_error("unimplemented");
+        throw std::logic_error("unimplemented");
     }
 }
 
@@ -631,7 +631,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             }
             else
             {
-                throw std::runtime_error("Cannot compare bools for magnituide");
+                throw std::logic_error("Cannot compare bools for magnituide");
             }
             return result;
         }
@@ -772,7 +772,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
     }
     else
     {
-        throw std::runtime_error("Unsupported CPU type");
+        throw std::logic_error("Unsupported CPU type");
     }
 
     llvm::SmallVector< char, 16 > output;
@@ -808,14 +808,14 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
 
     if (!target_asm_parser)
     {
-        throw std::runtime_error("Failed to create target ASM parser!");
+        throw std::logic_error("Failed to create target ASM parser!");
     }
 
     asm_parser->setTargetParser(*target_asm_parser.get());
 
     if (asm_parser->Run(false))
     {
-        throw std::runtime_error("Assembly parsing failed!\n");
+        throw std::logic_error("Assembly parsing failed!\n");
     }
 
     std::ofstream output_file(input.name + ".o", std::ios::out | std::ios::binary | std::ios::trunc);
@@ -842,7 +842,7 @@ quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
 
     if (!target)
     {
-        throw std::runtime_error("Failed to lookup target: " + err);
+        throw std::logic_error("Failed to lookup target: " + err);
     }
 
     auto CPU = "generic";
@@ -948,7 +948,7 @@ static std::unique_ptr< llvm::Module > parse_llvm_bitcode(llvm::LLVMContext& llv
     }
     else
     {
-        throw std::runtime_error(llvm::toString(module_or_e.takeError()));
+        throw std::logic_error(llvm::toString(module_or_e.takeError()));
     }
 }
 

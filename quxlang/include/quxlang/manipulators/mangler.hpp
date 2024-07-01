@@ -98,7 +98,7 @@ namespace quxlang
         else if (qt.type() == boost::typeindex::type_id< value_expression_reference >())
         {
             // TODO: Implement
-            throw std::runtime_error("unimplemented");
+            throw std::logic_error("unimplemented");
         }
         else if (typeis< mvalue_reference >(qt))
         {
@@ -142,7 +142,7 @@ namespace quxlang
             return str;
         }
 
-        throw std::runtime_error("unimplemented");
+        throw std::logic_error("unimplemented");
     }
 
     inline std::string mangle_internal [[deprecated("qualified")]] (canonical_resolved_function_chain const& func)

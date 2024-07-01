@@ -29,7 +29,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(begin, end, "("))
         {
-            throw std::runtime_error("Expected '(' after LINKNAME");
+            throw std::logic_error("Expected '(' after LINKNAME");
         }
 
         skip_whitespace_and_comments(begin, end);
@@ -37,14 +37,14 @@ namespace quxlang::parsers
         auto str = try_parse_string_literal(begin, end);
         if (!str)
         {
-            throw std::runtime_error("Expected string literal after LINKNAME(");
+            throw std::logic_error("Expected string literal after LINKNAME(");
         }
 
         skip_whitespace_and_comments(begin, end);
 
         if (!skip_symbol_if_is(begin, end, ")"))
         {
-            throw std::runtime_error("Expected ')' after LINKNAME(STRING_LITERAL");
+            throw std::logic_error("Expected ')' after LINKNAME(STRING_LITERAL");
         }
 
         return str;

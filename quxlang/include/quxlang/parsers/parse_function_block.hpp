@@ -18,7 +18,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::runtime_error("Expected '{'");
+            throw std::logic_error("Expected '{'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -51,7 +51,7 @@ namespace quxlang::parsers
             return body;
         }
         auto remaining = std::string(pos, end);
-        throw std::runtime_error("Expected '}' or statement");
+        throw std::logic_error("Expected '}' or statement");
     }
 
 } // namespace quxlang::parsers

@@ -21,7 +21,7 @@ int main(int argc, char** argv)
     bool verbose = true;
     if (argc < 3)
     {
-        throw std::runtime_error("Usage: qxc <input directory> <output directory> [targets,...]");
+        throw std::logic_error("Usage: qxc <input directory> <output directory> [targets,...]");
     }
 
     std::filesystem::path input = argv[1];
@@ -73,7 +73,7 @@ int main(int argc, char** argv)
 
                     if (!quxlang::typeis<quxlang::instanciation_reference>(sym))
                     {
-                        throw std::runtime_error("Expected instanciation reference");
+                        throw std::logic_error("Expected instanciation reference");
                     }
 
                     quxlang::vm_procedure proc = c.get_vm_procedure2(quxlang::as<quxlang::instanciation_reference>(sym));

@@ -103,7 +103,7 @@ namespace quxlang::parsers
         {
             if (bracket_count == 0)
             {
-                throw std::runtime_error("Mismatched brackets");
+                throw std::logic_error("Mismatched brackets");
             }
             bracket_count--;
             ret.components.push_back(std::string("]"));
@@ -187,7 +187,7 @@ namespace quxlang::parsers
             auto operand = try_parse_arm_asm_operand(pos, end);
             if (!operand)
             {
-                throw std::runtime_error("expected operand");
+                throw std::logic_error("expected operand");
             }
 
             ret.operands.push_back(*operand);
@@ -202,7 +202,7 @@ namespace quxlang::parsers
             if (!skip_symbol_if_is(pos, end, ","))
             {
 
-                throw std::runtime_error("expected , or ;");
+                throw std::logic_error("expected , or ;");
             }
         }
 

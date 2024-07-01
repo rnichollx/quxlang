@@ -16,7 +16,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_bool)
 
     if (val.type != booltype)
     {
-        throw std::runtime_error("Expected boolean value");
+        throw std::logic_error("Expected boolean value");
     }
     assert(val.data.size() == 1);
 

@@ -24,7 +24,7 @@ namespace quxlang::parsers
 
         if (!parsers::skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '(' after PROCEDURE_REF");
+            throw std::logic_error("Expected '(' after PROCEDURE_REF");
         }
 
         parsers::skip_whitespace_and_comments(pos, end);
@@ -35,7 +35,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ","))
         {
-            throw std::runtime_error("Expected ',' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\"");
+            throw std::logic_error("Expected ',' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\"");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -46,7 +46,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("Expected ')' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\", ...");
+            throw std::logic_error("Expected ')' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\", ...");
         }
 
         it = pos;

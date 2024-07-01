@@ -26,7 +26,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("expected ( after INCLUDE_IF");
+            throw std::logic_error("expected ( after INCLUDE_IF");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -39,7 +39,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("expected ) after INCLUDE_IF condition");
+            throw std::logic_error("expected ) after INCLUDE_IF condition");
         }
 
         skip_whitespace_and_comments(pos, end);

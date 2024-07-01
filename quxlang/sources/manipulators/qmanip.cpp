@@ -30,6 +30,7 @@ namespace quxlang
         std::string operator()(selection_reference const&) const;
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
+        std::string operator()(dvalue_slot const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -187,6 +188,11 @@ namespace quxlang
         bool operator()(template_reference const&) const
         {
             return true;
+        }
+
+        bool operator()(dvalue_slot const& t) const
+        {
+            return is_template(t.target);
         }
     };
 
@@ -353,7 +359,12 @@ namespace quxlang
 
     std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
     {
-        return "RET_SLOT[" + to_string(ref.target) + "]";
+        return "NEW&& " + to_string(ref.target) + "";
+    }
+
+    std::string qualified_symbol_stringifier::operator()(dvalue_slot const& ref) const
+    {
+        return "DESTROY&& " + to_string(ref.target) + "";
     }
 
     std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
@@ -536,7 +547,7 @@ namespace quxlang
             std::vector< type_symbol > instanciated_parameters;
 
             // TODO: here
-            //rpnx::unimplemented();
+            // rpnx::unimplemented();
         }
 
         // In other cases, we are talking about a non-composite reference

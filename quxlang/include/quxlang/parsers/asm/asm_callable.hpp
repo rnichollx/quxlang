@@ -47,7 +47,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '(' in CALLABLE expression");
+            throw std::logic_error("Expected '(' in CALLABLE expression");
         }
 
         while (true)
@@ -75,7 +75,7 @@ namespace quxlang::parsers
 
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::runtime_error("Expected ',' in CALLABLE expression");
+                throw std::logic_error("Expected ',' in CALLABLE expression");
             }
         }
 

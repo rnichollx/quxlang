@@ -35,7 +35,7 @@ namespace quxlang::parsers
 
         if (name.empty())
         {
-            throw std::runtime_error("Expected identifier");
+            throw std::logic_error("Expected identifier");
         }
 
         skip_whitespace(pos2, end);
@@ -55,7 +55,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos2, end, ";"))
         {
-            throw std::runtime_error("Expected ';' after VAR type");
+            throw std::logic_error("Expected ';' after VAR type");
         }
 
         pos = pos2;

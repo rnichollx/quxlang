@@ -116,24 +116,42 @@ namespace quxlang
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
+            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << std::endl;
+
             call_type calltype;
             for (auto& arg : args.positional)
             {
-                calltype.positional_parameters.push_back(co_await prv.index_type(arg));
+                auto arg_type = co_await prv.index_type(arg);
+                bool is_alive = co_await prv.slot_alive(arg);
+                if (!is_alive)
+                {
+                    arg_type = nvalue_slot{arg_type};
+                }
+                calltype.positional_parameters.push_back(arg_type);
             }
             for (auto& [name, arg] : args.named)
             {
-                calltype.named_parameters[name] = co_await prv.index_type(arg);
+                auto arg_type = co_await prv.index_type(arg);
+                bool is_alive = co_await prv.slot_alive(arg);
+                if (!is_alive)
+                {
+                    arg_type = nvalue_slot{arg_type};
+                }
+                calltype.named_parameters[name] = arg_type;
             }
 
             instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
+
+            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             // Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
+
             if (!instanciation)
             {
                 throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
             }
 
+            std::cout << "gen_call_functum C(" << quxlang::to_string(instanciation.value()) << ")" << std::endl;
             auto return_type = co_await prv.functanoid_return_type(instanciation.value());
 
             // Index 0 is defined to be the special "void" value.
@@ -147,16 +165,17 @@ namespace quxlang
                 args.named["RETURN"] = return_slot;
 
                 return_value = return_slot;
-
-                co_await this->gen_call_functanoid(instanciation.value(), args);
             }
+
+            co_await this->gen_call_functanoid(instanciation.value(), args);
 
             co_return return_value;
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args args)
-            -> rpnx::simple_coroutine< void > // typename CoroutineProvider::template co_type< void >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args args) -> rpnx::simple_coroutine< void > // typename CoroutineProvider::template co_type< void >
         {
+
+            std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << std::endl;
             auto const& call_args_types = what.parameters;
 
             // TODO: Support defaulted parameters.
@@ -173,7 +192,9 @@ namespace quxlang
                 if (!is_ref(arg_target_type))
                 {
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
+                    // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
+
                     vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_val}};
                     // These both need to be references or the constructor will probably infinite loop.
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
@@ -195,23 +216,49 @@ namespace quxlang
             for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
             {
 
-                auto arg_expr = args.named.at(name);
-                auto arg_expr_type = co_await prv.index_type(arg_expr);
+                auto arg_expr_index = args.named.at(name);
 
-                auto arg_index = co_await create_arg_value(arg_expr, arg_accepted_type);
+                auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
 
                 invocation_args.named[name] = arg_index;
+            }
+
+            for (std::size_t i = 0; i < call_args_types.positional_parameters.size(); i++)
+            {
+                auto arg_accepted_type = call_args_types.positional_parameters.at(i);
+
+                auto arg_expr_index = args.positional.at(i);
+
+                auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
+                invocation_args.positional.push_back(arg_index);
+            }
+
+            //  assert(what.parameters.size() == args.size());
+
+            if (invocation_args.named.contains("RETURN"))
+            {
+                assert(invocation_args.size() == what.parameters.size() + 1);
+            }
+            else
+            {
+                assert(invocation_args.size() == what.parameters.size());
             }
 
             co_await gen_invoke(what, invocation_args);
         }
 
-        auto gen_invoke(instanciation_reference what, vmir2::invocation_args input) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            vmir2::invoke ivk;
-            ivk.args = std::move(input);
-            ivk.what = std::move(what);
-            co_await prv.emit_instruction(std::move(ivk));
+            if (args.named.contains("RETURN"))
+            {
+                assert(args.size() == what.parameters.size() + 1);
+            }
+            else
+            {
+                assert(args.size() == what.parameters.size());
+            }
+            std::string what_invoke = to_string(what);
+            co_await prv.emit_invoke(what, args);
             co_return;
         }
 
@@ -248,7 +295,7 @@ namespace quxlang
             call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}}, .positional_parameters = {rhs_type}};
             call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}}, .positional_parameters = {lhs_type}};
 
-            auto lhs_exists_and_callable_with = co_await prv.functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
+            auto lhs_exists_and_callable_with = co_await prv.instanciation({.callee = lhs_function, .parameters = lhs_param_info});
 
             if (lhs_exists_and_callable_with)
             {
@@ -256,7 +303,7 @@ namespace quxlang
                 co_return co_await gen_call_functum(lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await prv.functum_exists_and_is_callable_with({.callee = rhs_function, .parameters = rhs_param_info});
+            auto rhs_exists_and_callable_with = co_await prv.instanciation({.callee = rhs_function, .parameters = rhs_param_info});
 
             if (rhs_exists_and_callable_with)
             {
@@ -264,8 +311,7 @@ namespace quxlang
                 co_return co_await gen_call_functum(rhs_function, rhs_args);
             }
 
-            throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " +
-                                   to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
+            throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
         }
 
         auto generate(expression_numeric_literal input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

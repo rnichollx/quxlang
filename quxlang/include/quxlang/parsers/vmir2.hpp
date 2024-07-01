@@ -19,7 +19,7 @@ namespace quxlang::parsers::vmir2
     std::size_t parse_vmir_register(It& ipos, It end)
     {
         if (!skip_symbol_if_is(ipos, end, "%"))
-            throw std::runtime_error("Expected register symbol");
+            throw std::logic_error("Expected register symbol");
 
         return parse_integer(ipos, end);
     }
@@ -55,7 +55,7 @@ namespace quxlang::parsers::vmir2
             else if (skip_symbol_if_is(ipos, end, ']'))
                 return result;
             else
-                throw std::runtime_error("Expected ',' or ']' after named argument");
+                throw std::logic_error("Expected ',' or ']' after named argument");
         }
     positional_arg:
         skip_whitespace(ipos, end);
@@ -68,7 +68,7 @@ namespace quxlang::parsers::vmir2
         else if (skip_symbol_if_is(ipos, end, ']'))
             return result;
         else
-            throw std::runtime_error("Expected ',' or ']' after positional argument");
+            throw std::logic_error("Expected ',' or ']' after positional argument");
     }
 
     template < typename It >

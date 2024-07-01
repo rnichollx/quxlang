@@ -22,7 +22,7 @@ namespace quxlang::parsers
             remaining = std::string(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::runtime_error("Expected ';' after expression");
+                throw std::logic_error("Expected ';' after expression");
             }
             function_expression_statement result;
             result.expr = std::move(expr.value());

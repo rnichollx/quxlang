@@ -26,6 +26,11 @@ namespace quxlang
         std::vector< type_symbol > positional_parameters;
         std::map< std::string, type_symbol > named_parameters;
 
+        inline auto size() const
+        {
+            return positional_parameters.size() + named_parameters.size();
+        }
+
         RPNX_MEMBER_METADATA(call_type, positional_parameters, named_parameters);
     };
 

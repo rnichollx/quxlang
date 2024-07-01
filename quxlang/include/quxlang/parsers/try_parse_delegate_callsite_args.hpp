@@ -41,7 +41,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("expected ',' or ')'");
+            throw std::logic_error("expected ',' or ')'");
         }
 
         return std::move(result);

@@ -23,7 +23,7 @@ namespace quxlang::parsers
             {
                 pos++;
                 if (pos == end)
-                    throw std::runtime_error("Unexpected end of file in string literal");
+                    throw std::logic_error("Unexpected end of file in string literal");
                 switch (*pos)
                 {
                 case 'n':
@@ -45,7 +45,7 @@ namespace quxlang::parsers
                     result.push_back('"');
                     break;
                 default:
-                    throw std::runtime_error("Invalid escape sequence in string literal");
+                    throw std::logic_error("Invalid escape sequence in string literal");
                 }
             }
             else
@@ -57,9 +57,9 @@ namespace quxlang::parsers
         }
 
         if (pos == end)
-            throw std::runtime_error("Unexpected end of file in string literal");
+            throw std::logic_error("Unexpected end of file in string literal");
         if (*pos != '"')
-            throw std::runtime_error("Expected '\"' at end of string literal");
+            throw std::logic_error("Expected '\"' at end of string literal");
 
         pos++;
 

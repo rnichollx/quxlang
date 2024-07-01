@@ -24,7 +24,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '(' after EXTERNAL");
+            throw std::logic_error("Expected '(' after EXTERNAL");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -33,14 +33,14 @@ namespace quxlang::parsers
 
         if (!lang)
         {
-            throw std::runtime_error("Expected language string after EXTERNAL(");
+            throw std::logic_error("Expected language string after EXTERNAL(");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, ","))
         {
-            throw std::runtime_error("Expected ',' after EXTERNAL(\"" + std::string(*lang) + "\"");
+            throw std::logic_error("Expected ',' after EXTERNAL(\"" + std::string(*lang) + "\"");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -49,14 +49,14 @@ namespace quxlang::parsers
 
         if (!name)
         {
-            throw std::runtime_error("Expected name string after EXTERNAL(\"" + std::string(*lang) + "\",");
+            throw std::logic_error("Expected name string after EXTERNAL(\"" + std::string(*lang) + "\",");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("Expected ')' after EXTERNAL(\"" + std::string(*lang) + "\", \"" + std::string(*name) + "\"");
+            throw std::logic_error("Expected ')' after EXTERNAL(\"" + std::string(*lang) + "\", \"" + std::string(*name) + "\"");
         }
 
         return ast2_extern{

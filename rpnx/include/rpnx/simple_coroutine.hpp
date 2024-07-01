@@ -439,6 +439,7 @@ namespace rpnx
         }
         T await_resume()
         {
+            assert(await_ready());
             return result.get();
         }
         bool await_ready()

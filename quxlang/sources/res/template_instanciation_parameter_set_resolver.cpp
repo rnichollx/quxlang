@@ -55,7 +55,7 @@ namespace quxlang
             {
                 if (result.parameter_map.find(x.first) != result.parameter_map.end())
                 {
-                    throw std::runtime_error("Duplicate template parameter " + x.first + " redeclared in the same template instanciation.");
+                    throw std::logic_error("Duplicate template parameter " + x.first + " redeclared in the same template instanciation.");
                 }
                 result.parameter_map[x.first] = x.second;
             }

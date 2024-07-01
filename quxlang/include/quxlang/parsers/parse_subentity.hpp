@@ -43,7 +43,7 @@ namespace quxlang::parsers
             auto sym = parse_symbol(pos, end);
             if (sym.empty())
             {
-                throw std::runtime_error("Expected operator symbol");
+                throw std::logic_error("Expected operator symbol");
             }
             result += sym;
             skip_whitespace(pos, end);

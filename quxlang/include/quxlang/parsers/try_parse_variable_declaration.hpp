@@ -29,7 +29,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::runtime_error("Expected ';' after VAR type");
+            throw std::logic_error("Expected ';' after VAR type");
         }
 
         output = ast2_variable_declaration{};

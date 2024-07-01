@@ -9,7 +9,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(module_sources)
 
     if (it == c->m_source_code->module_sources.end())
     {
-        throw std::runtime_error("Module not found");
+        throw std::logic_error("Module not found");
     }
 
     QUX_CO_ANSWER(it->second);

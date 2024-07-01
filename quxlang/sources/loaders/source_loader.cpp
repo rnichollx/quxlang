@@ -16,7 +16,7 @@ namespace quxlang
         auto input_build = path / "quxbuild.yaml";
         if (!std::filesystem::exists(input_build))
         {
-            throw std::runtime_error("quxbuild.yaml not found in input directory");
+            throw std::logic_error("quxbuild.yaml not found in input directory");
         }
 
         auto build_config = YAML::LoadFile(input_build);
@@ -39,7 +39,7 @@ namespace quxlang
 
             if (!module_dirent.is_directory())
             {
-                throw std::runtime_error("Module " + module_name + " is not a directory");
+                throw std::logic_error("Module " + module_name + " is not a directory");
             }
 
             module_source mod;
@@ -106,7 +106,7 @@ namespace quxlang
                 }
                 else
                 {
-                    throw std::runtime_error("Unknown/unsupported platform " + platform);
+                    throw std::logic_error("Unknown/unsupported platform " + platform);
                     rpnx::unimplemented();
                 }
 
@@ -128,7 +128,7 @@ namespace quxlang
                 }
                 else
                 {
-                    throw std::runtime_error("Unknown/unsupported cpu " + cpu);
+                    throw std::logic_error("Unknown/unsupported cpu " + cpu);
                     rpnx::unimplemented();
                 }
 

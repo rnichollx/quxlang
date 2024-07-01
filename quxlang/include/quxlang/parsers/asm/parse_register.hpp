@@ -34,7 +34,7 @@ namespace quxlang::parsers
 
         if (output.empty())
         {
-            throw std::runtime_error("Expected register name");
+            throw std::logic_error("Expected register name");
         }
 
         return output;

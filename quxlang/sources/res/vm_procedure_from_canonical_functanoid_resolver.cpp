@@ -819,7 +819,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     if (!is_ref(lhs_type))
     {
-        throw std::runtime_error("Cannot assign to non-reference");
+        throw std::logic_error("Cannot assign to non-reference");
     }
 
     if (is_ref(rhs_type))
@@ -1026,7 +1026,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // TODO: Allowed integer conversions, etc
 
-    throw std::runtime_error("Cannot convert between these types");
+    throw std::logic_error("Cannot convert between these types");
 }
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value_to_ref(context_frame& ctx, quxlang::vm_value from, quxlang::type_symbol to_type)
@@ -1050,7 +1050,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     // TODO: support overloaded operator() of non-functions
     if (!typeis< vm_expr_bound_value >(callee))
     {
-        throw std::runtime_error("Cannot call non-function reference");
+        throw std::logic_error("Cannot call non-function reference");
     }
 
     vm_expr_bound_value callee_binding_value = as< vm_expr_bound_value >(callee);
@@ -1118,7 +1118,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     // if (values.size() != 1)
     // {
-    //    throw std::runtime_error("Invalid number of arguments to default constructor");
+    //    throw std::logic_error("Invalid number of arguments to default constructor");
     // }
 
     assert(values.positional.empty());
@@ -1230,7 +1230,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
         }
     }
 
-    throw std::runtime_error("No such field");
+    throw std::logic_error("No such field");
 }
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, quxlang::type_symbol callee, quxlang::vm_callargs call_args)
@@ -1354,7 +1354,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             // if (values.size() != 2)
             // {
-            //     throw std::runtime_error("Invalid number of arguments to integer operator");
+            //     throw std::logic_error("Invalid number of arguments to integer operator");
             //}
 
             vm_value lhs = values.named.at("THIS");
@@ -1399,13 +1399,13 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
             // Can't call this... not possible
             // if (values.empty())
             //{
-            //    throw std::runtime_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
+            //    throw std::logic_error("Cannot call member function with no parameters (requires at least 'this' parameter)");
             //}
             // TODO: Make asserts
 
             // if (values.size() > 2)
             //{
-            //     throw std::runtime_error("Invalid number of arguments to integer constructor");
+            //     throw std::logic_error("Invalid number of arguments to integer constructor");
             // }
 
             vm_value arg = values.named.at("THIS");
@@ -1414,13 +1414,13 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             if (!typeis< mvalue_reference >(arg_type) || !typeis< primitive_type_integer_reference >(remove_ref(arg_type)))
             {
-                throw std::runtime_error("Invalid argument type to integer constructor");
+                throw std::logic_error("Invalid argument type to integer constructor");
             }
 
             auto int_arg_type = as< primitive_type_integer_reference >(remove_ref(arg_type));
             if (int_arg_type != int_type)
             {
-                throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
+                throw std::logic_error("Unimplemented integer of different type passed to int constructor");
             }
 
             if (values.named.size() == 1 && values.positional.empty())
@@ -1444,7 +1444,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 // TODO: conversion to integer?
                 if (arg_copy_type != remove_ref(arg_type))
                 {
-                    throw std::runtime_error("Unimplemented integer of different type passed to int constructor");
+                    throw std::logic_error("Unimplemented integer of different type passed to int constructor");
                 }
 
                 initalizer.what = arg_to_copy;
@@ -1524,7 +1524,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
 
     if (values.named.size() != 1)
     {
-        throw std::runtime_error("Invalid number of arguments to default constructor");
+        throw std::logic_error("Invalid number of arguments to default constructor");
     }
 
     auto arg_type = vm_value_type(values.named.at("THIS"));
@@ -1605,9 +1605,9 @@ rpnx::general_coroutine< quxlang::compiler, void > quxlang::vm_procedure_from_ca
     }
     else
     {
-        throw std::runtime_error("Unknown function statement type");
+        throw std::logic_error("Unknown function statement type");
     }
-    throw std::runtime_error("unimplemented");
+    throw std::logic_error("unimplemented");
 }
 
 rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functanoid_resolver::gen_value(vm_procedure_from_canonical_functanoid_resolver::context_frame& ctx, expression_dotreference expr)

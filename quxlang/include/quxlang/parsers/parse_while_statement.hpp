@@ -17,19 +17,19 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "WHILE"))
         {
-            throw std::runtime_error("Expected 'WHILE'");
+            throw std::logic_error("Expected 'WHILE'");
         }
         function_while_statement output;
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '('");
+            throw std::logic_error("Expected '('");
         }
         output.condition = parse_expression(pos, end);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::runtime_error("Expected ')'");
+            throw std::logic_error("Expected ')'");
         }
         skip_whitespace_and_comments(pos, end);
         output.loop_block = parse_function_block(pos, end);

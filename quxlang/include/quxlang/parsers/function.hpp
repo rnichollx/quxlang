@@ -29,7 +29,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::runtime_error("Expected identifier or keyword");
+                throw std::logic_error("Expected identifier or keyword");
             }
         }
 

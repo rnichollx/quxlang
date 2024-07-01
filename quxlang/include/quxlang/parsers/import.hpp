@@ -29,7 +29,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '(' after IMPORT");
+            throw std::logic_error("Expected '(' after IMPORT");
         }
 
         type_symbol import_symbol = parse_type_symbol(pos, end);

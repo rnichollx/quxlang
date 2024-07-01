@@ -1,7 +1,7 @@
 //
 // Created by Ryan Nicholl on 5/11/24.
 //
-#include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
+
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 

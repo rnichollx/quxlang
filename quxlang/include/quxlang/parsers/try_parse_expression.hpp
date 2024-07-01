@@ -187,7 +187,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::runtime_error("Expected ')'");
+                throw std::logic_error("Expected ')'");
             }
         }
         else
@@ -198,7 +198,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::runtime_error("Expected binary operator to be followed by value");
+                throw std::logic_error("Expected binary operator to be followed by value");
             }
         }
 

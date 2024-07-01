@@ -18,7 +18,7 @@ namespace quxlang::parsers
         auto result = try_parse_class(pos, end);
         if (!result)
         {
-            throw std::runtime_error("Expected class");
+            throw std::logic_error("Expected class");
         }
         return result.value();
     }

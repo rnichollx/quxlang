@@ -26,7 +26,7 @@ namespace quxlang::parsers
         ast2_class_declaration result;
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::runtime_error("Expected '{'");
+            throw std::logic_error("Expected '{'");
         }
 
     member:
@@ -45,7 +45,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::runtime_error("Expected '}'");
+            throw std::logic_error("Expected '}'");
         }
 
         return result;

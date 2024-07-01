@@ -18,7 +18,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::runtime_error("Expected '('");
+            throw std::logic_error("Expected '('");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -41,18 +41,18 @@ namespace quxlang::parsers
             arg.api_name = parse_identifier(pos, end);
             if (arg.api_name->empty())
             {
-                throw std::runtime_error("Expected identifier after '@' ");
+                throw std::logic_error("Expected identifier after '@' ");
             }
 
             if (!skip_whitespace(pos, end))
             {
-                throw std::runtime_error("Expected whitespace after external parameter name");
+                throw std::logic_error("Expected whitespace after external parameter name");
             }
         }
 
         if (!skip_symbol_if_is(pos, end, "%"))
         {
-            throw std::runtime_error("Expected '%' or ')'");
+            throw std::logic_error("Expected '%' or ')'");
         }
 
         std::string& arg_name = arg.name;
@@ -61,7 +61,7 @@ namespace quxlang::parsers
         arg_name = parse_identifier(pos, end);
         if (arg_name.empty())
         {
-            throw std::runtime_error("Expected identifier");
+            throw std::logic_error("Expected identifier");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -82,7 +82,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::runtime_error("Expected ',' or ')'");
+            throw std::logic_error("Expected ',' or ')'");
         }
 
         // TODO: Check for duplicate argument names here?

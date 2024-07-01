@@ -22,7 +22,7 @@ namespace quxlang::parsers
         auto result = try_parse_type_symbol(pos, end);
         if (!result)
         {
-            throw std::runtime_error("Expected type symbol");
+            throw std::logic_error("Expected type symbol");
         }
         return result.value();
     }
@@ -31,7 +31,12 @@ namespace quxlang::parsers
     {
         auto pos = str.begin();
         auto end = str.end();
-        return parse_type_symbol(pos, end);
+        auto result = parse_type_symbol(pos, end);
+        if (pos != end)
+        {
+            throw std::logic_error("Input not fully parsed");
+        }
+        return result;
     }
 } // namespace quxlang::parsers
 

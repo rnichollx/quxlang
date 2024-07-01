@@ -17,7 +17,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(asm_procedure_from_symbol)
 
     if (!typeis< ast2_asm_procedure_declaration >(ast))
     {
-        throw std::runtime_error("Not an asm procedure");
+        throw std::logic_error("Not an asm procedure");
     }
 
     auto proc = as< ast2_asm_procedure_declaration >(ast);

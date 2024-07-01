@@ -19,8 +19,9 @@ namespace quxlang
     {
         struct access_field;
         struct invoke;
+        struct make_reference;
 
-        using vm_instruction = rpnx::variant< access_field, invoke >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference >;
 
         using storage_index = std::size_t;
 
@@ -28,6 +29,11 @@ namespace quxlang
         {
             std::vector< storage_index > positional;
             std::map< std::string, storage_index > named;
+
+            inline auto size() const
+            {
+                return positional.size() + named.size();
+            }
 
             RPNX_MEMBER_METADATA(invocation_args, positional, named);
         };
@@ -47,6 +53,15 @@ namespace quxlang
             invocation_args args;
 
             RPNX_MEMBER_METADATA(invoke, what, args);
+        };
+
+        struct make_reference
+        {
+            type_symbol what;
+            storage_index value_index;
+            storage_index reference_index;
+
+            RPNX_MEMBER_METADATA(make_reference, what, value_index, reference_index);
         };
 
         struct vm_slot

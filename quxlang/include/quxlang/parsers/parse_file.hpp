@@ -20,7 +20,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "MODULE"))
         {
-            throw std::runtime_error("expected module here");
+            throw std::logic_error("expected module here");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -31,7 +31,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::runtime_error("Expected ; here");
+            throw std::logic_error("Expected ; here");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -53,7 +53,7 @@ namespace quxlang::parsers
 
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::runtime_error("Expected ; here");
+                throw std::logic_error("Expected ; here");
             }
 
             output.imports[import_name] = module_name;
@@ -71,7 +71,7 @@ namespace quxlang::parsers
 
         if (pos != end)
         {
-            throw std::runtime_error("Expected parse_subdeclaroids to consume the remainder of the file");
+            throw std::logic_error("Expected parse_subdeclaroids to consume the remainder of the file");
         }
 
         return output;

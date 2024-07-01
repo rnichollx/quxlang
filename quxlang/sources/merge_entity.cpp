@@ -21,7 +21,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
 
         else if (!typeis< functum >(destination))
         {
-            throw std::runtime_error("Cannot merge function into non-function of the same name");
+            throw std::logic_error("Cannot merge function into non-function of the same name");
         }
 
         functum & destination_functum = as< functum >(destination);
@@ -42,7 +42,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
        // auto it = destination_functum.functions.find(ol);
        // if (it != destination_functum.functions.end())
        // {
-       //     throw std::runtime_error("Functum already declared with the same overload");
+       //     throw std::logic_error("Functum already declared with the same overload");
        // }
 
         destination_functum.functions.push_back(func);
@@ -51,7 +51,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::runtime_error("Cannot merge class into non-class of the same name");
+            throw std::logic_error("Cannot merge class into non-class of the same name");
         }
 
         destination = as< ast2_class_declaration >(source);
@@ -64,7 +64,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
         }
         if (!typeis< ast2_templex >(destination))
         {
-            throw std::runtime_error("Cannot merge template into non-template of the same name");
+            throw std::logic_error("Cannot merge template into non-template of the same name");
         }
 
         ast2_templex& destination_templex = as< ast2_templex >(destination);
@@ -79,7 +79,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
         }
         if (!typeis< ast2_namespace_declaration >(destination))
         {
-            throw std::runtime_error("Cannot merge namespace into non-namespace of the same name");
+            throw std::logic_error("Cannot merge namespace into non-namespace of the same name");
         }
 
         ast2_namespace_declaration& ns = as< ast2_namespace_declaration >(destination);
@@ -93,7 +93,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::runtime_error("Cannot merge variable into already existing entity");
+            throw std::logic_error("Cannot merge variable into already existing entity");
         }
 
         destination = as< ast2_variable_declaration >(source);
@@ -103,7 +103,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
 
         if (!typeis< std::monostate >(destination))
         {
-            throw std::runtime_error("Cannot merge asm procedure into already existing entity");
+            throw std::logic_error("Cannot merge asm procedure into already existing entity");
         }
 
         destination = as< ast2_asm_procedure_declaration >(source);

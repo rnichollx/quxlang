@@ -35,7 +35,7 @@ namespace quxlang::parsers
 
         if (name.empty())
         {
-            throw std::runtime_error("Expected identifier");
+            throw std::logic_error("Expected identifier");
         }
 
         skip_whitespace_and_comments(pos2, end);

@@ -41,11 +41,16 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
-        return "ACF " + std::to_string(inst.base_index) + ", " + std::to_string(inst.store_index) + ", " + std::to_string(inst.offset);
+        return "ACF " + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", %" + std::to_string(inst.offset);
     }
     std::string assembler::to_string_internal(vmir2::invoke inst)
     {
         return "IVK " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);
+    }
+
+    std::string assembler::to_string_internal(vmir2::make_reference inst)
+    {
+        return "MKR " + quxlang::to_string(inst.what) + ", %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
     }
     std::string assembler::to_string_internal(vmir2::invocation_args inst)
     {

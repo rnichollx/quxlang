@@ -36,7 +36,7 @@ namespace quxlang::parsers
 
         if (arch.empty())
         {
-            throw std::runtime_error("Expected architecture name");
+            throw std::logic_error("Expected architecture name");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -64,7 +64,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::runtime_error("Expected {");
+            throw std::logic_error("Expected {");
         }
 
         if (arch == "ARM")
@@ -81,14 +81,14 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::runtime_error("Unsupported architecture");
+            throw std::logic_error("Unsupported architecture");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::runtime_error("Expected }");
+            throw std::logic_error("Expected }");
         }
         
         begin = pos;

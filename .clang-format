@@ -15,7 +15,7 @@ NamespaceIndentation: All
 AllowShortBlocksOnASingleLine: Always
 AllowShortFunctionsOnASingleLine: None
 AllowShortLambdasOnASingleLine: None
-BreakConstructorInitializers: BeforeComma
+BreakConstructorInitializers: AfterColon
 LambdaBodyIndentation: Signature
 AlignAfterOpenBracket: Align
 BraceWrapping:
@@ -30,6 +30,4 @@ BraceWrapping:
   BeforeElse: true
   BeforeCatch: true
 BreakBeforeBraces: Custom
-
-
----
+ConstructorInitializerAllOnOneLineOrOnePerLine: true

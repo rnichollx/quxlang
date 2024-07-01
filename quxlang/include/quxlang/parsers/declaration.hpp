@@ -162,7 +162,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::runtime_error("expected { after namespace");
+            throw std::logic_error("expected { after namespace");
         }
 
         auto decls = parse_subdeclaroids(pos, end);
@@ -176,7 +176,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::runtime_error("expected } after namespace");
+            throw std::logic_error("expected } after namespace");
         }
 
         return out;
