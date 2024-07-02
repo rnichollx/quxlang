@@ -116,7 +116,7 @@ namespace quxlang
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << std::endl;
+            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             call_type calltype;
             for (auto& arg : args.positional)
@@ -125,7 +125,8 @@ namespace quxlang
                 bool is_alive = co_await prv.slot_alive(arg);
                 if (!is_alive)
                 {
-                    arg_type = nvalue_slot{arg_type};
+                    assert(!typeis< nvalue_reference >(arg_type));
+                    arg_type = nvalue_reference{arg_type};
                 }
                 calltype.positional_parameters.push_back(arg_type);
             }
@@ -135,7 +136,8 @@ namespace quxlang
                 bool is_alive = co_await prv.slot_alive(arg);
                 if (!is_alive)
                 {
-                    arg_type = nvalue_slot{arg_type};
+                    assert(!typeis< nvalue_reference >(arg_type));
+                    arg_type = nvalue_reference{arg_type};
                 }
                 calltype.named_parameters[name] = arg_type;
             }
@@ -153,6 +155,8 @@ namespace quxlang
 
             std::cout << "gen_call_functum C(" << quxlang::to_string(instanciation.value()) << ")" << std::endl;
             auto return_type = co_await prv.functanoid_return_type(instanciation.value());
+
+            std::cout << "gen_call_functum D(" << quxlang::to_string(instanciation.value()) << ") -> " << quxlang::to_string(return_type) << std::endl;
 
             // Index 0 is defined to be the special "void" value.
             vmir2::storage_index return_value = 0;
@@ -182,20 +186,27 @@ namespace quxlang
 
             vmir2::invocation_args invocation_args;
 
-            auto create_arg_value = [&](storage_index arg_expr_val, type_symbol arg_target_type) -> typename CoroutineProvider::template co_type< storage_index >
+            auto create_arg_value = [&](storage_index arg_expr_index, type_symbol arg_target_type) -> typename CoroutineProvider::template co_type< storage_index >
             {
                 // TODO: Support PRValue args
-                auto arg_expr_type = co_await prv.index_type(arg_expr_val);
+                auto arg_expr_type = co_await prv.index_type(arg_expr_index);
+                bool arg_alive = co_await prv.slot_alive(arg_expr_index);
 
-                assert(is_ref(arg_expr_type));
-
-                if (!is_ref(arg_target_type))
+                if (!arg_alive)
                 {
+                    assert(!is_ref(arg_expr_type));
+                    arg_expr_type = nvalue_reference{arg_expr_type};
+                }
+
+
+                if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
+                {
+                    std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
-                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_val}};
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_index}};
                     // These both need to be references or the constructor will probably infinite loop.
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
@@ -206,6 +217,39 @@ namespace quxlang
                     // We also need to save the deferral so we can remove it from the deferral list prior to invoking
                     // the target procedure (since ownership of the argument is transferred to the target procedure).
                     co_return index;
+                }
+                else if (!is_ref(arg_expr_type) && !is_ref(arg_target_type))
+                {
+                    std::cout << "gen_call_functanoid B(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
+                    if (arg_expr_type == arg_target_type)
+                    {
+                        co_return arg_expr_index;
+                    }
+
+                    auto index = co_await prv.create_temporary_storage(arg_target_type);
+                    // Alive is false
+                    auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
+
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_index}};
+
+                    // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
+                    co_await gen_call_functum(arg_final_ctor_func, ctor_args);
+
+                    co_return index;
+                }
+                else if (is_ref(arg_target_type))
+                {
+                    std::cout << "gen_call_functanoid C(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
+                    if (arg_expr_type == arg_target_type)
+                    {
+                        co_return arg_expr_index;
+                    }
+
+                    assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
+                    // We need to hook into the provider because we might encounter a situation where
+                    //  we need knowledge of base/derived classes etc. to do a cast.
+
+                    co_return co_await prv.implicit_cast_reference(arg_expr_index, arg_target_type);
                 }
                 else
                 {

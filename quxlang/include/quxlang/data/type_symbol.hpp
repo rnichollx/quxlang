@@ -184,10 +184,10 @@ namespace quxlang
         RPNX_MEMBER_METADATA(cvalue_reference, target);
     };
 
-    struct ovalue_reference
+    struct wvalue_reference
     {
         type_symbol target;
-        RPNX_MEMBER_METADATA(ovalue_reference, target);
+        RPNX_MEMBER_METADATA(wvalue_reference, target);
     };
 
     struct avalue_reference
@@ -202,10 +202,10 @@ namespace quxlang
         RPNX_MEMBER_METADATA(tvalue_reference, target);
     };
 
-    struct nvalue_slot
+    struct nvalue_reference
     {
         type_symbol target;
-        RPNX_MEMBER_METADATA(nvalue_slot, target);
+        RPNX_MEMBER_METADATA(nvalue_reference, target);
     };
 
     struct dvalue_slot
@@ -222,6 +222,7 @@ namespace quxlang
     };
 
     std::string to_string(type_symbol const&);
+
 
 } // namespace quxlang
 
@@ -244,5 +245,7 @@ struct rpnx::resolver_traits< quxlang::instanciation_reference >
         return quxlang::to_string(v);
     }
 };
+
+
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

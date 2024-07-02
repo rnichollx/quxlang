@@ -8,7 +8,6 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/interp_value.hpp"
 #include "quxlang/macros.hpp"
-#include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 
 namespace quxlang

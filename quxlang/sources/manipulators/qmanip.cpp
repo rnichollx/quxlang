@@ -3,6 +3,7 @@
 //
 
 #include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/vmir2/vmir2.hpp"
 
 namespace quxlang
 {
@@ -16,7 +17,7 @@ namespace quxlang
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
         std::string operator()(cvalue_reference const& ref) const;
-        std::string operator()(ovalue_reference const& ref) const;
+        std::string operator()(wvalue_reference const& ref) const;
         std::string operator()(module_reference const& ref) const;
         std::string operator()(bound_function_type_reference const& ref) const;
         std::string operator()(primitive_type_integer_reference const& ref) const;
@@ -29,12 +30,37 @@ namespace quxlang
         std::string operator()(template_reference const&) const;
         std::string operator()(selection_reference const&) const;
         std::string operator()(function_arg const&) const;
-        std::string operator()(nvalue_slot const&) const;
+        std::string operator()(nvalue_reference const&) const;
         std::string operator()(dvalue_slot const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
     };
+
+    std::string to_string(vmir2::invocation_args const& ref)
+    {
+        std::string result = "[";
+        bool first = true;
+        for (auto const& [name, arg] : ref.named)
+        {
+            if (first)
+                first = false;
+            else
+                result += ", ";
+            result += "@" + name + " " + std::to_string(arg);
+        }
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+                first = false;
+            else
+                result += ", ";
+            result += std::to_string(arg);
+        }
+        result += "]";
+        return result;
+
+    }
 
     std::string to_string(call_type const& ref)
     {
@@ -90,7 +116,7 @@ namespace quxlang
             return is_template(ref.target);
         }
 
-        bool operator()(nvalue_slot const&) const
+        bool operator()(nvalue_reference const&) const
         {
             return false;
         }
@@ -130,7 +156,7 @@ namespace quxlang
             return is_template(ref.target);
         }
 
-        bool operator()(ovalue_reference const& ref) const
+        bool operator()(wvalue_reference const& ref) const
         {
             return is_template(ref.target);
         }
@@ -302,7 +328,7 @@ namespace quxlang
     {
         return "CONST& " + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
-    std::string qualified_symbol_stringifier::operator()(ovalue_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(wvalue_reference const& ref) const
     {
         return "OUT&" + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
@@ -357,7 +383,7 @@ namespace quxlang
         // TODO: implement this
     }
 
-    std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
+    std::string qualified_symbol_stringifier::operator()(nvalue_reference const& ref) const
     {
         return "NEW&& " + to_string(ref.target) + "";
     }
@@ -498,16 +524,16 @@ namespace quxlang
             match->type = mvalue_reference{std::move(match->type)};
             return match;
         }
-        else if (typeis< ovalue_reference >(template_type))
+        else if (typeis< wvalue_reference >(template_type))
         {
-            ovalue_reference const& template_oval = as< ovalue_reference >(template_type);
-            ovalue_reference const& type_oval = as< ovalue_reference >(type);
+            wvalue_reference const& template_oval = as< wvalue_reference >(template_type);
+            wvalue_reference const& type_oval = as< wvalue_reference >(type);
             auto match = match_template(template_oval.target, type_oval.target);
             if (!match)
             {
                 return std::nullopt;
             }
-            match->type = ovalue_reference{std::move(match->type)};
+            match->type = wvalue_reference{std::move(match->type)};
             return match;
         }
         else if (typeis< tvalue_reference >(template_type))

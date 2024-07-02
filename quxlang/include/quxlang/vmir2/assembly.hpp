@@ -18,6 +18,7 @@ namespace quxlang::vmir2
         std::string to_string(vmir2::vm_slot slt);
 
       private:
+        vmir2::functanoid_routine m_what;
 
         std::string to_string_internal(vmir2::access_field inst);
         std::string to_string_internal(vmir2::invoke inst);

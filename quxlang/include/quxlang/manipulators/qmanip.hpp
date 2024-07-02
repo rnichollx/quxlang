@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-
+    namespace vmir2
+    {
+        struct invocation_args;
+    }
+    std::string to_string(vmir2::invocation_args const& ref);
     std::string to_string(type_symbol const& ref);
 
     std::string to_string(call_type const& ref);
@@ -50,6 +54,8 @@ namespace quxlang
     std::string to_string(type_symbol const& ref);
     type_symbol make_mref(type_symbol ref);
 
+     type_symbol remove_ref(type_symbol type);
+
     // Gets the type of
     inline type_symbol load_type(type_symbol t)
     {
@@ -81,9 +87,13 @@ namespace quxlang
         {
             throw std::logic_error("cannot convert cvalue to mvalue");
         }
-        else if (typeis< ovalue_reference >(ref))
+        else if (typeis< wvalue_reference >(ref))
         {
-            return mvalue_reference{ref.get_as< ovalue_reference >().target};
+            return mvalue_reference{ref.get_as< wvalue_reference >().target};
+        }
+        else if (typeis< nvalue_reference >(ref))
+        {
+            return mvalue_reference{ref.get_as< nvalue_reference >().target};
         }
         else
         {
@@ -93,74 +103,60 @@ namespace quxlang
 
     inline type_symbol make_oref(type_symbol ref)
     {
-        if (typeis< mvalue_reference >(ref))
-        {
-            return ovalue_reference{ref.get_as< mvalue_reference >().target};
-        }
-        else if (typeis< tvalue_reference >(ref))
-        {
-            return ovalue_reference{as< tvalue_reference >(ref).target};
-        }
-        else if (typeis< cvalue_reference >(ref))
-        {
-            return ovalue_reference{as< cvalue_reference >(ref).target};
-        }
-        else if (typeis< ovalue_reference >(ref))
-        {
-            return std::move(ref);
-        }
-        else
-        {
-            return ovalue_reference{std::move(ref)};
-        }
+        return wvalue_reference{.target = remove_ref(ref)};
     }
 
     inline type_symbol make_tref(type_symbol ref)
     {
-        if (typeis< mvalue_reference >(ref))
-        {
-            return tvalue_reference{as< mvalue_reference >(ref).target};
-        }
-        else if (typeis< tvalue_reference >(ref))
-        {
-            return std::move(ref);
-        }
-        else if (typeis< cvalue_reference >(ref))
-        {
-            return tvalue_reference{as< cvalue_reference >(ref).target};
-        }
-        else if (typeis< ovalue_reference >(ref))
-        {
-            return tvalue_reference{as< ovalue_reference >(ref).target};
-        }
-        else
-        {
-            return tvalue_reference{std::move(ref)};
-        }
+       return tvalue_reference{.target=remove_ref(ref)};
     }
 
     inline type_symbol make_cref(type_symbol ref)
     {
-        if (typeis< mvalue_reference >(ref))
+        return cvalue_reference{.target = remove_ref(ref)};
+    }
+
+    bool is_ref(type_symbol type);
+
+
+
+    inline bool is_ref_implicitly_convertible_by_syntax(type_symbol from, type_symbol to)
+    {
+        assert(is_ref(from));
+        assert(is_ref(to));
+
+        if (remove_ref(from) != remove_ref(to))
         {
-            return cvalue_reference{as< mvalue_reference >(ref).target};
+            return false;
         }
-        else if (typeis< tvalue_reference >(ref))
+
+        // Mutable references can be converted to all other references
+        if (typeis< mvalue_reference >(from))
         {
-            return cvalue_reference{as< tvalue_reference >(ref).target};
+            return true;
         }
-        else if (typeis< cvalue_reference >(ref))
+
+        // Const references are read only, and can be derived from everything except
+        // output-only references (wvalue_reference)
+        if (typeis< cvalue_reference >(to) && !typeis< wvalue_reference >(from))
         {
-            return std::move(ref);
+            return true;
         }
-        else if (typeis< ovalue_reference >(ref))
+
+        // All references are writable except for const references,
+        // although writable, we disallow implied conversion from TEMP& to WRITE&
+        // for practical reasons.
+        if (typeis< wvalue_reference >(to) && !typeis< cvalue_reference >(from))
         {
-            return cvalue_reference{as< ovalue_reference >(ref).target};
+            return true;
         }
-        else
-        {
-            return cvalue_reference{std::move(ref)};
-        }
+
+        // Other conversions that are syntax allowed (like TEMP& to MUT&),
+        // are only allowed explicitly, and not implicitly.
+
+        // Other implicit conversions, such as derived class to base class, are semantic
+        // conversions covered by semantic rules rather than syntax rules.
+        return false;
     }
 
     inline bool is_ref(type_symbol type)
@@ -177,7 +173,7 @@ namespace quxlang
         {
             return true;
         }
-        else if (typeis< ovalue_reference >(type))
+        else if (typeis< wvalue_reference >(type))
         {
             return true;
         }
@@ -217,7 +213,7 @@ namespace quxlang
         {
             return make_cref(field_type);
         }
-        else if (typeis< ovalue_reference >(obj))
+        else if (typeis< wvalue_reference >(obj))
         {
             return make_oref(field_type);
         }
@@ -244,9 +240,17 @@ namespace quxlang
         {
             return as< cvalue_reference >(type).target;
         }
-        else if (typeis< ovalue_reference >(type))
+        else if (typeis< wvalue_reference >(type))
         {
-            return as< ovalue_reference >(type).target;
+            return as< wvalue_reference >(type).target;
+        }
+        else if (typeis< nvalue_reference >(type))
+        {
+            return as< nvalue_reference >(type).target;
+        }
+        else if (typeis< dvalue_slot >(type))
+        {
+            return as< dvalue_slot >(type).target;
         }
         else
         {

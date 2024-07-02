@@ -42,7 +42,7 @@ namespace quxlang
         {
             storage_index base_index = 0;
             storage_index store_index = 0;
-            storage_index offset = 0;
+            size_t offset = 0;
 
             RPNX_MEMBER_METADATA(access_field, base_index, store_index, offset);
         };
@@ -57,11 +57,10 @@ namespace quxlang
 
         struct make_reference
         {
-            type_symbol what;
             storage_index value_index;
             storage_index reference_index;
 
-            RPNX_MEMBER_METADATA(make_reference, what, value_index, reference_index);
+            RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
 
         struct vm_slot

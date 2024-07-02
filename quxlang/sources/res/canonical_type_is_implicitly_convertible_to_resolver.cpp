@@ -17,14 +17,14 @@ void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(comp
 
     if (remove_ref(to) == remove_ref(from))
     {
-        if (typeis< cvalue_reference >(to) && !typeis< ovalue_reference >(from))
+        if (typeis< cvalue_reference >(to) && !typeis< wvalue_reference >(from))
         {
             // All value/reference types can be implicitly cast to CONST&
             // except OUT& references
             set_value(true);
             return;
         }
-        else if (!is_ref(from) && (typeis< tvalue_reference >(to) || typeis< ovalue_reference >(to)))
+        else if (!is_ref(from) && (typeis< tvalue_reference >(to) || typeis< wvalue_reference >(to)))
         {
             // TODO: Allow ivalue pseudo-type here.
 
@@ -33,13 +33,13 @@ void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(comp
             set_value(true);
             return;
         }
-        else if (typeis< mvalue_reference >(from) && typeis< ovalue_reference >(to))
+        else if (typeis< mvalue_reference >(from) && typeis< wvalue_reference >(to))
         {
             // Mutable references can be implicitly cast to output references.
             set_value(true);
             return;
         }
-        else if (!is_ref(to) && !typeis< ovalue_reference >(from))
+        else if (!is_ref(to) && !typeis< wvalue_reference >(from))
         {
             set_value(true);
             return;

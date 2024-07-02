@@ -572,10 +572,10 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(ovalue_reference const& ref)
+        std::string operator()(wvalue_reference const& ref)
         {
             std::string result;
-            result = "ovalue_reference{\n";
+            result = "wvalue_reference{\n";
             current_indent++;
             result += indent_string();
             result += "target: ";

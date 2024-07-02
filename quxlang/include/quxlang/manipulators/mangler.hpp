@@ -108,9 +108,9 @@ namespace quxlang
         {
             return "RC" + mangle_internal(as< cvalue_reference >(qt).target);
         }
-        else if (typeis< ovalue_reference >(qt))
+        else if (typeis< wvalue_reference >(qt))
         {
-            return "RO" + mangle_internal(as< ovalue_reference >(qt).target);
+            return "RO" + mangle_internal(as< wvalue_reference >(qt).target);
         }
         else if (typeis< tvalue_reference >(qt))
         {

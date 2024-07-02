@@ -490,27 +490,27 @@ namespace rpnx
         while (!run_queue.empty())
         {
             event++;
-            std::cout << "event " << event << std::endl;
+            //std::cout << "event " << event << std::endl;
             auto current = *run_queue.begin();
             run_queue.erase(run_queue.begin());
-            std::cout << "processing " << uintptr_t(current) << std::endl;
+            //std::cout << "processing " << uintptr_t(current) << std::endl;
             assert(current->check());
             assert(!current->await_ready());
 
             if (current->resumable())
             {
-                std::cout << "resuming " << uintptr_t(current) << std::endl;
+               // std::cout << "resuming " << uintptr_t(current) << std::endl;
                 auto new_states = current->resume();
                 for (auto new_state : new_states)
                 {
-                    std::cout << "after resume, " << uintptr_t(current) << " wakes " << uintptr_t(new_state) << std::endl;
+                    //std::cout << "after resume, " << uintptr_t(current) << " wakes " << uintptr_t(new_state) << std::endl;
                     assert(new_state->m_waiting_on == nullptr);
                     run_queue.insert(new_state);
                 }
                 current->check();
                 if (current->resumable())
                 {
-                    std::cout << "resumable " << uintptr_t(current) << std::endl;
+                   // std::cout << "resumable " << uintptr_t(current) << std::endl;
                     run_queue.insert(current);
                 }
                 current->check();
@@ -519,7 +519,7 @@ namespace rpnx
 
             if (current->m_waiting_on != nullptr)
             {
-                std::cout << "waiting, " << uintptr_t(current) << " waiting on " << uintptr_t(current->m_waiting_on) << std::endl;
+               // std::cout << "waiting, " << uintptr_t(current) << " waiting on " << uintptr_t(current->m_waiting_on) << std::endl;
                 run_queue.insert(current->m_waiting_on);
                 current->m_waiting_on->check();
                 current->check();

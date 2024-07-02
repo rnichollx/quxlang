@@ -82,17 +82,48 @@ namespace quxlang
 
                 type_symbol new_type;
 
+                assert(!typeis< nvalue_reference >(ty));
+
                 if (slot_alive(index).await_resume())
                 {
                     new_type = mvalue_reference{.target = ty};
                 }
                 else
                 {
-                    new_type = nvalue_slot{.target = ty};
+                    assert(!typeis< nvalue_reference >(ty));
+                    new_type = nvalue_reference{.target = ty};
                 }
                 vmir2::storage_index temp = create_temporary_storage_internal(new_type);
                 vmir2::make_reference ref;
-                ref.what = new_type;
+                ref.value_index = index;
+                ref.reference_index = temp;
+
+                // TODO: make this not a hack
+                emit_instruction(ref).await_resume();
+
+                std::string slot_type = quxlang::to_string(parent.slots.at(temp).type);
+                // this is kind of a hack, but we can presume this after the make_reference call.
+                parent.slot_alive[temp] = true;
+
+                return temp;
+            }
+
+            vmir2::storage_index create_reference_internal(vmir2::storage_index index, type_symbol new_type)
+            {
+                // This function is used to handle the case where we have an index and need to force it into a
+                // reference type.
+                // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
+                // is encountered during an expression.
+                auto ty = index_type(index).await_resume();
+
+                std::vector< std::string > types;
+                for (auto& slot : parent.slots)
+                {
+                    types.push_back(quxlang::to_string(slot.type));
+                }
+
+                vmir2::storage_index temp = create_temporary_storage_internal(new_type);
+                vmir2::make_reference ref;
                 ref.value_index = index;
                 ref.reference_index = temp;
 
@@ -186,6 +217,7 @@ namespace quxlang
                 auto it = parent.testmap_functanoid_return_type_presets.find(type);
                 if (it != parent.testmap_functanoid_return_type_presets.end())
                 {
+                    std::cout << "functanoid_return_type(" << quxlang::to_string(type) << ") -> " << quxlang::to_string(it->second) << std::endl;
                     return it->second;
                 }
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
@@ -210,21 +242,35 @@ namespace quxlang
                 return rpnx::awaitable_result< void >{};
             }
 
+            rpnx::awaitable_result< vmir2::storage_index > implicit_cast_reference(vmir2::storage_index index, type_symbol target)
+            {
+                if (!is_ref_implicitly_convertible_by_syntax(index_type(index).await_resume(), target))
+                {
+                    throw std::logic_error("Cannot implicitly cast");
+                }
+
+                auto ref = create_reference_internal(index, target);
+
+                return ref;
+            }
+
             rpnx::awaitable_result< void > emit_invoke(type_symbol what, vmir2::invocation_args args)
             {
 
-                std::cout << "emit_invoke(" << quxlang::to_string(what)  << ")" << std::endl;
+                std::cout << "emit_invoke(" << quxlang::to_string(what) << ")" << " " << quxlang::to_string(args) << std::endl;
                 vmir2::invoke ivk;
                 ivk.what = what;
                 ivk.args = args;
                 emit_instruction(ivk).await_resume();
+
+
 
                 instanciation_reference inst = as< instanciation_reference >(what);
 
                 for (auto& arg : args.positional)
                 {
                     type_symbol arg_type = index_type(arg).await_resume();
-                    if (typeis< nvalue_slot >(arg_type))
+                    if (typeis< nvalue_reference >(arg_type))
                     {
                         if (parent.slot_alive.at(arg))
                         {
@@ -260,16 +306,24 @@ namespace quxlang
                 for (auto& [name, arg] : args.named)
                 {
                     type_symbol arg_type = index_type(arg).await_resume();
-                    if (typeis< nvalue_slot >(arg_type))
+                    if (name == "RETURN")
+                    {
+                        parent.slot_alive.at(arg) = true;
+                        continue;
+                    }
+                    type_symbol parameter_type = inst.parameters.named_parameters.at(name);
+
+                    if (typeis< nvalue_reference >(parameter_type))
                     {
                         if (parent.slot_alive.at(arg))
                         {
                             throw std::logic_error("Cannot invoke a functanoid with a NEW& parameter on a live slot.");
                         }
+                        std::cout << "Setting slot " << arg << " alive" << std::endl;
                         parent.slot_alive.at(arg) = true;
                     }
 
-                    else if (typeis< dvalue_slot >(arg_type))
+                    else if (typeis< dvalue_slot >(parameter_type))
                     {
                         if (!parent.slot_alive.at(arg))
                         {
@@ -287,10 +341,10 @@ namespace quxlang
                         if (!is_ref(arg_type))
                         {
                             // In quxlang calling convention, callee is responsible for destroying the argument.
+                            // however, references are not destroyed when passed as arguments.
+                            std::cout << "Setting slot " << arg << " dead" << std::endl;
                             parent.slot_alive.at(arg) = false;
                         }
-
-                        // however, references are not destroyed when passed as arguments.
                     }
                 }
 

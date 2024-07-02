@@ -50,7 +50,13 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::make_reference inst)
     {
-        return "MKR " + quxlang::to_string(inst.what) + ", %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
+        std::string result = "MKR %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
+
+        result += " // type=";
+
+        result += quxlang::to_string(this->m_what.slots.at(inst.reference_index).type);
+
+        return result;
     }
     std::string assembler::to_string_internal(vmir2::invocation_args inst)
     {
@@ -80,4 +86,6 @@ namespace quxlang::vmir2
         output += "]";
         return output;
     }
+
+
 } // namespace quxlang::vmir2

@@ -1212,7 +1212,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
             {
                 access.type = make_tref(field.type);
             }
-            else if (typeis< ovalue_reference >(thisreftype))
+            else if (typeis< wvalue_reference >(thisreftype))
             {
                 access.type = make_oref(field.type);
             }
