@@ -18,8 +18,8 @@ CT_FOR (VAR i := 0; i < 10; i++)
 {
   CT_FOR( VAR i := 0; i < args::size(); i++)
   {
-     VAR arg CONST& args@(i) :(what[i]);
-     VAR arg_ptr_to ty@(i) := arg->;
+     VAR arg CONST& args#(i) :(what[i]);
+     VAR arg_ptr_to ty#(i) := arg->;
      func(arg_ptr_to);
   }
 }
@@ -34,8 +34,8 @@ apply(printf, !("Hello", "World", "!\n"));
   {
      CT_FOR( CR_VAR j := 0; j < args2::size(); j++)
      {
-       VAR arg CONST& args@(i) :(what[i]);
-       VAR arg_ptr_to ty@(i) := arg->;
+       VAR arg CONST& args#(i) :(what[i]);
+       VAR arg_ptr_to ty#(i) := arg->;
        VAR num I64 :(b[j]);
        func(arg_ptr_to, b);
      }

@@ -116,7 +116,7 @@ namespace quxlang
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args)  << std::endl;
 
             call_type calltype;
             for (auto& arg : args.positional)
@@ -144,7 +144,7 @@ namespace quxlang
 
             instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
 
-            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
+            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args)  << std::endl;
             // Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
 
@@ -153,33 +153,16 @@ namespace quxlang
                 throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
             }
 
-            std::cout << "gen_call_functum C(" << quxlang::to_string(instanciation.value()) << ")" << std::endl;
-            auto return_type = co_await prv.functanoid_return_type(instanciation.value());
 
-            std::cout << "gen_call_functum D(" << quxlang::to_string(instanciation.value()) << ") -> " << quxlang::to_string(return_type) << std::endl;
 
-            // Index 0 is defined to be the special "void" value.
-            vmir2::storage_index return_value = 0;
+            co_return co_await this->gen_call_functanoid(instanciation.value(), args);
 
-            if (!typeis< void_type >(return_type))
-            {
-                auto return_slot = co_await prv.create_temporary_storage(return_type);
-
-                // calltype.named_parameters["RETURN"] = return_slot_type;
-                args.named["RETURN"] = return_slot;
-
-                return_value = return_slot;
-            }
-
-            co_await this->gen_call_functanoid(instanciation.value(), args);
-
-            co_return return_value;
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args args) -> rpnx::simple_coroutine< void > // typename CoroutineProvider::template co_type< void >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> rpnx::simple_coroutine< vmir2::storage_index > // typename CoroutineProvider::template co_type< void >
         {
 
-            std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << std::endl;
+            std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.parameters;
 
             // TODO: Support defaulted parameters.
@@ -201,8 +184,9 @@ namespace quxlang
 
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
-                    std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
+                    std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type)  << quxlang::to_string(expression_args) << std::endl;
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
+                    std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
@@ -227,6 +211,7 @@ namespace quxlang
                     }
 
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
+                        std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
@@ -260,7 +245,7 @@ namespace quxlang
             for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
             {
 
-                auto arg_expr_index = args.named.at(name);
+                auto arg_expr_index = expression_args.named.at(name);
 
                 auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
 
@@ -271,11 +256,30 @@ namespace quxlang
             {
                 auto arg_accepted_type = call_args_types.positional_parameters.at(i);
 
-                auto arg_expr_index = args.positional.at(i);
+                auto arg_expr_index = expression_args.positional.at(i);
 
                 auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
                 invocation_args.positional.push_back(arg_index);
             }
+
+            auto return_type = co_await prv.functanoid_return_type(what);
+
+
+            // Index 0 is defined to be the special "void" value.
+            vmir2::storage_index retval = 0;
+
+            if (!typeis< void_type >(return_type))
+            {
+                auto return_slot = co_await prv.create_temporary_storage(return_type);
+                std::cout << "Created return slot " << return_slot << std::endl;
+
+                // calltype.named_parameters["RETURN"] = return_slot_type;
+                invocation_args.named["RETURN"] = return_slot;
+
+                retval = return_slot;
+            }
+
+
 
             //  assert(what.parameters.size() == args.size());
 
@@ -289,6 +293,9 @@ namespace quxlang
             }
 
             co_await gen_invoke(what, invocation_args);
+
+
+            co_return retval;
         }
 
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
@@ -397,6 +404,7 @@ namespace quxlang
                     access.offset = field.offset;
                     type_symbol result_ref_type = recast_reference(base_type, field.type);
                     access.store_index = co_await prv.create_temporary_storage(result_ref_type);
+                    std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
                     co_await prv.emit_instruction(access);
                     co_return access.store_index;

@@ -716,7 +716,7 @@ TEST(expression_ir, generation)
     r.slots = pv.slots;
     r.instructions = pv.instructions;
 
-    std::string result = quxlang::vmir2::assembler().to_string(r);
+    std::string result = quxlang::vmir2::assembler(r).to_string(r);
 
     std::cout << result << std::endl;
 }

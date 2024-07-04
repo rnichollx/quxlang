@@ -188,7 +188,7 @@ or if it is unambiguous, a templexoid.
 Example:
 
 ```
-foo@(I32, I64)
+foo#(I32, I64)
 ```
 
 Here, `foo` must be either a temploid or a templexoid where exactly 1 of the
@@ -198,7 +198,7 @@ If there are multiple candidates, then the instantiation-reference is
 proceded by a selection-reference in canonical form. Example:
 
 ```
-foo@[I32, T(t)]@(I32, I64)
+foo#[I32, T(t)]#(I32, I64)
 ```
 
 ## Selection-Reference
@@ -208,7 +208,7 @@ A selection-reference is a reference to a specific temploid of a templexoid.
 Example:
 
 ```
-foo@[I32, T(t)]
+foo#[I32, T(t)]
 ```
 
 Here, `foo` is a templexoid, and the result of the type-expression is a

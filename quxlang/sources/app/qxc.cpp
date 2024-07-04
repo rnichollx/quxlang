@@ -52,8 +52,8 @@ int main(int argc, char** argv)
             std::set< quxlang::type_symbol > compiled_vmir;
             std::set< quxlang::type_symbol > compiled_asm;
 
-            std::string main_module_name = output_config.module.value_or("::main@()");
-            std::string main_function_name = output_config.main_functanoid.value_or("::main@()");
+            std::string main_module_name = output_config.module.value_or("::main#()");
+            std::string main_function_name = output_config.main_functanoid.value_or("::main#()");
 
             auto mainfunc_sym = quxlang::parsers::parse_type_symbol(main_function_name);
             mainfunc_sym = quxlang::with_context(mainfunc_sym, quxlang::module_reference{main_module_name});

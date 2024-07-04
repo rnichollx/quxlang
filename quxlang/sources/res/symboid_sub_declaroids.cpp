@@ -19,8 +19,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symboid_subdeclaroids)
     {
         // Templates don't have subdeclaroids, only a template instanciation could,
         // but that would produce a class, not a template.
-        // e.g. ::foo@(I32) would produce a class, not a template.
-        // whereas ::foo doesn't have any subdeclaroids, even if ::foo@(I32) does.
+        // e.g. ::foo#(I32) would produce a class, not a template.
+        // whereas ::foo doesn't have any subdeclaroids, even if ::foo#(I32) does.
         co_return {};
     }
     else if (typeis<functum>(sym))

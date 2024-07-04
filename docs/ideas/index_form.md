@@ -16,7 +16,7 @@ INVOKE takes slots as arguments.
 
 e.g.
 
-INVOKE foo_functanoid@@{...} %0, %1, %3
+INVOKE foo_functanoid@#{...} %0, %1, %3
 
 When a callable is invoked, the following properties are noted:
 

@@ -17,6 +17,8 @@ namespace quxlang::vmir2
         std::string to_string(vmir2::vm_instruction inst);
         std::string to_string(vmir2::vm_slot slt);
 
+
+        assembler(vmir2::functanoid_routine what) : m_what(what) {}
       private:
         vmir2::functanoid_routine m_what;
 

@@ -14,7 +14,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         // e.g. ::myint ALIAS I32;
         // ::foo FUNCTION(%x I32) ...
         // Would result in the following selection:
-        // calle=foo@[::myint] params=(...) -> foo@[I32]
+        // calle=foo#[::myint] params=(...) -> foo#[I32]
 
         QUX_CO_ANSWER(as< selection_reference >(input.callee));
     }

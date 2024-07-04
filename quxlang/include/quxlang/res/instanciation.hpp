@@ -14,7 +14,7 @@ namespace quxlang
     /// This resolver cannonicalizes the instanciation of a templexoid.
     // For functums, this is the same as callee instanciation, for templates,
     // this is a template instanciation.
-    // e.g. `::foo@(TEMP &I32, CONST & I32)` -> `::foo@[I32, I32](I32, I32)`
+    // e.g. `::foo#(TEMP &I32, CONST & I32)` -> `::foo#[I32, I32](I32, I32)`
     QUX_CO_RESOLVER(instanciation, instanciation_reference, std::optional<instanciation_reference>);
 } // namespace quxlang
 

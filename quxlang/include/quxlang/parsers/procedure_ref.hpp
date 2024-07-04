@@ -12,7 +12,7 @@ namespace quxlang::parsers
     template <typename It>
     std::optional< ast2_procedure_ref > try_parse_ast2_procedure_ref(It& it, It end)
     {
-        // Example: PROCEDURE_REF( "ccall", foo::bar@(I32, MUT & I32) )
+        // Example: PROCEDURE_REF( "ccall", foo::bar#(I32, MUT & I32) )
         auto pos = it;
 
         if (!skip_keyword_if_is(pos, end, "PROCEDURE_REF"))

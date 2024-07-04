@@ -29,11 +29,11 @@ namespace quxlang::parsers
     start:
         if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
         {
-           output = numeric_literal_reference{};
+            output = numeric_literal_reference{};
         }
         else if (skip_keyword_if_is(pos, end, "VOID"))
         {
-           output = void_type{};
+            output = void_type{};
         }
         else if (skip_keyword_if_is(pos, end, "BOOL"))
         {
@@ -103,19 +103,19 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {
-            if (!skip_symbol_if_is(pos, end, "&&"))
+            if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
-                throw std::logic_error("Expected && after NEW");
+                throw std::logic_error("Expected & after NEW");
             }
             return nvalue_reference{parse_type_symbol(pos, end)};
         }
         else if (skip_keyword_if_is(pos, end, "DESTROY"))
         {
-            if (!skip_symbol_if_is(pos, end, "&&"))
+            if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
-                throw std::logic_error("Expected && after DESTROY");
+                throw std::logic_error("Expected & after DESTROY");
             }
             return dvalue_slot{parse_type_symbol(pos, end)};
         }
@@ -188,7 +188,7 @@ namespace quxlang::parsers
             output = subdotentity_reference{std::move(output), std::move(ident)};
             goto check_next;
         }
-        else if (skip_symbol_if_is(pos, end, "@("))
+        else if (skip_symbol_if_is(pos, end, "#("))
         {
             instanciation_reference param_set;
             param_set.callee = std::move(output);
@@ -226,7 +226,83 @@ namespace quxlang::parsers
             }
             goto next_arg;
         }
-        else if (skip_symbol_if_is(pos, end, "@["))
+        else if (skip_symbol_if_is(pos, end, "#{"))
+        {
+            remaining = std::string(pos, end);
+
+            instanciation_reference param_set;
+            param_set.callee = selection_reference{};
+
+            selection_reference& sel = as< selection_reference >(param_set.callee);
+            sel.callee = std::move(output);
+
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "}"))
+            {
+                output = param_set;
+                goto check_next;
+            }
+
+            if (skip_keyword_if_is(pos, end, "BUILTIN"))
+            {
+                sel.overload.builtin = true;
+
+                skip_whitespace(pos, end);
+
+                if (!skip_symbol_if_is(pos, end, ";"))
+                {
+                    throw std::logic_error("Expected ';'");
+                }
+            }
+
+            skip_whitespace_and_comments(pos, end);
+        next_arg2:
+            remaining = std::string(pos, end);
+            skip_whitespace_and_comments(pos, end);
+
+            if (skip_symbol_if_is(pos, end, "@"))
+            {
+                std::string param_name = parse_argument_name(pos, end);
+                auto seltype = parse_type_symbol(pos, end);
+                sel.overload.call_parameters.named_parameters[param_name] = seltype;
+                skip_whitespace(pos, end);
+                if (skip_symbol_if_is(pos, end, ":"))
+                {
+                    param_set.parameters.named_parameters[param_name] = parse_type_symbol(pos, end);
+                }
+                else
+                {
+                    param_set.parameters.named_parameters[param_name] = seltype;
+                }
+            }
+            else
+            {
+                auto seltype = parse_type_symbol(pos, end);
+                sel.overload.call_parameters.positional_parameters.push_back(seltype);
+                skip_whitespace(pos, end);
+                if (skip_symbol_if_is(pos, end, ":"))
+                {
+                    param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+                }
+                else
+                {
+                    param_set.parameters.positional_parameters.push_back(seltype);
+                }
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "}"))
+            {
+                output = param_set;
+                goto check_next;
+            }
+            else if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("expected ',' or '}'");
+            }
+            goto next_arg2;
+        }
+        else if (skip_symbol_if_is(pos, end, "#["))
         {
             remaining = std::string(pos, end);
             selection_reference param_set;
@@ -247,12 +323,12 @@ namespace quxlang::parsers
 
                 if (!skip_symbol_if_is(pos, end, ";"))
                 {
-                   throw std::logic_error("Expected ';'");
+                    throw std::logic_error("Expected ';'");
                 }
             }
 
             skip_whitespace_and_comments(pos, end);
-        next_arg2:
+        next_arg3:
             remaining = std::string(pos, end);
             skip_whitespace_and_comments(pos, end);
 
@@ -276,7 +352,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("expected ',' or ']'");
             }
-            goto next_arg2;
+            goto next_arg3;
         }
 
         return output;

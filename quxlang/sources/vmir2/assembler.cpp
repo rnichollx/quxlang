@@ -9,18 +9,23 @@ namespace quxlang::vmir2
     std::string assembler::to_string(vmir2::functanoid_routine inst)
     {
         std::string output;
-        output += "slots:";
 
-        for (auto& i : inst.slots)
+        static const std::string indent = "    ";
+        output += "slots:\n";
+
+        for (std::size_t i = 1; i < inst.slots.size(); i++)
         {
-            output += this->to_string(i);
+
+            output += indent + std::to_string(i) + " " + this->to_string(inst.slots.at(i));
+            output += "\n";
         }
 
-        output += "instructions:";
+        output += "instructions:\n";
 
         for (auto& i : inst.instructions)
         {
-            output += this->to_string(i);
+            output += indent + this->to_string(i);
+            output += "\n";
         }
 
         return output;
@@ -30,13 +35,25 @@ namespace quxlang::vmir2
         return rpnx::apply_visitor< std::string >(
             [&](auto&& x)
             {
-                return to_string(x);
+                return this->to_string_internal(x);
             },
             inst);
     }
     std::string assembler::to_string(vmir2::vm_slot slt)
     {
-        return "SLOT " + quxlang::to_string(slt.type);
+        std::string output = "SLOT " + quxlang::to_string(slt.type);
+
+        if (slt.literal_value)
+        {
+            output += " " + *slt.literal_value;
+        }
+
+        if (slt.name)
+        {
+            output += " // " + *slt.name;
+        }
+
+        return output;
     }
 
     std::string assembler::to_string_internal(vmir2::access_field inst)
@@ -86,6 +103,5 @@ namespace quxlang::vmir2
         output += "]";
         return output;
     }
-
 
 } // namespace quxlang::vmir2

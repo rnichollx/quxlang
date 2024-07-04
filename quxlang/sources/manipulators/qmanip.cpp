@@ -59,7 +59,6 @@ namespace quxlang
         }
         result += "]";
         return result;
-
     }
 
     std::string to_string(call_type const& ref)
@@ -295,7 +294,46 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + " @(";
+        // There are 3 types of selection/instanciation,
+        // only selection #[ ]
+        // only instanciation #( )
+        // both selection & instantiation #{ }
+        if (typeis< selection_reference >(ref.callee))
+        {
+            selection_reference const& sel = as< selection_reference >(ref.callee);
+            std::string output = rpnx::apply_visitor< std::string >(*this, sel.callee);
+
+            output += " #{";
+            bool first = true;
+            for (auto const& [name, type] : sel.overload.call_parameters.named_parameters)
+            {
+                if (first)
+                    first = false;
+                else
+                    output += ", ";
+                output += "@" + name + " " + to_string(type);
+                if (ref.parameters.named_parameters.at(name) != type)
+                {
+                    output += ": " + to_string(ref.parameters.named_parameters.at(name));
+                }
+            }
+            for (size_t i = 0; i < sel.overload.call_parameters.positional_parameters.size(); i++)
+            {
+                if (first)
+                    first = false;
+                else
+                    output += ", ";
+                output += to_string(sel.overload.call_parameters.positional_parameters.at(i));
+                if (ref.parameters.positional_parameters.at(i) != sel.overload.call_parameters.positional_parameters.at(i))
+                {
+                    output += ": " + to_string(ref.parameters.positional_parameters.at(i));
+                }
+            }
+            output += "}";
+            return output;
+        }
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee);
+        output += " #(";
         bool first = true;
         for (auto const& [name, type] : ref.parameters.named_parameters)
         {
@@ -385,17 +423,17 @@ namespace quxlang
 
     std::string qualified_symbol_stringifier::operator()(nvalue_reference const& ref) const
     {
-        return "NEW&& " + to_string(ref.target) + "";
+        return "NEW& " + to_string(ref.target) + "";
     }
 
     std::string qualified_symbol_stringifier::operator()(dvalue_slot const& ref) const
     {
-        return "DESTROY&& " + to_string(ref.target) + "";
+        return "DESTROY& " + to_string(ref.target) + "";
     }
 
     std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "@[";
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "#[";
         bool first = true;
         if (ref.overload.builtin)
         {
@@ -457,7 +495,7 @@ namespace quxlang
         // so we can't assume that the conversion is valid.
         // For example, a structure might implement differently depending on the mutability of the reference.
         // Such as including a mutex in the MUT& version, but not in the CONST& version.
-        // e.g. foo@(I32, MUT& I32) cannot match foo@(I32, CONST& I32)
+        // e.g. foo#(I32, MUT& I32) cannot match foo#(I32, CONST& I32)
 
         // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
 
