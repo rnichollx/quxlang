@@ -1,0 +1,50 @@
+# The quxbuild.yaml file defines 1 or more top level targets.
+
+# Each target must define a list of modules, a platform, and a cpu type.
+
+
+linux-x64:
+  modules:
+    runtime:
+      source: linux-runtime
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    main:
+      source: main
+  platform: linux
+  cpu: x64
+
+
+linux-x86:
+  modules:
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_0
+    main:
+      source: main
+  platform: linux
+  cpu: x86
+  outputs:
+    app:
+      type: executable
+      main_module: main
+
+windows:
+  modules:
+    runtime:
+      source: windows-runtime
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_0
+    main:
+      source: main_experimental_windows
+  platform: windows
+  cpu: x64
+
+
+
+

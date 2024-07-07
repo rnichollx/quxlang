@@ -159,7 +159,7 @@ namespace quxlang
 
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> rpnx::simple_coroutine< vmir2::storage_index > // typename CoroutineProvider::template co_type< void >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) ->  typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
 
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;

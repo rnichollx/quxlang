@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, arg, local, literal, symbol);
+
 namespace quxlang
 {
     namespace vmir2
@@ -68,6 +70,9 @@ namespace quxlang
             type_symbol type;
             std::optional< std::string > name;
             std::optional< std::string > literal_value;
+            slot_kind kind;
+
+            RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, kind);
         };
 
         struct vm_context
@@ -79,7 +84,10 @@ namespace quxlang
         {
             std::vector< vm_slot > slots;
             std::vector< vm_instruction > instructions;
+
+            RPNX_MEMBER_METADATA(functanoid_routine, slots, instructions);
         };
+
     } // namespace vmir2
 
 }; // namespace quxlang

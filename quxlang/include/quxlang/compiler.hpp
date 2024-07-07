@@ -85,14 +85,16 @@
 #include <shared_mutex>
 
 // clang-format off
-#define COMPILER_INDEX(x) friend class x ## _resolver; index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type const & input ) { return this->m_ ## x ## _index.lookup(input); }
+#define COMPILER_INDEX(x) friend class x ## _resolver; private: index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type const & input ) { return this->m_ ## x ## _index.lookup(input); } public: auto get_ ## x ( x ## _resolver::input_type const & input ) { auto node = lk_ ## x (input); m_solver.solve(this, node); return node->get(); }
 // clang-format on
 
 namespace quxlang
 {
+    class compiler_binder;
     class compiler
     {
         //
+        friend class compiler_binder;
         friend class filelist_resolver;
         friend class class_list_resolver;
         friend class file_ast_resolver;
@@ -224,12 +226,7 @@ namespace quxlang
             return node->get();
         }
 
-        vm_procedure get_vm_procedure2(instanciation_reference func_addr)
-        {
-            auto node = lk_vm_procedure2(func_addr);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {

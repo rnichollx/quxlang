@@ -391,6 +391,7 @@ TEST(range, iterator_advance)
 
 #include "expr_test_provider.hpp"
 #include "quxlang/compiler.hpp"
+#include "quxlang/source_loader.hpp"
 #include "rpnx/range.hpp"
 #include <gtest/gtest.h>
 #include <list>
@@ -505,8 +506,7 @@ TEST(dyn_bidirectional_input_iter, IteratorsWithNonDefaultConstructibleType)
     {
         NonDefaultConstructible() = delete;
 
-        explicit NonDefaultConstructible(int x)
-            : value(x)
+        explicit NonDefaultConstructible(int x) : value(x)
         {
         }
 
@@ -679,9 +679,6 @@ TEST(VariantTest, Serialization)
     EXPECT_EQ(v4, std::string("hello"));
 }
 
-
-
-
 TEST(expression_ir, generation)
 {
     quxlang::expr_test_provider pv;
@@ -692,21 +689,23 @@ TEST(expression_ir, generation)
         .binary_type = quxlang::binary::elf,
     };
     quxlang::compiler c(sources, "foo");
-    quxlang::co_vmir_expression_emitter<quxlang::expr_test_provider::co_provider> em(pv.provider());
+    quxlang::co_vmir_expression_emitter< quxlang::expr_test_provider::co_provider > em(pv.provider());
 
     // TODO: We could probably make the tester look at named variable slots instead of having a lookup table
     pv.slots.push_back(quxlang::vmir2::vm_slot{
         .type = quxlang::parsers::parse_type_symbol("I32"),
         .name = "a",
+        .kind = quxlang::vmir2::slot_kind::arg,
     });
     pv.slots.push_back(quxlang::vmir2::vm_slot{
         .type = quxlang::parsers::parse_type_symbol("I32"),
         .name = "b",
+        .kind = quxlang::vmir2::slot_kind::arg,
     });
-    pv.slot_alive = { true, true, true };
+    pv.slot_alive = {true, true, true};
 
     pv.loadable_symbols[quxlang::parsers::parse_type_symbol("a")] = quxlang::expr_test_provider::loadable_symbol{.type = quxlang::parsers::parse_type_symbol("I32"), .index = 1};
-    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = quxlang::expr_test_provider::loadable_symbol{.type=quxlang::parsers::parse_type_symbol("I32"), .index = 2};
+    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = quxlang::expr_test_provider::loadable_symbol{.type = quxlang::parsers::parse_type_symbol("I32"), .index = 2};
 
     quxlang::expression expr = quxlang::parsers::parse_expression("a + b - 4");
 
@@ -719,4 +718,18 @@ TEST(expression_ir, generation)
     std::string result = quxlang::vmir2::assembler(r).to_string(r);
 
     std::cout << result << std::endl;
+}
+
+TEST(expression_ir, generation_real)
+{
+
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "foo");
+
+    auto start_sym = quxlang::parsers::parse_type_symbol("::main");
+    start_sym = quxlang::with_context(start_sym, quxlang::module_reference{"main"});
+
+   // auto proc = c.get_vm_procedure2(start_sym);
 }
