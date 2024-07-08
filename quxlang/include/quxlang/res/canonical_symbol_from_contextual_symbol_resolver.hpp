@@ -16,21 +16,8 @@
 
 namespace quxlang
 {
-    class canonical_symbol_from_contextual_symbol_resolver : public rpnx::resolver_base< compiler, type_symbol >
-    {
-      public:
-        using key_type = contextual_type_reference;
-        using input_type = contextual_type_reference;
-        canonical_symbol_from_contextual_symbol_resolver(contextual_type_reference ref)
-        {
-            m_ref = ref;
-        }
 
-        virtual void process(compiler* c) override;
-
-      private:
-        contextual_type_reference m_ref;
-    };
+    QUX_CO_RESOLVER(canonical_symbol_from_contextual_symbol, contextual_type_reference, type_symbol);
 
 } // namespace quxlang
 

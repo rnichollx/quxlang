@@ -8,9 +8,9 @@
 #include <compare>
 
 #include "quxlang/compiler_fwd.hpp"
+#include "rpnx/metadata.hpp"
 #include "rpnx/resolver_utilities.hpp"
 #include <string>
-#include "rpnx/metadata.hpp"
 
 #include "rpnx/value.hpp"
 // clang-format off
@@ -66,6 +66,10 @@ virtual void process(compiler * c) override; \
 
 
 /// This implements a coroutine resolver declaration, to be used in overload files.
+// it takes exaclty three arguments: the name of the resolver, the input type, and the output type, in that ordering.
+// Example usage: QUX_CO_RESOLVER(foo, input_type, output_type)
+// Wrong: QUX_CO_RESOLVER(foo_resolver, input_type, output_type)
+//   - This would create a type called foo_resolver_resolver, which is not what we want.
 #define QUX_CO_RESOLVER(nameV, inputT, outputT) \
 class nameV ## _resolver : public rpnx::co_resolver_base< compiler, outputT, inputT > { \
  public: \
@@ -76,8 +80,12 @@ rpnx::resolver_coroutine< compiler, output_type > co_process(compiler* c, input_
 #define QUX_RESOLVER_IMPL_FUNC_DEF(nameV) \
 void quxlang::nameV ## _resolver::process(compiler * c) \
 
-/// This implements a resolver coroutine, inside C++ files.
-// Usage: QUX_CO_RESOLVER_IMPL_FUNC_DEF(foo) { ... }
+/// QUX_CO_RESOLVER_IMPL_FUNC_DEF implements a resolver coroutine definition, inside C++ files.
+/// It only requires the name of the resolver, without the _resolver suffix.
+/// the other information is provided by the header file.
+/// Example usage: QUX_CO_RESOLVER_IMPL_FUNC_DEF(foo) { ... }
+/// Wrong: QUX_CO_RESOLVER_IMPL_FUNC_DEF(foo_resolver) { ... }
+//   - This would attempt to implement foo_resolver_resolver, which is not what we want.
 #define QUX_CO_RESOLVER_IMPL_FUNC_DEF(nameV) \
 quxlang::nameV ## _resolver::co_type quxlang::nameV ## _resolver::co_process(compiler* c, input_type arg_input)
 
@@ -120,7 +128,20 @@ rpnx::general_coroutine< quxlang::compiler, retT> classNamespace :: className ::
 
 #define QUX_TIECMP(c, x) auto tie() const { return  std::tie x ; } auto tie() const { return std::tie x ; } std::strong_ordering operator <=>(c const & other) { if (tie() < other.tie()) return std::strong_ordering::less; else if (other.tie() < tie()) return std::strong_ordering::greater; return std::strong_ordering::equal; }
 
-
 // clang-format on
 
-#endif //QUX_MACROS_HPP
+#endif // QUX_MACROS_HPP
+
+/* Conversion guide:
+
+ Code using QUX_RESOLVER, of format:
+
+  auto foo_dp = get_dependency([&]{ return c->lk_bar(args); });
+  if (!ready()) return;
+  auto const & foo = foo_dp->get();
+
+ Is replaced in functions using QUX_CO_RESOLVER/QUX_CO_RESOLVER_IMPL_FUNC_DEF using:
+
+ auto foo = co_await QUX_CO_DEP(bar, (args));
+
+*/

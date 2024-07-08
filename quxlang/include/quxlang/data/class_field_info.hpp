@@ -17,6 +17,8 @@ namespace quxlang
         std::string name;
         type_symbol type;
         std::size_t offset = 0;
+
+        RPNX_MEMBER_METADATA(class_field_info, name, type, offset);
     };
 } // namespace quxlang
 

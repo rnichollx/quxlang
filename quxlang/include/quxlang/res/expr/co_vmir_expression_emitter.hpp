@@ -393,7 +393,7 @@ namespace quxlang
             auto base_type = co_await prv.index_type(base);
             auto base_type_noref = quxlang::remove_ref(base_type);
 
-            class_layout layout = co_await prv.class_layout_from_canonical_chain(base_type_noref);
+            class_layout layout = co_await prv.class_layout(base_type_noref);
 
             for (class_field_info const& field : layout.fields)
             {

@@ -53,6 +53,7 @@
 #include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
+#include "quxlang/res/expr_ir2.hpp"
 #include <mutex>
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
@@ -163,9 +164,11 @@ namespace quxlang
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
-        // COMPILER_INDEX(class_layout)
+        COMPILER_INDEX(class_layout)
+        COMPILER_INDEX(class_field_list)
         COMPILER_INDEX(declaroids)
         COMPILER_INDEX(extern_linksymbol)
+        COMPILER_INDEX(expr_ir2)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(function_positional_parameter_names)
@@ -196,6 +199,7 @@ namespace quxlang
         COMPILER_INDEX(temploid_instanciation_parameter_set)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure2)
+        COMPILER_INDEX(type_placement_info_from_canonical_type)
 
         index< called_functanoids_resolver > m_called_functanoids_index;
 
@@ -267,29 +271,13 @@ namespace quxlang
         }
 
       public:
-        index< class_layout_resolver > m_class_layout_from_canonical_chain_index;
-
-        out< class_layout > lk_class_layout_from_canonical_chain(type_symbol const& chain)
-        {
-            return m_class_layout_from_canonical_chain_index.lookup(chain);
-        }
 
       private:
-        rpnx::co_index< compiler, type_placement_info, type_placement_info_from_canonical_type_question, type_symbol > m_type_placement_info_from_canonical_chain_index;
 
-        out< type_placement_info > lk_type_placement_info_from_canonical_type(type_symbol const& ref)
-        {
-            // auto tuple = std::tuple<quxlang::qualified_symbol_reference>(ref);
-            assert(!typeis< numeric_literal_reference >(ref));
-            return m_type_placement_info_from_canonical_chain_index.lookup(this, ref);
-        }
 
-        index< class_field_list_resolver > m_class_field_list_from_canonical_chain_index;
 
-        out< std::vector< class_field_declaration > > lk_class_field_declaration_list_from_canonical_chain(type_symbol const& chain)
-        {
-            return m_class_field_list_from_canonical_chain_index.lookup(chain);
-        }
+
+
 
         index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
 

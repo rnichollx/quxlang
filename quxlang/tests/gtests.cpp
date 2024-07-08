@@ -731,5 +731,4 @@ TEST(expression_ir, generation_real)
     auto start_sym = quxlang::parsers::parse_type_symbol("::main");
     start_sym = quxlang::with_context(start_sym, quxlang::module_reference{"main"});
 
-   // auto proc = c.get_vm_procedure2(start_sym);
 }

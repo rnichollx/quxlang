@@ -15,6 +15,8 @@ namespace quxlang
         std::vector<class_field_info> fields;
         std::size_t size = 0;
         std::size_t align = 0;
+
+        RPNX_MEMBER_METADATA(class_layout, fields, size, align);
     };
 } // namespace quxlang
 

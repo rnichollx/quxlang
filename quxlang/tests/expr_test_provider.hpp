@@ -366,7 +366,7 @@ namespace quxlang
                 return idx;
             }
 
-            rpnx::awaitable_result< quxlang::class_layout > class_layout_from_canonical_chain(type_symbol type)
+            rpnx::awaitable_result< quxlang::class_layout > class_layout(type_symbol type)
             {
                 throw rpnx::unimplemented();
             }

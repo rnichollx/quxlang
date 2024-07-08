@@ -7,17 +7,16 @@
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 
-void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang::compiler* c)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 {
-
-    type_symbol context = m_ref.context;
-    type_symbol const& type = m_ref.type;
+    type_symbol context = input.context;
+    type_symbol const& type = input.type;
 
     QUXLANG_DEBUG({
         std::cout << "type lookup," << std::endl;
         std::cout << "With Context: " << to_string(context) << std::endl;
         std::cout << "Looking up type: " << to_string(type) << std::endl;
-        });
+    });
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
@@ -29,23 +28,14 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
 
         contextual_type_reference to_type_ref;
         to_type_ref.type = to_type;
-        to_type_ref.context = m_ref.context;
+        to_type_ref.context = input.context;
 
-        auto canonical_to_type_dep = get_dependency(
-            [&]
-            {
-                return c->lk_canonical_symbol_from_contextual_symbol(to_type_ref);
-            });
-
-        if (!ready())
-            return;
-
-        type_symbol canon_ptr_to_type = canonical_to_type_dep->get();
+        auto canon_ptr_to_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (to_type_ref));
 
         instance_pointer_type canonical_ptr_type;
         canonical_ptr_type.target = canon_ptr_to_type;
 
-        set_value(canonical_ptr_type);
+        co_return canonical_ptr_type;
     }
     else if (type.type() == boost::typeindex::type_id< subentity_reference >())
     {
@@ -64,37 +54,28 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
                 std::string name = sub.subentity_name;
                 if (typeis< instanciation_reference >(*current_context))
                 {
-                    QUXLANG_DEBUG({std::cout << "Instanciation:  within "<< to_string(*current_context) << " check  " << to_string(type) << std::endl;});
+                    QUXLANG_DEBUG({
+                        std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl;
+
+                    });
 
                     // Two possibilities, 1 = this is a template, 2 = this is a function
                     instanciation_reference inst = as< instanciation_reference >(*current_context);
 
-                    QUXLANG_DEBUG({std::cout << "current inst: " << to_string(inst) << std::endl;});
-                    auto param_set_dp = get_dependency(
-                        [&]
-                        {
-                            return c->lk_temploid_instanciation_parameter_set(inst);
-                        });
-                    if (!ready())
-                    {
-                        return;
-                    }
-                    temploid_instanciation_parameter_set param_set = param_set_dp->get();
-                    QUXLANG_DEBUG({
-                        std::cout << "dep str=" << param_set_dp->question() << " answer: " << param_set_dp->answer() << std::endl;
-                        std::cout << "Param set, name=" << name << std::endl;
+                    auto param_set = co_await QUX_CO_DEP(temploid_instanciation_parameter_set, (inst));
 
+                    QUXLANG_DEBUG({
+                        std::cout << "Param set, name=" << name << std::endl;
                         std::cout << "Param map " << to_string(inst) << " / " << to_string(*current_context) << " " << param_set.parameter_map.size() << std::endl;
-                        });
-                    for (auto it = param_set.parameter_map.begin(); it != param_set.parameter_map.end(); it++)
-                    {
-                        std::cout << "Param map: k=" << it->first << " v=" << to_string(it->second) << std::endl;
-                    }
+                        for (auto it = param_set.parameter_map.begin(); it != param_set.parameter_map.end(); it++)
+                        {
+                            std::cout << "Param map: k=" << it->first << " v=" << to_string(it->second) << std::endl;
+                        }
+                    });
                     auto it = param_set.parameter_map.find(name);
                     if (it != param_set.parameter_map.end())
                     {
-                        set_value(it->second);
-                        return;
+                        co_return it->second;
                     }
                     current_context = qualified_parent(current_context.value());
                 }
@@ -102,21 +83,13 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
                 {
                     subentity_reference sub2{current_context.value(), sub.subentity_name};
 
-                    auto exists_dp = get_dependency(
-                        [&]
-                        {
-                            return c->lk_entity_canonical_chain_exists(sub2);
-                        });
-                    if (!ready())
-                        return;
+                    auto exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (sub2));
 
-                    bool exists = exists_dp->get();
-                    QUXLANG_DEBUG({std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl;});
+                    QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
 
                     if (exists)
                     {
-                        set_value(sub2);
-                        return;
+                        co_return sub2;
                     }
                 }
 
@@ -127,18 +100,9 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
             throw std::logic_error(str.c_str());
         }
 
-        auto parent_dp = get_dependency(
-            [&]
-            {
-                return c->lk_canonical_symbol_from_contextual_symbol(parent, context);
-            });
+        auto parent_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (parent, context));
 
-        if (!ready())
-            return;
-
-        set_value(subentity_reference{parent_dp->get(), sub.subentity_name});
-
-        return;
+        co_return subentity_reference{parent_canonical, sub.subentity_name};
     }
     else if (type.type() == boost::typeindex::type_id< subdotentity_reference >())
     {
@@ -156,22 +120,13 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
             {
                 subdotentity_reference sub2{current_context.value(), sub.subdotentity_name};
 
-                auto exists_dp = get_dependency(
-                    [&]
-                    {
-                        return c->lk_entity_canonical_chain_exists(sub2);
-                    });
-                if (!ready())
-                    return;
+                auto exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (sub2));
 
-                bool exists = exists_dp->get();
-
-                std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl;
+                QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
 
                 if (exists)
                 {
-                    set_value(sub2);
-                    return;
+                    co_return sub2;
                 }
 
                 current_context = qualified_parent(current_context.value());
@@ -181,18 +136,9 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
             throw std::logic_error(str.c_str());
         }
 
-        auto parent_dp = get_dependency(
-            [&]
-            {
-                return c->lk_canonical_symbol_from_contextual_symbol(parent, context);
-            });
+        auto parent_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (parent, context));
 
-        if (!ready())
-            return;
-
-        set_value(subdotentity_reference{parent_dp->get(), sub.subdotentity_name});
-
-        return;
+        co_return subdotentity_reference{parent_canonical, sub.subdotentity_name};
     }
     else if (type.type() == boost::typeindex::type_id< instanciation_reference >())
     {
@@ -200,72 +146,50 @@ void quxlang::canonical_symbol_from_contextual_symbol_resolver::process(quxlang:
 
         instanciation_reference output;
 
-        auto callee_dp = get_dependency(
-            [&]
-            {
-                return c->lk_canonical_symbol_from_contextual_symbol(param_set.callee, context);
-            });
+        auto callee_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (param_set.callee, context));
 
-        if (!ready())
-            return;
-
-        output.callee = callee_dp->get();
+        output.callee = callee_canonical;
 
         for (auto& p : param_set.parameters.positional_parameters)
         {
-            auto param_dp = get_dependency(
-                [&]
-                {
-                    return c->lk_canonical_symbol_from_contextual_symbol(p, context);
-                });
+            auto param_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (p, context));
 
-            if (!ready())
-                return;
-
-            output.parameters.positional_parameters.push_back(param_dp->get());
+            output.parameters.positional_parameters.push_back(param_canonical);
             // TODO: support named parameters
         }
 
-        set_value(output);
+        co_return output;
     }
     else if (type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
     {
-        set_value(type);
+        co_return type;
     }
     else if (type.type() == boost::typeindex::type_id< primitive_type_bool_reference >())
     {
-        set_value(type);
+        co_return type;
     }
     else if (type.type() == boost::typeindex::type_id< module_reference >())
     {
-        set_value(type);
+        co_return type;
     }
     else if (type.type() == boost::typeindex::type_id< mvalue_reference >())
     {
         auto target_type = as< mvalue_reference >(type).target;
-        auto target_can_dp = get_dependency(
-            [&]
-            {
-                return c->lk_canonical_symbol_from_contextual_symbol(target_type, context);
-            });
-        if (!ready())
-        {
-            return;
-        }
-        set_value(mvalue_reference{target_can_dp->get()});
+        auto target_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (target_type, context));
+        co_return mvalue_reference{target_canonical};
     }
     else if (typeis< void_type >(type))
     {
-        set_value(type);
+        co_return type;
     }
     else if (typeis< template_reference >(type))
     {
-        set_value(type);
+        co_return type;
     }
     else
     {
         std::string str = std::string() + "unimplemented: " + type.type().name();
-        std::cout << str << std::endl;
+        QUXLANG_DEBUG({ std::cout << str << std::endl; });
         throw std::logic_error("unreachable/unimplemented");
     }
 }

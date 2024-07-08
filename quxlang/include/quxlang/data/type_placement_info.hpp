@@ -6,12 +6,17 @@
 #define QUXLANG_TYPE_PLACEMENT_INFO_HEADER_GUARD
 
 #include <cstddef>
+
+#include <rpnx/metadata.hpp>
+
 namespace quxlang
 {
     struct type_placement_info
     {
         std::size_t size;
         std::size_t alignment;
+
+        RPNX_MEMBER_METADATA(type_placement_info, size, alignment);
     };
 } // namespace quxlang
 

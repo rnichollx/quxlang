@@ -16,10 +16,7 @@ namespace quxlang
       type_symbol context;
       type_symbol type;
 
-      inline bool operator <(contextual_type_reference const& other) const
-      {
-          return std::tie(context, type) < std::tie(other.context, other.type);
-      }
+      RPNX_MEMBER_METADATA(contextual_type_reference, context, type);
 
   };
 }

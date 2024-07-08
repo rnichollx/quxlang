@@ -635,7 +635,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
         {
             // TODO: Refector this into separate function?
             // assert(thistype_type.has_value());
-            class_layout this_layout = co_await *c->lk_class_layout_from_canonical_chain(*thistype_type);
+            class_layout this_layout = co_await QUX_CO_DEP(class_layout, (*thistype_type));
             std::set< std::string > intialized_members;
             for (ast2_function_delegate& delegate : function_ast_v.definition.delegates)
             {
@@ -1139,7 +1139,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
         co_return void_value{};
     }
 
-    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout(type);
 
     for (auto const& field : layout.fields)
     {
@@ -1197,7 +1197,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
     assert(is_ref(thisreftype));
     auto thistype = remove_ref(thisreftype);
 
-    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(thistype);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout(thistype);
 
     for (class_field_info const& field : layout.fields)
     {
@@ -1541,7 +1541,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
         co_return void_value{};
     }
 
-    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout_from_canonical_chain(type);
+    class_layout layout = co_await *ctx.get_compiler()->lk_class_layout(type);
 
     vm_value this_obj = values.positional.at(0);
 

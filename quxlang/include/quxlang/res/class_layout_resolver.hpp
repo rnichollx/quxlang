@@ -14,25 +14,8 @@
 
 namespace quxlang
 {
-    class class_layout_resolver : public rpnx::resolver_base< compiler, class_layout >
-    {
-      public:
-        using key_type = type_symbol;
-        class_layout_resolver(type_symbol chain)
-        {
-           m_chain = chain;
-        }
 
-        virtual void process(compiler* c);
-
-        std::string question() const override
-        {
-            return "class_layout_from_canonical_chain(" + to_string(m_chain) + ")";
-        }
-
-      private:
-        type_symbol m_chain;
-    };
+    QUX_CO_RESOLVER(class_layout, type_symbol, class_layout);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

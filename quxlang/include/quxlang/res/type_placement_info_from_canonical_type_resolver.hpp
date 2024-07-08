@@ -12,23 +12,12 @@
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/symbol_id.hpp"
 #include "quxlang/data/type_placement_info.hpp"
+#include <quxlang/res/resolver.hpp>
 
 namespace quxlang
 {
-    class type_placement_info_from_canonical_type_resolver : public rpnx::resolver_base< compiler, type_placement_info >
-    {
-      public:
-        using key_type = type_symbol;
-        type_placement_info_from_canonical_type_resolver(type_symbol type)
-        {
-            m_type = type;
-        }
+    QUX_CO_RESOLVER(type_placement_info_from_canonical_type, type_symbol, type_placement_info);
 
-        virtual void process(compiler* c);
-
-      private:
-        type_symbol m_type;
-    };
 } // namespace quxlang
 
 #endif // QUXLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
