@@ -27,7 +27,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
         throw std::logic_error("No function declaration");
     }
 
-    contextual_type_reference decl_ctx = {.type = decl.value().definition.return_type.value_or(void_type{}), .context = input_val};
+    contextual_type_reference decl_ctx = {.context = input_val, .type = decl.value().definition.return_type.value_or(void_type{})};
 
     auto decl_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (decl_ctx));
 

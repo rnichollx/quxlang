@@ -262,7 +262,8 @@ namespace rpnx
                 }
             }
 
-            assert(false);
+            //assert(false);
+            throw std::logic_error("unreachable");
         }
 
         std::string debug_line() const

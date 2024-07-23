@@ -48,7 +48,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
         call_type decl_args;
         decl_args.positional_parameters = decl.m_template_args;
-        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.call = decl_args, .overload = function_overload{.call_parameters = templ_instanciation_args}});
+        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.overload = function_overload{.call_parameters = templ_instanciation_args}, .call = decl_args});
         if (can_use_this_template)
         {
             if (!template_priority.has_value() || priority > *template_priority)

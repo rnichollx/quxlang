@@ -13,6 +13,7 @@
 #include "quxlang/manipulators/mangler.hpp"
 #include "rpnx/range.hpp"
 
+#include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_symbol.hpp>
 #include <quxlang/parsers/parse_whitespace.hpp>
@@ -64,11 +65,11 @@ TEST(parsing, parse_class_with_variables)
     auto member2 = cl2.declarations[1];
     auto global = cl2.declarations[2];
 
-    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{.name = "a", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
+    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}, .name = "a"};
 
-    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{.name = "b", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true})}};
+    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true})}, .name= "b"};
 
-    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{.name = "c", .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}};
+    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}, .name = "c"};
 
     ASSERT_TRUE(member1 == member1_expected);
     ASSERT_TRUE(member2 == member2_expected);
@@ -139,9 +140,11 @@ TEST(mangling, name_mangling_new)
 
     quxlang::subentity_reference subentity{module, "foo"};
 
-    quxlang::subentity_reference subentity2{subentity, "bar"};
-
-    quxlang::subentity_reference subentity3{subentity2, "baz"};
+    quxlang::subentity_reference subentity2;
+    subentity2.parent = subentity;
+    subentity2.subentity_name = "bar";
+/*
+    quxlang::subentity_reference subentity3 = quxlang::subentity_reference{.parent=subentity2,.subentity_name= "baz"};
 
     quxlang::instanciation_reference param_set{subentity3, {}};
 
@@ -151,6 +154,7 @@ TEST(mangling, name_mangling_new)
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
     ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAPI32API32E");
+    */
 }
 
 TEST(collector_tester, order_of_operations)

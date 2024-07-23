@@ -13,3 +13,9 @@ I am testing the executable with:
 
 quxlang_main /Users/rnicholl/Dev/quxlang/example.sr
 
+## Dependencies: 
+
+* YAMLCpp
+* GTest
+* LLVM v16.0.6
+

@@ -18,8 +18,11 @@ namespace quxlang
         {
             throw std::logic_error("quxbuild.yaml not found in input directory");
         }
-
+#ifdef WIN32
+        auto build_config = YAML::LoadFile(input_build.string());
+#else
         auto build_config = YAML::LoadFile(input_build);
+#endif
 
         auto modules_path = path / "modules";
 
@@ -58,12 +61,12 @@ namespace quxlang
 
                 QUXLANG_DEBUG({ std::cout << "Relpath: " << relpath.string() << std::endl; });
 
-                mod.files[relpath] = std::make_shared< source_file >();
+                mod.files[relpath.string()] = std::make_shared< source_file >();
 
                 std::ifstream file(module_file.path(), std::ios::binary | std::ios::in);
                 std::string file_contents = std::string(std::istreambuf_iterator< char >(file), std::istreambuf_iterator< char >());
 
-                mod.files[relpath]->contents = file_contents;
+                mod.files[relpath.string()]->contents = file_contents;
             }
 
             output.module_sources[module_name] = mod;

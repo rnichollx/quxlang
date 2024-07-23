@@ -29,15 +29,15 @@ namespace quxlang
 
         struct invocation_args
         {
-            std::vector< storage_index > positional;
             std::map< std::string, storage_index > named;
+            std::vector< storage_index > positional;
 
             inline auto size() const
             {
                 return positional.size() + named.size();
             }
 
-            RPNX_MEMBER_METADATA(invocation_args, positional, named);
+            RPNX_MEMBER_METADATA(invocation_args, named, positional);
         };
 
         struct access_field

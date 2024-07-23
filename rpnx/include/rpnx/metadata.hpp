@@ -3,6 +3,10 @@
 #ifndef RPNX_METADATA_H_HPP
 #define RPNX_METADATA_H_HPP
 
+#include <optional>
+#include <set>
+#include <vector>
+
 namespace rpnx
 {
     template <typename E> struct enum_traits;
@@ -10,17 +14,34 @@ namespace rpnx
 
 #include "rpnx/compare.hpp"
 
-#define RPNX_MEMBER_METADATA(ty, ...) \
+#define RPNX_EXPAND(x) x
+
+#define RPNX_MEMBER_METADATA_IMPL(ty, ...) \
     auto tie() const { return std::tie(__VA_ARGS__); } \
-        auto tie() { return std::tie(__VA_ARGS__); } \
-        auto serial_interface() const { return tie(); } \
-        auto serial_interface() { return tie(); } \
-        auto operator<=>(ty const& other) const { return rpnx::compare(tie(), other.tie()); } \
-        bool operator==(ty const& other) const { return tie() == other.tie(); } \
-        bool operator!=(ty const& other) const { return tie() != other.tie(); } \
-        static auto constexpr strings()  { std::string str = #__VA_ARGS__; std::string s; std::vector<std::string> result{ }; \
-        for (char c: str) { if (c == ',') { result.push_back(std::move(s)); s.clear(); } else if (c != ' ') { s.push_back(c); } } if (!s.empty()) result.push_back(std::move(s)); return result; } \
-        static constexpr std::string class_name() { return #ty; }
+    auto tie() { return std::tie(__VA_ARGS__); } \
+    auto serial_interface() const { return tie(); } \
+    auto serial_interface() { return tie(); } \
+    auto operator<=>(ty const& other) const { return rpnx::compare(tie(), other.tie()); } \
+    bool operator==(ty const& other) const { return tie() == other.tie(); } \
+    bool operator!=(ty const& other) const { return tie() != other.tie(); } \
+    static auto constexpr strings() { \
+        std::string str = #__VA_ARGS__; \
+        std::string s; \
+        std::vector<std::string> result{}; \
+        for (char c : str) { \
+            if (c == ',') { \
+                result.push_back(std::move(s)); \
+                s.clear(); \
+            } else if (c != ' ') { \
+                s.push_back(c); \
+            } \
+        } \
+        if (!s.empty()) result.push_back(std::move(s)); \
+        return result; \
+    } \
+    static constexpr std::string class_name() { return #ty; }
+
+#define RPNX_MEMBER_METADATA(ty, ...) RPNX_EXPAND(RPNX_MEMBER_METADATA_IMPL(ty, __VA_ARGS__))
 
 #define RPNX_ENUM(ns, ty, int_ty, ...) \
     namespace ns { \

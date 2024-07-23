@@ -6,6 +6,8 @@
 #include <boost/core/demangle.hpp>
 #include <concepts>
 #include <optional>
+#include <vector>
+#include <stdint.h>
 
 namespace rpnx
 {
@@ -156,12 +158,14 @@ namespace rpnx
             return detail::serialize_tuple(tuple, std::index_sequence_for< Ts... >{}, output);
         }
 
-        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input, It end) -> It
+        template <typename It2>
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It2 input, It2 end) -> It2
         {
             return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input, end);
         }
 
-        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input) -> It
+        template <typename It2>
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It2 input) -> It2
         {
             return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input);
         }
@@ -197,7 +201,8 @@ namespace rpnx
             return begin;
         }
 
-        static constexpr It deserialize_iter(I& output, It begin, It end)
+        template <typename It2>
+        static constexpr It deserialize_iter(I& output, It2 begin, It2 end)
         {
             output = 0;
             for (int i = 0; i < sizeof(I); i++)
@@ -213,7 +218,8 @@ namespace rpnx
             return begin;
         }
 
-        static constexpr It deserialize_iter(I& output, It begin)
+        template <typename It2>
+        static constexpr auto deserialize_iter(I& output, It2 begin) -> It2
         {
             output = 0;
             for (int i = 0; i < sizeof(I); i++)
@@ -284,7 +290,8 @@ namespace rpnx
             return out;
         }
 
-        static constexpr auto deserialize_iter(I& output, It input) -> It
+        template <typename It2>
+        static constexpr auto deserialize_iter(I& output, It2 input) -> It
         {
             output = 0;
             uintmax_t n2 = 0;
@@ -304,7 +311,8 @@ namespace rpnx
             return input;
         }
 
-        static constexpr auto deserialize_iter(I& output, It input, It input_end) -> It
+        template <typename It2>
+        static constexpr auto deserialize_iter(I& output, It2 input, It input_end) -> It
         {
             output = 0;
             uintmax_t n2 = 0;

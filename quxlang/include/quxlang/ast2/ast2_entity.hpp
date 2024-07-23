@@ -67,8 +67,8 @@ namespace quxlang
 
     struct member_subdeclaroid
     {
-        std::string name;
         declaroid decl;
+        std::string name;
         std::optional<expression> include_if;
 
         RPNX_MEMBER_METADATA(member_subdeclaroid, name, decl, include_if);
@@ -76,8 +76,9 @@ namespace quxlang
 
     struct global_subdeclaroid
     {
-        std::string name;
+
         declaroid decl;
+        std::string name;
         std::optional<expression> include_if;
 
         RPNX_MEMBER_METADATA(global_subdeclaroid, name, decl, include_if);

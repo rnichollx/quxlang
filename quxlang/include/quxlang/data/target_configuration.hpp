@@ -5,7 +5,9 @@
 
 #include <map>
 #include <string>
+#include <memory>
 #include <rpnx/metadata.hpp>
+#include <optional>
 
 namespace quxlang
 {

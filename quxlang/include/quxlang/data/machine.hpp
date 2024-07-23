@@ -6,6 +6,7 @@
 #define RPNX_QUXLANG_MACHINE_HEADER
 
 #include <cstddef>
+#include <stdexcept>
 
 #ifdef linux
 #warning "Undefining linux"
@@ -32,7 +33,7 @@ namespace quxlang
         os os_type;
         binary binary_type;
 
-        constexpr inline std::size_t pointer_size() const noexcept
+        constexpr inline std::size_t pointer_size() const
         {
             switch (cpu_type)
             {
@@ -45,6 +46,8 @@ namespace quxlang
             case cpu::riscv_64:
                 return 8;
             }
+
+            throw std::invalid_argument("pointer_size");
         };
 
         constexpr size_t max_int_align() const noexcept

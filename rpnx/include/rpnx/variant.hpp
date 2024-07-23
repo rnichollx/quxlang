@@ -13,6 +13,7 @@
 #include <tuple>
 #include <typeindex>
 #include <typeinfo>
+#include <array>
 #include <variant>
 
 namespace rpnx

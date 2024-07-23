@@ -12,14 +12,29 @@ namespace rpnx
         return std::strong_ordering::equal;
     }
 
-    template <typename T, typename... Ts>
-    std::strong_ordering compare(T const& a, T const& b, const Ts&... args)
+    template <typename T>
+    std::strong_ordering compare(T const& a, T const& b);
+    template <typename T, typename T2, typename... Ts>
+    std::strong_ordering compare(T const& a, T const& b, T2 const & t2, const Ts&... args);
+
+    template <typename T, typename T2, typename... Ts>
+    std::strong_ordering compare(T const& a, T const& b, T2 const & t2, const Ts&... args)
     {
         if (a < b)
             return std::strong_ordering::less;
         if (b < a)
             return std::strong_ordering::greater;
-        return compare(args...);
+        return compare(t2, args...);
+    }
+
+    template <typename T>
+    std::strong_ordering compare(T const& a, T const& b)
+    {
+        if (a < b)
+            return std::strong_ordering::less;
+        if (b < a)
+            return std::strong_ordering::greater;
+        return compare();
     }
 
 

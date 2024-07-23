@@ -41,18 +41,19 @@ namespace quxlang
 
     struct vm_callargs
     {
-        std::vector< vm_value > positional;
         std::map< std::string, vm_value > named;
 
-        RPNX_MEMBER_METADATA(vm_callargs, positional, named);
+        std::vector< vm_value > positional;
+
+        RPNX_MEMBER_METADATA(vm_callargs, named, positional);
     };
 
     struct vm_invocation_args
     {
-        std::vector< std::size_t > positional;
         std::map<std::string, std::size_t> named;
+        std::vector< std::size_t > positional;
 
-        RPNX_MEMBER_METADATA(vm_invocation_args, positional, named);
+        RPNX_MEMBER_METADATA(vm_invocation_args, named, positional);
     };
 
 } // namespace quxlang

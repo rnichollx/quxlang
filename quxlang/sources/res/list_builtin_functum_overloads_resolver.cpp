@@ -40,7 +40,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             {
                 operator_name = operator_name.substr(0, operator_name.size() - 3);
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}, .builtin= true},
+                    .overload = function_overload{.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}, },
                     .return_type = int_type
                 });
                 is_rhs = true;
@@ -56,17 +56,19 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (assignment_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.call_parameters = call_type{.named_parameters = {{"THIS", make_oref(int_type)}}, .positional_parameters = {int_type}}, .builtin= true},
+                    .overload = function_overload{ .builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", make_oref(int_type)}}, .positional_parameters = {int_type}}},
                     .return_type = int_type,
 
                 });
                 co_return allowed_operations;
             }
 
-            allowed_operations.insert(primitive_function_info{
-                .overload = function_overload{.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}},
+            function_overload ol {.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}};
+            primitive_function_info func_info{
+                .overload = ol,
                 .return_type = int_type
-            });
+            };
+            allowed_operations.insert(func_info);
             co_return (allowed_operations);
         }
 

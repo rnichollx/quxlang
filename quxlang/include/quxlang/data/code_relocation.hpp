@@ -6,6 +6,9 @@
 #define CODE_RELOCATION_HPP
 #include <string>
 
+#include <rpnx/inttypes.h>
+
+
 namespace quxlang
 {
     enum class relocation_address_type
