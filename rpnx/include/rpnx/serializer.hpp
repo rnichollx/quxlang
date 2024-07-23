@@ -24,6 +24,9 @@ namespace rpnx
     class default_serialization_traits;
 
     template < typename T, typename It >
+    class default_deserialization_traits;
+
+    template < typename T, typename It >
     class json_serialization_traits;
 
     template < typename T, typename It >
@@ -76,15 +79,15 @@ namespace rpnx
     }
 
     template < typename T, typename InputIt >
-    auto deserialize_iter(T& value, InputIt input, InputIt end)
+    auto deserialize_iter(T& value, InputIt input, InputIt end) -> InputIt
     {
-        return default_serialization_traits< T, InputIt >::deserialize_iter(value, input, end);
+        return default_deserialization_traits< T, InputIt >::deserialize_iter(value, input, end);
     }
 
     template < typename T, typename InputIt >
-    auto deserialize_iter(T& value, InputIt input)
+    auto deserialize_iter(T& value, InputIt input) -> InputIt
     {
-        return default_serialization_traits< T, InputIt >::deserialize_iter(value, input);
+        return default_deserialization_traits< T, InputIt >::deserialize_iter(value, input);
     }
 
     template < typename T, typename OutputIt >
@@ -157,15 +160,18 @@ namespace rpnx
         {
             return detail::serialize_tuple(tuple, std::index_sequence_for< Ts... >{}, output);
         }
+    };
 
-        template <typename It2>
-        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It2 input, It2 end) -> It2
+    template < typename... Ts, typename It >
+    class default_deserialization_traits< std::tuple< Ts... >, It >
+    {
+      public:
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input, It end) -> It
         {
             return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input, end);
         }
 
-        template <typename It2>
-        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It2 input) -> It2
+        static auto constexpr deserialize_iter(std::tuple< Ts... >& tuple, It input) -> It
         {
             return detail::deserialize_tuple(tuple, std::index_sequence_for< Ts... >{}, input);
         }
@@ -200,9 +206,13 @@ namespace rpnx
 
             return begin;
         }
+    };
 
-        template <typename It2>
-        static constexpr It deserialize_iter(I& output, It2 begin, It2 end)
+    template < std::integral I, typename It >
+    class little_endian_deserialization_traits
+    {
+      public:
+        static constexpr It deserialize_iter(I& output, It begin, It end)
         {
             output = 0;
             for (int i = 0; i < sizeof(I); i++)
@@ -218,8 +228,7 @@ namespace rpnx
             return begin;
         }
 
-        template <typename It2>
-        static constexpr auto deserialize_iter(I& output, It2 begin) -> It2
+        static constexpr It deserialize_iter(I& output, It begin)
         {
             output = 0;
             for (int i = 0; i < sizeof(I); i++)
@@ -289,9 +298,13 @@ namespace rpnx
             }
             return out;
         }
+    };
 
-        template <typename It2>
-        static constexpr auto deserialize_iter(I& output, It2 input) -> It
+    template < std::integral I, typename It >
+    class uintany_deserialization_traits
+    {
+      public:
+        static constexpr auto deserialize_iter(I& output, It input) -> It
         {
             output = 0;
             uintmax_t n2 = 0;
@@ -311,8 +324,7 @@ namespace rpnx
             return input;
         }
 
-        template <typename It2>
-        static constexpr auto deserialize_iter(I& output, It2 input, It input_end) -> It
+        static constexpr auto deserialize_iter(I& output, It input, It input_end) -> It
         {
             output = 0;
             uintmax_t n2 = 0;
@@ -366,11 +378,16 @@ namespace rpnx
             }
             return output;
         }
+    };
 
+    template < typename M, typename It >
+    class default_map_deserialization_traits
+    {
+      public:
         static auto constexpr deserialize_iter(M& output, It input, It end) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
             output.clear();
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -386,7 +403,7 @@ namespace rpnx
         static auto constexpr deserialize_iter(M& output, It input) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input);
             output.clear();
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -423,11 +440,16 @@ namespace rpnx
             }
             return output;
         }
+    };
 
+    template < typename V, typename It >
+    class default_vector_deserialization_traits
+    {
+      public:
         static auto constexpr deserialize_iter(V& output, It input, It end) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
             output.clear();
             output.reserve(size);
             for (std::size_t i = 0; i < size; ++i)
@@ -442,7 +464,7 @@ namespace rpnx
         static auto constexpr deserialize_iter(V& output, It input) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input);
             output.clear();
             output.reserve(size);
             for (std::size_t i = 0; i < size; ++i)
@@ -478,11 +500,16 @@ namespace rpnx
             }
             return output;
         }
+    };
 
+    template < typename S, typename It >
+    class default_set_deserialization_traits
+    {
+      public:
         static auto constexpr deserialize_iter(S& output, It input, It end) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input, end);
             output.clear();
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -496,7 +523,7 @@ namespace rpnx
         static auto constexpr deserialize_iter(S& output, It input) -> It
         {
             std::size_t size;
-            input = uintany_serialization_traits< std::size_t, It >::deserialize_iter(size, input);
+            input = uintany_deserialization_traits< std::size_t, It >::deserialize_iter(size, input);
             output.clear();
             for (std::size_t i = 0; i < size; ++i)
             {
@@ -525,8 +552,18 @@ namespace rpnx
     {
     };
 
+    template < std::integral I, typename It >
+    class default_deserialization_traits< I, It > : public little_endian_deserialization_traits< I, It >
+    {
+    };
+
     template < typename K, typename V, typename A, typename It >
     class default_serialization_traits< std::map< K, V, A >, It > : public default_map_serialization_traits< std::map< K, V, A >, It >
+    {
+    };
+
+    template < typename K, typename V, typename A, typename It >
+    class default_deserialization_traits< std::map< K, V, A >, It > : public default_map_deserialization_traits< std::map< K, V, A >, It >
     {
     };
 
@@ -535,13 +572,28 @@ namespace rpnx
     {
     };
 
+    template < typename V, typename A, typename It >
+    class default_deserialization_traits< std::vector< V, A >, It > : public default_vector_deserialization_traits< std::vector< V, A >, It >
+    {
+    };
+
     template < typename It >
     class default_serialization_traits< std::string, It > : public default_vector_serialization_traits< std::string, It >
     {
     };
 
+    template < typename It >
+    class default_deserialization_traits< std::string, It > : public default_vector_deserialization_traits< std::string, It >
+    {
+    };
+
     template < typename V, typename A, typename It >
     class default_serialization_traits< std::set< V, A >, It > : public default_set_serialization_traits< std::set< V, A >, It >
+    {
+    };
+
+    template < typename V, typename A, typename It >
+    class default_deserialization_traits< std::set< V, A >, It > : public default_set_deserialization_traits< std::set< V, A >, It >
     {
     };
 
@@ -558,7 +610,12 @@ namespace rpnx
         {
             return rpnx::serialize_iter(input.serial_interface(), output, end);
         }
+    };
 
+    template < has_serial_interface S, typename It >
+    class default_deserialization_traits< S, It >
+    {
+      public:
         static auto constexpr deserialize_iter(S& output, It input) -> It
         {
             return rpnx::deserialize_iter(output.serial_interface(), input);
@@ -585,7 +642,12 @@ namespace rpnx
             using I = std::underlying_type_t< E >;
             return rpnx::serialize_iter(static_cast< I >(input), output, end);
         }
+    };
 
+    template < enum_concept E, typename It >
+    class default_deserialization_traits< E, It >
+    {
+      public:
         static auto constexpr deserialize_iter(E& output, It input) -> It
         {
             using I = std::underlying_type_t< E >;
@@ -619,7 +681,12 @@ namespace rpnx
         {
             return rpnx::serialize_iter(static_cast< std::uint8_t >(input), output, end);
         }
+    };
 
+    template < typename It >
+    class default_deserialization_traits< bool, It >
+    {
+      public:
         // TODO: consider throw for non 1/0 values
         static auto constexpr deserialize_iter(bool& output, It input) -> It
         {
@@ -669,7 +736,12 @@ namespace rpnx
             }
             return output;
         }
+    };
 
+    template < typename T, typename It >
+    class default_deserialization_traits< std::optional< T >, It >
+    {
+      public:
         static auto constexpr deserialize_iter(std::optional< T >& output, It input) -> It
         {
             std::byte temp{};
@@ -1342,9 +1414,8 @@ namespace rpnx
         }
     };
 } // namespace rpnx
-#endif // SERIALIZER_HPP
+#endif // RPNX_SERIALIZER_HPP
 
 #ifdef RPNX_VARIANT_HPP
 #include "rpnx/compat/variant_serializer.hpp"
-
 #endif

@@ -8,13 +8,39 @@ namespace rpnx
     template <typename Allocator, typename... Ts, typename It>
     class default_serialization_traits< rpnx::basic_variant< Allocator, Ts... >, It >
     {
-    private:
+      public:
+        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output, It end) -> It
+        {
+            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output, end);
+            rpnx::apply_visitor< It >([&output, end](auto const& v)
+                                      {
+                                          output = rpnx::serialize_iter(v, output, end);
+                                          return output;
+                                      }, value);
+            return output;
+        }
+
+        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output) -> It
+        {
+            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output);
+            rpnx::apply_visitor< It >([&output](auto const& v)
+                                      {
+                                          output = rpnx::serialize_iter(v, output);
+                                          return output;
+                                      }, value);
+            return output;
+        }
+    };
+
+    template <typename Allocator, typename... Ts, typename It>
+    class default_deserialization_traits< rpnx::basic_variant< Allocator, Ts... >, It >
+    {
+      private:
         struct vtable
         {
             void (*deserialize1)(rpnx::basic_variant< Allocator, Ts... >&, It&);
             void (*deserialize2)(rpnx::basic_variant< Allocator, Ts... >&, It&, It);
         };
-
 
         template <typename T>
         static constexpr void deserialize1_fn(rpnx::basic_variant< Allocator, Ts... >& value, It& input)
@@ -42,33 +68,11 @@ namespace rpnx
             &vtable_for_index< Ts >...
         };
 
-    public:
-        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output, It end) -> It
-        {
-            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output, end);
-            rpnx::apply_visitor< It >([&output, end](auto const& v)
-            {
-                output = rpnx::serialize_iter(v, output, end);
-                return output;
-            }, value);
-            return output;
-        }
-
-        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output) -> It
-        {
-            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output);
-            rpnx::apply_visitor< It >([&output](auto const& v)
-            {
-                output = rpnx::serialize_iter(v, output);
-                return output;
-            }, value);
-            return output;
-        }
-
+      public:
         static auto constexpr deserialize_iter(rpnx::basic_variant< Allocator, Ts... >& value, It input, It end) -> It
         {
             std::size_t index{};
-            input = rpnx::uintany_serialization_traits< std::size_t, It >::deserialize_iter(index, input, end);
+            input = rpnx::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input, end);
             if (index >= sizeof...(Ts))
             {
                 throw std::runtime_error("Invalid variant index");
@@ -80,7 +84,7 @@ namespace rpnx
         static auto constexpr deserialize_iter(rpnx::basic_variant< Allocator, Ts... >& value, It input) -> It
         {
             std::size_t index{};
-            input = rpnx::uintany_serialization_traits< std::size_t, It >::deserialize_iter(index, input);
+            input = rpnx::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input);
             if (index >= sizeof...(Ts))
             {
                 throw std::runtime_error("Invalid variant index");
