@@ -143,8 +143,10 @@ TEST(mangling, name_mangling_new)
     quxlang::subentity_reference subentity2;
     subentity2.parent = subentity;
     subentity2.subentity_name = "bar";
-/*
-    quxlang::subentity_reference subentity3 = quxlang::subentity_reference{.parent=subentity2,.subentity_name= "baz"};
+
+    quxlang::subentity_reference subentity3;
+    subentity3.parent=subentity2;
+    subentity3.subentity_name= "baz";
 
     quxlang::instanciation_reference param_set{subentity3, {}};
 
@@ -154,7 +156,7 @@ TEST(mangling, name_mangling_new)
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
     ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAPI32API32E");
-    */
+
 }
 
 TEST(collector_tester, order_of_operations)
