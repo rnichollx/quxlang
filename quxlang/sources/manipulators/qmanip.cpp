@@ -30,7 +30,7 @@ namespace quxlang
         std::string operator()(template_reference const&) const;
         std::string operator()(selection_reference const&) const;
         std::string operator()(function_arg const&) const;
-        std::string operator()(nvalue_reference const&) const;
+        std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
 
       public:
@@ -115,7 +115,7 @@ namespace quxlang
             return is_template(ref.target);
         }
 
-        bool operator()(nvalue_reference const&) const
+        bool operator()(nvalue_slot const&) const
         {
             return false;
         }
@@ -421,7 +421,7 @@ namespace quxlang
         // TODO: implement this
     }
 
-    std::string qualified_symbol_stringifier::operator()(nvalue_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
     {
         return "NEW& " + to_string(ref.target) + "";
     }

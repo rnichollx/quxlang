@@ -25,6 +25,7 @@ namespace quxlang
 
         using vm_instruction = rpnx::variant< access_field, invoke, make_reference >;
 
+
         using storage_index = std::size_t;
 
         struct invocation_args
@@ -65,6 +66,22 @@ namespace quxlang
             RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
 
+        struct jump
+        {
+            std::string label;
+
+            RPNX_MEMBER_METADATA(jump, label);
+        };
+
+        struct branch
+        {
+            storage_index condition;
+            std::string label_true;
+            std::string label_false;
+
+            RPNX_MEMBER_METADATA(branch, condition, label_true, label_false);
+        };
+
         struct vm_slot
         {
             type_symbol type;
@@ -88,6 +105,29 @@ namespace quxlang
             RPNX_MEMBER_METADATA(functanoid_routine, slots, instructions);
         };
 
+        struct slot_state
+        {
+            bool alive = false;
+
+            RPNX_MEMBER_METADATA(slot_state, alive);
+        };
+
+        struct executable_block
+        {
+            std::vector< slot_state > entry_state;
+            std::vector< vm_instruction > instructions;
+
+            RPNX_MEMBER_METADATA(executable_block,entry_state, instructions);
+        };
+
+        struct functanoid_routine2
+        {
+            std::vector< vm_slot > slots;
+            std::string entry_block;
+            std::map< std::string, executable_block > blocks;
+
+            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, blocks);
+        };
     } // namespace vmir2
 
 }; // namespace quxlang

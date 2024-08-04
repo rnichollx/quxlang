@@ -205,10 +205,10 @@ namespace quxlang
         RPNX_MEMBER_METADATA(tvalue_reference, target);
     };
 
-    struct nvalue_reference
+    struct nvalue_slot
     {
         type_symbol target;
-        RPNX_MEMBER_METADATA(nvalue_reference, target);
+        RPNX_MEMBER_METADATA(nvalue_slot, target);
     };
 
     struct dvalue_slot

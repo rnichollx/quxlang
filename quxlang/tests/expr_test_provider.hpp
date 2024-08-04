@@ -90,7 +90,7 @@ namespace quxlang
 
                 type_symbol new_type;
 
-                assert(!typeis< nvalue_reference >(ty));
+                assert(!typeis< nvalue_slot >(ty));
 
                 if (slot_alive(index).await_resume())
                 {
@@ -98,8 +98,8 @@ namespace quxlang
                 }
                 else
                 {
-                    assert(!typeis< nvalue_reference >(ty));
-                    new_type = nvalue_reference{.target = ty};
+                    assert(!typeis< nvalue_slot >(ty));
+                    new_type = nvalue_slot{.target = ty};
                 }
                 vmir2::storage_index temp = create_temporary_storage_internal(new_type);
                 vmir2::make_reference ref;
@@ -277,7 +277,7 @@ namespace quxlang
                 for (auto& arg : args.positional)
                 {
                     type_symbol arg_type = index_type(arg).await_resume();
-                    if (typeis< nvalue_reference >(arg_type))
+                    if (typeis< nvalue_slot >(arg_type))
                     {
                         if (parent.slot_alive.at(arg))
                         {
@@ -320,7 +320,7 @@ namespace quxlang
                     }
                     type_symbol parameter_type = inst.parameters.named_parameters.at(name);
 
-                    if (typeis< nvalue_reference >(parameter_type))
+                    if (typeis< nvalue_slot >(parameter_type))
                     {
                         if (parent.slot_alive.at(arg))
                         {

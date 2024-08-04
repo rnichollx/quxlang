@@ -108,7 +108,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after NEW");
             }
-            return nvalue_reference{parse_type_symbol(pos, end)};
+            return nvalue_slot{parse_type_symbol(pos, end)};
         }
         else if (skip_keyword_if_is(pos, end, "DESTROY"))
         {

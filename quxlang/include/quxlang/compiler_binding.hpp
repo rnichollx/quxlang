@@ -16,7 +16,7 @@ namespace quxlang
 {
     class compiler_binder
     {
-      private:
+      protected:
         compiler* c;
 
       public:

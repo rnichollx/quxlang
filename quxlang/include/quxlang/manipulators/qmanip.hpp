@@ -91,9 +91,9 @@ namespace quxlang
         {
             return mvalue_reference{ref.get_as< wvalue_reference >().target};
         }
-        else if (typeis< nvalue_reference >(ref))
+        else if (typeis< nvalue_slot >(ref))
         {
-            return mvalue_reference{ref.get_as< nvalue_reference >().target};
+            return mvalue_reference{ref.get_as< nvalue_slot >().target};
         }
         else
         {
@@ -114,6 +114,11 @@ namespace quxlang
     inline type_symbol make_cref(type_symbol ref)
     {
         return cvalue_reference{.target = remove_ref(ref)};
+    }
+
+    inline type_symbol create_nslot(type_symbol ref)
+    {
+        return nvalue_slot{ref};
     }
 
     bool is_ref(type_symbol type);
@@ -244,9 +249,9 @@ namespace quxlang
         {
             return as< wvalue_reference >(type).target;
         }
-        else if (typeis< nvalue_reference >(type))
+        else if (typeis< nvalue_slot >(type))
         {
-            return as< nvalue_reference >(type).target;
+            return as< nvalue_slot >(type).target;
         }
         else if (typeis< dvalue_slot >(type))
         {

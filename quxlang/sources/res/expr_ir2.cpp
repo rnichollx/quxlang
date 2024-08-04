@@ -147,7 +147,7 @@ namespace quxlang::impl
             for (auto& arg : args.positional)
             {
                 type_symbol arg_type = co_await index_type(arg);
-                if (typeis< nvalue_reference >(arg_type))
+                if (typeis< nvalue_slot >(arg_type))
                 {
                     if (m_slot_alive.at(arg))
                     {
@@ -190,7 +190,7 @@ namespace quxlang::impl
                 }
                 type_symbol parameter_type = inst.parameters.named_parameters.at(name);
 
-                if (typeis< nvalue_reference >(parameter_type))
+                if (typeis< nvalue_slot >(parameter_type))
                 {
                     if (m_slot_alive.at(arg))
                     {

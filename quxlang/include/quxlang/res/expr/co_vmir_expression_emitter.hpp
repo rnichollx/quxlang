@@ -125,8 +125,8 @@ namespace quxlang
                 bool is_alive = co_await prv.slot_alive(arg);
                 if (!is_alive)
                 {
-                    assert(!typeis< nvalue_reference >(arg_type));
-                    arg_type = nvalue_reference{arg_type};
+                    assert(!typeis< nvalue_slot >(arg_type));
+                    arg_type = nvalue_slot{arg_type};
                 }
                 calltype.positional_parameters.push_back(arg_type);
             }
@@ -136,8 +136,8 @@ namespace quxlang
                 bool is_alive = co_await prv.slot_alive(arg);
                 if (!is_alive)
                 {
-                    assert(!typeis< nvalue_reference >(arg_type));
-                    arg_type = nvalue_reference{arg_type};
+                    assert(!typeis< nvalue_slot >(arg_type));
+                    arg_type = nvalue_slot{arg_type};
                 }
                 calltype.named_parameters[name] = arg_type;
             }
@@ -178,7 +178,7 @@ namespace quxlang
                 if (!arg_alive)
                 {
                     assert(!is_ref(arg_expr_type));
-                    arg_expr_type = nvalue_reference{arg_expr_type};
+                    arg_expr_type = nvalue_slot{arg_expr_type};
                 }
 
 

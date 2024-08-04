@@ -32,7 +32,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers);
     };
 
-    using function_statement = rpnx::variant< std::monostate, function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement >;
 
     struct function_block
     {

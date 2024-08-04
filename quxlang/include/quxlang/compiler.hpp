@@ -95,6 +95,7 @@ namespace quxlang
     class compiler
     {
         //
+        friend class vm_procedure2_generator;
         friend class compiler_binder;
         friend class filelist_resolver;
         friend class class_list_resolver;
