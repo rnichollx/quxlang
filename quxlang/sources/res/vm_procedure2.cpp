@@ -4,6 +4,7 @@
 
 #include "quxlang/compiler_binding.hpp"
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
+#include <deque>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 
@@ -14,6 +15,10 @@ namespace quxlang
     {
         type_symbol func;
 
+        using block_index = std::size_t;
+
+        std::deque< std::string > states;
+
         vmir2::functanoid_routine2 result;
         compiler* c;
 
@@ -21,9 +26,10 @@ namespace quxlang
 
         std::size_t temp_index = 0;
 
-        std::size_t block_index = 0;
+        std::size_t current_block_index = 0;
 
-        std::map<std::string, vmir2::executable_block> blocks;
+        std::map< std::string, block_index > block_map;
+        std::vector< vmir2::executable_block > blocks;
 
         class binder : compiler_binder
         {
@@ -38,20 +44,27 @@ namespace quxlang
         template < typename T >
         using co_type = typename compiler_binder::co_type< T >;
 
-        co_type< std::string > generate_entry_block()
+        co_type< block_index > generate_entry_block()
         {
-            std::string block_name;
-            block_name = "BLOCK" + std::to_string(block_index);
-            block_index++;
-            co_return block_name;
+
+            auto index = current_block_index++;
+
+            std::string block_name = "BLOCK" + std::to_string(current_block_index);
+            blocks.emplace_back();
+            block_map[block_name] = index;
+            co_return index;
         }
 
-        co_type< std::string > generate_block(std::string parent)
+        co_type< block_index > generate_block(block_index parent)
         {
+            auto index = current_block_index++;
+
             std::string block_name;
-            block_name = "BLOCK" + std::to_string(block_index);
-            block_index++;
-            co_return block_name;
+            block_name = "BLOCK" + std::to_string(index);
+            blocks.emplace_back();
+            block_map[block_name] = index;
+
+            co_return index;
         }
 
         co_type< vmir2::storage_index > generate_temporary(type_symbol type)
@@ -103,73 +116,81 @@ namespace quxlang
         }
 
       private:
-
-        co_type<void> generate_jump(std::string from, std::string to)
+        co_type< void > generate_jump(block_index from, block_index to)
         {
 
             co_return;
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_if_statement const & st)
+        co_type< vmir2::storage_index > generate_bool_expr(block_index current_block, expression const& expr)
         {
-            std::string after_block = co_await generate_block(current_block);
-            std::string if_block = co_await generate_block(current_block);
-            std::string else_block = co_await generate_block(current_block);
+            co_return 0;
+        }
 
-            co_await generate_function_block(if_block, st.if_block);
+        co_type< void > generate_statement_ovl(block_index& current_block, function_if_statement const& st)
+        {
+            block_index after_block = co_await generate_block(current_block);
+            block_index condition_block = co_await generate_block(current_block);
+            block_index if_block = co_await generate_block(current_block);
 
-            co_await generate_function_block(else_block, st.else_block);
+            vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
+
+            co_await generate_function_block(if_block, st.then_block);
             co_await generate_jump(if_block, after_block);
+
+            if (st.else_block.has_value())
+            {
+                block_index else_block = co_await generate_block(current_block);
+                co_await generate_function_block(else_block, *st.else_block);
                 co_await generate_jump(else_block, after_block);
-
-                current_block = after_block;
+            }
+            current_block = after_block;
 
             co_return;
-
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_while_statement const & st)
+        co_type< void > generate_statement_ovl(block_index& current_block, function_while_statement const& st)
         {
 
             co_return;
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_expression_statement const & st)
+        co_type< void > generate_statement_ovl(block_index& current_block, function_expression_statement const& st)
         {
             co_return;
-
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_block const & st)
+        co_type< void > generate_statement_ovl(block_index& current_block, function_block const& st)
         {
             co_return;
-
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_var_statement const & st)
+        co_type< void > generate_statement_ovl(block_index& current_block, function_var_statement const& st)
         {
             co_return;
-
         }
 
-        co_type<void> generate_statement_ovl(std::string &current_block, function_return_statement const & st)
+        co_type< void > generate_statement_ovl(block_index& current_block, function_return_statement const& st)
         {
 
             co_return;
         }
 
-
-        co_type<void> generate_fblock_statement(std::string &current_block, function_statement const & st)
+        co_type< void > generate_fblock_statement(block_index& current_block, function_statement const& st)
         {
-            co_await rpnx::apply_visitor< co_type<void> >([&](auto st) -> co_type<void> { return this->generate_statement_ovl(current_block, st); }, st);
+            co_await rpnx::apply_visitor< co_type< void > >(
+                [&](auto st) -> co_type< void >
+                {
+                    return this->generate_statement_ovl(current_block, st);
+                },
+                st);
             co_return;
         }
 
-        co_type<void> generate_function_block(std::string block_name, function_block const & block)
+        co_type< void > generate_function_block(block_index current_block, function_block const& block)
         {
-            std::string current_block;
 
-            for (auto const & statement: block.statements)
+            for (auto const& statement : block.statements)
             {
                 co_await generate_fblock_statement(current_block, statement);
             }
@@ -179,7 +200,7 @@ namespace quxlang
 
         co_type< void > generate_body()
         {
-            std::string entry_block = co_await generate_entry_block();
+            block_index entry_block = co_await generate_entry_block();
 
             result.entry_block = entry_block;
 
@@ -187,15 +208,13 @@ namespace quxlang
 
             auto function_ref_opt = co_await QUX_CO_DEP(functum_select_function, (inst));
             assert(function_ref_opt.has_value());
-            auto &function_ref = function_ref_opt.value();
+            auto& function_ref = function_ref_opt.value();
 
             auto function_decl_opt = co_await QUX_CO_DEP(function_declaration, (function_ref));
-                assert(function_decl_opt.has_value());
-            ast2_function_declaration &function_decl = function_decl_opt.value();
+            assert(function_decl_opt.has_value());
+            ast2_function_declaration& function_decl = function_decl_opt.value();
 
             co_await generate_function_block(entry_block, function_decl.definition.body);
-
-
         }
     };
 
