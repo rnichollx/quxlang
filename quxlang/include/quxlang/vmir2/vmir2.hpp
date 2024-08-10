@@ -22,11 +22,14 @@ namespace quxlang
         struct access_field;
         struct invoke;
         struct make_reference;
+        struct jump;
+        struct branch;
 
         using vm_instruction = rpnx::variant< access_field, invoke, make_reference >;
+        using vm_terminator = rpnx::variant< jump, branch >;
 
-
-        using storage_index = std::size_t;
+        using storage_index = std::uint64_t;
+        using block_index = std::uint64_t;
 
         struct invocation_args
         {
@@ -68,18 +71,18 @@ namespace quxlang
 
         struct jump
         {
-            std::string label;
+            block_index target;
 
-            RPNX_MEMBER_METADATA(jump, label);
+            RPNX_MEMBER_METADATA(jump, target);
         };
 
         struct branch
         {
             storage_index condition;
-            std::string label_true;
-            std::string label_false;
+            block_index target_true;
+            block_index target_false;
 
-            RPNX_MEMBER_METADATA(branch, condition, label_true, label_false);
+            RPNX_MEMBER_METADATA(branch, condition, target_true, target_false);
         };
 
         struct vm_slot
@@ -116,15 +119,16 @@ namespace quxlang
         {
             std::vector< slot_state > entry_state;
             std::vector< vm_instruction > instructions;
+            std::optional<vm_terminator> terminator;
 
-            RPNX_MEMBER_METADATA(executable_block,entry_state, instructions);
+            RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator);
         };
 
         struct functanoid_routine2
         {
             std::vector< vm_slot > slots;
-            std::string entry_block;
-            std::map< std::string, executable_block > blocks;
+            block_index entry_block;
+            std::vector< executable_block > blocks;
 
             RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, blocks);
         };

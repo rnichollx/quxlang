@@ -29,7 +29,7 @@ namespace quxlang
         std::size_t current_block_index = 0;
 
         std::map< std::string, block_index > block_map;
-        std::vector< vmir2::executable_block > blocks;
+        //std::vector< vmir2::executable_block > blocks;
 
         class binder : compiler_binder
         {
@@ -50,7 +50,7 @@ namespace quxlang
             auto index = current_block_index++;
 
             std::string block_name = "BLOCK" + std::to_string(current_block_index);
-            blocks.emplace_back();
+            result.blocks.emplace_back();
             block_map[block_name] = index;
             co_return index;
         }
@@ -61,7 +61,7 @@ namespace quxlang
 
             std::string block_name;
             block_name = "BLOCK" + std::to_string(index);
-            blocks.emplace_back();
+            result.blocks.emplace_back();
             block_map[block_name] = index;
 
             co_return index;
@@ -118,7 +118,13 @@ namespace quxlang
       private:
         co_type< void > generate_jump(block_index from, block_index to)
         {
+            result.blocks.at(from).terminator = vmir2::jump{.target = to};
+            co_return;
+        }
 
+        co_type< void > generate_branch(block_index from, vmir2::storage_index cond, block_index true_block, block_index false_block)
+        {
+            result.blocks.at(from).terminator = vmir2::branch{.condition = cond, .target_true = true_block, .target_false = false_block};
             co_return;
         }
 
@@ -133,7 +139,11 @@ namespace quxlang
             block_index condition_block = co_await generate_block(current_block);
             block_index if_block = co_await generate_block(current_block);
 
+            co_await generate_jump(current_block, condition_block);
+
             vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
+
+            co_await generate_branch(condition_block, cond, if_block, after_block);
 
             co_await generate_function_block(if_block, st.then_block);
             co_await generate_jump(if_block, after_block);

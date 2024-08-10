@@ -11,6 +11,21 @@
 
 namespace rpnx
 {
+
+    template < typename T >
+    concept has_serial_interface = requires(T t, const T ct) {
+        {
+            t.serial_interface()
+        };
+        {
+            ct.serial_interface()
+        };
+    };
+
+    template < typename T >
+    concept enum_concept = std::is_enum_v< T >;
+
+
     template < typename A, typename... Ts >
     class basic_variant;
 
@@ -31,6 +46,35 @@ namespace rpnx
 
     template < typename T, typename It >
     class cxx_serialization_traits;
+
+    template < typename T, typename OutputIt >
+    auto cxx_serialize_iter(T const& value, OutputIt output) -> OutputIt;
+
+
+
+    template < std::integral Int, typename It >
+    class cxx_serialization_traits< Int, It >;
+
+    template < has_serial_interface T, typename It >
+    class cxx_serialization_traits< T, It >;
+
+    template < typename It >
+    class cxx_serialization_traits< std::string, It >;
+
+    template < typename T, typename It >
+    class cxx_serialization_traits< std::optional< T >, It >;
+
+    template < enum_concept E, typename It >
+    class cxx_serialization_traits< E, It >;
+
+    template < std::integral Int, typename It >
+    class cxx_serialization_traits< Int, It >;
+
+    template < typename It >
+    class cxx_serialization_traits< bool, It >;
+
+    template < typename T, typename A, typename It >
+    class cxx_serialization_traits< std::vector< T, A >, It >;
 
     template < typename T >
     class meta_info
@@ -53,18 +97,8 @@ namespace rpnx
         }
     };
 
-    template < typename T >
-    concept has_serial_interface = requires(T t, const T ct) {
-        {
-            t.serial_interface()
-        };
-        {
-            ct.serial_interface()
-        };
-    };
 
-    template < typename T >
-    concept enum_concept = std::is_enum_v< T >;
+
 
     template < typename T, typename OutputIt >
     auto serialize_iter(T const& value, OutputIt output, OutputIt end)
@@ -96,11 +130,7 @@ namespace rpnx
         return json_serialization_traits< T, OutputIt >::serialize_iter(value, output);
     }
 
-    template < typename T, typename OutputIt >
-    auto cxx_serialize_iter(T const& value, OutputIt output)
-    {
-        return cxx_serialization_traits< T, OutputIt >::serialize_iter(value, output);
-    }
+
 
     namespace detail
     {
@@ -777,8 +807,7 @@ namespace rpnx
         }
     };
 
-    template < typename T, typename It >
-    class cxx_serialization_traits;
+
 
     template < typename T, typename It >
     class cxx_serialization_traits< std::optional< T >, It >
@@ -1383,11 +1412,11 @@ namespace rpnx
         }
     };
 
-    template < typename T, typename It >
-    class cxx_serialization_traits< std::map< std::string, T >, It >
+    template < typename K, typename T, typename It >
+    class cxx_serialization_traits< std::map< K, T >, It >
     {
       public:
-        static auto constexpr serialize_iter(std::map< std::string, T > const& input, It output) -> It
+        static auto constexpr serialize_iter(std::map< K, T > const& input, It output) -> It
         {
 
             *output++ = std::byte('{');
@@ -1413,6 +1442,12 @@ namespace rpnx
             return output;
         }
     };
+
+    template < typename T, typename OutputIt >
+    auto cxx_serialize_iter(T const& value, OutputIt output) -> OutputIt
+    {
+        return cxx_serialization_traits< T, OutputIt >::serialize_iter(value, output);
+    }
 } // namespace rpnx
 #endif // RPNX_SERIALIZER_HPP
 
