@@ -39,7 +39,7 @@ namespace quxlang
 
     struct expression_this_reference
     {
-        RPNX_MEMBER_METADATA(expression_this_reference);
+        RPNX_EMPTY_METADATA(expression_this_reference);
     };
 
     struct expression_dotreference;

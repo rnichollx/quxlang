@@ -67,12 +67,18 @@ namespace quxlang
             co_return index;
         }
 
-        co_type< vmir2::storage_index > generate_temporary(type_symbol type)
+        static co_type< vmir2::storage_index > generate_temporary_f(std::vector< vmir2::vm_slot >& slots, std::size_t& temp_index, type_symbol type)
         {
-            result.slots.push_back(vmir2::vm_slot{.type = type, .name = "TEMP" + std::to_string(temp_index++), .kind = vmir2::slot_kind::local});
-            co_return result.slots.size() - 1;
+            slots.push_back(vmir2::vm_slot{.type = std::move(type), .name = "TEMP" + std::to_string(temp_index++), .kind = vmir2::slot_kind::local});
+            co_return slots.size() - 1;
         }
 
+        co_type< vmir2::storage_index > generate_temporary(type_symbol type)
+        {
+            return generate_temporary_f(this->result.slots, this->temp_index, std::move(type));
+        }
+
+    
         co_type< void > generate_arg_slots()
         {
             // Precondition: null slot already present
@@ -197,13 +203,19 @@ namespace quxlang
             co_return;
         }
 
-        co_type< void > generate_function_block(block_index current_block, function_block const& block)
+        co_type< void > generate_function_block(block_index &current_block, function_block const& block)
         {
+            auto new_block = co_await generate_block(current_block);
+            auto after_block = co_await generate_block(current_block);
+            co_await generate_jump(current_block, new_block);
+            co_await generate_jump(new_block, after_block);
 
             for (auto const& statement : block.statements)
             {
-                co_await generate_fblock_statement(current_block, statement);
+                co_await generate_fblock_statement(new_block, statement);
             }
+
+            current_block = after_block;
 
             co_return;
         }
@@ -225,6 +237,12 @@ namespace quxlang
             ast2_function_declaration& function_decl = function_decl_opt.value();
 
             co_await generate_function_block(entry_block, function_decl.definition.body);
+        }
+
+        co_type< void > generate_return_block()
+        {
+            block_index return_block = co_await generate_entry_block();
+            result.return_block = return_block;
         }
     };
 

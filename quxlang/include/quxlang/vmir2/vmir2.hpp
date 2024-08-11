@@ -128,9 +128,10 @@ namespace quxlang
         {
             std::vector< vm_slot > slots;
             block_index entry_block;
+            std::optional< block_index > return_block;
             std::vector< executable_block > blocks;
 
-            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, blocks);
+            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks);
         };
     } // namespace vmir2
 

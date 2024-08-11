@@ -16,6 +16,21 @@ namespace rpnx
 
 #define RPNX_EXPAND(x) x
 
+#define RPNX_EMPTY_METADATA(ty) \
+    auto tie() const { return std::tie(); } \
+    auto tie() { return std::tie(); } \
+    auto serial_interface() const { return tie(); } \
+    auto serial_interface() { return tie(); } \
+    auto operator<=>(ty const& other) const { return rpnx::compare(tie(), other.tie()); } \
+    bool operator==(ty const& other) const { return tie() == other.tie(); } \
+    bool operator!=(ty const& other) const { return tie() != other.tie(); } \
+    static auto constexpr strings() { \
+        std::string s; \
+        std::vector<std::string> result{}; \
+        return result; \
+    } \
+    static constexpr std::string class_name() { return #ty; }
+
 #define RPNX_MEMBER_METADATA_IMPL(ty, ...) \
     auto tie() const { return std::tie(__VA_ARGS__); } \
     auto tie() { return std::tie(__VA_ARGS__); } \
@@ -42,6 +57,7 @@ namespace rpnx
     static constexpr std::string class_name() { return #ty; }
 
 #define RPNX_MEMBER_METADATA(ty, ...) RPNX_EXPAND(RPNX_MEMBER_METADATA_IMPL(ty, __VA_ARGS__))
+
 
 #define RPNX_ENUM(ns, ty, int_ty, ...) \
     namespace ns { \

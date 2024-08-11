@@ -78,17 +78,17 @@ namespace quxlang
 
     struct void_type
     {
-        RPNX_MEMBER_METADATA(void_type);
+        RPNX_EMPTY_METADATA(void_type);
     };
 
     struct numeric_literal_reference
     {
-        RPNX_MEMBER_METADATA(numeric_literal_reference);
+        RPNX_EMPTY_METADATA(numeric_literal_reference);
     };
 
     struct context_reference
     {
-        RPNX_MEMBER_METADATA(context_reference);
+        RPNX_EMPTY_METADATA(context_reference);
     };
 
     struct template_reference
@@ -133,7 +133,7 @@ namespace quxlang
 
     struct primitive_type_bool_reference
     {
-        RPNX_MEMBER_METADATA(primitive_type_bool_reference);
+        RPNX_EMPTY_METADATA(primitive_type_bool_reference);
     };
 
     struct instance_pointer_type
@@ -157,7 +157,7 @@ namespace quxlang
     struct value_expression_reference
     {
         // TODO: Implement
-        RPNX_MEMBER_METADATA(value_expression_reference);
+        RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
     struct instanciation_reference
