@@ -135,7 +135,7 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "TARGET"))
         {
-            target_expr tg;
+            expression_target tg;
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {

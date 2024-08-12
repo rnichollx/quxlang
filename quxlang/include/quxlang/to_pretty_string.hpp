@@ -65,14 +65,14 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(target_expr const& t)
+        std::string operator()(expression_target const& t)
         {
-            return "target_expr{<omitted>}\n";
+            return "expression_target{<omitted>}\n";
         }
 
-        std::string operator()(sizeof_expr const& t)
+        std::string operator()(expression_sizeof const& t)
         {
-            return "sizeof_expr{<omitted>}\n";
+            return "expression_sizeof{<omitted>}\n";
         }
 
         std::string operator()(vm_expr_primitive_binary_op const& op)
@@ -608,7 +608,7 @@ namespace quxlang
             result += rpnx::apply_visitor< std::string >(*this, ref.object_type);
             result += indent_string();
             result += "function_type: ";
-            result += rpnx::apply_visitor< std::string >(*this, ref.function_type);
+            result += rpnx::apply_visitor< std::string >(*this, ref.functum_type);
             current_indent--;
             result += indent_string() + "}\n";
             return result;

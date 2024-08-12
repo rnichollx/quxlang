@@ -220,8 +220,8 @@ namespace quxlang
     struct bound_function_type_reference
     {
         type_symbol object_type;
-        type_symbol function_type;
-        RPNX_MEMBER_METADATA(bound_function_type_reference, object_type, function_type);
+        type_symbol functum_type;
+        RPNX_MEMBER_METADATA(bound_function_type_reference, object_type, functum_type);
     };
 
     std::string to_string(type_symbol const&);

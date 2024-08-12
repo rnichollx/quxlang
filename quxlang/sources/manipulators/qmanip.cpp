@@ -167,7 +167,7 @@ namespace quxlang
 
         bool operator()(bound_function_type_reference const& ref) const
         {
-            return is_template(ref.object_type) || is_template(ref.function_type);
+            return is_template(ref.object_type) || is_template(ref.functum_type);
         }
 
         bool operator()(primitive_type_integer_reference const& ref) const
@@ -376,7 +376,7 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(bound_function_type_reference const& ref) const
     {
-        return "BINDING(" + to_string(ref.object_type) + ", " + to_string(ref.function_type) + ")";
+        return "BINDING(" + to_string(ref.object_type) + ", " + to_string(ref.functum_type) + ")";
     }
     std::string qualified_symbol_stringifier::operator()(primitive_type_integer_reference const& ref) const
     {

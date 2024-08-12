@@ -32,6 +32,8 @@ namespace quxlang
         QUX_BIND(instanciation);
         QUX_BIND(functanoid_return_type);
         QUX_BIND(class_layout);
+        QUX_BIND(functum_select_function);
+        QUX_BIND(function_declaration);
     };
 } // namespace quxlang
 

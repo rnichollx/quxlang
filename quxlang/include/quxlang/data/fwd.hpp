@@ -42,8 +42,8 @@ namespace quxlang
     struct expression_equals;
     struct expression_not_equals;
     struct expression_binary;
-    struct target_expr;
-    struct sizeof_expr;
+    struct expression_target;
+    struct expression_sizeof;
     struct expression_this_reference;
     struct expression_call;
     struct expression_symbol_reference;
@@ -52,7 +52,7 @@ namespace quxlang
     struct expression_numeric_literal;
     struct expression_string_literal;
 
-    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, target_expr, sizeof_expr, expression_string_literal >;
+    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal >;
 }; // namespace quxlang
 
 #endif // RPNX_QUXLANG_FWD_HEADER

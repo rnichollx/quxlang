@@ -94,12 +94,12 @@ namespace quxlang
             return to_string(expr.symbol);
         }
 
-        std::string operator()(target_expr const& expr) const
+        std::string operator()(expression_target const& expr) const
         {
             return "TARGET" + expr.target;
         }
 
-        std::string operator()(sizeof_expr const& expr) const
+        std::string operator()(expression_sizeof const& expr) const
         {
             return "SIZEOF(" + to_string(expr.what) + ")";
         }

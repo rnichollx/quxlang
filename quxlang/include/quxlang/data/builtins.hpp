@@ -11,18 +11,18 @@
 #include <rpnx/metadata.hpp>
 namespace quxlang
 {
-    struct target_expr
+    struct expression_target
     {
         std::string target;
 
-        RPNX_MEMBER_METADATA(target_expr, target);
+        RPNX_MEMBER_METADATA(expression_target, target);
     };
 
-    struct sizeof_expr
+    struct expression_sizeof
     {
         type_symbol what;
 
-        RPNX_MEMBER_METADATA(sizeof_expr, what);
+        RPNX_MEMBER_METADATA(expression_sizeof, what);
     };
 } // namespace quxlang
 

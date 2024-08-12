@@ -111,7 +111,7 @@ namespace quxlang
                 args.named["THIS"] = callee;
             }
 
-            co_return co_await gen_call_functum(callee_type_value.function_type, args);
+            co_return co_await gen_call_functum(callee_type_value.functum_type, args);
         }
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
