@@ -96,6 +96,8 @@ namespace quxlang
             RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, kind);
         };
 
+    
+
         struct vm_context
         {
             std::vector< vm_slot > slots;

@@ -230,11 +230,20 @@ namespace quxlang
                         co_return arg_expr_index;
                     }
 
-                    assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
+                    bool convertible = co_await prv.implicitly_convertible_to(arg_expr_type, arg_target_type);
+
+
+                    if (!convertible)
+                    {
+                        throw std::runtime_error("Cannot convert " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
+                    }
+                    //assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
                     // We need to hook into the provider because we might encounter a situation where
                     //  we need knowledge of base/derived classes etc. to do a cast.
+                    auto new_index = co_await gen_implicit_conversion(arg_expr_index, arg_target_type);
 
-                    co_return co_await prv.implicit_cast_reference(arg_expr_index, arg_target_type);
+
+                    co_return new_index;
                 }
                 else
                 {
@@ -297,6 +306,24 @@ namespace quxlang
 
             co_return retval;
         }
+
+        auto gen_implicit_conversion(storage_index value_index, type_symbol target_type) -> typename CoroutineProvider::template co_type< storage_index >
+		{
+            type_symbol value_type = co_await prv.index_type(value_index);
+
+            if (value_type == target_type)
+            {
+                co_return value_index;
+            }
+
+            auto new_value_index = co_await prv.create_temporary_storage(target_type);
+
+            auto conversion_functum = subdotentity_reference{target_type, "CONSTRUCTOR"};
+
+            vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
+
+			co_return co_await gen_call_functum(conversion_functum, args);
+		}
 
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {

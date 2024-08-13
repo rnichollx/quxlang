@@ -20,7 +20,7 @@
 #include "quxlang/res/call_params_of_function_ast_resolver.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
-#include "quxlang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
+#include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
 #include "quxlang/res/class_layout_resolver.hpp"
 #include "quxlang/res/class_list_resolver.hpp"
@@ -111,7 +111,7 @@ namespace quxlang
         friend class type_placement_info_from_canonical_type_resolver;
         friend class entity_canonical_chain_exists_resolver;
         friend class llvm_code_generator;
-        friend class canonical_type_is_implicitly_convertible_to_resolver;
+        friend class implicitly_convertible_to_resolver;
         friend class overload_set_is_callable_with_resolver;
         friend class function_overload_selection_resolver;
         friend class function_qualified_reference_resolver;
@@ -250,16 +250,16 @@ namespace quxlang
       private:
         // index< class_list_resolver > m_class_list_index;
 
-        index< canonical_type_is_implicitly_convertible_to_resolver > m_canonical_type_is_implicitly_convertible_to_index;
+        index< implicitly_convertible_to_resolver > m_implicitly_convertible_to_index;
 
-        out< bool > lk_canonical_type_is_implicitly_convertible_to(type_symbol from, type_symbol to)
+        out< bool > lk_implicitly_convertible_to(type_symbol from, type_symbol to)
         {
-            return m_canonical_type_is_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
+            return m_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
         }
 
-        out< bool > lk_canonical_type_is_implicitly_convertible_to(std::pair< type_symbol, type_symbol > const& input)
+        out< bool > lk_implicitly_convertible_to(std::pair< type_symbol, type_symbol > const& input)
         {
-            return m_canonical_type_is_implicitly_convertible_to_index.lookup(input);
+            return m_implicitly_convertible_to_index.lookup(input);
         }
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;

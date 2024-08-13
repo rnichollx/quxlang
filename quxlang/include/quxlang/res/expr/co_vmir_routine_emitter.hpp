@@ -55,6 +55,74 @@ namespace quxlang
             std::map< block_index_t, bool > entry_lifetimes;
         };
 
+        struct expression_binder : CoroutineProvider
+        {
+            block_index_t& current_block;
+            vm_procedure2_generator* gen;
+            expression_binder(vm_procedure2_generator* gen, block_index_t& current_block) : CoroutineProvider(gen->prv), current_block(current_block), gen(gen)
+            {
+            }
+
+            auto create_numeric_literal(std::string lit) -> CoroutineProvider::template co_type< vmir2::storage_index >
+            {
+                auto temp = co_await gen->generate_numeric_literal(lit);
+                co_return temp;
+            }
+
+            auto lookup_symbol(type_symbol symbol) -> CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
+            {
+                bool is_possibly_frame_value = typeis< subentity_reference >(symbol) && typeis< context_reference >(as< subentity_reference >(symbol).parent);
+
+                // Frame values are sub-entities of the current context.
+                if (is_possibly_frame_value)
+                {
+                    std::string name = as< subentity_reference >(symbol).subentity_name;
+                    auto it = gen->block_lookup_tables.at(current_block).locals.find(name);
+
+                    if (it != gen->block_lookup_tables.at(current_block).locals.end())
+                    {
+                        co_return it->second;
+                    }
+                }
+
+                // assert(ctx.current_context() == m_func_name);
+                contextual_type_reference ctype{.context = gen->func, .type = symbol};
+
+                auto canonical_symbol = co_await this->canonical_symbol_from_contextual_symbol(ctype);
+
+                std::string symbol_str = to_string(canonical_symbol);
+
+                // TODO: Check if global variable
+                bool is_global_variable = false;
+                bool is_function = true; // This might not actually be true
+                auto binding = co_await gen->generate_free_binding(canonical_symbol);
+
+                co_return binding;
+            }
+
+            auto index_type(vmir2::storage_index index) -> CoroutineProvider::template co_type< type_symbol >
+            {
+                co_return gen->result.slots.at(index).type;
+            }
+
+            auto create_temporary_storage(type_symbol type) -> CoroutineProvider::template co_type< vmir2::storage_index >
+            {
+                auto temp = co_await gen->generate_temporary(type);
+                co_return temp;
+            }
+
+            auto emit_instruction(vmir2::vm_instruction instr) -> CoroutineProvider::template co_type< void >
+            {
+                gen->result.blocks.at(current_block).instructions.push_back(instr);
+                co_return;
+            }
+
+            auto slot_alive(vmir2::storage_index index) -> CoroutineProvider::template co_type< bool >
+            {
+                co_return gen->current_lifetimes.at(index);
+            }
+        };
+
         type_symbol func;
 
         CoroutineProvider prv;
@@ -106,6 +174,17 @@ namespace quxlang
             co_return index;
         }
 
+        static auto generate_numeric_literal_f(std::vector< quxlang::vmir2::vm_slot >& slots, std::size_t& temp_index, std::string litstr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            slots.push_back(vmir2::vm_slot{.type = numeric_literal_reference{}, .name = "LITERAL" + std::to_string(temp_index++), .literal_value = litstr, .kind = vmir2::slot_kind::literal});
+            co_return slots.size() - 1;
+        }
+
+        auto generate_numeric_literal(std::string lit) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            return generate_numeric_literal_f(this->result.slots, this->temp_index, std::move(lit));
+        }
+
         static auto generate_temporary_f(std::vector< quxlang::vmir2::vm_slot >& slots, std::size_t& temp_index, type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             slots.push_back(vmir2::vm_slot{.type = std::move(type), .name = "TEMP" + std::to_string(temp_index++), .kind = vmir2::slot_kind::local});
@@ -115,6 +194,17 @@ namespace quxlang
         auto generate_temporary(type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             return generate_temporary_f(this->result.slots, this->temp_index, std::move(type));
+        }
+
+        static auto generate_binding_f(std::vector< quxlang::vmir2::vm_slot >& slots, std::size_t& temp_index, type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            slots.push_back(vmir2::vm_slot{.type = std::move(type), .name = "BIND" + std::to_string(temp_index++), .kind = vmir2::slot_kind::symbol});
+            co_return slots.size() - 1;
+        }
+
+        auto generate_free_binding(type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            return generate_binding_f(this->result.slots, this->temp_index, std::move(type));
         }
 
         auto generate_arg_slots() -> CoroutineProvider::template co_type< void >
@@ -207,114 +297,27 @@ namespace quxlang
         auto generate_expression(block_index_t& current_block, expression const& expr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             using V = CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
-            co_return co_await rpnx::apply_visitor< V >(
-                [&](auto expr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
-                {
-                    return generate_expression_ovl(current_block, expr);
-                },
-                expr);
-        }
 
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_binary const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
+            expression_binder bind(this, current_block);
 
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_thisdot_reference const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
+            co_vmir_expression_emitter< expression_binder > emitter(bind);
 
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_symbol_reference const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_string_literal const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_numeric_literal const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_dotreference const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_sizeof const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-          co_slot generate_expression_ovl(block_index_t& current_block, expression_target const& expr)
-        {
-            rpnx::unimplemented();
-            co_return 0;
-        }
-
-        co_slot generate_expression_ovl(block_index_t& current_block, expression_call const& call)
-        {
-
-            auto callee = co_await generate_expression(current_block, call.callee);
-
-            auto callee_type = typeof_slot(callee);
-
-            // TODO: support overloaded operator() of non-functions
-            if (!typeis< bound_function_type_reference >(callee_type))
-            {
-                throw std::logic_error("Cannot call non-function reference");
-            }
-
-            bound_function_type_reference callee_binding_value = as< bound_function_type_reference >(callee_type);
-
-            quxlang::vmir2::invocation_args arg_expressions;
-
-            if (!typeis< void_type >(callee_binding_value.object_type))
-            {
-                arg_expressions.named.insert({"THIS", callee});
-            }
-
-            for (expression_arg const& expr_arg : call.args)
-            {
-                vmir2::storage_index arg_index = co_await generate_expression(current_block, expr_arg.value);
-                if (expr_arg.name.has_value())
-                {
-                    arg_expressions.named[expr_arg.name.value()] = arg_index;
-                }
-                else
-                {
-                    arg_expressions.positional.push_back(arg_index);
-                }
-            }
-
-
-            co_await generate_call(current_block, callee_binding_value.functum_type, arg_expressions);
+            co_return co_await emitter.generate_expr(expr);
         }
 
         type_symbol typeof_slot(vmir2::storage_index index)
-		{
-			return result.slots.at(index).type;
-		}
+        {
+            return result.slots.at(index).type;
+        }
 
         co_slot generate_call(block_index_t current_block, type_symbol functum_type, vmir2::invocation_args args)
         {
             call_type ct;
 
             for (auto const& [name, index] : args.named)
-			{
-				ct.named_parameters[name] = typeof_slot(index);
-			}
+            {
+                ct.named_parameters[name] = typeof_slot(index);
+            }
 
             for (auto index : args.positional)
             {
@@ -323,19 +326,20 @@ namespace quxlang
 
             instanciation_reference inst{.callee = functum_type, .parameters = ct};
 
-
             auto called_functanoid = co_await prv.instanciation(inst);
             co_return 0;
         }
 
         auto generate_bool_expr(block_index_t current_block, expression const& expr) -> CoroutineProvider::template co_type< vmir2::storage_index >
         {
-            co_return co_await generate_expression(current_block, expr);
+            auto expr_index = co_await generate_expression(current_block, expr);
+            // TODO: Convert to bool if the result is not type bool
+            co_return expr_index;
         }
 
         auto generate_void_expr(block_index_t current_block, expression const& expr) -> CoroutineProvider::template co_type< vmir2::storage_index >
         {
-            rpnx::unimplemented();
+            generate_expression(current_block, expr);
             co_return 0;
         }
 
@@ -404,6 +408,7 @@ namespace quxlang
 
         auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> CoroutineProvider::template co_type< void >
         {
+
             co_return;
         }
 

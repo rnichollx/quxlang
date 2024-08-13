@@ -1,18 +1,17 @@
 //
 // Created by Ryan Nicholl on 10/27/23.
 //
-#include "quxlang/res/canonical_type_is_implicitly_convertible_to_resolver.hpp"
+#include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 
-void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(compiler* c)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 {
-    type_symbol from = m_from;
-    type_symbol to = m_to;
+    type_symbol from = input.from;
+    type_symbol to = input.to;
 
     if (from == to)
     {
-        set_value(true);
-        return;
+        co_return true;
     }
 
     if (remove_ref(to) == remove_ref(from))
@@ -21,8 +20,7 @@ void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(comp
         {
             // All value/reference types can be implicitly cast to CONST&
             // except OUT& references
-            set_value(true);
-            return;
+            co_return true;
         }
         else if (!is_ref(from) && (typeis< tvalue_reference >(to) || typeis< wvalue_reference >(to)))
         {
@@ -30,19 +28,16 @@ void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(comp
 
             // We can convert a temporary value into a TEMP& reference
             // implicitly.
-            set_value(true);
-            return;
+            co_return true;
         }
         else if (typeis< mvalue_reference >(from) && typeis< wvalue_reference >(to))
         {
             // Mutable references can be implicitly cast to output references.
-            set_value(true);
-            return;
+            co_return true;
         }
         else if (!is_ref(to) && !typeis< wvalue_reference >(from))
         {
-            set_value(true);
-            return;
+            co_return true;
         }
     }
 
@@ -52,9 +47,8 @@ void quxlang::canonical_type_is_implicitly_convertible_to_resolver::process(comp
 
     if (typeis<primitive_type_integer_reference>(to) && typeis<numeric_literal_reference>(from))
     {
-        set_value(true);
-        return;
+        co_return true;
     }
 
-    set_value(to == from);
+    co_return false;
 }
