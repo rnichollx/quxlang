@@ -249,18 +249,16 @@ namespace quxlang
       public:
       private:
         // index< class_list_resolver > m_class_list_index;
+        
+          COMPILER_INDEX(implicitly_convertible_to);
 
-        index< implicitly_convertible_to_resolver > m_implicitly_convertible_to_index;
 
-        out< bool > lk_implicitly_convertible_to(type_symbol from, type_symbol to)
+        auto lk_implicitly_convertible_to(type_symbol from, type_symbol to)
         {
-            return m_implicitly_convertible_to_index.lookup(std::make_pair(from, to));
+            return m_implicitly_convertible_to_index.lookup(implicitly_convertible_to_query{from, to});
         }
 
-        out< bool > lk_implicitly_convertible_to(std::pair< type_symbol, type_symbol > const& input)
-        {
-            return m_implicitly_convertible_to_index.lookup(input);
-        }
+  
 
         index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
 

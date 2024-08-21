@@ -9,6 +9,8 @@
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include <quxlang/macros.hpp>
+#include "quxlang/res/implicitly_convertible_to.hpp"
+
 namespace quxlang
 {
 
@@ -184,7 +186,7 @@ namespace quxlang
 
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
-                    std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type)  << quxlang::to_string(expression_args) << std::endl;
+                    std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << quxlang::to_string(expression_args) << std::endl;
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
@@ -211,7 +213,7 @@ namespace quxlang
                     }
 
                     auto index = co_await prv.create_temporary_storage(arg_target_type);
-                        std::cout << "Created argument slot " << index << std::endl;
+                    std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
@@ -230,7 +232,12 @@ namespace quxlang
                         co_return arg_expr_index;
                     }
 
-                    bool convertible = co_await prv.implicitly_convertible_to(arg_expr_type, arg_target_type);
+                    auto query = quxlang::implicitly_convertible_to_query();
+
+                    query.from = arg_expr_type;
+                    query.to = arg_target_type;
+                
+                    bool convertible = co_await prv.implicitly_convertible_to(query.from, query.to);
 
 
                     if (!convertible)

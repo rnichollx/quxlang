@@ -35,6 +35,15 @@ namespace quxlang
         QUX_BIND(functum_select_function);
         QUX_BIND(function_declaration);
         QUX_BIND(implicitly_convertible_to);
+
+
+        auto& implicitly_convertible_to(type_symbol from, type_symbol to)
+        {
+            implicitly_convertible_to_query q;
+            q.from = from;
+            q.to = to;
+            return this->implicitly_convertible_to(q);
+        }
     };
 } // namespace quxlang
 

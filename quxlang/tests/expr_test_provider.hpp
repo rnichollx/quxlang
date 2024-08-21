@@ -250,6 +250,12 @@ namespace quxlang
                 return rpnx::awaitable_result< void >{};
             }
 
+            rpnx::awaitable_result< bool > implicitly_convertible_to(type_symbol from, type_symbol to)
+            {
+                 std::cout << "implicitly_convertible_to(" << quxlang::to_string(from) << ", " << quxlang::to_string(to) << ")" << std::endl;
+                 throw rpnx::unimplemented();
+            }
+
             rpnx::awaitable_result< vmir2::storage_index > implicit_cast_reference(vmir2::storage_index index, type_symbol target)
             {
                 if (!is_ref_implicitly_convertible_by_syntax(index_type(index).await_resume(), target))
