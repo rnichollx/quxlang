@@ -88,6 +88,13 @@ namespace quxlang::impl
             co_return ref;
         }
 
+        auto emit(vmir2::access_field fld) -> co_type< void >
+        {
+            m_result.instructions.push_back(fld);
+            m_slot_alive.at(fld.store_index) = true;
+            co_return;
+        }
+
         co_type< vmir2::storage_index > create_numeric_literal(std::string literal)
         {
             vmir2::storage_index idx = m_result.slots.size();
@@ -132,14 +139,12 @@ namespace quxlang::impl
             co_return;
         }
 
-        co_type< void > emit_invoke(type_symbol invoked_symbol, vmir2::invocation_args args)
+        co_type< void > emit(vmir2::invoke ivk)
         {
+            type_symbol invoked_symbol = ivk.what;
+            vmir2::invocation_args args = ivk.args;
+            std::cout << "emit_invoke(" << quxlang::to_string(invoked_symbol) << ")" << " " << quxlang::to_string(args) << std::endl;
 
-            std::cout << "emit_invoke(" << quxlang::to_string(invoked_symbol) << ")"
-                      << " " << quxlang::to_string(args) << std::endl;
-            vmir2::invoke ivk;
-            ivk.what = invoked_symbol;
-            ivk.args = args;
             co_await emit_instruction(ivk);
 
             instanciation_reference inst = as< instanciation_reference >(invoked_symbol);

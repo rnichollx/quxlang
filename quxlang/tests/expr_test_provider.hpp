@@ -58,6 +58,13 @@ namespace quxlang
             // clang-format on
         };
 
+
+        static inline auto quxtype(std::string val) -> type_symbol { return quxlang::parsers::parse_type_symbol(val);}
+
+        std::map< implicitly_convertible_to_query, bool > testmap_implicitly_convertible_to_presets {
+            { implicitly_convertible_to_query{.from = quxtype("MUT& I32"), .to=quxtype("CONST& I32")}, true }
+        };
+
         struct co_provider
         {
             expr_test_provider& parent;
@@ -107,7 +114,7 @@ namespace quxlang
                 ref.reference_index = temp;
 
                 // TODO: make this not a hack
-                emit_instruction(ref).await_resume();
+                parent.instructions.push_back(ref);
 
                 std::string slot_type = quxlang::to_string(parent.slots.at(temp).type);
                 // this is kind of a hack, but we can presume this after the make_reference call.
@@ -135,8 +142,7 @@ namespace quxlang
                 ref.value_index = index;
                 ref.reference_index = temp;
 
-                // TODO: make this not a hack
-                emit_instruction(ref).await_resume();
+                parent.instructions.push_back(ref);
 
                 std::string slot_type = quxlang::to_string(parent.slots.at(temp).type);
                 // this is kind of a hack, but we can presume this after the make_reference call.
@@ -244,15 +250,22 @@ namespace quxlang
                 return idx;
             }
 
-            rpnx::awaitable_result< void > emit_instruction(vmir2::vm_instruction instr)
+            rpnx::awaitable_result<void> emit_cast_reference(vmir2::cast_reference cst)
             {
-                parent.instructions.push_back(instr);
-                return rpnx::awaitable_result< void >{};
+               parent.slot_alive.at(cst.target_ref_index) = true;
+               return rpnx::awaitable_result<void>();
             }
 
             rpnx::awaitable_result< bool > implicitly_convertible_to(type_symbol from, type_symbol to)
             {
                  std::cout << "implicitly_convertible_to(" << quxlang::to_string(from) << ", " << quxlang::to_string(to) << ")" << std::endl;
+                auto it = parent.testmap_implicitly_convertible_to_presets.find(implicitly_convertible_to_query{.from = from, .to = to});
+                if (it != parent.testmap_implicitly_convertible_to_presets.end())
+                {
+                    return it->second;
+                }
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+
                  throw rpnx::unimplemented();
             }
 
@@ -268,19 +281,24 @@ namespace quxlang
                 return ref;
             }
 
-            rpnx::awaitable_result< void > emit_invoke(type_symbol what, vmir2::invocation_args args)
+            rpnx::awaitable_result<void> emit(vmir2::access_field af)
+            {
+                parent.instructions.push_back(af);
+                parent.slot_alive.at(af.store_index) = true;
+                return {};
+            }
+
+            rpnx::awaitable_result<void> emit(vmir2::invoke ivk)
             {
 
-                std::cout << "emit_invoke(" << quxlang::to_string(what) << ")"
-                          << " " << quxlang::to_string(args) << std::endl;
-                vmir2::invoke ivk;
-                ivk.what = what;
-                ivk.args = args;
-                emit_instruction(ivk).await_resume();
+                std::cout << "emit_invoke(" << quxlang::to_string(ivk.what) << ")"
+                          << " " << quxlang::to_string(ivk.args) << std::endl;
 
-                instanciation_reference inst = as< instanciation_reference >(what);
+                parent.instructions.push_back(ivk);
 
-                for (auto& arg : args.positional)
+                instanciation_reference inst = as< instanciation_reference >(ivk.what);
+
+                for (auto& arg : ivk.args.positional)
                 {
                     type_symbol arg_type = index_type(arg).await_resume();
                     if (typeis< nvalue_slot >(arg_type))
@@ -316,7 +334,7 @@ namespace quxlang
                         // however, references are not destroyed when passed as arguments.
                     }
                 }
-                for (auto& [name, arg] : args.named)
+                for (auto& [name, arg] : ivk.args.named)
                 {
                     type_symbol arg_type = index_type(arg).await_resume();
                     if (name == "RETURN")

@@ -6,10 +6,10 @@
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
+#include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include <quxlang/macros.hpp>
-#include "quxlang/res/implicitly_convertible_to.hpp"
 
 namespace quxlang
 {
@@ -118,7 +118,7 @@ namespace quxlang
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args)  << std::endl;
+            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             call_type calltype;
             for (auto& arg : args.positional)
@@ -146,7 +146,7 @@ namespace quxlang
 
             instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
 
-            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args)  << std::endl;
+            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
             // Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
 
@@ -155,13 +155,10 @@ namespace quxlang
                 throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
             }
 
-
-
             co_return co_await this->gen_call_functanoid(instanciation.value(), args);
-
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) ->  typename CoroutineProvider::template co_type< vmir2::storage_index >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
 
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
@@ -182,7 +179,6 @@ namespace quxlang
                     assert(!is_ref(arg_expr_type));
                     arg_expr_type = nvalue_slot{arg_expr_type};
                 }
-
 
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
@@ -236,19 +232,17 @@ namespace quxlang
 
                     query.from = arg_expr_type;
                     query.to = arg_target_type;
-                
-                    bool convertible = co_await prv.implicitly_convertible_to(query.from, query.to);
 
+                    bool convertible = co_await prv.implicitly_convertible_to(query.from, query.to);
 
                     if (!convertible)
                     {
                         throw std::runtime_error("Cannot convert " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
                     }
-                    //assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
-                    // We need to hook into the provider because we might encounter a situation where
-                    //  we need knowledge of base/derived classes etc. to do a cast.
+                    // assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
+                    //  We need to hook into the provider because we might encounter a situation where
+                    //   we need knowledge of base/derived classes etc. to do a cast.
                     auto new_index = co_await gen_implicit_conversion(arg_expr_index, arg_target_type);
-
 
                     co_return new_index;
                 }
@@ -280,7 +274,6 @@ namespace quxlang
 
             auto return_type = co_await prv.functanoid_return_type(what);
 
-
             // Index 0 is defined to be the special "void" value.
             vmir2::storage_index retval = 0;
 
@@ -295,8 +288,6 @@ namespace quxlang
                 retval = return_slot;
             }
 
-
-
             //  assert(what.parameters.size() == args.size());
 
             if (invocation_args.named.contains("RETURN"))
@@ -310,27 +301,76 @@ namespace quxlang
 
             co_await gen_invoke(what, invocation_args);
 
-
             co_return retval;
         }
 
-        auto gen_implicit_conversion(storage_index value_index, type_symbol target_type) -> typename CoroutineProvider::template co_type< storage_index >
-		{
+        auto gen_reinterpret_reference(storage_index ref_index, type_symbol target_ref_type) -> typename CoroutineProvider::template co_type< storage_index >
+        {
+            auto ref_type = co_await prv.index_type(ref_index);
+
+            if (!is_ref(target_ref_type) || !is_ref(ref_type))
+            {
+                throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
+            }
+
+            auto new_index = co_await prv.create_temporary_storage(target_ref_type);
+
+            vmir2::access_field make_ref;
+            make_ref.base_index = ref_index;
+            make_ref.store_index = new_index;
+            make_ref.offset = 0;
+
+            co_await prv.emit(make_ref);
+
+            co_return new_index;
+        }
+
+        auto gen_reference_conversion(storage_index value_index, type_symbol target_reference_type) -> typename CoroutineProvider::template co_type< storage_index >
+        {
+            // TODO: Support dynamic/static casts
+            co_return co_await gen_reinterpret_reference(value_index, target_reference_type);
+        }
+
+        auto gen_value_conversion(storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
+        {
+            // TODO: support conversion other than via constructor.
+            co_return co_await gen_value_constructor_conversion(value_index, target_value_type);
+        }
+
+        auto gen_value_constructor_conversion(storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
+        {
+
             type_symbol value_type = co_await prv.index_type(value_index);
+            std::cout << "gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
+
+            auto new_value_index = co_await prv.create_temporary_storage(target_value_type);
+
+            auto conversion_functum = subdotentity_reference{target_value_type, "CONSTRUCTOR"};
+
+            vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
+
+            co_return co_await gen_call_functum(conversion_functum, args);
+        }
+
+        auto gen_implicit_conversion(storage_index value_index, type_symbol target_type) -> typename CoroutineProvider::template co_type< storage_index >
+        {
+            type_symbol value_type = co_await prv.index_type(value_index);
+            std::cout << "gen_implicit_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
 
             if (value_type == target_type)
             {
                 co_return value_index;
             }
 
-            auto new_value_index = co_await prv.create_temporary_storage(target_type);
-
-            auto conversion_functum = subdotentity_reference{target_type, "CONSTRUCTOR"};
-
-            vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
-
-			co_return co_await gen_call_functum(conversion_functum, args);
-		}
+            if (is_ref(target_type))
+            {
+                co_return co_await gen_reference_conversion(value_index, target_type);
+            }
+            else
+            {
+                co_return co_await gen_value_conversion(value_index, target_type);
+            }
+        }
 
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
@@ -343,7 +383,12 @@ namespace quxlang
                 assert(args.size() == what.parameters.size());
             }
             std::string what_invoke = to_string(what);
-            co_await prv.emit_invoke(what, args);
+
+            vmir2::invoke ivk;
+            ivk.what = what;
+            ivk.args = args;
+
+            co_await prv.emit(ivk);
             co_return;
         }
 
@@ -440,7 +485,7 @@ namespace quxlang
                     access.store_index = co_await prv.create_temporary_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
-                    co_await prv.emit_instruction(access);
+                    co_await prv.emit(access);
                     co_return access.store_index;
                 }
             }

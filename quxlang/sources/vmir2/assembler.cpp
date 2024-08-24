@@ -58,8 +58,15 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
-        return "ACF " + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", %" + std::to_string(inst.offset);
+        std::string result = "ACF %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + std::to_string(inst.offset);
+
+        result += " // type1=";
+        result += quxlang::to_string(this->m_what.slots.at(inst.base_index).type);
+        result += " type2=";
+        result += quxlang::to_string(this->m_what.slots.at(inst.store_index).type);
+        return result;
     }
+
     std::string assembler::to_string_internal(vmir2::invoke inst)
     {
         return "IVK " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);
@@ -69,9 +76,25 @@ namespace quxlang::vmir2
     {
         std::string result = "MKR %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
 
-        result += " // type=";
+        result += " // type1=";
+        result += quxlang::to_string(this->m_what.slots.at(inst.value_index).type);
+
+        result += " type2=";
 
         result += quxlang::to_string(this->m_what.slots.at(inst.reference_index).type);
+
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::cast_reference inst)
+    {
+        std::string result = "CSR %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index) + ", " + std::to_string(inst.offset);
+
+        result += " // type1=";
+
+        result += quxlang::to_string(this->m_what.slots.at(inst.source_ref_index).type);
+        result += " type2=";
+        result += quxlang::to_string(this->m_what.slots.at(inst.target_ref_index).type);
 
         return result;
     }

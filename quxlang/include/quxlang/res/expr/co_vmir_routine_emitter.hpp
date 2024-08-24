@@ -111,16 +111,35 @@ namespace quxlang
                 co_return temp;
             }
 
-            auto emit_instruction(vmir2::vm_instruction instr) -> CoroutineProvider::template co_type< void >
+            auto emit(vmir2::access_field fld) -> CoroutineProvider::template co_type< void >
             {
-                gen->result.blocks.at(current_block).instructions.push_back(instr);
+                this->gen->result.blocks.at(current_block).instructions.push_back(fld);
+                this->gen->current_lifetimes.at(fld.store_index) = true;
                 co_return;
+            }
+
+            auto emit(vmir2::invoke ivk) -> CoroutineProvider::template co_type< void >
+            {
+                this->gen->result.blocks.at(current_block).instructions.push_back(ivk);
+
+                instanciation_reference const & inst = as< instanciation_reference >(ivk.what);
+                for (auto& [name, index] : ivk.args.named)
+                {
+                    auto slot_type = co_await index_type(index);
+                    auto parameter_type = inst.parameters.named_parameters.at(name);
+
+                    // TODO:
+
+                    throw rpnx::unimplemented();
+                }
             }
 
             auto slot_alive(vmir2::storage_index index) -> CoroutineProvider::template co_type< bool >
             {
                 co_return gen->current_lifetimes.at(index);
             }
+
+
         };
 
         type_symbol func;
@@ -310,25 +329,6 @@ namespace quxlang
             return result.slots.at(index).type;
         }
 
-        co_slot generate_call(block_index_t current_block, type_symbol functum_type, vmir2::invocation_args args)
-        {
-            call_type ct;
-
-            for (auto const& [name, index] : args.named)
-            {
-                ct.named_parameters[name] = typeof_slot(index);
-            }
-
-            for (auto index : args.positional)
-            {
-                ct.positional_parameters.push_back(typeof_slot(index));
-            }
-
-            instanciation_reference inst{.callee = functum_type, .parameters = ct};
-
-            auto called_functanoid = co_await prv.instanciation(inst);
-            co_return 0;
-        }
 
         auto generate_bool_expr(block_index_t current_block, expression const& expr) -> CoroutineProvider::template co_type< vmir2::storage_index >
         {

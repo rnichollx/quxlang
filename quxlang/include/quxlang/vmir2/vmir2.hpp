@@ -24,8 +24,9 @@ namespace quxlang
         struct make_reference;
         struct jump;
         struct branch;
+        struct cast_reference;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference >;
         using vm_terminator = rpnx::variant< jump, branch >;
 
         using storage_index = std::uint64_t;
@@ -43,7 +44,6 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(invocation_args, named, positional);
         };
-
 
         struct access_field
         {
@@ -69,6 +69,16 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
+
+        struct cast_reference
+        {
+            storage_index source_ref_index;
+            storage_index target_ref_index;
+            std::int64_t  offset;
+
+            RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index, offset);
+        };
+
 
         struct jump
         {
@@ -96,8 +106,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, kind);
         };
 
-    
-
         struct vm_context
         {
             std::vector< vm_slot > slots;
@@ -122,7 +130,7 @@ namespace quxlang
         {
             std::vector< slot_state > entry_state;
             std::vector< vm_instruction > instructions;
-            std::optional<vm_terminator> terminator;
+            std::optional< vm_terminator > terminator;
 
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator);
         };
