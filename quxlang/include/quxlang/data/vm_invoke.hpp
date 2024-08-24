@@ -10,12 +10,12 @@
 
 namespace quxlang
 {
+    // deprecated
     struct vm_invoke
     {
         std::string mangled_procedure_name;
         type_symbol functanoid;
 
-        // TODO: Is this interface needed?
         vm_procedure_interface interface;
         vm_callargs arguments;
 

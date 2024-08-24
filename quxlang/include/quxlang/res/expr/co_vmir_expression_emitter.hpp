@@ -188,7 +188,7 @@ namespace quxlang
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
-                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_index}};
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index},  {"OTHER", arg_expr_index}}};
                     // These both need to be references or the constructor will probably infinite loop.
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
@@ -213,7 +213,7 @@ namespace quxlang
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
-                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}}, .positional = {arg_expr_index}};
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index} } };
 
                     // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
                     co_await gen_call_functum(arg_final_ctor_func, ctor_args);
@@ -422,14 +422,14 @@ namespace quxlang
 
             type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + input.operator_str};
             type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
-            call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}}, .positional_parameters = {rhs_type}};
-            call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}}, .positional_parameters = {lhs_type}};
+            call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
+            call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
             auto lhs_exists_and_callable_with = co_await prv.instanciation({.callee = lhs_function, .parameters = lhs_param_info});
 
             if (lhs_exists_and_callable_with)
             {
-                auto lhs_args = vmir2::invocation_args{.named = {{"THIS", lhs}}, .positional = {rhs}};
+                auto lhs_args = vmir2::invocation_args{.named = {{"THIS", lhs}, {"OTHER", rhs}}};
                 co_return co_await gen_call_functum(lhs_function, lhs_args);
             }
 
@@ -437,7 +437,7 @@ namespace quxlang
 
             if (rhs_exists_and_callable_with)
             {
-                auto rhs_args = vmir2::invocation_args{.named = {{"THIS", rhs}}, .positional = {lhs}};
+                auto rhs_args = vmir2::invocation_args{.named = {{"THIS", rhs}, {"OTHER", lhs}}};
                 co_return co_await gen_call_functum(rhs_function, rhs_args);
             }
 

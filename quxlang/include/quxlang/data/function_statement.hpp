@@ -19,7 +19,6 @@ namespace quxlang
     struct function_block;
     struct function_if_statement;
 
-    // TODO: Implement while
     struct function_while_statement;
 
     struct function_var_statement

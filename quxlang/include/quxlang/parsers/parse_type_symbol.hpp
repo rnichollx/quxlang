@@ -34,6 +34,8 @@ namespace quxlang::parsers
         auto result = parse_type_symbol(pos, end);
         if (pos != end)
         {
+            std::string rest(pos, end);
+            std::string next_symbol = quxlang::parsers::parse_symbol(pos, end);
             throw std::logic_error("Input not fully parsed");
         }
         return result;

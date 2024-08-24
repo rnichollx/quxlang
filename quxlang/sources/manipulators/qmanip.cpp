@@ -304,6 +304,11 @@ namespace quxlang
             std::string output = rpnx::apply_visitor< std::string >(*this, sel.callee);
 
             output += " #{";
+
+            if (sel.overload.builtin)
+            {
+                output += "BUILTIN; ";
+            }
             bool first = true;
             for (auto const& [name, type] : sel.overload.call_parameters.named_parameters)
             {

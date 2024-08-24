@@ -27,6 +27,7 @@ namespace quxlang::parsers
         std::string remaining = std::string(pos, end);
         skip_whitespace_and_comments(pos, end);
     start:
+        skip_whitespace(pos, end);
         if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
         {
             output = numeric_literal_reference{};
@@ -242,6 +243,8 @@ namespace quxlang::parsers
                 output = param_set;
                 goto check_next;
             }
+
+            skip_whitespace_and_comments(pos, end);
 
             if (skip_keyword_if_is(pos, end, "BUILTIN"))
             {

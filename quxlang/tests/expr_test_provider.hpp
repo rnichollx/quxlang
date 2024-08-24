@@ -37,24 +37,24 @@ namespace quxlang
 
         std::map< type_symbol, loadable_symbol > loadable_symbols;
 
-        std::map< type_symbol, bool > testmap_functum_exists_presets{{quxlang::parsers::parse_type_symbol(std::string("I32::.OPERATOR+ #(@THIS I32, I32)")), true}};
+        std::map< type_symbol, bool > testmap_functum_exists_presets{{quxlang::parsers::parse_type_symbol(std::string("I32::.OPERATOR+ #(@THIS I32, @OTHER I32)")), true}};
 
         std::map< instanciation_reference, std::optional< instanciation_reference > > testmap_instanciation_presets{
 
-            {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS MUT& I32, MUT& I32)")), std::optional< instanciation_reference >(as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #[BUILTIN; @THIS I32, I32 ] #( @THIS I32, I32 )")))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, MUT& I32)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, CONST& I32 ] #( @THIS NEW& I32, CONST& I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #(@THIS I32, NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, I32 ] #( @THIS I32, I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, NUMERIC_LITERAL ] #( @THIS NEW& I32, NUMERIC_LITERAL )"))}
+            {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS MUT& I32, @OTHER MUT& I32)")), std::optional< instanciation_reference >(as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #{BUILTIN; @THIS I32, @OTHER I32 }")))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, @OTHER MUT& I32)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, @OTHER CONST& I32 ] #( @THIS NEW& I32, @OTHER CONST& I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #(@THIS I32, @OTHER NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[ BUILTIN; @THIS NEW& I32, @OTHER NUMERIC_LITERAL ] #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL )"))}
 
         };
         std::map< type_symbol, type_symbol > testmap_functanoid_return_type_presets{
 
         // clang-format off
-        {quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #[BUILTIN; @THIS I32, I32 ] #( @THIS I32, I32 )"), quxlang::parsers::parse_type_symbol("I32")},
+        {quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"), quxlang::parsers::parse_type_symbol("I32")},
 
-        {quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, I32 ] #( @THIS I32, I32 )"), quxlang::parsers::parse_type_symbol("I32")},
+        {quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"), quxlang::parsers::parse_type_symbol("I32")},
 
 
-        {quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, CONST& I32 ] #( @THIS NEW& I32, CONST& I32 )"), quxlang::parsers::parse_type_symbol("VOID")},
+        {quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, @OTHER CONST& I32 ] #( @THIS NEW& I32, @OTHER CONST& I32 )"), quxlang::parsers::parse_type_symbol("VOID")},
 
-        {quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR#[BUILTIN; @THIS NEW& I32, NUMERIC_LITERAL] #(@THIS NEW& I32, NUMERIC_LITERAL)"), quxlang::parsers::parse_type_symbol("VOID")}
+        {quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR#[BUILTIN; @THIS NEW& I32, @OTHER NUMERIC_LITERAL] #(@THIS NEW& I32, @OTHER NUMERIC_LITERAL)"), quxlang::parsers::parse_type_symbol("VOID")}
             // clang-format on
         };
 
