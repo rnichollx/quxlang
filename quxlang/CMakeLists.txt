@@ -236,12 +236,16 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/compiler_binding.hpp
         include/quxlang/res/expr_ir2.hpp
         sources/res/expr_ir2.cpp
+        include/quxlang/res/lookup.hpp
+        sources/res/lookup.cpp
+        sources/res/variable_type_resolver.cpp
 
 )
 
 add_executable(qxc sources/app/qxc.cpp)
 
-add_executable(aprinter_test tests/aprinter_test.cpp)
+add_executable(aprinter_test tests/aprinter_test.cpp
+        include/quxlang/res/variable.hpp)
 
 add_library(quxlang-loaders
         sources/loaders/module_loader.cpp

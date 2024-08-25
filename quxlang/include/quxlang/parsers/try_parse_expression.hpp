@@ -225,6 +225,10 @@ namespace quxlang::parsers
             *bindings[bindings.size() - 1] = dot;
             goto next_operator;
         }
+        else if (skip_symbol_if_is(pos, end, ":("))
+        {
+
+        }
         else
         {
             return result;

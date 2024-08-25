@@ -37,6 +37,7 @@ namespace quxlang
     struct expression_implies;
     struct expression_implied;
 
+
     struct expression_this_reference
     {
         RPNX_EMPTY_METADATA(expression_this_reference);
@@ -80,6 +81,14 @@ namespace quxlang
         expression rhs;
 
         RPNX_MEMBER_METADATA(expression_binary, operator_str, lhs, rhs);
+    };
+
+    struct expression_dotreference
+    {
+        expression lhs;
+        std::string field_name;
+
+        RPNX_MEMBER_METADATA(expression_dotreference, lhs, field_name);
     };
 
 } // namespace quxlang

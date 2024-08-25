@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(declaroids, type_symbol, std::vector<ast2_declarable>);
+    QUX_CO_RESOLVER(declaroids, type_symbol, std::vector<declaroid>);
 }
 
 

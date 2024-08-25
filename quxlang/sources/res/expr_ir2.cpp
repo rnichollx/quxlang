@@ -26,18 +26,30 @@ namespace quxlang::impl
             return m_result;
         }
 
+
+
+
+
         auto lookup_symbol(type_symbol sym) -> co_type< std::optional< vmir2::storage_index > >
         {
             auto canonical_symbol = co_await canonical_symbol_from_contextual_symbol(contextual_type_reference{.context = m_context, .type = sym});
 
             std::string symbol_str = to_string(canonical_symbol);
-            // TODO: Check if global variable
-            bool is_global_variable = false;
-            bool is_function = true; // This might not actually be true
 
-            vm_expr_bound_value result;
-            result.function_ref = canonical_symbol;
-            result.value = void_value{};
+            auto kind = co_await this->symbol_type(canonical_symbol);
+
+            vmir2::storage_index index = 0;
+
+
+            auto binding = co_await create_binding(0, canonical_symbol);
+
+
+
+            if (kind == quxlang::symbol_kind::global_variable)
+            {
+                auto variable_type = co_await this->variable_type(canonical_symbol);
+                index = co_await create_reference_internal(binding, variable_type);
+            }
 
             throw rpnx::unimplemented();
 
@@ -72,6 +84,14 @@ namespace quxlang::impl
         {
             vmir2::storage_index index = m_result.slots.size();
             m_result.slots.push_back(vmir2::vm_slot{.type = type, .kind = vmir2::slot_kind::local});
+            m_slot_alive.push_back(true);
+            co_return index;
+        }
+
+        auto create_binding(vmir2::storage_index slot, type_symbol type) -> co_type< vmir2::storage_index >
+        {
+            vmir2::storage_index index = m_result.slots.size();
+            m_result.slots.push_back(vmir2::vm_slot{.type = type,  .binding_of = slot, .kind = vmir2::slot_kind::binding});
             m_slot_alive.push_back(true);
             co_return index;
         }

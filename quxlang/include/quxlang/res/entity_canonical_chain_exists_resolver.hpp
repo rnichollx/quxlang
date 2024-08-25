@@ -14,8 +14,10 @@
 
 namespace quxlang
 {
-    class [[deprecated("Use symbol_type instead")]] entity_canonical_chain_exists ;
     QUX_CO_RESOLVER(entity_canonical_chain_exists, type_symbol, bool);
+
+
+    QUX_CO_RESOLVER(exists, type_symbol, bool);
 }
 
 #endif // QUXLANG_ENTITY_CANONICAL_CHAIN_EXISTS_RESOLVER_HEADER_GUARD

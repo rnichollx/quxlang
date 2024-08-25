@@ -25,6 +25,7 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(expression_call, callee, args);
     };
+
 } // namespace quxlang
 
 #endif // QUXLANG_EXPRESSION_CALL_HEADER_GUARD

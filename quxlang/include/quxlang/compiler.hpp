@@ -17,6 +17,7 @@
 #include "quxlang/data/symbol_id.hpp"
 #include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
+#include "quxlang/res/variable.hpp"
 #include "quxlang/res/call_params_of_function_ast_resolver.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
@@ -74,6 +75,7 @@
 #include <quxlang/res/symboid_declaroids_resolver.hpp>
 #include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/symboid_subdeclaroids.hpp>
+#include <quxlang/res/lookup.hpp>
 #include <quxlang/res/symbol_type.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
@@ -168,6 +170,7 @@ namespace quxlang
         COMPILER_INDEX(declaroids)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(expr_ir2)
+        COMPILER_INDEX(exists)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(function_positional_parameter_names)
@@ -182,6 +185,7 @@ namespace quxlang
         COMPILER_INDEX(list_builtin_functum_overloads)
         COMPILER_INDEX(list_functum_overloads)
         COMPILER_INDEX(list_user_functum_overloads)
+        COMPILER_INDEX(lookup);
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(overload_set_instanciate_with)
@@ -196,6 +200,7 @@ namespace quxlang
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
+        COMPILER_INDEX(variable_type)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure2)
         COMPILER_INDEX(type_placement_info_from_canonical_type)

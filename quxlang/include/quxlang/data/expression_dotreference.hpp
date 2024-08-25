@@ -9,13 +9,7 @@
 
 namespace quxlang
 {
-    struct expression_dotreference
-    {
-        expression lhs;
-        std::string field_name;
 
-        RPNX_MEMBER_METADATA(expression_dotreference, lhs, field_name);
-    };
 }
 
 #endif // QUXLANG_EXPRESSION_DOTREFERENCE_HEADER_GUARD

@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, arg, local, literal, symbol);
+RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, arg, local, literal, symbol, binding);
 
 namespace quxlang
 {
@@ -70,6 +70,8 @@ namespace quxlang
             RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
 
+
+
         struct cast_reference
         {
             storage_index source_ref_index;
@@ -101,9 +103,11 @@ namespace quxlang
             type_symbol type;
             std::optional< std::string > name;
             std::optional< std::string > literal_value;
+            std::optional< storage_index > binding_of;
             slot_kind kind;
 
-            RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, kind);
+
+            RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, binding_of, kind);
         };
 
         struct vm_context

@@ -9,7 +9,24 @@
 #include <quxlang/res/resolver.hpp>
 #include <rpnx/metadata.hpp>
 
-RPNX_ENUM(quxlang, symbol_kind, std::int64_t, noexist, module, builtin_class, user_class, functum, user_function, builtin_function, funtanoid, variable, templex, template_, namespace_, argument)
+
+// clang-format off
+RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
+
+    noexist,
+    module,
+    builtin_class,
+    user_class, functum, user_function,
+    builtin_function, funtanoid,
+
+    global_variable,
+    local_variable,
+    member_variable,
+
+    templex, template_,
+    namespace_, argument
+)
+// clang-format on
 
 namespace quxlang
 {

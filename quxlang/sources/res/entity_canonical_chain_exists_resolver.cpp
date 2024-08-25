@@ -9,6 +9,11 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
 {
+   co_return co_await QUX_CO_DEP(exists, (input_val));
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
+{
 
     // Probably consider this deprecated
 
