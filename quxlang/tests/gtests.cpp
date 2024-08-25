@@ -732,9 +732,13 @@ TEST(expression_ir, generation_real)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
 
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "foo");
 
-    auto start_sym = quxlang::parsers::parse_type_symbol("::main");
-    start_sym = quxlang::with_context(start_sym, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+
+    quxlang::compiler c(sources, "linux-x64");
+
+    quxlang::expression expr = quxlang::parsers::parse_expression("2 + I32:(8) - 4");
+    auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr=expr, .context=mainmodule});
+
 
 }

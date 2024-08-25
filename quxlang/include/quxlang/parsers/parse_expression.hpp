@@ -28,7 +28,14 @@ namespace quxlang::parsers
     inline expression parse_expression(std::string str)
     {
         auto it = str.begin();
-        return parse_expression(it, str.end());
+        auto expr = parse_expression(it, str.end());
+        if (it != str.end())
+        {
+            std::string remaining = std::string(it, str.end());
+            throw std::logic_error("expected fully parsed expression");
+        }
+
+        return expr;
     }
 } // namespace quxlang::parsers
 
