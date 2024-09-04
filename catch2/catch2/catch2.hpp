@@ -16,14 +16,14 @@
 
 
 /** \file
- * This is a convenience overload for Catch2. It includes **all** of Catch2 headers.
+ * This is a convenience header for Catch2. It includes **all** of Catch2 headers.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of (significantly) increased
  * compilation times.
  *
- * When a new overload is added to either the top level folder, or to the
+ * When a new header is added to either the top level folder, or to the
  * corresponding internal subfolder, it should be added here. Headers
  * added to the various subparts (e.g. matchers, generators, etc...),
  * should go their respective catch-all headers.
@@ -35,15 +35,15 @@
 
 
 /** \file
- * This is a convenience overload for Catch2's benchmarking. It includes
+ * This is a convenience header for Catch2's benchmarking. It includes
  * **all** of Catch2 headers related to benchmarking.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of (significantly) increased
  * compilation times.
  *
- * When a new overload is added to either the `benchmark` folder, or to
+ * When a new header is added to either the `benchmark` folder, or to
  * the corresponding internal (detail) subfolder, it should be added here.
  */
 
@@ -955,7 +955,7 @@ namespace Detail {
 namespace Catch {
 
     // We cannot forward declare the type with default template argument
-    // multiple times, so it is split out into a separate overload so that
+    // multiple times, so it is split out into a separate header so that
     // we can prevent multiple declarations in dependees
     template <typename Duration = std::chrono::duration<double, std::nano>>
     struct BenchmarkStats;
@@ -7381,15 +7381,15 @@ namespace Catch {
 
 
 /** \file
- * This is a convenience overload for Catch2's Generator support. It includes
+ * This is a convenience header for Catch2's Generator support. It includes
  * **all** of Catch2 headers related to generators.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of (significantly) increased
  * compilation times.
  *
- * When a new overload is added to either the `generators` folder,
+ * When a new header is added to either the `generators` folder,
  * or to the corresponding internal subfolder, it should be added here.
  */
 
@@ -8230,15 +8230,15 @@ GeneratorWrapper<ResultType> from_range(Container const& cnt) {
 
 
 /** \file
- * This is a convenience overload for Catch2's interfaces. It includes
+ * This is a convenience header for Catch2's interfaces. It includes
  * **all** of Catch2 headers related to interfaces.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of somewhat increased compilation
  * times.
  *
- * When a new overload is added to either the `interfaces` folder, or to
+ * When a new header is added to either the `interfaces` folder, or to
  * the corresponding internal subfolder, it should be added here.
  */
 
@@ -8680,7 +8680,7 @@ namespace Catch {
 // under older standards.
 #if defined(CATCH_CPP17_OR_GREATER) || defined(_MSC_VER)
 
-// We are already using this overload either way, so there shouldn't
+// We are already using this header either way, so there shouldn't
 // be much additional overhead in including it to get the feature
 // test macros
 #include <string>
@@ -10589,14 +10589,14 @@ namespace Catch {
 
 
 /** \file
- * This is a convenience overload for Catch2's Matcher support. It includes
+ * This is a convenience header for Catch2's Matcher support. It includes
  * **all** of Catch2 headers related to matchers.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of increased compilation times.
  *
- * When a new overload is added to either the `matchers` folder, or to
+ * When a new header is added to either the `matchers` folder, or to
  * the corresponding internal subfolder, it should be added here.
  */
 
@@ -12133,15 +12133,15 @@ namespace Matchers {
 
 
 /** \file
- * This is a convenience overload for Catch2's Reporter support. It includes
+ * This is a convenience header for Catch2's Reporter support. It includes
  * **all** of Catch2 headers related to reporters, including all reporters.
  *
  * Generally the Catch2 users should use specific includes they need,
- * but this overload can be used instead for ease-of-experimentation, or
+ * but this header can be used instead for ease-of-experimentation, or
  * just plain convenience, at the cost of (significantly) increased
  * compilation times.
  *
- * When a new overload (reporter) is added to either the `reporter` folder,
+ * When a new header (reporter) is added to either the `reporter` folder,
  * or to the corresponding internal subfolder, it should be added here.
  */
 
