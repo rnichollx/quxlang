@@ -43,14 +43,18 @@ namespace quxlang
             }
             else if (typeis< expression_binary >(expr))
             {
+                std::cout << "generate binary" << as<expression_binary>(expr).operator_str << std::endl;
                 co_return co_await (this->generate(as< expression_binary >(std::move(expr))));
             }
             else if (typeis< expression_call >(expr))
             {
+                std::cout << "generate call" << std::endl;// << as<expression_call>(expr).callee << std::endl;
+
                 co_return co_await (this->gen_call_expr(as< expression_call >(std::move(expr))));
             }
             else if (typeis< expression_numeric_literal >(expr))
             {
+                std::cout << "Generate a numeric literal" << std::endl;
                 co_return co_await this->generate(as< expression_numeric_literal >(std::move(expr)));
             }
             else if (typeis< expression_thisdot_reference >(expr))
@@ -74,11 +78,26 @@ namespace quxlang
         }
 
       private:
+        auto gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
+            auto new_callee = subdotentity_reference{.parent = object_type , .subdotentity_name = "CONSTRUCTOR"};
+
+            auto new_object = co_await prv.create_temporary_storage(object_type);
+
+            callee = co_await prv.create_binding(new_object, new_callee);
+            callee_type = co_await prv.index_type(callee);
+        }
+
+
         auto gen_call_expr(expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
+            std::cout << "gen_call_expr A()" << std::endl;
             auto callee = co_await generate_expr(call.callee);
 
+
             type_symbol callee_type = co_await prv.index_type(callee);
+            std::cout << "gen_call_expr B() -> callee_type=" << quxlang::to_string(callee_type) << std::endl;
 
             std::string callee_type_string = to_string(callee_type);
 
@@ -91,7 +110,10 @@ namespace quxlang
             }
 
 
-            symbol_kind bound_symbol_kind = co_await prv.symbol_type(as< bound_type_reference >(callee_type).bound_symbol);
+            type_symbol bound_symbol = as< bound_type_reference >(callee_type).bound_symbol;
+
+            type_symbol carried_type = as< bound_type_reference >(callee_type).carried_type;
+            symbol_kind bound_symbol_kind = co_await prv.symbol_type(bound_symbol);
 
             vmir2::invocation_args args;
             call_type call_t;
@@ -99,12 +121,14 @@ namespace quxlang
 
             std::string callee_type_string2 = to_string(as< bound_type_reference >(callee_type));
 
+            std::cout << "requesting generate call to bindval=" << to_string(carried_type) << " bindsym=" << to_string(bound_symbol) << std::endl;
+
 
             if (bound_symbol_kind == symbol_kind::user_class || bound_symbol_kind == symbol_kind::builtin_class)
             {
                 if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
                 {
-                    throw std::logic_error("Wtf, how u did this? U call class constructor with bound object? this iz bug, pls report me. o_O");
+                    throw std::logic_error("this is bug...");
                 }
                 auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
                 auto new_callee = subdotentity_reference{.parent = object_type , .subdotentity_name = "CONSTRUCTOR"};
@@ -122,6 +146,11 @@ namespace quxlang
             for (auto& arg : call.args)
             {
                 auto arg_val_idx = co_await generate_expr(arg.value);
+
+                // TODO: we shouldn't drop bindings here, since there might be a reason to accept
+                // binding values later.
+                // Instead all bindings should be implicitly convertible to their bound value.
+                arg_val_idx= co_await prv.index_binding(arg_val_idx);
 
                 if (arg.name)
                 {
@@ -476,7 +505,11 @@ namespace quxlang
 
         auto generate(expression_numeric_literal input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            co_return co_await prv.create_numeric_literal(input.value);
+            auto val = co_await prv.create_numeric_literal(input.value);
+            assert(val != 0);
+            auto val_type = co_await prv.index_type(val);
+            std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl;
+                co_return val;
         }
 
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

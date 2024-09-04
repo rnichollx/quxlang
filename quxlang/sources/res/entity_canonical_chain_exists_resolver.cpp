@@ -67,6 +67,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
     {
         co_return true;
     }
+    else if (typeis<void_type>(input_val))
+    {
+        // It's defined, but doesn't "exist".
+        co_return false;
+    }
     else
     {
         throw rpnx::unimplemented();

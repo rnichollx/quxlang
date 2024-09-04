@@ -92,15 +92,15 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
                 std::set< primitive_function_info > result;
                 result.insert(primitive_function_info{
                     .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}, {"OTHER", make_cref(parent)}}}},
-                    .return_type = parent
+                    .return_type = void_type{}
                 });
                 result.insert(primitive_function_info{
                     .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}, {"OTHER", numeric_literal_reference{}}}}},
-                    .return_type = parent
+                    .return_type = void_type{}
                 });
                 result.insert(primitive_function_info{
                     .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}}}},
-                    .return_type = parent
+                    .return_type = void_type{}
                 });
                 co_return (result);
             }

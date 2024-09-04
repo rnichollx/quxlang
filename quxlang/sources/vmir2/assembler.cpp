@@ -48,6 +48,13 @@ namespace quxlang::vmir2
             output += " " + *slt.literal_value;
         }
 
+
+
+        if (slt.binding_of)
+        {
+            output += " BINDS %" + std::to_string(*slt.binding_of);
+        }
+
         if (slt.name)
         {
             output += " // " + *slt.name;

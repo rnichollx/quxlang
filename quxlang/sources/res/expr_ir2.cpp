@@ -12,25 +12,27 @@ namespace quxlang::impl
     {
         type_symbol m_context;
         // TODO: This requires fixing, the binder is copied by-value so the result object needs to be a pointer to something somewhere else
-         vmir2::functanoid_routine & m_result {};
-         // TODO: Same with the slot lifetime state.
-        std::vector< bool > & m_slot_alive;
+        vmir2::functanoid_routine& m_result;
+        // TODO: Same with the slot lifetime state.
+        std::vector< bool >& m_slot_alive;
 
       public:
-        expr_ir2_binder(compiler* c, type_symbol context, expression expr) : compiler_binder(c), m_context(context)
+        expr_ir2_binder(compiler* c, std::vector< bool >& alive_slots, vmir2::functanoid_routine & a_result, type_symbol context, expression expr) : compiler_binder(c), m_context(context), m_result(a_result), m_slot_alive(alive_slots)
         {
-            m_result.slots.push_back(vmir2::vm_slot{.type = void_type{}, .name="VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
-            m_slot_alive.push_back(true);
+            if (m_result.slots.size() == 0)
+            {
+                m_result.slots.push_back(vmir2::vm_slot{.type = void_type{}, .name = "VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
+            }
+            if (m_slot_alive.size() == 0)
+            {
+                m_slot_alive.push_back(true);
+            }
         }
 
-        auto& get() const &
+        auto& get() const&
         {
             return m_result;
         }
-
-
-
-
 
         auto lookup_symbol(type_symbol sym) -> co_type< std::optional< vmir2::storage_index > >
         {
@@ -42,10 +44,7 @@ namespace quxlang::impl
 
             vmir2::storage_index index = 0;
 
-
             auto binding = co_await create_binding(0, canonical_symbol);
-
-
 
             if (kind == quxlang::symbol_kind::global_variable)
             {
@@ -57,7 +56,6 @@ namespace quxlang::impl
                 index = binding;
             }
 
-
             type_symbol index_type = co_await this->index_type(index);
 
             std::string index_type_str = to_string(index_type);
@@ -67,32 +65,31 @@ namespace quxlang::impl
 
         auto index_binding(vmir2::storage_index index) -> co_type< vmir2::storage_index >
         {
-            auto & slot = m_result.slots.at(index);
+            auto& slot = m_result.slots.at(index);
             if (slot.kind == vmir2::slot_kind::binding)
             {
                 co_return slot.binding_of.value();
             }
-            throw std::logic_error("Not a binding");
+            co_return index;
         }
 
         auto index_type(vmir2::storage_index index) -> co_type< type_symbol >
         {
             if (index < m_result.slots.size())
             {
-                auto & slot = m_result.slots.at(index);
+                auto& slot = m_result.slots.at(index);
                 if (slot.kind == vmir2::slot_kind::binding)
                 {
-                    auto &bound_slot = m_result.slots.at(slot.binding_of.value());
+                    auto& bound_slot = m_result.slots.at(slot.binding_of.value());
                     auto bind = bound_type_reference{.carried_type = bound_slot.type, .bound_symbol = slot.type};
                     co_return bind;
                 }
-                auto type =  m_result.slots.at(index).type;
+                auto type = m_result.slots.at(index).type;
                 if (!m_slot_alive.at(index))
                 {
                     type = create_nslot(type);
                 }
                 co_return type;
-
             }
             else
             {
@@ -117,14 +114,20 @@ namespace quxlang::impl
             vmir2::storage_index index = m_result.slots.size();
             m_result.slots.push_back(vmir2::vm_slot{.type = type, .kind = vmir2::slot_kind::local});
             m_slot_alive.push_back(false);
+            std::cout << "Created temp " << index << " with type " << quxlang::to_string(type) << std::endl;
+
             co_return index;
         }
 
         auto create_binding(vmir2::storage_index slot, type_symbol type) -> co_type< vmir2::storage_index >
         {
             vmir2::storage_index index = m_result.slots.size();
-            m_result.slots.push_back(vmir2::vm_slot{.type = type,  .binding_of = slot, .kind = vmir2::slot_kind::binding});
+            auto target_slot = co_await index_binding(slot);
+            m_result.slots.push_back(vmir2::vm_slot{.type = type, .binding_of = target_slot, .kind = vmir2::slot_kind::binding});
             m_slot_alive.push_back(true);
+
+            std::cout << "Created binding " << index << " to " << slot << " with type " << quxlang::to_string(type) << std::endl;
+
             co_return index;
         }
 
@@ -195,7 +198,8 @@ namespace quxlang::impl
         {
             type_symbol invoked_symbol = ivk.what;
             vmir2::invocation_args args = ivk.args;
-            std::cout << "emit_invoke(" << quxlang::to_string(invoked_symbol) << ")" << " " << quxlang::to_string(args) << std::endl;
+            std::cout << "emit_invoke(" << quxlang::to_string(invoked_symbol) << ")"
+                      << " " << quxlang::to_string(args) << std::endl;
 
             co_await emit_instruction(ivk);
 
@@ -289,10 +293,12 @@ namespace quxlang::impl
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
 {
+    quxlang::vmir2::functanoid_routine r;
 
-    quxlang::impl::expr_ir2_binder binder(c, input.context, input.expr);
+    std::vector< bool > temp;
+    quxlang::impl::expr_ir2_binder binder(c, temp, r, input.context, input.expr);
     co_vmir_expression_emitter< quxlang::impl::expr_ir2_binder > emitter(binder);
     auto result = co_await emitter.generate_expr(input.expr);
 
-    co_return binder.get();
+    co_return r;
 }

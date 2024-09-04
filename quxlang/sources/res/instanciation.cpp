@@ -31,6 +31,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
     }
     else
     {
-        throw std::logic_error("Cannot instanciate non-templexoid");
+        co_return std::nullopt;
+      //  throw std::logic_error("Cannot instanciate non-templexoid");
     }
 }
