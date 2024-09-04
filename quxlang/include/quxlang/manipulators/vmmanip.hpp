@@ -31,9 +31,9 @@ namespace quxlang
 
         type_symbol operator()(vm_expr_bound_value const& op) const
         {
-            bound_function_type_reference result;
-            result.functum_type = op.function_ref;
-            result.object_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor{}, op.value);
+            bound_type_reference result;
+            result.bound_symbol = op.function_ref;
+            result.carried_type = rpnx::apply_visitor< type_symbol >(vm_value_type_vistor{}, op.value);
             return result;
         }
 

@@ -233,6 +233,8 @@ namespace quxlang::parsers
         {
             return result;
         }
+
+        throw rpnx::unimplemented();
     }
 } // namespace quxlang::parsers
 

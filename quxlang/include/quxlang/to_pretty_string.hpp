@@ -598,17 +598,17 @@ namespace quxlang
             return result;
         }
 
-        std::string operator()(bound_function_type_reference const& ref)
+        std::string operator()(bound_type_reference const& ref)
         {
             std::string result;
             result = "bound_function_type_reference{\n";
             current_indent++;
             result += indent_string();
             result += "object_type: ";
-            result += rpnx::apply_visitor< std::string >(*this, ref.object_type);
+            result += rpnx::apply_visitor< std::string >(*this, ref.carried_type);
             result += indent_string();
             result += "function_type: ";
-            result += rpnx::apply_visitor< std::string >(*this, ref.functum_type);
+            result += rpnx::apply_visitor< std::string >(*this, ref.bound_symbol);
             current_indent--;
             result += indent_string() + "}\n";
             return result;

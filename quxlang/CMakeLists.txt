@@ -214,7 +214,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         sources/res/symboid_sub_declaroids.cpp
         include/quxlang/res/instanciation.hpp
         sources/res/symboid_resolver.cpp
-        sources/res/temploid_instanciation_resolver.cpp
+        sources/res/instanciation.cpp
         sources/res/functum_instanciation.cpp
         include/quxlang/res/symbol_type.hpp
         include/quxlang/res/target.hpp

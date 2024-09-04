@@ -7,8 +7,8 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
 {
-
-    type_symbol templexoid_symbol;
+    std::string dbg_input = to_string(input_val);
+    type_symbol templexoid_symbol = input_val.callee;
 
     auto kind = co_await QUX_CO_DEP(symbol_type, (templexoid_symbol));
 

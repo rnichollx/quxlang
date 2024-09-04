@@ -20,7 +20,7 @@ namespace quxlang::parsers
         expression_arg result;
         if (skip_symbol_if_is(pos, end, "@"))
         {
-            result.name = parse_identifier(pos, end);
+            result.name = parse_argument_name(pos, end);
             skip_whitespace_and_comments(pos, end);
         }
 

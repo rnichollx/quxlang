@@ -97,7 +97,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(template_reference, name);
     };
 
-    struct bound_function_type_reference;
+    struct bound_type_reference;
     // struct function_type_reference;
 
     struct module_reference
@@ -217,11 +217,11 @@ namespace quxlang
         RPNX_MEMBER_METADATA(dvalue_slot, target);
     };
 
-    struct bound_function_type_reference
+    struct bound_type_reference
     {
-        type_symbol object_type;
-        type_symbol functum_type;
-        RPNX_MEMBER_METADATA(bound_function_type_reference, object_type, functum_type);
+        type_symbol carried_type;
+        type_symbol bound_symbol;
+        RPNX_MEMBER_METADATA(bound_type_reference, carried_type, bound_symbol);
     };
 
     std::string to_string(type_symbol const&);

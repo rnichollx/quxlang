@@ -20,7 +20,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
         // TODO: Check if the module exists or not.
         co_return symbol_kind::module;
     }
-    else if (typeis< numeric_literal_reference >(input_val) || typeis< primitive_type_bool_reference >(input_val) || typeis< primitive_type_integer_reference >(input_val) || typeis< instance_pointer_type >(input_val) || typeis< array_pointer_type >(input_val))
+    else if (typeis<void_type>(input_val) || typeis< numeric_literal_reference >(input_val) || typeis< primitive_type_bool_reference >(input_val) || typeis< primitive_type_integer_reference >(input_val) || typeis< instance_pointer_type >(input_val) || typeis< array_pointer_type >(input_val))
     {
         co_return symbol_kind::builtin_class;
     }

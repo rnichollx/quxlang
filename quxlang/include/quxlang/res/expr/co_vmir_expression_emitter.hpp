@@ -7,6 +7,7 @@
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
+#include "quxlang/res/symbol_type.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include <quxlang/macros.hpp>
@@ -79,17 +80,44 @@ namespace quxlang
 
             type_symbol callee_type = co_await prv.index_type(callee);
 
-            if (!typeis< bound_function_type_reference >(callee_type))
+            std::string callee_type_string = to_string(callee_type);
+
+            if (!typeis< bound_type_reference >(callee_type))
             {
-                // TODO: Call OPERATOR() here instead of throwing
-                throw std::logic_error("Cannot call non-callable value");
+                auto value_type = remove_ref(callee_type);
+                auto operator_call = subdotentity_reference{.parent = value_type, .subdotentity_name = "OPERATOR()"};
+                callee = co_await prv.create_binding(callee, operator_call);
+                callee_type = co_await prv.index_type(callee);
             }
 
-            auto const& callee_type_value = as< bound_function_type_reference >(callee_type);
+
+            symbol_kind bound_symbol_kind = co_await prv.symbol_type(as< bound_type_reference >(callee_type).bound_symbol);
 
             vmir2::invocation_args args;
-
             call_type call_t;
+
+
+            std::string callee_type_string2 = to_string(as< bound_type_reference >(callee_type));
+
+
+            if (bound_symbol_kind == symbol_kind::user_class || bound_symbol_kind == symbol_kind::builtin_class)
+            {
+                if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
+                {
+                    throw std::logic_error("Wtf, how u did this? U call class constructor with bound object? this iz bug, pls report me. o_O");
+                }
+                auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
+                auto new_callee = subdotentity_reference{.parent = object_type , .subdotentity_name = "CONSTRUCTOR"};
+
+                auto new_object = co_await prv.create_temporary_storage(object_type);
+
+                callee = co_await prv.create_binding(new_object, new_callee);
+                callee_type = co_await prv.index_type(callee);
+
+            }
+
+            std::string callee_type_string3 = to_string(callee_type);
+
 
             for (auto& arg : call.args)
             {
@@ -107,13 +135,14 @@ namespace quxlang
                 }
             }
 
-            if (!typeis< void_type >(callee_type_value.object_type))
+            if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
             {
-                call_t.named_parameters["THIS"] = callee_type;
-                args.named["THIS"] = callee;
+                auto bound_index = co_await prv.index_binding(callee);
+                args.named["THIS"] = bound_index;
+                call_t.named_parameters["THIS"] = co_await prv.index_type(bound_index);
             }
 
-            co_return co_await gen_call_functum(callee_type_value.functum_type, args);
+            co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -127,8 +156,8 @@ namespace quxlang
                 bool is_alive = co_await prv.slot_alive(arg);
                 if (!is_alive)
                 {
-                    assert(!typeis< nvalue_slot >(arg_type));
-                    arg_type = nvalue_slot{arg_type};
+                    assert(typeis< nvalue_slot >(arg_type));
+                    //arg_type = nvalue_slot{arg_type};
                 }
                 calltype.positional_parameters.push_back(arg_type);
             }
@@ -136,10 +165,11 @@ namespace quxlang
             {
                 auto arg_type = co_await prv.index_type(arg);
                 bool is_alive = co_await prv.slot_alive(arg);
+
+                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << std::endl;
                 if (!is_alive)
                 {
-                    assert(!typeis< nvalue_slot >(arg_type));
-                    arg_type = nvalue_slot{arg_type};
+                    assert(typeis< nvalue_slot >(arg_type));
                 }
                 calltype.named_parameters[name] = arg_type;
             }
@@ -177,7 +207,7 @@ namespace quxlang
                 if (!arg_alive)
                 {
                     assert(!is_ref(arg_expr_type));
-                    arg_expr_type = nvalue_slot{arg_expr_type};
+                   // arg_expr_type = nvalue_slot{arg_expr_type};
                 }
 
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))

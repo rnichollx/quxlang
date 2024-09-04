@@ -39,11 +39,16 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (operator_name.ends_with("RHS"))
             {
                 operator_name = operator_name.substr(0, operator_name.size() - 3);
+
+                is_rhs = true;
+            }
+
+            if (arithmetic_operators.contains(operator_name))
+            {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}, },
+                    .overload = function_overload{.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}, {"OTHER", int_type}}, }, },
                     .return_type = int_type
                 });
-                is_rhs = true;
             }
 
             if (assignment_operators.contains(operator_name) && is_rhs)
@@ -60,15 +65,9 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
                     .return_type = int_type,
 
                 });
-                co_return allowed_operations;
             }
 
-            function_overload ol {.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}}, .positional_parameters = {int_type}}};
-            primitive_function_info func_info{
-                .overload = ol,
-                .return_type = int_type
-            };
-            allowed_operations.insert(func_info);
+
             co_return (allowed_operations);
         }
 
@@ -77,7 +76,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             std::set< primitive_function_info > allowed_operations;
 
             allowed_operations.insert(primitive_function_info{
-                .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", numeric_literal_reference{}}}, .positional_parameters = {numeric_literal_reference{}}}},
+                .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}}},
                 .return_type = numeric_literal_reference{}
             });
             // TODO: MAYBE: Allow composing any integer operation?
@@ -92,11 +91,15 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
 
                 std::set< primitive_function_info > result;
                 result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", make_mref(parent)}}, .positional_parameters = {parent}}},
+                    .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}, {"OTHER", make_cref(parent)}}}},
                     .return_type = parent
                 });
                 result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", make_mref(parent)}}}},
+                    .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}, {"OTHER", numeric_literal_reference{}}}}},
+                    .return_type = parent
+                });
+                result.insert(primitive_function_info{
+                    .overload = function_overload{.builtin= true, .call_parameters = {.named_parameters = {{"THIS", create_nslot(parent)}}}},
                     .return_type = parent
                 });
                 co_return (result);

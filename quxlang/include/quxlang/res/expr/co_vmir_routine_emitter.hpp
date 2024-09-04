@@ -69,6 +69,18 @@ namespace quxlang
                 co_return temp;
             }
 
+
+            auto create_binding(vmir2::storage_index idx, type_symbol what) -> CoroutineProvider::template co_type< vmir2::storage_index >
+            {
+                auto temp = co_await gen->generate_binding(idx, what);
+                co_return temp;
+            }
+
+            auto index_binding(vmir2::storage_index idx) -> CoroutineProvider::template co_type< vmir2::storage_index >
+            {
+                co_return gen->result.slots.at(idx).binding_of.value();
+            }
+
             auto lookup_symbol(type_symbol symbol) -> CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
             {
                 bool is_possibly_frame_value = typeis< subentity_reference >(symbol) && typeis< context_reference >(as< subentity_reference >(symbol).parent);
@@ -95,7 +107,11 @@ namespace quxlang
                 // TODO: Check if global variable
                 bool is_global_variable = false;
                 bool is_function = true; // This might not actually be true
-                auto binding = co_await gen->generate_free_binding(canonical_symbol);
+                auto binding = co_await gen->generate_binding(0, canonical_symbol);
+
+                type_symbol binding_type_dbg = co_await this->index_type(binding);
+
+                std::string binding_type_dbg_str = to_string(binding_type_dbg);
 
                 co_return binding;
             }
@@ -215,15 +231,15 @@ namespace quxlang
             return generate_temporary_f(this->result.slots, this->temp_index, std::move(type));
         }
 
-        static auto generate_binding_f(std::vector< quxlang::vmir2::vm_slot >& slots, std::size_t& temp_index, type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        static auto generate_binding_f(std::vector< quxlang::vmir2::vm_slot >& slots, std::size_t& temp_index, vmir2::storage_index idx, type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            slots.push_back(vmir2::vm_slot{.type = std::move(type), .name = "BIND" + std::to_string(temp_index++), .kind = vmir2::slot_kind::symbol});
+            slots.push_back(vmir2::vm_slot{.type = std::move(type), .name = "BIND" + std::to_string(temp_index++), .binding_of = idx , .kind = vmir2::slot_kind::binding});
             co_return slots.size() - 1;
         }
 
-        auto generate_free_binding(type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto generate_binding(vmir2::storage_index val, type_symbol type) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            return generate_binding_f(this->result.slots, this->temp_index, std::move(type));
+            return generate_binding_f(this->result.slots, this->temp_index, val, std::move(type));
         }
 
         auto generate_arg_slots() -> CoroutineProvider::template co_type< void >

@@ -19,7 +19,7 @@ namespace quxlang
         std::string operator()(cvalue_reference const& ref) const;
         std::string operator()(wvalue_reference const& ref) const;
         std::string operator()(module_reference const& ref) const;
-        std::string operator()(bound_function_type_reference const& ref) const;
+        std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(primitive_type_integer_reference const& ref) const;
         std::string operator()(primitive_type_bool_reference const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
@@ -165,9 +165,9 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(bound_function_type_reference const& ref) const
+        bool operator()(bound_type_reference const& ref) const
         {
-            return is_template(ref.object_type) || is_template(ref.functum_type);
+            return is_template(ref.carried_type) || is_template(ref.bound_symbol);
         }
 
         bool operator()(primitive_type_integer_reference const& ref) const
@@ -379,9 +379,9 @@ namespace quxlang
     {
         return "context";
     }
-    std::string qualified_symbol_stringifier::operator()(bound_function_type_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(bound_type_reference const& ref) const
     {
-        return "BINDING(" + to_string(ref.object_type) + ", " + to_string(ref.functum_type) + ")";
+        return "BINDING(" + to_string(ref.carried_type) + ", " + to_string(ref.bound_symbol) + ")";
     }
     std::string qualified_symbol_stringifier::operator()(primitive_type_integer_reference const& ref) const
     {

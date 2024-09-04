@@ -44,6 +44,11 @@ namespace quxlang
             {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS MUT& I32, @OTHER MUT& I32)")), std::optional< instanciation_reference >(as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #{BUILTIN; @THIS I32, @OTHER I32 }")))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, @OTHER MUT& I32)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, @OTHER CONST& I32 ] #( @THIS NEW& I32, @OTHER CONST& I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #(@THIS I32, @OTHER NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"))}, {as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL)")), as< instanciation_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[ BUILTIN; @THIS NEW& I32, @OTHER NUMERIC_LITERAL ] #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL )"))}
 
         };
+
+
+        std::map< type_symbol, symbol_kind > testmap_symbol_type_presets{
+                {quxlang::parsers::parse_type_symbol("I32"), symbol_kind::builtin_class},
+        };
         std::map< type_symbol, type_symbol > testmap_functanoid_return_type_presets{
 
         // clang-format off
@@ -177,7 +182,15 @@ namespace quxlang
             {
                 if (idx < parent.slots.size())
                 {
-                    return parent.slots.at(idx).type;
+                    if (parent.slot_alive.at(idx))
+                    {
+                        return parent.slots.at(idx).type;
+                    }
+                    else
+                    {
+                        return create_nslot(parent.slots.at(idx).type);
+                    }
+
                 }
                 else
                 {
@@ -209,6 +222,11 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
+            rpnx::awaitable_result< vmir2::storage_index > create_binding( vmir2::storage_index index, type_symbol bound_symbol)
+            {
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
             rpnx::awaitable_result< std::optional< instanciation_reference > > instanciation(instanciation_reference type)
             {
                 std::cout << "instanciation(" << quxlang::to_string(type) << ")" << std::endl;
@@ -225,6 +243,11 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
+            rpnx::awaitable_result< vmir2::storage_index > index_binding(vmir2::storage_index index)
+            {
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
             rpnx::awaitable_result< quxlang::type_symbol > functanoid_return_type(type_symbol type)
             {
                 std::cout << "functanoid_return_type(" << quxlang::to_string(type) << ")" << std::endl;
@@ -232,6 +255,18 @@ namespace quxlang
                 if (it != parent.testmap_functanoid_return_type_presets.end())
                 {
                     std::cout << "functanoid_return_type(" << quxlang::to_string(type) << ") -> " << quxlang::to_string(it->second) << std::endl;
+                    return it->second;
+                }
+                return std::make_exception_ptr(std::logic_error("Not implemented"));
+            }
+
+            rpnx::awaitable_result< quxlang::symbol_kind > symbol_type(type_symbol type)
+            {
+                std::cout << "symbol_type(" << quxlang::to_string(type) << ")" << std::endl;
+                auto it = parent.testmap_symbol_type_presets.find(type);
+                if (it != parent.testmap_symbol_type_presets.end())
+                {
+                    std::cout << "symbol_type(" << quxlang::to_string(type) << ") -> " << int(it->second) << std::endl;
                     return it->second;
                 }
                 return std::make_exception_ptr(std::logic_error("Not implemented"));

@@ -160,9 +160,8 @@ namespace quxlang
     {
         type_symbol type;
         std::optional< std::size_t > offset;
-        std::optional< expression > include_if;
 
-        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, offset, include_if);
+        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, offset);
     };
 
     struct ast2_class_declaration

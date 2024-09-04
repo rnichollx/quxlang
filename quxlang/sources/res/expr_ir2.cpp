@@ -11,17 +11,19 @@ namespace quxlang::impl
     class expr_ir2_binder : public compiler_binder
     {
         type_symbol m_context;
-        expression m_expr;
-        vmir2::functanoid_routine m_result;
-
-        std::vector< bool > m_slot_alive;
+        // TODO: This requires fixing, the binder is copied by-value so the result object needs to be a pointer to something somewhere else
+         vmir2::functanoid_routine & m_result {};
+         // TODO: Same with the slot lifetime state.
+        std::vector< bool > & m_slot_alive;
 
       public:
-        expr_ir2_binder(compiler* c, type_symbol context, expression expr) : compiler_binder(c), m_context(context), m_expr(expr)
+        expr_ir2_binder(compiler* c, type_symbol context, expression expr) : compiler_binder(c), m_context(context)
         {
+            m_result.slots.push_back(vmir2::vm_slot{.type = void_type{}, .name="VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
+            m_slot_alive.push_back(true);
         }
 
-        auto& get()
+        auto& get() const &
         {
             return m_result;
         }
@@ -50,17 +52,47 @@ namespace quxlang::impl
                 auto variable_type = co_await this->variable_type(canonical_symbol);
                 index = co_await create_reference_internal(binding, variable_type);
             }
+            else
+            {
+                index = binding;
+            }
 
-            throw rpnx::unimplemented();
 
-            co_return 0;
+            type_symbol index_type = co_await this->index_type(index);
+
+            std::string index_type_str = to_string(index_type);
+
+            co_return index;
+        }
+
+        auto index_binding(vmir2::storage_index index) -> co_type< vmir2::storage_index >
+        {
+            auto & slot = m_result.slots.at(index);
+            if (slot.kind == vmir2::slot_kind::binding)
+            {
+                co_return slot.binding_of.value();
+            }
+            throw std::logic_error("Not a binding");
         }
 
         auto index_type(vmir2::storage_index index) -> co_type< type_symbol >
         {
             if (index < m_result.slots.size())
             {
-                co_return m_result.slots.at(index).type;
+                auto & slot = m_result.slots.at(index);
+                if (slot.kind == vmir2::slot_kind::binding)
+                {
+                    auto &bound_slot = m_result.slots.at(slot.binding_of.value());
+                    auto bind = bound_type_reference{.carried_type = bound_slot.type, .bound_symbol = slot.type};
+                    co_return bind;
+                }
+                auto type =  m_result.slots.at(index).type;
+                if (!m_slot_alive.at(index))
+                {
+                    type = create_nslot(type);
+                }
+                co_return type;
+
             }
             else
             {
@@ -84,7 +116,7 @@ namespace quxlang::impl
         {
             vmir2::storage_index index = m_result.slots.size();
             m_result.slots.push_back(vmir2::vm_slot{.type = type, .kind = vmir2::slot_kind::local});
-            m_slot_alive.push_back(true);
+            m_slot_alive.push_back(false);
             co_return index;
         }
 
