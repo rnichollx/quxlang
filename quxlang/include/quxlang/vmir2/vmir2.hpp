@@ -132,6 +132,9 @@ namespace quxlang
             RPNX_MEMBER_METADATA(slot_state, alive);
         };
 
+
+
+
         struct executable_block
         {
             std::vector< slot_state > entry_state;
@@ -139,6 +142,12 @@ namespace quxlang
             std::optional< vm_terminator > terminator;
 
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator);
+        };
+
+        struct executable_block_generation_state
+        {
+            executable_block block;
+            std::vector< slot_state > current_slot_states;
         };
 
         struct functanoid_routine2
