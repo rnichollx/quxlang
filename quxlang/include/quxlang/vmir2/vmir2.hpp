@@ -20,6 +20,7 @@ namespace quxlang
     namespace vmir2
     {
         struct access_field;
+        struct ret;
         struct invoke;
         struct make_reference;
         struct jump;
@@ -27,7 +28,7 @@ namespace quxlang
         struct cast_reference;
 
         using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference >;
-        using vm_terminator = rpnx::variant< jump, branch >;
+        using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
         using block_index = std::uint64_t;
@@ -70,23 +71,25 @@ namespace quxlang
             RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
 
-
-
         struct cast_reference
         {
             storage_index source_ref_index;
             storage_index target_ref_index;
-            std::int64_t  offset;
+            std::int64_t offset;
 
             RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index, offset);
         };
-
 
         struct jump
         {
             block_index target;
 
             RPNX_MEMBER_METADATA(jump, target);
+        };
+
+        struct ret
+        {
+            RPNX_EMPTY_METADATA(ret);
         };
 
         struct branch
@@ -105,7 +108,6 @@ namespace quxlang
             std::optional< std::string > literal_value;
             std::optional< storage_index > binding_of;
             slot_kind kind;
-
 
             RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, binding_of, kind);
         };
