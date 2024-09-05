@@ -36,6 +36,40 @@ Bitwise and.
 
 Bitwise or.
 
+## Logical Operators
+
+### Operator `&&`
+
+Logical and.
+
+### Operator `||`
+
+Logical or.
+
+### Operator `^^`
+
+Logical xor.
+
+### Operator `!^`
+
+Logical nxor.
+
+### Operator `!&`
+
+Logical nand.
+
+### Operator `!|`
+
+Logical nor.
+
+### Operator `?>`
+
+Logical implication.
+
+### Operator `<?`
+
+Logical reverse implication.
+
 ## Operator Sythesis
 
 Operators may be synthesized. 

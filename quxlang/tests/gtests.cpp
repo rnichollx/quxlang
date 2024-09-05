@@ -737,7 +737,7 @@ TEST(expression_ir, generation_real)
 
     quxlang::compiler c(sources, "linux-x64");
 
-    quxlang::expression expr = quxlang::parsers::parse_expression("2 + I32(@OTHER 8) - 4");
+    quxlang::expression expr = quxlang::parsers::parse_expression("2 + I32(@OTHER 8) - 4 < 5");
     auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr=expr, .context=mainmodule});
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);

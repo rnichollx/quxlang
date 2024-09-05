@@ -148,6 +148,13 @@ namespace quxlang
             RPNX_MEMBER_METADATA(frame, slots);
         };
 
+        storage_index create_temporary(frame & frame, type_symbol type);
+        storage_index create_variable(vmir2::frame& frame, type_symbol type, std::string name);
+        storage_index create_binding(frame & frame, storage_index idx, type_symbol type);
+        storage_index create_argument(frame & frame, type_symbol type);
+        storage_index create_numeric_literal(frame & frame, std::string value);
+        storage_index create_string_literal(frame & frame, std::string value);
+
         struct executable_block_generation_state
         {
             executable_block block;
@@ -155,7 +162,6 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
         };
-
 
         struct functanoid_routine2
         {

@@ -42,6 +42,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
         if (parent_kind == symbol_kind::builtin_class)
         {
             auto decls = co_await QUX_CO_DEP(list_builtin_functum_overloads, (input_val));
+
+            if (decls.size() > 0)
+            {
+                co_return symbol_kind::functum;
+            }
         }
 
         auto s = co_await QUX_CO_DEP(symboid, (input_val));

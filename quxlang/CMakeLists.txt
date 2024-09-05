@@ -239,6 +239,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         include/quxlang/res/lookup.hpp
         sources/res/lookup.cpp
         sources/res/variable_type_resolver.cpp
+        sources/vmir2/vmir2.cpp
 
 )
 

@@ -67,6 +67,14 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
                 });
             }
 
+            if (bool_operators.contains(operator_name))
+            {
+                allowed_operations.insert(primitive_function_info{
+                    .overload = function_overload{.builtin= true, .call_parameters = call_type{.named_parameters = {{"THIS", int_type}, {"OTHER", int_type}}, }},
+                    .return_type = primitive_type_bool_reference{}
+                });
+            }
+
 
             co_return (allowed_operations);
         }
