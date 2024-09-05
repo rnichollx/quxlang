@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, arg, local, literal, symbol, binding);
+RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, arg, local, literal, symbol, binding);
 
 namespace quxlang
 {

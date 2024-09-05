@@ -112,7 +112,7 @@ namespace quxlang::impl
         auto create_temporary_storage(type_symbol type) -> co_type< vmir2::storage_index >
         {
             vmir2::storage_index index = m_result.slots.size();
-            m_result.slots.push_back(vmir2::vm_slot{.type = type, .kind = vmir2::slot_kind::local});
+            m_result.slots.push_back(vmir2::vm_slot{.type = type,  .name = "TEMP" + std::to_string(index), .kind = vmir2::slot_kind::local});
             m_slot_alive.push_back(false);
             std::cout << "Created temp " << index << " with type " << quxlang::to_string(type) << std::endl;
 
@@ -153,7 +153,7 @@ namespace quxlang::impl
         co_type< vmir2::storage_index > create_numeric_literal(std::string literal)
         {
             vmir2::storage_index idx = m_result.slots.size();
-            m_result.slots.push_back(vmir2::vm_slot{.type = numeric_literal_reference{}, .name = "LITERAL" + std::to_string(idx), .literal_value = literal});
+            m_result.slots.push_back(vmir2::vm_slot{.type = numeric_literal_reference{}, .name = "LITERAL" + std::to_string(idx), .literal_value = literal, .kind=vmir2::slot_kind::literal,});
             m_slot_alive.push_back(true);
             co_return idx;
         }

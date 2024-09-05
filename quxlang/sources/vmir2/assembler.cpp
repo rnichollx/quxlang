@@ -16,7 +16,7 @@ namespace quxlang::vmir2
         for (std::size_t i = 1; i < inst.slots.size(); i++)
         {
 
-            output += indent + std::to_string(i) + " " + this->to_string(inst.slots.at(i));
+            output += indent + "" + std::to_string(i) + ": " + this->to_string(inst.slots.at(i));
             output += "\n";
         }
 
@@ -41,7 +41,29 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string(vmir2::vm_slot slt)
     {
-        std::string output = "SLOT " + quxlang::to_string(slt.type);
+        std::string output;
+
+        switch (slt.kind)
+        {
+case vmir2::slot_kind::local:
+            output = "LOCAL";
+            break;
+        case vmir2::slot_kind::arg:
+            output = "ARG";
+                break;
+        case vmir2::slot_kind::binding:
+            output = "BINDING";
+            break;
+        case vmir2::slot_kind::literal:
+            output = "LITERAL";
+            break;
+        default:
+            throw std::logic_error("Invalid slot kind");
+
+        }
+
+
+        output += " " + quxlang::to_string(slt.type);
 
         if (slt.literal_value)
         {

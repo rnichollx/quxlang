@@ -80,13 +80,19 @@ namespace quxlang
       private:
         auto gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
-            auto new_callee = subdotentity_reference{.parent = object_type , .subdotentity_name = "CONSTRUCTOR"};
+            vmir2::invocation_args args;
+            args.named["OTHER"] = idx;
+            co_return co_await gen_call_ctor(to_type, std::move(args));
+        }
 
-            auto new_object = co_await prv.create_temporary_storage(object_type);
-
-            callee = co_await prv.create_binding(new_object, new_callee);
-            callee_type = co_await prv.index_type(callee);
+        auto gen_call_ctor(type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto ctor = subdotentity_reference{.parent = new_type , .subdotentity_name = "CONSTRUCTOR"};
+            auto new_object = co_await prv.create_temporary_storage(new_type);
+            args.named["THIS"] = new_object;
+            auto retval = co_await gen_call_functum(ctor, args);
+            assert(retval == 0);
+            co_return new_object;
         }
 
 
@@ -116,29 +122,12 @@ namespace quxlang
             symbol_kind bound_symbol_kind = co_await prv.symbol_type(bound_symbol);
 
             vmir2::invocation_args args;
-            call_type call_t;
-
-
             std::string callee_type_string2 = to_string(as< bound_type_reference >(callee_type));
 
             std::cout << "requesting generate call to bindval=" << to_string(carried_type) << " bindsym=" << to_string(bound_symbol) << std::endl;
 
 
-            if (bound_symbol_kind == symbol_kind::user_class || bound_symbol_kind == symbol_kind::builtin_class)
-            {
-                if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
-                {
-                    throw std::logic_error("this is bug...");
-                }
-                auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
-                auto new_callee = subdotentity_reference{.parent = object_type , .subdotentity_name = "CONSTRUCTOR"};
 
-                auto new_object = co_await prv.create_temporary_storage(object_type);
-
-                callee = co_await prv.create_binding(new_object, new_callee);
-                callee_type = co_await prv.index_type(callee);
-
-            }
 
             std::string callee_type_string3 = to_string(callee_type);
 
@@ -155,12 +144,10 @@ namespace quxlang
                 if (arg.name)
                 {
                     args.named[*arg.name] = arg_val_idx;
-                    call_t.named_parameters[*arg.name] = co_await prv.index_type(arg_val_idx);
                 }
                 else
                 {
                     args.positional.push_back(arg_val_idx);
-                    call_t.positional_parameters.push_back(co_await prv.index_type(arg_val_idx));
                 }
             }
 
@@ -168,7 +155,18 @@ namespace quxlang
             {
                 auto bound_index = co_await prv.index_binding(callee);
                 args.named["THIS"] = bound_index;
-                call_t.named_parameters["THIS"] = co_await prv.index_type(bound_index);
+            }
+
+            if (bound_symbol_kind == symbol_kind::user_class || bound_symbol_kind == symbol_kind::builtin_class)
+            {
+                if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
+                {
+                    throw std::logic_error("this is bug...");
+                }
+                auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
+
+                co_return co_await gen_call_ctor(object_type, args);
+
             }
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
