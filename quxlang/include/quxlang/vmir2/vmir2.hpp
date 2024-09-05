@@ -148,6 +148,8 @@ namespace quxlang
         {
             executable_block block;
             std::vector< slot_state > current_slot_states;
+
+            RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
         };
 
         struct functanoid_routine2
