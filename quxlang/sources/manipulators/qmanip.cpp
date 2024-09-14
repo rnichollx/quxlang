@@ -61,40 +61,7 @@ namespace quxlang
         return result;
     }
 
-    std::string to_string(call_type const& ref)
-    {
-        std::string result = "call_type(";
-        bool first = true;
-        for (auto const& [name, type] : ref.named_parameters)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                result += ", ";
-            }
-            result += "@" + name + " " + to_string(type);
-        }
-        for (std::size_t i = 0; i < ref.positional_parameters.size(); i++)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                result += ", ";
-            }
-            auto typestr = to_string(ref.positional_parameters.at(i));
-            assert(!typestr.empty());
-            result += typestr;
-        }
-        result += ")";
 
-        return result;
-    }
 
     bool is_template(type_symbol const& ref);
 

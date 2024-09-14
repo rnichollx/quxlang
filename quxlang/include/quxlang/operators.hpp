@@ -22,6 +22,8 @@ namespace quxlang
     static std::set< std::string > const assignment_operators = {":=", ":<"};
     static std::set<std::string > const arithmetic_operators = {"+", "-", "*", "/", "%"};
 
+
+
 } // namespace quxlang
 
 #endif // QUXLANG_OPERATORS_HEADER_GUARD
