@@ -684,7 +684,7 @@ TEST(VariantTest, Serialization)
 
     EXPECT_EQ(v4, std::string("hello"));
 }
-
+/*
 TEST(expression_ir, generation)
 {
     quxlang::expr_test_provider pv;
@@ -725,7 +725,7 @@ TEST(expression_ir, generation)
 
     std::cout << result << std::endl;
 }
-
+*/
 TEST(expression_ir, generation_real)
 {
 

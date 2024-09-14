@@ -3,6 +3,7 @@
 
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/class_layout.hpp"
+#include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
@@ -15,13 +16,20 @@
 namespace quxlang
 {
 
-    template <typename T>
-    concept expr_co_provider = requires(T t)
-    {
-        { std::declval<typename T::template co_type<quxlang::type_symbol>>() };
-        { std::declval<typename T::template co_type<quxlang::vmir2::storage_index>>() };
-        { [&t]{ T t2 = t; }() };
-
+    template < typename T >
+    concept expr_co_provider = requires(T t) {
+        {
+            std::declval< typename T::template co_type< quxlang::type_symbol > >()
+        };
+        {
+            std::declval< typename T::template co_type< quxlang::vmir2::storage_index > >()
+        };
+        {
+            [&t]
+            {
+                T t2 = t;
+            }()
+        };
     };
 
     template < expr_co_provider CoroutineProvider >
@@ -32,9 +40,11 @@ namespace quxlang
 
       private:
         CoroutineProvider prv;
+        vmir2::executable_block_generation_state& exec;
+        type_symbol ctx;
 
       public:
-        co_vmir_expression_emitter(CoroutineProvider prv) : prv(prv)
+        co_vmir_expression_emitter(CoroutineProvider prv, type_symbol ctx, vmir2::executable_block_generation_state& exec) : prv(prv), ctx(ctx), exec(exec)
         {
         }
 
@@ -52,12 +62,12 @@ namespace quxlang
             }
             else if (typeis< expression_binary >(expr))
             {
-                std::cout << "generate binary" << as<expression_binary>(expr).operator_str << std::endl;
+                std::cout << "generate binary" << as< expression_binary >(expr).operator_str << std::endl;
                 co_return co_await (this->generate(as< expression_binary >(std::move(expr))));
             }
             else if (typeis< expression_call >(expr))
             {
-                std::cout << "generate call" << std::endl;// << as<expression_call>(expr).callee << std::endl;
+                std::cout << "generate call" << std::endl; // << as<expression_call>(expr).callee << std::endl;
 
                 co_return co_await (this->gen_call_expr(as< expression_call >(std::move(expr))));
             }
@@ -87,36 +97,100 @@ namespace quxlang
         }
 
       private:
-        auto create_temporary_storage(type_symbol type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto create_temporary_storage(type_symbol type) -> vmir2::storage_index
         {
-            co_return co_await prv.create_temporary_storage(type);
+            return exec.create_temporary(MOVEREL(type));
         }
 
-        auto index_type(storage_index idx) -> typename CoroutineProvider::template co_type<type_symbol>
+        auto current_type(storage_index idx) -> type_symbol
         {
-            co_return co_await prv.index_type(idx);
+            return exec.current_type(idx);
         }
 
-        auto index_binding(storage_index idx) -> typename CoroutineProvider::template co_type<storage_index>
+        auto index_binding(storage_index idx)
         {
-            co_return co_await prv.index_binding(idx);
+            return exec.index_binding(idx);
         }
 
-        auto create_binding(storage_index bindval, type_symbol bind_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto create_binding(storage_index bindval, type_symbol bind_type)
         {
-            co_return co_await prv.create_binding(bindval, bind_type);
+            return exec.create_binding(bindval, bind_type);
         }
 
-        auto emit(auto val)-> typename CoroutineProvider::template co_type< void >
+        auto emit(auto val)
         {
-            co_return co_await  prv.emit(val);
+            return exec.emit( val);
         }
 
-        auto slot_alive(storage_index slot) -> typename CoroutineProvider::template co_type< bool >
+        auto slot_alive(storage_index slot)
         {
-            co_return co_await prv.slot_alive(slot);
+            return exec.slot_alive(slot);
         }
-        
+
+        auto create_reference_internal(vmir2::storage_index index, type_symbol const & new_type)
+        {
+            // This function is used to handle the case where we have an index and need to force it into a
+            // reference type.
+            // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
+            // is encountered during an expression.
+            auto ty = this->current_type(index);
+
+            vmir2::storage_index temp = create_temporary_storage(new_type);
+
+            vmir2::make_reference ref;
+            ref.value_index = index;
+            ref.reference_index = temp;
+
+            // TODO: make this not a hack
+            this->emit(ref);
+
+            std::string slot_type = quxlang::to_string(exec.current_type(index));
+            // this is kind of a hack, but we can presume this after the make_reference call.
+
+            // TODO: Move all slot state management to the slot_generation_state class.
+            exec.current_slot_states[temp].alive = true;
+
+            return temp;
+        }
+
+
+
+
+        auto lookup_symbol(type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
+        {
+            auto canonical_symbol_opt = co_await prv.lookup(contextual_type_reference{.context = ctx, .type = sym});
+
+            if (!canonical_symbol_opt)
+            {
+                co_return std::nullopt;
+            }
+
+            auto canonical_symbol = canonical_symbol_opt.value();
+            std::string symbol_str = to_string(canonical_symbol);
+
+            auto kind = co_await prv.symbol_type(canonical_symbol);
+
+            vmir2::storage_index index = 0;
+
+            auto binding = create_binding(0, canonical_symbol);
+
+            if (kind == quxlang::symbol_kind::global_variable)
+            {
+                auto variable_type = co_await prv.variable_type(canonical_symbol);
+                index = this->create_reference_internal(binding, variable_type);
+            }
+            else
+            {
+                index = binding;
+            }
+
+            type_symbol index_type = this->current_type(index);
+
+            std::string index_type_str = to_string(index_type);
+
+            co_return index;
+        }
+
         auto gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             vmir2::invocation_args args;
@@ -126,22 +200,20 @@ namespace quxlang
 
         auto gen_call_ctor(type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto ctor = subdotentity_reference{.parent = new_type , .subdotentity_name = "CONSTRUCTOR"};
-            auto new_object = co_await create_temporary_storage(new_type);
+            auto ctor = subdotentity_reference{.parent = new_type, .subdotentity_name = "CONSTRUCTOR"};
+            auto new_object = create_temporary_storage(new_type);
             args.named["THIS"] = new_object;
             auto retval = co_await gen_call_functum(ctor, args);
             assert(retval == 0);
             co_return new_object;
         }
 
-
         auto gen_call_expr(expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             std::cout << "gen_call_expr A()" << std::endl;
             auto callee = co_await generate_expr(call.callee);
 
-
-            type_symbol callee_type = co_await this->index_type(callee);
+            type_symbol callee_type = this->current_type(callee);
             std::cout << "gen_call_expr B() -> callee_type=" << quxlang::to_string(callee_type) << std::endl;
 
             std::string callee_type_string = to_string(callee_type);
@@ -150,10 +222,9 @@ namespace quxlang
             {
                 auto value_type = remove_ref(callee_type);
                 auto operator_call = subdotentity_reference{.parent = value_type, .subdotentity_name = "OPERATOR()"};
-                callee = co_await this->create_binding(callee, operator_call);
-                callee_type = co_await this->index_type(callee);
+                callee = this->create_binding(callee, operator_call);
+                callee_type = this->current_type(callee);
             }
-
 
             type_symbol bound_symbol = as< bound_type_reference >(callee_type).bound_symbol;
 
@@ -165,11 +236,7 @@ namespace quxlang
 
             std::cout << "requesting generate call to bindval=" << to_string(carried_type) << " bindsym=" << to_string(bound_symbol) << std::endl;
 
-
-
-
             std::string callee_type_string3 = to_string(callee_type);
-
 
             for (auto& arg : call.args)
             {
@@ -178,7 +245,7 @@ namespace quxlang
                 // TODO: we shouldn't drop bindings here, since there might be a reason to accept
                 // binding values later.
                 // Instead all bindings should be implicitly convertible to their bound value.
-                arg_val_idx= co_await this->index_binding(arg_val_idx);
+                arg_val_idx = this->index_binding(arg_val_idx);
 
                 if (arg.name)
                 {
@@ -192,7 +259,7 @@ namespace quxlang
 
             if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
             {
-                auto bound_index = co_await this->index_binding(callee);
+                auto bound_index = this->index_binding(callee);
                 args.named["THIS"] = bound_index;
             }
 
@@ -205,7 +272,6 @@ namespace quxlang
                 auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
 
                 co_return co_await gen_call_ctor(object_type, args);
-
             }
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
@@ -218,19 +284,19 @@ namespace quxlang
             call_type calltype;
             for (auto& arg : args.positional)
             {
-                auto arg_type = co_await this->index_type(arg);
-                bool is_alive = co_await this->slot_alive(arg);
+                auto arg_type = this->current_type(arg);
+                bool is_alive = this->slot_alive(arg);
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
-                    //arg_type = nvalue_slot{arg_type};
+                    // arg_type = nvalue_slot{arg_type};
                 }
                 calltype.positional_parameters.push_back(arg_type);
             }
             for (auto& [name, arg] : args.named)
             {
-                auto arg_type = co_await index_type(arg);
-                bool is_alive = co_await slot_alive(arg);
+                auto arg_type = current_type(arg);
+                bool is_alive = slot_alive(arg);
 
                 std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << std::endl;
                 if (!is_alive)
@@ -254,9 +320,9 @@ namespace quxlang
             co_return co_await this->gen_call_functanoid(instanciation.value(), args);
         }
 
-        auto create_numeric_literal(std::string str) -> typename CoroutineProvider::template co_type < vmir2::storage_index >
+        auto create_numeric_literal(std::string str)
         {
-            co_return co_await prv.create_numeric_literal(str);
+            return exec.create_numeric_literal(str);
         }
 
         auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
@@ -272,24 +338,24 @@ namespace quxlang
             auto create_arg_value = [&](storage_index arg_expr_index, type_symbol arg_target_type) -> typename CoroutineProvider::template co_type< storage_index >
             {
                 // TODO: Support PRValue args
-                auto arg_expr_type = co_await this->index_type(arg_expr_index);
-                bool arg_alive = co_await this->slot_alive(arg_expr_index);
+                auto arg_expr_type = this->current_type(arg_expr_index);
+                bool arg_alive = this->slot_alive(arg_expr_index);
 
                 if (!arg_alive)
                 {
                     assert(!is_ref(arg_expr_type));
-                   // arg_expr_type = nvalue_slot{arg_expr_type};
+                    // arg_expr_type = nvalue_slot{arg_expr_type};
                 }
 
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
                     std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << quxlang::to_string(expression_args) << std::endl;
-                    auto index = co_await create_temporary_storage(arg_target_type);
+                    auto index = create_temporary_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
-                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index},  {"OTHER", arg_expr_index}}};
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
                     // These both need to be references or the constructor will probably infinite loop.
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
@@ -309,12 +375,12 @@ namespace quxlang
                         co_return arg_expr_index;
                     }
 
-                    auto index = co_await create_temporary_storage(arg_target_type);
+                    auto index = create_temporary_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
 
-                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index} } };
+                    vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
 
                     // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
                     co_await gen_call_functum(arg_final_ctor_func, ctor_args);
@@ -380,7 +446,7 @@ namespace quxlang
 
             if (!typeis< void_type >(return_type))
             {
-                auto return_slot = co_await create_temporary_storage(return_type);
+                auto return_slot = create_temporary_storage(return_type);
                 std::cout << "Created return slot " << return_slot << std::endl;
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
@@ -407,21 +473,21 @@ namespace quxlang
 
         auto gen_reinterpret_reference(storage_index ref_index, type_symbol target_ref_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
-            auto ref_type = co_await this->index_type(ref_index);
+            auto ref_type = this->current_type(ref_index);
 
             if (!is_ref(target_ref_type) || !is_ref(ref_type))
             {
                 throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
             }
 
-            auto new_index = co_await create_temporary_storage(target_ref_type);
+            auto new_index = create_temporary_storage(target_ref_type);
 
             vmir2::access_field make_ref;
             make_ref.base_index = ref_index;
             make_ref.store_index = new_index;
             make_ref.offset = 0;
 
-            co_await this->emit(make_ref);
+            this->emit(make_ref);
 
             co_return new_index;
         }
@@ -441,10 +507,10 @@ namespace quxlang
         auto gen_value_constructor_conversion(storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
 
-            type_symbol value_type = co_await this->index_type(value_index);
+            type_symbol value_type = this->current_type(value_index);
             std::cout << "gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
-            auto new_value_index = co_await create_temporary_storage(target_value_type);
+            auto new_value_index = create_temporary_storage(target_value_type);
 
             auto conversion_functum = subdotentity_reference{target_value_type, "CONSTRUCTOR"};
 
@@ -455,7 +521,7 @@ namespace quxlang
 
         auto gen_implicit_conversion(storage_index value_index, type_symbol target_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
-            type_symbol value_type = co_await this->index_type(value_index);
+            type_symbol value_type = this->current_type(value_index);
             std::cout << "gen_implicit_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
 
             if (value_type == target_type)
@@ -489,13 +555,13 @@ namespace quxlang
             ivk.what = what;
             ivk.args = args;
 
-            co_await this->emit(ivk);
+            this->emit(ivk);
             co_return;
         }
 
         auto generate(expression_symbol_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            co_return (co_await prv.lookup_symbol(expr.symbol)).value();
+            co_return (co_await this->lookup_symbol(expr.symbol)).value();
         }
 
         auto generate(expression_this_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -515,8 +581,8 @@ namespace quxlang
             auto lhs = co_await generate_expr(input.lhs);
             auto rhs = co_await generate_expr(input.rhs);
 
-            type_symbol lhs_type = co_await this->index_type(lhs);
-            type_symbol rhs_type = co_await this->index_type(rhs);
+            type_symbol lhs_type = this->current_type(lhs);
+            type_symbol rhs_type = this->current_type(rhs);
 
             type_symbol lhs_underlying_type = remove_ref(lhs_type);
             type_symbol rhs_underlying_type = remove_ref(rhs_type);
@@ -547,17 +613,17 @@ namespace quxlang
 
         auto generate(expression_numeric_literal input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-                auto val = co_await this->create_numeric_literal(input.value);
+            auto val = this->create_numeric_literal(input.value);
             assert(val != 0);
-            auto val_type = co_await this->index_type(val);
+            auto val_type = this->current_type(val);
             std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl;
-                co_return val;
+            co_return val;
         }
 
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto this_reference = subdotentity_reference{.parent = context_reference{}, .subdotentity_name = "THIS"};
-            auto value = co_await prv.lookup_symbol(this_reference);
+            auto value = co_await this->lookup_symbol(this_reference);
             if (!value)
             {
                 throw std::logic_error("Cannot find " + to_string(this_reference));
@@ -574,7 +640,7 @@ namespace quxlang
 
         auto generate_field_access(storage_index base, std::string field_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto base_type = co_await this->index_type(base);
+            auto base_type = this->current_type(base);
             auto base_type_noref = quxlang::remove_ref(base_type);
 
             class_layout layout = co_await prv.class_layout(base_type_noref);
@@ -587,10 +653,10 @@ namespace quxlang
                     access.base_index = base;
                     access.offset = field.offset;
                     type_symbol result_ref_type = recast_reference(base_type, field.type);
-                    access.store_index = co_await create_temporary_storage(result_ref_type);
+                    access.store_index = create_temporary_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
-                    co_await this->emit(access);
+                    this->emit(access);
                     co_return access.store_index;
                 }
             }
@@ -598,6 +664,13 @@ namespace quxlang
             throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
     };
+
+    template < typename Prv >
+    auto emit_expression(Prv pr, type_symbol ctx, vmir2::slot_generation_state& slots, vmir2::executable_block_generation_state& exec, expression expr) -> typename Prv::template co_type< vmir2::storage_index >
+    {
+        co_vmir_expression_emitter prv(pr, ctx, slots, exec);
+        co_return co_await prv.generate_expr(expr);
+    }
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_CO_VMIR_EXPRESSION_EMITTER_HEADER

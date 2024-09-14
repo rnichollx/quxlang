@@ -15,6 +15,14 @@
 #include "rpnx/value.hpp"
 // clang-format off
 
+// MOVEREL is Move In Release Configuration
+// Helps preserve objects for debugging in debug builds.
+#ifdef _NDEBUG
+#define MOVEREL(x) std::move(x)
+#else
+#define MOVEREL(x) x
+#endif
+
 
 // QUX_AST_METADATA is a macro that allows ast2_ X to be converted to X,
 // and provides tie functions for comparison, assignment, etc.

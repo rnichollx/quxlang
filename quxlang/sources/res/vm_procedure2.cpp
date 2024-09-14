@@ -23,7 +23,7 @@ namespace quxlang
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 {
-    vm_procedure2_generator gen(routine_ir2_binder(c), input);
-
-    co_return co_await gen.generate();
+ //   vm_procedure2_generator gen(routine_ir2_binder(c), input);
+  throw rpnx::unimplemented();
+   // co_return co_await gen.generate();
 }

@@ -8,94 +8,22 @@
 
 namespace quxlang::impl
 {
+    /*
     class expr_ir2_binder : public compiler_binder
     {
-        type_symbol m_context;
-        // TODO: This requires fixing, the binder is copied by-value so the result object needs to be a pointer to something somewhere else
-        vmir2::functanoid_routine& m_result;
-        // TODO: Same with the slot lifetime state.
-        std::vector< bool >& m_slot_alive;
 
       public:
-        expr_ir2_binder(compiler* c, std::vector< bool >& alive_slots, vmir2::functanoid_routine & a_result, type_symbol context, expression expr) : compiler_binder(c), m_context(context), m_result(a_result), m_slot_alive(alive_slots)
+        expr_ir2_binder(compiler* c) : compiler_binder(c)
         {
-            if (m_result.slots.size() == 0)
-            {
-                m_result.slots.push_back(vmir2::vm_slot{.type = void_type{}, .name = "VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
-            }
-            if (m_slot_alive.size() == 0)
-            {
-                m_slot_alive.push_back(true);
-            }
+
         }
 
-        auto& get() const&
-        {
-            return m_result;
-        }
 
-        auto lookup_symbol(type_symbol sym) -> co_type< std::optional< vmir2::storage_index > >
-        {
-            auto canonical_symbol = co_await canonical_symbol_from_contextual_symbol(contextual_type_reference{.context = m_context, .type = sym});
 
-            std::string symbol_str = to_string(canonical_symbol);
 
-            auto kind = co_await this->symbol_type(canonical_symbol);
 
-            vmir2::storage_index index = 0;
 
-            auto binding = co_await create_binding(0, canonical_symbol);
 
-            if (kind == quxlang::symbol_kind::global_variable)
-            {
-                auto variable_type = co_await this->variable_type(canonical_symbol);
-                index = co_await create_reference_internal(binding, variable_type);
-            }
-            else
-            {
-                index = binding;
-            }
-
-            type_symbol index_type = co_await this->index_type(index);
-
-            std::string index_type_str = to_string(index_type);
-
-            co_return index;
-        }
-
-        auto index_binding(vmir2::storage_index index) -> co_type< vmir2::storage_index >
-        {
-            auto& slot = m_result.slots.at(index);
-            if (slot.kind == vmir2::slot_kind::binding)
-            {
-                co_return slot.binding_of.value();
-            }
-            co_return index;
-        }
-
-        auto index_type(vmir2::storage_index index) -> co_type< type_symbol >
-        {
-            if (index < m_result.slots.size())
-            {
-                auto& slot = m_result.slots.at(index);
-                if (slot.kind == vmir2::slot_kind::binding)
-                {
-                    auto& bound_slot = m_result.slots.at(slot.binding_of.value());
-                    auto bind = bound_type_reference{.carried_type = bound_slot.type, .bound_symbol = slot.type};
-                    co_return bind;
-                }
-                auto type = m_result.slots.at(index).type;
-                if (!m_slot_alive.at(index))
-                {
-                    type = create_nslot(type);
-                }
-                co_return type;
-            }
-            else
-            {
-                throw std::make_exception_ptr(std::logic_error("Not found"));
-            }
-        }
 
         auto slot_alive(vmir2::storage_index index) -> co_type< bool >
         {
@@ -289,6 +217,7 @@ namespace quxlang::impl
             co_return;
         }
     };
+    */
 } // namespace quxlang::impl
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
@@ -296,9 +225,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
     quxlang::vmir2::functanoid_routine r;
 
     std::vector< bool > temp;
-    quxlang::impl::expr_ir2_binder binder(c, temp, r, input.context, input.expr);
-    co_vmir_expression_emitter< quxlang::impl::expr_ir2_binder > emitter(binder);
+    quxlang::compiler_binder binder(c);
+    quxlang::vmir2::executable_block_generation_state blockstate;
+    co_vmir_expression_emitter< quxlang::compiler_binder > emitter(binder, input.context,  blockstate);
     auto result = co_await emitter.generate_expr(input.expr);
-
+    r.slots = blockstate.slots.slots;
+    r.instructions = blockstate.block.instructions;
     co_return r;
 }
