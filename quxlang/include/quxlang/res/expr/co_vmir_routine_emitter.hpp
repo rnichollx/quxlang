@@ -49,114 +49,7 @@ namespace quxlang
         using block_index_t = std::size_t;
 
       private:
-        struct block_lookup_table
-        {
-            std::map< std::string, vmir2::storage_index > locals;
-            std::map< block_index_t, bool > entry_lifetimes;
-        };
 
-        struct expression_binder : CoroutineProvider
-        {
-            block_index_t& current_block;
-            vm_procedure2_generator* gen;
-            expression_binder(vm_procedure2_generator* gen, block_index_t& current_block) : CoroutineProvider(gen->prv), current_block(current_block), gen(gen)
-            {
-            }
-
-            auto create_numeric_literal(std::string lit) -> CoroutineProvider::template co_type< vmir2::storage_index >
-            {
-                auto temp = co_await gen->generate_numeric_literal(lit);
-                co_return temp;
-            }
-
-
-            auto create_binding(vmir2::storage_index idx, type_symbol what) -> CoroutineProvider::template co_type< vmir2::storage_index >
-            {
-                auto temp = co_await gen->generate_binding(idx, what);
-                co_return temp;
-            }
-
-            auto index_binding(vmir2::storage_index idx) -> CoroutineProvider::template co_type< vmir2::storage_index >
-            {
-                co_return gen->result.slots.at(idx).binding_of.value();
-            }
-
-            auto lookup_symbol(type_symbol symbol) -> CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
-            {
-                bool is_possibly_frame_value = typeis< subentity_reference >(symbol) && typeis< context_reference >(as< subentity_reference >(symbol).parent);
-
-                // Frame values are sub-entities of the current context.
-                if (is_possibly_frame_value)
-                {
-                    std::string name = as< subentity_reference >(symbol).subentity_name;
-                    auto it = gen->block_lookup_tables.at(current_block).locals.find(name);
-
-                    if (it != gen->block_lookup_tables.at(current_block).locals.end())
-                    {
-                        co_return it->second;
-                    }
-                }
-
-                // assert(ctx.current_context() == m_func_name);
-                contextual_type_reference ctype{.context = gen->func, .type = symbol};
-
-                auto canonical_symbol = co_await this->canonical_symbol_from_contextual_symbol(ctype);
-
-                std::string symbol_str = to_string(canonical_symbol);
-
-                // TODO: Check if global variable
-                bool is_global_variable = false;
-                bool is_function = true; // This might not actually be true
-                auto binding = co_await gen->generate_binding(0, canonical_symbol);
-
-                type_symbol binding_type_dbg = co_await this->index_type(binding);
-
-                std::string binding_type_dbg_str = to_string(binding_type_dbg);
-
-                co_return binding;
-            }
-
-            auto index_type(vmir2::storage_index index) -> CoroutineProvider::template co_type< type_symbol >
-            {
-                co_return gen->result.slots.at(index).type;
-            }
-
-            auto create_temporary_storage(type_symbol type) -> CoroutineProvider::template co_type< vmir2::storage_index >
-            {
-                auto temp = co_await gen->generate_temporary(type);
-                co_return temp;
-            }
-
-            auto emit(vmir2::access_field fld) -> CoroutineProvider::template co_type< void >
-            {
-                this->gen->result.blocks.at(current_block).instructions.push_back(fld);
-                this->gen->current_lifetimes.at(fld.store_index) = true;
-                co_return;
-            }
-
-            auto emit(vmir2::invoke ivk) -> CoroutineProvider::template co_type< void >
-            {
-                this->gen->result.blocks.at(current_block).instructions.push_back(ivk);
-
-                instanciation_reference const & inst = as< instanciation_reference >(ivk.what);
-                for (auto& [name, index] : ivk.args.named)
-                {
-                    auto slot_type = co_await index_type(index);
-                    auto parameter_type = inst.parameters.named_parameters.at(name);
-
-                    // TODO:
-
-                    throw rpnx::unimplemented();
-                }
-            }
-
-            auto slot_alive(vmir2::storage_index index) -> CoroutineProvider::template co_type< bool >
-            {
-                co_return gen->current_lifetimes.at(index);
-            }
-
-
-        };
 
         type_symbol func;
 
@@ -167,8 +60,10 @@ namespace quxlang
         std::size_t temp_index = 0;
         std::size_t next_block_index = 0;
         std::map< std::string, block_index_t > block_map;
-        std::vector< block_lookup_table > block_lookup_tables;
-        std::map< block_index_t, bool > current_lifetimes;
+
+        std::vector<vmir2::executable_block_generation_state> block_states;
+
+
 
         using co_slot = CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
         using co_block = CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
@@ -202,10 +97,10 @@ namespace quxlang
 
             std::string block_name;
             block_name = "BLOCK" + std::to_string(index);
-            result.blocks.emplace_back();
+            //result.blocks.emplace_back();
+
+            block_states.push_back(block_states.at(parent).clone_subblock());
             block_map[block_name] = index;
-            block_lookup_tables.at(index) = block_lookup_tables.at(parent);
-            block_lookup_tables.at(index).entry_lifetimes = current_lifetimes;
             co_return index;
         }
 

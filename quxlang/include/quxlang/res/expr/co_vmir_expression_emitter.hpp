@@ -666,10 +666,10 @@ namespace quxlang
     };
 
     template < typename Prv >
-    auto emit_expression(Prv pr, type_symbol ctx, vmir2::slot_generation_state& slots, vmir2::executable_block_generation_state& exec, expression expr) -> typename Prv::template co_type< vmir2::storage_index >
+    auto emit_expression(Prv pr, type_symbol ctx, vmir2::executable_block_generation_state& exec, expression expr) -> typename Prv::template co_type< vmir2::storage_index >
     {
-        co_vmir_expression_emitter prv(pr, ctx, slots, exec);
-        co_return co_await prv.generate_expr(expr);
+        co_vmir_expression_emitter expr_emit(pr, ctx, exec);
+        co_return co_await expr_emit.generate_expr(expr);
     }
 } // namespace quxlang
 

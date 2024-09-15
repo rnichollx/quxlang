@@ -66,6 +66,13 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
     }
     return type;
 }
+quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_block_generation_state::clone_subblock()
+{
+    executable_block_generation_state copy;
+    copy.slots = slots;
+    copy.block.entry_state = current_slot_states;
+    return copy;
+}
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field fld)
 {
     block.instructions.push_back(fld);

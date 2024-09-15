@@ -138,8 +138,6 @@ namespace quxlang
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
 
-
-
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator);
         };
 
@@ -153,6 +151,9 @@ namespace quxlang
 
             slot_generation_state(const slot_generation_state&) = default;
             slot_generation_state(slot_generation_state&&) = default;
+
+            slot_generation_state& operator=(const slot_generation_state&) = default;
+            slot_generation_state& operator=(slot_generation_state&&) = default;
 
             std::vector< vm_slot > slots;
 
@@ -174,11 +175,12 @@ namespace quxlang
 
             type_symbol current_type(storage_index idx);
 
+            executable_block_generation_state clone_subblock();
             void emit(vmir2::access_field fld);
             void emit(vmir2::invoke inv);
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);
-            bool slot_alive( storage_index idx);
+            bool slot_alive(storage_index idx);
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
             storage_index create_binding(storage_index idx, type_symbol type);
