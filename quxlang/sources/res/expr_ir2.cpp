@@ -226,10 +226,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
 
     std::vector< bool > temp;
     quxlang::compiler_binder binder(c);
-    quxlang::vmir2::executable_block_generation_state blockstate;
+    quxlang::vmir2::slot_generation_state slotstates;
+    quxlang::vmir2::executable_block_generation_state blockstate(&slotstates);
     co_vmir_expression_emitter< quxlang::compiler_binder > emitter(binder, input.context,  blockstate);
     auto result = co_await emitter.generate_expr(input.expr);
-    r.slots = blockstate.slots.slots;
+    r.slots = blockstate.slots->slots;
     r.instructions = blockstate.block.instructions;
     co_return r;
 }

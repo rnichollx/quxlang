@@ -12,68 +12,75 @@
 #include "quxlang/manipulators/vm_type_alignment.hpp"
 #include "quxlang/manipulators/vmmanip.hpp"
 #include "quxlang/to_pretty_string.hpp"
-#include "llvm/Bitcode/BitcodeReader.h"
-#include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCObjectFileInfo.h"
-#include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCParser/MCAsmParser.h"
-#include "llvm/MC/MCParser/MCTargetAsmParser.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/MC/MCTargetOptionsCommandFlags.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/Passes.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ExecutionEngine/Orc/LLJIT.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstBuilder.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCObjectStreamer.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/StandardInstrumentations.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Scalar/GVN.h"
-#include "llvm/Transforms/Scalar/Reassociate.h"
-#include "llvm/Transforms/Scalar/SimplifyCFG.h"
-#include "llvm/Transforms/Utils.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "quxlang/data/output_object_symbol.hpp"
+#include "quxlang/manipulators/convert_llvm_object.hpp"
+#include "quxlang/backends/asm/arm_asm_converter.hpp"
+
+#pragma warning(push)
+#pragma warning(disable:4244)
+
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/MC/MCAsmBackend.h>
+#include <llvm/MC/MCAsmInfo.h>
+#include <llvm/MC/MCCodeEmitter.h>
+#include <llvm/MC/MCContext.h>
+#include <llvm/MC/MCObjectFileInfo.h>
+#include <llvm/MC/MCObjectWriter.h>
+#include <llvm/MC/MCParser/MCAsmParser.h>
+#include <llvm/MC/MCParser/MCTargetAsmParser.h>
+#include <llvm/MC/MCRegisterInfo.h>
+#include <llvm/MC/MCStreamer.h>
+#include <llvm/MC/MCSubtargetInfo.h>
+#include <llvm/MC/MCTargetOptions.h>
+#include <llvm/MC/MCTargetOptionsCommandFlags.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/ADT/Optional.h>
+#include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/Analysis/BasicAliasAnalysis.h>
+#include <llvm/Analysis/Passes.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/MC/MCAsmBackend.h>
+#include <llvm/MC/MCCodeEmitter.h>
+#include <llvm/MC/MCContext.h>
+#include <llvm/MC/MCInst.h>
+#include <llvm/MC/MCInstBuilder.h>
+#include <llvm/MC/MCInstrInfo.h>
+#include <llvm/MC/MCObjectStreamer.h>
+#include <llvm/MC/MCStreamer.h>
+#include <llvm/MC/MCSubtargetInfo.h>
+#include <llvm/MC/MCTargetOptions.h>
+#include <llvm/MC/TargetRegistry.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/StandardInstrumentations.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils.h>
+#include <llvm/Transforms/Utils/PromoteMemToReg.h>
 #include <iostream>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/GenericValue.h>
@@ -85,11 +92,9 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
-#include <optional>
 
-#include "quxlang/data/output_object_symbol.hpp"
-#include "quxlang/manipulators/convert_llvm_object.hpp"
-#include "llvm/Transforms/InstCombine/InstCombine.h"
+
+#include <llvm/Transforms/InstCombine/InstCombine.h>
 
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/Function.h>
@@ -97,9 +102,11 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
 
+
+#include <optional>
 #include <fstream>
 
-#include "quxlang/backends/asm/arm_asm_converter.hpp"
+#pragma warning(pop)
 
 std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::vm_procedure vmf)
 {
@@ -158,8 +165,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
     llvm::BasicBlock* p_block = entry;
 
-    std::string function_code_stirng = to_pretty_string(vmf.body);
-    // std::cout << function_code_stirng << std::endl;
+    std::string function_code_string = to_pretty_string(vmf.body);
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame, vmf);
 

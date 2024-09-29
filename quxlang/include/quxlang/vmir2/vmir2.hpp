@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, arg, local, literal, symbol, binding);
+RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, named_arg, local, literal, symbol, binding);
 
 namespace quxlang
 {
@@ -106,10 +106,11 @@ namespace quxlang
             type_symbol type;
             std::optional< std::string > name;
             std::optional< std::string > literal_value;
+            std::optional< std::string > arg_name;
             std::optional< storage_index > binding_of;
             slot_kind kind;
 
-            RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, binding_of, kind);
+            RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, arg_name, binding_of, kind);
         };
 
         struct vm_context
@@ -160,7 +161,8 @@ namespace quxlang
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
             storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_argument(type_symbol type);
+            storage_index create_positional_argument(type_symbol type);
+            storage_index create_named_argument(std::string name, type_symbol type);
             storage_index create_numeric_literal(std::string value);
             storage_index index_binding(storage_index idx);
 
@@ -169,9 +171,18 @@ namespace quxlang
 
         struct executable_block_generation_state
         {
+
+            executable_block_generation_state(slot_generation_state *slots) : slots(slots)
+            {
+            }
+            executable_block_generation_state(const executable_block_generation_state&) = default;
+            executable_block_generation_state(executable_block_generation_state&&) = default;
+
+
             vmir2::executable_block block;
-            slot_generation_state slots;
+            slot_generation_state *slots;
             std::vector< slot_state > current_slot_states = {slot_state{}};
+            std::map< std::string , storage_index > named_references;
 
             type_symbol current_type(storage_index idx);
 
@@ -181,12 +192,18 @@ namespace quxlang
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);
             bool slot_alive(storage_index idx);
+
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
             storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_argument(type_symbol type);
+            storage_index create_positional_argument(type_symbol type, std::optional< std::string > label_name);
+            storage_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
+
+
             storage_index create_numeric_literal(std::string value);
             storage_index index_binding(storage_index idx);
+
+            std::optional<storage_index> local_lookup(std::string name);
 
             RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
         };
@@ -200,6 +217,31 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks);
         };
+
+        struct frame_generation_state
+        {
+            slot_generation_state slots;
+
+            std::vector<vmir2::executable_block_generation_state> block_states;
+            std::map<std::string, std::size_t> block_map;
+
+            void generate_jump(std::size_t from, std::size_t to);
+            void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
+            std::size_t generate_entry_block();
+            std::size_t generate_subblock(std::size_t of);
+
+            std::size_t entry_block_id();
+
+            executable_block_generation_state & entry_block();
+            executable_block_generation_state & block(std::size_t id);
+
+            functanoid_routine2 get_result();
+
+            RPNX_MEMBER_METADATA(frame_generation_state, slots);
+
+        };
+
+
     } // namespace vmir2
 
 }; // namespace quxlang

@@ -45,12 +45,13 @@ namespace quxlang::vmir2
 
         switch (slt.kind)
         {
-case vmir2::slot_kind::local:
+        case vmir2::slot_kind::local:
             output = "LOCAL";
             break;
-        case vmir2::slot_kind::arg:
+        case vmir2::slot_kind::positional_arg:
+        case vmir2::slot_kind::named_arg:
             output = "ARG";
-                break;
+            break;
         case vmir2::slot_kind::binding:
             output = "BINDING";
             break;
@@ -59,9 +60,7 @@ case vmir2::slot_kind::local:
             break;
         default:
             throw std::logic_error("Invalid slot kind");
-
         }
-
 
         output += " " + quxlang::to_string(slt.type);
 
@@ -69,8 +68,6 @@ case vmir2::slot_kind::local:
         {
             output += " " + *slt.literal_value;
         }
-
-
 
         if (slt.binding_of)
         {

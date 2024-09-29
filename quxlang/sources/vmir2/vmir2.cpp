@@ -23,12 +23,19 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_bind
     slots.push_back(vm_slot{.type = type, .binding_of = idx, .kind = slot_kind::binding});
     return slot_id;
 }
-quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_argument(type_symbol type)
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_positional_argument(type_symbol type)
 {
     storage_index slot_id = slots.size();
-    slots.push_back(vm_slot{.type = type, .kind = slot_kind::arg});
+    slots.push_back(vm_slot{.type = type, .kind = slot_kind::positional_arg});
     return slot_id;
 }
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_named_argument(std::string name, type_symbol type)
+{
+    storage_index slot_id = slots.size();
+    slots.push_back(vm_slot{.type = type, .arg_name = name, .kind = slot_kind::named_arg});
+    return slot_id;
+}
+
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_numeric_literal(std::string value)
 {
     storage_index slot_id = slots.size();
@@ -47,19 +54,19 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::index_bindi
 }
 quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_type(storage_index idx)
 {
-    if (idx >= slots.slots.size())
+    if (idx >= slots->slots.size())
     {
         throw std::make_exception_ptr(std::logic_error("Not found"));
     }
 
-    auto& slot = slots.slots.at(idx);
+    auto& slot = slots->slots.at(idx);
     if (slot.kind == vmir2::slot_kind::binding)
     {
-        auto& bound_slot = slots.slots.at(slot.binding_of.value());
+        auto& bound_slot = slots->slots.at(slot.binding_of.value());
         auto bind = bound_type_reference{.carried_type = bound_slot.type, .bound_symbol = slot.type};
         return bind;
     }
-    auto type = slots.slots.at(idx).type;
+    auto type = slots->slots.at(idx).type;
     if (!current_slot_states.at(idx).alive)
     {
         type = create_nslot(type);
@@ -68,8 +75,7 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
 }
 quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_block_generation_state::clone_subblock()
 {
-    executable_block_generation_state copy;
-    copy.slots = slots;
+    executable_block_generation_state copy(*this);
     copy.block.entry_state = current_slot_states;
     return copy;
 }
@@ -186,30 +192,36 @@ bool quxlang::vmir2::executable_block_generation_state::slot_alive(storage_index
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_temporary(type_symbol type)
 {
     current_slot_states.push_back(slot_state{});
-    return slots.create_temporary(type);
+    return slots->create_temporary(type);
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_variable(type_symbol type, std::string name)
 {
     current_slot_states.push_back(slot_state{});
-    return slots.create_variable(type, name);
+    return slots->create_variable(type, name);
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_binding(storage_index idx, type_symbol type)
 {
     current_slot_states.push_back(slot_state{});
-    return slots.create_binding(idx, type);
+    return slots->create_binding(idx, type);
 }
-quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_argument(type_symbol type)
+quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_positional_argument(type_symbol type, std::optional< std::string > label_name)
 {
     current_slot_states.push_back(slot_state{});
-    return slots.create_argument(type);
+    return slots->create_positional_argument(type);
 }
+quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name)
+{
+    current_slot_states.push_back(slot_state{});
+    return slots->create_named_argument(interface_name, type);
+}
+
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_numeric_literal(std::string value)
 {
     current_slot_states.push_back(slot_state{.alive = true});
-    return slots.create_numeric_literal(value);
+    return slots->create_numeric_literal(value);
 }
 
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::index_binding(storage_index idx)
 {
-    return slots.index_binding(idx);
+    return slots->index_binding(idx);
 }
