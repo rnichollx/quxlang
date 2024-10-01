@@ -234,6 +234,13 @@ namespace quxlang
             return node->get();
         }
 
+        vmir2::functanoid_routine2 get_vm_procedure2(instanciation_reference func_addr)
+        {
+            auto node = lk_vm_procedure2(func_addr);
+            m_solver.solve(this, node);
+            return node->get();
+        }
+
 
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)

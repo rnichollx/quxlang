@@ -222,7 +222,7 @@ namespace quxlang::impl
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
 {
-    quxlang::vmir2::functanoid_routine r;
+    quxlang::vmir2::functanoid_routine2 r;
 
     std::vector< bool > temp;
     quxlang::compiler_binder binder(c);
@@ -231,6 +231,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
     co_vmir_expression_emitter< quxlang::compiler_binder > emitter(binder, input.context,  blockstate);
     auto result = co_await emitter.generate_expr(input.expr);
     r.slots = blockstate.slots->slots;
-    r.instructions = blockstate.block.instructions;
+    r.blocks.emplace_back();
+    r.blocks.at(0) = blockstate.block;
     co_return r;
 }

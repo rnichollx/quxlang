@@ -211,11 +211,12 @@ namespace quxlang
         struct functanoid_routine2
         {
             std::vector< vm_slot > slots;
-            block_index entry_block;
+            block_index entry_block = 0;
             std::optional< block_index > return_block;
             std::vector< executable_block > blocks;
+            std::map< block_index, std::string > block_names;
 
-            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks);
+            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names);
         };
 
         struct frame_generation_state
@@ -224,9 +225,14 @@ namespace quxlang
 
             std::vector<vmir2::executable_block_generation_state> block_states;
             std::map<std::string, std::size_t> block_map;
+            std::optional<std::size_t> entry_block_opt;
 
             void generate_jump(std::size_t from, std::size_t to);
             void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
+            inline bool has_terminator(std::size_t block)
+            {
+                return block_states[block].block.terminator.has_value();
+            }
             std::size_t generate_entry_block();
             std::size_t generate_subblock(std::size_t of);
 

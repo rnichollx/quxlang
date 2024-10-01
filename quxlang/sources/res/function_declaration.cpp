@@ -31,6 +31,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
     functum const& functum_entity_ast_v = as< functum >(entity_ast_v);
 
+
+
     for (auto& func : functum_entity_ast_v.functions)
     {
         function_overload func_ol;
@@ -54,7 +56,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
             }
         }
 
-        if (func_ol == func_addr.overload)
+        std::string s1 = to_string(func_ol.call_parameters);
+        std::string s2 = to_string(func_addr.overload.call_parameters);
+
+
+        std::string s3 = func_ol.builtin ? "builtin" : "not builtin";
+        std::string s4 = func_addr.overload.builtin ? "builtin" : "not builtin";
+
+        function_overload const & other_ol = func_addr.overload;
+        if (func_ol == other_ol)
         {
             // TODO: this should check for multiple/duplicate matches.
             //  I wont do this now, it can be finished later on.

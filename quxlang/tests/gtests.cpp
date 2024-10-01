@@ -728,6 +728,21 @@ TEST(expression_ir, generation)
 */
 TEST(expression_ir, generation_real)
 {
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    quxlang::compiler c(sources, "linux-x64");
+    std::string expr_string = "2 + I32(@OTHER 8) - 4 < 5";
+    quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+    auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr=expr, .context=mainmodule});
+    std::string result = quxlang::vmir2::assembler(func).to_string(func);
+    std::cout << "From: "<< expr_string << std::endl;
+    std::cout << "Generated the following IR:" << std::endl;
+    std::cout << result << std::endl;
+}
+
+TEST(expression_ir, func_gen)
+{
 
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
 
@@ -737,12 +752,15 @@ TEST(expression_ir, generation_real)
 
     quxlang::compiler c(sources, "linux-x64");
 
-    quxlang::expression expr = quxlang::parsers::parse_expression("2 + I32(@OTHER 8) - 4 < 5");
-    auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr=expr, .context=mainmodule});
+
+    auto func_name = quxlang::parsers::parse_type_symbol("::main #{}");
+
+    func_name = quxlang::with_context( func_name, mainmodule);
+
+
+    auto func = c.get_vm_procedure2(func_name);
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 
     std::cout << result << std::endl;
-
-
 }

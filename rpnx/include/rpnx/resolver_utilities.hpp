@@ -639,6 +639,7 @@ namespace rpnx
 
         Result get() const
         {
+            assert(m_result.has_result());
             return m_result.get();
         }
 

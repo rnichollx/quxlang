@@ -6,31 +6,69 @@
 
 namespace quxlang::vmir2
 {
-    std::string assembler::to_string(vmir2::functanoid_routine inst)
+    std::string assembler::to_string(vmir2::functanoid_routine2 fnc)
     {
         std::string output;
 
         static const std::string indent = "    ";
-        output += "slots:\n";
+        output += "[Slots]:\n";
 
-        for (std::size_t i = 1; i < inst.slots.size(); i++)
+        for (std::size_t i = 1; i < fnc.slots.size(); i++)
         {
-
-            output += indent + "" + std::to_string(i) + ": " + this->to_string(inst.slots.at(i));
+            output += indent + "" + std::to_string(i) + ": " + this->to_string(fnc.slots.at(i));
             output += "\n";
         }
 
-        output += "instructions:\n";
+        output += "[Blocks]:\n";
 
-        for (auto& i : inst.instructions)
+        for (std::size_t i = 0; i < fnc.blocks.size(); i++)
         {
-            output += indent + this->to_string(i);
+            std::string block_name;
+            if (fnc.block_names.contains(i))
+            {
+                block_name = "BLOCK" + std::to_string(i) + "[" + fnc.block_names.at(i) + "]";
+            }
+            else
+            {
+                block_name = "BLOCK" + std::to_string(i);
+            }
+            output += "  " + block_name + ":\n";
+            output += this->to_string(fnc.blocks.at(i));
             output += "\n";
         }
 
         return output;
     }
+    std::string assembler::to_string(vmir2::executable_block const& inst)
+    {
+        std::string output;
+        static const std::string indent = "    ";
+        for (auto& i : inst.instructions)
+        {
+            output += indent + this->to_string(i);
+            output += "\n";
+        }
+        if (!inst.terminator.has_value())
+        {
+            output += indent + "MISSING_TERMINATOR\n";
+        }
+        else
+        {
+            output += indent + this->to_string(inst.terminator.value()) + "\n";
+        }
+        return output;
+    }
     std::string assembler::to_string(vmir2::vm_instruction inst)
+    {
+        return rpnx::apply_visitor< std::string >(
+            [&](auto&& x)
+            {
+                return this->to_string_internal(x);
+            },
+            inst);
+    }
+
+    std::string assembler::to_string(vmir2::vm_terminator inst)
     {
         return rpnx::apply_visitor< std::string >(
             [&](auto&& x)
@@ -124,6 +162,24 @@ namespace quxlang::vmir2
 
         return result;
     }
+    std::string assembler::to_string_internal(vmir2::jump inst)
+    {
+        std::string result;
+        result += "JUMP !" + std::to_string(inst.target);
+        return result;
+    }
+    std::string assembler::to_string_internal(vmir2::branch inst)
+    {
+        std::string result;
+        result += "BRANCH %" + std::to_string(inst.condition) + ", !" + std::to_string(inst.target_true) + ", !" + std::to_string(inst.target_false);
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::ret inst)
+    {
+        return "RET";
+    }
+
     std::string assembler::to_string_internal(vmir2::invocation_args inst)
     {
         std::string output = "[";

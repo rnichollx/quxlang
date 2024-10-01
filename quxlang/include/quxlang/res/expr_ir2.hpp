@@ -25,7 +25,7 @@ namespace quxlang
     };
     // TODO: Implement this
 
-    QUX_CO_RESOLVER(expr_ir2, expr_ir2_input, vmir2::functanoid_routine);
+    QUX_CO_RESOLVER(expr_ir2, expr_ir2_input, vmir2::functanoid_routine2);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_EXPR_IR2_HEADER

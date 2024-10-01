@@ -308,6 +308,7 @@ namespace quxlang
 
     std::string to_string(ast2_function_declaration const& ref);
     std::string to_string(ast2_declarable const& ref);
+    std::string to_string(expression const& ref);
 
 } // namespace quxlang
 

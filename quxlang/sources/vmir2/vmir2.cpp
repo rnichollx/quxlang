@@ -225,3 +225,66 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 {
     return slots->index_binding(idx);
 }
+void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
+{
+    if (block(from).block.terminator.has_value())
+    {
+        throw std::logic_error("Cannot jump from a block that already has a terminator");
+    }
+
+    block(from).block.terminator = vmir2::jump{.target = to};
+    // TODO: Check value lifetimes here.
+}
+void quxlang::vmir2::frame_generation_state::generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch)
+{
+    if (block(from).block.terminator.has_value())
+    {
+        throw std::logic_error("Cannot branch from a block that already has a terminator");
+    }
+    block(from).block.terminator = vmir2::branch{.condition = condition, .target_true = true_branch, .target_false = false_branch};
+    // TODO: Check value lifetimes here.
+}
+std::size_t quxlang::vmir2::frame_generation_state::generate_entry_block()
+{
+    // Either the initial (argument) block, or th
+    if (!block_states.empty())
+    {
+        throw std::logic_error("Cannot generate entry block when there are already blocks");
+    }
+    block_states.emplace_back(&slots);
+
+    entry_block_opt = 0;
+
+    return 0;
+}
+std::size_t quxlang::vmir2::frame_generation_state::generate_subblock(std::size_t of)
+{
+    std::size_t block_id = block_states.size();
+    block_states.push_back(block(of).clone_subblock());
+    // TODO: check states valid.
+
+    return block_id;
+}
+std::size_t quxlang::vmir2::frame_generation_state::entry_block_id()
+{
+    return entry_block_opt.value();
+}
+quxlang::vmir2::executable_block_generation_state& quxlang::vmir2::frame_generation_state::entry_block()
+{
+    return block_states.at(entry_block_id());
+}
+quxlang::vmir2::executable_block_generation_state& quxlang::vmir2::frame_generation_state::block(std::size_t id)
+{
+    return block_states.at(id);
+}
+quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()
+{
+    quxlang::vmir2::functanoid_routine2 result;
+    result.slots = slots.slots;
+    result.blocks.reserve(block_states.size());
+    for (auto& block : block_states)
+    {
+        result.blocks.push_back(block.block);
+    }
+    return result;
+}

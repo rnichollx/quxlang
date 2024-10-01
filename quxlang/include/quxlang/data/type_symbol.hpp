@@ -69,7 +69,7 @@ namespace quxlang
     //  it is called "function header" but is also used for templates...
     struct function_overload
     {
-        bool builtin;
+        bool builtin = false;
         call_type call_parameters;
         std::optional< std::int64_t > priority;
 

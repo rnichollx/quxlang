@@ -24,8 +24,7 @@ namespace rpnx
          * @brief Constructs a result object with a value.
          * @param t The value to store in the result.
          */
-        result(T t)
-            : t(t)
+        result(T t) : t(t)
         {
         }
 
@@ -40,8 +39,7 @@ namespace rpnx
          * @brief Constructs a result object with an exception.
          * @param er The exception to store in the result.
          */
-        result(std::exception_ptr er)
-            : er(er)
+        result(std::exception_ptr er) : er(er)
         {
         }
 
@@ -65,7 +63,10 @@ namespace rpnx
         T get() const
         {
             if (er)
+            {
                 std::rethrow_exception(er);
+            }
+
             return t.value();
         }
 
@@ -156,8 +157,7 @@ namespace rpnx
          * @brief Constructs a result object with an exception.
          * @param er The exception to store in the result.
          */
-        result(std::exception_ptr er)
-            : er(er)
+        result(std::exception_ptr er) : er(er)
         {
         }
 
