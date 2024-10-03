@@ -15,6 +15,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 {
 
+    std::string check_sym = quxlang::to_string(input);
     // Probably consider this deprecated
 
     assert(!qualified_is_contextual(input_val));

@@ -133,9 +133,16 @@ namespace quxlang
             RPNX_MEMBER_METADATA(slot_state, alive);
         };
 
+        struct slot_states
+        {
+            std::map<std::size_t, bool> alive;
+
+            RPNX_MEMBER_METADATA(slot_states, alive);
+        };
+
         struct executable_block
         {
-            std::vector< slot_state > entry_state;
+            std::map< std::size_t, slot_state > entry_state;
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
 
@@ -181,7 +188,7 @@ namespace quxlang
 
             vmir2::executable_block block;
             slot_generation_state *slots;
-            std::vector< slot_state > current_slot_states = {slot_state{}};
+            std::map< std::size_t, slot_state > current_slot_states = {{0,slot_state{}}};
             std::map< std::string , storage_index > named_references;
 
             type_symbol current_type(storage_index idx);
@@ -229,6 +236,7 @@ namespace quxlang
 
             void generate_jump(std::size_t from, std::size_t to);
             void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
+            void generate_return(std::size_t from);
             inline bool has_terminator(std::size_t block)
             {
                 return block_states[block].block.terminator.has_value();
@@ -240,6 +248,8 @@ namespace quxlang
 
             executable_block_generation_state & entry_block();
             executable_block_generation_state & block(std::size_t id);
+
+            std::optional<storage_index> lookup(std::size_t block_id, std::string name);
 
             functanoid_routine2 get_result();
 

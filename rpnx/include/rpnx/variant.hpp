@@ -616,12 +616,20 @@ namespace rpnx
 
         basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > const& other)
         {
+            if (this == &other)
+            {
+                return *this;
+            }
             assert(valid());
+
+            auto data_copy = other.m_vinf->m_general_info.m_copy(m_alloc, other.m_data);
+
+
             reset();
 
             m_alloc = other.m_alloc;
             m_vinf = other.m_vinf;
-            m_data = m_vinf->m_general_info.m_copy(m_alloc, other.m_data);
+            m_data = data_copy;
 
             assert(valid());
             return *this;
@@ -630,16 +638,16 @@ namespace rpnx
         basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... >&& other)
         {
             assert(valid());
-            reset();
 
-            m_alloc = std::move(other.m_alloc);
-            m_vinf = nullptr;
-            m_data = nullptr;
+            m_alloc = other.m_alloc;
 
             std::swap(m_vinf, other.m_vinf);
             std::swap(m_data, other.m_data);
 
             assert(valid());
+
+            other.reset();
+
             return *this;
         }
 

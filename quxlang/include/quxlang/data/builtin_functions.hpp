@@ -14,6 +14,8 @@ namespace quxlang
     struct primitive_function_info
     {
         function_overload overload;
+
+        // TODO: Convert this to optional instead of using void_type?
         type_symbol return_type;
 
         RPNX_MEMBER_METADATA(primitive_function_info, overload, return_type)

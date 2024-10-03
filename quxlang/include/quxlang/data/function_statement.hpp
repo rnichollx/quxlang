@@ -28,7 +28,10 @@ namespace quxlang
         // TODO: support named initializers
         std::vector< expression > initializers;
 
-        RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers);
+        // TODO: implement parsing for this:
+        std::optional<expression> equals_initializer;
+
+        RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers, equals_initializer);
     };
 
     using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement >;

@@ -67,9 +67,13 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
         return bind;
     }
     auto type = slots->slots.at(idx).type;
-    if (!current_slot_states.at(idx).alive)
+    if (!current_slot_states[idx].alive && !typeis< nvalue_slot >(type))
     {
         type = create_nslot(type);
+    }
+    else if (typeis<nvalue_slot>(type) && current_slot_states[idx].alive)
+    {
+        type = type_symbol(as<nvalue_slot>(type).target);
     }
     return type;
 }
@@ -191,34 +195,48 @@ bool quxlang::vmir2::executable_block_generation_state::slot_alive(storage_index
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_temporary(type_symbol type)
 {
-    current_slot_states.push_back(slot_state{});
-    return slots->create_temporary(type);
+    auto idx = slots->create_temporary(type);
+    return idx;
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_variable(type_symbol type, std::string name)
 {
-    current_slot_states.push_back(slot_state{});
     return slots->create_variable(type, name);
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_binding(storage_index idx, type_symbol type)
 {
-    current_slot_states.push_back(slot_state{});
     return slots->create_binding(idx, type);
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_positional_argument(type_symbol type, std::optional< std::string > label_name)
 {
-    current_slot_states.push_back(slot_state{});
-    return slots->create_positional_argument(type);
+    auto idx = slots->create_positional_argument(type);
+    if (!typeis< nvalue_slot >(type))
+    {
+        current_slot_states[idx].alive = true;
+    }
+    return idx;
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name)
 {
-    current_slot_states.push_back(slot_state{});
-    return slots->create_named_argument(interface_name, type);
+
+    auto idx = slots->create_named_argument(interface_name, type);
+    if (!typeis< nvalue_slot >(type))
+    {
+        current_slot_states[idx].alive = true;
+    }
+    if (interface_name == "RETURN" || interface_name == "THIS")
+    {
+        // Always set these, they have special handling
+        named_references[interface_name] = idx;
+    }
+    named_references[label_name.value_or(interface_name)] = idx;
+    return idx;
 }
 
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_numeric_literal(std::string value)
 {
-    current_slot_states.push_back(slot_state{.alive = true});
-    return slots->create_numeric_literal(value);
+    auto idx = slots->create_numeric_literal(value);
+    current_slot_states[idx].alive = true;
+    return idx;
 }
 
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::index_binding(storage_index idx)
@@ -243,6 +261,11 @@ void quxlang::vmir2::frame_generation_state::generate_branch(std::size_t conditi
     }
     block(from).block.terminator = vmir2::branch{.condition = condition, .target_true = true_branch, .target_false = false_branch};
     // TODO: Check value lifetimes here.
+}
+void quxlang::vmir2::frame_generation_state::generate_return(std::size_t from)
+{
+    block(from).block.terminator = vmir2::ret{};
+    // TODO: validate lifetimes are as expected.
 }
 std::size_t quxlang::vmir2::frame_generation_state::generate_entry_block()
 {
@@ -276,6 +299,28 @@ quxlang::vmir2::executable_block_generation_state& quxlang::vmir2::frame_generat
 quxlang::vmir2::executable_block_generation_state& quxlang::vmir2::frame_generation_state::block(std::size_t id)
 {
     return block_states.at(id);
+}
+std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::frame_generation_state::lookup(std::size_t block_id, std::string name)
+{
+    auto it = block(block_id).named_references.find(name);
+    if (it != block(block_id).named_references.end())
+    {
+        return it->second;
+    }
+
+    // TODO: Replace this logic
+    for (std::size_t i = 0; i < slots.slots.size(); i++)
+    {
+        auto& slot = slots.slots[i];
+        if (slot.kind == slot_kind::named_arg || slot.kind == slot_kind::positional_arg)
+        {
+            if (slot.name.has_value() && slot.name.value() == name || (!slot.name.has_value() && slot.arg_name.has_value() && slot.arg_name.value() == name))
+            {
+                return i;
+            }
+        }
+    }
+    return std::nullopt;
 }
 quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()
 {

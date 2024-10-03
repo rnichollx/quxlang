@@ -96,6 +96,49 @@ namespace quxlang
             assert(false);
         }
 
+        auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+
+            call_type calltype;
+            for (auto& arg : args.positional)
+            {
+                auto arg_type = this->current_type(arg);
+                bool is_alive = this->slot_alive(arg);
+                if (!is_alive)
+                {
+                    assert(typeis< nvalue_slot >(arg_type));
+                    // arg_type = nvalue_slot{arg_type};
+                }
+                calltype.positional_parameters.push_back(arg_type);
+            }
+            for (auto& [name, arg] : args.named)
+            {
+                auto arg_type = current_type(arg);
+                bool is_alive = slot_alive(arg);
+
+                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << std::endl;
+                if (!is_alive)
+                {
+                    assert(typeis< nvalue_slot >(arg_type));
+                }
+                calltype.named_parameters[name] = arg_type;
+            }
+
+            instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
+
+            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
+            // Get call type
+            auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
+
+            if (!instanciation)
+            {
+                throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
+            }
+
+            co_return co_await this->gen_call_functanoid(instanciation.value(), args);
+        }
+
       private:
         auto create_temporary_storage(type_symbol type) -> vmir2::storage_index
         {
@@ -277,48 +320,7 @@ namespace quxlang
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
 
-        auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
-        {
-            std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
-            call_type calltype;
-            for (auto& arg : args.positional)
-            {
-                auto arg_type = this->current_type(arg);
-                bool is_alive = this->slot_alive(arg);
-                if (!is_alive)
-                {
-                    assert(typeis< nvalue_slot >(arg_type));
-                    // arg_type = nvalue_slot{arg_type};
-                }
-                calltype.positional_parameters.push_back(arg_type);
-            }
-            for (auto& [name, arg] : args.named)
-            {
-                auto arg_type = current_type(arg);
-                bool is_alive = slot_alive(arg);
-
-                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << std::endl;
-                if (!is_alive)
-                {
-                    assert(typeis< nvalue_slot >(arg_type));
-                }
-                calltype.named_parameters[name] = arg_type;
-            }
-
-            instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
-
-            std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
-            // Get call type
-            auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
-
-            if (!instanciation)
-            {
-                throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
-            }
-
-            co_return co_await this->gen_call_functanoid(instanciation.value(), args);
-        }
 
         auto create_numeric_literal(std::string str)
         {

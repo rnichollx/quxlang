@@ -17,11 +17,13 @@ MODULE main;
 }
 
 
-::main FUNCTION()
+::main FUNCTION(): I32
 {
-  // VAR x I32;
-  // x := 1;
-  // VAR y I32;
-  // y := 3;
+  VAR x I32;
+  x := 1;
+  VAR y I32;
+  y := 3;
   ::foo( 3 ,  8 );
+
+  RETURN 4;
 }

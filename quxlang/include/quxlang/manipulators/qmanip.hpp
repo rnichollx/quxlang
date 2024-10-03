@@ -118,6 +118,7 @@ namespace quxlang
 
     inline type_symbol create_nslot(type_symbol ref)
     {
+        assert(!typeis<nvalue_slot>(ref));
         return nvalue_slot{ref};
     }
 
