@@ -208,6 +208,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority);
     };
 
+    struct parameters
+    {
+        std::vector<type_symbol> positional;
+        std::map<std::string, type_symbol> named;
+
+        RPNX_MEMBER_METADATA(parameters, positional, named);
+    };
+
     struct ast2_function_definition
     {
         ast2_source_location location;

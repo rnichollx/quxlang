@@ -201,6 +201,21 @@ namespace quxlang
 
         auto lookup_symbol(type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
         {
+            std::string symbol_str = to_string(sym);
+
+            bool  a = typeis<subentity_reference>(sym);
+            bool  b = typeis<context_reference>(as<subentity_reference>(sym).parent);
+
+            if (typeis<subentity_reference>(sym) && typeis<context_reference>(as<subentity_reference>(sym).parent))
+            {
+                std::string const & name = as<subentity_reference>(sym).subentity_name;
+                std::cout << "lookup " << name << std::endl;
+                auto lookup = this->exec.local_lookup(name);
+                if (lookup)
+                {
+                    co_return lookup;
+                }
+            }
             auto canonical_symbol_opt = co_await prv.lookup(contextual_type_reference{.context = ctx, .type = sym});
 
             if (!canonical_symbol_opt)
@@ -209,7 +224,6 @@ namespace quxlang
             }
 
             auto canonical_symbol = canonical_symbol_opt.value();
-            std::string symbol_str = to_string(canonical_symbol);
 
             auto kind = co_await prv.symbol_type(canonical_symbol);
 
@@ -563,7 +577,15 @@ namespace quxlang
 
         auto generate(expression_symbol_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            co_return (co_await this->lookup_symbol(expr.symbol)).value();
+
+            auto value_opt = (co_await this->lookup_symbol(expr.symbol));
+
+            if (!value_opt.has_value())
+            {
+                throw std::logic_error("Expected symbol " + quxlang::to_string(expr.symbol) + " to be defined.");
+            }
+
+            co_return value_opt.value();
         }
 
         auto generate(expression_this_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

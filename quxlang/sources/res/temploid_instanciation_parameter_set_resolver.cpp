@@ -10,8 +10,10 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
     QUXLANG_DEBUG({std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;});
 
 
+    selection_reference sel = as<selection_reference>(input.callee);
+    auto ast = co_await QUX_CO_DEP(symboid, (sel.callee));
 
-    auto ast = co_await QUX_CO_DEP(symboid, (input.callee));
+    auto idx = ast.type_index().name();
 
     if (typeis< ast2_templex >(ast))
     {

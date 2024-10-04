@@ -71,9 +71,9 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
     {
         type = create_nslot(type);
     }
-    else if (typeis<nvalue_slot>(type) && current_slot_states[idx].alive)
+    else if (typeis< nvalue_slot >(type) && current_slot_states[idx].alive)
     {
-        type = type_symbol(as<nvalue_slot>(type).target);
+        type = type_symbol(as< nvalue_slot >(type).target);
     }
     return type;
 }
@@ -242,6 +242,17 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::index_binding(storage_index idx)
 {
     return slots->index_binding(idx);
+}
+std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::executable_block_generation_state::local_lookup(std::string name)
+{
+    for (std::size_t i = 0; i < slots->slots.size(); i++)
+    {
+        if (slots->slots[i].name.has_value() && slots->slots[i].name.value() == name && current_slot_states[i].alive)
+        {
+            return i;
+        }
+    }
+    return std::nullopt;
 }
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {

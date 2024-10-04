@@ -72,6 +72,34 @@ results from macro-execution prior to aggregate-fusion.
 
 See also: Aggrgate-fusion, Temploid, Templexoid, Function, Variable, Class.
 
+## Declared Parameters
+
+Declared parameters are the parameters of a temploid (function or template) as
+they are declared in the source code.
+
+Declared parameters are contrasted with formal parameters, which are the
+parameters of a temploid after type decontextualization and dealiasing.
+
+For example in the following code:
+
+```
+
+::baz CLASS
+{
+   ::bar CLASS 
+   {
+      ...
+   }
+   
+   ::foo FUNCTION(%x bar)
+   {
+     ...
+   }
+}
+```
+
+The "declared parameters" of `::foo FUNCTION(%x bar)` are `(%x bar)`, whereas the formal parameters are `(%x [module]::baz::bar)`. 
+
 ## Functanoid
 
 A functanoid is a function which is instantiated with a set of parameter
@@ -85,6 +113,13 @@ not occupy
 memory at
 runtime, unlike a procedure, which is an executable object consisting of a
 series of machine instructions.
+
+## Formal Parameters
+
+Formal parameters are the parameters of a temploid (function or template) after
+type decontextualization and dealiasing. (e.g. resolving `(%x foo, %y myint32alias)` to `(%x [mymodule]::baz::foo, %y I32)`)
+
+Formal parameters are contrasted with declared parameters, which are the parameters of a temploid as they are declared in the source code.
 
 ## Functoid
 
