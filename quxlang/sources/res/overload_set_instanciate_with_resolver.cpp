@@ -20,8 +20,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
     auto val = this;
 
-    //  std::string to = to_string(os);
-    //  std::string from = to_string(args);
+     std::string to = to_string(os.call_parameters);
+     std::string from = to_string(args);
 
 
     if (os.call_parameters.positional_parameters.size() != args.positional_parameters.size())
@@ -47,6 +47,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
         auto arg_type = type;
         auto param_type = it->second;
+
+        std::string arg_type_str = to_string(arg_type);
+        std::string param_type_str = to_string(param_type);
 
         if (is_template(param_type))
         {

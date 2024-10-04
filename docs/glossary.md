@@ -100,6 +100,14 @@ For example in the following code:
 
 The "declared parameters" of `::foo FUNCTION(%x bar)` are `(%x bar)`, whereas the formal parameters are `(%x [module]::baz::bar)`. 
 
+### Differs From
+
+*Paratype* - The paratype is the type of the positional and named parameters, however it does not include the parameter names. 
+For example, the above formal paratype would be `([module]::baz::bar)` and the declared paratype would be `(bar)`.
+
+*Signature* - The signature is a combination of the paratype and the return type. For example, the above formal signature 
+would be `([module]::baz::bar): I32` and the declared signature would be `(bar): I32`.
+
 ## Functanoid
 
 A functanoid is a function which is instantiated with a set of parameter
@@ -209,10 +217,21 @@ See also: Typoid
 
 ## Typoid
 
-A typoid is a type-expression that can be used as a temploid parameter or
-variable declaration. Typoids include concrete-types and tempars.
+A typoid is either a type or tempar that can be used as a temploid parameter, function return typoid, or
+in a variable declaration. Typoids include concrete-types and tempars.
 
 See also: Concrete-Type, Tempar
+
+### Differs From
+
+*Concrete Type* -  For example, `I32` is a concrete type, but `T(t)` is a temploidic type. Both 
+concreate types and temploidic types are kinds of typoids.
+
+*Temploidic Type* - A temploidic type is a non-concrete type that can be used as the type of a temploid parameter or
+variable declaration. For example, `T(t)` is a temploidic type, but `I32` is a concrete type. 
+
+For example, `VAR x T(t1) := (I32:(5) + 7)` creates a variable with the formal type `T(t1)`. However, The instanciated 
+type of the variable created will be `I32`, which `t1` becomes an alias for.
 
 ## Instantiation-Reference
 

@@ -162,7 +162,7 @@ namespace quxlang
 
         auto emit(auto val)
         {
-            return exec.emit( val);
+            return exec.emit(val);
         }
 
         auto slot_alive(storage_index slot)
@@ -170,7 +170,7 @@ namespace quxlang
             return exec.slot_alive(slot);
         }
 
-        auto create_reference_internal(vmir2::storage_index index, type_symbol const & new_type)
+        auto create_reference_internal(vmir2::storage_index index, type_symbol const& new_type)
         {
             // This function is used to handle the case where we have an index and need to force it into a
             // reference type.
@@ -190,29 +190,33 @@ namespace quxlang
             std::string slot_type = quxlang::to_string(exec.current_type(index));
             // this is kind of a hack, but we can presume this after the make_reference call.
 
-            // TODO: Move all slot state management to the slot_generation_state class.
             exec.current_slot_states[temp].alive = true;
 
             return temp;
         }
 
-
-
-
         auto lookup_symbol(type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
         {
             std::string symbol_str = to_string(sym);
 
-            bool  a = typeis<subentity_reference>(sym);
-            bool  b = typeis<context_reference>(as<subentity_reference>(sym).parent);
+            bool a = typeis< subentity_reference >(sym);
+            bool b = typeis< context_reference >(as< subentity_reference >(sym).parent);
 
-            if (typeis<subentity_reference>(sym) && typeis<context_reference>(as<subentity_reference>(sym).parent))
+            if (typeis< subentity_reference >(sym) && typeis< context_reference >(as< subentity_reference >(sym).parent))
             {
-                std::string const & name = as<subentity_reference>(sym).subentity_name;
+                std::string const& name = as< subentity_reference >(sym).subentity_name;
                 std::cout << "lookup " << name << std::endl;
                 auto lookup = this->exec.local_lookup(name);
                 if (lookup)
                 {
+                    auto lookup_type = this->current_type(lookup.value());
+                    std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
+
+                    if (!is_ref(lookup_type))
+                    {
+                        lookup = create_reference_internal(*lookup, make_mref(lookup_type));
+                    }
+
                     co_return lookup;
                 }
             }
@@ -333,8 +337,6 @@ namespace quxlang
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
-
-
 
         auto create_numeric_literal(std::string str)
         {

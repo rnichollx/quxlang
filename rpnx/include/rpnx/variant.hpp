@@ -792,10 +792,6 @@ namespace rpnx
 
         std::size_t index() const
         {
-            if (!valid())
-            {
-                int x = 9;
-            }
             assert(valid());
             if (m_vinf == nullptr)
             {

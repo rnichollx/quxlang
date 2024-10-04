@@ -86,7 +86,7 @@ quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_blo
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field fld)
 {
     block.instructions.push_back(fld);
-    current_slot_states.at(fld.store_index).alive = true;
+    current_slot_states[fld.store_index].alive = true;
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
 {

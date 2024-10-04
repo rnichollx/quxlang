@@ -110,3 +110,42 @@ prevent this synthesis, if present in either class. With differing types, it is 
 `a < b` : `a <= b && !(a >= b)`
 
 But these are not well defined in terms of ordering at the moment.
+
+
+## Tail Calls
+
+A tail call can be performed using `TAILRET` instead of `RETURN`. This triggers a compiler error if it cannot
+be made into a tail call. The compiler might also optimize normal calls into tail calls, but this is not guaranteed.
+
+In order for a call to be converted into a tail call, all the arguments must satisfy `TrviallyRelocatable`. The 
+following types will be trivially relocatable:
+
+* Built-in primitives, like I32, F32, etc.
+* Pointers, references.
+* Classes declared `TRIVIALLY_RELOCATABLE` or `PRIMITIVE` (which implies `TRIVIALLY_RELOCATABLE`).
+* Classes declared `POSTHOC_RELOCATABLE`.
+
+## Call Relocation
+
+Types which are trivially relocatable can be passed in function calls more efficiently in many ABI targets. 
+Trivial relocation means that a value can be passed into a register or set of registers and then stored in a different
+memory location. In this case, the address of the object when the constructor is called and when the destructor is called
+may not match. 
+
+For example, supposing you have a function `::foo FUNCTION(%a myclass)`, and you pass an instance of `myclass` as 
+an argument by variable name, `foo(myclassobj)`, in this case, a copy of the object is made and passed to the function.
+
+It is possible to *pass* objects directly into a function call, via *pass*, e.g., `foo(PASS(myclassobj))`. In this case,
+myclassobj is passed directly to the function and not copied, therefore it is no longer valid after the function call.
+
+However, merely using `PASS` by itself does not remove the pointer indirection, because the callee needs to call the
+object's destructor. In general, we assume that objects need to reside in the same memory location at the constructor
+and destructor unless the object is `RELOCATABLE`. There are 3 categories of relocatable objects:
+
+* `TRIVIALLY_RELOCATABLE`: Can be relocated using a bit copy.
+* `POSTHOC_RELOCATABLE`: Can be relocated using a bit copy followed by `.POSTHOC_RELOCATE`
+* `RELOCATABLE`: Can be relocated using `.RELOCATE`.
+
+Of these, `TRIVIALLY_RELOCATABLE` and `POSTHOC_RELOCATABLE` allow bypassing pointer indirection in function call ABIs.
+
+
