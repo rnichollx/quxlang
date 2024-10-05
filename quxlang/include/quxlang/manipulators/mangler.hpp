@@ -121,7 +121,7 @@ namespace quxlang
 
             std::string str;
 
-            str += mangle_internal(as< selection_reference >(qt).callee);
+            str += mangle_internal(as< selection_reference >(qt).templexoid);
             str += "S";
 
             for (auto const& p : as< selection_reference >(qt).overload.call_parameters.positional_parameters)

@@ -11,7 +11,7 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
 
 
     selection_reference sel = as<selection_reference>(input.callee);
-    auto ast = co_await QUX_CO_DEP(symboid, (sel.callee));
+    auto ast = co_await QUX_CO_DEP(symboid, (sel.templexoid));
 
     auto idx = ast.type_index().name();
 

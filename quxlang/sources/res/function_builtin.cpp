@@ -7,7 +7,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_builtin)
 {
-    auto builtin_overloads = co_await QUX_CO_DEP(list_builtin_functum_overloads, (input_val.callee));
+    auto builtin_overloads = co_await QUX_CO_DEP(list_builtin_functum_overloads, (input_val.templexoid));
 
     for (auto const& info : builtin_overloads)
     {

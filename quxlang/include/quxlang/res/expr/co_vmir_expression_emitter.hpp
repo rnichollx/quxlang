@@ -7,6 +7,7 @@
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
+#include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
@@ -557,8 +558,90 @@ namespace quxlang
             }
         }
 
+        auto gen_invoke_builtin(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        {
+            auto callee = as< selection_reference >(what.callee);
+
+            assert(callee.overload.builtin);
+
+            auto functum = callee.templexoid;
+
+            std::optional< type_symbol > class_type;
+            bool member = false;
+            std::string name;
+
+            if (typeis< subdotentity_reference >(functum))
+            {
+                member = true;
+                class_type = as< subdotentity_reference >(functum).parent;
+                name = as< subdotentity_reference >(functum).subdotentity_name;
+            }
+            else if (typeis< subentity_reference >(functum))
+            {
+                member = false;
+                class_type = as< subentity_reference >(functum).parent;
+                name = as< subentity_reference >(functum).subentity_name;
+            }
+            else
+            {
+                throw std::logic_error("Expected functum to be a subentity_reference or subdotentity_reference");
+            }
+
+            bool is_operator;
+            bool is_rhs;
+
+            std::string operator_value;
+
+            if (name.starts_with("OPERATOR"))
+            {
+                is_operator = true;
+                operator_value = name.substr(8);
+                if (operator_value.ends_with("RHS"))
+                {
+                    is_rhs = true;
+                    operator_value = operator_value.substr(0, operator_value.size() - 3);
+                }
+                else
+                {
+                    is_rhs = false;
+                }
+            }
+            else
+            {
+                is_operator = false;
+            }
+
+            type_symbol lhs_type;
+            type_symbol rhs_type;
+
+            if (is_operator && is_rhs)
+            {
+                auto rhs_index = args.named["THIS"];
+                rhs_type = this->current_type(rhs_index);
+                auto lhs_index = args.named["OTHER"];
+                lhs_type = this->current_type(lhs_index);
+            }
+            else
+            {
+                auto rhs_index = args.named["OTHER"];
+                rhs_type = this->current_type(rhs_index);
+                auto lhs_index = args.named["THIS"];
+                lhs_type = this->current_type(lhs_index);
+            }
+
+            if (assignment_operators.contains(operator_value))
+            {
+
+            }
+        }
+
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
+            if (typeis< selection_reference >(what.callee) && as< selection_reference >(what.callee).overload.builtin)
+            {
+                co_return co_await gen_invoke_builtin(what, std::move(args));
+            }
+
             if (args.named.contains("RETURN"))
             {
                 assert(args.size() == what.parameters.size() + 1);

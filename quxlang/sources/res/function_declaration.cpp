@@ -21,7 +21,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
     assert(!qualified_is_contextual(func_addr));
 
 
-    auto entity_ast_v = co_await QUX_CO_DEP(symboid, (func_addr.callee));
+    auto entity_ast_v = co_await QUX_CO_DEP(symboid, (func_addr.templexoid));
 
     if (!typeis< functum >(entity_ast_v))
     {

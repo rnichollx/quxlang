@@ -20,17 +20,20 @@ single functum. Aggregate-fusion can fail, for example:
 ```
 
 In the above example, the aggregate-fusion of `::foo` will fail because the 
-CLASS and FUNCTION declarations are incompatible.
+CLASS and FUNCTION declarations are incompatible. Variables and classes also 
+cannot be fused, even with other variables and classes.
 
 In general, a FUNCTION can be fused with other FUNCTIONs, a TEMPLATE can be 
 fused with other TEMPLATEs, and NAMESPACEs can be fused with other 
-NAMESPACEs. CLASS and VAR declarations cannot be fused.
+NAMESPACEs. Unlike FUNCTION, NAMESPACE, and TEMPLATE declarations, CLASS and
+VAR declarations cannot be fused. (i.e., there must be no more than one VAR
+or CLASS with the same name in a given scope).
 
 ## Declaroid
 
-A declaroid is anything that can be declared at class scope, like a variable
-or a
-function.
+A declaroid is anything that can be *declared*, like a variable
+or a function.
+
 The class of declaraoids does not include aggregates like templexoids, but
 does include the individual teploids that comprise a templexoid. It also
 includes non-temploid declaroids like variables and classes.
@@ -70,7 +73,7 @@ not a declaroid as a whole. Declaroids have a single abstract-syntax-tree
 representation. A declaroid either is directly defined in source code, or 
 results from macro-execution prior to aggregate-fusion.
 
-See also: Aggrgate-fusion, Temploid, Templexoid, Function, Variable, Class.
+See also: Aggregate-fusion, Temploid, Templexoid, Function, Variable, Class.
 
 ## Declared Parameters
 
@@ -122,12 +125,28 @@ memory at
 runtime, unlike a procedure, which is an executable object consisting of a
 series of machine instructions.
 
+## Formal Type
+
+A formal type is the type of a variable or parameter after resolving symbols into their globally
+unique, context-free identifiers. For example, a type `foo` might be resolved to `[mymodule]::bar::foo`.
+However, the formal type does not instantiate temploidic parameters. For instance, a formal type
+might include temploidic types like `T(t)` (any type), `PTR(p)` (any pointer type), or `INT(i)`
+(any size integer).
+
+
 ## Formal Parameters
 
 Formal parameters are the parameters of a temploid (function or template) after
-type decontextualization and dealiasing. (e.g. resolving `(%x foo, %y myint32alias)` to `(%x [mymodule]::baz::foo, %y I32)`)
+type decontextualization and dealiasing. (e.g. resolving `(%x foo, %y myint32alias)`
+to `(%x [mymodule]::baz::foo, %y I32)`)
 
-Formal parameters are contrasted with declared parameters, which are the parameters of a temploid as they are declared in the source code.
+Formal parameters are contrasted with declared parameters, which are the parameters of a temploid
+as they are declared in the source code.
+
+The formal parameters do not include the instanciation of parameters, so for example, a declared type
+of T(t) would remain as T(t) in the formal parameters, but would be resolved to a concrete type in the
+instantiated parameters.
+
 
 ## Functoid
 
@@ -142,7 +161,8 @@ keyword.
 
 In languages like C++, "function overload set" is the term used to describe
 a collection of various function overloads that share the same name. In Qux,
-an analogous concept is the "functum".
+a roughly analogous concept is the "functum", although these may not be
+equivalent in all cases.
 See also: Functum.
 
 ## Function-Pointer
@@ -183,8 +203,12 @@ name. I.e. either a templex or functum.
 
 ## Temploid
 
-A temploid is something that can be instantiated. Functions and templates
-are temploids.
+A temploid is an individual declaration of something that can be instantiated. Individual function and templates
+declarations are temploids.
+
+### Differs from
+
+* Templexoid* - A templexoid is a collection of 1 or more temploids that share a symbolic name.
 
 ## Temploidic-Function
 
@@ -198,9 +222,8 @@ concrete-types and no parameter is a tempar.
 
 ## Tempar
 
-A tempar, (portmanteau of "template parameter"), is a function parameter
-typoid which
-performs tempar-matching when the function is instantiated.
+A tempar, (portmanteau of "template parameter"), is a part of a formal temploidic type that is parameterized
+when the temploid is instantiated.
 
 Example:
 
@@ -211,33 +234,33 @@ FUNCTION(%a I32, %b T(t)) -> I32
 }
 ```
 
-Here, the type of the `%b` parameter is a tempar.
+Here, the formal type of the `%b` parameter is the temploidic type `T(t)`, where `T` is the generic "any type" keyword 
+and `t` is a tempar. When the function is instantiated, `t` will be parameterized with a type and the `t`
+tempar will become an alias for that concrete type. Note that `T(t)` is a temploidic type, not a tempar, but `t` itself
+is a tempar within this context.
 
-See also: Typoid
+See also: Type
 
-## Typoid
+## Type
 
-A typoid is either a type or tempar that can be used as a temploid parameter, function return typoid, or
-in a variable declaration. Typoids include concrete-types and tempars.
+A type is a symbol that can be used as a temploid parameter, function return type, or
+in a variable declaration. Types include concrete-types and temploidic types.
 
 See also: Concrete-Type, Tempar
 
-### Differs From
+### See also
 
-*Concrete Type* -  For example, `I32` is a concrete type, but `T(t)` is a temploidic type. Both 
-concreate types and temploidic types are kinds of typoids.
-
-*Temploidic Type* - A temploidic type is a non-concrete type that can be used as the type of a temploid parameter or
-variable declaration. For example, `T(t)` is a temploidic type, but `I32` is a concrete type. 
-
-For example, `VAR x T(t1) := (I32:(5) + 7)` creates a variable with the formal type `T(t1)`. However, The instanciated 
-type of the variable created will be `I32`, which `t1` becomes an alias for.
+ * Concrete Type
+ * Temploidic Type
+ * Formal Type
+ * Declared Type
+ * Instantiated Type
+ * Paratype
 
 ## Instantiation-Reference
 
 An instantiation-reference is a reference to the instantiation of a
-particular temploid,
-or if it is unambiguous, a templexoid.
+particular temploid or templexoid with a given set of parameters.
 
 Example:
 
@@ -245,14 +268,17 @@ Example:
 foo#(I32, I64)
 ```
 
-Here, `foo` must be either a temploid or a templexoid where exactly 1 of the
-temploids comprising the templexoid is a candidate for instantiation.
-
 If there are multiple candidates, then the instantiation-reference is
 proceded by a selection-reference in canonical form. Example:
 
 ```
 foo#[I32, T(t)]#(I32, I64)
+```
+
+This can be shorted to the selstantiation syntax sugar:
+
+```
+foo#{I32, T(t): I64}
 ```
 
 ## Selection-Reference

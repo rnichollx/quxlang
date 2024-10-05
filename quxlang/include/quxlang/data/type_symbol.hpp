@@ -170,9 +170,9 @@ namespace quxlang
 
     struct selection_reference
     {
-        type_symbol callee;
+        type_symbol templexoid;
         function_overload overload;
-        RPNX_MEMBER_METADATA(selection_reference, callee, overload);
+        RPNX_MEMBER_METADATA(selection_reference, templexoid, overload);
     };
 
     struct mvalue_reference

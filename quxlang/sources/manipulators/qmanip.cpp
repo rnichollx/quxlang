@@ -102,7 +102,7 @@ namespace quxlang
 
         bool operator()(selection_reference const& ref) const
         {
-            if (is_template(ref.callee))
+            if (is_template(ref.templexoid))
                 return true;
             return false;
         }
@@ -209,7 +209,7 @@ namespace quxlang
         }
         else if (input.type() == boost::typeindex::type_id< selection_reference >())
         {
-            return as< selection_reference >(input).callee;
+            return as< selection_reference >(input).templexoid;
         }
         else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
         {
@@ -268,7 +268,7 @@ namespace quxlang
         if (typeis< selection_reference >(ref.callee))
         {
             selection_reference const& sel = as< selection_reference >(ref.callee);
-            std::string output = rpnx::apply_visitor< std::string >(*this, sel.callee);
+            std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
 
             output += " #{";
 
@@ -405,7 +405,7 @@ namespace quxlang
 
     std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee) + "#[";
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.templexoid) + "#[";
         bool first = true;
         if (ref.overload.builtin)
         {

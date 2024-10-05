@@ -39,11 +39,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
             {
                 highest_priority = priority;
                 best_match.clear();
-                best_match.insert({ .callee = input.callee,.overload = o});
+                best_match.insert({ .templexoid = input.callee,.overload = o});
             }
             else if (priority == *highest_priority)
             {
-                best_match.insert({.callee = input.callee, .overload = o});
+                best_match.insert({.templexoid = input.callee, .overload = o});
             }
         }
     }

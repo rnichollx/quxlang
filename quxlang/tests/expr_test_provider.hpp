@@ -19,7 +19,7 @@ namespace quxlang
         inline expr_test_provider()
         {
             auto type = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS I32, I32)");
-            this->testmap_instanciation_presets[as< instanciation_reference >(type)] = quxlang::instanciation_reference{.callee = quxlang::selection_reference{.callee = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .overload = function_overload{.builtin = true, .call_parameters = quxlang::call_type{.named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}}}}, .parameters = quxlang::call_type{.named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}, }};
+            this->testmap_instanciation_presets[as< instanciation_reference >(type)] = quxlang::instanciation_reference{.callee = quxlang::selection_reference{.templexoid = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .overload = function_overload{.builtin = true, .call_parameters = quxlang::call_type{.named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}}}}, .parameters = quxlang::call_type{.named_parameters = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional_parameters = {quxlang::parsers::parse_type_symbol("I32")}, }};
         }
         // Slot 0 is always reserved for the void slot
         // Including as data to avoid special-casing this.

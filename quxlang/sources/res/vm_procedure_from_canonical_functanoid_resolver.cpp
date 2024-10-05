@@ -514,7 +514,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     ast2_function_declaration function_ast_v = (co_await QUX_CO_DEP(function_declaration, (sel.value()))).value();
 
-    type_symbol functum_reference = sel->callee;
+    type_symbol functum_reference = sel->templexoid;
 
     std::string dbg_functum_reference_name = quxlang::to_string(functum_reference);
 
@@ -1337,7 +1337,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
     auto callee = as< instanciation_reference >(callee_set).callee;
 
-    auto functum_ref = as< selection_reference >(callee).callee;
+    auto functum_ref = as< selection_reference >(callee).templexoid;
 
     std::string dbg_callee = to_string(callee);
 

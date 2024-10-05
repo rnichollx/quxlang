@@ -235,7 +235,7 @@ namespace quxlang::parsers
             param_set.callee = selection_reference{};
 
             selection_reference& sel = as< selection_reference >(param_set.callee);
-            sel.callee = std::move(output);
+            sel.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "}"))
@@ -309,7 +309,7 @@ namespace quxlang::parsers
         {
             remaining = std::string(pos, end);
             selection_reference param_set;
-            param_set.callee = std::move(output);
+            param_set.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "]"))
