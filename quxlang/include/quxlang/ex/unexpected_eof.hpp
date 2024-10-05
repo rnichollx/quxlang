@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 7/20/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_EX_UNEXPECTED_EOF_HEADER_GUARD
 #define QUXLANG_EX_UNEXPECTED_EOF_HEADER_GUARD

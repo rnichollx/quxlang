@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 9/4/2024.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/vmir2/vmir2.hpp>
 

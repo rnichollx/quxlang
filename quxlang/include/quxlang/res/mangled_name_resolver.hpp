@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/27/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_MANGLED_NAME_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_MANGLED_NAME_RESOLVER_HEADER_GUARD

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/24/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_BACKENDS_LLVM_QUX_MC_STREAMER_HEADER_GUARD
 #define QUXLANG_BACKENDS_LLVM_QUX_MC_STREAMER_HEADER_GUARD

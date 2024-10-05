@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/5/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 

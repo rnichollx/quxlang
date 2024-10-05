@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2024-02-04.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_MACROS_HEADER_GUARD
 #define QUXLANG_MACROS_HEADER_GUARD

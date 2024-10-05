@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 3/2/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include <quxlang/compiler.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/res/symbol_type.hpp>

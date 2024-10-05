@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/22/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/macros.hpp"
 #include <quxlang/res/functum_exists_and_is_callable_with_resolver.hpp>
 

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/23/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_FUNCTANOID_RETURN_TYPE_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_FUNCTANOID_RETURN_TYPE_RESOLVER_HEADER_GUARD

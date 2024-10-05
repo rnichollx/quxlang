@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/14/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/compiler.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 

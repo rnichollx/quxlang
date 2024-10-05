@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 6/10/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_TESTS_EXPR_TEST_PROVIDER_HEADER_GUARD
 #define QUXLANG_TESTS_EXPR_TEST_PROVIDER_HEADER_GUARD

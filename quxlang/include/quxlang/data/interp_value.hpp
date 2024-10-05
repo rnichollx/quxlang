@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 3/31/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 #define QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD

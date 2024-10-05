@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/18/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_MANIPULATORS_LLVM_LOOKUP_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_LLVM_LOOKUP_HEADER_GUARD

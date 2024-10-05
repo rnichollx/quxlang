@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 6/26/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_PARSERS_FUNCTION_HEADER_GUARD
 #define QUXLANG_PARSERS_FUNCTION_HEADER_GUARD

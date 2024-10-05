@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/27/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 

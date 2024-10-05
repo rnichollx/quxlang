@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/27/23.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_IMPLICITLY_CONVERTIBLE_TO_HEADER_GUARD
 #define QUXLANG_RES_IMPLICITLY_CONVERTIBLE_TO_HEADER_GUARD

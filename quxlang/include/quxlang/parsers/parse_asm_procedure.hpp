@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/24/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD

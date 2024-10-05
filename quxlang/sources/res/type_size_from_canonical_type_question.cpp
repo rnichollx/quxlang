@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/25/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/type_size_from_canonical_type_question.hpp"
 

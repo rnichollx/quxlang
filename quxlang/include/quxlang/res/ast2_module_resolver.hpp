@@ -1,3 +1,4 @@
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
 #ifndef QUXLANG_RES_AST2_MODULE_RESOLVER_HEADER_GUARD

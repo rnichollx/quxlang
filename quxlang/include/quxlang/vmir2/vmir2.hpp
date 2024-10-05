@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 5/26/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 #define QUXLANG_VMIR2_VMIR2_HEADER_GUARD

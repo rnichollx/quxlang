@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/20/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/input_aggregator.hpp"
 

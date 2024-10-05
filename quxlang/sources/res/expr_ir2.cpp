@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 7/6/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include <quxlang/compiler.hpp>
 #include <quxlang/compiler_binding.hpp>

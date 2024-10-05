@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/22/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/compiler.hpp"
 
 #include "quxlang/res/class_layout_resolver.hpp"

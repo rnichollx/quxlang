@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 6/12/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 
 #include <quxlang/res/template_instanciation.hpp>

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/14/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_SYMBOL_IS_PRIMITIVE_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_SYMBOL_IS_PRIMITIVE_RESOLVER_HEADER_GUARD

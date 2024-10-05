@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/4/2024.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_BUILTIN_CLASSIFIER_HEADER_GUARD
 #define QUXLANG_BUILTIN_CLASSIFIER_HEADER_GUARD

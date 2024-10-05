@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 12/18/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/ast2/ast2_entity.hpp>

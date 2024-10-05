@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/4/23.
-// Copyright (c) 2023 Ryan P. Nicholl <rnicholl@protonmail.com>
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 // Permissions is granted to use this software under the terms of the RPNX  Permissive License, Version 4, or, at your option, any later version as published by the author, Ryan P. Nicholl.
 
 #ifndef QUXLANG_ORDERING_HEADER_GUARD

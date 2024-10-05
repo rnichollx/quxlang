@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/12/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/variant_utils.hpp"

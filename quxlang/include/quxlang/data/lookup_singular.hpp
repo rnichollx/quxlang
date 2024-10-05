@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 8/11/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_LOOKUP_SINGULAR_HEADER_GUARD
 #define QUXLANG_DATA_LOOKUP_SINGULAR_HEADER_GUARD

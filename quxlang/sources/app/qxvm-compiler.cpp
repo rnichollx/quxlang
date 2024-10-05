@@ -1,3 +1,1 @@
-//
-// Created by Ryan Nicholl on 3/18/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com

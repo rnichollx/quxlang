@@ -1,3 +1,4 @@
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/backends/llvm/llvm_code_generator.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/converters/qual_converters.hpp"

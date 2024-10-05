@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/20/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>

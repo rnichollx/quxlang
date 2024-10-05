@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 12/18/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler.hpp>
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>

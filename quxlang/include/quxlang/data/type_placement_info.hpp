@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/23/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_TYPE_PLACEMENT_INFO_HEADER_GUARD
 #define QUXLANG_DATA_TYPE_PLACEMENT_INFO_HEADER_GUARD

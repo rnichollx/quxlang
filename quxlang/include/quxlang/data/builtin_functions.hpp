@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/26/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_BUILTIN_FUNCTIONS_HEADER_GUARD
 #define QUXLANG_DATA_BUILTIN_FUNCTIONS_HEADER_GUARD

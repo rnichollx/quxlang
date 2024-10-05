@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/11/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_FUNCTION_FRAME_INFORMATION_HEADER_GUARD
 #define QUXLANG_DATA_FUNCTION_FRAME_INFORMATION_HEADER_GUARD

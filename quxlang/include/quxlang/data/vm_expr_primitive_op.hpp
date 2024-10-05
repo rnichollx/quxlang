@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/30/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD
 #define QUXLANG_DATA_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD

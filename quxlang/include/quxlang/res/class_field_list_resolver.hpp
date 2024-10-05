@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/20/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_CLASS_FIELD_LIST_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_CLASS_FIELD_LIST_RESOLVER_HEADER_GUARD

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/22/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/manipulators/merge_entity.hpp"
 #include <quxlang/compiler.hpp>

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/25/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 
 

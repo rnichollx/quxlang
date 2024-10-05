@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/11/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_OPERATOR_IS_OVERLOADED_WITH_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_OPERATOR_IS_OVERLOADED_WITH_RESOLVER_HEADER_GUARD

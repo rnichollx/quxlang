@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/20/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_TYPE_SIZE_FROM_CANONICAL_TYPE_QUESTION_HEADER_GUARD
 #define QUXLANG_RES_TYPE_SIZE_FROM_CANONICAL_TYPE_QUESTION_HEADER_GUARD

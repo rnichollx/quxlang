@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/6/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <gtest/gtest.h>
 

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 8/24/2024.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_VARIABLE_HEADER_GUARD
 #define QUXLANG_RES_VARIABLE_HEADER_GUARD

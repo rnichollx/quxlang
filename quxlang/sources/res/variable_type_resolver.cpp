@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 8/24/2024.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/variable.hpp"
 #include "quxlang/compiler.hpp"
 

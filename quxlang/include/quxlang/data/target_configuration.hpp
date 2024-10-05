@@ -1,3 +1,4 @@
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef QUXLANG_DATA_TARGET_CONFIGURATION_HEADER_GUARD
 #define QUXLANG_DATA_TARGET_CONFIGURATION_HEADER_GUARD
 

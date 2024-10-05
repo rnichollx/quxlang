@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 9/11/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_MODULE_AST_PRECURSOR1_RESOLVER_HEADER_GUARD
 #define QUXLANG_RES_MODULE_AST_PRECURSOR1_RESOLVER_HEADER_GUARD

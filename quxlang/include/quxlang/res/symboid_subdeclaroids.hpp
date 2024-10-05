@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/21/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_SYMBOID_SUBDECLAROIDS_HEADER_GUARD
 #define QUXLANG_RES_SYMBOID_SUBDECLAROIDS_HEADER_GUARD

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 7/6/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_COMPILER_BINDING_HEADER_GUARD
 #define QUXLANG_COMPILER_BINDING_HEADER_GUARD

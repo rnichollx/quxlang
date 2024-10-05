@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2024-02-10.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_MANIPULATORS_SYMBOLMAP_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_SYMBOLMAP_HEADER_GUARD

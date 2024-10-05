@@ -1,10 +1,5 @@
-//
-// Created by Ryan Nicholl on 9/20/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-//
-// Created by Ryan Nicholl on 9/11/23.
-//
 
 #include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/merge_entity.hpp"

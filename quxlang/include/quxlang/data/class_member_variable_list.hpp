@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 8/11/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD
 #define QUXLANG_DATA_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD

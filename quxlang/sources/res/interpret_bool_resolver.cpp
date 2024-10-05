@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 3/31/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/interpret_bool_resolver.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"

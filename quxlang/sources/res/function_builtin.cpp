@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 4/26/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/res/function_builtin.hpp>
 #include <quxlang/compiler.hpp>

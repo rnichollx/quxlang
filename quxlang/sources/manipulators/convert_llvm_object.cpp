@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/13/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/manipulators/convert_llvm_object.hpp"
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"

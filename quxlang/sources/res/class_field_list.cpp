@@ -1,3 +1,4 @@
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/compiler.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
 

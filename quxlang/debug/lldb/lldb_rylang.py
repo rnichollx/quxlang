@@ -1,3 +1,4 @@
+# Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 # lldb_quxlang.py
 import lldb
 

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 1/27/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_OUTPUT_OBJECT_SYMBOL_HEADER_GUARD
 #define QUXLANG_DATA_OUTPUT_OBJECT_SYMBOL_HEADER_GUARD

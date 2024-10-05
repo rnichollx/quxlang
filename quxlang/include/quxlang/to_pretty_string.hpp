@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 11/23/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_TO_PRETTY_STRING_HEADER_GUARD
 #define QUXLANG_TO_PRETTY_STRING_HEADER_GUARD

@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/30/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_BACKENDS_LLVM_VM_LLVM_FRAME_HEADER_GUARD
 #define QUXLANG_BACKENDS_LLVM_VM_LLVM_FRAME_HEADER_GUARD

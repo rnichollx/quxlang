@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 10/28/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/overload_set_is_callable_with_resolver.hpp"
 

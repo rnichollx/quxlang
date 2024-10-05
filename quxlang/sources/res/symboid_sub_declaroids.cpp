@@ -1,3 +1,4 @@
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 // This file implements the symboid_sub_declaroids resolver.
 
 #include <quxlang/compiler.hpp>
