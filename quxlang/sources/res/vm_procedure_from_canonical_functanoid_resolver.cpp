@@ -424,7 +424,7 @@ namespace quxlang
 
         instanciation_reference destructor_reference;
         destructor_reference.callee = destructor_symbol;
-        destructor_reference.parameters = {.named_parameters = {{"THIS", make_mref(type)}}};
+        destructor_reference.parameters = {.named = {{"THIS", make_mref(type)}}};
 
         auto res = co_await m_resolver->gen_call(*this, destructor_symbol, vm_callargs{.named = {{"THIS", val}}});
 
@@ -567,7 +567,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
         vm_proc.interface.argument_types = insta->parameters;
 
-        for (auto const& param : insta->parameters.named_parameters)
+        for (auto const& param : insta->parameters.named)
         {
             std::string name = param.first;
 
@@ -594,9 +594,9 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
             frame.blocks.back().value_states[frame.variables.size() - 1].this_frame = true;
         }
 
-        for (std::size_t i = 0; i < insta->parameters.positional_parameters.size(); i++)
+        for (std::size_t i = 0; i < insta->parameters.positional.size(); i++)
         {
-            auto arg_type = insta->parameters.positional_parameters.at(i);
+            auto arg_type = insta->parameters.positional.at(i);
 
             // TODO: Check that arg_type matches arg.type
 
@@ -911,8 +911,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + expr.operator_str};
     type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
 
-    call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}}, .positional_parameters = {rhs_type}};
-    call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}}, .positional_parameters = {lhs_type}};
+    calltype lhs_param_info{.named = {{"THIS", lhs_type}}, .positional = {rhs_type}};
+    calltype rhs_param_info{.named = {{"THIS", rhs_type}}, .positional = {lhs_type}};
     auto lhs_exists_and_callable_with = co_await *ctx.get_compiler()->lk_functum_exists_and_is_callable_with({.callee = lhs_function, .parameters = lhs_param_info});
 
     if (lhs_exists_and_callable_with)
@@ -1069,15 +1069,15 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call(context_frame& ctx, quxlang::type_symbol callee, vm_callargs call_args)
 {
-    call_type call_set;
+    calltype call_set;
 
     for (vm_value const& val : call_args.positional)
     {
-        call_set.positional_parameters.push_back(vm_value_type(val));
+        call_set.positional.push_back(vm_value_type(val));
     }
     for (auto const& [name, val] : call_args.named)
     {
-        call_set.named_parameters[name] = vm_value_type(val);
+        call_set.named[name] = vm_value_type(val);
     }
     // TODO: Check if function parameter set already specified.
 
@@ -1309,7 +1309,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, quxlang::call_type const& to_types)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, quxlang::calltype const& to_types)
 {
     // TODO: Add support for default parameters.
     vm_callargs result;
@@ -1318,12 +1318,12 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_p
 
     for (auto const& [name, val] : values.named)
     {
-        auto converted_value = co_await gen_implicit_conversion(ctx, val, to_types.named_parameters.at(name));
+        auto converted_value = co_await gen_implicit_conversion(ctx, val, to_types.named.at(name));
         result.named[name] = converted_value;
     }
     for (std::size_t i = 0; i < values.positional.size(); i++)
     {
-        auto converted_value = co_await gen_implicit_conversion(ctx, values.positional.at(i), to_types.positional_parameters.at(i));
+        auto converted_value = co_await gen_implicit_conversion(ctx, values.positional.at(i), to_types.positional.at(i));
         result.positional.push_back(converted_value);
     }
     co_return result;

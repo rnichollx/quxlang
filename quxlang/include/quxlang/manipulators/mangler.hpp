@@ -78,12 +78,12 @@ namespace quxlang
             std::string out = mangle_internal(as< instanciation_reference >(qt).callee);
             out += "C";
             // out += std::to_string(as< functanoid_reference >(qt).parameters.size());
-            for (auto const& p : as< instanciation_reference >(qt).parameters.positional_parameters)
+            for (auto const& p : as< instanciation_reference >(qt).parameters.positional)
             {
                 out += "AP";
                 out += mangle_internal(p);
             }
-            for (auto const& p : as< instanciation_reference >(qt).parameters.named_parameters)
+            for (auto const& p : as< instanciation_reference >(qt).parameters.named)
             {
                 out += "AN";
                 out += p.first;
@@ -122,12 +122,12 @@ namespace quxlang
             str += mangle_internal(as< selection_reference >(qt).templexoid);
             str += "S";
 
-            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.positional_parameters)
+            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.positional)
             {
                 str += "AP";
                 str += mangle_internal(p);
             }
-            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.named_parameters)
+            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.named)
             {
                 str += "AN";
                 str += p.first;

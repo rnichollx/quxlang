@@ -148,8 +148,8 @@ TEST(mangling, name_mangling_new)
 
     quxlang::instanciation_reference param_set{subentity3, {}};
 
-    param_set.parameters.positional_parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
-    param_set.parameters.positional_parameters.push_back(quxlang::primitive_type_integer_reference{32, true});
+    param_set.parameters.positional.push_back(quxlang::primitive_type_integer_reference{32, true});
+    param_set.parameters.positional.push_back(quxlang::primitive_type_integer_reference{32, true});
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 

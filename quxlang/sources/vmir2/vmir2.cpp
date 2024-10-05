@@ -141,7 +141,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
             current_slot_states.at(arg).alive = true;
             continue;
         }
-        type_symbol parameter_type = inst.parameters.named_parameters.at(name);
+        type_symbol parameter_type = inst.parameters.named.at(name);
 
         if (typeis< nvalue_slot >(parameter_type))
         {

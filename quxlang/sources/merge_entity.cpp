@@ -34,7 +34,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
             {
                 rpnx::unimplemented();
             }
-            ol.call_parameters.positional_parameters.push_back(param.type);
+            ol.call_parameters.positional.push_back(param.type);
         }
 
        // auto it = destination_functum.functions.find(ol);

@@ -22,12 +22,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
      std::string from = to_string(args);
 
 
-    if (os.call_parameters.positional_parameters.size() != args.positional_parameters.size())
+    if (os.call_parameters.positional.size() != args.positional.size())
     {
         co_return std::nullopt;
     }
 
-    if (os.call_parameters.named_parameters.size() != args.named_parameters.size())
+    if (os.call_parameters.named.size() != args.named.size())
     {
         co_return std::nullopt;
     }
@@ -35,10 +35,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
     std::vector< quxlang::compiler::out< bool > > convertibles_dp;
 
 
-    for (auto const & [name, type] : args.named_parameters)
+    for (auto const & [name, type] : args.named)
     {
-        auto it = os.call_parameters.named_parameters.find(name);
-        if (it == os.call_parameters.named_parameters.end())
+        auto it = os.call_parameters.named.find(name);
+        if (it == os.call_parameters.named.end())
         {
             co_return std::nullopt;
         }
@@ -68,10 +68,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    for (int i = 0; i < os.call_parameters.positional_parameters.size(); i++)
+    for (int i = 0; i < os.call_parameters.positional.size(); i++)
     {
-        auto arg_type = args.positional_parameters.at(i);
-        auto param_type = os.call_parameters.positional_parameters.at(i);
+        auto arg_type = args.positional.at(i);
+        auto param_type = os.call_parameters.positional.at(i);
         if (is_template(param_type))
         {
 
@@ -97,9 +97,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    call_type result;
+    calltype result;
 
-    std::optional< call_type > result_opt;
+    std::optional< calltype > result_opt;
 
     for (auto & dp : convertibles_dp)
     {
@@ -110,10 +110,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    for (auto const & [name, type] : args.named_parameters)
+    for (auto const & [name, type] : args.named)
     {
-        auto it = os.call_parameters.named_parameters.find(name);
-        if (it == os.call_parameters.named_parameters.end())
+        auto it = os.call_parameters.named.find(name);
+        if (it == os.call_parameters.named.end())
         {
             co_return std::nullopt;
         }
@@ -126,7 +126,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
             auto match = match_template(param_type, arg_type);
             assert(match); // checked already above
 
-            result.named_parameters[name] = std::move(match.value().type);
+            result.named[name] = std::move(match.value().type);
         }
         else
         {
@@ -139,21 +139,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
                 co_return std::nullopt;
             }
 
-            result.named_parameters[name] = param_type;
+            result.named[name] = param_type;
         }
     }
 
-    for (std::size_t i = 0; i < args.positional_parameters.size(); i++)
+    for (std::size_t i = 0; i < args.positional.size(); i++)
     {
-        auto arg_type = args.positional_parameters[i];
-        auto param_type = os.call_parameters.positional_parameters[i];
+        auto arg_type = args.positional[i];
+        auto param_type = os.call_parameters.positional[i];
 
         if (is_template(param_type))
         {
             auto match = match_template(param_type, arg_type);
             assert(match); // checked already above
 
-            result.positional_parameters.push_back(std::move(match.value().type));
+            result.positional.push_back(std::move(match.value().type));
         }
         else
         {
@@ -165,7 +165,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
                 co_return std::nullopt;
             }
 
-            result.positional_parameters.push_back(param_type);
+            result.positional.push_back(param_type);
         }
     }
 

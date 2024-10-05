@@ -34,7 +34,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
     ast2_template_declaration const* selected_template = nullptr;
     std::optional< std::int64_t > template_priority;
 
-    call_type templ_instanciation_args;
+    calltype templ_instanciation_args;
     templ_instanciation_args = args;
     for (ast2_template_declaration const& decl : templ_ast.templates)
     {
@@ -44,8 +44,8 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
             continue;
         }
 
-        call_type decl_args;
-        decl_args.positional_parameters = decl.m_template_args;
+        calltype decl_args;
+        decl_args.positional = decl.m_template_args;
         auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.overload = function_overload{.call_parameters = templ_instanciation_args}, .call = decl_args});
         if (can_use_this_template)
         {

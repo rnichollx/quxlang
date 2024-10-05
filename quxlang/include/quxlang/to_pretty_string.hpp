@@ -511,7 +511,7 @@ namespace quxlang
             result += indent_string();
             result += "parameters: ";
             current_indent++;
-            for (auto const& param : func.parameters.positional_parameters)
+            for (auto const& param : func.parameters.positional)
             {
                 result += indent_string();
                 result += "param: ";

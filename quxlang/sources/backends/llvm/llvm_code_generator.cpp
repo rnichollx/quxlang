@@ -143,12 +143,12 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
     std::vector< llvm::Type* > func_llvm_arg_types;
 
-    for (auto const& [name, type] : vmf.interface.argument_types.named_parameters)
+    for (auto const& [name, type] : vmf.interface.argument_types.named)
     {
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, type));
     }
 
-    for (auto arg_type : vmf.interface.argument_types.positional_parameters)
+    for (auto arg_type : vmf.interface.argument_types.positional)
     {
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
@@ -452,7 +452,7 @@ void quxlang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context,
         frame.values.push_back(item);
     }
 
-    for (auto const& [name, arg_type] : procedure.interface.argument_types.named_parameters)
+    for (auto const& [name, arg_type] : procedure.interface.argument_types.named)
     {
         assert(arg_it != arg_end);
         llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
@@ -472,7 +472,7 @@ void quxlang::llvm_code_generator::generate_arg_push(llvm::LLVMContext& context,
         arg_it++;
     }
 
-    for (auto arg_type : procedure.interface.argument_types.positional_parameters)
+    for (auto arg_type : procedure.interface.argument_types.positional)
     {
         assert(arg_it != arg_end);
         llvm::Type* arg_llvm_type = get_llvm_type_from_vm_type(context, arg_type);
@@ -748,11 +748,11 @@ llvm::FunctionType* quxlang::llvm_code_generator::get_llvm_type_from_func_interf
         arg_types.push_back(ptr_to_ret_type);
     }
 
-    for (auto [name, arg_type] : ifc.argument_types.named_parameters)
+    for (auto [name, arg_type] : ifc.argument_types.named)
     {
         arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
-    for (auto arg_type : ifc.argument_types.positional_parameters)
+    for (auto arg_type : ifc.argument_types.positional)
     {
         arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }

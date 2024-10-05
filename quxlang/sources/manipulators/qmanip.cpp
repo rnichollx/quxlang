@@ -89,7 +89,7 @@ namespace quxlang
         {
             if (is_template(ref.callee))
                 return true;
-            for (auto& p : ref.parameters.positional_parameters)
+            for (auto& p : ref.parameters.positional)
             {
                 if (is_template(p))
                     return true;
@@ -237,7 +237,7 @@ namespace quxlang
         {
             instanciation_reference output = as< instanciation_reference >(ref);
             output.callee = with_context(output.callee, context);
-            for (auto& p : output.parameters.positional_parameters)
+            for (auto& p : output.parameters.positional)
             {
                 p = with_context(p, context);
             }
@@ -275,28 +275,28 @@ namespace quxlang
                 output += "BUILTIN; ";
             }
             bool first = true;
-            for (auto const& [name, type] : sel.overload.call_parameters.named_parameters)
+            for (auto const& [name, type] : sel.overload.call_parameters.named)
             {
                 if (first)
                     first = false;
                 else
                     output += ", ";
                 output += "@" + name + " " + to_string(type);
-                if (ref.parameters.named_parameters.at(name) != type)
+                if (ref.parameters.named.at(name) != type)
                 {
-                    output += ": " + to_string(ref.parameters.named_parameters.at(name));
+                    output += ": " + to_string(ref.parameters.named.at(name));
                 }
             }
-            for (size_t i = 0; i < sel.overload.call_parameters.positional_parameters.size(); i++)
+            for (size_t i = 0; i < sel.overload.call_parameters.positional.size(); i++)
             {
                 if (first)
                     first = false;
                 else
                     output += ", ";
-                output += to_string(sel.overload.call_parameters.positional_parameters.at(i));
-                if (ref.parameters.positional_parameters.at(i) != sel.overload.call_parameters.positional_parameters.at(i))
+                output += to_string(sel.overload.call_parameters.positional.at(i));
+                if (ref.parameters.positional.at(i) != sel.overload.call_parameters.positional.at(i))
                 {
-                    output += ": " + to_string(ref.parameters.positional_parameters.at(i));
+                    output += ": " + to_string(ref.parameters.positional.at(i));
                 }
             }
             output += "}";
@@ -305,7 +305,7 @@ namespace quxlang
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee);
         output += " #(";
         bool first = true;
-        for (auto const& [name, type] : ref.parameters.named_parameters)
+        for (auto const& [name, type] : ref.parameters.named)
         {
             if (first)
                 first = false;
@@ -313,7 +313,7 @@ namespace quxlang
                 output += ", ";
             output += "@" + name + " " + to_string(type);
         }
-        for (auto& p : ref.parameters.positional_parameters)
+        for (auto& p : ref.parameters.positional)
         {
             if (first)
                 first = false;
@@ -409,7 +409,7 @@ namespace quxlang
         {
             output += "BUILTIN; ";
         }
-        for (auto const& arg : ref.overload.call_parameters.named_parameters)
+        for (auto const& arg : ref.overload.call_parameters.named)
         {
             if (first)
                 first = false;
@@ -417,7 +417,7 @@ namespace quxlang
                 output += ", ";
             output += "@" + arg.first + " " + to_string(arg.second);
         }
-        for (auto const& arg : ref.overload.call_parameters.positional_parameters)
+        for (auto const& arg : ref.overload.call_parameters.positional)
         {
             if (first)
                 first = false;
@@ -561,7 +561,7 @@ namespace quxlang
             instanciation_reference const& template_funct = as< instanciation_reference >(template_type);
             instanciation_reference const& type_funct = as< instanciation_reference >(type);
 
-            if (template_funct.parameters.positional_parameters.size() != type_funct.parameters.positional_parameters.size())
+            if (template_funct.parameters.positional.size() != type_funct.parameters.positional.size())
             {
                 return std::nullopt;
             }

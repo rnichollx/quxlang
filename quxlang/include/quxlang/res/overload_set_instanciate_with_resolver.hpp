@@ -16,12 +16,12 @@ namespace quxlang
     struct overload_set_instanciate_with_q
     {
         function_overload overload;
-        call_type call;
+        calltype call;
 
         RPNX_MEMBER_METADATA(overload_set_instanciate_with_q, overload, call);
     };
 
-    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< call_type >);
+    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< calltype >);
 
 } // namespace quxlang
 

@@ -19,17 +19,17 @@
 namespace quxlang
 {
 
-    struct call_type
+    struct calltype
     {
-        std::map< std::string, type_symbol > named_parameters;
-        std::vector< type_symbol > positional_parameters;
+        std::map< std::string, type_symbol > named;
+        std::vector< type_symbol > positional;
 
         inline auto size() const
         {
-            return positional_parameters.size() + named_parameters.size();
+            return positional.size() + named.size();
         }
 
-        RPNX_MEMBER_METADATA(call_type, named_parameters, positional_parameters);
+        RPNX_MEMBER_METADATA(calltype, named, positional);
     };
 
     struct declared_parameter
@@ -74,7 +74,7 @@ namespace quxlang
     struct function_overload
     {
         bool builtin = false;
-        call_type call_parameters;
+        calltype call_parameters;
         std::optional< std::int64_t > priority;
 
         RPNX_MEMBER_METADATA(function_overload, builtin, call_parameters, priority);
@@ -185,7 +185,7 @@ namespace quxlang
     {
         type_symbol callee;
 
-        call_type parameters;
+        calltype parameters;
         RPNX_MEMBER_METADATA(instanciation_reference, callee, parameters);
     };
 

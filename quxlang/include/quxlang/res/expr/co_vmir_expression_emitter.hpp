@@ -102,7 +102,7 @@ namespace quxlang
         {
             std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
-            call_type calltype;
+            calltype calltype;
             for (auto& arg : args.positional)
             {
                 auto arg_type = this->current_type(arg);
@@ -112,7 +112,7 @@ namespace quxlang
                     assert(typeis< nvalue_slot >(arg_type));
                     // arg_type = nvalue_slot{arg_type};
                 }
-                calltype.positional_parameters.push_back(arg_type);
+                calltype.positional.push_back(arg_type);
             }
             for (auto& [name, arg] : args.named)
             {
@@ -124,7 +124,7 @@ namespace quxlang
                 {
                     assert(typeis< nvalue_slot >(arg_type));
                 }
-                calltype.named_parameters[name] = arg_type;
+                calltype.named[name] = arg_type;
             }
 
             instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
@@ -439,7 +439,7 @@ namespace quxlang
                 }
             };
 
-            for (auto const& [name, arg_accepted_type] : call_args_types.named_parameters)
+            for (auto const& [name, arg_accepted_type] : call_args_types.named)
             {
 
                 auto arg_expr_index = expression_args.named.at(name);
@@ -449,9 +449,9 @@ namespace quxlang
                 invocation_args.named[name] = arg_index;
             }
 
-            for (std::size_t i = 0; i < call_args_types.positional_parameters.size(); i++)
+            for (std::size_t i = 0; i < call_args_types.positional.size(); i++)
             {
-                auto arg_accepted_type = call_args_types.positional_parameters.at(i);
+                auto arg_accepted_type = call_args_types.positional.at(i);
 
                 auto arg_expr_index = expression_args.positional.at(i);
 
@@ -711,8 +711,8 @@ namespace quxlang
 
             type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + input.operator_str};
             type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
-            call_type lhs_param_info{.named_parameters = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
-            call_type rhs_param_info{.named_parameters = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
+            calltype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
+            calltype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
             auto lhs_exists_and_callable_with = co_await prv.instanciation({.callee = lhs_function, .parameters = lhs_param_info});
 

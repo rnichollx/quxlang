@@ -36,11 +36,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
 
             if (param.api_name)
             {
-                func_ol.call_parameters.named_parameters[param.api_name.value()] = type_cannonical;
+                func_ol.call_parameters.named[param.api_name.value()] = type_cannonical;
             }
             else
             {
-                func_ol.call_parameters.positional_parameters.push_back(type_cannonical);
+                func_ol.call_parameters.positional.push_back(type_cannonical);
             }
         }
 

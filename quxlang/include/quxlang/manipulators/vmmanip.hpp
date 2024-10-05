@@ -265,14 +265,14 @@ namespace quxlang
         return rpnx::apply_visitor< std::string >(vm_expression_stringifier{}, val);
     }
 
-    inline std::string to_string(call_type const& val)
+    inline std::string to_string(calltype const& val)
     {
 
         std::string result;
 
         result += "CALL_TYPE(";
         bool first = true;
-        for (auto const& [name, type] : val.named_parameters)
+        for (auto const& [name, type] : val.named)
         {
             if (!first)
             {
@@ -281,7 +281,7 @@ namespace quxlang
             result += "@" + name + " " + to_string(type);
             first = false;
         }
-        for (auto const& type : val.positional_parameters)
+        for (auto const& type : val.positional)
         {
             if (!first)
             {

@@ -206,11 +206,11 @@ namespace quxlang::parsers
                 std::string param_name = parse_argument_name(pos, end);
                 skip_whitespace(pos, end);
                 remaining = std::string(pos, end);
-                param_set.parameters.named_parameters[param_name] = parse_type_symbol(pos, end);
+                param_set.parameters.named[param_name] = parse_type_symbol(pos, end);
             }
             else
             {
-                param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+                param_set.parameters.positional.push_back(parse_type_symbol(pos, end));
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -265,29 +265,29 @@ namespace quxlang::parsers
             {
                 std::string param_name = parse_argument_name(pos, end);
                 auto seltype = parse_type_symbol(pos, end);
-                sel.overload.call_parameters.named_parameters[param_name] = seltype;
+                sel.overload.call_parameters.named[param_name] = seltype;
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
-                    param_set.parameters.named_parameters[param_name] = parse_type_symbol(pos, end);
+                    param_set.parameters.named[param_name] = parse_type_symbol(pos, end);
                 }
                 else
                 {
-                    param_set.parameters.named_parameters[param_name] = seltype;
+                    param_set.parameters.named[param_name] = seltype;
                 }
             }
             else
             {
                 auto seltype = parse_type_symbol(pos, end);
-                sel.overload.call_parameters.positional_parameters.push_back(seltype);
+                sel.overload.call_parameters.positional.push_back(seltype);
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
-                    param_set.parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+                    param_set.parameters.positional.push_back(parse_type_symbol(pos, end));
                 }
                 else
                 {
-                    param_set.parameters.positional_parameters.push_back(seltype);
+                    param_set.parameters.positional.push_back(seltype);
                 }
             }
 
@@ -336,11 +336,11 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                param_set.overload.call_parameters.named_parameters[param_name] = parse_type_symbol(pos, end);
+                param_set.overload.call_parameters.named[param_name] = parse_type_symbol(pos, end);
             }
             else
             {
-                param_set.overload.call_parameters.positional_parameters.push_back(parse_type_symbol(pos, end));
+                param_set.overload.call_parameters.positional.push_back(parse_type_symbol(pos, end));
             }
 
             skip_whitespace_and_comments(pos, end);

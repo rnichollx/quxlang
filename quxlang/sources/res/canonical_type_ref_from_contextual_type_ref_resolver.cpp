@@ -148,11 +148,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         output.callee = callee_canonical;
 
-        for (auto& p : param_set.parameters.positional_parameters)
+        for (auto& p : param_set.parameters.positional)
         {
             auto param_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (p, context));
 
-            output.parameters.positional_parameters.push_back(param_canonical);
+            output.parameters.positional.push_back(param_canonical);
             // TODO: support named parameters
         }
 
