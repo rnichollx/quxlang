@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 6/12/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef RPNX_QUXLANG_SIMPLE_COROUTINE_HEADER
 #define RPNX_QUXLANG_SIMPLE_COROUTINE_HEADER

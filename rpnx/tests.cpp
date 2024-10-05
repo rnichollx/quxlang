@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 7/20/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 // #define CATCH_CONFIG_MAIN
 #define CATCH_CONFIG_MAIN
 #include <string>

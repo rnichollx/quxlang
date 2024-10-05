@@ -1,6 +1,4 @@
-//
-// Created by rnicholl on 3/3/24.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef RPNX_VARIANT_HPP
 #define RPNX_VARIANT_HPP

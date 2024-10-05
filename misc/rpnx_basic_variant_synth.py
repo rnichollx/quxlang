@@ -1,4 +1,5 @@
-# rpnx_basic_variant_synth.py
+# Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
+# Made with AI assistance
 
 import lldb
 import re

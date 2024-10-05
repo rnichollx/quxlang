@@ -1,3 +1,4 @@
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef RPNX_GRAPH_SOLVER_HPP
 #define RPNX_GRAPH_SOLVER_HPP
 

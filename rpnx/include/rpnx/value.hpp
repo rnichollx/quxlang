@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2/28/23.
-//
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG__VALUE_HEADER
 #define QUXLANG__VALUE_HEADER

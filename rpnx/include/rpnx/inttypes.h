@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 7/19/2024.
-//
+// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_INTTYPES_H
 #define QUXLANG_INTTYPES_H

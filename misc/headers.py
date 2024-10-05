@@ -1,3 +1,4 @@
+# Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 # Original version by Ryan Nicholl, improved by ChatGPT
 
 import os

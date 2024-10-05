@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 12/10/23.
-//
+// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DEBUG_HEADER_GUARD
 #define QUXLANG_DEBUG_HEADER_GUARD
