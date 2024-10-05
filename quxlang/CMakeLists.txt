@@ -242,6 +242,7 @@ add_library(quxlang include/quxlang/data/canonical_pointer_type_reference.hpp in
         sources/vmir2/vmir2.cpp
         include/quxlang/res/parameters.hpp
         include/quxlang/builtin_classifier.hpp
+        sources/builtin_classifier.cpp
 
 )
 

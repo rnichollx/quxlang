@@ -21,9 +21,6 @@ namespace quxlang
 
     struct call_type
     {
-        // Special this_type is removed, replaced with "THIS" named paramter.
-        // DELETED: std::optional< type_symbol > this_parameter;
-
         std::map< std::string, type_symbol > named_parameters;
         std::vector< type_symbol > positional_parameters;
 
@@ -35,23 +32,32 @@ namespace quxlang
         RPNX_MEMBER_METADATA(call_type, named_parameters, positional_parameters);
     };
 
-    struct parameter
+    struct declared_parameter
+    {
+        std::optional<std::string> api_name;
+        std::optional<std::string> name;
+        type_symbol type;
+        std::optional< expression > default_value;
+
+        RPNX_MEMBER_METADATA(declared_parameter, api_name, name, type, default_value);
+    };
+
+    struct parameter_type
     {
         type_symbol type;
         std::optional< expression > default_value;
 
-        RPNX_MEMBER_METADATA(parameter, type, default_value);
+        RPNX_MEMBER_METADATA(parameter_type, type, default_value);
     };
 
-    // TODO: Replace use of call_type in temploid parameters with this type
-    struct temploid_parameters
+    struct paratype
     {
         // The "this" special parameter is replaced with a
         // named parameter with the name "THIS"
-        std::vector< parameter > positional_parameters;
-        std::map< std::string, parameter > named_parameters;
+        std::vector< parameter_type > positional_parameters;
+        std::map< std::string, parameter_type > named_parameters;
 
-        RPNX_MEMBER_METADATA(temploid_parameters, positional_parameters, named_parameters)
+        RPNX_MEMBER_METADATA(paratype, positional_parameters, named_parameters)
     };
 
     struct function_arg
@@ -72,6 +78,23 @@ namespace quxlang
         std::optional< std::int64_t > priority;
 
         RPNX_MEMBER_METADATA(function_overload, builtin, call_parameters, priority);
+    };
+
+    struct overload
+    {
+        bool builtin = false;
+        paratype params;
+        std::optional< std::int64_t > priority;
+
+        RPNX_MEMBER_METADATA(overload, builtin, params, priority);
+    };
+
+    struct signature
+    {
+        overload ol;
+        std::optional<type_symbol> return_type;
+
+        RPNX_MEMBER_METADATA(signature, ol, return_type);
     };
 
     struct void_type
@@ -123,8 +146,8 @@ namespace quxlang
 
     struct primitive_type_integer_reference
     {
-        std::size_t bits;
-        bool has_sign;
+        std::size_t bits = 0;
+        bool has_sign = false;
 
         RPNX_MEMBER_METADATA(primitive_type_integer_reference, bits, has_sign);
     };
