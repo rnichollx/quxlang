@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_PROCEDURE_REF_HPP
-#define QUXLANG_PROCEDURE_REF_HPP
+#ifndef QUXLANG_PARSERS_PROCEDURE_REF_HEADER_GUARD
+#define QUXLANG_PARSERS_PROCEDURE_REF_HEADER_GUARD
 #include "parse_type_symbol.hpp"
 #include "parse_whitespace_and_comments.hpp"
 #include "string_literal.hpp"

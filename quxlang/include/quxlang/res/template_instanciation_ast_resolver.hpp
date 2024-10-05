@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/18/23.
 //
 
-#ifndef TEMPLATE_INSTANCIATION_RESOLVER_HPP
-#define TEMPLATE_INSTANCIATION_RESOLVER_HPP
+#ifndef QUXLANG_RES_TEMPLATE_INSTANCIATION_AST_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_TEMPLATE_INSTANCIATION_AST_RESOLVER_HEADER_GUARD
 
 #include <rpnx/resolver_utilities.hpp>
 #include <quxlang/ast2/ast2_entity.hpp>

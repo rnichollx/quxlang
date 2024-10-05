@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 1/21/24.
 //
 
-#ifndef AST2_EXTERNFUNC_HPP
-#define AST2_EXTERNFUNC_HPP
+#ifndef QUXLANG_AST2_AST2_EXTERNFUNC_HEADER_GUARD
+#define QUXLANG_AST2_AST2_EXTERNFUNC_HEADER_GUARD
 
 namespace quxlang
 {

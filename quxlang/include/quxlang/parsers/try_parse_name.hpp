@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef TRY_PARSE_NAME_HPP
-#define TRY_PARSE_NAME_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_NAME_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_NAME_HEADER_GUARD
 #include <string>
 
 namespace quxlang::parsers

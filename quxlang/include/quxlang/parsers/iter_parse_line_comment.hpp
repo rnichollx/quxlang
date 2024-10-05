@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef ITER_PARSE_LINE_COMMENT_HPP
-#define ITER_PARSE_LINE_COMMENT_HPP
+#ifndef QUXLANG_PARSERS_ITER_PARSE_LINE_COMMENT_HEADER_GUARD
+#define QUXLANG_PARSERS_ITER_PARSE_LINE_COMMENT_HEADER_GUARD
 
 #include <quxlang/parsers/symbol.hpp>
 

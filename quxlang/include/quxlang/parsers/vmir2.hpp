@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/30/24.
 //
 
-#ifndef RPNX_QUXLANG_PARSERS_VMIR2_HEADER
-#define RPNX_QUXLANG_PARSERS_VMIR2_HEADER
+#ifndef QUXLANG_PARSERS_VMIR2_HEADER_GUARD
+#define QUXLANG_PARSERS_VMIR2_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/parsers/integer.hpp>

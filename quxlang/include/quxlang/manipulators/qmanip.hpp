@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef QUXLANG_MANIPULATORS_QUALIFIED_REFERENCE_HEADER_GUARD
-#define QUXLANG_MANIPULATORS_QUALIFIED_REFERENCE_HEADER_GUARD
+#ifndef QUXLANG_MANIPULATORS_QMANIP_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_QMANIP_HEADER_GUARD
 
 #include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/type_symbol.hpp"

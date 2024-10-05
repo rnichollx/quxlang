@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/15/23.
 //
 
-#ifndef QUXLANG_GLOBAL_NAME_AST_MAP_HEADER_GUARD
-#define QUXLANG_GLOBAL_NAME_AST_MAP_HEADER_GUARD
+#ifndef QUXLANG_DATA_GLOBAL_NAME_AST_MAP_HEADER_GUARD
+#define QUXLANG_DATA_GLOBAL_NAME_AST_MAP_HEADER_GUARD
 
 #include "quxlang/ast/entity_ast.hpp"
 

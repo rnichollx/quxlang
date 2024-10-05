@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_ELF_HPP
-#define QUXLANG_ELF_HPP
+#ifndef QUXLANG_BACKENDS_ELF_ELF_HEADER_GUARD
+#define QUXLANG_BACKENDS_ELF_ELF_HEADER_GUARD
 
 
 #include <cstdint>

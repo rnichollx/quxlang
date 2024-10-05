@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef QUXLANG_EXPRESSION_ADD_HEADER_GUARD
-#define QUXLANG_EXPRESSION_ADD_HEADER_GUARD
+#ifndef QUXLANG_DATA_EXPRESSION_ADD_HEADER_GUARD
+#define QUXLANG_DATA_EXPRESSION_ADD_HEADER_GUARD
 
 #include "quxlang/cow.hpp"
 #include "quxlang/data/expression.hpp"

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef QUXLANG_SKIP_WHITESPACE_HPP
-#define QUXLANG_SKIP_WHITESPACE_HPP
+#ifndef QUXLANG_PARSERS_SKIP_WHITESPACE_HEADER_GUARD
+#define QUXLANG_PARSERS_SKIP_WHITESPACE_HEADER_GUARD
 
 namespace quxlang::parsers
 {

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef QUXLANG_implicitly_convertible_to_RESOLVER_HEADER_GUARD
-#define QUXLANG_implicitly_convertible_to_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_IMPLICITLY_CONVERTIBLE_TO_HEADER_GUARD
+#define QUXLANG_RES_IMPLICITLY_CONVERTIBLE_TO_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/18/24.
 //
 
-#ifndef RPNX_QUXLANG_MACHINE_HEADER
-#define RPNX_QUXLANG_MACHINE_HEADER
+#ifndef QUXLANG_DATA_MACHINE_HEADER_GUARD
+#define QUXLANG_DATA_MACHINE_HEADER_GUARD
 
 #include <cstddef>
 #include <stdexcept>

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_FUNCTION_ARGS_HPP
-#define PARSE_FUNCTION_ARGS_HPP
+#ifndef QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/data/call_parameter_information.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>

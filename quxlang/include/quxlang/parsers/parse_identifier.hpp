@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef GET_SKIP_IDENTIFIER_HPP
-#define GET_SKIP_IDENTIFIER_HPP
+#ifndef QUXLANG_PARSERS_PARSE_IDENTIFIER_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_IDENTIFIER_HEADER_GUARD
 #include <string>
 
 #include <quxlang/parsers/iter_parse_identifier.hpp>

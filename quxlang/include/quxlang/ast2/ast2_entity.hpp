@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef AST2_ENTITY_HEADER_GUARD
-#define AST2_ENTITY_HEADER_GUARD
+#ifndef QUXLANG_AST2_AST2_ENTITY_HEADER_GUARD
+#define QUXLANG_AST2_AST2_ENTITY_HEADER_GUARD
 
 #include "ast2_named_declaration.hpp"
 #include "quxlang/asm/asm.hpp"

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/7/23.
 //
 
-#ifndef QUXLANG_VMMANIP_HEADER_GUARD
-#define QUXLANG_VMMANIP_HEADER_GUARD
+#ifndef QUXLANG_MANIPULATORS_VMMANIP_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_VMMANIP_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"

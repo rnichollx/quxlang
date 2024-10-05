@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef SYMBOL_HPP
-#define SYMBOL_HPP
+#ifndef QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
+#define QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
 #include <string>
 
 #include <quxlang/parsers/ctype.hpp>

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/9/23.
 //
 
-#ifndef QUXLANG_NUMERIC_LITERAL_HEADER_GUARD
-#define QUXLANG_NUMERIC_LITERAL_HEADER_GUARD
+#ifndef QUXLANG_DATA_NUMERIC_LITERAL_HEADER_GUARD
+#define QUXLANG_DATA_NUMERIC_LITERAL_HEADER_GUARD
 
 #include <string>
 #include <rpnx/metadata.hpp>

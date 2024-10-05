@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
-#define TRY_PARSE_CLASS_VARIABLE_DECLARATION_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>

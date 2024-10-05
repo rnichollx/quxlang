@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/20/23.
 //
 
-#ifndef QUXLANG_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
-#define QUXLANG_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_ENTITY_AST_FROM_CHAIN_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"

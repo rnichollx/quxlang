@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 4/6/24.
 //
 
-#ifndef RPNX_QUXLANG_FUNCTUM_INSTANCIATION_HEADER
-#define RPNX_QUXLANG_FUNCTUM_INSTANCIATION_HEADER
+#ifndef QUXLANG_RES_FUNCTUM_INSTANCIATION_HEADER_GUARD
+#define QUXLANG_RES_FUNCTUM_INSTANCIATION_HEADER_GUARD
 
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/macros.hpp>

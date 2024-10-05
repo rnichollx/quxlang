@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 
-#ifndef QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
-#define QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
+#ifndef QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
+#define QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 
 #include "numeric_literal.hpp"
 #include "rpnx/metadata.hpp"

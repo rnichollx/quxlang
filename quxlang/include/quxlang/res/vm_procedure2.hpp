@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/11/24.
 //
 
-#ifndef RPNX_QUXLANG_VM_PROCEDURE2_HEADER
-#define RPNX_QUXLANG_VM_PROCEDURE2_HEADER
+#ifndef QUXLANG_RES_VM_PROCEDURE2_HEADER_GUARD
+#define QUXLANG_RES_VM_PROCEDURE2_HEADER_GUARD
 
 #include "quxlang/data/vm_procedure.hpp"
 #include <quxlang/res/resolver.hpp>

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_EXPRESSION_HPP
-#define PARSE_EXPRESSION_HPP
+#ifndef QUXLANG_PARSERS_PARSE_EXPRESSION_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_EXPRESSION_HEADER_GUARD
 
 #include <quxlang/parsers/try_parse_expression.hpp>
 

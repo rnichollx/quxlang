@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef QUXLANG_LOOKUP_SINGULAR_HEADER_GUARD
-#define QUXLANG_LOOKUP_SINGULAR_HEADER_GUARD
+#ifndef QUXLANG_DATA_LOOKUP_SINGULAR_HEADER_GUARD
+#define QUXLANG_DATA_LOOKUP_SINGULAR_HEADER_GUARD
 
 #include <string>
 #include "quxlang/data/lookup_type.hpp"

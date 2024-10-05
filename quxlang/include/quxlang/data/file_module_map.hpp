@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/11/23.
 //
 
-#ifndef QUXLANG_FILE_MODULE_MAP_HEADER_GUARD
-#define QUXLANG_FILE_MODULE_MAP_HEADER_GUARD
+#ifndef QUXLANG_DATA_FILE_MODULE_MAP_HEADER_GUARD
+#define QUXLANG_DATA_FILE_MODULE_MAP_HEADER_GUARD
 
 #include <string>
 #include <map>

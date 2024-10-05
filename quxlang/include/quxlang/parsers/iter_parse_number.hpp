@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef ITER_PARSE_NUMBER_HPP
-#define ITER_PARSE_NUMBER_HPP
+#ifndef QUXLANG_PARSERS_ITER_PARSE_NUMBER_HEADER_GUARD
+#define QUXLANG_PARSERS_ITER_PARSE_NUMBER_HEADER_GUARD
 
 #include <quxlang/parsers/ctype.hpp>
 

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef QUXLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
-#define QUXLANG_LLVM_CODE_GENERATOR_HEADER_GUARD
+#ifndef QUXLANG_BACKENDS_LLVM_LLVM_CODE_GENERATOR_HEADER_GUARD
+#define QUXLANG_BACKENDS_LLVM_LLVM_CODE_GENERATOR_HEADER_GUARD
 
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/backends/llvm/vm_llvm_frame.hpp"

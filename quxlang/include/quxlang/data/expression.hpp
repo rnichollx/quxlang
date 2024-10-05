@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef QUXLANG_EXPRESSION_HEADER_GUARD
-#define QUXLANG_EXPRESSION_HEADER_GUARD
+#ifndef QUXLANG_DATA_EXPRESSION_HEADER_GUARD
+#define QUXLANG_DATA_EXPRESSION_HEADER_GUARD
 
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"

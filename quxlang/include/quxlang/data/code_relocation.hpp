@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 1/27/24.
 //
 
-#ifndef CODE_RELOCATION_HPP
-#define CODE_RELOCATION_HPP
+#ifndef QUXLANG_DATA_CODE_RELOCATION_HEADER_GUARD
+#define QUXLANG_DATA_CODE_RELOCATION_HEADER_GUARD
 #include <string>
 
 #include <rpnx/inttypes.h>

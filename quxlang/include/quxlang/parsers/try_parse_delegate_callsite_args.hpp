@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef TRY_PARSE_DELEGATE_CALLSITE_ARGS_HPP
-#define TRY_PARSE_DELEGATE_CALLSITE_ARGS_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
 #include <quxlang/data/expression.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>

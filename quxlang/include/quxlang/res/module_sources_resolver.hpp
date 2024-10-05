@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef MODULE_SOURCES_HPP
-#define MODULE_SOURCES_HPP
+#ifndef QUXLANG_RES_MODULE_SOURCES_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_MODULE_SOURCES_RESOLVER_HEADER_GUARD
 
 #include "quxlang/data/target_configuration.hpp"
 #include "quxlang/macros.hpp"

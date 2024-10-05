@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-02-04.
 //
 
-#ifndef QUX_MACROS_HPP
-#define QUX_MACROS_HPP
+#ifndef QUXLANG_MACROS_HEADER_GUARD
+#define QUXLANG_MACROS_HEADER_GUARD
 
 #include <compare>
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef STRING_LITERAL_HPP
-#define STRING_LITERAL_HPP
+#ifndef QUXLANG_PARSERS_STRING_LITERAL_HEADER_GUARD
+#define QUXLANG_PARSERS_STRING_LITERAL_HEADER_GUARD
 #include <string>
 
 namespace quxlang::parsers

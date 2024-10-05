@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef QUXLANG_TRY_PARSE_CLASS_TEMPLATE_HPP
-#define QUXLANG_TRY_PARSE_CLASS_TEMPLATE_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_TEMPLATE_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_CLASS_TEMPLATE_HEADER_GUARD
 
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_class.hpp>

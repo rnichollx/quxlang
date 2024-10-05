@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef QUXLANG_FUNCTION_STATEMENT_HEADER_GUARD
-#define QUXLANG_FUNCTION_STATEMENT_HEADER_GUARD
+#ifndef QUXLANG_DATA_FUNCTION_STATEMENT_HEADER_GUARD
+#define QUXLANG_DATA_FUNCTION_STATEMENT_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/function_return_statement.hpp"

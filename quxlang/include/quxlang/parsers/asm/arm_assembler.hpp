@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/24/24.
 //
 
-#ifndef RPNX_QUXLANG_ARM_ASSEMBLER_HEADER
-#define RPNX_QUXLANG_ARM_ASSEMBLER_HEADER
+#ifndef QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
+#define QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
 
 #include "../../../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/asm/asm.hpp"

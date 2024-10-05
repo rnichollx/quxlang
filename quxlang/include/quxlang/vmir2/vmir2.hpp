@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/26/24.
 //
 
-#ifndef RPNX_QUXLANG_VMIR2_HEADER
-#define RPNX_QUXLANG_VMIR2_HEADER
+#ifndef QUXLANG_VMIR2_VMIR2_HEADER_GUARD
+#define QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 
 #include <cstdint>
 #include <quxlang/data/type_symbol.hpp>

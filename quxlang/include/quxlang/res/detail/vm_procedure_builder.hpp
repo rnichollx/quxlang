@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/26/23.
 //
 
-#ifndef VM_PROCEDURE_BUILDER_HEADER_GUARD
-#define VM_PROCEDURE_BUILDER_HEADER_GUARD
+#ifndef QUXLANG_RES_DETAIL_VM_PROCEDURE_BUILDER_HEADER_GUARD
+#define QUXLANG_RES_DETAIL_VM_PROCEDURE_BUILDER_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/type_symbol.hpp"

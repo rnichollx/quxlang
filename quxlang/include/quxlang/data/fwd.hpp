@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 4/17/24.
 //
 
-#ifndef RPNX_QUXLANG_FWD_HEADER
-#define RPNX_QUXLANG_FWD_HEADER
+#ifndef QUXLANG_DATA_FWD_HEADER_GUARD
+#define QUXLANG_DATA_FWD_HEADER_GUARD
 
 #include "rpnx/variant.hpp"
 namespace quxlang

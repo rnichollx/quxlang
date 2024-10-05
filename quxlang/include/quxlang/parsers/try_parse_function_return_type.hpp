@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef TRY_PARSE_FUNCTION_RETURN_TYPE_HPP
-#define TRY_PARSE_FUNCTION_RETURN_TYPE_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_FUNCTION_RETURN_TYPE_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_RETURN_TYPE_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/data/type_symbol.hpp>

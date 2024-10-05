@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef QUXLANG_TRY_PARSE_CLASS_HEADER_GUARD
-#define QUXLANG_TRY_PARSE_CLASS_HEADER_GUARD
+#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_CLASS_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/ast2/ast2_type_map.hpp>

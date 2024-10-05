@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef QUXLANG_VM_TYPE_ALIGNMENT_HEADER_GUARD
-#define QUXLANG_VM_TYPE_ALIGNMENT_HEADER_GUARD
+#ifndef QUXLANG_MANIPULATORS_VM_TYPE_ALIGNMENT_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_VM_TYPE_ALIGNMENT_HEADER_GUARD
 
 #include "qmanip.hpp"
 #include "quxlang/data/vm_type.hpp"

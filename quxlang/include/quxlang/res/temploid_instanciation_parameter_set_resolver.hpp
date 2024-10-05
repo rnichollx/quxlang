@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/20/23.
 //
 
-#ifndef TEMPLOID_INSTANCIATION_PARAMETER_SET_RESOLVER_HPP
-#define TEMPLOID_INSTANCIATION_PARAMETER_SET_RESOLVER_HPP
+#ifndef QUXLANG_RES_TEMPLOID_INSTANCIATION_PARAMETER_SET_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_TEMPLOID_INSTANCIATION_PARAMETER_SET_RESOLVER_HEADER_GUARD
 #include <rpnx/resolver_utilities.hpp>
 #include <quxlang/compiler_fwd.hpp>
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>

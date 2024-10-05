@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/5/23.
 //
 
-#ifndef QUXLANG_VM_FRAME_VARIABLE_HEADER_GUARD
-#define QUXLANG_VM_FRAME_VARIABLE_HEADER_GUARD
+#ifndef QUXLANG_DATA_VM_FRAME_VARIABLE_HEADER_GUARD
+#define QUXLANG_DATA_VM_FRAME_VARIABLE_HEADER_GUARD
 
 #include <optional>
 #include <string>

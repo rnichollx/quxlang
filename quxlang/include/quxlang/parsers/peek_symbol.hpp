@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef PEEK_SYMBOL_HPP
-#define PEEK_SYMBOL_HPP
+#ifndef QUXLANG_PARSERS_PEEK_SYMBOL_HEADER_GUARD
+#define QUXLANG_PARSERS_PEEK_SYMBOL_HEADER_GUARD
 
 #include <quxlang/parsers/parse_symbol.hpp>
 

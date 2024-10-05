@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUX_IMPORT_HPP
-#define QUX_IMPORT_HPP
+#ifndef QUXLANG_PARSERS_IMPORT_HEADER_GUARD
+#define QUXLANG_PARSERS_IMPORT_HEADER_GUARD
 
 
 #include "parse_type_symbol.hpp"

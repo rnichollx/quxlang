@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef ITER_PARSE_KEYWORD_HPP
-#define ITER_PARSE_KEYWORD_HPP
+#ifndef QUXLANG_PARSERS_KEYWORD_HEADER_GUARD
+#define QUXLANG_PARSERS_KEYWORD_HEADER_GUARD
 
 namespace quxlang::parsers
 {

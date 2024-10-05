@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/4/23.
 //
 
-#ifndef QUXLANG_MANGLER_HEADER_GUARD
-#define QUXLANG_MANGLER_HEADER_GUARD
+#ifndef QUXLANG_MANIPULATORS_MANGLER_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_MANGLER_HEADER_GUARD
 #include <string>
 
 #include <boost/type_index.hpp>

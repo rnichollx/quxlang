@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/3/2024.
 //
 
-#ifndef PARAMETERS_HPP
-#define PARAMETERS_HPP
+#ifndef QUXLANG_RES_PARAMETERS_HEADER_GUARD
+#define QUXLANG_RES_PARAMETERS_HEADER_GUARD
 
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/data/type_symbol.hpp"

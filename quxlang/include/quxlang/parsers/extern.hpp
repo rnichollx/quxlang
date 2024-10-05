@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef EXTERN_HPP
-#define EXTERN_HPP
+#ifndef QUXLANG_PARSERS_EXTERN_HEADER_GUARD
+#define QUXLANG_PARSERS_EXTERN_HEADER_GUARD
 
 #include "parse_whitespace_and_comments.hpp"
 #include "symbol.hpp"

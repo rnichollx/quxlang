@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/30/23.
 //
 
-#ifndef QUXLANG_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD
-#define QUXLANG_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD
+#ifndef QUXLANG_DATA_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD
+#define QUXLANG_DATA_VM_EXPR_PRIMITIVE_OP_HEADER_GUARD
 
 #include "vm_expression.hpp"
 namespace quxlang

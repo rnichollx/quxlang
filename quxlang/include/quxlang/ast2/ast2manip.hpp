@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef AST2MANIP_HPP
-#define AST2MANIP_HPP
+#ifndef QUXLANG_AST2_AST2MANIP_HEADER_GUARD
+#define QUXLANG_AST2_AST2MANIP_HEADER_GUARD
 
 namespace quxlang
 {

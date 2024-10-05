@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/30/24.
 //
 
-#ifndef RPNX_QUXLANG_INTEGER_HEADER
-#define RPNX_QUXLANG_INTEGER_HEADER
+#ifndef QUXLANG_PARSERS_INTEGER_HEADER_GUARD
+#define QUXLANG_PARSERS_INTEGER_HEADER_GUARD
 
 #include <cstddef>  // for std::size_t
 #include <iterator> // for It

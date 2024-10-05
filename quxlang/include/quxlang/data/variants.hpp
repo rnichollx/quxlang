@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 3/31/24.
 //
 
-#ifndef RPNX_QUXLANG_VARIANTS_HEADER
-#define RPNX_QUXLANG_VARIANTS_HEADER
+#ifndef QUXLANG_DATA_VARIANTS_HEADER_GUARD
+#define QUXLANG_DATA_VARIANTS_HEADER_GUARD
 
 #include <rpnx/variant.hpp>
 

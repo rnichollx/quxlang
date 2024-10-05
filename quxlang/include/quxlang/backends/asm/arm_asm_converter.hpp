@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 3/1/24.
 //
 
-#ifndef RPNX_QUXLANG_ARM_ASM_CONVERTER_HEADER
-#define RPNX_QUXLANG_ARM_ASM_CONVERTER_HEADER
+#ifndef QUXLANG_BACKENDS_ASM_ARM_ASM_CONVERTER_HEADER_GUARD
+#define QUXLANG_BACKENDS_ASM_ARM_ASM_CONVERTER_HEADER_GUARD
 
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/variant_utils.hpp"

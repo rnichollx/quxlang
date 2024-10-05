@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUESTIONS_HPP
-#define QUESTIONS_HPP
+#ifndef QUXLANG_QUESTIONS_QUESTIONS_HEADER_GUARD
+#define QUXLANG_QUESTIONS_QUESTIONS_HEADER_GUARD
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "rpnx/resolver2.hpp"

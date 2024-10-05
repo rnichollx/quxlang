@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef QUXLANG_LOOKUP_CHAIN_HEADER_GUARD
-#define QUXLANG_LOOKUP_CHAIN_HEADER_GUARD
+#ifndef QUXLANG_DATA_LOOKUP_CHAIN_HEADER_GUARD
+#define QUXLANG_DATA_LOOKUP_CHAIN_HEADER_GUARD
 
 #include "quxlang/data/lookup_singular.hpp"
 #include <vector>

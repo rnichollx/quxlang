@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef QUXLANG_SYMBOL_ID_HEADER_GUARD
-#define QUXLANG_SYMBOL_ID_HEADER_GUARD
+#ifndef QUXLANG_DATA_SYMBOL_ID_HEADER_GUARD
+#define QUXLANG_DATA_SYMBOL_ID_HEADER_GUARD
 
 #include <cstdint>
 

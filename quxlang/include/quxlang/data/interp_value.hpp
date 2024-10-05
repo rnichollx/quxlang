@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 3/31/24.
 //
 
-#ifndef RPNX_QUXLANG_INTERP_VALUE_HEADER
-#define RPNX_QUXLANG_INTERP_VALUE_HEADER
+#ifndef QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
+#define QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 
 #include "type_symbol.hpp"
 #include <rpnx/variant.hpp>

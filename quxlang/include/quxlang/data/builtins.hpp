@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 4/1/24.
 //
 
-#ifndef RPNX_QUXLANG_BUILTINS_HEADER
-#define RPNX_QUXLANG_BUILTINS_HEADER
+#ifndef QUXLANG_DATA_BUILTINS_HEADER_GUARD
+#define QUXLANG_DATA_BUILTINS_HEADER_GUARD
 
 #include <string>
 

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef QUXLANG_PARSE_FILE_HPP
-#define QUXLANG_PARSE_FILE_HPP
+#ifndef QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
 
 #include "declaration.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef ASM_CALLABLE_HPP
-#define ASM_CALLABLE_HPP
+#ifndef QUXLANG_PARSERS_ASM_ASM_CALLABLE_HEADER_GUARD
+#define QUXLANG_PARSERS_ASM_ASM_CALLABLE_HEADER_GUARD
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/parsers/parse_symbol.hpp"
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"

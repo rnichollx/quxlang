@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/20/24.
 //
 
-#ifndef RPNX_QUXLANG_INPUT_AGGREGATOR_HEADER
-#define RPNX_QUXLANG_INPUT_AGGREGATOR_HEADER
+#ifndef QUXLANG_INPUT_AGGREGATOR_HEADER_GUARD
+#define QUXLANG_INPUT_AGGREGATOR_HEADER_GUARD
 
 #include <filesystem>
 #include <set>

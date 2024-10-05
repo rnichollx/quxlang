@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/8/23.
 //
 
-#ifndef QUXLANG_VM_IF_HEADER_GUARD
-#define QUXLANG_VM_IF_HEADER_GUARD
+#ifndef QUXLANG_DATA_VM_IF_HEADER_GUARD
+#define QUXLANG_DATA_VM_IF_HEADER_GUARD
 
 #include <optional>
 #include "vm_block.hpp"

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_VAR_STATEMENT_HPP
-#define PARSE_VAR_STATEMENT_HPP
+#ifndef QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
 

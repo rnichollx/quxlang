@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 4/22/24.
 //
 
-#ifndef RPNX_QUXLANG_TARGET_HEADER
-#define RPNX_QUXLANG_TARGET_HEADER
+#ifndef QUXLANG_RES_TARGET_HEADER_GUARD
+#define QUXLANG_RES_TARGET_HEADER_GUARD
 
 #include <quxlang/res/resolver.hpp>
 

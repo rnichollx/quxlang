@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_TYPE_SYMBOL_HPP
-#define PARSE_TYPE_SYMBOL_HPP
+#ifndef QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
 
 #include <quxlang/data/type_symbol.hpp>
 

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/18/24.
 //
 
-#ifndef RPNX_QUXLANG_LLVM_LOOKUP_HEADER
-#define RPNX_QUXLANG_LLVM_LOOKUP_HEADER
+#ifndef QUXLANG_MANIPULATORS_LLVM_LOOKUP_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_LLVM_LOOKUP_HEADER_GUARD
 
 #include "quxlang/data/machine.hpp"
 #include <string>

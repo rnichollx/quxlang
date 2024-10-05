@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/25/23.
 //
 
-#ifndef QUXLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD
-#define QUXLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD
+#ifndef QUXLANG_MANIPULATORS_EXPRESSION_STRINGIFIER_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_EXPRESSION_STRINGIFIER_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/expression_numeric_literal.hpp"

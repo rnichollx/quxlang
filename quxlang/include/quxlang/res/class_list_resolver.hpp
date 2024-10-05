@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/21/23.
 //
 
-#ifndef QUXLANG_CLASS_LIST_RESOLVER_HEADER_GUARD
-#define QUXLANG_CLASS_LIST_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_CLASS_LIST_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_CLASS_LIST_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"

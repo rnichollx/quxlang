@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/24/24.
 //
 
-#ifndef RPNX_QUXLANG_ASM_HEADER
-#define RPNX_QUXLANG_ASM_HEADER
+#ifndef QUXLANG_ASM_ASM_HEADER_GUARD
+#define QUXLANG_ASM_ASM_HEADER_GUARD
 
 #include <string>
 #include <vector>

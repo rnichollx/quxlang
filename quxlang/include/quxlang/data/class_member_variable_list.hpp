@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/11/23.
 //
 
-#ifndef QUXLANG_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD
-#define QUXLANG_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD
+#ifndef QUXLANG_DATA_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD
+#define QUXLANG_DATA_CLASS_MEMBER_VARIABLE_LIST_HEADER_GUARD
 
 #include "quxlang/data/class_member_variable_declaration.hpp"
 #include <vector>

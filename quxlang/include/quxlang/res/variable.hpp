@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 8/24/2024.
 //
 
-#ifndef VARIABLE_HPP
-#define VARIABLE_HPP
+#ifndef QUXLANG_RES_VARIABLE_HEADER_GUARD
+#define QUXLANG_RES_VARIABLE_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/res/resolver.hpp"

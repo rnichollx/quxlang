@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_MODULE_READER_HPP
-#define QUXLANG_MODULE_READER_HPP
+#ifndef QUXLANG_MODULE_LOADER_HEADER_GUARD
+#define QUXLANG_MODULE_LOADER_HEADER_GUARD
 #include "data/machine.hpp"
 
 #include "data/target_configuration.hpp"

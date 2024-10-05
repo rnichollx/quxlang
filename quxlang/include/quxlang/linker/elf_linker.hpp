@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/24/24.
 //
 
-#ifndef RPNX_QUXLANG_ELF_LINKER_HEADER
-#define RPNX_QUXLANG_ELF_LINKER_HEADER
+#ifndef QUXLANG_LINKER_ELF_LINKER_HEADER_GUARD
+#define QUXLANG_LINKER_ELF_LINKER_HEADER_GUARD
 
 #include <cstdlib>
 namespace quxlang

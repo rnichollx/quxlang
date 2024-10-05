@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef TRY_PARSE_FUNCTION_DELEGATES_HPP
-#define TRY_PARSE_FUNCTION_DELEGATES_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_FUNCTION_DELEGATES_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_DELEGATES_HEADER_GUARD
 #include <quxlang/parsers/try_parse_delegate_callsite_args.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_args.hpp>
 

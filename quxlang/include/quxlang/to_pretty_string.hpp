@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 11/23/23.
 //
 
-#ifndef TO_PRETTY_STRING_HEADER_GUARD
-#define TO_PRETTY_STRING_HEADER_GUARD
+#ifndef QUXLANG_TO_PRETTY_STRING_HEADER_GUARD
+#define QUXLANG_TO_PRETTY_STRING_HEADER_GUARD
 
 #include "data/expression.hpp"
 #include "data/function_block.hpp"

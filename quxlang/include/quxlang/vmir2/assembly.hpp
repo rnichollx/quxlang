@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 5/30/24.
 //
 
-#ifndef RPNX_QUXLANG_ASSEMBLY_HEADER
-#define RPNX_QUXLANG_ASSEMBLY_HEADER
+#ifndef QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
+#define QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 
 #include <quxlang/vmir2/vmir2.hpp>
 #include <string>

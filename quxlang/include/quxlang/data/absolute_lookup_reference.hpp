@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/20/23.
 //
 
-#ifndef QUXLANG_ABSOLUTE_LOOKUP_REFERENCE_HEADER_GUARD
-#define QUXLANG_ABSOLUTE_LOOKUP_REFERENCE_HEADER_GUARD
+#ifndef QUXLANG_DATA_ABSOLUTE_LOOKUP_REFERENCE_HEADER_GUARD
+#define QUXLANG_DATA_ABSOLUTE_LOOKUP_REFERENCE_HEADER_GUARD
 
 #include "quxlang/data/lookup_chain.hpp"
 #include "quxlang/ordering.hpp"

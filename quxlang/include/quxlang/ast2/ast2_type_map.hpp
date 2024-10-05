@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/10/23.
 //
 
-#ifndef QUXLANG_AST2_AST2_CLASS_HEADER_GUARD
-#define QUXLANG_AST2_AST2_CLASS_HEADER_GUARD
+#ifndef QUXLANG_AST2_AST2_TYPE_MAP_HEADER_GUARD
+#define QUXLANG_AST2_AST2_TYPE_MAP_HEADER_GUARD
 
 #include <compare>
 #include <quxlang/ast2/ast2_entity.hpp>

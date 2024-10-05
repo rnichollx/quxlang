@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/6/24.
 //
 
-#ifndef RPNX_QUXLANG_EXPR_IR2_HEADER
-#define RPNX_QUXLANG_EXPR_IR2_HEADER
+#ifndef QUXLANG_RES_EXPR_IR2_HEADER_GUARD
+#define QUXLANG_RES_EXPR_IR2_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
 #include "rpnx/resolver_utilities.hpp"

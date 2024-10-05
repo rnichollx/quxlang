@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef AST2_NAMESPACE_HPP
-#define AST2_NAMESPACE_HPP
+#ifndef QUXLANG_AST2_AST2_NAMESPACE_HEADER_GUARD
+#define QUXLANG_AST2_AST2_NAMESPACE_HEADER_GUARD
 #include <quxlang/ast2/ast2_entity.hpp>
 
 namespace quxlang

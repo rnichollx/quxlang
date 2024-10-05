@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 7/21/23.
 //
 
-#ifndef QUXLANG_CLASS_LIST_HEADER_GUARD
-#define QUXLANG_CLASS_LIST_HEADER_GUARD
+#ifndef QUXLANG_DATA_CLASS_LIST_HEADER_GUARD
+#define QUXLANG_DATA_CLASS_LIST_HEADER_GUARD
 #include <vector>
 #include <string>
 

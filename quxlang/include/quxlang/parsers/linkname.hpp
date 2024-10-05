@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_LINKNAME_HPP
-#define QUXLANG_LINKNAME_HPP
+#ifndef QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
+#define QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
 #include "keyword.hpp"
 #include "parse_whitespace_and_comments.hpp"
 #include "symbol.hpp"

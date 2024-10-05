@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef PARSE_SUBENTITY_HPP
-#define PARSE_SUBENTITY_HPP
+#ifndef QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
 #include <quxlang/parsers/iter_parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>

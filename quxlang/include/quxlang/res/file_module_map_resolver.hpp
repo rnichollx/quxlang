@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 9/11/23.
 //
 
-#ifndef QUXLANG_FILE_MODULE_MAP_RESOLVER_HEADER_GUARD
-#define QUXLANG_FILE_MODULE_MAP_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_FILE_MODULE_MAP_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_FILE_MODULE_MAP_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"

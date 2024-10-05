@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef AST2_NAMED_DECLARATION_HPP
-#define AST2_NAMED_DECLARATION_HPP
+#ifndef QUXLANG_AST2_AST2_NAMED_DECLARATION_HEADER_GUARD
+#define QUXLANG_AST2_AST2_NAMED_DECLARATION_HEADER_GUARD
 #include "ast2_entity.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>
 

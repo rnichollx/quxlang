@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 3/31/24.
 //
 
-#ifndef RPNX_QUXLANG_INTERPRET_VALUE_RESOLVER_HEADER
-#define RPNX_QUXLANG_INTERPRET_VALUE_RESOLVER_HEADER
+#ifndef QUXLANG_RES_INTERPRET_VALUE_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_INTERPRET_VALUE_RESOLVER_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/interp_value.hpp"

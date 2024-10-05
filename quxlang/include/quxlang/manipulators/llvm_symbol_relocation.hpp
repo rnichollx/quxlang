@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 
-#ifndef LLVM_SYMBOL_RELOCATION_HPP
-#define LLVM_SYMBOL_RELOCATION_HPP
+#ifndef QUXLANG_MANIPULATORS_LLVM_SYMBOL_RELOCATION_HEADER_GUARD
+#define QUXLANG_MANIPULATORS_LLVM_SYMBOL_RELOCATION_HEADER_GUARD
 #include "quxlang/data/code_relocation.hpp"
 
 #include <llvm/Object/ObjectFile.h>

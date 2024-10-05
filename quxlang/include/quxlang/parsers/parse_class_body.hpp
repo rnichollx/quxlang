@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef PARSE_CLASS_BODY_HEADER_GUARD
-#define PARSE_CLASS_BODY_HEADER_GUARD
+#ifndef QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/ast2/ast2_type_map.hpp>

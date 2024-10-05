@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/24/24.
 //
 
-#ifndef RPNX_QUXLANG_PARSE_ASM_PROCEDURE_HEADER
-#define RPNX_QUXLANG_PARSE_ASM_PROCEDURE_HEADER
+#ifndef QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD
 
 #include "linkname.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"

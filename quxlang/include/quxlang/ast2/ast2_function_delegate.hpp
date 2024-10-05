@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/11/23.
 //
 
-#ifndef AST_2_FUNCTION_DECLARATION_HEADER_GUARD
-#define AST_2_FUNCTION_DECLARATION_HEADER_GUARD
+#ifndef QUXLANG_AST2_AST2_FUNCTION_DELEGATE_HEADER_GUARD
+#define QUXLANG_AST2_AST2_FUNCTION_DELEGATE_HEADER_GUARD
 
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/data/function_block.hpp>

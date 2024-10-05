@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/27/23.
 //
 
-#ifndef QUXLANG_CALL_PARAMETER_INFORMATION_HEADER_GUARD
-#define QUXLANG_CALL_PARAMETER_INFORMATION_HEADER_GUARD
+#ifndef QUXLANG_DATA_CALL_PARAMETER_INFORMATION_HEADER_GUARD
+#define QUXLANG_DATA_CALL_PARAMETER_INFORMATION_HEADER_GUARD
 
 #include "quxlang/data/canonical_type_reference.hpp"
 #include "quxlang/data/type_symbol.hpp"

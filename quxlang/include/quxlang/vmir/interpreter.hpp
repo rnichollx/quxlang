@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2/24/24.
 //
 
-#ifndef RPNX_QUXLANG_INTERPRETER_HEADER
-#define RPNX_QUXLANG_INTERPRETER_HEADER
+#ifndef QUXLANG_VMIR_INTERPRETER_HEADER_GUARD
+#define QUXLANG_VMIR_INTERPRETER_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/expression.hpp"

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 6/10/24.
 //
 
-#ifndef RPNX_QUXLANG_EXPR_TEST_PROVIDER_HEADER
-#define RPNX_QUXLANG_EXPR_TEST_PROVIDER_HEADER
+#ifndef QUXLANG_TESTS_EXPR_TEST_PROVIDER_HEADER_GUARD
+#define QUXLANG_TESTS_EXPR_TEST_PROVIDER_HEADER_GUARD
 
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include <quxlang/parsers/parse_expression.hpp>

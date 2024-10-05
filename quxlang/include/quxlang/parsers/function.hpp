@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 6/26/24.
 //
 
-#ifndef RPNX_QUXLANG_FUNCTION_HEADER
-#define RPNX_QUXLANG_FUNCTION_HEADER
+#ifndef QUXLANG_PARSERS_FUNCTION_HEADER_GUARD
+#define QUXLANG_PARSERS_FUNCTION_HEADER_GUARD
 
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>

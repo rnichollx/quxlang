@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef SKIP_COMMENT_HPP
-#define SKIP_COMMENT_HPP
+#ifndef QUXLANG_PARSERS_PARSE_COMMENT_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_COMMENT_HEADER_GUARD
 
 #include <quxlang/parsers/iter_parse_line_comment.hpp>
 

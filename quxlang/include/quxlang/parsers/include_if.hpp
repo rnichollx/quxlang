@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 3/31/24.
 //
 
-#ifndef RPNX_QUXLANG_INCLUDE_IF_HEADER
-#define RPNX_QUXLANG_INCLUDE_IF_HEADER
+#ifndef QUXLANG_PARSERS_INCLUDE_IF_HEADER_GUARD
+#define QUXLANG_PARSERS_INCLUDE_IF_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/ast2/ast2_entity.hpp>

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/17/23.
 //
 
-#ifndef AST2_MODULE_HPP
-#define AST2_MODULE_HPP
+#ifndef QUXLANG_AST2_AST2_MODULE_HEADER_GUARD
+#define QUXLANG_AST2_AST2_MODULE_HEADER_GUARD
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <vector>
 

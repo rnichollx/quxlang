@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_WHITESPACE_AND_COMMENTS_HPP
-#define PARSE_WHITESPACE_AND_COMMENTS_HPP
+#ifndef QUXLANG_PARSERS_PARSE_WHITESPACE_AND_COMMENTS_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_WHITESPACE_AND_COMMENTS_HEADER_GUARD
 
 #include <quxlang/parsers/parse_comment.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>

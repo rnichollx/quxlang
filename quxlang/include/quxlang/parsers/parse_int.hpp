@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef PARSE_INT_HPP
-#define PARSE_INT_HPP
+#ifndef QUXLANG_PARSERS_PARSE_INT_HEADER_GUARD
+#define QUXLANG_PARSERS_PARSE_INT_HEADER_GUARD
 #include <quxlang/parsers/ctype.hpp>
 #include <string>
 

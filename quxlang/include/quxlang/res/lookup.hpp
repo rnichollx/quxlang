@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 10/20/23.
 //
 
-#ifndef QUXLANG_LOOKUP_RESOLVER_HEADER_GUARD
-#define QUXLANG_LOOKUP_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_LOOKUP_HEADER_GUARD
+#define QUXLANG_RES_LOOKUP_HEADER_GUARD
 
 // input: contextual_type_reference
 // output: canonical_type_reference

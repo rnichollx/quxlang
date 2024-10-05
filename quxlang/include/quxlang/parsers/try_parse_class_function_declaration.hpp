@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/12/23.
 //
 
-#ifndef TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
-#define TRY_PARSE_CLASS_FUNCTION_DECLARATION_HPP
+#ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
+#define QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/symbol.hpp>
