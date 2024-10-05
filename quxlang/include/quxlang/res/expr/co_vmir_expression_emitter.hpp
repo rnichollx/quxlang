@@ -559,7 +559,7 @@ namespace quxlang
             }
         }
 
-        auto gen_invoke_builtin(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke_builtin(instanciation_reference what, vmir2::invocation_args const &args) -> typename CoroutineProvider::template co_type< void >
         {
             auto callee = as< selection_reference >(what.callee);
 
@@ -615,18 +615,18 @@ namespace quxlang
             type_symbol lhs_type;
             type_symbol rhs_type;
 
-            if (is_operator && is_rhs)
+            if (is_operator && is_rhs && args.named.contains("THIS") && args.named.contains("OTHER"))
             {
-                auto rhs_index = args.named["THIS"];
+                auto rhs_index = args.named.at("THIS");
                 rhs_type = this->current_type(rhs_index);
-                auto lhs_index = args.named["OTHER"];
+                auto lhs_index = args.named.at("OTHER");
                 lhs_type = this->current_type(lhs_index);
             }
-            else
+            else if (is_operator && args.named.contains("THIS") && args.named.contains("OTHER"))
             {
-                auto rhs_index = args.named["OTHER"];
+                auto rhs_index = args.named.at("OTHER");
                 rhs_type = this->current_type(rhs_index);
-                auto lhs_index = args.named["THIS"];
+                auto lhs_index = args.named.at("THIS");
                 lhs_type = this->current_type(lhs_index);
             }
 
@@ -634,13 +634,25 @@ namespace quxlang
             {
 
             }
+
+            std::string what_str = to_string(what);
+            std::string args_str = to_string(args);
+            vmir2::invoke ivk;
+            ivk.what = what;
+            ivk.args = args;
+
+            this->emit(ivk);
+
+            co_return;
+
+
         }
 
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            if (typeis< selection_reference >(what.callee) && as< selection_reference >(what.callee).overload.builtin)
+            if (true && typeis< selection_reference >(what.callee) && as< selection_reference >(what.callee).overload.builtin)
             {
-                co_return co_await gen_invoke_builtin(what, std::move(args));
+                co_return co_await gen_invoke_builtin(what, args);
             }
 
             if (args.named.contains("RETURN"))
