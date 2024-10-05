@@ -62,7 +62,7 @@ namespace quxlang
         {
 
             // Precondition: Func is a fully instanciated symbol
-            instanciation_reference const& inst = as< instanciation_reference >(func);
+            instantiation_type const& inst = as< instantiation_type >(func);
 
             type_symbol return_type = co_await prv.functanoid_return_type(inst);
 
@@ -237,7 +237,7 @@ namespace quxlang
 
             co_vmir_expression_emitter< CoroutineProvider > emitter(prv, func, frame.block(current_block));
 
-            auto ctor = subdotentity_reference{.parent = var_type, .subdotentity_name = "CONSTRUCTOR"};
+            auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
             co_await emitter.gen_call_functum(ctor, args);
 
             frame.generate_jump(current_block, after_block);
@@ -279,7 +279,7 @@ namespace quxlang
                         throw std::logic_error("RETURN parameter has the wrong type");
                     }
                     return_type = type_symbol(as< nvalue_slot >(return_type).target);
-                    auto ctor = subdotentity_reference{.parent = return_type, .subdotentity_name = "CONSTRUCTOR"};
+                    auto ctor = submember{.of = return_type, .name = "CONSTRUCTOR"};
                     co_await emitter.gen_call_functum(ctor, args);
                 }
 
@@ -287,7 +287,7 @@ namespace quxlang
             }
             else
             {
-                auto return_type = co_await prv.functanoid_return_type(as< instanciation_reference >(func));
+                auto return_type = co_await prv.functanoid_return_type(as< instantiation_type >(func));
                 assert(typeis< void_type >(return_type));
                 frame.generate_return(current_block);
             }
@@ -340,7 +340,7 @@ namespace quxlang
 
         auto generate_body() -> CoroutineProvider::template co_type< void >
         {
-            auto inst = as< instanciation_reference >(func);
+            auto inst = as< instantiation_type >(func);
 
             auto function_ref_opt = co_await this->prv.functum_select_function(inst);
             assert(function_ref_opt.has_value());

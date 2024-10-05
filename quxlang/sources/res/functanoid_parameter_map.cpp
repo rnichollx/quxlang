@@ -4,7 +4,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 {
-    instanciation_reference func_ast = input;
+    instantiation_type func_ast = input;
 
     type_symbol selection = input.callee;
 

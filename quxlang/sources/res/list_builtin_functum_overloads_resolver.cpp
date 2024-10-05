@@ -9,9 +9,9 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
     std::string name = to_string(functum);
 
     std::optional< ast2_class_declaration > class_ent;
-    if (typeis< subdotentity_reference >(functum))
+    if (typeis< submember >(functum))
     {
-        auto parent = as< subdotentity_reference >(functum).parent;
+        auto parent = as< submember >(functum).of;
 
         auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
         if (parent_class_exists)
@@ -25,11 +25,11 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
         }
 
         parent_opt = parent;
-        auto name = as< subdotentity_reference >(functum).subdotentity_name;
+        auto name = as< submember >(functum).name;
 
-        if (typeis< primitive_type_integer_reference >(parent) && name.starts_with("OPERATOR"))
+        if (typeis< int_type >(parent) && name.starts_with("OPERATOR"))
         {
-            auto int_type = as< primitive_type_integer_reference >(parent);
+            auto v_int_type = as< int_type >(parent);
             std::set< primitive_function_info > allowed_operations;
 
             std::string operator_name = name.substr(8);
@@ -44,8 +44,8 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (arithmetic_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", int_type}, {"OTHER", int_type}}, }, },
-                    .return_type = int_type
+                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", v_int_type}, {"OTHER", v_int_type}}, }, },
+                    .return_type = v_int_type
                 });
             }
 
@@ -59,7 +59,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (assignment_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{ .builtin= true, .call_parameters = calltype{.named = {{"THIS", make_oref(int_type)}, {"OTHER", int_type}},}},
+                    .overload = function_overload{ .builtin= true, .call_parameters = calltype{.named = {{"THIS", make_oref(v_int_type)}, {"OTHER", v_int_type}},}},
                     .return_type = void_type{},
                 });
             }
@@ -67,8 +67,8 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (bool_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", int_type}, {"OTHER", int_type}}, }},
-                    .return_type = primitive_type_bool_reference{}
+                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", v_int_type}, {"OTHER", v_int_type}}, }},
+                    .return_type = bool_type{}
                 });
             }
 
@@ -90,9 +90,9 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
         }
         else if (name == "CONSTRUCTOR")
         {
-            if (typeis< primitive_type_integer_reference >(parent))
+            if (typeis< int_type >(parent))
             {
-                auto int_type = as< primitive_type_integer_reference >(parent);
+                auto v_int_type = as< int_type >(parent);
 
                 std::set< primitive_function_info > result;
                 result.insert(primitive_function_info{

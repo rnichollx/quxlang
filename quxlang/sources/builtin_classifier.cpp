@@ -7,9 +7,9 @@
 std::vector< quxlang::signature > quxlang::builtin_classifier::list_builtins(type_symbol func) {
 
 
-    if (func.type_is<subdotentity_reference>())
+    if (func.type_is<submember>())
     {
-        auto & val = func.template get_as<subdotentity_reference>();
+        auto & val = func.template get_as<submember>();
     }
 
     return {};

@@ -15,7 +15,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
         throw std::logic_error("Cannot have declarations of a module");
     }
 
-    if (typeis< instanciation_reference >(input))
+    if (typeis< instantiation_type >(input))
     {
         // TODO: Maybe we allow this for templates?
         throw std::logic_error("Instancations are not declarables");
@@ -24,14 +24,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
     bool is_member = false;
     std::string subname;
 
-    if (typeis< subentity_reference >(input))
+    if (typeis< subsymbol >(input))
     {
-        subname = as< subentity_reference >(input).subentity_name;
+        subname = as< subsymbol >(input).name;
     }
-    else if (typeis< subdotentity_reference >(input))
+    else if (typeis< submember >(input))
     {
         is_member = true;
-        subname = as< subdotentity_reference >(input).subdotentity_name;
+        subname = as< submember >(input).name;
     }
     else
     {

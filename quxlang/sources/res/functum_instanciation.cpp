@@ -15,5 +15,5 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_instanciation)
         // throw std::logic_error("No function found that matches the given parameters.");
     }
 
-    co_return co_await QUX_CO_DEP(function_instanciation, (instanciation_reference{.callee = selection.value(), .parameters = input_val.parameters}));
+    co_return co_await QUX_CO_DEP(function_instanciation, (instantiation_type{.callee = selection.value(), .parameters = input_val.parameters}));
 }

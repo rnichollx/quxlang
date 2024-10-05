@@ -36,7 +36,7 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "BOOL"))
         {
-            output = primitive_type_bool_reference{};
+            output = bool_type{};
         }
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
@@ -127,7 +127,7 @@ namespace quxlang::parsers
             if (ident.empty())
                 throw std::logic_error("expected identifier after ::");
 
-            output = subentity_reference{std::move(output), std::move(ident)};
+            output = subsymbol{std::move(output), std::move(ident)};
         }
         else if (skip_symbol_if_is(pos, end, "."))
         {
@@ -137,7 +137,7 @@ namespace quxlang::parsers
             {
                 return std::nullopt;
             }
-            output = subdotentity_reference{std::move(output), std::move(ident)};
+            output = submember{std::move(output), std::move(ident)};
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
@@ -151,7 +151,7 @@ namespace quxlang::parsers
             {
                 return std::nullopt;
             }
-            output = subentity_reference{std::move(output), std::move(ident)};
+            output = subsymbol{std::move(output), std::move(ident)};
         }
 
     check_next:
@@ -172,7 +172,7 @@ namespace quxlang::parsers
                 return output;
             }
 
-            output = subentity_reference{std::move(output), std::move(ident)};
+            output = subsymbol{std::move(output), std::move(ident)};
             goto check_next;
         }
         else if (skip_symbol_if_is(pos, end, "::."))
@@ -184,12 +184,12 @@ namespace quxlang::parsers
                 return output;
             }
 
-            output = subdotentity_reference{std::move(output), std::move(ident)};
+            output = submember{std::move(output), std::move(ident)};
             goto check_next;
         }
         else if (skip_symbol_if_is(pos, end, "#("))
         {
-            instanciation_reference param_set;
+            instantiation_type param_set;
             param_set.callee = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
@@ -229,7 +229,7 @@ namespace quxlang::parsers
         {
             remaining = std::string(pos, end);
 
-            instanciation_reference param_set;
+            instantiation_type param_set;
             param_set.callee = selection_reference{};
 
             selection_reference& sel = as< selection_reference >(param_set.callee);

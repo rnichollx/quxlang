@@ -43,7 +43,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 
     std::string from_type_str = to_string(from);
 
-    if (typeis<primitive_type_integer_reference>(to) && typeis<numeric_literal_reference>(from))
+    if (typeis<int_type>(to) && typeis<numeric_literal_reference>(from))
     {
         co_return true;
     }

@@ -63,11 +63,11 @@ TEST(parsing, parse_class_with_variables)
     auto member2 = cl2.declarations[1];
     auto global = cl2.declarations[2];
 
-    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}, .name = "a"};
+    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "a"};
 
-    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true})}, .name= "b"};
+    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{64, true})}, .name= "b"};
 
-    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true})}, .name = "c"};
+    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "c"};
 
     ASSERT_TRUE(member1 == member1_expected);
     ASSERT_TRUE(member2 == member2_expected);
@@ -115,8 +115,8 @@ TEST(parsing, parse_function_args)
     ASSERT_EQ(args[1].name, "b");
     ASSERT_EQ(args[2].name, "c");
 
-    bool ok1 = args[0].type == quxlang::type_symbol(quxlang::primitive_type_integer_reference{32, true});
-    bool ok2 = args[1].type == quxlang::type_symbol(quxlang::primitive_type_integer_reference{64, true});
+    bool ok1 = args[0].type == quxlang::type_symbol(quxlang::int_type{32, true});
+    bool ok2 = args[1].type == quxlang::type_symbol(quxlang::int_type{64, true});
     ASSERT_TRUE(ok1);
     ASSERT_TRUE(ok2);
 }
@@ -126,30 +126,30 @@ TEST(parsing, parse_basic_types)
     using namespace quxlang::parsers;
     using namespace quxlang;
 
-    ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(primitive_type_integer_reference{64, true}));
-    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(instance_pointer_type{primitive_type_integer_reference{64, true}}));
+    ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
+    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(instance_pointer_type{int_type{64, true}}));
 
-    ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(primitive_type_bool_reference{}));
+    ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
 
 TEST(mangling, name_mangling_new)
 {
     quxlang::module_reference module{"main"};
 
-    quxlang::subentity_reference subentity{module, "foo"};
+    quxlang::subsymbol subentity{module, "foo"};
 
-    quxlang::subentity_reference subentity2;
-    subentity2.parent = subentity;
-    subentity2.subentity_name = "bar";
+    quxlang::subsymbol subentity2;
+    subentity2.of = subentity;
+    subentity2.name = "bar";
 
-    quxlang::subentity_reference subentity3;
-    subentity3.parent=subentity2;
-    subentity3.subentity_name= "baz";
+    quxlang::subsymbol subentity3;
+    subentity3.of=subentity2;
+    subentity3.name= "baz";
 
-    quxlang::instanciation_reference param_set{subentity3, {}};
+    quxlang::instantiation_type param_set{subentity3, {}};
 
-    param_set.parameters.positional.push_back(quxlang::primitive_type_integer_reference{32, true});
-    param_set.parameters.positional.push_back(quxlang::primitive_type_integer_reference{32, true});
+    param_set.parameters.positional.push_back(quxlang::int_type{32, true});
+    param_set.parameters.positional.push_back(quxlang::int_type{32, true});
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
@@ -278,8 +278,8 @@ TEST(qual, template_matching)
 {
     quxlang::type_symbol template1 = quxlang::template_reference{"foo"};
     quxlang::type_symbol template2 = quxlang::instance_pointer_type{quxlang::template_reference{"foo"}};
-    quxlang::type_symbol type1 = quxlang::primitive_type_integer_reference{32, true};
-    quxlang::type_symbol type2 = quxlang::instance_pointer_type{quxlang::primitive_type_integer_reference{32, true}};
+    quxlang::type_symbol type1 = quxlang::int_type{32, true};
+    quxlang::type_symbol type2 = quxlang::instance_pointer_type{quxlang::int_type{32, true}};
 
     auto res1 = quxlang::match_template(template1, type1);
 

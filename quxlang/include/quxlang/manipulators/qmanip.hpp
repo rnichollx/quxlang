@@ -34,14 +34,14 @@ namespace quxlang
         return {};
     }
 
-    inline auto knot(subentity_reference& ref)
+    inline auto knot(subsymbol& ref)
     {
-        return std::tie(ref.parent);
+        return std::tie(ref.of);
     }
 
-    inline auto knot(subentity_reference const& ref)
+    inline auto knot(subsymbol const& ref)
     {
-        return std::tie(ref.parent);
+        return std::tie(ref.of);
     }
 
     inline auto knot(cvalue_reference const& ref)
@@ -277,7 +277,7 @@ namespace quxlang
 
     inline bool is_integral(type_symbol const& ref)
     {
-        return typeis< primitive_type_integer_reference >(ref);
+        return typeis< int_type >(ref);
     }
 
     inline bool is_numeric_literal(type_symbol const& ref)
@@ -309,7 +309,7 @@ namespace quxlang
 
     inline bool is_primitive(type_symbol sym)
     {
-        return typeis< primitive_type_integer_reference >(sym) || typeis< primitive_type_bool_reference >(sym) || typeis< instance_pointer_type >(sym);
+        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< instance_pointer_type >(sym);
     }
 
 } // namespace quxlang

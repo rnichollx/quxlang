@@ -420,9 +420,9 @@ namespace quxlang
 
         // std::cout << "Destroying value of type " << variable_type_str << std::endl;
         auto val = load_value_as_desctructable(index);
-        subdotentity_reference destructor_symbol = {type, "DESTRUCTOR"};
+        submember destructor_symbol = {type, "DESTRUCTOR"};
 
-        instanciation_reference destructor_reference;
+        instantiation_type destructor_reference;
         destructor_reference.callee = destructor_symbol;
         destructor_reference.parameters = {.named = {{"THIS", make_mref(type)}}};
 
@@ -436,7 +436,7 @@ namespace quxlang
         auto type = get_variable_type(index);
 
         auto val = load_variable_as_new(index);
-        subdotentity_reference constructor_symbol = {type, "CONSTRUCTOR"};
+        submember constructor_symbol = {type, "CONSTRUCTOR"};
         args.named["THIS"] = val;
 
         co_await m_resolver->gen_call(*this, constructor_symbol, args);
@@ -485,7 +485,7 @@ namespace quxlang
     }
 } // namespace quxlang
 
-rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm_procedure_from_canonical_functanoid_resolver::co_process(compiler* c, instanciation_reference func_name)
+rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm_procedure_from_canonical_functanoid_resolver::co_process(compiler* c, instantiation_type func_name)
 {
     for (std::size_t i = 0; i < 3; i++)
     {
@@ -522,17 +522,17 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
     std::optional< std::string > func_name_str;
 
-    if (typeis< subdotentity_reference >(functum_reference))
+    if (typeis< submember >(functum_reference))
     {
         is_member = true;
-        parent_type = as< subdotentity_reference >(functum_reference).parent;
-        func_name_str = as< subdotentity_reference >(functum_reference).subdotentity_name;
+        parent_type = as< submember >(functum_reference).of;
+        func_name_str = as< submember >(functum_reference).name;
     }
     else
     {
-        assert(typeis< subentity_reference >(functum_reference));
-        parent_type = as< subentity_reference >(functum_reference).parent;
-        func_name_str = as< subentity_reference >(functum_reference).subentity_name;
+        assert(typeis< subsymbol >(functum_reference));
+        parent_type = as< subsymbol >(functum_reference).of;
+        func_name_str = as< subsymbol >(functum_reference).name;
     }
     // TODO: Support more member function logic, e.g. templates
 
@@ -641,9 +641,9 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
                 auto& target = delegate.target;
 
-                if (typeis< subdotentity_reference >(target) && (as< subdotentity_reference >(target).parent == type_symbol(context_reference{})))
+                if (typeis< submember >(target) && (as< submember >(target).of == type_symbol(context_reference{})))
                 {
-                    std::string name = as< subdotentity_reference >(target).subdotentity_name;
+                    std::string name = as< submember >(target).name;
 
                     // We need to loop over the layout fields and find this member
                     for (class_field_info& field : this_layout.fields)
@@ -668,7 +668,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
                                 args.positional.push_back(val);
                             }
 
-                            co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
+                            co_await gen_call(ctx, submember{field.type, "CONSTRUCTOR"}, args);
 
                             intialized_members.insert(name);
                         }
@@ -690,7 +690,7 @@ rpnx::resolver_coroutine< quxlang::compiler, quxlang::vm_procedure > quxlang::vm
 
                 args.positional.push_back(get_element_ptr);
 
-                co_await gen_call(ctx, subdotentity_reference{field.type, "CONSTRUCTOR"}, args);
+                co_await gen_call(ctx, submember{field.type, "CONSTRUCTOR"}, args);
             }
 
             // gen_default_constructor(ctx, parent_type.value(), {this_value.value()});
@@ -908,8 +908,8 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     type_symbol lhs_underlying_type = remove_ref(lhs_type);
     type_symbol rhs_underlying_type = remove_ref(rhs_type);
 
-    type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + expr.operator_str};
-    type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
+    type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + expr.operator_str};
+    type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + expr.operator_str + "RHS"};
 
     calltype lhs_param_info{.named = {{"THIS", lhs_type}}, .positional = {rhs_type}};
     calltype rhs_param_info{.named = {{"THIS", rhs_type}}, .positional = {lhs_type}};
@@ -950,12 +950,12 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_value(context_frame& ctx, quxlang::expression_symbol_reference expr)
 {
-    bool is_possibly_frame_value = typeis< subentity_reference >(expr.symbol) && typeis< context_reference >(as< subentity_reference >(expr.symbol).parent);
+    bool is_possibly_frame_value = typeis< subsymbol >(expr.symbol) && typeis< context_reference >(as< subsymbol >(expr.symbol).of);
 
     // Frame values are sub-entities of the current context.
     if (is_possibly_frame_value)
     {
-        std::string name = as< subentity_reference >(expr.symbol).subentity_name;
+        std::string name = as< subsymbol >(expr.symbol).name;
 
         std::optional< vm_value > val = ctx.try_load_variable(name);
 
@@ -1008,9 +1008,9 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     }
 
     auto underlying_to_type = remove_ref(to);
-    if (typeis< primitive_type_integer_reference >(to) && typeis< vm_expr_literal >(from))
+    if (typeis< int_type >(to) && typeis< vm_expr_literal >(from))
     {
-        vm_value result = gen_conversion_to_integer(ctx, as< vm_expr_literal >(from), as< primitive_type_integer_reference >(to));
+        vm_value result = gen_conversion_to_integer(ctx, as< vm_expr_literal >(from), as< int_type >(to));
 
         if (is_ref(to))
         {
@@ -1084,7 +1084,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     // TODO: Reimplement this
 
     // assert(false);
-    auto selected_overload = co_await *ctx.get_compiler()->lk_functum_instanciation(instanciation_reference{.callee = callee, .parameters = call_set});
+    auto selected_overload = co_await *ctx.get_compiler()->lk_functum_instanciation(instantiation_type{.callee = callee, .parameters = call_set});
 
     if (!selected_overload.has_value())
     {
@@ -1145,7 +1145,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
         access.type = make_mref(field.type);
         access.base = thisvalue;
         access.offset = field.offset;
-        auto field_constructor = subdotentity_reference{field.type, "CONSTRUCTOR"};
+        auto field_constructor = submember{field.type, "CONSTRUCTOR"};
         co_await gen_call(ctx, field_constructor, {.named = {{"THIS", access}}});
     }
 
@@ -1234,7 +1234,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
 rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_call_functanoid(context_frame& ctx, quxlang::type_symbol callee, quxlang::vm_callargs call_args)
 {
 
-    instanciation_reference const& overload_selected_ref = as< instanciation_reference >(callee);
+    instantiation_type const& overload_selected_ref = as< instantiation_type >(callee);
     std::string overload_string = to_string(callee);
 
     auto args = co_await gen_preinvoke_conversions(ctx, std::move(call_args), overload_selected_ref.parameters);
@@ -1257,7 +1257,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
     co_return co_await gen_invoke(ctx, overload_selected_ref, std::move(args));
 }
 
-rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instanciation_reference const& overload_selected_ref, vm_callargs call_args)
+rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_invoke(context_frame& ctx, instantiation_type const& overload_selected_ref, vm_callargs call_args)
 {
 
     vm_invoke call;
@@ -1331,24 +1331,24 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_callargs > quxlang::vm_p
 
 rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > > quxlang::vm_procedure_from_canonical_functanoid_resolver::try_gen_call_functanoid_builtin(context_frame& ctx, quxlang::type_symbol callee_set, vm_callargs values)
 {
-    assert(typeis< instanciation_reference >(callee_set));
+    assert(typeis< instantiation_type >(callee_set));
 
-    auto callee = as< instanciation_reference >(callee_set).callee;
+    auto callee = as< instantiation_type >(callee_set).callee;
 
     auto functum_ref = as< selection_reference >(callee).templexoid;
 
     std::string dbg_callee = to_string(callee);
 
-    if (typeis< subdotentity_reference >(functum_ref))
+    if (typeis< submember >(functum_ref))
     {
-        subdotentity_reference const& subdot = as< subdotentity_reference >(functum_ref);
-        type_symbol parent_type = subdot.parent;
+        submember const& subdot = as< submember >(functum_ref);
+        type_symbol parent_type = subdot.of;
 
         // assert(!values.empty());
 
-        if (subdot.subdotentity_name.starts_with("OPERATOR") && typeis< primitive_type_integer_reference >(parent_type))
+        if (subdot.name.starts_with("OPERATOR") && typeis< int_type >(parent_type))
         {
-            primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
+            int_type const& v_int_type = as< int_type >(parent_type);
 
             // if (values.size() != 2)
             // {
@@ -1361,7 +1361,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             bool is_rhs = false;
 
-            std::string operator_str = subdot.subdotentity_name.substr(8);
+            std::string operator_str = subdot.name.substr(8);
             if (operator_str.ends_with("RHS"))
             {
                 is_rhs = true;
@@ -1374,25 +1374,25 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             if (!assignment_operators.contains(operator_str))
             {
-                assert(typeis< primitive_type_integer_reference >(lhs_type));
+                assert(typeis< int_type >(lhs_type));
             }
             else
             {
-                assert(typeis< primitive_type_integer_reference >(remove_ref(lhs_type)));
+                assert(typeis< int_type >(remove_ref(lhs_type)));
             }
 
-            assert(typeis< primitive_type_integer_reference >(rhs_type));
+            assert(typeis< int_type >(rhs_type));
 
             vm_expr_primitive_binary_op op;
             op.oper = operator_str;
-            op.type = int_type;
+            op.type = v_int_type;
             op.lhs = lhs;
             op.rhs = rhs;
             co_return op;
         }
-        if (subdot.subdotentity_name == "CONSTRUCTOR" && typeis< primitive_type_integer_reference >(parent_type))
+        if (subdot.name == "CONSTRUCTOR" && typeis< int_type >(parent_type))
         {
-            primitive_type_integer_reference const& int_type = as< primitive_type_integer_reference >(parent_type);
+            int_type const& v_int_type = as< int_type >(parent_type);
 
             // Can't call this... not possible
             // if (values.empty())
@@ -1410,13 +1410,13 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             type_symbol arg_type = vm_value_type(arg);
 
-            if (!typeis< mvalue_reference >(arg_type) || !typeis< primitive_type_integer_reference >(remove_ref(arg_type)))
+            if (!typeis< mvalue_reference >(arg_type) || !typeis< int_type >(remove_ref(arg_type)))
             {
                 throw std::logic_error("Invalid argument type to integer constructor");
             }
 
-            auto int_arg_type = as< primitive_type_integer_reference >(remove_ref(arg_type));
-            if (int_arg_type != int_type)
+            auto int_arg_type = as< int_type >(remove_ref(arg_type));
+            if (int_arg_type != v_int_type)
             {
                 throw std::logic_error("Unimplemented integer of different type passed to int constructor");
             }
@@ -1426,9 +1426,9 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
                 // default constructor
                 vm_expr_store initalizer;
 
-                initalizer.what = vm_expr_load_literal{"0", int_type};
+                initalizer.what = vm_expr_load_literal{"0", v_int_type};
                 initalizer.where = arg;
-                initalizer.type = int_type;
+                initalizer.type = v_int_type;
                 ctx.push(vm_execute_expression{initalizer});
                 co_return void_value{};
             }
@@ -1447,12 +1447,12 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
                 initalizer.what = arg_to_copy;
                 initalizer.where = arg;
-                initalizer.type = int_type;
+                initalizer.type = v_int_type;
                 ctx.push(vm_execute_expression{initalizer});
                 co_return void_value{};
             }
         }
-        else if (subdot.subdotentity_name == "CONSTRUCTOR" && values.named.size() == 1 && values.positional.size() == 0)
+        else if (subdot.name == "CONSTRUCTOR" && values.named.size() == 1 && values.positional.size() == 0)
         {
             // For non-primitives, we should generate a default constructor if no .CONSTRUCTOR exists for the given type
             auto should_autogen = co_await *ctx.get_compiler()->lk_class_should_autogen_default_constructor(parent_type);
@@ -1464,7 +1464,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
 
             co_return co_await gen_default_constructor(ctx, parent_type, values);
         }
-        else if (subdot.subdotentity_name == "DESTRUCTOR")
+        else if (subdot.name == "DESTRUCTOR")
         {
             // TODO: Allow this to be provided by users.
 
@@ -1490,7 +1490,7 @@ rpnx::general_coroutine< quxlang::compiler, std::optional< quxlang::vm_value > >
     throw std::logic_error("Unimplemented builtin function");
 }
 
-quxlang::vm_value quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_conversion_to_integer(context_frame& ctx, quxlang::vm_expr_literal val, quxlang::primitive_type_integer_reference to_type)
+quxlang::vm_value quxlang::vm_procedure_from_canonical_functanoid_resolver::gen_conversion_to_integer(context_frame& ctx, quxlang::vm_expr_literal val, quxlang::int_type to_type)
 {
     vm_expr_load_literal result = vm_expr_load_literal{val.literal, to_type};
 
@@ -1552,7 +1552,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
         access.base = this_obj;
         access.offset = field.offset;
 
-        auto field_destructor = subdotentity_reference{field.type, "DESTRUCTOR"};
+        auto field_destructor = submember{field.type, "DESTRUCTOR"};
 
         co_await gen_call(ctx, field_destructor, {.named = {{"THIS", access}}});
     }

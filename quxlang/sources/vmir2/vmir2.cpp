@@ -95,7 +95,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
 
     block.instructions.push_back(ivk);
 
-    instanciation_reference inst = as< instanciation_reference >(invoked_symbol);
+    instantiation_type inst = as< instantiation_type >(invoked_symbol);
 
     for (auto& arg : args.positional)
     {

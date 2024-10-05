@@ -128,33 +128,33 @@ namespace quxlang
         RPNX_MEMBER_METADATA(module_reference, module_name);
     };
 
-    struct subentity_reference
+    struct subsymbol
     {
-        type_symbol parent;
-        std::string subentity_name;
+        type_symbol of;
+        std::string name;
 
-        RPNX_MEMBER_METADATA(subentity_reference, parent, subentity_name);
+        RPNX_MEMBER_METADATA(subsymbol, of, name);
     };
 
-    struct subdotentity_reference
+    struct submember
     {
-        type_symbol parent;
-        std::string subdotentity_name;
+        type_symbol of;
+        std::string name;
 
-        RPNX_MEMBER_METADATA(subdotentity_reference, parent, subdotentity_name);
+        RPNX_MEMBER_METADATA(submember, of, name);
     };
 
-    struct primitive_type_integer_reference
+    struct int_type
     {
         std::size_t bits = 0;
         bool has_sign = false;
 
-        RPNX_MEMBER_METADATA(primitive_type_integer_reference, bits, has_sign);
+        RPNX_MEMBER_METADATA(int_type, bits, has_sign);
     };
 
-    struct primitive_type_bool_reference
+    struct bool_type
     {
-        RPNX_EMPTY_METADATA(primitive_type_bool_reference);
+        RPNX_EMPTY_METADATA(bool_type);
     };
 
     struct instance_pointer_type
@@ -181,12 +181,12 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
-    struct instanciation_reference
+    struct instantiation_type
     {
         type_symbol callee;
 
         calltype parameters;
-        RPNX_MEMBER_METADATA(instanciation_reference, callee, parameters);
+        RPNX_MEMBER_METADATA(instantiation_type, callee, parameters);
     };
 
     struct selection_reference
@@ -262,7 +262,7 @@ struct rpnx::resolver_traits< quxlang::type_symbol >
 };
 
 template <>
-struct rpnx::resolver_traits< quxlang::instanciation_reference >
+struct rpnx::resolver_traits< quxlang::instantiation_type >
 {
     static std::string stringify(quxlang::type_symbol const& v)
     {

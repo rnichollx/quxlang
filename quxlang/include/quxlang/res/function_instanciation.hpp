@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(function_instanciation, instanciation_reference, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(function_instanciation, instantiation_type, std::optional<instantiation_type>);
 } // namespace quxlang
 
 #endif // QUXLANG_FUNCTION_OVERLOAD_SELECTION_RESOLVER_HEADER_GUARD

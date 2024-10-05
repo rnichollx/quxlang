@@ -18,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
         co_return result;
     }
-    else if (type.type() == boost::typeindex::type_id< subentity_reference >())
+    else if (type.type() == boost::typeindex::type_id< subsymbol >())
     {
         class_layout layout = co_await QUX_CO_DEP(class_layout, (type));
 
@@ -28,9 +28,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
         co_return result;
     }
-    else if (type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
+    else if (type.type() == boost::typeindex::type_id< int_type >())
     {
-        primitive_type_integer_reference int_kw = as< primitive_type_integer_reference >(type);
+        int_type int_kw = as< int_type >(type);
 
         int sz = 1;
         while (sz * 8 < int_kw.bits)

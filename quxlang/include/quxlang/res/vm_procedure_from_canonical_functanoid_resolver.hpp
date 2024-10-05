@@ -13,15 +13,15 @@
 
 namespace quxlang
 {
-    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, instanciation_reference >
+    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, instantiation_type >
     {
       public:
-        vm_procedure_from_canonical_functanoid_resolver(instanciation_reference func_addr)
-            : rpnx::co_resolver_base< compiler, vm_procedure, instanciation_reference >(func_addr)
+        vm_procedure_from_canonical_functanoid_resolver(instantiation_type func_addr)
+            : rpnx::co_resolver_base< compiler, vm_procedure, instantiation_type >(func_addr)
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, instanciation_reference func_addr) override final;
+        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, instantiation_type func_addr) override final;
 
         virtual std::string question() const override
         {
@@ -153,7 +153,7 @@ namespace quxlang
         [[nodiscard]] rpnx::general_coroutine< compiler, void > build(context_frame& ctx, function_expression_statement statement);
         [[nodiscard]] rpnx::general_coroutine< compiler, void > build(context_frame& ctx, function_block statement);
 
-        vm_value gen_conversion_to_integer(context_frame& ctx, vm_expr_literal val, primitive_type_integer_reference to_type);
+        vm_value gen_conversion_to_integer(context_frame& ctx, vm_expr_literal val, int_type to_type);
         rpnx::general_coroutine< compiler, vm_value > gen_call_expr(context_frame& ctx, vm_value callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_call(context_frame& ctx, type_symbol callee, vm_callargs values);
         rpnx::general_coroutine< compiler, std::optional< vm_value > > try_gen_call_functanoid_builtin(context_frame& ctx, type_symbol callee, vm_callargs values);
@@ -161,7 +161,7 @@ namespace quxlang
         rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, type_symbol callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, type_symbol callee, vm_callargs values);
 
-        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instanciation_reference const& callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instantiation_type const& callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
         rpnx::general_coroutine< compiler, vm_callargs > gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, calltype const& to_types);
         rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, type_symbol to);

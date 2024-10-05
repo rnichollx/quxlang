@@ -9,9 +9,9 @@ void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 {
     auto const & chain = this->m_chain;
 
-    if (typeis< instanciation_reference >(chain))
+    if (typeis< instantiation_type >(chain))
     {
-        instanciation_reference const& param_set = as< instanciation_reference >(chain);
+        instantiation_type const& param_set = as< instantiation_type >(chain);
         // We only care if the parent exists, we can exist but be an invalid functaniod otherwise?
         // Maybe this resolver should be renamed...
 

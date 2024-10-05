@@ -127,7 +127,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            instanciation_reference functanoid_unnormalized{.callee = func, .parameters = calltype};
+            instantiation_type functanoid_unnormalized{.callee = func, .parameters = calltype};
 
             std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
             // Get call type
@@ -201,12 +201,12 @@ namespace quxlang
         {
             std::string symbol_str = to_string(sym);
 
-            bool a = typeis< subentity_reference >(sym);
-            bool b = typeis< context_reference >(as< subentity_reference >(sym).parent);
+            bool a = typeis< subsymbol >(sym);
+            bool b = typeis< context_reference >(as< subsymbol >(sym).of);
 
-            if (typeis< subentity_reference >(sym) && typeis< context_reference >(as< subentity_reference >(sym).parent))
+            if (typeis< subsymbol >(sym) && typeis< context_reference >(as< subsymbol >(sym).of))
             {
-                std::string const& name = as< subentity_reference >(sym).subentity_name;
+                std::string const& name = as< subsymbol >(sym).name;
                 std::cout << "lookup " << name << std::endl;
                 auto lookup = this->exec.local_lookup(name);
                 if (lookup)
@@ -263,7 +263,7 @@ namespace quxlang
 
         auto gen_call_ctor(type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto ctor = subdotentity_reference{.parent = new_type, .subdotentity_name = "CONSTRUCTOR"};
+            auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
             auto new_object = create_temporary_storage(new_type);
             args.named["THIS"] = new_object;
             auto retval = co_await gen_call_functum(ctor, args);
@@ -284,7 +284,7 @@ namespace quxlang
             if (!typeis< bound_type_reference >(callee_type))
             {
                 auto value_type = remove_ref(callee_type);
-                auto operator_call = subdotentity_reference{.parent = value_type, .subdotentity_name = "OPERATOR()"};
+                auto operator_call = submember{.of = value_type, .name = "OPERATOR()"};
                 callee = this->create_binding(callee, operator_call);
                 callee_type = this->current_type(callee);
             }
@@ -345,7 +345,7 @@ namespace quxlang
             return exec.create_numeric_literal(str);
         }
 
-        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        auto gen_call_functanoid(instantiation_type what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
 
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
@@ -373,7 +373,7 @@ namespace quxlang
                     auto index = create_temporary_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
-                    auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
+                    auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
 
                     vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
                     // These both need to be references or the constructor will probably infinite loop.
@@ -398,7 +398,7 @@ namespace quxlang
                     auto index = create_temporary_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
-                    auto arg_final_ctor_func = subdotentity_reference{arg_target_type, "CONSTRUCTOR"};
+                    auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
 
                     vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
 
@@ -532,7 +532,7 @@ namespace quxlang
 
             auto new_value_index = create_temporary_storage(target_value_type);
 
-            auto conversion_functum = subdotentity_reference{target_value_type, "CONSTRUCTOR"};
+            auto conversion_functum = submember{target_value_type, "CONSTRUCTOR"};
 
             vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
 
@@ -559,7 +559,7 @@ namespace quxlang
             }
         }
 
-        auto gen_invoke_builtin(instanciation_reference what, vmir2::invocation_args const &args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke_builtin(instantiation_type what, vmir2::invocation_args const &args) -> typename CoroutineProvider::template co_type< void >
         {
             auto callee = as< selection_reference >(what.callee);
 
@@ -571,17 +571,17 @@ namespace quxlang
             bool member = false;
             std::string name;
 
-            if (typeis< subdotentity_reference >(functum))
+            if (typeis< submember >(functum))
             {
                 member = true;
-                class_type = as< subdotentity_reference >(functum).parent;
-                name = as< subdotentity_reference >(functum).subdotentity_name;
+                class_type = as< submember >(functum).of;
+                name = as< submember >(functum).name;
             }
-            else if (typeis< subentity_reference >(functum))
+            else if (typeis< subsymbol >(functum))
             {
                 member = false;
-                class_type = as< subentity_reference >(functum).parent;
-                name = as< subentity_reference >(functum).subentity_name;
+                class_type = as< subsymbol >(functum).of;
+                name = as< subsymbol >(functum).name;
             }
             else
             {
@@ -648,7 +648,7 @@ namespace quxlang
 
         }
 
-        auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke(instantiation_type what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             if (true && typeis< selection_reference >(what.callee) && as< selection_reference >(what.callee).overload.builtin)
             {
@@ -709,8 +709,8 @@ namespace quxlang
             type_symbol lhs_underlying_type = remove_ref(lhs_type);
             type_symbol rhs_underlying_type = remove_ref(rhs_type);
 
-            type_symbol lhs_function = subdotentity_reference{lhs_underlying_type, "OPERATOR" + input.operator_str};
-            type_symbol rhs_function = subdotentity_reference{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
+            type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + input.operator_str};
+            type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
             calltype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             calltype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
@@ -744,7 +744,7 @@ namespace quxlang
 
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto this_reference = subdotentity_reference{.parent = context_reference{}, .subdotentity_name = "THIS"};
+            auto this_reference = submember{.of = context_reference{}, .name = "THIS"};
             auto value = co_await this->lookup_symbol(this_reference);
             if (!value)
             {

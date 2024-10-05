@@ -237,9 +237,9 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
 llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, quxlang::type_symbol typ)
 {
-    if (typ.type() == boost::typeindex::type_id< quxlang::primitive_type_integer_reference >())
+    if (typ.type() == boost::typeindex::type_id< quxlang::int_type >())
     {
-        return get_llvm_int_type_ptr(ctx, as< quxlang::primitive_type_integer_reference >(typ));
+        return get_llvm_int_type_ptr(ctx, as< quxlang::int_type >(typ));
     }
     else if (quxlang::is_ref(typ))
     {
@@ -251,7 +251,7 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMC
     }
 }
 
-llvm::IntegerType* quxlang::llvm_code_generator::get_llvm_int_type_ptr(llvm::LLVMContext& context, quxlang::primitive_type_integer_reference t)
+llvm::IntegerType* quxlang::llvm_code_generator::get_llvm_int_type_ptr(llvm::LLVMContext& context, quxlang::int_type t)
 {
     assert(t.bits != 0);
     return llvm::IntegerType::get(context, t.bits);
@@ -561,17 +561,17 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
         std::optional< bool > lhs_signed;
         std::optional< bool > rhs_signed;
 
-        if (typeis< primitive_type_bool_reference >(lhs_vm_type) && typeis< primitive_type_bool_reference >(rhs_vm_type))
+        if (typeis< bool_type >(lhs_vm_type) && typeis< bool_type >(rhs_vm_type))
         {
             is_bool_op = true;
         }
-        else if (typeis< primitive_type_integer_reference >(lhs_vm_type) && typeis< primitive_type_integer_reference >(rhs_vm_type))
+        else if (typeis< int_type >(lhs_vm_type) && typeis< int_type >(rhs_vm_type))
         {
             is_int_op = true;
-            lhs_width = as< primitive_type_integer_reference >(lhs_vm_type).bits;
-            rhs_width = as< primitive_type_integer_reference >(rhs_vm_type).bits;
-            lhs_signed = as< primitive_type_integer_reference >(lhs_vm_type).has_sign;
-            rhs_signed = as< primitive_type_integer_reference >(rhs_vm_type).has_sign;
+            lhs_width = as< int_type >(lhs_vm_type).bits;
+            rhs_width = as< int_type >(rhs_vm_type).bits;
+            lhs_signed = as< int_type >(lhs_vm_type).has_sign;
+            rhs_signed = as< int_type >(rhs_vm_type).has_sign;
         }
 
         std::string lhs_type_str = to_string(lhs_vm_type);
@@ -666,13 +666,13 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     {
         vm_expr_load_literal lit = as< vm_expr_load_literal >(value);
 
-        if (lit.type.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
+        if (lit.type.type() == boost::typeindex::type_id< int_type >())
         {
-            primitive_type_integer_reference int_type = as< primitive_type_integer_reference >(lit.type);
-            llvm::Type* llvm_int_type = get_llvm_int_type_ptr(context, int_type);
+            int_type v_int_type = as< int_type >(lit.type);
+            llvm::Type* llvm_int_type = get_llvm_int_type_ptr(context, v_int_type);
             std::string value_string = lit.literal;
             std::uint64_t value_number = std::stoull(value_string);
-            return llvm::ConstantInt::get(llvm_int_type, value_number, int_type.has_sign);
+            return llvm::ConstantInt::get(llvm_int_type, value_number, v_int_type.has_sign);
         }
         if (lit.type.type() == boost::typeindex::type_id< instance_pointer_type >())
         {

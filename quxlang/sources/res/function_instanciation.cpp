@@ -22,6 +22,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
         QUX_CO_ANSWER(std::nullopt);
     }
 
-    auto result = instanciation_reference{.callee = input_val.callee, .parameters = call_set.value()};
+    auto result = instantiation_type{.callee = input_val.callee, .parameters = call_set.value()};
     QUX_CO_ANSWER(result);
 }

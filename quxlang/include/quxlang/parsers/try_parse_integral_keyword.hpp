@@ -10,9 +10,9 @@
 namespace quxlang::parsers
 {
     template < typename It >
-    constexpr std::optional< primitive_type_integer_reference > try_parse_integral_keyword(It& pos, It end)
+    constexpr std::optional< int_type > try_parse_integral_keyword(It& pos, It end)
     {
-        primitive_type_integer_reference ast{};
+        int_type ast{};
         auto it = pos;
 
         if (it != end && (*it == 'I' || *it == 'U'))
@@ -36,7 +36,7 @@ namespace quxlang::parsers
         return std::nullopt;
     }
 
-    constexpr std::optional< primitive_type_integer_reference > try_parse_integral_keyword(std::string const& input)
+    constexpr std::optional< int_type > try_parse_integral_keyword(std::string const& input)
     {
         auto it = input.begin();
         return try_parse_integral_keyword(it, input.end());

@@ -12,7 +12,7 @@ namespace quxlang
 {
     class compiler;
 
-    QUX_CO_RESOLVER(functanoid_parameter_map, instanciation_reference, temploid_instanciation_parameter_set);
+    QUX_CO_RESOLVER(functanoid_parameter_map, instantiation_type, temploid_instanciation_parameter_set);
 }
 
 #endif //FUNCTUM_INSTANCIATION_PARAMETER_MAP_RESOLVER_HPP

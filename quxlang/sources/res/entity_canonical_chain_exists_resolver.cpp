@@ -25,7 +25,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 
         QUX_CO_ANSWER(true);
     }
-    else if (typeis< subdotentity_reference >(input_val) || typeis< subentity_reference >(input_val))
+    else if (typeis< submember >(input_val) || typeis< subsymbol >(input_val))
     {
         auto parent = qualified_parent(input_val);
 
@@ -42,9 +42,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 
         co_return declaroids_of.size() > 0;
     }
-    else if (typeis< instanciation_reference >(input_val))
+    else if (typeis< instantiation_type >(input_val))
     {
-        instanciation_reference const& ref = as< instanciation_reference >(input_val);
+        instantiation_type const& ref = as< instantiation_type >(input_val);
         // Return false if non-match
 
         // TODO: check this
@@ -62,7 +62,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 
         rpnx::unimplemented();
     }
-    else if (typeis< primitive_type_bool_reference >(input_val) || typeis< primitive_type_integer_reference >(input_val) || typeis< numeric_literal_reference >(input_val))
+    else if (typeis< bool_type >(input_val) || typeis< int_type >(input_val) || typeis< numeric_literal_reference >(input_val))
     {
         co_return true;
     }

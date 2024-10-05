@@ -9,19 +9,19 @@ namespace quxlang
     struct qualified_symbol_stringifier : boost::static_visitor< std::string >
     {
         std::string operator()(context_reference const& ref) const;
-        std::string operator()(subentity_reference const& ref) const;
+        std::string operator()(subsymbol const& ref) const;
         std::string operator()(instance_pointer_type const& ref) const;
-        std::string operator()(instanciation_reference const& ref) const;
+        std::string operator()(instantiation_type const& ref) const;
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
         std::string operator()(cvalue_reference const& ref) const;
         std::string operator()(wvalue_reference const& ref) const;
         std::string operator()(module_reference const& ref) const;
         std::string operator()(bound_type_reference const& ref) const;
-        std::string operator()(primitive_type_integer_reference const& ref) const;
-        std::string operator()(primitive_type_bool_reference const& ref) const;
+        std::string operator()(int_type const& ref) const;
+        std::string operator()(bool_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
-        std::string operator()(subdotentity_reference const& ref) const;
+        std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(avalue_reference const&) const;
@@ -70,9 +70,9 @@ namespace quxlang
         {
         }
 
-        bool operator()(subentity_reference const& ref) const
+        bool operator()(subsymbol const& ref) const
         {
-            return is_template(ref.parent);
+            return is_template(ref.of);
         }
 
         bool operator()(instance_pointer_type const& ref) const
@@ -85,7 +85,7 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(instanciation_reference const& ref) const
+        bool operator()(instantiation_type const& ref) const
         {
             if (is_template(ref.callee))
                 return true;
@@ -135,12 +135,12 @@ namespace quxlang
             return is_template(ref.carried_type) || is_template(ref.bound_symbol);
         }
 
-        bool operator()(primitive_type_integer_reference const& ref) const
+        bool operator()(int_type const& ref) const
         {
             return false;
         }
 
-        bool operator()(primitive_type_bool_reference const& ref) const
+        bool operator()(bool_type const& ref) const
         {
             return false;
         }
@@ -160,9 +160,9 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(subdotentity_reference const& ref) const
+        bool operator()(submember const& ref) const
         {
-            return is_template(ref.parent);
+            return is_template(ref.of);
         }
 
         bool operator()(numeric_literal_reference const&) const
@@ -193,25 +193,25 @@ namespace quxlang
 
     std::optional< type_symbol > qualified_parent(type_symbol input)
     {
-        if (input.type() == boost::typeindex::type_id< subentity_reference >())
+        if (input.type() == boost::typeindex::type_id< subsymbol >())
         {
-            return as< subentity_reference >(input).parent;
+            return as< subsymbol >(input).of;
         }
         else if (input.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
             return as< instance_pointer_type >(input).target;
         }
-        else if (input.type() == boost::typeindex::type_id< instanciation_reference >())
+        else if (input.type() == boost::typeindex::type_id< instantiation_type >())
         {
-            return as< instanciation_reference >(input).callee;
+            return as< instantiation_type >(input).callee;
         }
         else if (input.type() == boost::typeindex::type_id< selection_reference >())
         {
             return as< selection_reference >(input).templexoid;
         }
-        else if (input.type() == boost::typeindex::type_id< subdotentity_reference >())
+        else if (input.type() == boost::typeindex::type_id< submember >())
         {
-            return as< subdotentity_reference >(input).parent;
+            return as< submember >(input).of;
         }
         else
         {
@@ -225,17 +225,17 @@ namespace quxlang
         {
             return context;
         }
-        else if (ref.type() == boost::typeindex::type_id< subentity_reference >())
+        else if (ref.type() == boost::typeindex::type_id< subsymbol >())
         {
-            return subentity_reference{with_context(as< subentity_reference >(ref).parent, context), as< subentity_reference >(ref).subentity_name};
+            return subsymbol{with_context(as< subsymbol >(ref).of, context), as< subsymbol >(ref).name};
         }
         else if (ref.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
             return instance_pointer_type{with_context(as< instance_pointer_type >(ref).target, context)};
         }
-        else if (ref.type() == boost::typeindex::type_id< instanciation_reference >())
+        else if (ref.type() == boost::typeindex::type_id< instantiation_type >())
         {
-            instanciation_reference output = as< instanciation_reference >(ref);
+            instantiation_type output = as< instantiation_type >(ref);
             output.callee = with_context(output.callee, context);
             for (auto& p : output.parameters.positional)
             {
@@ -249,15 +249,15 @@ namespace quxlang
         }
     }
 
-    std::string qualified_symbol_stringifier::operator()(subentity_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(subsymbol const& ref) const
     {
-        return to_string(ref.parent) + "::" + ref.subentity_name;
+        return to_string(ref.of) + "::" + ref.name;
     }
     std::string qualified_symbol_stringifier::operator()(instance_pointer_type const& ref) const
     {
         return "->" + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
-    std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(instantiation_type const& ref) const
     {
         // There are 3 types of selection/instanciation,
         // only selection #[ ]
@@ -348,11 +348,11 @@ namespace quxlang
     {
         return "BINDING(" + to_string(ref.carried_type) + ", " + to_string(ref.bound_symbol) + ")";
     }
-    std::string qualified_symbol_stringifier::operator()(primitive_type_integer_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(int_type const& ref) const
     {
         return (ref.has_sign ? "I" : "U") + std::to_string(ref.bits);
     }
-    std::string qualified_symbol_stringifier::operator()(primitive_type_bool_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(bool_type const& ref) const
     {
         return "BOOL";
     }
@@ -368,9 +368,9 @@ namespace quxlang
     {
         return "[[module: " + ref.module_name + "]]";
     }
-    std::string qualified_symbol_stringifier::operator()(subdotentity_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(submember const& ref) const
     {
-        return to_string(ref.parent) + "::." + ref.subdotentity_name;
+        return to_string(ref.of) + "::." + ref.name;
     }
     std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
@@ -487,23 +487,23 @@ namespace quxlang
             match->type = instance_pointer_type{std::move(match->type)};
             return match;
         }
-        else if (typeis< subentity_reference >(template_type))
+        else if (typeis< subsymbol >(template_type))
         {
-            auto const& sub_template = as< subentity_reference >(template_type);
-            auto const& sub_type = as< subentity_reference >(type);
-            if (sub_template.subentity_name != sub_type.subentity_name)
+            auto const& sub_template = as< subsymbol >(template_type);
+            auto const& sub_type = as< subsymbol >(type);
+            if (sub_template.name != sub_type.name)
             {
                 return std::nullopt;
             }
-            auto match = match_template(sub_template.parent, sub_type.parent);
+            auto match = match_template(sub_template.of, sub_type.of);
             if (!match.has_value())
             {
                 return std::nullopt;
             }
-            match->type = subentity_reference{std::move(match->type), sub_template.subentity_name};
+            match->type = subsymbol{std::move(match->type), sub_template.name};
             return match;
         }
-        else if (typeis< subdotentity_reference >(template_type))
+        else if (typeis< submember >(template_type))
         {
             // it is not possible for a type to be a subdotentity_reference
             throw std::logic_error("::. cannot appear in an argument type or argument type template");
@@ -556,10 +556,10 @@ namespace quxlang
             match->type = tvalue_reference{std::move(match->type)};
             return match;
         }
-        else if (typeis< instanciation_reference >(template_type))
+        else if (typeis< instantiation_type >(template_type))
         {
-            instanciation_reference const& template_funct = as< instanciation_reference >(template_type);
-            instanciation_reference const& type_funct = as< instanciation_reference >(type);
+            instantiation_type const& template_funct = as< instantiation_type >(template_type);
+            instantiation_type const& type_funct = as< instantiation_type >(type);
 
             if (template_funct.parameters.positional.size() != type_funct.parameters.positional.size())
             {
@@ -587,7 +587,7 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< primitive_type_integer_reference >(template_type) || typeis< primitive_type_bool_reference >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }
     std::string to_string(type_symbol const& ref)

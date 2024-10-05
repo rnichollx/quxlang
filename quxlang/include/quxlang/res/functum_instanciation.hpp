@@ -8,7 +8,7 @@
 
 namespace quxlang
 {
-     QUX_CO_RESOLVER(functum_instanciation, instanciation_reference, std::optional<instanciation_reference>);
+     QUX_CO_RESOLVER(functum_instanciation, instantiation_type, std::optional<instantiation_type>);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_FUNCTUM_INSTANCIATION_HEADER

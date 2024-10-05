@@ -9,7 +9,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(functum_exists_and_is_callable_with, instanciation_reference, bool);
+    QUX_CO_RESOLVER(functum_exists_and_is_callable_with, instantiation_type, bool);
 } // namespace quxlang
 
 #endif // QUXLANG_FUNCTUM_EXISTS_AND_IS_CALLABLE_WITH_RESOLVER_HEADER_GUARD

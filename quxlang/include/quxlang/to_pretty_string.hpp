@@ -225,35 +225,35 @@ namespace quxlang
         {
             return "context_reference{}\n";
         }
-        std::string operator()(subentity_reference const& ref)
+        std::string operator()(subsymbol const& ref)
         {
             std::string result;
             result = "subentity_reference{\n";
             current_indent++;
             result += indent_string();
             result += "parent: ";
-            result += rpnx::apply_visitor< std::string >(*this, ref.parent);
+            result += rpnx::apply_visitor< std::string >(*this, ref.of);
             result += "\n";
             result += indent_string();
             result += "subentity_name: ";
-            result += ref.subentity_name;
+            result += ref.name;
             current_indent--;
             result += indent_string() + "}\n";
             return result;
         }
 
-        std::string operator()(subdotentity_reference const& ref)
+        std::string operator()(submember const& ref)
         {
             std::string result;
             result = "subdotentity_reference{\n";
             current_indent++;
             result += indent_string();
             result += "parent: ";
-            result += rpnx::apply_visitor< std::string >(*this, ref.parent);
+            result += rpnx::apply_visitor< std::string >(*this, ref.of);
             result += "\n";
             result += indent_string();
             result += "subdotentity_name: ";
-            result += ref.subdotentity_name;
+            result += ref.name;
             current_indent--;
             result += indent_string() + "}\n";
             return result;
@@ -470,13 +470,13 @@ namespace quxlang
             return "module{ " + module.module_name + " }\n";
         }
 
-        std::string operator()(primitive_type_integer_reference const& inttype)
+        std::string operator()(int_type const& inttype)
         {
             return "inttype{" + std::to_string(inttype.bits) + " }\n";
             // TODO: sign
         }
 
-        std::string operator()(primitive_type_bool_reference const& booltype)
+        std::string operator()(bool_type const& booltype)
         {
             return "booltype{}\n";
         }
@@ -500,7 +500,7 @@ namespace quxlang
             return "value_expression_reference{<todo>}\n";
         }
 
-        std::string operator()(instanciation_reference const& func)
+        std::string operator()(instantiation_type const& func)
         {
             std::string result;
             result = "functanoid_reference{\n";

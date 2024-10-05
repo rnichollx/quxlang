@@ -15,10 +15,10 @@ namespace quxlang
 
         std::string type_string = to_string( t);
 
-        if (t.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
+        if (t.type() == boost::typeindex::type_id< int_type >())
         {
             // TODO: This probably isn't right
-            return (as< primitive_type_integer_reference >(t).bits + 7) / 8;
+            return (as< int_type >(t).bits + 7) / 8;
         }
         else if (is_ptr(t) || is_ref(t))
         {

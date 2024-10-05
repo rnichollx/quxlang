@@ -13,7 +13,7 @@ namespace quxlang
     // For functums, this is the same as callee instanciation, for templates,
     // this is a template instanciation.
     // e.g. `::foo#(TEMP &I32, CONST & I32)` -> `::foo#[I32, I32](I32, I32)`
-    QUX_CO_RESOLVER(instanciation, instanciation_reference, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(instanciation, instantiation_type, std::optional<instantiation_type>);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_INSTANCIATION_HEADER

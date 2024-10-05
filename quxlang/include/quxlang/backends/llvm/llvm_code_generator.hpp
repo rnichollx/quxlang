@@ -36,7 +36,7 @@ namespace quxlang
         llvm_code_generator(output_info m);
 
       private:
-        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, primitive_type_integer_reference t);
+        llvm::IntegerType* get_llvm_int_type_ptr(llvm::LLVMContext& context, int_type t);
 
         llvm::PointerType* get_llvm_type_opaque_ptr(llvm::LLVMContext& context);
         llvm::Type* get_llvm_intptr(llvm::LLVMContext& context);

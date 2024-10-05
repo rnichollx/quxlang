@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(functanoid_return_type, instanciation_reference, type_symbol);
+    QUX_CO_RESOLVER(functanoid_return_type, instantiation_type, type_symbol);
 } // namespace quxlang
 
 #endif // QUXLANG_FUNCTION_RETURN_TYPE_RESOLVER_HEADER_GUARD

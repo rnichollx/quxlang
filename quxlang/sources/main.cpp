@@ -26,12 +26,12 @@ int main(int argc, char** argv)
     // return 0;
 
     quxlang::type_symbol cn = quxlang::module_reference{"main"};
-    cn = quxlang::subentity_reference{cn, "quz"};
-    cn = quxlang::subentity_reference{std::move(cn), "bif"};
-    cn = quxlang::subentity_reference{std::move(cn), "box"};
-    cn = quxlang::subentity_reference{std::move(cn), "buz"};
+    cn = quxlang::subsymbol{cn, "quz"};
+    cn = quxlang::subsymbol{std::move(cn), "bif"};
+    cn = quxlang::subsymbol{std::move(cn), "box"};
+    cn = quxlang::subsymbol{std::move(cn), "buz"};
 
-    quxlang::primitive_type_integer_reference u32type = quxlang::primitive_type_integer_reference{32, true};
+    quxlang::int_type u32type = quxlang::int_type{32, true};
 
     quxlang::call_parameter_information args;
     args.argument_types.push_back(u32type);
@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     std::cout << "Compilation took " << std::dec << duration.count() << " microseconds" << std::endl;
 
     // return 0;
-    quxlang::type_symbol foo = quxlang::instanciation_reference{.callee = quxlang::subentity_reference{quxlang::module_reference{.module_name = "main"}, "box2"}, .parameters = {quxlang::parsers::parse_type_symbol("I32")}};
+    quxlang::type_symbol foo = quxlang::instantiation_type{.callee = quxlang::subsymbol{quxlang::module_reference{.module_name = "main"}, "box2"}, .parameters = {quxlang::parsers::parse_type_symbol("I32")}};
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

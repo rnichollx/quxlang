@@ -45,25 +45,25 @@ namespace quxlang
         {
             return "M" + (as< module_reference >(qt)).module_name;
         }
-        else if (qt.type() == boost::typeindex::type_id< subentity_reference >())
+        else if (qt.type() == boost::typeindex::type_id< subsymbol >())
         {
-            subentity_reference const& se = as< subentity_reference >(qt);
+            subsymbol const& se = as< subsymbol >(qt);
 
-            return mangle_internal(se.parent) + "N" + se.subentity_name;
+            return mangle_internal(se.of) + "N" + se.name;
         }
-        else if (qt.type() == boost::typeindex::type_id< subdotentity_reference >())
+        else if (qt.type() == boost::typeindex::type_id< submember >())
         {
-            subdotentity_reference const& se = as< subdotentity_reference >(qt);
+            submember const& se = as< submember >(qt);
 
-            return mangle_internal(se.parent) + "D" + mangle_internal(se.subdotentity_name);
+            return mangle_internal(se.of) + "D" + mangle_internal(se.name);
         }
         else if (qt.type() == boost::typeindex::type_id< instance_pointer_type >())
         {
             return "P" + mangle_internal(as< instance_pointer_type >(qt).target);
         }
-        else if (qt.type() == boost::typeindex::type_id< primitive_type_integer_reference >())
+        else if (qt.type() == boost::typeindex::type_id< int_type >())
         {
-            auto const& i = as< primitive_type_integer_reference >(qt);
+            auto const& i = as< int_type >(qt);
             if (i.has_sign)
             {
                 return "I" + std::to_string(i.bits);
@@ -73,17 +73,17 @@ namespace quxlang
                 return "U" + std::to_string(i.bits);
             }
         }
-        else if (qt.type() == boost::typeindex::type_id< instanciation_reference >())
+        else if (qt.type() == boost::typeindex::type_id< instantiation_type >())
         {
-            std::string out = mangle_internal(as< instanciation_reference >(qt).callee);
+            std::string out = mangle_internal(as< instantiation_type >(qt).callee);
             out += "C";
             // out += std::to_string(as< functanoid_reference >(qt).parameters.size());
-            for (auto const& p : as< instanciation_reference >(qt).parameters.positional)
+            for (auto const& p : as< instantiation_type >(qt).parameters.positional)
             {
                 out += "AP";
                 out += mangle_internal(p);
             }
-            for (auto const& p : as< instanciation_reference >(qt).parameters.named)
+            for (auto const& p : as< instantiation_type >(qt).parameters.named)
             {
                 out += "AN";
                 out += p.first;

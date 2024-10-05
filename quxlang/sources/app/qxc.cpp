@@ -72,12 +72,12 @@ int main(int argc, char** argv)
                     auto sym = *to_compile_vmir.begin();
                     std::cout << "Compiling symbol: " << quxlang::mangle(sym) << std::endl;
 
-                    if (!quxlang::typeis<quxlang::instanciation_reference>(sym))
+                    if (!quxlang::typeis<quxlang::instantiation_type>(sym))
                     {
                         throw std::logic_error("Expected instanciation reference");
                     }
 
-                    quxlang::vm_procedure proc = c.get_vm_procedure2(quxlang::as<quxlang::instanciation_reference>(sym));
+                    quxlang::vm_procedure proc = c.get_vm_procedure2(quxlang::as<quxlang::instantiation_type>(sym));
 
                     std::string procname = quxlang::mangle(sym);
 

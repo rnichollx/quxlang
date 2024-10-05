@@ -13,7 +13,7 @@ namespace quxlang
 namespace quxlang
 {
     class template_instanciation_ast_resolver
-        : public rpnx::co_resolver_base<compiler, ast2_template_declaration, instanciation_reference>
+        : public rpnx::co_resolver_base<compiler, ast2_template_declaration, instantiation_type>
     {
     public:
         template_instanciation_ast_resolver(input_type input)
