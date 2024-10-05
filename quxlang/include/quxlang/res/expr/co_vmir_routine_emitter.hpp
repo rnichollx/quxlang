@@ -85,13 +85,13 @@ namespace quxlang
             {
                 if (param.api_name.has_value())
                 {
-                    type_symbol arg = inst.parameters.named_parameters.at(*param.api_name);
+                    type_symbol arg = inst.parameters.named.at(*param.api_name);
 
                     frame.entry_block().create_named_argument(*param.api_name, arg, param.name);
                 }
                 else
                 {
-                    type_symbol arg = inst.parameters.positional_parameters.at(positional_index);
+                    type_symbol arg = inst.parameters.positional.at(positional_index);
                     positional_index++;
                     frame.entry_block().create_positional_argument(arg, param.name);
                 }
