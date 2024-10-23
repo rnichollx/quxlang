@@ -3,6 +3,7 @@
 #ifndef RPNX_VARIANT_HPP
 #define RPNX_VARIANT_HPP
 
+#include <array>
 #include <cassert>
 #include <cinttypes>
 #include <compare>
@@ -11,7 +12,6 @@
 #include <tuple>
 #include <typeindex>
 #include <typeinfo>
-#include <array>
 #include <variant>
 
 namespace rpnx
@@ -347,8 +347,7 @@ namespace rpnx
         basic_variant< A, Ts... >& m_val;
 
       public:
-        variant_convert_to(basic_variant< A, Ts... >& val)
-            : m_val(val)
+        variant_convert_to(basic_variant< A, Ts... >& val) : m_val(val)
         {
         }
         template < typename T2 >
@@ -412,15 +411,12 @@ namespace rpnx
             }
 
             return true;
-
-
         }
 
       public:
         using allocator_type = Allocator;
 
-        constexpr basic_variant(const allocator_type& alloc = allocator_type())
-            : m_alloc(alloc)
+        constexpr basic_variant(const allocator_type& alloc = allocator_type()) : m_alloc(alloc)
         {
             assert((m_vinf == nullptr) == (m_data == nullptr));
             m_vinf = &s_v_info_for< 0 >;
@@ -437,8 +433,7 @@ namespace rpnx
             assert(valid());
         }
 
-        constexpr basic_variant(basic_variant< Allocator, Ts... >&& other)
-            : m_alloc(std::move(other.m_alloc))
+        constexpr basic_variant(basic_variant< Allocator, Ts... >&& other) : m_alloc(std::move(other.m_alloc))
         {
             assert((m_vinf == nullptr) == (m_data == nullptr));
 
@@ -453,8 +448,7 @@ namespace rpnx
             assert(valid());
         }
 
-        constexpr basic_variant(basic_variant< Allocator, Ts... > const& other)
-            : m_alloc(std::allocator_traits< Allocator >::select_on_container_copy_construction(other.m_alloc))
+        constexpr basic_variant(basic_variant< Allocator, Ts... > const& other) : m_alloc(std::allocator_traits< Allocator >::select_on_container_copy_construction(other.m_alloc))
         {
 
             m_vinf = nullptr;
@@ -500,11 +494,10 @@ namespace rpnx
         }
 
         template < typename... Ts2 >
-        basic_variant(basic_variant< Allocator, Ts2... > const& other, std::enable_if_t< !std::is_same_v< basic_variant< Allocator, Ts... >, basic_variant< Allocator, Ts2... > > && !has_cvref_removed_identical_type< basic_variant< Allocator, Ts2... > >(), int > = 0)
-            : basic_variant()
+        basic_variant(basic_variant< Allocator, Ts2... > const& other, std::enable_if_t< !std::is_same_v< basic_variant< Allocator, Ts... >, basic_variant< Allocator, Ts2... > > && !has_cvref_removed_identical_type< basic_variant< Allocator, Ts2... > >(), int > = 0) : basic_variant()
         {
             assert(valid());
-            //reset();
+            // reset();
             assert((m_vinf == nullptr) == (m_data == nullptr));
             rpnx::apply_visitor< bool >(variant_convert_to< Allocator, Ts... >(*this), other);
             assert(valid());
@@ -525,8 +518,7 @@ namespace rpnx
         }
 
         template < typename T2 >
-        constexpr basic_variant(T2 const& value, const allocator_type& alloc = allocator_type(), std::enable_if_t< rpnx::basic_variant< Allocator, Ts... >::can_construct_subtype_with< T2 >(), int > = 0)
-            : m_alloc(alloc)
+        constexpr basic_variant(T2 const& value, const allocator_type& alloc = allocator_type(), std::enable_if_t< rpnx::basic_variant< Allocator, Ts... >::can_construct_subtype_with< T2 >(), int > = 0) : m_alloc(alloc)
         {
 
             constexpr std::size_t index = constructor_index< T2 >();
@@ -621,7 +613,6 @@ namespace rpnx
             assert(valid());
 
             auto data_copy = other.m_vinf->m_general_info.m_copy(m_alloc, other.m_data);
-
 
             reset();
 
@@ -758,6 +749,28 @@ namespace rpnx
             assert(valid());
             // Check if the variant is currently holding a value of type T
             return m_vinf != nullptr && m_vinf->m_index == index_of< T, Ts... >::value;
+        }
+
+        template < typename T >
+        T* cast_ptr()
+        {
+            assert(valid());
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                return nullptr;
+            }
+            return static_cast< T* >(m_data);
+        }
+
+        template < typename T >
+        T const* cast_ptr() const
+        {
+            assert(valid());
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                return nullptr;
+            }
+            return static_cast< T const* >(m_data);
         }
 
         std::type_info const& type() const

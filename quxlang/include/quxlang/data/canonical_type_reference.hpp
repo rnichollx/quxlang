@@ -5,13 +5,5 @@
 
 #include <boost/variant.hpp>
 
-#include "canonical_lookup_chain.hpp"
-
-namespace quxlang
-{
-
-}
-
-#include "canonical_pointer_type_reference.hpp"
 
 #endif // QUXLANG_CANONICAL_TYPE_REFERENCE_HEADER_GUARD

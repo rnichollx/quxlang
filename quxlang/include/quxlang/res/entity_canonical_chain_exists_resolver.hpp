@@ -5,7 +5,6 @@
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/canonical_lookup_chain.hpp"
 #include "quxlang/data/lookup_chain.hpp"
 
 #include <quxlang/res/resolver.hpp>

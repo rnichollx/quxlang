@@ -4,6 +4,8 @@
 #define QUXLANG_DATA_PROXIMATE_LOOKUP_REFERENCE_HEADER_GUARD
 
 #include "quxlang/data/lookup_chain.hpp"
+#include "quxlang/ordering.hpp"
+
 
 namespace quxlang
 {

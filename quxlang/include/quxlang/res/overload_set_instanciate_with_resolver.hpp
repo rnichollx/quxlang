@@ -4,8 +4,6 @@
 #define QUXLANG_RES_OVERLOAD_SET_INSTANCIATE_WITH_RESOLVER_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/call_parameter_information.hpp"
-#include "quxlang/data/canonical_type_reference.hpp"
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include <optional>

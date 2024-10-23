@@ -3,7 +3,6 @@
 #ifndef QUXLANG_MANIPULATORS_QMANIP_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_QMANIP_HEADER_GUARD
 
-#include "quxlang/data/call_parameter_information.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/variant_utils.hpp"
 
@@ -99,7 +98,7 @@ namespace quxlang
         }
     }
 
-    inline type_symbol make_oref(type_symbol ref)
+    inline type_symbol make_wref(type_symbol ref)
     {
         return wvalue_reference{.target = remove_ref(ref)};
     }
@@ -219,7 +218,7 @@ namespace quxlang
         }
         else if (typeis< wvalue_reference >(obj))
         {
-            return make_oref(field_type);
+            return make_wref(field_type);
         }
         else
         {

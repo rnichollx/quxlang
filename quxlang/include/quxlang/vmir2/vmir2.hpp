@@ -24,8 +24,9 @@ namespace quxlang
         struct jump;
         struct branch;
         struct cast_reference;
+        struct constexpr_set_result;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -76,6 +77,12 @@ namespace quxlang
             std::int64_t offset;
 
             RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index, offset);
+        };
+
+        struct constexpr_set_result
+        {
+            storage_index target;
+            RPNX_MEMBER_METADATA(constexpr_set_result, target);
         };
 
         struct jump

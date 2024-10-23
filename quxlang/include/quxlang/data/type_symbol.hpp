@@ -16,6 +16,9 @@
 
 #include <quxlang/data/fwd.hpp>
 
+
+RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
+
 namespace quxlang
 {
 
@@ -54,10 +57,10 @@ namespace quxlang
     {
         // The "this" special parameter is replaced with a
         // named parameter with the name "THIS"
-        std::vector< parameter_type > positional_parameters;
-        std::map< std::string, parameter_type > named_parameters;
+        std::vector< parameter_type > positional;
+        std::map< std::string, parameter_type > named;
 
-        RPNX_MEMBER_METADATA(paratype, positional_parameters, named_parameters)
+        RPNX_MEMBER_METADATA(paratype, positional, named)
     };
 
     struct function_arg
@@ -79,6 +82,9 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(function_overload, builtin, call_parameters, priority);
     };
+
+
+
 
     struct overload
     {

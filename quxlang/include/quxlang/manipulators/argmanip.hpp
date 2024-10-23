@@ -4,7 +4,6 @@
 #define QUXLANG_MANIPULATORS_ARGMANIP_HEADER_GUARD
 
 
-#include "quxlang/data/call_parameter_information.hpp"
 
 namespace quxlang
 {

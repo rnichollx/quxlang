@@ -6,8 +6,6 @@
 #include "quxlang/manipulators/merge_entity.hpp"
 
 #include "quxlang/cow.hpp"
-#include "quxlang/data/canonical_lookup_chain.hpp"
-#include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "rpnx/range.hpp"
 

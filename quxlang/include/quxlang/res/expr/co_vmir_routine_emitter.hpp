@@ -111,17 +111,7 @@ namespace quxlang
         }
 
       private:
-        auto generate_expression_ovl(block_index_t& current_block, expression_this_reference expr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
-        {
 
-            auto this_index_opt = frame.block(current_block).lookup("THIS");
-            if (!this_index_opt.has_value())
-            {
-                throw std::logic_error("THIS not found in this context");
-            }
-            auto this_index = this_index_opt.value();
-            auto ref_index = co_await generate_ref(current_block, this_index);
-        }
 
         [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {

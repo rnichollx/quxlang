@@ -1124,7 +1124,7 @@ rpnx::general_coroutine< quxlang::compiler, quxlang::vm_value > quxlang::vm_proc
 
     auto const& thisvalue = values.named.at("THIS");
     auto arg_type = vm_value_type(thisvalue);
-    assert(arg_type == make_mref(type) || arg_type == make_oref(type));
+    assert(arg_type == make_mref(type) || arg_type == make_wref(type));
 
     if (is_ptr(type))
     {
@@ -1212,7 +1212,7 @@ rpnx::general_coroutine< compiler, vm_value > vm_procedure_from_canonical_functa
             }
             else if (typeis< wvalue_reference >(thisreftype))
             {
-                access.type = make_oref(field.type);
+                access.type = make_wref(field.type);
             }
             else if (typeis< cvalue_reference >(thisreftype))
             {
@@ -1526,7 +1526,7 @@ rpnx::general_coroutine< compiler, vm_value > quxlang::vm_procedure_from_canonic
     }
 
     auto arg_type = vm_value_type(values.named.at("THIS"));
-    assert(arg_type == make_mref(type) || arg_type == make_oref(type));
+    assert(arg_type == make_mref(type) || arg_type == make_wref(type));
 
     if (is_ptr(type) || is_primitive(type) || is_ref(type))
     {

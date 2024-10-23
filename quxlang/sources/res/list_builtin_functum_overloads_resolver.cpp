@@ -59,7 +59,7 @@ auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, t
             if (assignment_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{ .builtin= true, .call_parameters = calltype{.named = {{"THIS", make_oref(v_int_type)}, {"OTHER", v_int_type}},}},
+                    .overload = function_overload{ .builtin= true, .call_parameters = calltype{.named = {{"THIS", make_wref(v_int_type)}, {"OTHER", v_int_type}},}},
                     .return_type = void_type{},
                 });
             }

@@ -9,7 +9,6 @@
 #include "quxlang/compiler_fwd.hpp"
 #include "rpnx/resolver_utilities.hpp"
 
-#include "quxlang/data/canonical_lookup_chain.hpp"
 #include "quxlang/data/class_field_declaration.hpp"
 
 #include <quxlang/res/resolver.hpp>

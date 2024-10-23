@@ -2,8 +2,6 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
-#include <quxlang/ast2/ast2_function_arg.hpp>
-#include <quxlang/data/call_parameter_information.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 

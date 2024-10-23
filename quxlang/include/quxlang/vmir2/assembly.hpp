@@ -27,10 +27,12 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::invocation_args inst);
         std::string to_string_internal(vmir2::make_reference inst);
         std::string to_string_internal(vmir2::cast_reference inst);
+        std::string to_string_internal(vmir2::constexpr_set_result inst);
 
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::ret inst);
+
     };
 
 }; // namespace quxlang::vmir2

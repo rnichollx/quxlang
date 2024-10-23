@@ -160,6 +160,11 @@ namespace quxlang::vmir2
 
         return result;
     }
+    std::string assembler::to_string_internal(vmir2::constexpr_set_result inst)
+    {
+        std::string result = "CSR %" + std::to_string(inst.target);
+        return result;
+    }
     std::string assembler::to_string_internal(vmir2::jump inst)
     {
         std::string result;

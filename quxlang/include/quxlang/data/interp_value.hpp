@@ -18,6 +18,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(interp_value, type, data);
     };
 
+    struct interp_callargs
+    {
+        std::vector< interp_value > positional;
+        std::map< std::string, interp_value > named;
+
+        RPNX_MEMBER_METADATA(interp_callargs, positional, named);
+    };
+
     struct expr_interp_input
     {
         type_symbol context;
