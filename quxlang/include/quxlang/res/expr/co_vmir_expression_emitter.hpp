@@ -202,7 +202,15 @@ namespace quxlang
             std::string symbol_str = to_string(sym);
 
             bool a = typeis< subsymbol >(sym);
-            bool b = typeis< context_reference >(as< subsymbol >(sym).of);
+            bool b;
+            if (typeis<subsymbol>(sym))
+            {
+                b = typeis< context_reference >(as< subsymbol >(sym).of);
+            }
+            else
+            {
+                b = false;
+            }
 
             if (typeis< subsymbol >(sym) && typeis< context_reference >(as< subsymbol >(sym).of))
             {
