@@ -45,6 +45,16 @@ namespace quxlang
         RPNX_MEMBER_METADATA(declared_parameter, api_name, name, type, default_value);
     };
 
+    struct declared_parameters
+    {
+        std::vector< declared_parameter > positional;
+        std::map< std::string, declared_parameter > named;
+
+        RPNX_MEMBER_METADATA(declared_parameters, positional, named);
+    };
+
+
+
     struct parameter_type
     {
         type_symbol type;

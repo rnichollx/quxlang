@@ -13,13 +13,13 @@ namespace quxlang
 
     // Parameters of is the "parameters" of a function or template,
     // as they are declared.
-    QUX_CO_RESOLVER(parameters_of, selection_reference, parameters);
+    QUX_CO_RESOLVER(parameters_of, selection_reference, declared_parameters);
 
 
     struct parameters_with_context
     {
         type_symbol context;
-        parameters params;
+        declared_parameters params;
 
         RPNX_MEMBER_METADATA(parameters_with_context, context, params);
     };
@@ -28,7 +28,7 @@ namespace quxlang
     // so for example, baz::foo(%a bar) would have a nominal parameters of %a bar, but if "bar" is a subclass
     // of "baz", then the formal parameter type would be %a [module]::baz::bar.
     // Note that temploidic types like T(...) are not resolved here and are left as is.
-    QUX_CO_RESOLVER(formal_parameters_of, selection_reference, parameters);
+    QUX_CO_RESOLVER(formal_parameters_of, selection_reference, paratype);
 }
 
 #endif //PARAMETERS_HPP
