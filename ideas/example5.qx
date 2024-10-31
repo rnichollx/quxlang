@@ -1,0 +1,17 @@
+
+
+->> Pointer to array of T
+-> pointer to single T
+
+=> I32 // unique/owning pointer to I32
+=>> // unique pointer to array of I32
+~> // shared pointer?
+~
+-< Lambda?
+
+
+
+-< [=x, &y] (a I32, b MUT&I32) -> I32 { RETURN x + y + a + b; }
+
+=<<
+
