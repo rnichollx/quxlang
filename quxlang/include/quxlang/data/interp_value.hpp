@@ -29,9 +29,9 @@ namespace quxlang
     struct expr_interp_input
     {
         type_symbol context;
-        expression expression;
+        expression expr;
 
-        RPNX_MEMBER_METADATA(expr_interp_input, context, expression);
+        RPNX_MEMBER_METADATA(expr_interp_input, context, expr);
     };
 
     struct interp_input

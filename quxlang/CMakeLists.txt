@@ -296,7 +296,7 @@ get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
 
 # for each property that starts with LLVM, link to it
 foreach (target IN LISTS targets)
-    if ((target MATCHES "^LLVM.*" OR target MATCHES "^lld.*") AND NOT target MATCHES "^LLVMLineEditor$")
+    if ((target MATCHES "^LLVM.*" OR target MATCHES "^lld.*") AND NOT target MATCHES "^LLVMLineEditor$" AND NOT target MATCHES "^LLVMHello$")
         message(STATUS "Linking to ${target}")
         target_link_libraries(quxlang PUBLIC ${target})
     else ()

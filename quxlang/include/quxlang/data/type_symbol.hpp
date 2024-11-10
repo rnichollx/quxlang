@@ -22,6 +22,11 @@ RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrins
 namespace quxlang
 {
 
+    struct void_type
+    {
+        RPNX_EMPTY_METADATA(void_type);
+    };
+
     struct calltype
     {
         std::map< std::string, type_symbol > named;
@@ -113,10 +118,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(signature, ol, return_type);
     };
 
-    struct void_type
-    {
-        RPNX_EMPTY_METADATA(void_type);
-    };
+
 
     struct numeric_literal_reference
     {

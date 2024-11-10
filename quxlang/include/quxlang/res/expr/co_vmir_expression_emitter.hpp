@@ -26,12 +26,6 @@ namespace quxlang
         {
             std::declval< typename T::template co_type< quxlang::vmir2::storage_index > >()
         };
-        {
-            [&t]
-            {
-                T t2 = t;
-            }()
-        };
     };
 
     template < expr_co_provider CoroutineProvider >

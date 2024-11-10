@@ -8,6 +8,10 @@
 #include <optional>
 #include <vector>
 #include <stdint.h>
+#include <cstdint>
+#include <memory>
+#include <variant>
+#include <utility>
 
 namespace rpnx
 {

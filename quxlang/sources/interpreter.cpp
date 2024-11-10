@@ -1,5 +1,7 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/vmir/interpreter.hpp"
+
+#include "rpnx/value.hpp"
 rpnx::result< quxlang::interp_value > quxlang::interpreter::exec_call(type_symbol callee, interp_callargs args)
 {
     vmir2::functanoid_routine2& func = functanoids.at(callee);
@@ -47,4 +49,6 @@ quxlang::interp_value quxlang::interpreter::call(vmir2::functanoid_routine2 cons
 
 
     }
+
+    throw rpnx::unimplemented();
 }

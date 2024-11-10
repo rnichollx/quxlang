@@ -285,10 +285,10 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_fblock_statement(block_index_t& current_block, function_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_fblock_statement(block_index_t& current_block, function_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            co_await rpnx::apply_visitor< CoroutineProvider::template co_type< void > >(
-                [&](auto st) -> CoroutineProvider::template co_type< void >
+            co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< void > >(
+                [&](auto st) -> typename CoroutineProvider::template co_type< void >
                 {
                     co_return co_await this->generate_statement_ovl(current_block, st);
                 },
