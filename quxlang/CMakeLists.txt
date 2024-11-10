@@ -1,5 +1,5 @@
 if (CMAKE_IS_TOP_LEVEL_PROJECT)
-    project(RyLang)
+    project(QuxLang)
 endif ()
 
 find_package(GTest REQUIRED)
