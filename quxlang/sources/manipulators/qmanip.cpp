@@ -23,6 +23,10 @@ namespace quxlang
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
+
+        std::string operator()(thistype const&) const;
+        std::string operator()(auto_reference const&) const;
+
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(avalue_reference const&) const;
         std::string operator()(template_reference const&) const;
@@ -125,6 +129,13 @@ namespace quxlang
             return is_template(ref.target);
         }
 
+
+        bool operator()(auto_reference const& ref) const
+        {
+            return true;
+        }
+
+
         bool operator()(context_reference const& ref) const
         {
             return false;
@@ -183,6 +194,11 @@ namespace quxlang
         bool operator()(dvalue_slot const& t) const
         {
             return is_template(t.target);
+        }
+
+        bool operator()(thistype const & t) const
+        {
+            return false;
         }
     };
 
@@ -364,14 +380,25 @@ namespace quxlang
     {
         return "VOID";
     }
+
+    std::string qualified_symbol_stringifier::operator()(thistype const&) const
+    {
+        return "THISTYPE";
+    }
     std::string qualified_symbol_stringifier::operator()(module_reference const& ref) const
     {
-        return "[[module: " + ref.module_name + "]]";
+        return "MODULE(" + ref.module_name + ")";
     }
     std::string qualified_symbol_stringifier::operator()(submember const& ref) const
     {
         return to_string(ref.of) + "::." + ref.name;
     }
+
+    std::string qualified_symbol_stringifier::operator()(auto_reference const & ref) const
+    {
+        return "AUTO& " + to_string(ref.target);
+    }
+
     std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
         return "NUMERIC_LITERAL";
@@ -449,6 +476,33 @@ namespace quxlang
             return results;
         }
 
+        if (typeis <auto_reference>(template_type))
+        {
+            // Matches any reference type
+            auto_reference const& template_autoref = as< auto_reference >(template_type);
+
+            if (!is_ref(type))
+            {
+                // AUTO& ... matches any kind of reference
+                // However, a PR value should be converted to a TEMP& reference
+
+                template_match_results output;
+
+                type_symbol template_of = make_tref(template_autoref.target);
+                return match_template(template_of, make_tref(type));
+            }
+
+            auto type_refof = qualified_parent(type).value();
+
+            auto match = match_template(template_autoref.target, type_refof);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = type;
+            return match;
+        }
+
         // Exact match, e.g. I32 matches I32
         if (template_type == type)
         {
@@ -469,14 +523,14 @@ namespace quxlang
 
         // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
 
-        if (template_type.type() != type.type())
-        {
-            return std::nullopt;
-        }
 
         if (typeis< instance_pointer_type >(template_type))
         {
             auto const& ptr_template = as< instance_pointer_type >(template_type);
+            if (!type.type_is<instance_pointer_type>())
+            {
+                return std::nullopt;
+            }
             auto const& ptr_type = as< instance_pointer_type >(type);
             auto match = match_template(ptr_template.target, ptr_type.target);
             if (!match.has_value())
@@ -490,6 +544,10 @@ namespace quxlang
         else if (typeis< subsymbol >(template_type))
         {
             auto const& sub_template = as< subsymbol >(template_type);
+            if (!type.type_is<subsymbol>())
+            {
+                return std::nullopt;
+            }
             auto const& sub_type = as< subsymbol >(type);
             if (sub_template.name != sub_type.name)
             {
@@ -582,6 +640,12 @@ namespace quxlang
 
             // TODO: here
             // rpnx::unimplemented();
+        }
+
+
+        if (template_type.type() != type.type())
+        {
+            return std::nullopt;
         }
 
         // In other cases, we are talking about a non-composite reference

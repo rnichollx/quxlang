@@ -9,7 +9,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set< function_overload >);
+
 } // namespace quxlang
 
 

@@ -3,8 +3,9 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/operators.hpp"
 
-auto quxlang::list_builtin_functum_overloads_resolver::co_process(compiler* c, type_symbol functum) -> co_type
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
 {
+    auto const & functum = input;
     std::optional< type_symbol > parent_opt;
     std::string name = to_string(functum);
 

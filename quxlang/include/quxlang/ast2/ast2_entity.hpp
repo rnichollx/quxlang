@@ -192,8 +192,9 @@ namespace quxlang
         std::string name;
         std::optional< std::string > api_name;
         type_symbol type;
+        std::optional< expression > default_expr;
 
-        RPNX_MEMBER_METADATA(ast2_function_parameter, location, name, api_name, type)
+        RPNX_MEMBER_METADATA(ast2_function_parameter, location, name, api_name, type, default_expr)
     };
 
     struct ast2_function_header

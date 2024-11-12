@@ -10,7 +10,9 @@
 namespace quxlang
 {
     // Lists function overloads for a functum, they are returned in the function-order.
-    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::vector< function_overload >)
+    QUX_CO_RESOLVER(list_user_functum_overload_declarations, type_symbol, std::vector< ast2_function_declaration >);
+    QUX_CO_RESOLVER(list_user_functum_formal_paratypes, type_symbol, std::vector< paratype >);
+    QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set< function_overload >);
 } // namespace quxlang
 
 #endif // FUNCTUM_BUILTIN_OVERLOADS_RESOLVER_HEADER_GUARD

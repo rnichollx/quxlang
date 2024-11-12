@@ -14,11 +14,15 @@ namespace quxlang
     struct instance_pointer_type;
     struct int_type;
     struct bool_type;
+
+    struct auto_reference;
+
     struct mvalue_reference;
     struct tvalue_reference;
     struct wvalue_reference;
     struct cvalue_reference;
     struct avalue_reference;
+
     struct nvalue_slot;
     struct selection_reference;
 
@@ -31,8 +35,9 @@ namespace quxlang
     struct template_reference;
     struct dvalue_slot;
     struct bound_type_reference;
+    struct thistype;
 
-    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subsymbol, int_type, bool_type, instantiation_type, selection_reference, value_expression_reference, submember, instance_pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, wvalue_reference, bound_type_reference, numeric_literal_reference, avalue_reference, nvalue_slot, dvalue_slot >;
+    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subsymbol, int_type, bool_type, instantiation_type, selection_reference, value_expression_reference, submember, thistype, instance_pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, wvalue_reference, bound_type_reference, numeric_literal_reference, auto_reference, nvalue_slot, dvalue_slot >;
 
     struct expression_multiply;
     struct expression_modulus;

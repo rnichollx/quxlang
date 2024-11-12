@@ -27,6 +27,11 @@ namespace quxlang
         RPNX_EMPTY_METADATA(void_type);
     };
 
+    struct thistype
+    {
+        RPNX_EMPTY_METADATA(thistype);
+    };
+
     struct calltype
     {
         std::map< std::string, type_symbol > named;
@@ -212,6 +217,13 @@ namespace quxlang
         type_symbol templexoid;
         function_overload overload;
         RPNX_MEMBER_METADATA(selection_reference, templexoid, overload);
+    };
+
+
+    struct auto_reference
+    {
+        type_symbol target;
+        RPNX_MEMBER_METADATA(auto_reference, target);
     };
 
     struct mvalue_reference
