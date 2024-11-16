@@ -16,6 +16,16 @@ MODULE main;
   SVC 0;
 }
 
+::buz CLASS
+{
+  .x VAR I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+     .x := 9;
+  }
+}
+
 
 ::main FUNCTION(): I32
 {
@@ -24,6 +34,10 @@ MODULE main;
   VAR y I32;
   y := 3;
   ::foo( 3 ,  8 );
+
+  VAR z buz;
+
+
 
   RETURN 4;
 }

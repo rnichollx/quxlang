@@ -606,6 +606,7 @@ namespace rpnx
 
         basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > const& other)
         {
+            assert(this != nullptr);
             if (this == &other)
             {
                 return *this;

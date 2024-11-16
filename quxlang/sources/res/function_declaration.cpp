@@ -12,6 +12,8 @@ using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 {
+    // TODO: Rewrite this to work.
+
     selection_reference const& func_addr = input;
 
     std::string dbg_func_name = to_string(input);
