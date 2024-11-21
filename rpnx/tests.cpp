@@ -141,8 +141,3 @@ TEST_CASE("unsolvable_issue", "[graph_solver]")
     REQUIRE_THROWS(solver.solve(&g, f));
 }
 
-TEST_CASE("variant", "[variant]")
-{
-//
-
-}
