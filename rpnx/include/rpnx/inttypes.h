@@ -7,7 +7,7 @@
 
 #if defined(_WIN64)
 typedef signed __int64 ssize_t;
-#elif not defined(__ssize_t_defined)
+#elif defined(_WIN32)
 typedef signed int ssize_t;
 #endif /* _WIN64 */
 
