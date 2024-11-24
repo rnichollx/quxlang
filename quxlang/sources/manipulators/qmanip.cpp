@@ -481,6 +481,9 @@ namespace quxlang
             // Matches any reference type
             auto_reference const& template_autoref = as< auto_reference >(template_type);
 
+
+            std::string type_str = to_string(type);
+
             if (!is_ref(type))
             {
                 // AUTO& ... matches any kind of reference
@@ -492,7 +495,7 @@ namespace quxlang
                 return match_template(template_of, make_tref(type));
             }
 
-            auto type_refof = qualified_parent(type).value();
+            auto type_refof = remove_ref(type);
 
             auto match = match_template(template_autoref.target, type_refof);
             if (!match)

@@ -24,6 +24,11 @@ MODULE main;
   {
      .x := 9;
   }
+
+  .foo FUNCTION()
+  {
+    .x := .x + 1;
+  }
 }
 
 
@@ -36,6 +41,8 @@ MODULE main;
   ::foo( 3 ,  8 );
 
   VAR z buz;
+
+  z.foo();
 
 
 

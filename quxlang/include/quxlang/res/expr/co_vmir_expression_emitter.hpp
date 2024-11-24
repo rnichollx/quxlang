@@ -759,14 +759,16 @@ namespace quxlang
         {
             auto parent = co_await generate_expr(what.lhs);
 
-            co_return co_await generate_field_access(parent, what.field_name);
+            co_return co_await generate_dot_access(parent, what.field_name);
         }
 
-        auto generate_field_access(storage_index base, std::string field_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto generate_dot_access(storage_index base, std::string field_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
+
             auto base_type = this->current_type(base);
             auto base_type_noref = quxlang::remove_ref(base_type);
 
+            // First try to find a field with this name
             class_layout layout = co_await prv.class_layout(base_type_noref);
 
             for (class_field_info const& field : layout.fields)
@@ -784,6 +786,19 @@ namespace quxlang
                     co_return access.store_index;
                 }
             }
+
+            // If no field is found, look for a member function
+            auto member_func = submember{.of = base_type_noref, .name = field_name};
+            auto lookup_result = co_await prv.lookup(contextual_type_reference{.context = ctx, .type = member_func});
+
+            if (lookup_result)
+            {
+                // Create a binding to the member function with the base object
+                auto binding = create_binding(base, lookup_result.value());
+                std::cout << "Created member function binding " << binding << " for " << field_name << " in " << to_string(base_type) << std::endl;
+                co_return binding;
+            }
+
 
             throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
