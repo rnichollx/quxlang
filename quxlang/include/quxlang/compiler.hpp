@@ -179,6 +179,7 @@ namespace quxlang
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(list_builtin_functum_overloads)
         COMPILER_INDEX(list_functum_overloads)
+        COMPILER_INDEX(list_user_functum_overloads)
         COMPILER_INDEX(list_user_functum_overload_declarations)
         COMPILER_INDEX(list_user_functum_formal_paratypes)
         COMPILER_INDEX(lookup);

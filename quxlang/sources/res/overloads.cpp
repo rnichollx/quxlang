@@ -106,22 +106,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
     co_return result;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
 {
-    QUX_CO_GETDEP(builtins, list_builtin_functum_overloads, (input));
-    QUX_CO_GETDEP(user_defined, list_user_functum_overload_declarations, (input));
+
+    std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (input));
     std::vector<paratype> paratypes = co_await QUX_CO_DEP(list_user_functum_formal_paratypes, (input));
 
-    std::string name = to_string(input);
-    std::set< function_overload > all_overloads;
-    for (auto const& o : builtins)
-    {
-        all_overloads.insert(o.overload);
-    }
+    std::vector< function_overload > results;
+
     for (std::size_t i = 0; i < user_defined.size(); ++i)
     {
         paratype p = paratypes.at(i);
-        auto decl = user_defined.at(i);
+        ast2_function_declaration const& decl = user_defined.at(i);
 
         function_overload ol;
         ol.builtin = false;
@@ -137,8 +133,65 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
             ol.call_parameters.positional.push_back(p.positional[i].type);
         }
 
-         all_overloads.insert(ol);
+        results.push_back(ol);
+    }
+
+    co_return results;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
+{
+    QUX_CO_GETDEP(builtins, list_builtin_functum_overloads, (input));
+    auto user_defined_overloads = co_await QUX_CO_DEP(list_user_functum_overloads, (input));
+
+
+    std::string name = to_string(input);
+    std::set< function_overload > all_overloads;
+    for (auto const& o : builtins)
+    {
+        assert(o.overload.builtin == true);
+        all_overloads.insert(o.overload);
+    }
+
+    for (auto const& o : user_defined_overloads)
+    {
+        assert(o.builtin == false);
+        all_overloads.insert(o);
     }
 
     QUX_CO_ANSWER(all_overloads);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
+{
+    // TODO: Rewrite this to work.
+
+    selection_reference const& func_addr = input;
+
+    std::string dbg_func_name = to_string(input);
+
+    auto functum = qualified_parent(input).value();
+
+
+
+    assert(!qualified_is_contextual(func_addr));
+
+
+    auto const &overloads = co_await QUX_CO_DEP(list_user_functum_overloads, (functum));
+
+    auto const & declarations = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (functum));
+
+    assert(overloads.size() == declarations.size());
+
+    for (std::size_t i = 0; i < overloads.size(); i++)
+    {
+        if (overloads.at(i) == input.overload)
+        {
+            co_return declarations.at(i);
+        }
+
+    }
+
+    throw std::logic_error("Function declaration not found");
+
 }
