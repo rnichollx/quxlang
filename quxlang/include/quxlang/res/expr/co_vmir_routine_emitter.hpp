@@ -54,11 +54,11 @@ namespace quxlang
         CoroutineProvider prv;
         vmir2::frame_generation_state frame;
 
-        using co_slot = CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
-        using co_block = CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
-        using co_void = CoroutineProvider::template co_type< void >;
+        using co_slot = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
+        using co_block = typename CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
+        using co_void = typename  CoroutineProvider::template co_type< void >;
 
-        auto generate_arg_slots() -> CoroutineProvider::template co_type< void >
+        auto generate_arg_slots() -> typename CoroutineProvider::template co_type< void >
         {
 
             // Precondition: Func is a fully instanciated symbol
@@ -101,7 +101,7 @@ namespace quxlang
         }
 
       public:
-        auto generate() -> CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine2 >
+        auto generate() -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine2 >
         {
             frame.generate_entry_block();
             co_await generate_arg_slots();
@@ -113,21 +113,21 @@ namespace quxlang
       private:
 
 
-        [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            using V = CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
+            using V = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
             co_vmir_expression_emitter emitter(prv, func, frame.block(current_block));
             co_return co_await emitter.generate_expr(expr);
         }
 
-        auto generate_bool_expr(block_index_t current_block, expression const& expr) -> CoroutineProvider::template co_type< vmir2::storage_index >
+        auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto expr_index = co_await generate_expression(current_block, expr);
             // TODO: Convert to bool if the result is not type bool
             co_return expr_index;
         }
 
-        auto generate_void_expr(block_index_t current_block, expression const& expr) -> CoroutineProvider::template co_type< vmir2::storage_index >
+        auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             std::string expr_string = quxlang::to_string(expr);
             co_await generate_expression(current_block, expr);
@@ -135,7 +135,7 @@ namespace quxlang
             co_return 0;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             block_index_t after_block = frame.generate_subblock(current_block);
             block_index_t condition_block = frame.generate_subblock(current_block);
@@ -161,7 +161,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_while_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_while_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             block_index_t condition_block = frame.generate_subblock(current_block);
             block_index_t body_block = frame.generate_subblock(current_block);
@@ -180,7 +180,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_expression_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_expression_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             std::string expr_str = quxlang::to_string(st.expr);
             assert(!frame.has_terminator(current_block));
@@ -196,13 +196,13 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_block const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_block const& st) -> typename CoroutineProvider::template co_type< void >
         {
             co_await generate_function_block(current_block, st);
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             type_symbol var_type = co_await prv.canonical_symbol_from_contextual_symbol({.context = func, .type = st.type});
 
@@ -241,13 +241,13 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> CoroutineProvider::template co_type< vmir2::storage_index >
+        auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto idx = frame.entry_block().create_variable(typ, name);
             co_return idx;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_return_statement const& st) -> CoroutineProvider::template co_type< void >
+        auto generate_statement_ovl(block_index_t& current_block, function_return_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             auto return_arg_opt = frame.lookup(current_block, "RETURN");
 
@@ -296,7 +296,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_function_block(block_index_t& current_block, function_block const& block) -> CoroutineProvider::template co_type< void >
+        auto generate_function_block(block_index_t& current_block, function_block const& block) -> typename CoroutineProvider::template co_type< void >
         {
             assert(!frame.has_terminator(current_block));
             auto new_block = frame.generate_subblock(current_block);
@@ -328,7 +328,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_body() -> CoroutineProvider::template co_type< void >
+        auto generate_body() -> typename CoroutineProvider::template co_type< void >
         {
             auto inst = as< instantiation_type >(func);
 

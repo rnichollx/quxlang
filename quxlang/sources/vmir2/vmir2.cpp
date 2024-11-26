@@ -323,7 +323,7 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::frame_generation_
         auto& slot = slots.slots[i];
         if (slot.kind == slot_kind::named_arg || slot.kind == slot_kind::positional_arg)
         {
-            if (slot.name.has_value() && slot.name.value() == name || (!slot.name.has_value() && slot.arg_name.has_value() && slot.arg_name.value() == name))
+            if ((slot.name.has_value() && slot.name.value() == name) || (!slot.name.has_value() && slot.arg_name.has_value() && slot.arg_name.value() == name))
             {
                 return i;
             }
