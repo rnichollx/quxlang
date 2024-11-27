@@ -25,8 +25,10 @@ namespace quxlang
         struct branch;
         struct cast_reference;
         struct constexpr_set_result;
+        struct load_const_value;
+        struct load_const_int;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -83,6 +85,21 @@ namespace quxlang
         {
             storage_index target;
             RPNX_MEMBER_METADATA(constexpr_set_result, target);
+        };
+
+        struct load_const_value
+        {
+            std::vector<std::byte> value;
+            storage_index target;
+
+            RPNX_MEMBER_METADATA(load_const_value, value, target);
+        };
+
+        struct load_const_int
+        {
+            std::string value;
+            storage_index target;
+            RPNX_MEMBER_METADATA(load_const_int, value, target);
         };
 
         struct jump
@@ -203,6 +220,7 @@ namespace quxlang
             void emit(vmir2::invoke inv);
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);
+            void emit(vmir2::constexpr_set_result csr);
             bool slot_alive(storage_index idx);
 
             storage_index create_temporary(type_symbol type);

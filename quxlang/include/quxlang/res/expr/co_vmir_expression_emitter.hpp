@@ -8,6 +8,7 @@
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
+#include "quxlang/intrinsic_classifier.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
@@ -20,12 +21,8 @@ namespace quxlang
 
     template < typename T >
     concept expr_co_provider = requires(T t) {
-        {
-            std::declval< typename T::template co_type< quxlang::type_symbol > >()
-        };
-        {
-            std::declval< typename T::template co_type< quxlang::vmir2::storage_index > >()
-        };
+        { std::declval< typename T::template co_type< quxlang::type_symbol > >() };
+        { std::declval< typename T::template co_type< quxlang::vmir2::storage_index > >() };
     };
 
     template < expr_co_provider CoroutineProvider >
@@ -156,9 +153,9 @@ namespace quxlang
             return exec.create_binding(bindval, bind_type);
         }
 
-        auto emit(auto val)
+        auto emit(vmir2::vm_instruction val)
         {
-            return exec.emit(val);
+            return rpnx::apply_visitor<void>([&](auto  val){ exec.emit(std::move(val)); }, val);
         }
 
         auto slot_alive(storage_index slot)
@@ -197,7 +194,7 @@ namespace quxlang
 
             bool a = typeis< subsymbol >(sym);
             bool b;
-            if (typeis<subsymbol>(sym))
+            if (typeis< subsymbol >(sym))
             {
                 b = typeis< context_reference >(as< subsymbol >(sym).of);
             }
@@ -561,7 +558,7 @@ namespace quxlang
             }
         }
 
-        auto gen_invoke_builtin(instantiation_type what, vmir2::invocation_args const &args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke_builtin(instantiation_type what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
             auto callee = as< selection_reference >(what.callee);
 
@@ -569,72 +566,13 @@ namespace quxlang
 
             auto functum = callee.templexoid;
 
-            std::optional< type_symbol > class_type;
-            bool member = false;
-            std::string name;
+            intrinsic_builtin_classifier classifier{prv.output_info(), exec};
 
-            if (typeis< submember >(functum))
+            auto intrinsic = classifier.intrinsic_instruction(functum, args);
+            if (intrinsic.has_value())
             {
-                member = true;
-                class_type = as< submember >(functum).of;
-                name = as< submember >(functum).name;
-            }
-            else if (typeis< subsymbol >(functum))
-            {
-                member = false;
-                class_type = as< subsymbol >(functum).of;
-                name = as< subsymbol >(functum).name;
-            }
-            else
-            {
-                throw std::logic_error("Expected functum to be a subentity_reference or subdotentity_reference");
-            }
-
-            bool is_operator;
-            bool is_rhs;
-
-            std::string operator_value;
-
-            if (name.starts_with("OPERATOR"))
-            {
-                is_operator = true;
-                operator_value = name.substr(8);
-                if (operator_value.ends_with("RHS"))
-                {
-                    is_rhs = true;
-                    operator_value = operator_value.substr(0, operator_value.size() - 3);
-                }
-                else
-                {
-                    is_rhs = false;
-                }
-            }
-            else
-            {
-                is_operator = false;
-            }
-
-            type_symbol lhs_type;
-            type_symbol rhs_type;
-
-            if (is_operator && is_rhs && args.named.contains("THIS") && args.named.contains("OTHER"))
-            {
-                auto rhs_index = args.named.at("THIS");
-                rhs_type = this->current_type(rhs_index);
-                auto lhs_index = args.named.at("OTHER");
-                lhs_type = this->current_type(lhs_index);
-            }
-            else if (is_operator && args.named.contains("THIS") && args.named.contains("OTHER"))
-            {
-                auto rhs_index = args.named.at("OTHER");
-                rhs_type = this->current_type(rhs_index);
-                auto lhs_index = args.named.at("THIS");
-                lhs_type = this->current_type(lhs_index);
-            }
-
-            if (assignment_operators.contains(operator_value))
-            {
-
+                this->emit(intrinsic.value());
+                co_return;
             }
 
             std::string what_str = to_string(what);
@@ -646,8 +584,6 @@ namespace quxlang
             this->emit(ivk);
 
             co_return;
-
-
         }
 
         auto gen_invoke(instantiation_type what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
@@ -798,7 +734,6 @@ namespace quxlang
                 std::cout << "Created member function binding " << binding << " for " << field_name << " in " << to_string(base_type) << std::endl;
                 co_return binding;
             }
-
 
             throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }

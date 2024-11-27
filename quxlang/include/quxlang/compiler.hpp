@@ -40,7 +40,6 @@
 #include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
-#include "quxlang/res/list_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
 #include "quxlang/res/operator_is_overloaded_with_resolver.hpp"
 #include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
@@ -306,7 +305,7 @@ namespace quxlang
             return m_type_size_from_canonical_type_index.lookup(ref);
         }
 
-        output_info m_machine_info;
+        output_info m_output_info;
         rpnx::single_thread_graph_solver< compiler > m_solver;
         std::shared_mutex m_mutex;
         std::size_t m_type_id_next = 1;

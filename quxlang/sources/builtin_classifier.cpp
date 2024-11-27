@@ -130,7 +130,7 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
 
     return result;
 }
-std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_classifier::intrinsic_instruction(type_symbol func, vm_invocation_args args)
+std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_classifier::intrinsic_instruction(type_symbol func, vmir2::invocation_args args)
 {
     return std::nullopt;
 }

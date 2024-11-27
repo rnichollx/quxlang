@@ -252,6 +252,10 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::executable_block_
     }
     return std::nullopt;
 }
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::constexpr_set_result csr)
+{
+    block.instructions.push_back(csr);
+}
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
     if (block(from).block.terminator.has_value())

@@ -45,6 +45,11 @@ namespace quxlang
             q.to = to;
             return this->implicitly_convertible_to(q);
         }
+
+        auto output_info()
+        {
+          return c->m_output_info;
+        }
     };
 } // namespace quxlang
 

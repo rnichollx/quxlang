@@ -10,7 +10,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
     if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
     {
-        output_info m = c->m_machine_info;
+        output_info m = c->m_output_info;
 
         type_placement_info result;
         result.alignment = m.pointer_align();
@@ -41,7 +41,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
         type_placement_info result;
         result.size = sz;
         result.alignment = sz;
-        result.alignment = std::min(result.alignment, c->m_machine_info.max_int_align());
+        result.alignment = std::min(result.alignment, c->m_output_info.max_int_align());
 
         co_return result;
     }
