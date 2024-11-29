@@ -12,7 +12,7 @@ namespace quxlang
     class intrinsic_builtin_classifier
     {
          output_info machine_info_;
-         vmir2::executable_block_generation_state state_;
+         vmir2::executable_block_generation_state const & state_;
     public:
         intrinsic_builtin_classifier(output_info const & m, vmir2::executable_block_generation_state const & state) : machine_info_(m), state_(state)  {}
 

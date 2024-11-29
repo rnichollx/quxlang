@@ -211,5 +211,50 @@ namespace quxlang::vmir2
         output += "]";
         return output;
     }
+    std::string assembler::to_string_internal(vmir2::load_const_value inst)
+    {
+        std::string output = "LCV %" + std::to_string(inst.target) + ", {";
+
+        bool first = true;
+        for (auto& i : inst.value)
+        {
+            if (!first)
+            {
+                output += ", ";
+            }
+
+            first = false;
+
+            int8_t val = static_cast< uint8_t >(i);
+
+            uint8_t lower = val & 0x0F;
+            uint8_t upper = (val & 0xF0) >> 4;
+
+            if (upper < 10)
+            {
+                output += std::to_string(upper);
+            }
+            else
+            {
+                output += 'A' + upper - 10;
+            }
+
+            if (lower < 10)
+            {
+                output += std::to_string(lower);
+            }
+            else
+            {
+                output += 'A' + lower - 10;
+            }
+        }
+
+        output += "}";
+        return output;
+    }
+    std::string assembler::to_string_internal(vmir2::load_const_int inst)
+    {
+        return "LCI %" + std::to_string(inst.target) + ", " + inst.value;
+    }
 
 } // namespace quxlang::vmir2

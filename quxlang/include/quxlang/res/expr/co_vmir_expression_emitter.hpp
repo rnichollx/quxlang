@@ -494,6 +494,9 @@ namespace quxlang
         {
             auto ref_type = this->current_type(ref_index);
 
+            std::string ref_type_str = to_string(ref_type);
+            std::string target_ref_type_str = to_string(target_ref_type);
+
             if (!is_ref(target_ref_type) || !is_ref(ref_type))
             {
                 throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
@@ -568,7 +571,7 @@ namespace quxlang
 
             intrinsic_builtin_classifier classifier{prv.output_info(), exec};
 
-            auto intrinsic = classifier.intrinsic_instruction(functum, args);
+            auto intrinsic = classifier.intrinsic_instruction(what, args);
             if (intrinsic.has_value())
             {
                 this->emit(intrinsic.value());

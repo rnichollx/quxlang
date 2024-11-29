@@ -89,17 +89,19 @@ namespace quxlang
 
         struct load_const_value
         {
-            std::vector<std::byte> value;
-            storage_index target;
 
-            RPNX_MEMBER_METADATA(load_const_value, value, target);
+            storage_index target;
+            std::vector<std::byte> value;
+
+            RPNX_MEMBER_METADATA(load_const_value, target, value);
         };
 
         struct load_const_int
         {
-            std::string value;
+
             storage_index target;
-            RPNX_MEMBER_METADATA(load_const_int, value, target);
+            std::string value;
+            RPNX_MEMBER_METADATA(load_const_int, target , value);
         };
 
         struct jump
@@ -221,6 +223,9 @@ namespace quxlang
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);
             void emit(vmir2::constexpr_set_result csr);
+            void emit(vmir2::load_const_value lcv);
+            void emit(vmir2::load_const_int lci);
+
             bool slot_alive(storage_index idx);
 
             storage_index create_temporary(type_symbol type);

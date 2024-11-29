@@ -132,6 +132,50 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
 }
 std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_classifier::intrinsic_instruction(type_symbol func, vmir2::invocation_args args)
 {
+    auto cls = func_class(func);
+    if (!cls)
+    {
+        return std::nullopt;
+    }
+
+    auto instanciation = func.cast_ptr< instantiation_type >();
+    assert(instanciation);
+
+    auto selection = instanciation->callee.cast_ptr< selection_reference >();
+    assert(selection);
+
+    auto member = selection->templexoid.cast_ptr< submember >();
+    assert(member);
+
+    if (member->name == "CONSTRUCTOR")
+    {
+        if (cls->template type_is< int_type >())
+        {
+            auto const& call = instanciation->parameters;
+            if (call.named.contains("OTHER"))
+            {
+                auto const& other = call.named.at("OTHER");
+                if (other.type_is< numeric_literal_reference >())
+                {
+                    auto other_slot_id = args.named.at("OTHER");
+
+                    auto const& other_slot = state_.slots->slots.at(other_slot_id);
+
+                    assert(other_slot.type == numeric_literal_reference{});
+                    assert(other_slot.kind == vmir2::slot_kind::literal);
+                    assert(other_slot.literal_value.has_value());
+                    auto other_slot_value = other_slot.literal_value.value();
+
+                    vmir2::load_const_int result;
+                    result.value = other_slot_value;
+                    result.target = args.named.at("THIS");
+
+                    return result;
+                }
+            }
+        }
+    }
+
     return std::nullopt;
 }
 bool quxlang::intrinsic_builtin_classifier::is_intrinsic_type(type_symbol of_type)

@@ -256,6 +256,18 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::con
 {
     block.instructions.push_back(csr);
 }
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_value lcv)
+{
+    current_slot_states.at(lcv.target).alive = true;
+    block.instructions.push_back(lcv);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_int lci)
+{
+    current_slot_states.at(lci.target).alive = true;
+    block.instructions.push_back(lci);
+}
+
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
     if (block(from).block.terminator.has_value())
@@ -335,6 +347,7 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::frame_generation_
     }
     return std::nullopt;
 }
+
 quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()
 {
     quxlang::vmir2::functanoid_routine2 result;

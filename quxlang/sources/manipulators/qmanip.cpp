@@ -1,6 +1,7 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/data/type_symbol.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 
 namespace quxlang
@@ -660,6 +661,26 @@ namespace quxlang
     std::string to_string(type_symbol const& ref)
     {
         return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
+    }
+
+    type_symbol get_templexoid(instantiation_type const& ref)
+    {
+        auto callee = ref.callee;
+
+       assert(callee.type_is< selection_reference >());
+
+        return as< selection_reference >(callee).templexoid;
+    }
+
+    std::optional< type_symbol > func_class(type_symbol const& func)
+    {
+        std::string func_str = to_string(func);
+        auto tmplx = get_templexoid(func.get_as< instantiation_type >());
+        if (tmplx.type_is< submember >())
+        {
+            return as< submember >(tmplx).of;
+        }
+        return std::nullopt;
     }
 
 } // namespace quxlang

@@ -277,6 +277,8 @@ namespace quxlang
 
     std::string to_string(type_symbol const&);
 
+    std::optional<type_symbol> func_class(type_symbol const & func);
+
 
 } // namespace quxlang
 
