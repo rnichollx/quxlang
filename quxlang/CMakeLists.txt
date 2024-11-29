@@ -272,7 +272,6 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         include/quxlang/res/filelist_resolver.hpp
         include/quxlang/filelist.hpp
         include/quxlang/res/file_content_resolver.hpp
-        sources/res/file_content_resolver.cpp
         ../rpnx/include/rpnx/value.hpp include/quxlang/ex/unexpected_eof.hpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)

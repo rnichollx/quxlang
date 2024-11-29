@@ -29,7 +29,6 @@
 #include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/expr_ir2.hpp"
 #include "quxlang/res/file_ast_resolver.hpp"
-#include "quxlang/res/file_content_resolver.hpp"
 #include "quxlang/res/file_module_map_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/files_in_module_resolver.hpp"
@@ -95,7 +94,6 @@ namespace quxlang
         friend class filelist_resolver;
         friend class class_list_resolver;
         friend class file_ast_resolver;
-        friend class file_content_resolver;
         friend class class_field_list_resolver;
         friend class entity_ast_from_chain_resolver;
         friend class module_ast_precursor1_resolver;
@@ -153,7 +151,7 @@ namespace quxlang
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         // class_list_resolver m_class_list_resolver;
-        index< file_content_resolver > m_file_contents_index;
+        //index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
