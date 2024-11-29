@@ -3,6 +3,10 @@
 #include "quxlang/res/interpret_bool_resolver.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include <quxlang/compiler.hpp>
+#include "quxlang/res/interpret_value_resolver.hpp"
+
+#include "quxlang/macros.hpp"
+
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_bool)
 {
@@ -19,4 +23,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_bool)
     assert(val.data.size() == 1);
 
     QUX_CO_ANSWER(val.data != std::vector< std::byte >{std::byte{0}});
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(interpret_value)
+{
+    throw rpnx::unimplemented();
+    // co_interpreter interp(c);
+    // auto result = co_await interp.eval(input);
+    // QUX_CO_ANSWER(result);
 }
