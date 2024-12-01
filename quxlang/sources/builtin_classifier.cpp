@@ -180,5 +180,5 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 }
 bool quxlang::intrinsic_builtin_classifier::is_intrinsic_type(type_symbol of_type)
 {
-    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< instance_pointer_type >();
+    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >();
 }
