@@ -81,6 +81,14 @@ namespace quxlang
             {
                 co_return co_await this->generate(as< expression_dotreference >(std::move(expr)));
             }
+            else if (typeis< expression_rightarrow >(expr))
+            {
+               co_return co_await this->generate(as< expression_rightarrow >(std::move(expr)));
+            }
+            else if (typeis < expression_leftarrow > (expr))
+            {
+               co_return co_await this->generate(as< expression_leftarrow >(std::move(expr)));
+            }
             else
             {
                 throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
@@ -633,9 +641,35 @@ namespace quxlang
             co_return 0;
         }
 
-        auto generate(expression_call expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+
+
+        auto generate(expression_leftarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            throw rpnx::unimplemented();
+            auto value = co_await generate_expr(expr.lhs);
+
+            vmir2::make_pointer_to make_pointer;
+            make_pointer.of_index = value;
+
+            auto type = this->current_type(value);
+
+            auto non_ref_type = remove_ref(type);
+
+            auto pointer_storage = create_temporary_storage(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual=qualifier::mut});
+
+            make_pointer.pointer_index = pointer_storage;
+
+            this->emit(make_pointer);
+
+            co_return pointer_storage;
+
+        }
+
+        auto generate(expression_rightarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto value = co_await generate_expr(expr.lhs);
+            auto rightarrow = submember{.of = remove_ref(this->current_type(value)), .name = "OPERATOR->"};
+            vmir2::invocation_args args = {.named = {{"THIS", value}}};
+            co_return co_await gen_call_functum(rightarrow, args);
             co_return 0;
         }
 

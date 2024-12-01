@@ -1,17 +1,15 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/compiler.hpp>
-#include "rpnx/debug.hpp"
+#include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/argmanip.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/operators.hpp"
+#include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/variant_utils.hpp"
-#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
+#include "rpnx/debug.hpp"
 #include <quxlang/compiler.hpp>
 #include <quxlang/macros.hpp>
-#include "quxlang/compiler.hpp"
-#include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
-#include "quxlang/compiler.hpp"
-#include "quxlang/operators.hpp"
+#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 
 using namespace quxlang;
 
@@ -20,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
     std::vector< std::string > result;
     auto const& func = co_await QUX_CO_DEP(function_declaration, (input_val));
 
-    if (! func.has_value())
+    if (!func.has_value())
     {
         throw std::logic_error("Function not found");
     }
@@ -61,17 +59,67 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_instanciation)
     co_return co_await QUX_CO_DEP(function_instanciation, (instantiation_type{.callee = selection.value(), .parameters = input_val.parameters}));
 }
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
+{
+    std::set< primitive_function_info > result;
+
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< pointer_type >())
+    {
+
+        result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}}}, .return_type = void_type{}});
+        if (input.type_is< int_type >())
+        {
+            result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}}}, .return_type = void_type{}});
+        }
+        result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", create_nslot(input)}}}}, .return_type = void_type{}});
+        co_return (result);
+    }
+
+    bool should_autogen_constructor = co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
+    bool should_autogen_copy_constructor = true;
+
+    // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
+
+    if (should_autogen_constructor)
+    {
+        result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = calltype{.named = {{"THIS", create_nslot(input)}}}}, .return_type = input});
+        co_return result;
+    }
+
+    if (should_autogen_copy_constructor)
+    {
+        result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = calltype{.named = {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}}}, .return_type = void_type{}});
+    }
+
+    co_return result;
+}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
 {
-    auto const & functum = input;
+    auto const& functum = input;
     std::optional< type_symbol > parent_opt;
     std::string name = to_string(functum);
 
     std::optional< ast2_class_declaration > class_ent;
+
     if (typeis< submember >(functum))
     {
         auto parent = as< submember >(functum).of;
+
+        bool builtin_primitive_type = false;
+
+        if (typeis< int_type >(parent))
+        {
+            builtin_primitive_type = true;
+        }
+        else if (typeis< pointer_type >(parent))
+        {
+            builtin_primitive_type = true;
+        }
+        else if (typeis< bool_type >(parent))
+        {
+            builtin_primitive_type = true;
+        }
 
         auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
         if (parent_class_exists)
@@ -87,11 +135,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
         parent_opt = parent;
         auto name = as< submember >(functum).name;
 
-        if (typeis< int_type >(parent) && name.starts_with("OPERATOR"))
-        {
-            auto v_int_type = as< int_type >(parent);
-            std::set< primitive_function_info > allowed_operations;
+        std::set< primitive_function_info > allowed_operations;
 
+        if (name.starts_with("OPERATOR"))
+        {
             std::string operator_name = name.substr(8);
             bool is_rhs = false;
             if (operator_name.ends_with("RHS"))
@@ -101,12 +148,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
                 is_rhs = true;
             }
 
-            if (arithmetic_operators.contains(operator_name))
+            if (typeis< int_type >(parent) && arithmetic_operators.contains(operator_name))
             {
-                allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", v_int_type}, {"OTHER", v_int_type}}, }, },
-                    .return_type = v_int_type
-                });
+                allowed_operations.insert(primitive_function_info{.overload =
+                                                                      function_overload{
+                                                                          .builtin = true,
+                                                                          .call_parameters =
+                                                                              calltype{
+                                                                                  .named = {{"THIS", parent}, {"OTHER", parent}},
+                                                                              },
+                                                                      },
+                                                                  .return_type = parent});
             }
 
             if (assignment_operators.contains(operator_name) && is_rhs)
@@ -119,79 +171,52 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
             if (assignment_operators.contains(operator_name))
             {
                 allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{ .builtin= true, .call_parameters = calltype{.named = {{"THIS", make_wref(v_int_type)}, {"OTHER", v_int_type}},}},
+                    .overload = function_overload{.builtin = true,
+                                                  .call_parameters =
+                                                      calltype{
+                                                          .named = {{"THIS", make_wref(parent)}, {"OTHER", parent}},
+                                                      }},
                     .return_type = void_type{},
                 });
             }
 
-            if (bool_operators.contains(operator_name))
+            if (typeis< int_type >(parent) && bool_operators.contains(operator_name))
             {
-                allowed_operations.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", v_int_type}, {"OTHER", v_int_type}}, }},
-                    .return_type = bool_type{}
-                });
+                allowed_operations.insert(primitive_function_info{.overload = function_overload{.builtin = true,
+                                                                                                .call_parameters =
+                                                                                                    calltype{
+                                                                                                        .named = {{"THIS", parent}, {"OTHER", parent}},
+                                                                                                    }},
+                                                                  .return_type = bool_type{}});
             }
 
+            if (typeis< numeric_literal_reference >(parent) && arithmetic_operators.contains(operator_name))
+            {
+                std::set< primitive_function_info > allowed_operations;
+
+                allowed_operations.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}}}, .return_type = numeric_literal_reference{}});
+                co_return (allowed_operations);
+            }
+
+            if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
+            {
+                allowed_operations.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", parent}}}}, .return_type = make_mref(remove_ptr(parent))});
+            }
 
             co_return (allowed_operations);
         }
 
-        else if (typeis< numeric_literal_reference >(parent) && name.starts_with("OPERATOR"))
-        {
-            std::set< primitive_function_info > allowed_operations;
-
-            allowed_operations.insert(primitive_function_info{
-                .overload = function_overload{.builtin= true, .call_parameters = {.named = {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}}},
-                .return_type = numeric_literal_reference{}
-            });
-            // TODO: MAYBE: Allow composing any integer operation?
-            // allowed_operations.push_back(call_parameter_information{{numeric_literal_reference{}, }});
-            co_return (allowed_operations);
-        }
         else if (name == "CONSTRUCTOR")
         {
-            if (typeis< int_type >(parent))
-            {
-                auto v_int_type = as< int_type >(parent);
+           co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
+        }
 
+            else if (name == "DESTRUCTOR")
+            {
                 std::set< primitive_function_info > result;
-                result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = {.named = {{"THIS", create_nslot(parent)}, {"OTHER", make_cref(parent)}}}},
-                    .return_type = void_type{}
-                });
-                result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = {.named = {{"THIS", create_nslot(parent)}, {"OTHER", numeric_literal_reference{}}}}},
-                    .return_type = void_type{}
-                });
-                result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = {.named = {{"THIS", create_nslot(parent)}}}},
-                    .return_type = void_type{}
-                });
+                result.insert(primitive_function_info{.overload = function_overload{.builtin = true, .call_parameters = {.named = {{"THIS", make_mref(parent)}}}}, .return_type = void_type{}});
                 co_return (result);
             }
-
-            bool should_autogen_constructor = co_await *c->lk_class_should_autogen_default_constructor(parent);
-
-            if (!class_ent.has_value() || should_autogen_constructor)
-            {
-                std::set< primitive_function_info > result;
-                result.insert(primitive_function_info{
-                    .overload = function_overload{.builtin= true, .call_parameters = calltype{.named = {{"THIS", make_mref(parent)}}}},
-                    .return_type = parent
-                });
-                co_return result;
-            }
-        }
-
-        else if (name == "DESTRUCTOR")
-        {
-            std::set< primitive_function_info > result;
-            result.insert(primitive_function_info{
-                .overload = function_overload{.builtin= true, .call_parameters = {.named = {{"THIS", make_mref(parent)}}}},
-                .return_type = void_type{}
-            });
-            co_return (result);
-        }
     }
 
     co_return {};

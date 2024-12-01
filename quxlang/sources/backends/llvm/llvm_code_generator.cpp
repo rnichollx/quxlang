@@ -163,7 +163,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
     llvm::BasicBlock* p_block = entry;
 
-    std::string function_code_string = to_pretty_string(vmf.body);
+   // std::string function_code_string = to_pretty_string(vmf.body);
     generate_arg_push(context, storage, func, vmf, frame);
     generate_code(context, p_block, vmf.body, frame, vmf);
 
@@ -237,7 +237,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
 
 llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMContext& ctx, quxlang::type_symbol typ)
 {
-    if (typ.type() == boost::typeindex::type_id< quxlang::int_type >())
+    if (typ.template type_is< quxlang::int_type >())
     {
         return get_llvm_int_type_ptr(ctx, as< quxlang::int_type >(typ));
     }
@@ -276,11 +276,11 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
                 return false;
             }
         }
-        else if (ex.type() == boost::typeindex::type_id< vm_allocate_storage >())
+        else if (ex.template type_is< vm_allocate_storage >())
         {
             assert(false);
         }
-        else if (ex.type() == boost::typeindex::type_id< vm_store >())
+        else if (ex.template type_is< vm_store >())
         {
             llvm::IRBuilder<> builder(p_block);
             vm_store const& store = as< vm_store >(ex);
@@ -291,7 +291,7 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
             llvm::Align align = llvm::Align(vm_type_alignment(store.type));
             builder.CreateAlignedStore(what, where, align);
         }
-        else if (ex.type() == boost::typeindex::type_id< vm_return >())
+        else if (ex.template type_is< vm_return >())
         {
 
             llvm::IRBuilder<> builder(p_block);
@@ -523,14 +523,14 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
 
     // std::cout << "Gen llvm value for: " << quxlang::to_string(value) << std::endl;
 
-    if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_load_reference >())
+    if (value.template type_is< quxlang::vm_expr_load_reference >())
     {
         quxlang::vm_expr_load_reference lea = as< quxlang::vm_expr_load_reference >(value);
         llvm::Value* addr = frame.values.at(lea.index).get_address;
         assert(addr != nullptr);
         return addr;
     }
-    else if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_dereference >())
+    else if (value.template type_is< quxlang::vm_expr_dereference >())
     {
         quxlang::vm_expr_dereference const& deref = as< quxlang::vm_expr_dereference >(value);
         llvm::Type* load_type = get_llvm_type_from_vm_type(context, deref.type);
@@ -540,7 +540,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
 
         return load;
     }
-    else if (value.type() == boost::typeindex::type_id< quxlang::vm_expr_primitive_binary_op >())
+    else if (value.template type_is< quxlang::vm_expr_primitive_binary_op >())
     {
         quxlang::vm_expr_primitive_binary_op const& binop = as< quxlang::vm_expr_primitive_binary_op >(value);
 
@@ -666,7 +666,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
     {
         vm_expr_load_literal lit = as< vm_expr_load_literal >(value);
 
-        if (lit.type.type() == boost::typeindex::type_id< int_type >())
+        if (lit.type.template type_is< int_type >())
         {
             int_type v_int_type = as< int_type >(lit.type);
             llvm::Type* llvm_int_type = get_llvm_int_type_ptr(context, v_int_type);
@@ -674,7 +674,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             std::uint64_t value_number = std::stoull(value_string);
             return llvm::ConstantInt::get(llvm_int_type, value_number, v_int_type.has_sign);
         }
-        if (lit.type.type() == boost::typeindex::type_id< instance_pointer_type >())
+        if (lit.type.template type_is< pointer_type >())
         {
             if (lit.literal == "NULLPTR")
             {

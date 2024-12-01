@@ -12,6 +12,7 @@
 namespace quxlang
 {
     QUX_CO_RESOLVER(list_builtin_functum_overloads, type_symbol, std::set<primitive_function_info>);
+    QUX_CO_RESOLVER(list_builtin_constructors, type_symbol, std::set<primitive_function_info>);
 } // namespace quxlang
 
 #endif // FUNCTUM_BUILTIN_OVERLOADS_RESOLVER_HEADER_GUARD

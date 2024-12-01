@@ -7,11 +7,10 @@
 namespace quxlang
 {
 
-    struct qualified_symbol_stringifier : boost::static_visitor< std::string >
+    struct qualified_symbol_stringifier
     {
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
-        std::string operator()(instance_pointer_type const& ref) const;
         std::string operator()(instantiation_type const& ref) const;
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
@@ -35,6 +34,7 @@ namespace quxlang
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
+        std::string operator()(pointer_type const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -64,8 +64,6 @@ namespace quxlang
         return result;
     }
 
-
-
     bool is_template(type_symbol const& ref);
 
     struct is_template_visitor
@@ -80,8 +78,20 @@ namespace quxlang
             return is_template(ref.of);
         }
 
-        bool operator()(instance_pointer_type const& ref) const
+        bool operator()(pointer_type const& ref) const
         {
+            switch (ref.qual)
+            {
+            case qualifier::auto_:
+            case qualifier::output:
+            case qualifier::input:
+                return true;
+            case qualifier::mut:
+            case qualifier::constant:
+            case qualifier::write:
+            case qualifier::temp:
+                break;
+            }
             return is_template(ref.target);
         }
 
@@ -130,12 +140,10 @@ namespace quxlang
             return is_template(ref.target);
         }
 
-
         bool operator()(auto_reference const& ref) const
         {
             return true;
         }
-
 
         bool operator()(context_reference const& ref) const
         {
@@ -197,8 +205,9 @@ namespace quxlang
             return is_template(t.target);
         }
 
-        bool operator()(thistype const & t) const
+        bool operator()(thistype const& t) const
         {
+            // TODO: is this correct?
             return false;
         }
     };
@@ -210,23 +219,23 @@ namespace quxlang
 
     std::optional< type_symbol > qualified_parent(type_symbol input)
     {
-        if (input.type() == boost::typeindex::type_id< subsymbol >())
+        if (input.template type_is< subsymbol >())
         {
             return as< subsymbol >(input).of;
         }
-        else if (input.type() == boost::typeindex::type_id< instance_pointer_type >())
+        else if (input.template type_is< pointer_type >())
         {
-            return as< instance_pointer_type >(input).target;
+            return as< pointer_type >(input).target;
         }
-        else if (input.type() == boost::typeindex::type_id< instantiation_type >())
+        else if (input.template type_is< instantiation_type >())
         {
             return as< instantiation_type >(input).callee;
         }
-        else if (input.type() == boost::typeindex::type_id< selection_reference >())
+        else if (input.template type_is< selection_reference >())
         {
             return as< selection_reference >(input).templexoid;
         }
-        else if (input.type() == boost::typeindex::type_id< submember >())
+        else if (input.template type_is< submember >())
         {
             return as< submember >(input).of;
         }
@@ -238,19 +247,21 @@ namespace quxlang
 
     type_symbol with_context(type_symbol const& ref, type_symbol const& context)
     {
-        if (ref.type() == boost::typeindex::type_id< context_reference >())
+        if (ref.template type_is< context_reference >())
         {
             return context;
         }
-        else if (ref.type() == boost::typeindex::type_id< subsymbol >())
+        else if (ref.template type_is< subsymbol >())
         {
             return subsymbol{with_context(as< subsymbol >(ref).of, context), as< subsymbol >(ref).name};
         }
-        else if (ref.type() == boost::typeindex::type_id< instance_pointer_type >())
+        else if (ref.template type_is< pointer_type >())
         {
-            return instance_pointer_type{with_context(as< instance_pointer_type >(ref).target, context)};
+            pointer_type copy = as< pointer_type >(ref);
+            copy.target = with_context(as< pointer_type >(ref).target, context);
+            return copy;
         }
-        else if (ref.type() == boost::typeindex::type_id< instantiation_type >())
+        else if (ref.template type_is< instantiation_type >())
         {
             instantiation_type output = as< instantiation_type >(ref);
             output.callee = with_context(output.callee, context);
@@ -270,9 +281,53 @@ namespace quxlang
     {
         return to_string(ref.of) + "::" + ref.name;
     }
-    std::string qualified_symbol_stringifier::operator()(instance_pointer_type const& ref) const
+    std::string qualified_symbol_stringifier::operator()(pointer_type const& ref) const
     {
-        return "->" + rpnx::apply_visitor< std::string >(*this, ref.target);
+        std::string output;
+
+        switch (ref.qual)
+        {
+        case qualifier::auto_:
+            output += "AUTO";
+            break;
+        case qualifier::constant:
+            output += "CONST";
+            break;
+        case qualifier::write:
+            output += "WRITE";
+            break;
+        case qualifier::mut:
+            // the default, so no need to add anything
+            break;
+        case qualifier::temp:
+            output += "TEMP";
+            break;
+        case qualifier::input:
+            output += "INPUT";
+            break;
+        case qualifier::output:
+            output += "OUTPUT";
+            break;
+        }
+
+        switch (ref.ptr_class)
+        {
+        case pointer_class::instance:
+            output += "->";
+            break;
+        case pointer_class::array:
+            output += "=>>";
+            break;
+        case pointer_class::machine:
+            output += "*";
+            break;
+        }
+
+        output += " ";
+
+        output += rpnx::apply_visitor< std::string >(*this, ref.target);
+
+        return output;
     }
     std::string qualified_symbol_stringifier::operator()(instantiation_type const& ref) const
     {
@@ -395,7 +450,7 @@ namespace quxlang
         return to_string(ref.of) + "::." + ref.name;
     }
 
-    std::string qualified_symbol_stringifier::operator()(auto_reference const & ref) const
+    std::string qualified_symbol_stringifier::operator()(auto_reference const& ref) const
     {
         return "AUTO& " + to_string(ref.target);
     }
@@ -457,7 +512,7 @@ namespace quxlang
         return output;
     }
 
-    std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type)
+    std::optional< template_match_results > match_template_noconv(type_symbol const& template_type, type_symbol const& type)
     {
         std::optional< template_match_results > results;
         assert(is_canonical(type));
@@ -477,11 +532,10 @@ namespace quxlang
             return results;
         }
 
-        if (typeis <auto_reference>(template_type))
+        if (typeis< auto_reference >(template_type))
         {
             // Matches any reference type
             auto_reference const& template_autoref = as< auto_reference >(template_type);
-
 
             std::string type_str = to_string(type);
 
@@ -527,28 +581,39 @@ namespace quxlang
 
         // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
 
-
-        if (typeis< instance_pointer_type >(template_type))
+        if (typeis< pointer_type >(template_type))
         {
-            auto const& ptr_template = as< instance_pointer_type >(template_type);
-            if (!type.type_is<instance_pointer_type>())
+            auto const& ptr_template = as< pointer_type >(template_type);
+
+            pointer_type matched_type;
+            if (!type.type_is< pointer_type >())
             {
                 return std::nullopt;
             }
-            auto const& ptr_type = as< instance_pointer_type >(type);
+            auto const& ptr_type = as< pointer_type >(type);
+
+            auto qual_match = qualifier_template_match(ptr_template.qual, ptr_type.qual);
+
+            if (!qual_match)
+            {
+                return std::nullopt;
+            }
+
+            matched_type.qual = *qual_match;
+
             auto match = match_template(ptr_template.target, ptr_type.target);
             if (!match.has_value())
             {
                 return std::nullopt;
             }
 
-            match->type = instance_pointer_type{std::move(match->type)};
+            match->type = {std::move(match->type)};
             return match;
         }
         else if (typeis< subsymbol >(template_type))
         {
             auto const& sub_template = as< subsymbol >(template_type);
-            if (!type.type_is<subsymbol>())
+            if (!type.type_is< subsymbol >())
             {
                 return std::nullopt;
             }
@@ -646,6 +711,216 @@ namespace quxlang
             // rpnx::unimplemented();
         }
 
+        if (template_type.type() != type.type())
+        {
+            return std::nullopt;
+        }
+
+        // In other cases, we are talking about a non-composite reference
+        // However, we should make sure we don't miss types
+
+        assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        return std::nullopt;
+    }
+
+    std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type)
+    {
+        std::optional< template_match_results > results;
+        assert(is_canonical(type));
+
+        // Template portion match.
+        // e.g. T(t1) matches I32 and sets t1 to I32
+        if (typeis< template_reference >(template_type))
+        {
+            template_match_results output;
+            auto name = as< template_reference >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = type;
+            }
+            output.type = type;
+            results = std::move(output);
+            return results;
+        }
+
+        if (typeis< auto_reference >(template_type))
+        {
+            // Matches any reference type
+            auto_reference const& template_autoref = as< auto_reference >(template_type);
+
+            std::string type_str = to_string(type);
+
+            if (!is_ref(type))
+            {
+                // AUTO& ... matches any kind of reference
+                // However, a PR value should be converted to a TEMP& reference
+
+                template_match_results output;
+
+                type_symbol template_of = make_tref(template_autoref.target);
+                return match_template(template_of, make_tref(type));
+            }
+
+            auto type_refof = remove_ref(type);
+
+            auto match = match_template(template_autoref.target, type_refof);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = type;
+            return match;
+        }
+
+        // Exact match, e.g. I32 matches I32
+        if (template_type == type)
+        {
+            template_match_results result{};
+            result.type = type;
+            return result;
+        }
+
+        // Impossible to match in this case, e.g. a pointer reference cannot match an integer
+        // Note that template matching doesn't do any implicit conversions.
+        // So for example, MUT& I32 cannot match a template CONST& I32,
+        // even though a MUT& I32 can be implicitly converted to a CONST& I32.
+        // This is because might be matching a template parameter, and implementations might differ,
+        // so we can't assume that the conversion is valid.
+        // For example, a structure might implement differently depending on the mutability of the reference.
+        // Such as including a mutex in the MUT& version, but not in the CONST& version.
+        // e.g. foo#(I32, MUT& I32) cannot match foo#(I32, CONST& I32)
+
+        // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
+
+        if (typeis< pointer_type >(template_type))
+        {
+            auto const& ptr_template = as< pointer_type >(template_type);
+
+            pointer_type matched_type;
+            if (!type.type_is< pointer_type >())
+            {
+                return std::nullopt;
+            }
+            auto const& ptr_type = as< pointer_type >(type);
+
+            auto qual_match = qualifier_template_match(ptr_template.qual, ptr_type.qual);
+
+            if (!qual_match)
+            {
+                return std::nullopt;
+            }
+
+            matched_type.qual = *qual_match;
+
+            auto match = match_template(ptr_template.target, ptr_type.target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = {std::move(match->type)};
+            return match;
+        }
+        else if (typeis< subsymbol >(template_type))
+        {
+            auto const& sub_template = as< subsymbol >(template_type);
+            if (!type.type_is< subsymbol >())
+            {
+                return std::nullopt;
+            }
+            auto const& sub_type = as< subsymbol >(type);
+            if (sub_template.name != sub_type.name)
+            {
+                return std::nullopt;
+            }
+            auto match = match_template(sub_template.of, sub_type.of);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+            match->type = subsymbol{std::move(match->type), sub_template.name};
+            return match;
+        }
+        else if (typeis< submember >(template_type))
+        {
+            // it is not possible for a type to be a subdotentity_reference
+            throw std::logic_error("::. cannot appear in an argument type or argument type template");
+        }
+        else if (typeis< cvalue_reference >(template_type))
+        {
+            cvalue_reference const& template_cval = as< cvalue_reference >(template_type);
+            cvalue_reference const& type_cval = as< cvalue_reference >(type);
+            auto match = match_template(template_cval.target, type_cval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = cvalue_reference{std::move(match->type)};
+            return match;
+        }
+        else if (typeis< mvalue_reference >(template_type))
+        {
+            mvalue_reference const& template_mval = as< mvalue_reference >(template_type);
+            mvalue_reference const& type_mval = as< mvalue_reference >(type);
+            auto match = match_template(template_mval.target, type_mval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = mvalue_reference{std::move(match->type)};
+            return match;
+        }
+        else if (typeis< wvalue_reference >(template_type))
+        {
+            wvalue_reference const& template_oval = as< wvalue_reference >(template_type);
+            wvalue_reference const& type_oval = as< wvalue_reference >(type);
+            auto match = match_template(template_oval.target, type_oval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = wvalue_reference{std::move(match->type)};
+            return match;
+        }
+        else if (typeis< tvalue_reference >(template_type))
+        {
+            tvalue_reference const& template_tval = as< tvalue_reference >(template_type);
+            tvalue_reference const& type_tval = as< tvalue_reference >(type);
+            auto match = match_template(template_tval.target, type_tval.target);
+            if (!match)
+            {
+                return std::nullopt;
+            }
+            match->type = tvalue_reference{std::move(match->type)};
+            return match;
+        }
+        else if (typeis< instantiation_type >(template_type))
+        {
+            instantiation_type const& template_funct = as< instantiation_type >(template_type);
+            instantiation_type const& type_funct = as< instantiation_type >(type);
+
+            if (template_funct.parameters.positional.size() != type_funct.parameters.positional.size())
+            {
+                return std::nullopt;
+            }
+
+            // TODO: support named parameters
+
+            auto callee_match = match_template(template_funct.callee, type_funct.callee);
+            if (!callee_match)
+            {
+                return std::nullopt;
+            }
+
+            template_match_results all_results;
+            all_results.type = std::move(callee_match->type);
+            all_results.matches = std::move(callee_match->matches);
+
+            std::vector< type_symbol > instanciated_parameters;
+
+            // TODO: here
+            // rpnx::unimplemented();
+        }
 
         if (template_type.type() != type.type())
         {
@@ -658,16 +933,41 @@ namespace quxlang
         assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }
+
     std::string to_string(type_symbol const& ref)
     {
         return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
+    }
+    std::string to_string(calltype const& ref)
+    {
+        std::string output;
+        bool first = true;
+        output += "CALLABLE(";
+        for (auto const& [name, arg] : ref.named)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + name + " " + to_string(arg);
+        }
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += to_string(arg);
+        }
+        output += ")";
+        return output;
     }
 
     type_symbol get_templexoid(instantiation_type const& ref)
     {
         auto callee = ref.callee;
 
-       assert(callee.type_is< selection_reference >());
+        assert(callee.type_is< selection_reference >());
 
         return as< selection_reference >(callee).templexoid;
     }
@@ -681,6 +981,95 @@ namespace quxlang
             return as< submember >(tmplx).of;
         }
         return std::nullopt;
+    }
+    std::optional< qualifier > qualifier_template_match(qualifier template_qual, qualifier match_qual)
+    {
+
+        // Only non-template qualifiers are allowed as the match type
+        assert(match_qual != qualifier::auto_);
+        assert(match_qual != qualifier::input);
+        assert(match_qual != qualifier::output);
+
+        switch (template_qual)
+        {
+        case qualifier::auto_: {
+            // AUTO can match all other qualifiers
+            return match_qual;
+        }
+        case qualifier::constant: {
+            // Matches everything except WRITE as CONST
+            if (match_qual == qualifier::write)
+            {
+                return std::nullopt;
+            }
+            return qualifier::constant;
+        }
+        case qualifier::mut: {
+            // Matches MUT only
+            if (match_qual == qualifier::mut)
+            {
+                return qualifier::mut;
+            }
+            return std::nullopt;
+        }
+        case qualifier::temp: {
+            // Matches TEMP only
+            if (match_qual == qualifier::temp)
+            {
+                return qualifier::temp;
+            }
+            return std::nullopt;
+        }
+        case qualifier::input: {
+            // INPUT is a template that matches as either TEMP or CONST
+            // TODO: Consider allowing DESTROY to match as an INPUT?
+            if (match_qual == qualifier::temp)
+            {
+                return qualifier::temp;
+            }
+            else
+            {
+                return qualifier_template_match(qualifier::constant, match_qual);
+            }
+        }
+        case qualifier::output: {
+            // This is a template that matches new and write, but for
+            // now NEW isn't implemented on pointers
+            // TODO: refactor NEW/DESTROY types to use qualifier
+            return qualifier_template_match(qualifier::write, match_qual);
+        }
+        case qualifier::write: {
+            // Write matches anything writable, but not constant.
+            // Note that we exclude TEMP as well since that is a "discarded value" so writes to a temp
+            // may be considered meaningless.
+            if (match_qual == qualifier::temp || match_qual == qualifier::constant)
+            {
+                return std::nullopt;
+            }
+            return match_qual;
+            break;
+        }
+        }
+    }
+    std::optional< pointer_class > pointer_class_template_match(pointer_class template_class, pointer_class match_class)
+    {
+        switch (template_class)
+        {
+        case pointer_class::instance:
+            return pointer_class::instance;
+        case pointer_class::array:
+            if (match_class == pointer_class::instance)
+            {
+                return std::nullopt;
+            }
+            return pointer_class::array;
+        case pointer_class::machine:
+            if (match_class == pointer_class::machine)
+            {
+                return pointer_class::machine;
+            }
+            return std::nullopt;
+        }
     }
 
 } // namespace quxlang

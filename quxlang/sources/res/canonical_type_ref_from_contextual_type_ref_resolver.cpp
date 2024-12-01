@@ -16,9 +16,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
         std::cout << "Looking up type: " << to_string(type) << std::endl;
     });
 
-    if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
+    if (type.type_is< pointer_type >())
     {
-        instance_pointer_type const& ptr = as< instance_pointer_type >(type);
+        pointer_type const& ptr = as< pointer_type >(type);
 
         type_symbol to_type = ptr.target;
 
@@ -30,18 +30,20 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         auto canon_ptr_to_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (to_type_ref));
 
-        instance_pointer_type canonical_ptr_type;
+        pointer_type canonical_ptr_type;
         canonical_ptr_type.target = canon_ptr_to_type;
+        canonical_ptr_type.ptr_class = ptr.ptr_class;
+        canonical_ptr_type.qual = ptr.qual;
 
         co_return canonical_ptr_type;
     }
-    else if (type.type() == boost::typeindex::type_id< subsymbol >())
+    else if (type.template type_is< subsymbol >())
     {
         subsymbol const& sub = as< subsymbol >(type);
 
         type_symbol const& parent = sub.of;
 
-        if (parent.type() == boost::typeindex::type_id< context_reference >())
+        if (parent.template type_is< context_reference >())
         {
             std::optional< type_symbol > current_context = context;
             assert(current_context.has_value());
@@ -102,13 +104,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         co_return subsymbol{parent_canonical, sub.name};
     }
-    else if (type.type() == boost::typeindex::type_id< submember >())
+    else if (type.template type_is< submember >())
     {
         submember const& sub = as< submember >(type);
 
         type_symbol const& parent = sub.of;
 
-        if (parent.type() == boost::typeindex::type_id< context_reference >())
+        if (parent.template type_is< context_reference >())
         {
             std::optional< type_symbol > current_context = context;
             assert(current_context.has_value());
@@ -138,7 +140,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         co_return submember{parent_canonical, sub.name};
     }
-    else if (type.type() == boost::typeindex::type_id< instantiation_type >())
+    else if (type.template type_is< instantiation_type >())
     {
         instantiation_type const& param_set = as< instantiation_type >(type);
 
@@ -158,19 +160,19 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         co_return output;
     }
-    else if (type.type() == boost::typeindex::type_id< int_type >())
+    else if (type.template type_is< int_type >())
     {
         co_return type;
     }
-    else if (type.type() == boost::typeindex::type_id< bool_type >())
+    else if (type.template type_is< bool_type >())
     {
         co_return type;
     }
-    else if (type.type() == boost::typeindex::type_id< module_reference >())
+    else if (type.template type_is< module_reference >())
     {
         co_return type;
     }
-    else if (type.type() == boost::typeindex::type_id< mvalue_reference >())
+    else if (type.template type_is< mvalue_reference >())
     {
         auto target_type = as< mvalue_reference >(type).target;
         auto target_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (target_type, context));

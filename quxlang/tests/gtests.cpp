@@ -15,7 +15,6 @@
 #include <quxlang/parsers/parse_whitespace.hpp>
 #include <quxlang/parsers/try_parse_expression.hpp>
 
-#include <boost/variant.hpp>
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
 #include <quxlang/vmir2/assembly.hpp>
@@ -125,7 +124,7 @@ TEST(parsing, parse_basic_types)
     using namespace quxlang;
 
     ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
-    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(instance_pointer_type{int_type{64, true}}));
+    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(pointer_type{int_type{64, true}}));
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
@@ -170,7 +169,7 @@ TEST(collector_tester, order_of_operations)
 
     std::string str = quxlang::to_string(expr);
 
-    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< quxlang::expression_binary >());
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_binary >());
     ASSERT_TRUE(as< quxlang::expression_binary >(expr).operator_str == ":=");
     ASSERT_EQ(it, it_end);
 };
@@ -256,7 +255,7 @@ TEST(collector_tester, function_call)
 
     std::string str = quxlang::to_string(expr);
 
-    ASSERT_TRUE(expr.type() == boost::typeindex::type_id< quxlang::expression_call >());
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_call >());
     ASSERT_EQ(it, it_end);
 };
 
@@ -275,9 +274,9 @@ TEST(quxlang_modules, merge_entities)
 TEST(qual, template_matching)
 {
     quxlang::type_symbol template1 = quxlang::template_reference{"foo"};
-    quxlang::type_symbol template2 = quxlang::instance_pointer_type{quxlang::template_reference{"foo"}};
+    quxlang::type_symbol template2 = quxlang::pointer_type{ .target= quxlang::template_reference{"foo"}, .ptr_class= quxlang::pointer_class::instance, .qual=quxlang::qualifier::mut };
     quxlang::type_symbol type1 = quxlang::int_type{32, true};
-    quxlang::type_symbol type2 = quxlang::instance_pointer_type{quxlang::int_type{32, true}};
+    quxlang::type_symbol type2 = quxlang::pointer_type{.target=quxlang::int_type{32, true}, .ptr_class=quxlang::pointer_class::instance, .qual=quxlang::qualifier::mut};
 
     auto res1 = quxlang::match_template(template1, type1);
 

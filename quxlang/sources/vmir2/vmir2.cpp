@@ -264,8 +264,13 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::loa
 
 void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_int lci)
 {
-    current_slot_states.at(lci.target).alive = true;
+    current_slot_states[lci.target].alive = true;
     block.instructions.push_back(lci);
+}
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::make_pointer_to mpt)
+{
+    current_slot_states[mpt.pointer_index].alive = true;
+    block.instructions.push_back(mpt);
 }
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)

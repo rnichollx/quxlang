@@ -6,10 +6,7 @@ find_package(Boost REQUIRED COMPONENTS filesystem)
 
 add_subdirectory(rpnx)
 
-add_library(catch2 catch2/catch2/catch2.hpp catch2/catch2.cpp )
-target_include_directories(catch2 PUBLIC catch2/)
 add_subdirectory(quxlang)
-target_link_libraries(graphlib_tests PUBLIC graphlib catch2)
 
 
 get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)

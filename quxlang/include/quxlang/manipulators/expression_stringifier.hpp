@@ -13,11 +13,12 @@ namespace quxlang
 
     std::string to_string(expression const& expr);
 
-    struct expression_stringifier : public boost::static_visitor< std::string >
+    struct expression_stringifier
     {
         expression_stringifier()
         {
         }
+
         std::string operator()(expression_add const& expr) const
         {
             return "(" + to_string(expr.lhs) + " + " + to_string(expr.rhs) + ")";
@@ -107,6 +108,18 @@ namespace quxlang
             // TODO: Escape
             return "\"" + expr.value + "\"";
         }
+
+        std::string operator()(expression_leftarrow const& expr) const
+        {
+            std::string output = "(" + to_string(expr.lhs) + " <- )";
+            return output;
+        }
+
+        std::string operator()(expression_rightarrow const& expr) const
+        {
+            std::string output = "(" + to_string(expr.lhs) + " -> )";
+            return output;
+        };
     };
 
     inline std::string to_string(expression const& expr)

@@ -175,6 +175,7 @@ namespace quxlang
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(list_builtin_functum_overloads)
+        COMPILER_INDEX(list_builtin_constructors)
         COMPILER_INDEX(list_functum_overloads)
         COMPILER_INDEX(list_user_functum_overloads)
         COMPILER_INDEX(list_user_functum_overload_declarations)

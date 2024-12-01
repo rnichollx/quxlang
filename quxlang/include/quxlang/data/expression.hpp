@@ -89,6 +89,24 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_dotreference, lhs, field_name);
     };
 
+    // Right arrow -> is used to get a reference from a pointer.
+    struct expression_rightarrow
+    {
+        expression lhs;
+
+        RPNX_MEMBER_METADATA(expression_rightarrow, lhs);
+    };
+
+    // Left arrow <- is used to get a pointer from a reference.
+    struct expression_leftarrow
+    {
+        expression lhs;
+
+        RPNX_MEMBER_METADATA(expression_leftarrow, lhs);
+    };
+
+
+
 } // namespace quxlang
 
 #include "quxlang/data/expression_add.hpp"

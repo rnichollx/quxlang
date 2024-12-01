@@ -225,7 +225,22 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, ":("))
         {
-
+           // TODO: This part
+           throw rpnx::unimplemented();
+        }
+        else if (skip_symbol_if_is(pos, end, "->"))
+        {
+           expression_rightarrow arrow;
+          arrow.lhs = std::move(*bindings[bindings.size() - 1]);
+          *bindings[bindings.size() - 1] = std::move(arrow);
+          goto next_operator;
+        }
+        else if (skip_symbol_if_is(pos, end, "<-"))
+        {
+           expression_leftarrow arrow;
+          arrow.lhs = std::move(*bindings[bindings.size() - 1]);
+          *bindings[bindings.size() - 1] = std::move(arrow);
+          goto next_operator;
         }
         else
         {

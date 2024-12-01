@@ -42,9 +42,22 @@ MODULE main;
 
   VAR z buz;
 
+
+
   z.foo();
 
 
+  VAR a ->I32;
+
+  a := z.x <-;
+
+  // VAR b [5]I32;
+
+
+
+  a-> := a-> + 5;
+
+ // a := b[2] <-;
 
   RETURN 4;
 }

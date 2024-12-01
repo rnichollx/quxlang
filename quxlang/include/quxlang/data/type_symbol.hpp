@@ -6,7 +6,6 @@
 #include "numeric_literal.hpp"
 #include "rpnx/metadata.hpp"
 #include "rpnx/variant.hpp"
-#include <boost/variant.hpp>
 #include <compare>
 #include <rpnx/compare.hpp>
 #include <rpnx/metadata.hpp>
@@ -19,8 +18,15 @@
 
 RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
 
+RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
+RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine);
+
 namespace quxlang
 {
+    std::optional<pointer_class> pointer_class_template_match(pointer_class template_class, pointer_class match_class);
+    std::optional<qualifier> qualifier_template_match(qualifier template_qual, qualifier match_qual);
+
+    std::optional<qualifier> qualifier_template_match_noconv(qualifier template_qual, qualifier match_qual);
 
     struct void_type
     {
@@ -180,23 +186,18 @@ namespace quxlang
         RPNX_EMPTY_METADATA(bool_type);
     };
 
-    struct instance_pointer_type
+
+
+    struct pointer_type
     {
         type_symbol target;
-        RPNX_MEMBER_METADATA(instance_pointer_type, target);
+        pointer_class ptr_class;
+        qualifier qual;
+
+        RPNX_MEMBER_METADATA(pointer_type, target, ptr_class, qual);
     };
 
-    struct array_pointer_type
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(array_pointer_type, target);
-    };
 
-    struct arithmetic_pointer_type
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(arithmetic_pointer_type, target);
-    };
 
     struct value_expression_reference
     {

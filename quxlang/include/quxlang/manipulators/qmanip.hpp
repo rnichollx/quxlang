@@ -16,6 +16,8 @@ namespace quxlang
     std::string to_string(type_symbol const& ref);
 
     std::string to_string(calltype const& ref);
+
+
     bool is_ref(type_symbol type);
 
     bool is_template(type_symbol const& ref);
@@ -51,7 +53,7 @@ namespace quxlang
     std::string to_string(type_symbol const& ref);
     type_symbol make_mref(type_symbol ref);
 
-     type_symbol remove_ref(type_symbol type);
+    type_symbol remove_ref(type_symbol type);
 
     // Gets the type of
     inline type_symbol load_type(type_symbol t)
@@ -105,7 +107,7 @@ namespace quxlang
 
     inline type_symbol make_tref(type_symbol ref)
     {
-       return tvalue_reference{.target=remove_ref(ref)};
+        return tvalue_reference{.target = remove_ref(ref)};
     }
 
     inline type_symbol make_cref(type_symbol ref)
@@ -115,13 +117,11 @@ namespace quxlang
 
     inline type_symbol create_nslot(type_symbol ref)
     {
-        assert(!typeis<nvalue_slot>(ref));
+        assert(!typeis< nvalue_slot >(ref));
         return nvalue_slot{ref};
     }
 
     bool is_ref(type_symbol type);
-
-
 
     inline bool is_ref_implicitly_convertible_by_syntax(type_symbol from, type_symbol to)
     {
@@ -188,7 +188,7 @@ namespace quxlang
 
     inline bool is_ptr(type_symbol type)
     {
-        if (typeis< instance_pointer_type >(type))
+        if (typeis< pointer_type >(type))
         {
             return true;
         }
@@ -226,6 +226,18 @@ namespace quxlang
             throw "unimplemented";
             // shouldn't get here?
             return field_type;
+        }
+    }
+
+    inline type_symbol remove_ptr(type_symbol type)
+    {
+        if (typeis< pointer_type >(type))
+        {
+            return as< pointer_type >(type).target;
+        }
+        else
+        {
+            return type;
         }
     }
 
@@ -286,7 +298,7 @@ namespace quxlang
 
     inline bool qualified_is_contextual(type_symbol const& ref)
     {
-        if (ref.type() == boost::typeindex::type_id< context_reference >())
+        if (ref.type_is< context_reference >())
         {
             return true;
         }
@@ -308,7 +320,7 @@ namespace quxlang
 
     inline bool is_primitive(type_symbol sym)
     {
-        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< instance_pointer_type >(sym);
+        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< pointer_type >(sym);
     }
 
 } // namespace quxlang

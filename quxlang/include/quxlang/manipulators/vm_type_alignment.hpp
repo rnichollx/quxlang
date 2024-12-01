@@ -15,7 +15,7 @@ namespace quxlang
 
         std::string type_string = to_string( t);
 
-        if (t.type() == boost::typeindex::type_id< int_type >())
+        if (t.template type_is< int_type >())
         {
             // TODO: This probably isn't right
             return (as< int_type >(t).bits + 7) / 8;

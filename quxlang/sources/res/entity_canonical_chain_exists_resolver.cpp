@@ -71,6 +71,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
         // It's defined, but doesn't "exist".
         co_return false;
     }
+    else if (typeis< pointer_type >(input_val))
+    {
+        auto pointed_value_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (as< pointer_type >(input_val).target));
+
+        co_return pointed_value_exists;
+    }
     else
     {
         throw rpnx::unimplemented();

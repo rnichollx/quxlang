@@ -45,23 +45,59 @@ namespace quxlang
         {
             return "M" + (as< module_reference >(qt)).module_name;
         }
-        else if (qt.type() == boost::typeindex::type_id< subsymbol >())
+        else if (qt.template type_is< subsymbol >())
         {
             subsymbol const& se = as< subsymbol >(qt);
 
             return mangle_internal(se.of) + "N" + se.name;
         }
-        else if (qt.type() == boost::typeindex::type_id< submember >())
+        else if (qt.template type_is< submember >())
         {
             submember const& se = as< submember >(qt);
 
             return mangle_internal(se.of) + "D" + mangle_internal(se.name);
         }
-        else if (qt.type() == boost::typeindex::type_id< instance_pointer_type >())
+        else if (qt.template type_is< pointer_type >())
         {
-            return "P" + mangle_internal(as< instance_pointer_type >(qt).target);
+            std::string output = "P";
+
+            auto const& ptr = as< pointer_type >(qt);
+
+            switch (ptr.ptr_class)
+            {
+            case pointer_class::instance:
+                output += "I";
+                break;
+            case pointer_class::array:
+                output += "A";
+                break;
+            case pointer_class::machine:
+                output += "M";
+                break;
+            default:
+                throw std::logic_error("unimplemented");
+            }
+            switch (ptr.qual)
+            {
+            case qualifier::constant:
+                output += "C";
+                break;
+            case qualifier::mut:
+                output += "M";
+                break;
+            case qualifier::temp:
+                output += "T";
+                break;
+            case qualifier::write:
+                output += "W";
+                break;
+            default:
+                throw std::logic_error("unimplemented");
+            }
+            output += mangle_internal(ptr.target);
+            return output;
         }
-        else if (qt.type() == boost::typeindex::type_id< int_type >())
+        else if (qt.template type_is< int_type >())
         {
             auto const& i = as< int_type >(qt);
             if (i.has_sign)
@@ -73,7 +109,7 @@ namespace quxlang
                 return "U" + std::to_string(i.bits);
             }
         }
-        else if (qt.type() == boost::typeindex::type_id< instantiation_type >())
+        else if (qt.template type_is< instantiation_type >())
         {
             std::string out = mangle_internal(as< instantiation_type >(qt).callee);
             out += "C";
@@ -93,7 +129,7 @@ namespace quxlang
             out += "E";
             return out;
         }
-        else if (qt.type() == boost::typeindex::type_id< value_expression_reference >())
+        else if (qt.template type_is< value_expression_reference >())
         {
             // TODO: Implement
             throw std::logic_error("unimplemented");

@@ -8,7 +8,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
     type_symbol const& type = input;
     std::string type_str = to_string(type);
 
-    if (type.type() == boost::typeindex::type_id< instance_pointer_type >())
+    if (type.template type_is< pointer_type >())
     {
         output_info m = c->m_output_info;
 
@@ -18,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
         co_return result;
     }
-    else if (type.type() == boost::typeindex::type_id< subsymbol >())
+    else if (type.template type_is< subsymbol >())
     {
         class_layout layout = co_await QUX_CO_DEP(class_layout, (type));
 
@@ -28,7 +28,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
         co_return result;
     }
-    else if (type.type() == boost::typeindex::type_id< int_type >())
+    else if (type.template type_is< int_type >())
     {
         int_type int_kw = as< int_type >(type);
 

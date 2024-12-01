@@ -30,6 +30,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::constexpr_set_result inst);
         std::string to_string_internal(vmir2::load_const_value inst);
         std::string to_string_internal(vmir2::load_const_int inst);
+        std::string to_string_internal(vmir2::make_pointer_to inst);
 
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);

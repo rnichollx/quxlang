@@ -16,7 +16,6 @@
 #include <rpnx/result.hpp>
 #include "serializer.hpp"
 #include <boost/core/demangle.hpp>
-#include <boost/variant.hpp>
 #include <concepts>
 #include <memory>
 #include <sstream>
@@ -39,11 +38,7 @@ namespace rpnx
     struct resolver_traits
     {
 
-        template < typename... Ts >
-        static std::string default_stringify(boost::variant< Ts... > const& v, int)
-        {
-            return boost::apply_visitor(resolver_traits_string_visitor(), v);
-        }
+
 
         static std::string default_stringify(bool v, int)
         {
@@ -1711,7 +1706,20 @@ namespace rpnx
                 ss << " ";
             }
 
-            ss << "ASK " << n->question();
+            ss << "ASK " << n->question() << " WITH ";
+            if (n->has_value())
+            {
+                ss << "ANSWER " << n->answer() << "\n";
+            }
+            else if (n->has_error())
+            {
+                ss << "ERROR " << n->answer() << "\n";
+            }
+            else if (n->has_error())
+            {
+                ss << "FAILED (dependency failed)\n";
+            }
+
 
             ss << "\n";
 
@@ -1729,23 +1737,9 @@ namespace rpnx
                 draw(d);
             }
 
-            for (std::size_t i = 0; i < indent; i++)
-            {
-                ss << " ";
-            }
 
-            if (n->has_value())
-            {
-                ss << "ANSWER " << n->answer() << "\n";
-            }
-            else if (n->has_error())
-            {
-                ss << "ERROR " << n->answer() << "\n";
-            }
-            else if (n->has_error())
-            {
-                ss << "FAILED (dependency failed)\n";
-            }
+
+
 
             indent -= 4;
         }

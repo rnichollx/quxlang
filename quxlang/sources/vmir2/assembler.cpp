@@ -257,4 +257,9 @@ namespace quxlang::vmir2
         return "LCI %" + std::to_string(inst.target) + ", " + inst.value;
     }
 
+    std::string assembler::to_string_internal(vmir2::make_pointer_to inst)
+    {
+        return "MPT %" + std::to_string(inst.of_index) + ", %" + std::to_string(inst.pointer_index);
+    }
+
 } // namespace quxlang::vmir2
