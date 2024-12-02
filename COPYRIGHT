@@ -1,4 +1,3 @@
-See catch2/catch.hpp for information about catch2 license.
 LLVM and boost have their own license, but aren't included in this repo.
 
 Copyright © 2022, 2023, 2024 Ryan P. Nicholl, rnicholl@protonmail.com
