@@ -190,15 +190,11 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
                 return lfr;
             }
         }
-        else if (cls->type_is<int_type>())
+        else if (args.size() == 1 && args.named.contains("THIS"))
         {
-            if (args.size() == 1 && args.named.contains("THIS"))
-            {
-                vmir2::load_const_int result;
-                result.value = "0";
-                result.target = args.named.at("THIS");
-                return result;
-            }
+            vmir2::load_const_zero result;
+            result.target = args.named.at("THIS");
+            return result;
         }
     }
 
@@ -242,9 +238,27 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             }
         }
     }
+    else if (member->name == "OPERATOR+")
+    {
+        if (cls->template type_is< int_type >())
+        {
+            if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
+            {
+                auto this_slot_id = args.named.at("THIS");
+                auto other_slot_id = args.named.at("OTHER");
 
+                vmir2::int_add add{};
+                add.a = this_slot_id;
+                add.b = other_slot_id;
+                add.result = args.named.at("RETURN");
+
+                return add;
+            }
+        }
+    }
     return std::nullopt;
 }
+
 bool quxlang::intrinsic_builtin_classifier::is_intrinsic_type(type_symbol of_type)
 {
     return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >();

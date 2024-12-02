@@ -273,5 +273,33 @@ namespace quxlang::vmir2
     {
         return "DRP %" + std::to_string(inst.from_pointer) + ", %" + std::to_string(inst.to_reference);
     }
+    std::string assembler::to_string_internal(vmir2::int_add add)
+    {
+        return "IADD %" + std::to_string(add.a) + ", %" + std::to_string(add.b) + ", %" + std::to_string(add.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::int_sub sub)
+    {
+        return "ISUB %" + std::to_string(sub.a) + ", %" + std::to_string(sub.b) + ", %" + std::to_string(sub.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::int_mul mul)
+    {
+        return "IMUL %" + std::to_string(mul.a) + ", %" + std::to_string(mul.b) + ", %" + std::to_string(mul.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::int_div div)
+    {
+        return "IDIV %" + std::to_string(div.a) + ", %" + std::to_string(div.b) + ", %" + std::to_string(div.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::int_mod mod)
+    {
+        return "IMOD %" + std::to_string(mod.a) + ", %" + std::to_string(mod.b) + ", %" + std::to_string(mod.result);
+    }
+    std::string assembler::to_string_internal(vmir2::load_const_zero inst)
+    {
+        return "LCZ %" + std::to_string(inst.target);
+    }
 
 } // namespace quxlang::vmir2

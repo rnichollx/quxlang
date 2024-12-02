@@ -32,8 +32,15 @@ namespace quxlang
         struct load_from_ref;
         struct store_to_ref;
         struct dereference_pointer;
+        struct load_const_zero;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, dereference_pointer, store_to_ref >;
+        struct int_add;
+        struct int_mul;
+        struct int_div;
+        struct int_mod;
+        struct int_sub;
+
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -134,14 +141,59 @@ namespace quxlang
             RPNX_MEMBER_METADATA(store_to_ref, from_value, to_reference);
         };
 
-
-
         struct load_const_int
         {
 
             storage_index target;
             std::string value;
             RPNX_MEMBER_METADATA(load_const_int, target, value);
+        };
+
+        struct load_const_zero
+        {
+            storage_index target;
+            RPNX_MEMBER_METADATA(load_const_zero, target);
+        };
+
+        struct int_add
+        {
+
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(int_add, a, b, result);
+        };
+
+        struct int_sub
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(int_sub, a, b, result);
+        };
+
+        struct int_mul
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(int_mul, a, b, result);
+        };
+
+        struct int_div
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(int_div, a, b, result);
+        };
+
+        struct int_mod
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(int_mod, a, b, result);
         };
 
         struct jump
@@ -263,11 +315,18 @@ namespace quxlang
             void emit(vmir2::make_reference cst);
             void emit(vmir2::constexpr_set_result csr);
             void emit(vmir2::load_const_value lcv);
+            void emit(vmir2::load_const_zero lcz);
             void emit(vmir2::load_const_int lci);
             void emit(vmir2::make_pointer_to lci);
             void emit(vmir2::dereference_pointer drp);
             void emit(vmir2::load_from_ref lfp);
             void emit(vmir2::store_to_ref lfp);
+
+            void emit(vmir2::int_add add);
+            void emit(vmir2::int_sub sub);
+            void emit(vmir2::int_mul mul);
+            void emit(vmir2::int_div div);
+            void emit(vmir2::int_mod mod);
 
             bool slot_alive(storage_index idx);
 

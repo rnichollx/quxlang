@@ -285,12 +285,68 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::loa
     current_slot_states[lfp.to_value].alive = true;
     block.instructions.push_back(lfp);
 }
+
 void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::store_to_ref lfp)
 {
     assert(current_slot_states[lfp.from_value].alive == true);
     assert(current_slot_states[lfp.to_reference].alive == true);
     current_slot_states[lfp.from_value].alive = false;
     block.instructions.push_back(lfp);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_add add)
+{
+    assert(current_slot_states[add.a].alive);
+    assert(current_slot_states[add.b].alive);
+    current_slot_states[add.a].alive = false;
+    current_slot_states[add.b].alive = false;
+    current_slot_states[add.result].alive = true;
+    block.instructions.push_back(add);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_sub sub)
+{
+    assert(current_slot_states[sub.a].alive);
+    assert(current_slot_states[sub.b].alive);
+    current_slot_states[sub.a].alive = false;
+    current_slot_states[sub.b].alive = false;
+    current_slot_states[sub.result].alive = true;
+    block.instructions.push_back(sub);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_mul mul)
+{
+    assert(current_slot_states[mul.a].alive);
+    assert(current_slot_states[mul.b].alive);
+    current_slot_states[mul.a].alive = false;
+    current_slot_states[mul.b].alive = false;
+    current_slot_states[mul.result].alive = true;
+    block.instructions.push_back(mul);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_div div)
+{
+    assert(current_slot_states[div.a].alive);
+    assert(current_slot_states[div.b].alive);
+    current_slot_states[div.a].alive = false;
+    current_slot_states[div.b].alive = false;
+    current_slot_states[div.result].alive = true;
+    block.instructions.push_back(div);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_mod mod)
+{
+    assert(current_slot_states[mod.a].alive);
+    assert(current_slot_states[mod.b].alive);
+    current_slot_states[mod.a].alive = false;
+    current_slot_states[mod.b].alive = false;
+    current_slot_states[mod.result].alive = true;
+    block.instructions.push_back(mod);
+}
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_zero lcz)
+{
+    current_slot_states[lcz.target].alive = true;
+    block.instructions.push_back(lcz);
 }
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
