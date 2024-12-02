@@ -9,3 +9,6 @@ out
 .aider*
 CMakeSettings.json
 /venv/
+build/
+.idea
+cmake_build
