@@ -237,6 +237,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/intrinsic_classifier.hpp
         sources/builtin_classifier.cpp
         sources/res/function.cpp
+        include/quxlang/vmir2/ir2_interpreter.hpp
+        sources/ir2_interpreter.cpp
 
 )
 
