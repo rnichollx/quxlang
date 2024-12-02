@@ -410,7 +410,7 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(wvalue_reference const& ref) const
     {
-        return "OUT&" + rpnx::apply_visitor< std::string >(*this, ref.target);
+        return "WRITE& " + rpnx::apply_visitor< std::string >(*this, ref.target);
     }
     std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
     {

@@ -28,8 +28,12 @@ namespace quxlang
         struct load_const_value;
         struct load_const_int;
         struct make_pointer_to;
+        struct move_value;
+        struct load_from_ref;
+        struct store_to_ref;
+        struct dereference_pointer;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, dereference_pointer, store_to_ref >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -79,7 +83,6 @@ namespace quxlang
             storage_index pointer_index;
 
             RPNX_MEMBER_METADATA(make_pointer_to, of_index, pointer_index);
-
         };
 
         struct cast_reference
@@ -101,17 +104,44 @@ namespace quxlang
         {
 
             storage_index target;
-            std::vector<std::byte> value;
+            std::vector< std::byte > value;
 
             RPNX_MEMBER_METADATA(load_const_value, target, value);
         };
+
+        // Converts a pointer into a reference to the pointed-to value
+        struct dereference_pointer
+        {
+            storage_index from_pointer;
+            storage_index to_reference;
+
+            RPNX_MEMBER_METADATA(dereference_pointer, from_pointer, to_reference);
+        };
+
+        struct load_from_ref
+        {
+            storage_index from_reference;
+            storage_index to_value;
+
+            RPNX_MEMBER_METADATA(load_from_ref, from_reference, to_value);
+        };
+
+        struct store_to_ref
+        {
+            storage_index from_value;
+            storage_index to_reference;
+
+            RPNX_MEMBER_METADATA(store_to_ref, from_value, to_reference);
+        };
+
+
 
         struct load_const_int
         {
 
             storage_index target;
             std::string value;
-            RPNX_MEMBER_METADATA(load_const_int, target , value);
+            RPNX_MEMBER_METADATA(load_const_int, target, value);
         };
 
         struct jump
@@ -169,7 +199,7 @@ namespace quxlang
 
         struct slot_states
         {
-            std::map<std::size_t, bool> alive;
+            std::map< std::size_t, bool > alive;
 
             RPNX_MEMBER_METADATA(slot_states, alive);
         };
@@ -213,17 +243,16 @@ namespace quxlang
         struct executable_block_generation_state
         {
 
-            executable_block_generation_state(slot_generation_state *slots) : slots(slots)
+            executable_block_generation_state(slot_generation_state* slots) : slots(slots)
             {
             }
             executable_block_generation_state(const executable_block_generation_state&) = default;
             executable_block_generation_state(executable_block_generation_state&&) = default;
 
-
             vmir2::executable_block block;
-            slot_generation_state *slots;
-            std::map< std::size_t, slot_state > current_slot_states = {{0,slot_state{}}};
-            std::map< std::string , storage_index > named_references;
+            slot_generation_state* slots;
+            std::map< std::size_t, slot_state > current_slot_states = {{0, slot_state{}}};
+            std::map< std::string, storage_index > named_references;
 
             type_symbol current_type(storage_index idx);
 
@@ -236,6 +265,9 @@ namespace quxlang
             void emit(vmir2::load_const_value lcv);
             void emit(vmir2::load_const_int lci);
             void emit(vmir2::make_pointer_to lci);
+            void emit(vmir2::dereference_pointer drp);
+            void emit(vmir2::load_from_ref lfp);
+            void emit(vmir2::store_to_ref lfp);
 
             bool slot_alive(storage_index idx);
 
@@ -245,11 +277,10 @@ namespace quxlang
             storage_index create_positional_argument(type_symbol type, std::optional< std::string > label_name);
             storage_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
 
-
             storage_index create_numeric_literal(std::string value);
             storage_index index_binding(storage_index idx);
 
-            std::optional<storage_index> local_lookup(std::string name);
+            std::optional< storage_index > local_lookup(std::string name);
 
             RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
         };
@@ -269,9 +300,9 @@ namespace quxlang
         {
             slot_generation_state slots;
 
-            std::vector<vmir2::executable_block_generation_state> block_states;
-            std::map<std::string, std::size_t> block_map;
-            std::optional<std::size_t> entry_block_opt;
+            std::vector< vmir2::executable_block_generation_state > block_states;
+            std::map< std::string, std::size_t > block_map;
+            std::optional< std::size_t > entry_block_opt;
 
             void generate_jump(std::size_t from, std::size_t to);
             void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
@@ -285,17 +316,15 @@ namespace quxlang
 
             std::size_t entry_block_id();
 
-            executable_block_generation_state & entry_block();
-            executable_block_generation_state & block(std::size_t id);
+            executable_block_generation_state& entry_block();
+            executable_block_generation_state& block(std::size_t id);
 
-            std::optional<storage_index> lookup(std::size_t block_id, std::string name);
+            std::optional< storage_index > lookup(std::size_t block_id, std::string name);
 
             functanoid_routine2 get_result();
 
             RPNX_MEMBER_METADATA(frame_generation_state, slots);
-
         };
-
 
     } // namespace vmir2
 

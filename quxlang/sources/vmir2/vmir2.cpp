@@ -272,6 +272,26 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::mak
     current_slot_states[mpt.pointer_index].alive = true;
     block.instructions.push_back(mpt);
 }
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::dereference_pointer drp)
+{
+    current_slot_states[drp.from_pointer].alive = false;
+    current_slot_states[drp.to_reference].alive = true;
+    block.instructions.push_back(drp);
+}
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_from_ref lfp)
+{
+    assert(current_slot_states[lfp.from_reference].alive);
+    current_slot_states[lfp.from_reference].alive = false;
+    current_slot_states[lfp.to_value].alive = true;
+    block.instructions.push_back(lfp);
+}
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::store_to_ref lfp)
+{
+    assert(current_slot_states[lfp.from_value].alive == true);
+    assert(current_slot_states[lfp.to_reference].alive == true);
+    current_slot_states[lfp.from_value].alive = false;
+    block.instructions.push_back(lfp);
+}
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {

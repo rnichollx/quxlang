@@ -132,8 +132,15 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
 }
 std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_classifier::intrinsic_instruction(type_symbol func, vmir2::invocation_args args)
 {
+    std::string funcname = to_string(func);
+
     auto cls = func_class(func);
     if (!cls)
+    {
+        return std::nullopt;
+    }
+
+    if (!is_intrinsic_type(*cls))
     {
         return std::nullopt;
     }
@@ -147,31 +154,91 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
     auto member = selection->templexoid.cast_ptr< submember >();
     assert(member);
 
+    auto const& call = instanciation->parameters;
+
     if (member->name == "CONSTRUCTOR")
     {
-        if (cls->template type_is< int_type >())
+        if (call.named.contains("OTHER"))
         {
-            auto const& call = instanciation->parameters;
-            if (call.named.contains("OTHER"))
+            auto const& other = call.named.at("OTHER");
+            if (cls->template type_is< int_type >() && other.type_is< numeric_literal_reference >())
+            {
+                auto other_slot_id = args.named.at("OTHER");
+
+                auto const& other_slot = state_.slots->slots.at(other_slot_id);
+
+                assert(other_slot.type == numeric_literal_reference{});
+                assert(other_slot.kind == vmir2::slot_kind::literal);
+                assert(other_slot.literal_value.has_value());
+                auto other_slot_value = other_slot.literal_value.value();
+
+                vmir2::load_const_int result;
+                result.value = other_slot_value;
+                result.target = args.named.at("THIS");
+
+                return result;
+            }
+            else if (other == make_cref(*cls))
+            {
+                auto other_slot_id = args.named.at("OTHER");
+                auto this_slot_id = args.named.at("THIS");
+
+                vmir2::load_from_ref lfr{};
+                lfr.from_reference = other_slot_id;
+                lfr.to_value = this_slot_id;
+
+                return lfr;
+            }
+        }
+        else if (cls->type_is<int_type>())
+        {
+            if (args.size() == 1 && args.named.contains("THIS"))
+            {
+                vmir2::load_const_int result;
+                result.value = "0";
+                result.target = args.named.at("THIS");
+                return result;
+            }
+        }
+    }
+
+    if (member->name == "OPERATOR:=")
+    {
+        if (cls->template type_is< int_type >() || cls->template type_is< bool_type >() || cls->template type_is< pointer_type >())
+        {
+            if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
             {
                 auto const& other = call.named.at("OTHER");
-                if (other.type_is< numeric_literal_reference >())
+                auto const& this_ = call.named.at("THIS");
+
+                if ((other == *cls) && this_ == make_wref(*cls))
                 {
                     auto other_slot_id = args.named.at("OTHER");
+                    auto this_slot_id = args.named.at("THIS");
 
-                    auto const& other_slot = state_.slots->slots.at(other_slot_id);
+                    vmir2::store_to_ref mov{};
+                    mov.from_value = other_slot_id;
+                    mov.to_reference = this_slot_id;
 
-                    assert(other_slot.type == numeric_literal_reference{});
-                    assert(other_slot.kind == vmir2::slot_kind::literal);
-                    assert(other_slot.literal_value.has_value());
-                    auto other_slot_value = other_slot.literal_value.value();
-
-                    vmir2::load_const_int result;
-                    result.value = other_slot_value;
-                    result.target = args.named.at("THIS");
-
-                    return result;
+                    return mov;
                 }
+            }
+        }
+    }
+    else if (member->name == "OPERATOR->")
+    {
+        if (cls->template type_is< pointer_type >())
+        {
+            if (call.named.contains("THIS") && args.size() == 2)
+            {
+
+                auto this_slot_id = args.named.at("THIS");
+
+                vmir2::dereference_pointer deref{};
+                deref.from_pointer = this_slot_id;
+                deref.to_reference = args.named.at("RETURN");
+
+                return deref;
             }
         }
     }
