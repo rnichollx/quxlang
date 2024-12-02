@@ -7,3 +7,4 @@ out
 !.clang-format
 **.zip
 .aider*
+CMakeSettings.json
