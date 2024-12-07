@@ -15,10 +15,12 @@ namespace quxlang
         class ir2_interpreter
         {
           private:
-            std::map< type_symbol, class_layout > class_layouts;
-            std::map< type_symbol, functanoid_routine2 > functanoids;
+            class ir2_interpreter_impl;
+            ir2_interpreter_impl * implementation;
 
           public:
+            ir2_interpreter();
+            ~ir2_interpreter();
             // Adds a class layout (for accessing fields)
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid(type_symbol addr, functanoid_routine2 func);
