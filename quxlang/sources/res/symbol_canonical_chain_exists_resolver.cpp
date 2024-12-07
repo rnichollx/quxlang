@@ -5,6 +5,8 @@
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "quxlang/compiler.hpp"
 
+#include <boost/type_index.hpp>
+
 void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 {
     auto const & chain = this->m_chain;

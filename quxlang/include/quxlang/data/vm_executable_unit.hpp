@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_VM_EXECUTABLE_UNIT_HEADER_GUARD
 #define QUXLANG_DATA_VM_EXECUTABLE_UNIT_HEADER_GUARD
 
-#include <boost/variant.hpp>
+
 
 #include "quxlang/data/type_symbol.hpp"
 #include "rpnx/metadata.hpp"

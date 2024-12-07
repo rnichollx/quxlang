@@ -15,9 +15,11 @@ namespace quxlang
         class ir2_interpreter
         {
           private:
-                std::unordered_map<type_symbol, class_layout> class_layouts;
-                std::unordered_map<type_symbol, functanoid_routine2> functanoids;
+            std::map< type_symbol, class_layout > class_layouts;
+            std::map< type_symbol, functanoid_routine2 > functanoids;
+
           public:
+            // Adds a class layout (for accessing fields)
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid(type_symbol addr, functanoid_routine2 func);
             void exec(type_symbol func);

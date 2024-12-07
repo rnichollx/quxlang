@@ -363,8 +363,6 @@ namespace quxlang
             return size->get();
         }
 
-        llvm_proxy_type get_llvm_proxy_return_type_of(type_symbol chain);
-        std::vector< llvm_proxy_type > get_llvm_proxy_argument_types_of(type_symbol chain);
 
         //function_ast get_function_ast_of_overload(type_symbol chain);
     };

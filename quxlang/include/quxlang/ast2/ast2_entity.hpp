@@ -7,7 +7,7 @@
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/data/function_header.hpp"
 #include "quxlang/data/variants.hpp"
-#include <boost/variant.hpp>
+
 #include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>

@@ -7,7 +7,7 @@
 #include "numeric_literal.hpp"
 #include "rpnx/string.hpp"
 
-#include <boost/variant.hpp>
+
 #include <quxlang/data/type_symbol.hpp>
 #include <rpnx/compare.hpp>
 #include <rpnx/variant.hpp>

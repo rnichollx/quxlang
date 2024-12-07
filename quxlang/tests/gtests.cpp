@@ -259,12 +259,7 @@ TEST(collector_tester, function_call)
     ASSERT_EQ(it, it_end);
 };
 
-TEST(boost_assumptions, type_index)
-{
-    boost::variant< foo, boost::recursive_wrapper< bar > > v = bar{};
 
-    ASSERT_EQ(boost::typeindex::type_id< bar >(), v.type());
-}
 
 TEST(quxlang_modules, merge_entities)
 {

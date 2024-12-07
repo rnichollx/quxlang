@@ -6,7 +6,7 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/function_return_statement.hpp"
 #include "rpnx/variant.hpp"
-#include <boost/variant.hpp>
+
 #include <tuple>
 #include <utility>
 #include <variant>
