@@ -30,7 +30,34 @@ namespace quxlang::vmir2
             {
                 block_name = "BLOCK" + std::to_string(i);
             }
-            output += "  " + block_name + ":\n";
+
+            output += block_name;
+
+            auto const& blk = fnc.blocks.at(i);
+
+            output += " [< ";
+            bool first = true;
+            for (auto& [k, v] : blk.entry_state)
+            {
+                if (v.alive)
+                {
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    else
+                    {
+                        output += ", ";
+                    }
+                    output += "%" + std::to_string(k);
+                }
+
+
+            }
+
+            output += " >]";
+
+            output += ":\n";
             output += this->to_string(fnc.blocks.at(i));
             output += "\n";
         }
