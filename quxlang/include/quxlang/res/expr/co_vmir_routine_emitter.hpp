@@ -237,6 +237,7 @@ namespace quxlang
             // We want all the temporaries to be destroyed so we cloned the parent block twice, and the after
             // block is the parent + the new variable, which won't contain the temporary objects generated above.
             frame.block(current_block).current_slot_states[idx].alive = true;
+            frame.block(current_block).block.entry_state[idx].alive = true;
 
             co_return;
         }
