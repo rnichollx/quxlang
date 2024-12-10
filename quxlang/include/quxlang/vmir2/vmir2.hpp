@@ -40,7 +40,12 @@ namespace quxlang
         struct int_mod;
         struct int_sub;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub >;
+        struct cmp_lt;
+        struct cmp_ge;
+        struct cmp_eq;
+        struct cmp_ne;
+
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -196,6 +201,38 @@ namespace quxlang
             RPNX_MEMBER_METADATA(int_mod, a, b, result);
         };
 
+        struct cmp_eq
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(cmp_eq, a, b, result);
+        };
+
+        struct cmp_ne
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(cmp_ne, a, b, result);
+        };
+
+        struct cmp_lt
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(cmp_lt, a, b, result);
+        };
+
+        struct cmp_ge
+        {
+            storage_index a;
+            storage_index b;
+            storage_index result;
+            RPNX_MEMBER_METADATA(cmp_ge, a, b, result);
+        };
+
         struct jump
         {
             block_index target;
@@ -327,6 +364,11 @@ namespace quxlang
             void emit(vmir2::int_mul mul);
             void emit(vmir2::int_div div);
             void emit(vmir2::int_mod mod);
+
+            void emit(vmir2::cmp_eq ceq);
+            void emit(vmir2::cmp_ne cne);
+            void emit(vmir2::cmp_lt clt);
+            void emit(vmir2::cmp_ge cge);
 
             bool slot_alive(storage_index idx);
 

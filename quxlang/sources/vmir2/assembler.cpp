@@ -328,5 +328,23 @@ namespace quxlang::vmir2
     {
         return "LCZ %" + std::to_string(inst.target);
     }
+    std::string assembler::to_string_internal(vmir2::cmp_eq inst)
+    {
+        return "CEQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::cmp_ne inst)
+    {
+        return "CNE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::cmp_lt inst)
+    {
+        return "CLT %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::cmp_ge inst)
+    {
+        return "CGE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
 
 } // namespace quxlang::vmir2

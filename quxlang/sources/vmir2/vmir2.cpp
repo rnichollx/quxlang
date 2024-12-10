@@ -348,6 +348,45 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::loa
     current_slot_states[lcz.target].alive = true;
     block.instructions.push_back(lcz);
 }
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_eq ceq)
+{
+    assert(current_slot_states[ceq.a].alive);
+    assert(current_slot_states[ceq.b].alive);
+    current_slot_states[ceq.a].alive = false;
+    current_slot_states[ceq.b].alive = false;
+    current_slot_states[ceq.result].alive = true;
+    block.instructions.push_back(ceq);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_ne cne)
+{
+    assert(current_slot_states[cne.a].alive);
+    assert(current_slot_states[cne.b].alive);
+    current_slot_states[cne.a].alive = false;
+    current_slot_states[cne.b].alive = false;
+    current_slot_states[cne.result].alive = true;
+    block.instructions.push_back(cne);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_lt clt)
+{
+    assert(current_slot_states[clt.a].alive);
+    assert(current_slot_states[clt.b].alive);
+    current_slot_states[clt.a].alive = false;
+    current_slot_states[clt.b].alive = false;
+    current_slot_states[clt.result].alive = true;
+    block.instructions.push_back(clt);
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_ge cge)
+{
+    assert(current_slot_states[cge.a].alive);
+    assert(current_slot_states[cge.b].alive);
+    current_slot_states[cge.a].alive = false;
+    current_slot_states[cge.b].alive = false;
+    current_slot_states[cge.result].alive = true;
+    block.instructions.push_back(cge);
+}
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {

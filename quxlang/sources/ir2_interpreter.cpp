@@ -57,6 +57,10 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     bool exec_instr_val(vmir2::int_mod const& mod);
     bool exec_instr_val(vmir2::store_to_ref const& str);
     bool exec_instr_val(vmir2::load_const_int const& lci);
+    bool exec_instr_val(vmir2::cmp_eq const& ceq);
+    bool exec_instr_val(vmir2::cmp_ne const& cne);
+    bool exec_instr_val(vmir2::cmp_lt const& clt);
+    bool exec_instr_val(vmir2::cmp_ge const& cge);
 };
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(type_symbol functype, vmir2::invocation_args args)
@@ -90,7 +94,6 @@ bool quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
             },
             instr);
     }
-
 
     auto const terminator_instruction = current_block.terminator;
     if (!terminator_instruction)

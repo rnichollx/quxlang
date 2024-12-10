@@ -4,6 +4,41 @@
 #include "quxlang/intrinsic_classifier.hpp"
 #include "quxlang/operators.hpp"
 
+namespace quxlang
+{
+    // This implements builtin operators for primitives,
+    // It assumes that we have already checked that the function is builtin and are just
+    // checking which implementation to use.
+    template < typename Inst >
+    bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, calltype const& call, vmir2::invocation_args const& args, bool flip = false)
+    {
+        if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
+        {
+
+            if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
+            {
+                auto this_slot_id = args.named.at("THIS");
+                auto other_slot_id = args.named.at("OTHER");
+
+                Inst instr{};
+
+                instr.a = this_slot_id;
+                instr.b = other_slot_id;
+                instr.result = args.named.at("RETURN");
+                if (member.name == "OPERATOR" + operator_str + "RHS")
+                {
+                    std::swap(instr.a, instr.b);
+                }
+
+                out = instr;
+                return true;
+            }
+        }
+        return false;
+    }
+
+} // namespace quxlang
+
 std::vector< quxlang::signature > quxlang::intrinsic_builtin_classifier::list_intrinsics(type_symbol func)
 {
 
@@ -238,24 +273,55 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             }
         }
     }
-    else if (member->name == "OPERATOR+")
+    else if (cls->template type_is< int_type >())
     {
-        if (cls->template type_is< int_type >())
+        std::optional< vmir2::vm_instruction > instr;
+        if (implement_binary_instruction< vmir2::int_add >(instr, "+", true, *member, call, args))
         {
-            if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
-            {
-                auto this_slot_id = args.named.at("THIS");
-                auto other_slot_id = args.named.at("OTHER");
-
-                vmir2::int_add add{};
-                add.a = this_slot_id;
-                add.b = other_slot_id;
-                add.result = args.named.at("RETURN");
-
-                return add;
-            }
+            return instr;
+        }
+        if (implement_binary_instruction< vmir2::int_sub >(instr, "-", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction< vmir2::int_mul >(instr, "*", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction< vmir2::int_div >(instr, "/", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction< vmir2::int_mod >(instr, "%", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_eq>(instr, "==", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_ne>(instr, "!=", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_lt>(instr, "<", true, *member, call, args))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_lt>(instr, ">", true, *member, call, args, true))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_ge>(instr, "<=", true, *member, call, args, true))
+        {
+            return instr;
+        }
+        if (implement_binary_instruction<vmir2::cmp_ge>(instr, ">=", true, *member, call, args))
+        {
+            return instr;
         }
     }
+
     return std::nullopt;
 }
 
