@@ -228,8 +228,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
     quxlang::vmir2::executable_block_generation_state blockstate(&slotstates);
     co_vmir_expression_emitter< quxlang::compiler_binder > emitter(binder, input.context,  blockstate);
     auto result = co_await emitter.generate_expr(input.expr);
+    vmir2::constexpr_set_result csr{};
+    csr.target = result;
+    blockstate.emit(csr);
     r.slots = blockstate.slots->slots;
     r.blocks.emplace_back();
     r.blocks.at(0) = blockstate.block;
+    r.blocks.at(0).terminator = vmir2::ret{};
     co_return r;
 }
