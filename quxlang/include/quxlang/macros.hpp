@@ -79,7 +79,7 @@ virtual void process(compiler * c) override; \
 #define QUX_CO_RESOLVER(nameV, inputT, outputT) \
 class nameV ## _resolver : public rpnx::co_resolver_base< compiler, outputT, inputT > { \
  public: \
-nameV ## _resolver( input_type in) : rpnx::co_resolver_base< compiler, output_type, input_type >(std::move(in)) {}                                    \
+explicit nameV ## _resolver( input_type in) : rpnx::co_resolver_base< compiler, output_type, input_type >(std::move(in)) {}                                    \
 rpnx::resolver_coroutine< compiler, output_type > co_process(compiler* c, input_type arg_input) override; \
 };
 

@@ -731,6 +731,27 @@ TEST(expression_ir, generation_real)
     std::cout << result << std::endl;
 }
 
+
+TEST(expression_ir, constexpr_result_bool)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto get_constexpr_bool = [&](std::string expr_string) -> bool {
+        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr=expr, .context=mainmodule});
+        return yaynay;
+    };
+    auto val1 = get_constexpr_bool("2 + I32(@OTHER 8) - 4 < 5");
+    ASSERT_FALSE(val1);
+    auto val2 = get_constexpr_bool("2 + I32(@OTHER 3) - 4 < 5");
+    ASSERT_TRUE(val2);
+}
+
+
+
 TEST(expression_ir, func_gen)
 {
 

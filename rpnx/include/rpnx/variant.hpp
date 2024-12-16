@@ -228,13 +228,29 @@ namespace rpnx
     {
         if constexpr (C == call_type::required)
         {
-            return func(variant.template get_n< N >());
+            if constexpr (std::is_same_v< R, void >)
+            {
+                func(variant.template get_n< N >());
+                return;
+            }
+            else
+            {
+                return func(variant.template get_n< N >());
+            }
         }
         else if constexpr (C == call_type::except_on_missing)
         {
             if (std::is_invocable< F, decltype(variant.template get_n< N >()) >::value)
             {
-                return func(variant.template get_n< N >());
+                if constexpr (std::is_same_v< R, void >)
+                {
+                    func(variant.template get_n< N >());
+                    return;
+                }
+                else
+                {
+                    return func(variant.template get_n< N >());
+                }
             }
             else
             {
@@ -245,7 +261,15 @@ namespace rpnx
         {
             if (std::is_invocable< F, decltype(variant.template get_n< N >()) >::value)
             {
-                return func(variant.template get_n< N >());
+                if constexpr (std::is_same_v< R, void >)
+                {
+                    func(variant.template get_n< N >());
+                    return;
+                }
+                else
+                {
+                    return func(variant.template get_n< N >());
+                }
             }
             else if constexpr (!std::is_same< R, void >::value)
             {

@@ -636,7 +636,11 @@ namespace rpnx
 
         Result get() const
         {
-            assert(m_result.has_result());
+            assert(m_result.has_result() || m_result.has_error());
+            if (m_result.has_error())
+            {
+                std::rethrow_exception(m_result.get_error());
+            }
             return m_result.get();
         }
 

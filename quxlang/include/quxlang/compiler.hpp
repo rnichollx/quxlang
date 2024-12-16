@@ -4,15 +4,11 @@
 #define QUXLANG_COMPILER_HEADER_GUARD
 
 #include "data/target_configuration.hpp"
-#include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include "quxlang/data/class_layout.hpp"
 #include "quxlang/data/function_frame_information.hpp"
-#include "quxlang/data/llvm_proxy_types.hpp"
-#include "quxlang/data/lookup_chain.hpp"
 #include "quxlang/data/machine.hpp"
-#include "quxlang/data/symbol_id.hpp"
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/res/constexpr.hpp"
 #include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
 #include "quxlang/res/call_params_of_function_ast_resolver.hpp"
@@ -40,18 +36,14 @@
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
-#include "quxlang/res/operator_is_overloaded_with_resolver.hpp"
 #include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
-#include "quxlang/res/overload_set_is_callable_with_resolver.hpp"
 #include "quxlang/res/overloads.hpp"
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
-#include "quxlang/res/type_placement_info_from_canonical_type_question.hpp"
 #include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
 #include "quxlang/res/variable.hpp"
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
-#include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
@@ -63,13 +55,10 @@
 #include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
-#include <quxlang/res/list_builtin_functum_overloads_resolver.hpp>
 #include <quxlang/res/lookup.hpp>
 #include <quxlang/res/module_source_name_resolver.hpp>
 #include <quxlang/res/module_sources_resolver.hpp>
 #include <quxlang/res/procedure_linksymbol_resolver.hpp>
-#include <quxlang/res/resolvers.hpp>
-#include <quxlang/res/symboid_declaroids_resolver.hpp>
 #include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/symboid_subdeclaroids.hpp>
 #include <quxlang/res/symbol_type.hpp>
@@ -156,6 +145,7 @@ namespace quxlang
         index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
         COMPILER_INDEX(asm_procedure_from_symbol)
+        COMPILER_INDEX(constexpr_bool)
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)

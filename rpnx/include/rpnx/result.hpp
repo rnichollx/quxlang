@@ -65,6 +65,8 @@ namespace rpnx
                 std::rethrow_exception(er);
             }
 
+            assert(t.has_value());
+
             return t.value();
         }
 

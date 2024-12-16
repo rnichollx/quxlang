@@ -25,6 +25,8 @@ namespace quxlang
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid(type_symbol addr, functanoid_routine2 func);
             void exec(type_symbol func);
+
+            bool get_cr_bool();
         };
     } // namespace vmir2
 } // namespace quxlang

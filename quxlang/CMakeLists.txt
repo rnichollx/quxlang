@@ -239,6 +239,9 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/function.cpp
         include/quxlang/vmir2/ir2_interpreter.hpp
         sources/ir2_interpreter.cpp
+        include/quxlang/res/constexpr.hpp
+        sources/res/constexpr.cpp
+        include/quxlang/exception.hpp
 
 )
 
