@@ -11,17 +11,16 @@
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
+#include "quxlang/res/constructor.hpp"
 #include "quxlang/res/call_params_of_function_ast_resolver.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
 #include "quxlang/res/class_layout_resolver.hpp"
-#include "quxlang/res/class_list_resolver.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "quxlang/res/class_size_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/contextualized_reference_resolver.hpp"
 #include "quxlang/res/entity_ast_from_canonical_chain_resolver.hpp"
-#include "quxlang/res/entity_ast_from_chain_resolver.hpp"
 #include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/expr_ir2.hpp"
 #include "quxlang/res/file_ast_resolver.hpp"
@@ -142,7 +141,6 @@ namespace quxlang
         // class_list_resolver m_class_list_resolver;
         //index< file_content_resolver > m_file_contents_index;
         index< file_ast_resolver > m_file_ast_index;
-        index< entity_ast_from_chain_resolver > m_entity_ast_from_chain_index;
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(constexpr_bool)
@@ -173,6 +171,7 @@ namespace quxlang
         COMPILER_INDEX(lookup);
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(module_source_name)
+        COMPILER_INDEX(nontrivial_default_dtor)
         COMPILER_INDEX(overload_set_instanciate_with)
         COMPILER_INDEX(procedure_linksymbol)
         COMPILER_INDEX(symbol_type)
@@ -240,7 +239,7 @@ namespace quxlang
 
         out< type_symbol > lk_contextualized_reference(type_symbol symbol, type_symbol context)
         {
-            return m_contextualized_reference_index.lookup(std::make_pair(symbol, context));
+            return m_contextualized_reference_index.lookup({symbol, context});
         }
 
       public:

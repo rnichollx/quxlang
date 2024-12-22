@@ -45,6 +45,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
         bool alive = false;
         std::uint64_t object_id{};
         pointer_impl ref;
+
+        std::optional< dtor_spec > dtor;
     };
 
     struct stack_frame
@@ -101,6 +103,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::cmp_ne const& cne);
     void exec_instr_val(vmir2::cmp_lt const& clt);
     void exec_instr_val(vmir2::cmp_ge const& cge);
+    void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
+
     std::vector< std::byte > consume_data(std::size_t slot);
     uint64_t alloc_object_id();
     void set_data(std::size_t slot, std::vector< std::byte > data);
@@ -592,7 +596,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     auto a = consume_data(clt.a);
     auto b = consume_data(clt.b);
 
-    for (std::size_t i = a.size()-1; true; i--)
+    for (std::size_t i = a.size() - 1; true; i--)
     {
         if (a[i] < b[i])
         {
@@ -687,4 +691,23 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::set_data(std::size_t
     local.data = std::move(data);
     local.object_id = alloc_object_id();
     local.alive = true;
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(quxlang::vmir2::defer_nontrivial_dtor const& dntd)
+{
+    auto& frame = get_current_frame();
+
+    auto& slot = frame.local_values[dntd.on_value];
+
+    if (!slot)
+    {
+        throw compiler_bug("Error in [defer_nontrivial_dtor]: storage not allocated");
+    }
+
+    if (dntd.args.named.at("THIS") != dntd.on_value)
+    {
+        throw compiler_bug("Error in [defer_nontrivial_dtor]: THIS argument does not match target");
+    }
+
+    slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
 }

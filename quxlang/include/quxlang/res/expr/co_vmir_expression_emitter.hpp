@@ -83,11 +83,11 @@ namespace quxlang
             }
             else if (typeis< expression_rightarrow >(expr))
             {
-               co_return co_await this->generate(as< expression_rightarrow >(std::move(expr)));
+                co_return co_await this->generate(as< expression_rightarrow >(std::move(expr)));
             }
-            else if (typeis < expression_leftarrow > (expr))
+            else if (typeis< expression_leftarrow >(expr))
             {
-               co_return co_await this->generate(as< expression_leftarrow >(std::move(expr)));
+                co_return co_await this->generate(as< expression_leftarrow >(std::move(expr)));
             }
             else
             {
@@ -163,7 +163,12 @@ namespace quxlang
 
         auto emit(vmir2::vm_instruction val)
         {
-            return rpnx::apply_visitor<void>([&](auto  val){ exec.emit(std::move(val)); }, val);
+            return rpnx::apply_visitor< void >(
+                [&](auto val)
+                {
+                    exec.emit(std::move(val));
+                },
+                val);
         }
 
         auto slot_alive(storage_index slot)
@@ -274,6 +279,7 @@ namespace quxlang
             auto new_object = create_temporary_storage(new_type);
             args.named["THIS"] = new_object;
             auto retval = co_await gen_call_functum(ctor, args);
+
             assert(retval == 0);
             co_return new_object;
         }
@@ -341,10 +347,28 @@ namespace quxlang
                 }
                 auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
 
-                co_return co_await gen_call_ctor(object_type, args);
+                auto val = co_await gen_call_ctor(object_type, args);
+
+                auto dtor = co_await prv.nontrivial_default_dtor(object_type);
+                if (dtor.has_value())
+                {
+                //    co_await gen_defer_dtor(val, dtor.value(), vmir2::invocation_args{.named = {{"THIS", val}}});
+                }
+
+                co_return val;
             }
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
+        }
+
+        auto gen_defer_dtor(storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        {
+            vmir2::defer_nontrivial_dtor defer;
+            defer.on_value = val;
+            defer.func = dtor;
+            defer.args = args;
+            this->emit(defer);
+            co_return;
         }
 
         auto create_numeric_literal(std::string str)
@@ -641,8 +665,6 @@ namespace quxlang
             co_return 0;
         }
 
-
-
         auto generate(expression_leftarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto value = co_await generate_expr(expr.lhs);
@@ -654,14 +676,13 @@ namespace quxlang
 
             auto non_ref_type = remove_ref(type);
 
-            auto pointer_storage = create_temporary_storage(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual=qualifier::mut});
+            auto pointer_storage = create_temporary_storage(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
 
             make_pointer.pointer_index = pointer_storage;
 
             this->emit(make_pointer);
 
             co_return pointer_storage;
-
         }
 
         auto generate(expression_rightarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

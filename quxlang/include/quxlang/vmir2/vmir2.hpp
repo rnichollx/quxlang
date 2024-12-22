@@ -33,6 +33,7 @@ namespace quxlang
         struct store_to_ref;
         struct dereference_pointer;
         struct load_const_zero;
+        struct defer_nontrivial_dtor;
 
         struct int_add;
         struct int_mul;
@@ -45,7 +46,7 @@ namespace quxlang
         struct cmp_eq;
         struct cmp_ne;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -62,6 +63,16 @@ namespace quxlang
             }
 
             RPNX_MEMBER_METADATA(invocation_args, named, positional);
+        };
+
+        // Defers a non-trivial destructor call.
+        struct defer_nontrivial_dtor
+        {
+            type_symbol func;
+            storage_index on_value;
+            invocation_args args;
+
+            RPNX_MEMBER_METADATA(defer_nontrivial_dtor, func, on_value, args);
         };
 
         struct access_field
@@ -279,11 +290,20 @@ namespace quxlang
             RPNX_MEMBER_METADATA(functanoid_routine, slots, instructions);
         };
 
+        struct dtor_spec
+        {
+            type_symbol func;
+            invocation_args args;
+
+            RPNX_MEMBER_METADATA(dtor_spec, func, args);
+        };
+
         struct slot_state
         {
             bool alive = false;
+            std::optional< dtor_spec > nontrivial_dtor;
 
-            RPNX_MEMBER_METADATA(slot_state, alive);
+            RPNX_MEMBER_METADATA(slot_state, alive, nontrivial_dtor);
         };
 
         struct slot_states
@@ -358,6 +378,7 @@ namespace quxlang
             void emit(vmir2::dereference_pointer drp);
             void emit(vmir2::load_from_ref lfp);
             void emit(vmir2::store_to_ref lfp);
+            void emit(vmir2::defer_nontrivial_dtor dntd);
 
             void emit(vmir2::int_add add);
             void emit(vmir2::int_sub sub);

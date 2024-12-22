@@ -387,6 +387,9 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp
     current_slot_states[cge.result].alive = true;
     block.instructions.push_back(cge);
 }
+void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::defer_nontrivial_dtor dntd)
+{
+}
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
