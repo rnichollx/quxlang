@@ -352,6 +352,7 @@ namespace quxlang
                 auto dtor = co_await prv.nontrivial_default_dtor(object_type);
                 if (dtor.has_value())
                 {
+                // TODO: this part
                 //    co_await gen_defer_dtor(val, dtor.value(), vmir2::invocation_args{.named = {{"THIS", val}}});
                 }
 
