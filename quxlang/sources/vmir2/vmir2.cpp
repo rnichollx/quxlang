@@ -389,6 +389,8 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp
 }
 void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::defer_nontrivial_dtor dntd)
 {
+    block.instructions.push_back(dntd);
+    current_slot_states[dntd.on_value].nontrivial_dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
 }
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)

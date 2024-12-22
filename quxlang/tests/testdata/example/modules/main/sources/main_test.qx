@@ -25,6 +25,11 @@ MODULE main;
      .x := 9;
   }
 
+  .DESTRUCTOR FUNCTION()
+  {
+
+  }
+
   .foo FUNCTION()
   {
     .x := .x + 1;

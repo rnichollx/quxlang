@@ -281,6 +281,13 @@ namespace quxlang
             auto retval = co_await gen_call_functum(ctor, args);
 
             assert(retval == 0);
+
+            auto dtor = co_await prv.nontrivial_default_dtor(new_type);
+            std::cout << "gen_call_ctor A(" << quxlang::to_string(new_type) << ") dtor" << (dtor ? "Y" : "N") << std::endl;
+            if (dtor.has_value())
+            {
+                co_await gen_defer_dtor(retval, dtor.value(), vmir2::invocation_args{.named = {{"THIS", retval}}});
+            }
             co_return new_object;
         }
 
@@ -349,19 +356,12 @@ namespace quxlang
 
                 auto val = co_await gen_call_ctor(object_type, args);
 
-                auto dtor = co_await prv.nontrivial_default_dtor(object_type);
-                if (dtor.has_value())
-                {
-                // TODO: this part
-                //    co_await gen_defer_dtor(val, dtor.value(), vmir2::invocation_args{.named = {{"THIS", val}}});
-                }
-
                 co_return val;
             }
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
-
+      public:
         auto gen_defer_dtor(storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             vmir2::defer_nontrivial_dtor defer;

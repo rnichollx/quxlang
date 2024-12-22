@@ -244,6 +244,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/exception.hpp
         include/quxlang/res/constructor.hpp
         sources/res/constructor.cpp
+        include/quxlang/vmir2/state_engine.hpp
+        sources/vmir2/state_engine.cpp
 
 )
 

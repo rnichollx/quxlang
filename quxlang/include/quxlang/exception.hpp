@@ -20,7 +20,7 @@ namespace quxlang
 
     class invalid_input_error : public std::logic_error
     {
-    public:
+      public:
         invalid_input_error(std::string what_arg) : std::logic_error(what_arg)
         {
         }
@@ -28,7 +28,7 @@ namespace quxlang
 
     class syntax_error : public invalid_input_error
     {
-    public:
+      public:
         syntax_error(std::string what_arg) : invalid_input_error(what_arg)
         {
         }
@@ -36,7 +36,7 @@ namespace quxlang
 
     class semantic_error : public invalid_input_error
     {
-    public:
+      public:
         semantic_error(std::string what_arg) : invalid_input_error(what_arg)
         {
         }
@@ -44,7 +44,7 @@ namespace quxlang
 
     class recursion_error : public semantic_error
     {
-    public:
+      public:
         recursion_error(std::string what_arg) : semantic_error(what_arg)
         {
         }
@@ -52,11 +52,26 @@ namespace quxlang
 
     class constexpr_logic_execution_error : public std::logic_error
     {
-    public:
+      public:
         constexpr_logic_execution_error(std::string what_arg) : std::logic_error("During constexpr evaluation: " + what_arg)
         {
         }
+    };
 
+    class invalid_instruction_error : public std::logic_error
+    {
+      public:
+        invalid_instruction_error(std::string what_arg) : std::logic_error(what_arg)
+        {
+        }
+    };
+
+    class invalid_instruction_transition_error : public std::logic_error
+    {
+      public:
+        invalid_instruction_transition_error(std::string what_arg) : std::logic_error(what_arg)
+        {
+        }
     };
 } // namespace quxlang
 #endif // EXCEPTION_HPP

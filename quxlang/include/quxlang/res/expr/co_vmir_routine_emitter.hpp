@@ -56,7 +56,7 @@ namespace quxlang
 
         using co_slot = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
         using co_block = typename CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
-        using co_void = typename  CoroutineProvider::template co_type< void >;
+        using co_void = typename CoroutineProvider::template co_type< void >;
 
         auto generate_arg_slots() -> typename CoroutineProvider::template co_type< void >
         {
@@ -111,8 +111,6 @@ namespace quxlang
         }
 
       private:
-
-
         [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             using V = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
@@ -208,6 +206,8 @@ namespace quxlang
 
             auto idx = co_await generate_variable(current_block, st.name, var_type);
 
+            std::string var_type_name = quxlang::to_string(var_type);
+
             vmir2::invocation_args args;
 
             args.named["THIS"] = idx;
@@ -230,14 +230,22 @@ namespace quxlang
             auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
             co_await emitter.gen_call_functum(ctor, args);
 
+            auto dtor = co_await prv.nontrivial_default_dtor(var_type);
+            if (dtor.has_value())
+            {
+                co_await emitter.gen_defer_dtor(idx, dtor.value(), vmir2::invocation_args{.named = {{"THIS", idx}}});
+            }
+
+            vmir2::slot_state new_state = frame.block(current_block).current_slot_states[idx];
+
             frame.generate_jump(current_block, after_block);
             current_block = after_block;
 
             // the after_block is cloned from the parent block, so the new variable isn't alive in that block
             // We want all the temporaries to be destroyed so we cloned the parent block twice, and the after
             // block is the parent + the new variable, which won't contain the temporary objects generated above.
-            frame.block(current_block).current_slot_states[idx].alive = true;
-            frame.block(current_block).block.entry_state[idx].alive = true;
+            frame.block(current_block).current_slot_states[idx] = new_state;
+            frame.block(current_block).block.entry_state[idx] = new_state;
 
             co_return;
         }
