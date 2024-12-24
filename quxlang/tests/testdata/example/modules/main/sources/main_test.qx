@@ -53,7 +53,13 @@ MODULE main;
 
 ::biz FUNCTION(%a I32, %b I32): I32
 {
-  RETURN a + b;
+  VAR y I32;
+  IF (y == 0) {
+    VAR x yak;
+
+    x.z := y<-;
+  }
+  RETURN a + b + y;
 }
 
 ::boq FUNCTION(): I32

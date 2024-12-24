@@ -12,6 +12,8 @@
 #include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
 #include "quxlang/res/constructor.hpp"
+#include "quxlang/res/function.hpp"
+#include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/call_params_of_function_ast_resolver.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
@@ -27,11 +29,6 @@
 #include "quxlang/res/file_module_map_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/files_in_module_resolver.hpp"
-#include "quxlang/res/functanoid_return_type_resolver.hpp"
-#include "quxlang/res/function_declaration.hpp"
-#include "quxlang/res/function_instanciation.hpp"
-#include "quxlang/res/function_qualified_reference_resolver.hpp"
-#include "quxlang/res/functum_exists_and_is_callable_with_resolver.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
@@ -46,11 +43,9 @@
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
-#include <quxlang/res/functanoid_parameter_map.hpp>
-#include <quxlang/res/function_builtin.hpp>
-#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
 #include <quxlang/res/functum_instanciation.hpp>
 #include <quxlang/res/functum_select_function.hpp>
+#include <quxlang/res/functum_exists_and_is_callable_with_resolver.hpp>
 #include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
@@ -188,6 +183,10 @@ namespace quxlang
         COMPILER_INDEX(variable_type)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure2)
+        COMPILER_INDEX(user_vm_procedure2)
+        COMPILER_INDEX(builtin_vm_procedure2)
+        COMPILER_INDEX(builtin_ctor_vm_procedure2)
+        COMPILER_INDEX(builtin_dtor_vm_procedure2)
         COMPILER_INDEX(type_placement_info_from_canonical_type)
 
         index< called_functanoids_resolver > m_called_functanoids_index;
@@ -312,6 +311,7 @@ namespace quxlang
         compiler(cow< source_bundle > source_code, std::string target);
 
       private:
+        void init_output_info();
         // The lk_* functions are used by resolvers to solve the graph
 
         // Get the parsed AST for a file

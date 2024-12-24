@@ -4,7 +4,7 @@
 #include <quxlang/res/instanciation.hpp>
 
 
-#include "quxlang/res/function_instanciation.hpp"
+#include "quxlang/res/function.hpp"
 #include "quxlang/compiler.hpp"
 
 

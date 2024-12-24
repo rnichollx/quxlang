@@ -1,6 +1,6 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include <quxlang/res/function_builtin.hpp>
+#include <quxlang/res/function.hpp>
 #include <quxlang/compiler.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_builtin)

@@ -9,7 +9,7 @@
 #include "rpnx/debug.hpp"
 #include <quxlang/compiler.hpp>
 #include <quxlang/macros.hpp>
-#include <quxlang/res/function_positional_parameter_names_resolver.hpp>
+#include <quxlang/res/function.hpp>
 
 using namespace quxlang;
 

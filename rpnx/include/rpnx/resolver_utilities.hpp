@@ -324,7 +324,12 @@ namespace rpnx
             ss << "Q: " << question() << "\n";
             if (resolved())
             {
-                ss << "A: " << answer() << "\n";
+                std::string a = answer();
+                if (a.size() > 150)
+                {
+                    a = a.substr(0, 150) + "...";
+                }
+                ss << "A: " << a << "\n";
             }
             else
             {
@@ -378,7 +383,12 @@ namespace rpnx
             ss << "Q: " << question() << "\n";
             if (resolved())
             {
-                ss << "A: " << answer() << "\n";
+                std::string a = answer();
+                if (a.size() > 150)
+                {
+                    a = a.substr(0, 150) + "...";
+                }
+                ss << "A: " << a << "\n";
             }
             else
             {
@@ -1705,7 +1715,12 @@ namespace rpnx
             ss << "ASK " << n->question() << " WITH ";
             if (n->has_value())
             {
-                ss << "ANSWER " << n->answer() << "\n";
+                std::string answer = n->answer();
+                if (answer.size() > 100)
+                {
+                    answer = answer.substr(0, 100) + "...";
+                }
+                ss << "ANSWER " << answer << "\n";
             }
             else if (n->has_error())
             {

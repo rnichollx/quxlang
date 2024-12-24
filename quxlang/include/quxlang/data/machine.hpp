@@ -19,17 +19,17 @@
 
 namespace quxlang
 {
-    enum class cpu { x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64 };
+    enum class cpu { none, x86_32, x86_64, arm_32, arm_64, riscv_32, riscv_64 };
 
     enum class os { none, linux, windows, macos, freebsd, netbsd, openbsd, solaris };
 
-    enum class binary { elf, macho, pe, wasm };
+    enum class binary { none, elf, macho, pe, wasm };
 
     struct output_info
     {
-        cpu cpu_type;
-        os os_type;
-        binary binary_type;
+        cpu cpu_type = cpu::none;
+        os os_type = os::none;
+        binary binary_type = binary::none;
 
         constexpr inline std::size_t pointer_size() const
         {
@@ -43,9 +43,11 @@ namespace quxlang
             case cpu::arm_64:
             case cpu::riscv_64:
                 return 8;
+            default:
+                throw std::invalid_argument("pointer_size");
             }
 
-            throw std::invalid_argument("pointer_size");
+
         };
 
         constexpr size_t max_int_align() const noexcept

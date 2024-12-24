@@ -108,7 +108,24 @@ namespace quxlang
             co_await generate_body();
             co_await generate_dtors();
             co_return frame.get_result();
-            ;
+        }
+
+        auto generate_builtin_ctor() -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine2 >
+        {
+            frame.generate_entry_block();
+            co_await generate_arg_slots();
+            co_await generate_body();
+            co_await generate_dtors();
+            co_return frame.get_result();
+        }
+
+        auto generate_builtin_dtor() -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine2 >
+        {
+            frame.generate_entry_block();
+            co_await generate_arg_slots();
+            co_await generate_body();
+            co_await generate_dtors();
+            co_return frame.get_result();
         }
 
       private:
@@ -144,7 +161,7 @@ namespace quxlang
 
             vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
 
-            frame.generate_branch(condition_block, cond, if_block, after_block);
+            frame.generate_branch(cond, condition_block, if_block, after_block);
 
             co_await generate_function_block(if_block, st.then_block);
             frame.generate_jump(if_block, after_block);
