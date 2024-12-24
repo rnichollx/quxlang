@@ -315,7 +315,7 @@ namespace quxlang
 
         struct executable_block
         {
-            std::map< std::size_t, slot_state > entry_state;
+            std::map< storage_index, slot_state > entry_state;
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
 
@@ -337,6 +337,7 @@ namespace quxlang
             slot_generation_state& operator=(slot_generation_state&&) = default;
 
             std::vector< vm_slot > slots;
+
 
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
@@ -360,7 +361,7 @@ namespace quxlang
 
             vmir2::executable_block block;
             slot_generation_state* slots;
-            std::map< std::size_t, slot_state > current_slot_states = {{0, slot_state{}}};
+            std::map< storage_index , slot_state > current_slot_states = {{0, slot_state{}}};
             std::map< std::string, storage_index > named_references;
 
             type_symbol current_type(storage_index idx);
@@ -414,13 +415,16 @@ namespace quxlang
             std::optional< block_index > return_block;
             std::vector< executable_block > blocks;
             std::map< block_index, std::string > block_names;
+            std::map< type_symbol, type_symbol > non_trivial_dtors;
 
-            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names);
+            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names, non_trivial_dtors);
         };
 
         struct frame_generation_state
         {
             slot_generation_state slots;
+
+            std::map< type_symbol, type_symbol > non_trivial_dtors;
 
             std::vector< vmir2::executable_block_generation_state > block_states;
             std::map< std::string, std::size_t > block_map;

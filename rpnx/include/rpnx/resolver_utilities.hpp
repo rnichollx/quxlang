@@ -4,21 +4,21 @@
 
 #include <cassert>
 #include <coroutine>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <optional>
 #include <set>
 #include <string>
 #include <type_traits>
-#include <functional>
 
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
-#include <rpnx/result.hpp>
 #include "serializer.hpp"
 #include <boost/core/demangle.hpp>
 #include <concepts>
 #include <memory>
+#include <rpnx/result.hpp>
 #include <sstream>
 
 namespace rpnx
@@ -38,8 +38,6 @@ namespace rpnx
     template < typename T >
     struct resolver_traits
     {
-
-
 
         static std::string default_stringify(bool v, int)
         {
@@ -198,8 +196,6 @@ namespace rpnx
     template < typename Graph, typename Resolver >
     class index;
 
-
-
     template < typename Graph >
     class single_thread_graph_solver;
 
@@ -221,7 +217,7 @@ namespace rpnx
         node_base< Graph >* m_attached_by = nullptr;
 
       public:
-        virtual ~node_base(){};
+        virtual ~node_base() {};
 
         virtual std::string question() const
         {
@@ -259,7 +255,7 @@ namespace rpnx
                 }
             }
 
-            //assert(false);
+            // assert(false);
             throw std::logic_error("unreachable");
         }
 
@@ -632,7 +628,7 @@ namespace rpnx
 
         resolver_base(resolver_base< Graph, Result > const&) = delete;
 
-        virtual ~resolver_base(){};
+        virtual ~resolver_base() {};
 
         Result get() const
         {
@@ -774,7 +770,7 @@ namespace rpnx
 
         resolver_base(resolver_base< Graph, void > const&) = delete;
 
-        virtual ~resolver_base(){};
+        virtual ~resolver_base() {};
 
         void get() const
         {
@@ -867,9 +863,7 @@ namespace rpnx
         using key_type = Input;
         using co_type = resolver_coroutine< Graph, Result >;
 
-        co_resolver_base(input_type input_val)
-            : input_val(input_val)
-            , input(this->input_val)
+        co_resolver_base(input_type input_val) : input_val(input_val), input(this->input_val)
         {
         }
 
@@ -1033,7 +1027,7 @@ namespace rpnx
                 return cr;
             }
 
-             template < typename R2 >
+            template < typename R2 >
             auto& await_transform(resolver_base< Graph, R2 >&& cr)
             {
                 this->cr->owning_node->add_dependency(&cr);
@@ -1107,8 +1101,7 @@ namespace rpnx
         bool dead = false;
 
       private:
-        general_coroutine(promise_type* arg_ptr_pr)
-            : co_promise_ptr(arg_ptr_pr)
+        general_coroutine(promise_type* arg_ptr_pr) : co_promise_ptr(arg_ptr_pr)
         {
             co_promise_ptr->cr = this;
         }
@@ -1350,8 +1343,7 @@ namespace rpnx
         bool dead = false;
 
       private:
-        general_coroutine(promise_type* arg_ptr_pr)
-            : co_promise_ptr(arg_ptr_pr)
+        general_coroutine(promise_type* arg_ptr_pr) : co_promise_ptr(arg_ptr_pr)
         {
             co_promise_ptr->cr = this;
         }
@@ -1502,25 +1494,25 @@ namespace rpnx
             resolver_coroutine* cr;
 
             template < typename R2 >
-            auto & await_transform(resolver_base< Graph, R2 >& n)
+            auto& await_transform(resolver_base< Graph, R2 >& n)
             {
                 this->cr->add_dependency(&n);
                 return n;
             }
 
             template < typename R2 >
-            auto & await_transform(general_coroutine< Graph, R2 >& n)
+            auto& await_transform(general_coroutine< Graph, R2 >& n)
             {
                 return n;
             }
             template < typename R2 >
-            auto & await_transform(general_coroutine< Graph, R2 >&& n)
+            auto& await_transform(general_coroutine< Graph, R2 >&& n)
             {
                 return n;
             }
 
             template < typename R2 >
-            auto & await_transform(general_coroutine< Graph, R2 > const & n)
+            auto& await_transform(general_coroutine< Graph, R2 > const& n)
             {
                 return n;
             }
@@ -1576,8 +1568,7 @@ namespace rpnx
         bool movable = true;
 
       public:
-        resolver_coroutine(promise_type* pr)
-            : pr(pr)
+        resolver_coroutine(promise_type* pr) : pr(pr)
         {
             assert(pr != nullptr);
         }
@@ -1725,7 +1716,6 @@ namespace rpnx
                 ss << "FAILED (dependency failed)\n";
             }
 
-
             ss << "\n";
 
             indent += 4;
@@ -1741,10 +1731,6 @@ namespace rpnx
             {
                 draw(d);
             }
-
-
-
-
 
             indent -= 4;
         }
@@ -1921,14 +1907,12 @@ namespace rpnx
                 {
                     QUXLANG_DEBUG({ std::cout << "missing:" << n->question() << std::endl; });
 
-
-                    for (auto const & n :m_all_nodes)
+                    for (auto const& n : m_all_nodes)
                     {
                         if (!n->resolved())
                         {
                             QUXLANG_DEBUG({ std::cout << "Not resolved:" << n->question() << std::endl; });
                         }
-
                     }
                     throw std::runtime_error("Could not resolve node, probably recursive dependency (2)");
                 }
@@ -1937,7 +1921,7 @@ namespace rpnx
 
             if (!node->resolved())
             {
-                QUXLANG_DEBUG({std::cout << "missing:" << node->question() << std::endl;});
+                QUXLANG_DEBUG({ std::cout << "missing:" << node->question() << std::endl; });
                 throw std::runtime_error("Could not resolve node, probably recursive dependency (1)");
             }
         }
@@ -1945,9 +1929,7 @@ namespace rpnx
 
     template < typename T >
     concept awaitable = requires(T&& t, std::coroutine_handle<> h) {
-        {
-            t.await_ready()
-        } -> std::convertible_to< bool >;
+        { t.await_ready() } -> std::convertible_to< bool >;
         t.await_resume();
     };
 

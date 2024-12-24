@@ -8,10 +8,13 @@
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/vm_executable_unit.hpp"
 #include "quxlang/data/vm_expression.hpp"
+#include "quxlang/exception.hpp"
 #include "quxlang/intrinsic_classifier.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
+#include "quxlang/vmir2/assembly.hpp"
+#include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include <quxlang/macros.hpp>
@@ -161,14 +164,29 @@ namespace quxlang
             return exec.create_binding(bindval, bind_type);
         }
 
-        auto emit(vmir2::vm_instruction val)
+        void emit(vmir2::vm_instruction val)
         {
-            return rpnx::apply_visitor< void >(
+            vmir2::functanoid_routine2 rt;
+            rt.slots = exec.slots->slots;
+
+            std::string inst_str = vmir2::assembler(rt).to_string(val);
+            auto old_state = exec.current_slot_states;
+            rpnx::apply_visitor< void >(
                 [&](auto val)
                 {
                     exec.emit(std::move(val));
                 },
                 val);
+            auto expected_state = old_state;
+            vmir2::state_engine::apply(expected_state, exec.slots->slots, val);
+            auto& new_state = exec.current_slot_states;
+
+            if (new_state != expected_state)
+            {
+                // throw compiler_bug("Slot state mismatch");
+                std::cout << "Expected state mismatch: " << inst_str << std::endl;
+                new_state = expected_state;
+            }
         }
 
         auto slot_alive(storage_index slot)
@@ -361,15 +379,20 @@ namespace quxlang
 
             co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
+
       public:
         auto gen_defer_dtor(storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
+            co_return;
+            // TODO: Maybe re-add this later, for now, don't use for default dtors.
+            /*
             vmir2::defer_nontrivial_dtor defer;
             defer.on_value = val;
             defer.func = dtor;
             defer.args = args;
             this->emit(defer);
             co_return;
+             */
         }
 
         auto create_numeric_literal(std::string str)
@@ -403,6 +426,7 @@ namespace quxlang
                 {
                     std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << quxlang::to_string(expression_args) << std::endl;
                     auto index = create_temporary_storage(arg_target_type);
+
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
@@ -500,6 +524,7 @@ namespace quxlang
             {
                 auto return_slot = create_temporary_storage(return_type);
                 std::cout << "Created return slot " << return_slot << std::endl;
+                exec.current_slot_states[return_slot];
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
                 invocation_args.named["RETURN"] = return_slot;

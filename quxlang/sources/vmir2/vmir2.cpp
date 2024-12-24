@@ -184,6 +184,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::cast_referen
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_reference cst)
 {
+    current_slot_states[cst.reference_index].alive = true;
     block.instructions.push_back(cst);
 }
 
@@ -482,5 +483,6 @@ quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_
     {
         result.blocks.push_back(block.block);
     }
+    result.non_trivial_dtors = non_trivial_dtors;
     return result;
 }

@@ -106,6 +106,7 @@ namespace quxlang
             frame.generate_entry_block();
             co_await generate_arg_slots();
             co_await generate_body();
+            co_await generate_dtors();
             co_return frame.get_result();
             ;
         }
@@ -233,7 +234,13 @@ namespace quxlang
             auto dtor = co_await prv.nontrivial_default_dtor(var_type);
             if (dtor.has_value())
             {
-                co_await emitter.gen_defer_dtor(idx, dtor.value(), vmir2::invocation_args{.named = {{"THIS", idx}}});
+                if (!frame.non_trivial_dtors.contains(var_type))
+                {
+                    frame.non_trivial_dtors[var_type] = *dtor;
+                }
+
+                // TODO: Consider re-adding this for non-default dtors later.
+                // co_await emitter.gen_defer_dtor(idx, dtor.value(), vmir2::invocation_args{.named = {{"THIS", idx}}});
             }
 
             vmir2::slot_state new_state = frame.block(current_block).current_slot_states[idx];
@@ -253,6 +260,15 @@ namespace quxlang
         auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto idx = frame.entry_block().create_variable(typ, name);
+
+            auto dtor = co_await prv.nontrivial_default_dtor(typ);
+            if (dtor.has_value())
+            {
+                if (!frame.non_trivial_dtors.contains(typ))
+                {
+                    frame.non_trivial_dtors[typ] = *dtor;
+                }
+            }
             co_return idx;
         }
 
@@ -334,6 +350,23 @@ namespace quxlang
             assert(frame.has_terminator(current_block));
             current_block = after_block;
             assert(!frame.has_terminator(after_block));
+            co_return;
+        }
+
+        auto generate_dtors() -> typename CoroutineProvider::template co_type< void >
+        {
+            // Loop through all local slots and check if they have non-trivial dtors, then add
+            // dtor references to non_trivial_dtors if they do.
+            for (auto const & slot : frame.slots.slots)
+            {
+                auto dtor = co_await prv.nontrivial_default_dtor(slot.type);
+                if (dtor.has_value())
+                {
+                    assert(!frame.non_trivial_dtors.contains(slot.type) || frame.non_trivial_dtors[slot.type] == *dtor);
+                    frame.non_trivial_dtors[slot.type] = *dtor;
+                }
+            }
+
             co_return;
         }
 

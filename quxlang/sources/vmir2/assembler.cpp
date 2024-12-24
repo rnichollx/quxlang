@@ -9,6 +9,13 @@ namespace quxlang::vmir2
         std::string output;
 
         static const std::string indent = "    ";
+        output += "[DTors]:\n";
+
+        for (auto const &[type, dtor]: fnc.non_trivial_dtors)
+        {
+           output += indent + quxlang::to_string(type) + " USES " + quxlang::to_string(dtor) + "\n";
+        }
+
         output += "[Slots]:\n";
 
         for (std::size_t i = 1; i < fnc.slots.size(); i++)

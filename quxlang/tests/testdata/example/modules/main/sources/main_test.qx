@@ -36,6 +36,11 @@ MODULE main;
   }
 }
 
+::yak CLASS
+{
+   .f VAR buz;
+}
+
 
 ::main FUNCTION(): I32
 {
@@ -49,5 +54,8 @@ MODULE main;
   VAR a ->I32;
   a := z.x <-;
   a-> := a-> + 5;
+
+  VAR bz yak;
+
   RETURN 4;
 }
