@@ -56,6 +56,10 @@ MODULE main;
   RETURN a + b;
 }
 
+::boq FUNCTION(): I32
+{
+  RETURN 5;
+}
 
 ::main FUNCTION(): I32
 {

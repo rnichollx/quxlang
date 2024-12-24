@@ -40,7 +40,6 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     struct pointer_impl
     {
         std::weak_ptr< local > pointer_target;
-        std::size_t local_offset = 0;
     };
 
     struct local
@@ -48,9 +47,12 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
         std::vector< std::byte > data;
         bool alive = false;
         std::uint64_t object_id{};
-        pointer_impl ref;
+        std::optional< pointer_impl > ref;
 
         std::optional< dtor_spec > dtor;
+
+        std::vector< std::shared_ptr< local > > array_members;
+        std::map< std::string, std::shared_ptr< local > > struct_members;
     };
 
     struct stack_frame
@@ -111,20 +113,38 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::cmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
 
+    std::vector< std::byte > use_data(std::size_t slot);
+
     std::vector< std::byte > consume_data(std::size_t slot);
+    std::vector< std::byte > copy_data(std::size_t slot);
     uint64_t alloc_object_id();
     void set_data(std::size_t slot, std::vector< std::byte > data);
 };
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_symbol > functype, vmir2::invocation_args args)
 {
+
+    // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
+    // Actual execution will happen in subsequent calls to exec/exec_instr
+
     stack.emplace_back();
     stack.back().type = functype;
     stack.back().ir = functanoids.at(functype);
     stack.back().address = {functype, functanoids.at(functype)->entry_block, 0};
-    // TODO: Args
 
     if (functype == void_type{})
+    {
+        assert(args.size() == 0);
+        // void_type is a special case when we are executing a top level expression
+        // in constexpr context. For example, to evaluate an expression like
+        // `a + b < 5`, we create a constexpr "function" which is named "VOID".
+        // VOID is not actually a callable function normally, but exists for this
+        // instance of the constexpr execution.
+        return;
+    }
+
+    // The rest of call_func just handles arguments, so if the function just takes no arguments, we can return now.
+    if (args.size() == 0)
     {
         return;
     }
@@ -133,11 +153,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_
 
     auto const& current_func_ir = functanoids.at(functype);
 
-    if (args.size() == 0)
-    {
-        return;
-    }
-
+    // Now there should be at minimum 2 frames, the caller frame and the callee frame.
     if (stack.size() < 2)
     {
         throw compiler_bug("Attempt to call function with arguments without a stack frame");
@@ -148,6 +164,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_
     std::size_t arg_count = 0;
     std::size_t positional_arg_id = 0;
 
+    // previous is the caller frame, current is the callee frame
     auto& current_frame = stack.back();
     auto& previous_frame = stack[stack.size() - 2];
 
@@ -320,6 +337,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 
 std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size(const type_symbol& type)
 {
+
     if (typeis< int_type >(type))
     {
         return (type.get_as< int_type >().bits + 7) / 8;
@@ -358,17 +376,17 @@ quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmi
             throw compiler_bug("Attempt to take reference to non-existant storage location");
         }
 
-        result.local_offset = 0;
         return result;
     }
     else
     {
         auto ptr = stack[frame].local_values[slot]->ref;
-        if (ptr.pointer_target.lock() == nullptr)
+        assert(ptr.has_value());
+        if (ptr->pointer_target.lock() == nullptr)
         {
             throw compiler_bug("Attempt to create pointer to non-extant storage location");
         }
-        return ptr;
+        return *ptr;
     }
 }
 
@@ -383,7 +401,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         throw compiler_bug("Cannot load zero into reference");
     }
 
-    if (get_current_frame().local_values[lcz.target])
+    if (get_current_frame().local_values[lcz.target] && get_current_frame().local_values[lcz.target]->alive)
     {
         throw compiler_bug("Local value already has pointer");
     }
@@ -428,6 +446,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     local_ptr = std::make_shared< local >();
     local_ptr->ref = ptr;
+    local_ptr->alive = true;
 
     return;
 }
@@ -441,8 +460,34 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cast_reference const& cst)
 {
-    throw rpnx::unimplemented();
+    auto& local_ptr_base = get_current_frame().local_values.at(cst.source_ref_index);
+    auto& local_ptr_result = get_current_frame().local_values[cst.target_ref_index];
+
+    if (!local_ptr_base)
+    {
+        throw constexpr_logic_execution_error("Error executing <cast_reference>: accessing deallocated storage");
+    }
+
+    if (!local_ptr_base->alive)
+    {
+        throw constexpr_logic_execution_error("Error executing <cast_reference>: accessing dealived storage");
+    }
+
+    if (local_ptr_result && local_ptr_result->alive)
+    {
+        throw compiler_bug("Attempt to overwrite local value");
+    }
+
+    local_ptr_result = std::make_shared< local >();
+
+    local_ptr_result->ref = local_ptr_base->ref;
+    local_ptr_result->alive = true;
+
+    local_ptr_base->alive = false;
+
+    local_ptr_base = nullptr;
 }
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result const& csr)
 {
     this->constexpr_result = consume_data(csr.target);
@@ -461,13 +506,41 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_from_ref const& lfr)
 {
-    throw rpnx::unimplemented();
+    auto& slot = get_current_frame().local_values.at(lfr.from_reference);
+
+    if (!slot || !slot->alive)
+    {
+        throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
+    }
+
+    assert(slot->ref.has_value());
+    auto load_from_ptr = slot->ref->pointer_target.lock();
+
+    if (!load_from_ptr)
+    {
+        throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
+    }
+
+    auto& load_from = *load_from_ptr;
+
+    auto& target_slot = get_current_frame().local_values[lfr.to_value];
+
+    if (target_slot == nullptr)
+    {
+        target_slot = std::make_shared< local >();
+    }
+
+    target_slot->data = load_from.data;
+    target_slot->alive = true;
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {
-
     // TODO: Run destructors
     stack.pop_back();
+    if (stack.size() >= 1)
+    {
+        get_current_frame().address.instruction_index++;
+    }
 }
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::int_add const& add)
@@ -625,7 +698,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     for (auto i = 0; i < write_size; i++)
     {
-        auto to_ptr_offset = to_ptr.local_offset + i;
+        auto to_ptr_offset = i;
         if (to_ptr_offset >= to_ptr_target.data.size())
         {
             throw constexpr_logic_execution_error("Error executing <store_to_ref>: out of bounds write");
@@ -637,8 +710,18 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_int const& lci)
 {
-    get_current_frame().local_values[lci.target] = std::make_shared< local >();
+    if (!get_current_frame().local_values.contains(lci.target))
+    {
+        get_current_frame().local_values[lci.target] = std::make_shared< local >();
+    }
     auto int_type = get_current_frame().ir->slots.at(lci.target).type;
+
+    if (int_type.type_is< nvalue_slot >())
+    {
+        auto copy = int_type.get_as< nvalue_slot >().target;
+
+        int_type = copy;
+    }
     auto& data = get_current_frame().local_values[lci.target]->data;
     data.resize(get_type_size(int_type));
 
@@ -730,7 +813,19 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cmp_eq const& ceq)
 {
-    throw rpnx::unimplemented();
+    auto a = consume_data(ceq.a);
+    auto b = consume_data(ceq.b);
+
+    assert(a.size() == b.size());
+
+    if (a == b)
+    {
+        set_data(ceq.result, {std::byte(1)});
+    }
+    else
+    {
+        set_data(ceq.result, {std::byte(0)});
+    }
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
 {
@@ -839,6 +934,22 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
 
     return data;
 }
+
+std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::copy_data(std::size_t slot)
+{
+    auto& frame = get_current_frame();
+
+    auto it = frame.local_values.find(slot);
+    if (it == frame.local_values.end() || !it->second)
+    {
+        throw constexpr_logic_execution_error("Error in [copy_data] substep: slot does not exist");
+    }
+
+    // Copy the data from the local
+    std::vector< std::byte > data = it->second->data;
+
+    return data;
+}
 uint64_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::alloc_object_id()
 {
     return next_object_id++;
@@ -920,4 +1031,30 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::
 
     current_frame.address.block = block;
     current_frame.address.instruction_index = 0;
+}
+std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::use_data(std::size_t slot)
+{
+    auto slot_ptr = get_current_frame().local_values[slot];
+
+    if (slot_ptr == nullptr)
+    {
+        throw compiler_bug("Error in [use_data]: slot not allocated");
+    }
+
+    if (!slot_ptr->alive)
+    {
+        throw compiler_bug("Error in [use_data]: slot not alive");
+    }
+
+    assert(slot_ptr && slot_ptr->ref);
+
+    if (slot_ptr->ref.has_value())
+    {
+        auto& ref = *slot_ptr->ref->pointer_target.lock();
+        return ref.data;
+    }
+    else
+    {
+        return slot_ptr->data;
+    }
 }
