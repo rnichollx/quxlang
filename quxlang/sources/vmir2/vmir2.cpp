@@ -21,16 +21,16 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_bind
     slots.push_back(vm_slot{.type = type, .binding_of = idx, .kind = slot_kind::binding});
     return slot_id;
 }
-quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_positional_argument(type_symbol type)
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_positional_argument(type_symbol type, std::optional<std::string> name)
 {
     storage_index slot_id = slots.size();
-    slots.push_back(vm_slot{.type = type, .kind = slot_kind::positional_arg});
+    slots.push_back(vm_slot{.type = type, .name = name, .kind = slot_kind::positional_arg});
     return slot_id;
 }
-quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_named_argument(std::string name, type_symbol type)
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_named_argument(std::string apiname, type_symbol type, std::optional<std::string> varname)
 {
     storage_index slot_id = slots.size();
-    slots.push_back(vm_slot{.type = type, .arg_name = name, .kind = slot_kind::named_arg});
+    slots.push_back(vm_slot{.type = type, .name = varname.value_or(apiname), .arg_name = apiname, .kind = slot_kind::named_arg});
     return slot_id;
 }
 
@@ -207,7 +207,7 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_positional_argument(type_symbol type, std::optional< std::string > label_name)
 {
-    auto idx = slots->create_positional_argument(type);
+    auto idx = slots->create_positional_argument(type, label_name);
     if (!typeis< nvalue_slot >(type))
     {
         current_slot_states[idx].alive = true;
@@ -217,7 +217,7 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name)
 {
 
-    auto idx = slots->create_named_argument(interface_name, type);
+    auto idx = slots->create_named_argument(interface_name, type, label_name);
     if (!typeis< nvalue_slot >(type))
     {
         current_slot_states[idx].alive = true;

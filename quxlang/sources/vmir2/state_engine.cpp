@@ -124,7 +124,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     {
         throw invalid_instruction_transition_error("Attempt to cast reference to a dead slot");
     }
-    if (state.at(crf.target_ref_index).alive)
+    if (state[crf.target_ref_index].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
     }

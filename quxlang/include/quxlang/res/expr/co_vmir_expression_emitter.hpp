@@ -562,12 +562,11 @@ namespace quxlang
 
             auto new_index = create_temporary_storage(target_ref_type);
 
-            vmir2::access_field make_ref;
-            make_ref.base_index = ref_index;
-            make_ref.store_index = new_index;
-            make_ref.offset = 0;
+            vmir2::cast_reference csr;
+            csr.source_ref_index = ref_index;
+            csr.target_ref_index = new_index;
 
-            this->emit(make_ref);
+            this->emit(csr);
 
             co_return new_index;
         }
@@ -611,7 +610,17 @@ namespace quxlang
 
             if (is_ref(target_type))
             {
-                co_return co_await gen_reference_conversion(value_index, target_type);
+                if (is_ref(value_type))
+                {
+                    co_return co_await gen_reference_conversion(value_index, target_type);
+                }
+                else
+                {
+                    // Value to TEMP& first,
+                    // then TEMP& to target_type
+                    auto temp_index = create_reference_internal(value_index, make_tref(value_type));
+                    co_return co_await gen_reference_conversion(temp_index, target_type);
+                }
             }
             else
             {
@@ -675,6 +684,7 @@ namespace quxlang
         auto generate(expression_symbol_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
 
+            std::string sym = quxlang::to_string(expr.symbol);
             auto value_opt = (co_await this->lookup_symbol(expr.symbol));
 
             if (!value_opt.has_value())
@@ -799,7 +809,7 @@ namespace quxlang
                 {
                     vmir2::access_field access;
                     access.base_index = base;
-                    access.offset = field.offset;
+                    access.field_name = field.name;
                     type_symbol result_ref_type = recast_reference(base_type, field.type);
                     access.store_index = create_temporary_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;

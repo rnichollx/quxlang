@@ -39,6 +39,21 @@ MODULE main;
 ::yak CLASS
 {
    .f VAR buz;
+
+   .z VAR -> I32;
+
+   .DESTRUCTOR FUNCTION()
+   {
+     IF (.z)
+     {
+        .z-> := .z-> + 1;
+     }
+   }
+}
+
+::biz FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a + b;
 }
 
 

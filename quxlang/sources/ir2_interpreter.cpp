@@ -8,6 +8,7 @@
 
 #include "quxlang/compiler.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 namespace quxlang
 {
@@ -29,6 +30,9 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     std::map< cow< type_symbol >, class_layout > class_layouts;
     std::map< cow< type_symbol >, cow< functanoid_routine2 > > functanoids;
     std::vector< std::byte > constexpr_result;
+
+    std::set< type_symbol > missing_functanoids_val;
+
     std::uint64_t next_object_id = 1;
 
     struct local;
@@ -79,6 +83,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     pointer_impl get_pointer_to(std::size_t frame, std::size_t slot);
 
+    void transition(vmir2::block_index block);
+
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::access_field const& acf);
     void exec_instr_val(vmir2::invoke const& inv);
@@ -123,12 +129,148 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_
         return;
     }
 
+    std::string funcname = quxlang::to_string(functype.get());
+
     auto const& current_func_ir = functanoids.at(functype);
 
-    // TODO: Args
+    if (args.size() == 0)
+    {
+        return;
+    }
+
+    if (stack.size() < 2)
+    {
+        throw compiler_bug("Attempt to call function with arguments without a stack frame");
+    }
+
+    auto const& previous_func_ir = functanoids.at(stack[stack.size() - 2].type);
+
+    std::size_t arg_count = 0;
+    std::size_t positional_arg_id = 0;
+
+    auto& current_frame = stack.back();
+    auto& previous_frame = stack[stack.size() - 2];
+
+    // Look through all slots in the new function for arguments
+    for (std::size_t slot_index = 0; slot_index < current_func_ir->slots.size(); slot_index++)
+    {
+        auto const& slot = current_func_ir->slots[slot_index];
+
+        if (slot.kind != vmir2::slot_kind::named_arg && slot.kind != vmir2::slot_kind::positional_arg)
+        {
+            continue;
+        }
+
+        arg_count++;
+
+        auto handle_arg = [&](vmir2::storage_index previous_arg_index, vmir2::storage_index new_arg_index)
+        {
+            type_symbol const& arg_type = slot.type;
+
+            std::string arg_type_str = quxlang::to_string(arg_type);
+
+            if (!typeis< nvalue_slot >(arg_type))
+            {
+                if (!previous_frame.local_values[previous_arg_index]->alive)
+                {
+                    throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
+                }
+            }
+
+            if (typeis< nvalue_slot >(arg_type) || typeis< dvalue_slot >(arg_type))
+            {
+                // Slots create a shared reference to the same object in a previous frame, unlike all other
+                // calls which consume their arguments.
+
+                if (typeis< nvalue_slot >(arg_type))
+                {
+                    // The existing storage might not exist, allocate it now if so.
+
+                    if (!previous_frame.local_values.contains(previous_arg_index))
+                    {
+                        previous_frame.local_values[previous_arg_index] = std::make_shared< local >();
+                    }
+                }
+
+                current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+
+                // The caller should have already initialized the local, not here.
+                assert(current_frame.local_values[new_arg_index] != nullptr);
+
+                if (typeis< nvalue_slot >(arg_type))
+                {
+                    // NEW& values should NOT be alive when we enter the function,
+                    // and are alive when we return except via exception
+                    assert(!current_frame.local_values[new_arg_index]->alive);
+                }
+
+                if (typeis< dvalue_slot >(arg_type))
+                {
+                    // DESTROY& values should be alive when we enter the function
+                    // and are not alive when we return OR throw an exception
+                    assert(current_frame.local_values[new_arg_index]->alive);
+                }
+            }
+
+            else
+            {
+                assert(!typeis< nvalue_slot >(arg_type) && !typeis< dvalue_slot >(arg_type));
+                // In all other cases, the argument is consumed by the call,
+
+                current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+                previous_frame.local_values[previous_arg_index] = nullptr;
+
+                // TODO: If the type is trivially relocatable, invalidate all prior references to it now
+                // We don't currently pass this information, so this is a TODO.
+            }
+        };
+
+        if (slot.kind == vmir2::slot_kind::named_arg)
+        {
+            auto const& arg_name = slot.name;
+
+            assert(arg_name.has_value());
+
+            if (!args.named.contains(*arg_name))
+            {
+                throw compiler_bug("Missing named argument");
+            }
+
+            auto previous_arg_index = args.named.at(*arg_name);
+            auto new_arg_index = slot_index;
+
+            handle_arg(previous_arg_index, new_arg_index);
+        }
+        else if (slot.kind == vmir2::slot_kind::positional_arg)
+        {
+            if (positional_arg_id >= args.positional.size())
+            {
+                throw compiler_bug("Missing positional argument");
+            }
+
+            auto previous_arg_index = args.positional.at(positional_arg_id);
+
+            positional_arg_id++;
+            auto new_arg_index = slot_index;
+
+            handle_arg(previous_arg_index, new_arg_index);
+        }
+    }
+
+    // We should have gone through all args at this point.
+    assert(arg_count == args.size());
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec()
 {
+    // print all functanoids
+
+    for (auto const& func : functanoids)
+    {
+        quxlang::vmir2::assembler ir_printer(func.second.get());
+
+        std::cout << ir_printer.to_string(func.second.get()) << std::endl;
+    }
+
     while (!stack.empty())
     {
         exec_instr();
@@ -261,7 +403,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
 {
-    throw rpnx::unimplemented();
+    call_func(inv.what, inv.args);
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::make_reference const& mrf)
 {
@@ -291,7 +433,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::jump const& jmp)
 {
-    throw rpnx::unimplemented();
+    transition(jmp.target);
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::branch const& brn)
 {
@@ -580,6 +722,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         }
     }
 
+    get_current_frame().local_values[lci.target]->object_id = alloc_object_id();
+    get_current_frame().local_values[lci.target]->alive = true;
+
     return;
 }
 
@@ -639,7 +784,26 @@ void quxlang::vmir2::ir2_interpreter::add_class_layout(quxlang::type_symbol name
 
 void quxlang::vmir2::ir2_interpreter::add_functanoid(quxlang::type_symbol addr, quxlang::vmir2::functanoid_routine2 func)
 {
+
+    for (auto const& block : func.blocks)
+    {
+        for (auto const& instr : block.instructions)
+        {
+            if (typeis< vmir2::invoke >(instr))
+            {
+                auto const& inv = instr.get_as< vmir2::invoke >();
+
+                auto called_func = inv.what;
+
+                if (!this->implementation->functanoids.contains(called_func))
+                {
+                    this->implementation->missing_functanoids_val.insert(called_func);
+                }
+            }
+        }
+    }
     this->implementation->functanoids[addr] = std::move(func);
+    this->implementation->missing_functanoids_val.erase(addr);
 }
 
 void quxlang::vmir2::ir2_interpreter::exec(type_symbol func)
@@ -651,6 +815,10 @@ bool quxlang::vmir2::ir2_interpreter::get_cr_bool()
 {
     assert(this->implementation->constexpr_result.size() == 1);
     return this->implementation->constexpr_result == std::vector< std::byte >{std::byte(1)};
+}
+std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_interpreter::missing_functanoids()
+{
+    return this->implementation->missing_functanoids_val;
 }
 
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::consume_data(std::size_t slot)
@@ -710,4 +878,46 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(quxla
     }
 
     slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
+{
+    std::vector< vmir2::storage_index > values_to_destroy;
+
+    auto& current_frame = get_current_frame();
+    auto const& current_func_ir = current_frame.ir;
+
+    auto const& target_block = current_func_ir->blocks.at(block);
+
+    std::set< vmir2::storage_index > current_values;
+    std::set< vmir2::storage_index > entry_values;
+
+    for (auto& [idx, local] : current_frame.local_values)
+    {
+        if (local != nullptr)
+        {
+            if (local->alive && !target_block.entry_state.contains(idx))
+            {
+                auto slot_type = current_func_ir->slots.at(idx).type;
+                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
+                if (local_has_nontrivial_dtor)
+                {
+                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
+                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    return;
+                }
+                else
+                {
+                    local = nullptr;
+                }
+            }
+        }
+
+        if (target_block.entry_state.contains(idx) && (local == nullptr || local->alive == false))
+        {
+            throw compiler_bug("Error in [transition]: slot not alive");
+        }
+    }
+
+    current_frame.address.block = block;
+    current_frame.address.instruction_index = 0;
 }

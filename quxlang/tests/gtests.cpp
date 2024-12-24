@@ -751,6 +751,24 @@ TEST(expression_ir, constexpr_result_bool)
 }
 
 
+TEST(expression_ir, constexpr_call_func)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto get_constexpr_bool = [&](std::string expr_string) -> bool {
+        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr=expr, .context=mainmodule});
+        return yaynay;
+    };
+    auto val1 = get_constexpr_bool("biz(4, 3) == 4");
+    ASSERT_FALSE(val1);
+    auto val2 = get_constexpr_bool("biz(4, 3) == 5");
+    ASSERT_TRUE(val2);
+}
+
 
 TEST(expression_ir, func_gen)
 {
@@ -764,7 +782,7 @@ TEST(expression_ir, func_gen)
     quxlang::compiler c(sources, "linux-x64");
 
 
-    auto func_name = quxlang::parsers::parse_type_symbol("::main #{}");
+    auto func_name = quxlang::parsers::parse_type_symbol("::biz #{I32, I32}");
 
     func_name = quxlang::with_context( func_name, mainmodule);
 

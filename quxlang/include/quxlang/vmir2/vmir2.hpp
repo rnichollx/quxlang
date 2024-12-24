@@ -79,9 +79,9 @@ namespace quxlang
         {
             storage_index base_index = 0;
             storage_index store_index = 0;
-            size_t offset = 0;
+            std::string field_name;
 
-            RPNX_MEMBER_METADATA(access_field, base_index, store_index, offset);
+            RPNX_MEMBER_METADATA(access_field, base_index, store_index, field_name);
         };
 
         struct invoke
@@ -112,9 +112,8 @@ namespace quxlang
         {
             storage_index source_ref_index;
             storage_index target_ref_index;
-            std::int64_t offset;
 
-            RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index, offset);
+            RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index);
         };
 
         struct constexpr_set_result
@@ -342,8 +341,8 @@ namespace quxlang
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
             storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_positional_argument(type_symbol type);
-            storage_index create_named_argument(std::string name, type_symbol type);
+            storage_index create_positional_argument(type_symbol type, std::optional<std::string> name);
+            storage_index create_named_argument(std::string apiname, type_symbol type, std::optional<std::string> name);
             storage_index create_numeric_literal(std::string value);
             storage_index index_binding(storage_index idx);
 

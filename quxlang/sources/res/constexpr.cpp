@@ -17,6 +17,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
 
     interp.add_functanoid(void_type{}, ir2);
 
+    while (!interp.missing_functanoids().empty())
+    {
+        auto missing_functanoids = interp.missing_functanoids();
+
+        for (type_symbol const& funcname : missing_functanoids)
+        {
+            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname));
+
+            interp.add_functanoid(funcname, ir2_other);
+        }
+    }
+
     interp.exec(void_type{});
 
     co_return interp.get_cr_bool();
