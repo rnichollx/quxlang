@@ -3,8 +3,6 @@
 #include "quxlang/compiler_binding.hpp"
 #include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
 #include "quxlang/res/expr/co_vmir_routine_emitter.hpp"
-#include <deque>
-#include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 #include <quxlang/compiler.hpp>
 
@@ -20,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 
     instantiation_type const& inst = as< instantiation_type >(input);
 
-    selection_reference sel;// = as< selection_reference >(inst.);
+    selection_reference sel = inst.callee.get_as< selection_reference >();
 
     if (sel.overload.builtin)
     {
