@@ -15,6 +15,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(class_field_declaration, name, type);
     };
 
+    struct class_field
+    {
+        std::string name;
+        type_symbol type;
+
+        RPNX_MEMBER_METADATA(class_field, name, type);
+    };
+
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_FIELD_DECLARATION_HEADER_GUARD

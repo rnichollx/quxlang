@@ -791,6 +791,8 @@ namespace quxlang
             // First try to find a field with this name
             class_layout layout = co_await prv.class_layout(base_type_noref);
 
+            std::string base_type_str = to_string(base_type);
+
             for (class_field_info const& field : layout.fields)
             {
                 if (field.name == field_name)

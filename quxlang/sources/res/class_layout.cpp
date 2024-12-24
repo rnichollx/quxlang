@@ -9,23 +9,19 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_layout)
 {
 
+    std::string input_type_str = quxlang::to_string(input);
+
     class_layout output;
     // 1 get class field information
 
-    std::vector< class_field_declaration > class_fields = co_await QUX_CO_DEP(class_field_list, (input));
+    std::vector< class_field > class_fields = co_await QUX_CO_DEP(class_field_list, (input));
 
     for (auto& f : class_fields)
     {
-        auto fields_type = f.type;
 
         class_field_info this_field;
         this_field.name = f.name;
-
-        contextual_type_reference ctx_type_ref;
-        ctx_type_ref.type = fields_type;
-        ctx_type_ref.context = input;
-
-        this_field.type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (ctx_type_ref));
+        this_field.type = f.type;
 
         auto placement_info = co_await QUX_CO_DEP(type_placement_info_from_canonical_type, (this_field.type));
 

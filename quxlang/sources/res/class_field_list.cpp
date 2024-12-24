@@ -2,7 +2,7 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_declaration_list)
 {
 
     // Step 1: Ensure this is a class
@@ -50,4 +50,31 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
     }
 
     QUX_CO_ANSWER(output);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
+{
+
+    auto declarations = co_await QUX_CO_DEP(class_field_declaration_list, (input_val));
+
+    std::string class_name = quxlang::to_string(input);
+    std::vector< class_field > output_obj;
+
+    for (auto& decl : declarations)
+    {
+        class_field f;
+        contextual_type_reference type_in_context;
+        type_in_context.type = decl.type;
+        type_in_context.context = input_val;
+        auto real_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (type_in_context));
+
+        f.name = decl.name;
+        f.type = real_type;
+
+        output_obj.push_back(f);
+    }
+
+    //assert(output_obj.size() == declarations.size());
+
+    co_return output_obj;
 }

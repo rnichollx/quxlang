@@ -15,7 +15,8 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(class_field_list, type_symbol, std::vector< class_field_declaration >);
+    QUX_CO_RESOLVER(class_field_declaration_list, type_symbol, std::vector< class_field_declaration >);
+    QUX_CO_RESOLVER(class_field_list, type_symbol, std::vector< class_field >);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_FIELD_LIST_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

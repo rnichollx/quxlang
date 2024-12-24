@@ -152,7 +152,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::make_pointer_to const& mpt)
 {
-    if (state.at(mpt.of_index).alive == false)
+    if (state[mpt.of_index].alive == false)
     {
         throw invalid_instruction_transition_error("Attempt to make pointer to a dead slot");
     }

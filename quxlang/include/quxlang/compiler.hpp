@@ -160,6 +160,7 @@ namespace quxlang
         COMPILER_INDEX(functum_select_function)
         COMPILER_INDEX(function_declaration)
         COMPILER_INDEX(function_instanciation)
+        COMPILER_INDEX(class_field_declaration_list)
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(list_builtin_functum_overloads)
