@@ -930,6 +930,8 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
+        std::string template_type_str = quxlang::to_string(template_type);
+        std::string type_str = quxlang::to_string(type);
         assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }

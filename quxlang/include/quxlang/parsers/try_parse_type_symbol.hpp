@@ -118,6 +118,15 @@ namespace quxlang::parsers
             }
             return dvalue_slot{parse_type_symbol(pos, end)};
         }
+        else if (skip_keyword_if_is(pos, end, "AUTO"))
+        {
+            if (!skip_symbol_if_is(pos, end, "&"))
+            {
+                // TODO: Support MUT-> etc
+                throw std::logic_error("Expected & after DESTROY");
+            }
+            return auto_reference{parse_type_symbol(pos, end)};
+        }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
             // TODO: Support multiple modules
