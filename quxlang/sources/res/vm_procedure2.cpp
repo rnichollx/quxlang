@@ -46,17 +46,24 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure2)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure2)
 {
-    auto type_match = quxlang::parsers::parse_type_symbol("T(t1)::.CONSTRUCTOR#{BUILTIN; @THIS AUTO& T(t2): T(t3)}");
+    auto type_match = quxlang::parsers::parse_type_symbol("T(t1)::.CONSTRUCTOR#{BUILTIN; @THIS NEW& T(t1)}");
 
 
-    std::string type_match_str = quxlang::to_string(type_match);
+    QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(type_match));
 
-    auto template_match_result = match_template(type_match, input);
+    auto template_match_result = match_template2(type_match, input);
 
-    if (!template_match_result)
+    if (template_match_result)
     {
-            throw compiler_bug("this shouldn't be possible to call");
+        co_return co_await QUX_CO_DEP(builtin_ctor_vm_procedure2, (input));
     }
+    else if (match_template2(quxlang::parsers::parse_type_symbol("T(t1)::.DESTRUCTOR#{BUILTIN; @THIS DESTROY& T(t1)}"), input))
+    {
+        auto result =  co_await QUX_CO_DEP(builtin_dtor_vm_procedure2, (input));
+        co_return result;
+    }
+
+    throw compiler_bug("not implemented or bug");
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_dtor_vm_procedure2)

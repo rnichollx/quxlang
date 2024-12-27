@@ -24,6 +24,15 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_call, callee, args);
     };
 
+    struct delegate
+    {
+        std::string name;
+
+        std::vector< expression_arg > args;
+
+        RPNX_MEMBER_METADATA(delegate, name, args);
+    };
+
 } // namespace quxlang
 
 #endif // QUXLANG_EXPRESSION_CALL_HEADER_GUARD

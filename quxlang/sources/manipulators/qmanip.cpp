@@ -1,8 +1,11 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/manipulators/qmanip.hpp"
+
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/exception.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
+#include "rpnx/value.hpp"
 
 namespace quxlang
 {
@@ -511,6 +514,8 @@ namespace quxlang
         output += "]";
         return output;
     }
+
+    std::optional< template_match_results > match_template_noconv2(type_symbol const& template_type, type_symbol const& type);
 
     std::optional< template_match_results > match_template_noconv(type_symbol const& template_type, type_symbol const& type)
     {
@@ -1052,6 +1057,8 @@ namespace quxlang
             break;
         }
         }
+
+        throw compiler_bug("should be unreachable");
     }
     std::optional< pointer_class > pointer_class_template_match(pointer_class template_class, pointer_class match_class)
     {
@@ -1072,6 +1079,279 @@ namespace quxlang
             }
             return std::nullopt;
         }
+
+        throw compiler_bug("should be unreachable");
     }
 
 } // namespace quxlang
+
+namespace quxlang
+{
+    namespace
+    {
+        class template_matcher
+        {
+          private:
+            quxlang::template_match_results results;
+
+          public:
+            template_match_results take_results()
+            {
+                return std::move(results);
+            }
+            bool check(calltype template_ct, calltype match_ct, bool conv);
+            bool check(type_symbol template_val, type_symbol match_val, bool conv);
+
+            bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(auto_reference const& template_val, auto_reference const& match_val, bool conv)
+            {
+                return check(template_val.target, match_val.target, false);
+            }
+
+            bool check_impl(subsymbol const& template_val, subsymbol const& match_val, bool conv)
+            {
+                if (template_val.name != match_val.name)
+                {
+                    return false;
+                }
+                return check(template_val.of, match_val.of, false);
+            }
+
+            bool check_impl(pointer_type const& template_val, pointer_type const& match_val, bool conv)
+            {
+                if (template_val.qual != match_val.qual && !conv && qualifier_template_match(template_val.qual, match_val.qual) == std::nullopt)
+                {
+                    return false;
+                }
+
+                return check(template_val.target, match_val.target, true);
+            }
+
+            bool check_impl(submember const& tmpl, submember const& val, bool conv)
+            {
+                if (tmpl.name != val.name)
+                {
+                    return false;
+                }
+
+                return check(tmpl.of, val.of, conv);
+            }
+
+            bool check_impl(instantiation_type const& tmpl, instantiation_type const& val, bool conv)
+            {
+                bool of_match = check(tmpl.callee, val.callee, conv);
+
+                if (!of_match)
+                    return false;
+
+                return check(tmpl.parameters, val.parameters, false);
+            }
+
+            bool check_impl(void_type const&, void_type const&, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(quxlang::int_type const& tmpl, quxlang::int_type const& val, bool conv)
+            {
+                return tmpl == val;
+            }
+
+            bool check_impl(quxlang::bool_type const&, quxlang::bool_type const&, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(quxlang::module_reference const& tmpl, quxlang::module_reference const& val, bool conv)
+            {
+                return tmpl == val;
+            }
+
+            bool check_impl(context_reference const&, context_reference const&, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(selection_reference const& tmpl, selection_reference const& val, bool conv)
+            {
+                if (!check(tmpl.templexoid, val.templexoid, false))
+                {
+                    return false;
+                }
+
+                if (!check(tmpl.overload.call_parameters, val.overload.call_parameters, false))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            bool check_impl(value_expression_reference const&, value_expression_reference const&, bool conv)
+            {
+                throw rpnx::unimplemented();
+            }
+
+            bool check_impl(thistype const&, thistype const&, bool conv)
+            {
+                // TOOD: Match against values for "this"
+                return true;
+            }
+
+            bool check_impl(tvalue_reference const& tmpl, tvalue_reference const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, conv);
+            }
+
+            bool check_impl(wvalue_reference const& tmpl, wvalue_reference const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, conv);
+            }
+
+            bool check_impl(mvalue_reference const& tmpl, mvalue_reference const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, conv);
+            }
+
+            bool check_impl(cvalue_reference const& tmpl, cvalue_reference const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, conv);
+            }
+
+            bool check_impl(bound_type_reference const& tmpl, bound_type_reference const& val, bool conv)
+            {
+                if (!check(tmpl.bound_symbol, val.bound_symbol, false))
+                {
+                    return false;
+                }
+
+                return check(tmpl.carried_type, val.carried_type, false);
+            }
+
+            bool check_impl(numeric_literal_reference const& tmpl, numeric_literal_reference const& val, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(nvalue_slot const& tmpl, nvalue_slot const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, false);
+            }
+
+            bool check_impl(dvalue_slot const& tmpl, dvalue_slot const& val, bool conv)
+            {
+                return check(tmpl.target, val.target, false);
+            }
+        };
+        bool template_matcher::check(calltype template_ct, calltype match_ct, bool conv)
+        {
+            if (template_ct.named.size() != match_ct.named.size())
+            {
+                return false;
+            }
+
+            for (auto const& [name, type] : template_ct.named)
+            {
+                if (match_ct.named.find(name) == match_ct.named.end())
+                {
+                    return false;
+                }
+
+                if (!check(type, match_ct.named.at(name), conv))
+                {
+                    return false;
+                }
+            }
+
+            if (template_ct.positional.size() != match_ct.positional.size())
+            {
+                return false;
+            }
+
+            for (size_t i = 0; i < template_ct.positional.size(); i++)
+            {
+                if (!check(template_ct.positional[i], match_ct.positional[i], conv))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        bool template_matcher::check(type_symbol template_val, type_symbol match_val, bool conv)
+        {
+            std::string template_str = to_string(template_val);
+            std::string match_str = to_string(match_val);
+
+            if (typeis< template_reference >(template_val))
+            {
+                auto const& template_ref = as< template_reference >(template_val);
+
+                if (results.matches.find(template_ref.name) != results.matches.end())
+                {
+                    return results.matches[template_ref.name] == match_val;
+                }
+                else
+                {
+                    results.matches[template_ref.name] = match_val;
+                    return true;
+                }
+            }
+
+            if (typeis< auto_reference >(template_val))
+            {
+                if (is_ref(match_val))
+                {
+                    return true;
+                }
+            }
+
+            if (template_val.type() != match_val.type())
+            {
+                return false;
+            }
+
+            return rpnx::apply_visitor< bool >(
+                [&](auto const& template_unwrapped)
+                {
+                    using val_type = std::decay_t< decltype(template_unwrapped) >;
+
+                    val_type const& match_val_unwrapped = as< val_type >(match_val);
+
+                    bool result = check_impl(template_unwrapped, match_val_unwrapped, conv);
+                    if (result == false)
+                    {
+                        int x = 0;
+                    }
+
+                    return result;
+                },
+                template_val);
+        }
+    } // namespace
+
+} // namespace quxlang
+
+std::optional< quxlang::template_match_results > quxlang::match_template_noconv2(type_symbol const& template_type, type_symbol const& type)
+{
+    template_matcher matcher;
+    if (matcher.check(template_type, type, false))
+    {
+        return matcher.take_results();
+    }
+    return std::nullopt;
+}
+
+std::optional< quxlang::template_match_results > quxlang::match_template2(type_symbol const& template_type, type_symbol const& type)
+{
+    template_matcher matcher;
+    if (matcher.check(template_type, type, true))
+    {
+        return matcher.take_results();
+    }
+    return std::nullopt;
+}

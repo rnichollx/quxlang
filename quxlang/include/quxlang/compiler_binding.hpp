@@ -31,7 +31,10 @@ namespace quxlang
         QUX_BIND(instanciation);
         QUX_BIND(functanoid_return_type);
         QUX_BIND(class_layout);
+        QUX_BIND(class_field_list);
         QUX_BIND(functum_select_function);
+        QUX_BIND(functanoid_param_names);
+        QUX_BIND(functanoid_sigtype);
         QUX_BIND(function_declaration);
         QUX_BIND(implicitly_convertible_to);
         QUX_BIND(symbol_type);

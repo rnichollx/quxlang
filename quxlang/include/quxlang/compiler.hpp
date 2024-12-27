@@ -148,6 +148,8 @@ namespace quxlang
         COMPILER_INDEX(exists)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
+        COMPILER_INDEX(functanoid_param_names)
+        COMPILER_INDEX(functanoid_sigtype)
         COMPILER_INDEX(function_positional_parameter_names)
         COMPILER_INDEX(function_builtin)
         COMPILER_INDEX(functum_exists_and_is_callable_with)

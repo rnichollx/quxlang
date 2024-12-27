@@ -29,6 +29,8 @@ namespace quxlang
     };
 
     std::optional< template_match_results > match_template(type_symbol const& template_type, type_symbol const& type);
+    std::optional< template_match_results > match_template2(type_symbol const& template_type, type_symbol const& type);
+    std::optional< template_match_results > match_template_noconv2(type_symbol const& template_type, type_symbol const& type);
 
     inline auto knot(context_reference) -> std::tuple<>
     {
@@ -324,5 +326,7 @@ namespace quxlang
     }
 
 } // namespace quxlang
+
+
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

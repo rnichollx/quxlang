@@ -60,11 +60,13 @@ namespace quxlang
 
         auto generate_arg_slots() -> typename CoroutineProvider::template co_type< void >
         {
-
+            QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
             instantiation_type const& inst = as< instantiation_type >(func);
 
-            type_symbol return_type = co_await prv.functanoid_return_type(inst);
+            auto sig = co_await prv.functanoid_sigtype(inst);
+
+            type_symbol return_type = sig.return_type.value_or(void_type()); // co_await prv.functanoid_return_type(inst);
 
             if (!typeis< void_type >(return_type))
             {
@@ -72,29 +74,23 @@ namespace quxlang
                 frame.entry_block().create_named_argument("RETURN", return_parameter_type, std::nullopt);
             }
 
-            std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< selection_reference >(inst.callee));
-            if (!decl_opt.has_value())
-            {
-                throw std::logic_error("Function declaration not found??");
-            }
-
-            ast2_function_declaration const& decl = decl_opt.value();
+            auto arg_names = co_await prv.functanoid_param_names(inst);
 
             std::size_t positional_index = 0;
-            for (auto const& param : decl.header.call_parameters)
+            for (auto const& param_name : arg_names.positional)
             {
-                if (param.api_name.has_value())
+                type_symbol const& param_type = inst.parameters.positional.at(positional_index);
+                frame.entry_block().create_positional_argument(param_type, param_name);
+            }
+            for (auto const& [api_name, param_type] : inst.parameters.named)
+            {
+                std::optional< std::string > arg_name;
+                if (arg_names.named.contains(api_name))
                 {
-                    type_symbol arg = inst.parameters.named.at(*param.api_name);
+                    arg_name = arg_names.named.at(api_name);
+                }
 
-                    frame.entry_block().create_named_argument(*param.api_name, arg, param.name);
-                }
-                else
-                {
-                    type_symbol arg = inst.parameters.positional.at(positional_index);
-                    positional_index++;
-                    frame.entry_block().create_positional_argument(arg, param.name);
-                }
+                frame.entry_block().create_named_argument(api_name, param_type, arg_name);
             }
 
             co_return;
@@ -114,8 +110,8 @@ namespace quxlang
         {
             frame.generate_entry_block();
             co_await generate_arg_slots();
-            co_await generate_body();
-            co_await generate_dtors();
+            // co_await generate_body();
+            co_await generate_ctor_delegates({});
             co_return frame.get_result();
         }
 
@@ -145,10 +141,72 @@ namespace quxlang
 
         auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
-            std::string expr_string = quxlang::to_string(expr);
+            QUXLANG_DEBUG_VALUE(quxlang::to_string(expr));
             co_await generate_expression(current_block, expr);
-
             co_return 0;
+        }
+
+        auto generate_ctor_delegates(std::vector<delegate> delegates) -> typename CoroutineProvider::template co_type< void >
+        {
+            std::size_t current_block = frame.entry_block_id();
+
+            instantiation_type const& inst = as< instantiation_type >(func);
+            auto const& sel = as< selection_reference >(inst.callee);
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis<submember>(functum), "Expected constructor to be submember");
+
+            cls = as<submember>(functum).of;
+
+            // This function is for default ctors, it should just default construct all member variables.
+
+            auto const & fields = co_await prv.class_field_list(cls);
+
+            vmir2::invocation_args fields_args;
+
+            for (class_field const & fld : fields)
+            {
+                auto fslot = frame.slots.create_temporary(fld.type);
+                fields_args.named[fld.name] = fslot;
+            }
+
+            auto thisidx = frame.lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            frame.block(current_block).emit(vmir2::struct_delegate_new{.on_value = thisidx_value, .fields = fields_args});
+
+            std::set<std::string> found_delegate_names;
+            for (delegate const & dlg : delegates)
+            {
+                found_delegate_names.insert(dlg.name);
+            }
+
+
+            // TODO: Drop temporaries between loop iterations
+            for (class_field const & fld : fields)
+            {
+                if (!found_delegate_names.contains(fld.name))
+                {
+                    auto ctor = submember{.of = fld.type, .name = "CONSTRUCTOR"};
+                    vmir2::invocation_args args;
+                    args.named["THIS"] = fields_args.named.at(fld.name);
+
+                    co_vmir_expression_emitter< CoroutineProvider > emitter(prv, func, frame.block(current_block));
+                    co_await emitter.gen_call_functum(ctor, args);
+                }
+            }
+
+            for (delegate const & dlg: delegates)
+            {
+                throw rpnx::unimplemented();
+            }
+
         }
 
         auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> typename CoroutineProvider::template co_type< void >
@@ -198,8 +256,10 @@ namespace quxlang
 
         auto generate_statement_ovl(block_index_t& current_block, function_expression_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            std::string expr_str = quxlang::to_string(st.expr);
-            assert(!frame.has_terminator(current_block));
+            QUXLANG_DEBUG_VALUE(quxlang::to_string(st.expr));
+
+            QUXLANG_COMPILER_BUG_IF(frame.has_terminator(current_block), "Expected no terminator in current block");
+
             block_index_t expr_block = frame.generate_subblock(current_block);
             block_index_t after_block = frame.generate_subblock(current_block);
 
@@ -374,7 +434,7 @@ namespace quxlang
         {
             // Loop through all local slots and check if they have non-trivial dtors, then add
             // dtor references to non_trivial_dtors if they do.
-            for (auto const & slot : frame.slots.slots)
+            for (auto const& slot : frame.slots.slots)
             {
                 auto dtor = co_await prv.nontrivial_default_dtor(slot.type);
                 if (dtor.has_value())

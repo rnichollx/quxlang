@@ -89,6 +89,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(paratype, positional, named)
     };
 
+    struct param_names
+    {
+        std::vector<std::optional<std::string>> positional;
+        std::map<std::string, std::string > named;
+
+        RPNX_MEMBER_METADATA(param_names, positional, named);
+    };
+
     struct function_arg
     {
         std::string name;
@@ -127,6 +135,14 @@ namespace quxlang
         std::optional<type_symbol> return_type;
 
         RPNX_MEMBER_METADATA(signature, ol, return_type);
+    };
+
+    struct sigtype
+    {
+        calltype params;
+        std::optional<type_symbol> return_type;
+
+        RPNX_MEMBER_METADATA(sigtype, params, return_type);
     };
 
 
