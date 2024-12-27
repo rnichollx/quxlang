@@ -46,7 +46,9 @@ namespace quxlang
         struct cmp_eq;
         struct cmp_ne;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor >;
+        struct struct_delegate_new;
+
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -63,6 +65,21 @@ namespace quxlang
             }
 
             RPNX_MEMBER_METADATA(invocation_args, named, positional);
+        };
+
+        // The struct_delegate_new (SDN) instruction is used in constructor and destructor delegation to member fields.
+        // It doesn't do anything per se but affects how the stack unwinds and value lifetimes are managed.
+        // Given a value like "x" of struct type, the delegates can be e.g. x.y, x.z, x.w, etc.
+        // Thus the delegate instruction allows assignment of struct fields to slots, so that those fields are
+        // considered part of the unwind process. The delegate instruction is the only way to begin the lifetime of
+        // a struct type. I.e. it transitions a struct into the "partially constructed" state.
+        // The slot type of the delegates should be of the same type as the fields, omitting NEW&.
+        struct struct_delegate_new
+        {
+            storage_index on_value;
+            invocation_args fields;
+
+            RPNX_MEMBER_METADATA(struct_delegate_new, on_value, fields);
         };
 
         // Defers a non-trivial destructor call.
@@ -301,8 +318,10 @@ namespace quxlang
         {
             bool alive = false;
             std::optional< dtor_spec > nontrivial_dtor;
+            std::optional<invocation_args> delegates;
+            std::optional<storage_index> delegate_of;
 
-            RPNX_MEMBER_METADATA(slot_state, alive, nontrivial_dtor);
+            RPNX_MEMBER_METADATA(slot_state, alive, nontrivial_dtor, delegates, delegate_of);
         };
 
         struct slot_states
@@ -379,6 +398,7 @@ namespace quxlang
             void emit(vmir2::load_from_ref lfp);
             void emit(vmir2::store_to_ref lfp);
             void emit(vmir2::defer_nontrivial_dtor dntd);
+            void emit(vmir2::struct_delegate_new sdn);
 
             void emit(vmir2::int_add add);
             void emit(vmir2::int_sub sub);

@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <stdexcept>
 #include <utility>
 
 namespace rpnx

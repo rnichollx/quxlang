@@ -112,6 +112,7 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::cmp_lt const& clt);
     void exec_instr_val(vmir2::cmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
+    void exec_instr_val(vmir2::struct_delegate_new const& sdn);
 
     std::vector< std::byte > use_data(std::size_t slot);
 
@@ -989,6 +990,10 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(quxla
     }
 
     slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::struct_delegate_new const& sdn)
+{
+    throw rpnx::unimplemented();
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {

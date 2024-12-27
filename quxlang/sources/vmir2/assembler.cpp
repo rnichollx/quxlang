@@ -355,5 +355,9 @@ namespace quxlang::vmir2
     {
         return "DNTD " + quxlang::to_string(dntd.func) + ", %" + std::to_string(dntd.on_value) + ", %" + this->to_string_internal(dntd.args);
     }
+    std::string assembler::to_string_internal(vmir2::struct_delegate_new sdn)
+    {
+        return "SDN %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
+    }
 
 } // namespace quxlang::vmir2

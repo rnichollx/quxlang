@@ -378,3 +378,11 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         throw invalid_instruction_transition_error("Attempt to defer non-trivial destructor of a dead slot");
     }
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, struct_delegate_new const& dlg)
+{
+    state.at(dlg.on_value).delegates = dlg.fields;
+    for (auto const & [name, index] : dlg.fields.named)
+    {
+        state[index].delegate_of = dlg.on_value;
+    }
+}

@@ -1,5 +1,7 @@
 // Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
+#include "rpnx/value.hpp"
+
 #include <quxlang/vmir2/vmir2.hpp>
 
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_temporary(type_symbol type)
@@ -392,6 +394,10 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::def
 {
     block.instructions.push_back(dntd);
     current_slot_states[dntd.on_value].nontrivial_dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
+}
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_delegate_new sdn)
+{
+    throw rpnx::unimplemented();
 }
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)

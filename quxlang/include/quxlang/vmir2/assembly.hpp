@@ -36,6 +36,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::store_to_ref inst);
         std::string to_string_internal(vmir2::dereference_pointer inst);
         std::string to_string_internal(vmir2::defer_nontrivial_dtor dntd);
+        std::string to_string_internal(vmir2::struct_delegate_new sdn);
 
         std::string to_string_internal(vmir2::int_add add);
         std::string to_string_internal(vmir2::int_sub sub);
