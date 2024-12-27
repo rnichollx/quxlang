@@ -10,6 +10,8 @@
 #include "rpnx/resolver_utilities.hpp"
 #include <string>
 
+#include "quxlang/exception.hpp"
+
 #include "rpnx/value.hpp"
 // clang-format off
 
@@ -133,6 +135,35 @@ rpnx::general_coroutine< quxlang::compiler, retT> classNamespace :: className ::
 #define QUX_CO_GETDEP(retname, depname, args) auto retname = co_await *c->lk_ ## depname args;
 
 #define QUX_TIECMP(c, x) auto tie() const { return  std::tie x ; } auto tie() const { return std::tie x ; } std::strong_ordering operator <=>(c const & other) { if (tie() < other.tie()) return std::strong_ordering::less; else if (other.tie() < tie()) return std::strong_ordering::greater; return std::strong_ordering::equal; }
+
+
+#define QUXLANG_UNREACHABLE() __builtin_unreachable()
+
+
+
+#ifdef QUXLANG_ASSUME_BUGS_UNREACHABLE
+#define QUXLANG_COMPILER_BUG(x) QUXLANG_UNREACHABLE();
+#else
+#define QUXLANG_COMPILER_BUG(x) throw quxlang::compiler_bug(x);
+#endif
+
+
+#ifndef _NDEBUG
+#define QUXLANG_COMPILER_BUG_IF(x, y) if (x) QUXLANG_COMPILER_BUG(y)
+#else
+#define QUXLANG_COMPILER_BUG_IF(x, y)
+#endif
+
+#ifndef _NDEBUG
+#define QUXLANG_DEBUG_VALUE(x) auto quxlang_dbg_val_ ## __LINE__ = x;
+#define QUXLANG_DEBUG_NAMED_VALUE(name, x) auto name = x;
+#else
+#define QUXLANG_DEBUG_VALUE(x)
+#define QUXLANG_DEBUG_NAMED_VALUE(name, x)
+#endif
+
+
+
 
 // clang-format on
 
