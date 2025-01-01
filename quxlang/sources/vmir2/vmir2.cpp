@@ -397,7 +397,24 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::def
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_delegate_new sdn)
 {
-    throw rpnx::unimplemented();
+    assert(current_slot_states[sdn.on_value].alive == false);
+
+
+    current_slot_states[sdn.on_value].delegates = invocation_args{};
+
+    for (auto const & arg : sdn.fields.positional)
+    {
+        assert(current_slot_states[arg].alive == false);
+        current_slot_states[arg].delegate_of = sdn.on_value;
+
+        current_slot_states[sdn.on_value].delegates.value().positional.push_back(arg);
+    }
+
+    for (auto const & [name, arg] : sdn.fields.named)
+    {
+        current_slot_states[arg].delegate_of = sdn.on_value;
+        current_slot_states[sdn.on_value].delegates.value().named[name] = arg;
+    }
 }
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
