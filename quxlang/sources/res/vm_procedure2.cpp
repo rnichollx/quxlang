@@ -18,9 +18,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 
     instantiation_type const& inst = as< instantiation_type >(input);
 
-    selection_reference sel = inst.callee.get_as< selection_reference >();
+    temploid_reference sel = inst.callee.get_as< temploid_reference >();
 
-    if (sel.overload.builtin)
+    if (sel.which.builtin)
     {
         co_return co_await QUX_CO_DEP(builtin_vm_procedure2, (input));
     }

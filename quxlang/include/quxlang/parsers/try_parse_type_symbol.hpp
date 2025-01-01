@@ -239,9 +239,9 @@ namespace quxlang::parsers
             remaining = std::string(pos, end);
 
             instantiation_type param_set;
-            param_set.callee = selection_reference{};
+            param_set.callee = temploid_reference{};
 
-            selection_reference& sel = as< selection_reference >(param_set.callee);
+            temploid_reference& sel = as< temploid_reference >(param_set.callee);
             sel.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
@@ -255,7 +255,7 @@ namespace quxlang::parsers
 
             if (skip_keyword_if_is(pos, end, "BUILTIN"))
             {
-                sel.overload.builtin = true;
+                sel.which.builtin = true;
 
                 skip_whitespace(pos, end);
 
@@ -274,7 +274,7 @@ namespace quxlang::parsers
             {
                 std::string param_name = parse_argument_name(pos, end);
                 auto seltype = parse_type_symbol(pos, end);
-                sel.overload.call_parameters.named[param_name] = seltype;
+                sel.which.interface.named[param_name] = seltype;
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
@@ -288,7 +288,7 @@ namespace quxlang::parsers
             else
             {
                 auto seltype = parse_type_symbol(pos, end);
-                sel.overload.call_parameters.positional.push_back(seltype);
+                sel.which.interface.positional.push_back(seltype);
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
@@ -315,7 +315,7 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, "#["))
         {
             remaining = std::string(pos, end);
-            selection_reference param_set;
+            temploid_reference param_set;
             param_set.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
@@ -327,7 +327,7 @@ namespace quxlang::parsers
 
             if (skip_keyword_if_is(pos, end, "BUILTIN"))
             {
-                param_set.overload.builtin = true;
+                param_set.which.builtin = true;
 
                 skip_whitespace(pos, end);
 
@@ -345,11 +345,11 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                param_set.overload.call_parameters.named[param_name] = parse_type_symbol(pos, end);
+                param_set.which.interface.named[param_name] = parse_type_symbol(pos, end);
             }
             else
             {
-                param_set.overload.call_parameters.positional.push_back(parse_type_symbol(pos, end));
+                param_set.which.interface.positional.push_back(parse_type_symbol(pos, end));
             }
 
             skip_whitespace_and_comments(pos, end);

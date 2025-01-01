@@ -9,7 +9,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_builtin)
 
     for (auto const& info : builtin_overloads)
     {
-        if (info.overload == input_val.overload)
+        if (info.overload == input_val.which)
         {
             QUX_CO_ANSWER(info);
         }

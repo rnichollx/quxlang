@@ -150,20 +150,20 @@ namespace quxlang
         {
             return "RT" + mangle_internal(as< tvalue_reference >(qt).target);
         }
-        else if (typeis< selection_reference >(qt))
+        else if (typeis< temploid_reference >(qt))
         {
 
             std::string str;
 
-            str += mangle_internal(as< selection_reference >(qt).templexoid);
+            str += mangle_internal(as< temploid_reference >(qt).templexoid);
             str += "S";
 
-            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.positional)
+            for (auto const& p : as< temploid_reference >(qt).which.interface.positional)
             {
                 str += "AP";
                 str += mangle_internal(p);
             }
-            for (auto const& p : as< selection_reference >(qt).overload.call_parameters.named)
+            for (auto const& p : as< temploid_reference >(qt).which.interface.named)
             {
                 str += "AN";
                 str += p.first;

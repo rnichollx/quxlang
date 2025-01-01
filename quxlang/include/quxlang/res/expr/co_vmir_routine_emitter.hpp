@@ -151,7 +151,7 @@ namespace quxlang
             std::size_t current_block = frame.entry_block_id();
 
             instantiation_type const& inst = as< instantiation_type >(func);
-            auto const& sel = as< selection_reference >(inst.callee);
+            auto const& sel = as< temploid_reference >(inst.callee);
 
             auto functum = sel.templexoid;
 

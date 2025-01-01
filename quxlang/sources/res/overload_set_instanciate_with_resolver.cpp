@@ -18,16 +18,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
     auto val = this;
 
-     std::string to = to_string(os.call_parameters);
+     std::string to = to_string(os.interface);
      std::string from = to_string(args);
 
 
-    if (os.call_parameters.positional.size() != args.positional.size())
+    if (os.interface.positional.size() != args.positional.size())
     {
         co_return std::nullopt;
     }
 
-    if (os.call_parameters.named.size() != args.named.size())
+    if (os.interface.named.size() != args.named.size())
     {
         co_return std::nullopt;
     }
@@ -37,8 +37,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
     for (auto const & [name, type] : args.named)
     {
-        auto it = os.call_parameters.named.find(name);
-        if (it == os.call_parameters.named.end())
+        auto it = os.interface.named.find(name);
+        if (it == os.interface.named.end())
         {
             co_return std::nullopt;
         }
@@ -68,10 +68,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    for (int i = 0; i < os.call_parameters.positional.size(); i++)
+    for (int i = 0; i < os.interface.positional.size(); i++)
     {
         auto arg_type = args.positional.at(i);
-        auto param_type = os.call_parameters.positional.at(i);
+        auto param_type = os.interface.positional.at(i);
         if (is_template(param_type))
         {
 
@@ -97,9 +97,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    calltype result;
+    intertype result;
 
-    std::optional< calltype > result_opt;
+    std::optional< intertype > result_opt;
 
     for (auto & dp : convertibles_dp)
     {
@@ -112,8 +112,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
 
     for (auto const & [name, type] : args.named)
     {
-        auto it = os.call_parameters.named.find(name);
-        if (it == os.call_parameters.named.end())
+        auto it = os.interface.named.find(name);
+        if (it == os.interface.named.end())
         {
             co_return std::nullopt;
         }
@@ -146,7 +146,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
     for (std::size_t i = 0; i < args.positional.size(); i++)
     {
         auto arg_type = args.positional[i];
-        auto param_type = os.call_parameters.positional[i];
+        auto param_type = os.interface.positional[i];
 
         if (is_template(param_type))
         {

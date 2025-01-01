@@ -33,7 +33,7 @@ namespace quxlang
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(avalue_reference const&) const;
         std::string operator()(template_reference const&) const;
-        std::string operator()(selection_reference const&) const;
+        std::string operator()(temploid_reference const&) const;
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
@@ -116,7 +116,7 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(selection_reference const& ref) const
+        bool operator()(temploid_reference const& ref) const
         {
             if (is_template(ref.templexoid))
                 return true;
@@ -234,9 +234,9 @@ namespace quxlang
         {
             return as< instantiation_type >(input).callee;
         }
-        else if (input.template type_is< selection_reference >())
+        else if (input.template type_is< temploid_reference >())
         {
-            return as< selection_reference >(input).templexoid;
+            return as< temploid_reference >(input).templexoid;
         }
         else if (input.template type_is< submember >())
         {
@@ -338,19 +338,19 @@ namespace quxlang
         // only selection #[ ]
         // only instanciation #( )
         // both selection & instantiation #{ }
-        if (typeis< selection_reference >(ref.callee))
+        if (typeis< temploid_reference >(ref.callee))
         {
-            selection_reference const& sel = as< selection_reference >(ref.callee);
+            temploid_reference const& sel = as< temploid_reference >(ref.callee);
             std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
 
             output += " #{";
 
-            if (sel.overload.builtin)
+            if (sel.which.builtin)
             {
                 output += "BUILTIN; ";
             }
             bool first = true;
-            for (auto const& [name, type] : sel.overload.call_parameters.named)
+            for (auto const& [name, type] : sel.which.interface.named)
             {
                 if (first)
                     first = false;
@@ -362,14 +362,14 @@ namespace quxlang
                     output += ": " + to_string(ref.parameters.named.at(name));
                 }
             }
-            for (size_t i = 0; i < sel.overload.call_parameters.positional.size(); i++)
+            for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
             {
                 if (first)
                     first = false;
                 else
                     output += ", ";
-                output += to_string(sel.overload.call_parameters.positional.at(i));
-                if (ref.parameters.positional.at(i) != sel.overload.call_parameters.positional.at(i))
+                output += to_string(sel.which.interface.positional.at(i));
+                if (ref.parameters.positional.at(i) != sel.which.interface.positional.at(i))
                 {
                     output += ": " + to_string(ref.parameters.positional.at(i));
                 }
@@ -487,15 +487,15 @@ namespace quxlang
         return "DESTROY& " + to_string(ref.target) + "";
     }
 
-    std::string qualified_symbol_stringifier::operator()(selection_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.templexoid) + "#[";
         bool first = true;
-        if (ref.overload.builtin)
+        if (ref.which.builtin)
         {
             output += "BUILTIN; ";
         }
-        for (auto const& arg : ref.overload.call_parameters.named)
+        for (auto const& arg : ref.which.interface.named)
         {
             if (first)
                 first = false;
@@ -503,7 +503,7 @@ namespace quxlang
                 output += ", ";
             output += "@" + arg.first + " " + to_string(arg.second);
         }
-        for (auto const& arg : ref.overload.call_parameters.positional)
+        for (auto const& arg : ref.which.interface.positional)
         {
             if (first)
                 first = false;
@@ -945,7 +945,7 @@ namespace quxlang
     {
         return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
     }
-    std::string to_string(calltype const& ref)
+    std::string to_string(intertype const& ref)
     {
         std::string output;
         bool first = true;
@@ -974,9 +974,9 @@ namespace quxlang
     {
         auto callee = ref.callee;
 
-        assert(callee.type_is< selection_reference >());
+        assert(callee.type_is< temploid_reference >());
 
-        return as< selection_reference >(callee).templexoid;
+        return as< temploid_reference >(callee).templexoid;
     }
 
     std::optional< type_symbol > func_class(type_symbol const& func)
@@ -1099,7 +1099,7 @@ namespace quxlang
             {
                 return std::move(results);
             }
-            bool check(calltype template_ct, calltype match_ct, bool conv);
+            bool check(intertype template_ct, intertype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
 
             bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
@@ -1176,14 +1176,14 @@ namespace quxlang
                 throw compiler_bug("should be unreachable");
             }
 
-            bool check_impl(selection_reference const& tmpl, selection_reference const& val, bool conv)
+            bool check_impl(temploid_reference const& tmpl, temploid_reference const& val, bool conv)
             {
                 if (!check(tmpl.templexoid, val.templexoid, false))
                 {
                     return false;
                 }
 
-                if (!check(tmpl.overload.call_parameters, val.overload.call_parameters, false))
+                if (!check(tmpl.which.interface, val.which.interface, false))
                 {
                     return false;
                 }
@@ -1247,7 +1247,7 @@ namespace quxlang
                 return check(tmpl.target, val.target, false);
             }
         };
-        bool template_matcher::check(calltype template_ct, calltype match_ct, bool conv)
+        bool template_matcher::check(intertype template_ct, intertype match_ct, bool conv)
         {
             if (template_ct.named.size() != match_ct.named.size())
             {

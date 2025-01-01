@@ -24,7 +24,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
 
         functum & destination_functum = as< functum >(destination);
 
-        temploid_formal_paratype ol;
+        temploid_formal_intertype ol;
 
         // TODO: Consider exporting the extraction of call_type
         //  from call_paramters to a function
@@ -34,7 +34,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
             {
                 rpnx::unimplemented();
             }
-            ol.call_parameters.positional.push_back(param.type);
+            ol.interface.positional.push_back(param.type);
         }
 
        // auto it = destination_functum.functions.find(ol);

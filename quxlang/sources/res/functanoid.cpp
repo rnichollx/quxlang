@@ -10,9 +10,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 
     type_symbol selection = input.callee;
 
-    assert(typeis< selection_reference >(selection));
+    assert(typeis< temploid_reference >(selection));
 
-    if (!typeis< selection_reference >(selection))
+    if (!typeis< temploid_reference >(selection))
     {
         auto selection_opt = co_await *c->lk_functum_select_function(input);
         if (!selection_opt.has_value())
@@ -28,12 +28,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 
     output_type result;
 
-    selection_reference selection_sl = as< selection_reference >(selection);
+    temploid_reference selection_sl = as< temploid_reference >(selection);
 
     // TODO: support named parameters?
     for (std::size_t i = 0; i < functum_instanciation_parameters.positional.size(); i++)
     {
-        auto template_arg_contextual = selection_sl.overload.call_parameters.positional.at(i);
+        auto template_arg_contextual = selection_sl.which.interface.positional.at(i);
         // TODO: should the selection reference be decontextualized early?
 
         auto template_arg = co_await *c->lk_canonical_symbol_from_contextual_symbol(template_arg_contextual, func_name);
@@ -120,14 +120,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_param_names)
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared
     // between builtin and non-builtin functions.
-    auto is_builtin = as<selection_reference> (input.callee).overload.builtin;
+    auto is_builtin = as<temploid_reference> (input.callee).which.builtin;
 
     if (is_builtin)
     {
         co_return result;
     }
 
-    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< selection_reference >(input.callee));
+    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< temploid_reference >(input.callee));
 
     QUXLANG_COMPILER_BUG_IF(!decl_opt.has_value(), "Function declaration not found");
 

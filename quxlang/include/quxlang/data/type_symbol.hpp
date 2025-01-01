@@ -38,7 +38,7 @@ namespace quxlang
         RPNX_EMPTY_METADATA(thistype);
     };
 
-    struct calltype
+    struct intertype
     {
         std::map< std::string, type_symbol > named;
         std::vector< type_symbol > positional;
@@ -48,7 +48,7 @@ namespace quxlang
             return positional.size() + named.size();
         }
 
-        RPNX_MEMBER_METADATA(calltype, named, positional);
+        RPNX_MEMBER_METADATA(intertype, named, positional);
     };
 
     struct declared_parameter
@@ -108,13 +108,13 @@ namespace quxlang
 
     // TODO: Rename this to temploid_header or something,
     //  it is called "function header" but is also used for templates...
-    struct temploid_formal_paratype
+    struct temploid_formal_intertype
     {
         bool builtin = false;
-        calltype call_parameters;
+        intertype interface;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(temploid_formal_paratype, builtin, call_parameters, priority);
+        RPNX_MEMBER_METADATA(temploid_formal_intertype, builtin, interface, priority);
     };
 
 
@@ -139,7 +139,7 @@ namespace quxlang
 
     struct sigtype
     {
-        calltype params;
+        intertype params;
         std::optional<type_symbol> return_type;
 
         RPNX_MEMBER_METADATA(sigtype, params, return_type);
@@ -225,15 +225,15 @@ namespace quxlang
     {
         type_symbol callee;
 
-        calltype parameters;
+        intertype parameters;
         RPNX_MEMBER_METADATA(instantiation_type, callee, parameters);
     };
 
-    struct selection_reference
+    struct temploid_reference
     {
         type_symbol templexoid;
-        temploid_formal_paratype overload;
-        RPNX_MEMBER_METADATA(selection_reference, templexoid, overload);
+        temploid_formal_intertype which;
+        RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
     };
 
 

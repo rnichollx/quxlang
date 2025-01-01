@@ -8,7 +8,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(templex_select_template, instantiation_type, std::optional<selection_reference>);
+    QUX_CO_RESOLVER(templex_select_template, instantiation_type, std::optional<temploid_reference>);
 }
 
 #endif // RPNX_QUXLANG_TEMPLEX_SELECT_TEMPLATE_HEADER

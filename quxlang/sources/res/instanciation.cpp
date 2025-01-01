@@ -10,16 +10,16 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 {
-    if (!typeis< selection_reference >(input_val.callee))
+    if (!typeis< temploid_reference >(input_val.callee))
     {
         throw std::logic_error("Internal Compiler Error(this is a compiler bug): Cannot instanciate a non-function with 'function_instanciation' resolver");
     }
 
-    selection_reference const& sel_ref = as< selection_reference >(input_val.callee);
+    temploid_reference const& sel_ref = as< temploid_reference >(input_val.callee);
 
 
     // Get the overload?
-    auto call_set = co_await QUX_CO_DEP(overload_set_instanciate_with, (overload_set_instanciate_with_q{.overload = sel_ref.overload, .call = input_val.parameters}));
+    auto call_set = co_await QUX_CO_DEP(overload_set_instanciate_with, (overload_set_instanciate_with_q{.overload = sel_ref.which, .call = input_val.parameters}));
 
     if (!call_set)
     {

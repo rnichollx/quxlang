@@ -10,7 +10,7 @@ namespace quxlang
     // It assumes that we have already checked that the function is builtin and are just
     // checking which implementation to use.
     template < typename Inst >
-    bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, calltype const& call, vmir2::invocation_args const& args, bool flip = false)
+    bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, intertype const& call, vmir2::invocation_args const& args, bool flip = false)
     {
         if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
         {
@@ -183,7 +183,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
     auto instanciation = func.cast_ptr< instantiation_type >();
     assert(instanciation);
 
-    auto selection = instanciation->callee.cast_ptr< selection_reference >();
+    auto selection = instanciation->callee.cast_ptr< temploid_reference >();
     assert(selection);
 
     auto member = selection->templexoid.cast_ptr< submember >();

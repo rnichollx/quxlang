@@ -163,7 +163,7 @@ namespace quxlang
 
         rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instantiation_type const& callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
-        rpnx::general_coroutine< compiler, vm_callargs > gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, calltype const& to_types);
+        rpnx::general_coroutine< compiler, vm_callargs > gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, intertype const& to_types);
         rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, type_symbol to);
         rpnx::general_coroutine< compiler, vm_value > gen_ref_to_value(context_frame& ctx, vm_value val);
         rpnx::general_coroutine< compiler, vm_value > gen_value_to_ref(context_frame& ctx, vm_value from, type_symbol to_type);

@@ -14,7 +14,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
     auto user_defined_dtor = co_await QUX_CO_DEP(list_user_functum_overloads, (dtor_symbol));
 
-    auto dtor_call_type = calltype{.named{{"THIS", dvalue_slot{input}}}};
+    auto dtor_call_type = intertype{.named{{"THIS", dvalue_slot{input}}}};
 
     // Look through destructors to find default destructor
 
@@ -26,7 +26,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
         if (candidate)
         {
-            auto dtor_selection = selection_reference{.templexoid = input, .overload = ol};
+            auto dtor_selection = temploid_reference{.templexoid = input, .which = ol};
             auto dtor_instanciation = instantiation_type{.callee = dtor_selection, .parameters = *candidate};
 
             co_return dtor_instanciation;
@@ -50,7 +50,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
             if (member_has_nontrivial_dtor)
             {
                 // We need a built-in destructor
-                auto builtin_dtor_selection = selection_reference{.templexoid = input, .overload = {.builtin = true, .call_parameters = dtor_call_type}};
+                auto builtin_dtor_selection = temploid_reference{.templexoid = input, .which = {.builtin = true, .interface = dtor_call_type}};
 
                 auto builtin_dtor_instanciation = instantiation_type{.callee = builtin_dtor_selection, .parameters = dtor_call_type, };
 

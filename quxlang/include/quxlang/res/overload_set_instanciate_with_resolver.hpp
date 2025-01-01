@@ -13,13 +13,13 @@ namespace quxlang
 {
     struct overload_set_instanciate_with_q
     {
-        temploid_formal_paratype overload;
-        calltype call;
+        temploid_formal_intertype overload;
+        intertype call;
 
         RPNX_MEMBER_METADATA(overload_set_instanciate_with_q, overload, call);
     };
 
-    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< calltype >);
+    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< intertype >);
 
 } // namespace quxlang
 

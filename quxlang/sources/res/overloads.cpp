@@ -112,25 +112,25 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
     std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (input));
     std::vector<paratype> paratypes = co_await QUX_CO_DEP(list_user_functum_formal_paratypes, (input));
 
-    std::vector< temploid_formal_paratype > results;
+    std::vector< temploid_formal_intertype > results;
 
     for (std::size_t i = 0; i < user_defined.size(); ++i)
     {
         paratype p = paratypes.at(i);
         ast2_function_declaration const& decl = user_defined.at(i);
 
-        temploid_formal_paratype ol;
+        temploid_formal_intertype ol;
         ol.builtin = false;
         ol.priority = decl.header.priority;
 
         for (auto const& [name, value] : p.named)
         {
-            ol.call_parameters.named[name] = value.type;
+            ol.interface.named[name] = value.type;
         }
 
         for (std::size_t i = 0; i < p.positional.size(); ++i)
         {
-            ol.call_parameters.positional.push_back(p.positional[i].type);
+            ol.interface.positional.push_back(p.positional[i].type);
         }
 
         results.push_back(ol);
@@ -146,7 +146,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
 
 
     std::string name = to_string(input);
-    std::set< temploid_formal_paratype > all_overloads;
+    std::set< temploid_formal_intertype > all_overloads;
     for (auto const& o : builtins)
     {
         assert(o.overload.builtin == true);
@@ -166,7 +166,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 {
     // TODO: Rewrite this to work.
 
-    selection_reference const& func_addr = input;
+    temploid_reference const& func_addr = input;
 
     std::string dbg_func_name = to_string(input);
 
@@ -185,7 +185,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 
     for (std::size_t i = 0; i < overloads.size(); i++)
     {
-        if (overloads.at(i) == input.overload)
+        if (overloads.at(i) == input.which)
         {
             co_return declarations.at(i);
         }

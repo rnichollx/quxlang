@@ -104,7 +104,7 @@ namespace quxlang
         {
             std::cout << "gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
-            calltype calltype;
+            intertype calltype;
             for (auto& arg : args.positional)
             {
                 auto arg_type = this->current_type(arg);
@@ -630,9 +630,9 @@ namespace quxlang
 
         auto gen_invoke_builtin(instantiation_type what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
-            auto callee = as< selection_reference >(what.callee);
+            auto callee = as< temploid_reference >(what.callee);
 
-            assert(callee.overload.builtin);
+            assert(callee.which.builtin);
 
             auto functum = callee.templexoid;
 
@@ -658,7 +658,7 @@ namespace quxlang
 
         auto gen_invoke(instantiation_type what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            if (true && typeis< selection_reference >(what.callee) && as< selection_reference >(what.callee).overload.builtin)
+            if (true && typeis< temploid_reference >(what.callee) && as< temploid_reference >(what.callee).which.builtin)
             {
                 co_return co_await gen_invoke_builtin(what, args);
             }
@@ -743,8 +743,8 @@ namespace quxlang
 
             type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + input.operator_str};
             type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
-            calltype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
-            calltype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
+            intertype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
+            intertype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
             auto lhs_exists_and_callable_with = co_await prv.instanciation({.callee = lhs_function, .parameters = lhs_param_info});
 

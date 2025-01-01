@@ -4,7 +4,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 {
-    if (typeis< selection_reference >(input.callee))
+    if (typeis< temploid_reference >(input.callee))
     {
         // TODO: We should identify a real match and error if this isn't a valid selection.
         // E.g. if there are type aliases, we should return the "real" type here instead of the type alias.
@@ -14,7 +14,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         // Would result in the following selection:
         // calle=foo#[::myint] params=(...) -> foo#[I32]
 
-        QUX_CO_ANSWER(as< selection_reference >(input.callee));
+        QUX_CO_ANSWER(as< temploid_reference >(input.callee));
     }
 
     auto sym_kind = co_await QUX_CO_DEP(symbol_type, (input.callee));
@@ -23,7 +23,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     auto overloads = co_await QUX_CO_DEP(list_functum_overloads, (input.callee));
 
-    std::set< selection_reference > best_match;
+    std::set< temploid_reference > best_match;
     std::optional< std::int64_t > highest_priority;
 
     for (auto const& o : overloads)
@@ -37,11 +37,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
             {
                 highest_priority = priority;
                 best_match.clear();
-                best_match.insert({ .templexoid = input.callee,.overload = o});
+                best_match.insert({ .templexoid = input.callee,.which = o});
             }
             else if (priority == *highest_priority)
             {
-                best_match.insert({.templexoid = input.callee, .overload = o});
+                best_match.insert({.templexoid = input.callee, .which = o});
             }
         }
     }
