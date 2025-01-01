@@ -11,7 +11,7 @@ namespace quxlang
 
     struct primitive_function_info
     {
-        function_overload overload;
+        temploid_formal_paratype overload;
 
         // TODO: Convert this to optional instead of using void_type?
         type_symbol return_type;

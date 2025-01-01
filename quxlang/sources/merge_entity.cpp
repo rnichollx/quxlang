@@ -24,7 +24,7 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
 
         functum & destination_functum = as< functum >(destination);
 
-        function_overload ol;
+        temploid_formal_paratype ol;
 
         // TODO: Consider exporting the extraction of call_type
         //  from call_paramters to a function

@@ -108,13 +108,13 @@ namespace quxlang
 
     // TODO: Rename this to temploid_header or something,
     //  it is called "function header" but is also used for templates...
-    struct function_overload
+    struct temploid_formal_paratype
     {
         bool builtin = false;
         calltype call_parameters;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(function_overload, builtin, call_parameters, priority);
+        RPNX_MEMBER_METADATA(temploid_formal_paratype, builtin, call_parameters, priority);
     };
 
 
@@ -232,7 +232,7 @@ namespace quxlang
     struct selection_reference
     {
         type_symbol templexoid;
-        function_overload overload;
+        temploid_formal_paratype overload;
         RPNX_MEMBER_METADATA(selection_reference, templexoid, overload);
     };
 

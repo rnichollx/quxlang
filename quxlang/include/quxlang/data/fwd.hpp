@@ -27,7 +27,7 @@ namespace quxlang
     struct selection_reference;
 
     struct function_arg;
-    struct function_overload;
+    struct temploid_formal_paratype;
     struct void_type;
     struct numeric_literal_reference;
     struct string_literal_reference;

@@ -13,7 +13,7 @@ namespace quxlang
 {
     struct overload_set_instanciate_with_q
     {
-        function_overload overload;
+        temploid_formal_paratype overload;
         calltype call;
 
         RPNX_MEMBER_METADATA(overload_set_instanciate_with_q, overload, call);
