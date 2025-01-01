@@ -213,14 +213,14 @@ namespace quxlang
         }
 
       public:
-        vm_procedure get_vm_procedure_from_canonical_functanoid(instantiation_type func_addr)
+        vm_procedure get_vm_procedure_from_canonical_functanoid(initialization_reference func_addr)
         {
             auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
             m_solver.solve(this, node);
             return node->get();
         }
 
-        vmir2::functanoid_routine2 get_vm_procedure2(instantiation_type func_addr)
+        vmir2::functanoid_routine2 get_vm_procedure2(initialization_reference func_addr)
         {
             auto node = lk_vm_procedure2(func_addr);
             m_solver.solve(this, node);

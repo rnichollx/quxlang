@@ -62,7 +62,7 @@ namespace quxlang
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
-            instantiation_type const& inst = as< instantiation_type >(func);
+            initialization_reference const& inst = as< initialization_reference >(func);
 
             auto sig = co_await prv.functanoid_sigtype(inst);
 
@@ -150,8 +150,8 @@ namespace quxlang
         {
             std::size_t current_block = frame.entry_block_id();
 
-            instantiation_type const& inst = as< instantiation_type >(func);
-            auto const& sel = as< temploid_reference >(inst.callee);
+            initialization_reference const& inst = as< initialization_reference >(func);
+            auto const& sel = as< temploid_reference >(inst.initializee);
 
             auto functum = sel.templexoid;
 
@@ -379,7 +379,7 @@ namespace quxlang
             }
             else
             {
-                auto return_type = co_await prv.functanoid_return_type(as< instantiation_type >(func));
+                auto return_type = co_await prv.functanoid_return_type(as< initialization_reference >(func));
                 assert(typeis< void_type >(return_type));
                 frame.generate_return(current_block);
             }
@@ -449,7 +449,7 @@ namespace quxlang
 
         auto generate_body() -> typename CoroutineProvider::template co_type< void >
         {
-            auto inst = as< instantiation_type >(func);
+            auto inst = as< initialization_reference >(func);
 
             auto function_ref_opt = co_await this->prv.functum_select_function(inst);
             assert(function_ref_opt.has_value());

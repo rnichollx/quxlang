@@ -8,7 +8,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(functum_select_function, instantiation_type, std::optional< temploid_reference >);
+    QUX_CO_RESOLVER(functum_select_function, initialization_reference, std::optional< temploid_reference >);
 }
 
 #endif // RPNX_QUXLANG_FUNCTUM_SELECT_FUNCTION_HEADER

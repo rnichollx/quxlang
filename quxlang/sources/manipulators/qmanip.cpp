@@ -14,7 +14,7 @@ namespace quxlang
     {
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
-        std::string operator()(instantiation_type const& ref) const;
+        std::string operator()(initialization_reference const& ref) const;
         std::string operator()(mvalue_reference const& ref) const;
         std::string operator()(tvalue_reference const& ref) const;
         std::string operator()(cvalue_reference const& ref) const;
@@ -103,9 +103,9 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(instantiation_type const& ref) const
+        bool operator()(initialization_reference const& ref) const
         {
-            if (is_template(ref.callee))
+            if (is_template(ref.initializee))
                 return true;
             for (auto& p : ref.parameters.positional)
             {
@@ -230,9 +230,9 @@ namespace quxlang
         {
             return as< pointer_type >(input).target;
         }
-        else if (input.template type_is< instantiation_type >())
+        else if (input.template type_is< initialization_reference >())
         {
-            return as< instantiation_type >(input).callee;
+            return as< initialization_reference >(input).initializee;
         }
         else if (input.template type_is< temploid_reference >())
         {
@@ -264,10 +264,10 @@ namespace quxlang
             copy.target = with_context(as< pointer_type >(ref).target, context);
             return copy;
         }
-        else if (ref.template type_is< instantiation_type >())
+        else if (ref.template type_is< initialization_reference >())
         {
-            instantiation_type output = as< instantiation_type >(ref);
-            output.callee = with_context(output.callee, context);
+            initialization_reference output = as< initialization_reference >(ref);
+            output.initializee = with_context(output.initializee, context);
             for (auto& p : output.parameters.positional)
             {
                 p = with_context(p, context);
@@ -332,15 +332,15 @@ namespace quxlang
 
         return output;
     }
-    std::string qualified_symbol_stringifier::operator()(instantiation_type const& ref) const
+    std::string qualified_symbol_stringifier::operator()(initialization_reference const& ref) const
     {
         // There are 3 types of selection/instanciation,
         // only selection #[ ]
         // only instanciation #( )
         // both selection & instantiation #{ }
-        if (typeis< temploid_reference >(ref.callee))
+        if (typeis< temploid_reference >(ref.initializee))
         {
-            temploid_reference const& sel = as< temploid_reference >(ref.callee);
+            temploid_reference const& sel = as< temploid_reference >(ref.initializee);
             std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
 
             output += " #{";
@@ -377,7 +377,7 @@ namespace quxlang
             output += "}";
             return output;
         }
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.callee);
+        std::string output = rpnx::apply_visitor< std::string >(*this, ref.initializee);
         output += " #(";
         bool first = true;
         for (auto const& [name, type] : ref.parameters.named)
@@ -688,10 +688,10 @@ namespace quxlang
             match->type = tvalue_reference{std::move(match->type)};
             return match;
         }
-        else if (typeis< instantiation_type >(template_type))
+        else if (typeis< initialization_reference >(template_type))
         {
-            instantiation_type const& template_funct = as< instantiation_type >(template_type);
-            instantiation_type const& type_funct = as< instantiation_type >(type);
+            initialization_reference const& template_funct = as< initialization_reference >(template_type);
+            initialization_reference const& type_funct = as< initialization_reference >(type);
 
             if (template_funct.parameters.positional.size() != type_funct.parameters.positional.size())
             {
@@ -700,7 +700,7 @@ namespace quxlang
 
             // TODO: support named parameters
 
-            auto callee_match = match_template(template_funct.callee, type_funct.callee);
+            auto callee_match = match_template(template_funct.initializee, type_funct.initializee);
             if (!callee_match)
             {
                 return std::nullopt;
@@ -899,10 +899,10 @@ namespace quxlang
             match->type = tvalue_reference{std::move(match->type)};
             return match;
         }
-        else if (typeis< instantiation_type >(template_type))
+        else if (typeis< initialization_reference >(template_type))
         {
-            instantiation_type const& template_funct = as< instantiation_type >(template_type);
-            instantiation_type const& type_funct = as< instantiation_type >(type);
+            initialization_reference const& template_funct = as< initialization_reference >(template_type);
+            initialization_reference const& type_funct = as< initialization_reference >(type);
 
             if (template_funct.parameters.positional.size() != type_funct.parameters.positional.size())
             {
@@ -911,7 +911,7 @@ namespace quxlang
 
             // TODO: support named parameters
 
-            auto callee_match = match_template(template_funct.callee, type_funct.callee);
+            auto callee_match = match_template(template_funct.initializee, type_funct.initializee);
             if (!callee_match)
             {
                 return std::nullopt;
@@ -970,9 +970,9 @@ namespace quxlang
         return output;
     }
 
-    type_symbol get_templexoid(instantiation_type const& ref)
+    type_symbol get_templexoid(initialization_reference const& ref)
     {
-        auto callee = ref.callee;
+        auto callee = ref.initializee;
 
         assert(callee.type_is< temploid_reference >());
 
@@ -982,7 +982,7 @@ namespace quxlang
     std::optional< type_symbol > func_class(type_symbol const& func)
     {
         std::string func_str = to_string(func);
-        auto tmplx = get_templexoid(func.get_as< instantiation_type >());
+        auto tmplx = get_templexoid(func.get_as< initialization_reference >());
         if (tmplx.type_is< submember >())
         {
             return as< submember >(tmplx).of;
@@ -1141,9 +1141,9 @@ namespace quxlang
                 return check(tmpl.of, val.of, conv);
             }
 
-            bool check_impl(instantiation_type const& tmpl, instantiation_type const& val, bool conv)
+            bool check_impl(initialization_reference const& tmpl, initialization_reference const& val, bool conv)
             {
-                bool of_match = check(tmpl.callee, val.callee, conv);
+                bool of_match = check(tmpl.initializee, val.initializee, conv);
 
                 if (!of_match)
                     return false;

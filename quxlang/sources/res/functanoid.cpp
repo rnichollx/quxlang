@@ -6,9 +6,9 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
 {
-    instantiation_type func_ast = input;
+    initialization_reference func_ast = input;
 
-    type_symbol selection = input.callee;
+    type_symbol selection = input.initializee;
 
     assert(typeis< temploid_reference >(selection));
 
@@ -23,7 +23,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_parameter_map)
         selection = selection_opt.value();
     }
 
-    type_symbol func_name = input.callee;
+    type_symbol func_name = input.initializee;
     auto functum_instanciation_parameters = input.parameters;
 
     output_type result;
@@ -120,14 +120,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_param_names)
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared
     // between builtin and non-builtin functions.
-    auto is_builtin = as<temploid_reference> (input.callee).which.builtin;
+    auto is_builtin = as<temploid_reference> (input.initializee).which.builtin;
 
     if (is_builtin)
     {
         co_return result;
     }
 
-    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< temploid_reference >(input.callee));
+    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< temploid_reference >(input.initializee));
 
     QUXLANG_COMPILER_BUG_IF(!decl_opt.has_value(), "Function declaration not found");
 

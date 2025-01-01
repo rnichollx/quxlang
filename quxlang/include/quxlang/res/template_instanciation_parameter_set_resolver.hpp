@@ -9,7 +9,7 @@
 namespace quxlang
 {
     class template_instanciation_parameter_set_resolver
-        : public rpnx::co_resolver_base< compiler, temploid_instanciation_parameter_set, instantiation_type >
+        : public rpnx::co_resolver_base< compiler, temploid_instanciation_parameter_set, initialization_reference >
     {
     public:
         template_instanciation_parameter_set_resolver(input_type input)

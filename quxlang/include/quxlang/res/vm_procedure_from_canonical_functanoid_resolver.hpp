@@ -13,15 +13,15 @@
 
 namespace quxlang
 {
-    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, instantiation_type >
+    class vm_procedure_from_canonical_functanoid_resolver : public rpnx::co_resolver_base< compiler, vm_procedure, initialization_reference >
     {
       public:
-        vm_procedure_from_canonical_functanoid_resolver(instantiation_type func_addr)
-            : rpnx::co_resolver_base< compiler, vm_procedure, instantiation_type >(func_addr)
+        vm_procedure_from_canonical_functanoid_resolver(initialization_reference func_addr)
+            : rpnx::co_resolver_base< compiler, vm_procedure, initialization_reference >(func_addr)
         {
         }
 
-        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, instantiation_type func_addr) override final;
+        virtual rpnx::resolver_coroutine< compiler, vm_procedure > co_process(compiler* c, initialization_reference func_addr) override final;
 
         virtual std::string question() const override
         {
@@ -161,7 +161,7 @@ namespace quxlang
         rpnx::general_coroutine< compiler, vm_value > gen_default_constructor(context_frame& ctx, type_symbol callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_default_destructor(context_frame& ctx, type_symbol callee, vm_callargs values);
 
-        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, instantiation_type const& callee, vm_callargs values);
+        rpnx::general_coroutine< compiler, vm_value > gen_invoke(context_frame& ctx, initialization_reference const& callee, vm_callargs values);
         rpnx::general_coroutine< compiler, vm_value > gen_value_generic(context_frame& ctx, expression expr);
         rpnx::general_coroutine< compiler, vm_callargs > gen_preinvoke_conversions(context_frame& ctx, vm_callargs values, intertype const& to_types);
         rpnx::general_coroutine< compiler, vm_value > gen_implicit_conversion(context_frame& ctx, vm_value from, type_symbol to);

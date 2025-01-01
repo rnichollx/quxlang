@@ -109,17 +109,17 @@ namespace quxlang
                 return "U" + std::to_string(i.bits);
             }
         }
-        else if (qt.template type_is< instantiation_type >())
+        else if (qt.template type_is< initialization_reference >())
         {
-            std::string out = mangle_internal(as< instantiation_type >(qt).callee);
+            std::string out = mangle_internal(as< initialization_reference >(qt).initializee);
             out += "C";
             // out += std::to_string(as< functanoid_reference >(qt).parameters.size());
-            for (auto const& p : as< instantiation_type >(qt).parameters.positional)
+            for (auto const& p : as< initialization_reference >(qt).parameters.positional)
             {
                 out += "AP";
                 out += mangle_internal(p);
             }
-            for (auto const& p : as< instantiation_type >(qt).parameters.named)
+            for (auto const& p : as< initialization_reference >(qt).parameters.named)
             {
                 out += "AN";
                 out += p.first;

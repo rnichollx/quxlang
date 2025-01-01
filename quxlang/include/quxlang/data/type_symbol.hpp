@@ -221,12 +221,12 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
-    struct instantiation_type
+    struct initialization_reference
     {
-        type_symbol callee;
+        type_symbol initializee;
 
         intertype parameters;
-        RPNX_MEMBER_METADATA(instantiation_type, callee, parameters);
+        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters);
     };
 
     struct temploid_reference
@@ -311,7 +311,7 @@ struct rpnx::resolver_traits< quxlang::type_symbol >
 };
 
 template <>
-struct rpnx::resolver_traits< quxlang::instantiation_type >
+struct rpnx::resolver_traits< quxlang::initialization_reference >
 {
     static std::string stringify(quxlang::type_symbol const& v)
     {

@@ -11,7 +11,7 @@
 namespace quxlang
 {
     QUX_CO_RESOLVER(function_builtin, temploid_reference, std::optional< primitive_function_info >);
-    QUX_CO_RESOLVER(function_instanciation, instantiation_type, std::optional< instantiation_type >);
+    QUX_CO_RESOLVER(function_instanciation, initialization_reference, std::optional< initialization_reference >);
     QUX_CO_RESOLVER(function_positional_parameter_names, temploid_reference, std::vector< std::string >);
 } // namespace quxlang
 

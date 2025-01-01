@@ -42,13 +42,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 
         co_return declaroids_of.size() > 0;
     }
-    else if (typeis< instantiation_type >(input_val))
+    else if (typeis< initialization_reference >(input_val))
     {
-        instantiation_type const& ref = as< instantiation_type >(input_val);
+        initialization_reference const& ref = as< initialization_reference >(input_val);
         // Return false if non-match
 
         // TODO: check this
-        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (ref.callee));
+        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (ref.initializee));
 
         if (!parent_exists)
         {

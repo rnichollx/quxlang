@@ -10,12 +10,12 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 {
-    if (!typeis< temploid_reference >(input_val.callee))
+    if (!typeis< temploid_reference >(input_val.initializee))
     {
         throw std::logic_error("Internal Compiler Error(this is a compiler bug): Cannot instanciate a non-function with 'function_instanciation' resolver");
     }
 
-    temploid_reference const& sel_ref = as< temploid_reference >(input_val.callee);
+    temploid_reference const& sel_ref = as< temploid_reference >(input_val.initializee);
 
 
     // Get the overload?
@@ -27,14 +27,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
         QUX_CO_ANSWER(std::nullopt);
     }
 
-    auto result = instantiation_type{.callee = input_val.callee, .parameters = call_set.value()};
+    auto result = initialization_reference{.initializee = input_val.initializee, .parameters = call_set.value()};
     QUX_CO_ANSWER(result);
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
 {
     std::string dbg_input = to_string(input_val);
-    type_symbol templexoid_symbol = input_val.callee;
+    type_symbol templexoid_symbol = input_val.initializee;
 
     auto kind = co_await QUX_CO_DEP(symbol_type, (templexoid_symbol));
 

@@ -143,7 +143,7 @@ TEST(mangling, name_mangling_new)
     subentity3.of=subentity2;
     subentity3.name= "baz";
 
-    quxlang::instantiation_type param_set{subentity3, {}};
+    quxlang::initialization_reference param_set{subentity3, {}};
 
     param_set.parameters.positional.push_back(quxlang::int_type{32, true});
     param_set.parameters.positional.push_back(quxlang::int_type{32, true});

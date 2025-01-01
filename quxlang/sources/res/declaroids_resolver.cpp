@@ -15,7 +15,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
         throw std::logic_error("Cannot have declarations of a module");
     }
 
-    if (typeis< instantiation_type >(input))
+    if (typeis< initialization_reference >(input))
     {
         // TODO: Maybe we allow this for templates?
         throw std::logic_error("Instancations are not declarables");

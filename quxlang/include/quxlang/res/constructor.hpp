@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(nontrivial_default_dtor, type_symbol, std::optional<instantiation_type>);
+    QUX_CO_RESOLVER(nontrivial_default_dtor, type_symbol, std::optional<initialization_reference>);
 }
 
 #endif // RPNX_QUXLANG_CONSTRUCTOR_HEADER

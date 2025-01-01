@@ -148,7 +148,7 @@ int main(int argc, char** argv)
     std::cout << "Compilation took " << std::dec << duration.count() << " microseconds" << std::endl;
 
     // return 0;
-    quxlang::type_symbol foo = quxlang::instantiation_type{.callee = quxlang::subsymbol{quxlang::module_reference{.module_name = "main"}, "box2"}, .parameters = {quxlang::parsers::parse_type_symbol("I32")}};
+    quxlang::type_symbol foo = quxlang::initialization_reference{.initializee = quxlang::subsymbol{quxlang::module_reference{.module_name = "main"}, "box2"}, .parameters = {quxlang::parsers::parse_type_symbol("I32")}};
 
     auto foo_placement_info = c.get_class_placement_info(foo);
 

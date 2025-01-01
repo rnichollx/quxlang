@@ -11,14 +11,14 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 {
-    if (!input.template type_is< instantiation_type >())
+    if (!input.template type_is< initialization_reference >())
     {
         throw compiler_bug("this shouldn't be possible to call");
     }
 
-    instantiation_type const& inst = as< instantiation_type >(input);
+    initialization_reference const& inst = as< initialization_reference >(input);
 
-    temploid_reference sel = inst.callee.get_as< temploid_reference >();
+    temploid_reference sel = inst.initializee.get_as< temploid_reference >();
 
     if (sel.which.builtin)
     {

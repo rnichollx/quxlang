@@ -129,7 +129,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            instantiation_type functanoid_unnormalized{.callee = func, .parameters = calltype};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype};
 
             std::cout << "gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
             // Get call type
@@ -400,7 +400,7 @@ namespace quxlang
             return exec.create_numeric_literal(str);
         }
 
-        auto gen_call_functanoid(instantiation_type what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        auto gen_call_functanoid(initialization_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
 
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
@@ -628,9 +628,9 @@ namespace quxlang
             }
         }
 
-        auto gen_invoke_builtin(instantiation_type what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke_builtin(initialization_reference what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
-            auto callee = as< temploid_reference >(what.callee);
+            auto callee = as< temploid_reference >(what.initializee);
 
             assert(callee.which.builtin);
 
@@ -656,9 +656,9 @@ namespace quxlang
             co_return;
         }
 
-        auto gen_invoke(instantiation_type what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke(initialization_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            if (true && typeis< temploid_reference >(what.callee) && as< temploid_reference >(what.callee).which.builtin)
+            if (true && typeis< temploid_reference >(what.initializee) && as< temploid_reference >(what.initializee).which.builtin)
             {
                 co_return co_await gen_invoke_builtin(what, args);
             }

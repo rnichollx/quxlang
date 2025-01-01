@@ -17,7 +17,7 @@ namespace quxlang
         inline expr_test_provider()
         {
             auto type = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS I32, I32)");
-            this->testmap_instanciation_presets[as< instantiation_type >(type)] = quxlang::instantiation_type{.callee = quxlang::temploid_reference{.templexoid = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .which = temploid_formal_intertype{.builtin = true, .interface = quxlang::intertype{.named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional = {quxlang::parsers::parse_type_symbol("I32")}}}}, .parameters = quxlang::intertype{.named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional = {quxlang::parsers::parse_type_symbol("I32")}, }};
+            this->testmap_instanciation_presets[as< initialization_reference >(type)] = quxlang::initialization_reference{.initializee = quxlang::temploid_reference{.templexoid = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .which = temploid_formal_intertype{.builtin = true, .interface = quxlang::intertype{.named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional = {quxlang::parsers::parse_type_symbol("I32")}}}}, .parameters = quxlang::intertype{.named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional = {quxlang::parsers::parse_type_symbol("I32")}, }};
         }
         // Slot 0 is always reserved for the void slot
         // Including as data to avoid special-casing this.
@@ -37,9 +37,9 @@ namespace quxlang
 
         std::map< type_symbol, bool > testmap_functum_exists_presets{{quxlang::parsers::parse_type_symbol(std::string("I32::.OPERATOR+ #(@THIS I32, @OTHER I32)")), true}};
 
-        std::map< instantiation_type, std::optional< instantiation_type > > testmap_instanciation_presets{
+        std::map< initialization_reference, std::optional< initialization_reference > > testmap_instanciation_presets{
 
-            {as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS MUT& I32, @OTHER MUT& I32)")), std::optional< instantiation_type >(as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #{BUILTIN; @THIS I32, @OTHER I32 }")))}, {as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, @OTHER MUT& I32)")), as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, @OTHER CONST& I32 ] #( @THIS NEW& I32, @OTHER CONST& I32 )"))}, {as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #(@THIS I32, @OTHER NUMERIC_LITERAL)")), as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"))}, {as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL)")), as< instantiation_type >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[ BUILTIN; @THIS NEW& I32, @OTHER NUMERIC_LITERAL ] #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL )"))}
+            {as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS MUT& I32, @OTHER MUT& I32)")), std::optional< initialization_reference >(as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #{BUILTIN; @THIS I32, @OTHER I32 }")))}, {as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #(@THIS NEW& I32, @OTHER MUT& I32)")), as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[BUILTIN; @THIS NEW& I32, @OTHER CONST& I32 ] #( @THIS NEW& I32, @OTHER CONST& I32 )"))}, {as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #(@THIS I32, @OTHER NUMERIC_LITERAL)")), as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"))}, {as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL)")), as< initialization_reference >(quxlang::parsers::parse_type_symbol("I32::.CONSTRUCTOR #[ BUILTIN; @THIS NEW& I32, @OTHER NUMERIC_LITERAL ] #( @THIS NEW& I32, @OTHER NUMERIC_LITERAL )"))}
 
         };
 
@@ -208,7 +208,7 @@ namespace quxlang
                 }
             }
 
-            rpnx::awaitable_result< bool > functum_exists_and_is_callable_with(instantiation_type what)
+            rpnx::awaitable_result< bool > functum_exists_and_is_callable_with(initialization_reference what)
             {
                 std::cout << "functum_exists_and_is_callable_with(" << quxlang::to_string(what) << ")" << std::endl;
 
@@ -225,7 +225,7 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< std::optional< instantiation_type > > instanciation(instantiation_type type)
+            rpnx::awaitable_result< std::optional< initialization_reference > > instanciation(initialization_reference type)
             {
                 std::cout << "instanciation(" << quxlang::to_string(type) << ")" << std::endl;
                 auto it = parent.testmap_instanciation_presets.find(type);
@@ -329,7 +329,7 @@ namespace quxlang
 
                 parent.instructions.push_back(ivk);
 
-                instantiation_type inst = as< instantiation_type >(ivk.what);
+                initialization_reference inst = as< initialization_reference >(ivk.what);
 
                 for (auto& arg : ivk.args.positional)
                 {

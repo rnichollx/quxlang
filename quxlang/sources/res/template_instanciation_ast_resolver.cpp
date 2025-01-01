@@ -12,7 +12,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 {
     auto args = input.parameters;
 
-    auto templ = input.callee;
+    auto templ = input.initializee;
 
     assert(!is_contextual(templ));
 

@@ -52,7 +52,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
             while (current_context.has_value())
             {
                 std::string name = sub.name;
-                if (typeis< instantiation_type >(*current_context))
+                if (typeis< initialization_reference >(*current_context))
                 {
                     QUXLANG_DEBUG({
                         std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl;
@@ -60,7 +60,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
                     });
 
                     // Two possibilities, 1 = this is a template, 2 = this is a function
-                    instantiation_type inst = as< instantiation_type >(*current_context);
+                    initialization_reference inst = as< initialization_reference >(*current_context);
 
                     auto param_set = co_await QUX_CO_DEP(temploid_instanciation_parameter_set, (inst));
 
@@ -140,15 +140,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(canonical_symbol_from_contextual_symbol)
 
         co_return submember{parent_canonical, sub.name};
     }
-    else if (type.template type_is< instantiation_type >())
+    else if (type.template type_is< initialization_reference >())
     {
-        instantiation_type const& param_set = as< instantiation_type >(type);
+        initialization_reference const& param_set = as< initialization_reference >(type);
 
-        instantiation_type output;
+        initialization_reference output;
 
-        auto callee_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (param_set.callee, context));
+        auto callee_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (param_set.initializee, context));
 
-        output.callee = callee_canonical;
+        output.initializee = callee_canonical;
 
         for (auto& p : param_set.parameters.positional)
         {

@@ -8,7 +8,7 @@ auto quxlang::temploid_instanciation_parameter_set_resolver::co_process(compiler
     QUXLANG_DEBUG({std::cout << "temploid_instanciation_parameter_set_resolver::co_process input_type=" << to_string(input) << std::endl;});
 
 
-    temploid_reference sel = as<temploid_reference>(input.callee);
+    temploid_reference sel = as<temploid_reference>(input.initializee);
     auto ast = co_await QUX_CO_DEP(symboid, (sel.templexoid));
 
     auto idx = ast.type_index().name();

@@ -27,7 +27,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
         if (candidate)
         {
             auto dtor_selection = temploid_reference{.templexoid = input, .which = ol};
-            auto dtor_instanciation = instantiation_type{.callee = dtor_selection, .parameters = *candidate};
+            auto dtor_instanciation = initialization_reference{.initializee = dtor_selection, .parameters = *candidate};
 
             co_return dtor_instanciation;
         }
@@ -52,7 +52,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
                 // We need a built-in destructor
                 auto builtin_dtor_selection = temploid_reference{.templexoid = input, .which = {.builtin = true, .interface = dtor_call_type}};
 
-                auto builtin_dtor_instanciation = instantiation_type{.callee = builtin_dtor_selection, .parameters = dtor_call_type, };
+                auto builtin_dtor_instanciation = initialization_reference{.initializee = builtin_dtor_selection, .parameters = dtor_call_type, };
 
                 co_return builtin_dtor_instanciation;
             }

@@ -19,7 +19,7 @@ namespace quxlang
         // Step 2. match the template declaration's parameters against the input parameters
         // Step 3. extract the matches as the return values
 
-        type_symbol template_name = input.callee;
+        type_symbol template_name = input.initializee;
         auto template_instanciation_parameters = input.parameters;
 
         // We have to get the template AST by template instanciation because it's possible that there could be multiple templates

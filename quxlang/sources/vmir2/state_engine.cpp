@@ -39,7 +39,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::invoke const& inv)
 {
-    auto ivk_func_inst = inv.what.get_as< instantiation_type >();
+    auto ivk_func_inst = inv.what.get_as< initialization_reference >();
 
     for (std::size_t index = 0; index < inv.args.positional.size(); index++)
     {

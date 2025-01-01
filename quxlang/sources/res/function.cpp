@@ -56,7 +56,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_instanciation)
         // throw std::logic_error("No function found that matches the given parameters.");
     }
 
-    co_return co_await QUX_CO_DEP(function_instanciation, (instantiation_type{.callee = selection.value(), .parameters = input_val.parameters}));
+    co_return co_await QUX_CO_DEP(function_instanciation, (initialization_reference{.initializee = selection.value(), .parameters = input_val.parameters}));
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)

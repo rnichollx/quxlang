@@ -11,13 +11,13 @@ void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)
 {
     auto const & chain = this->m_chain;
 
-    if (typeis< instantiation_type >(chain))
+    if (typeis< initialization_reference >(chain))
     {
-        instantiation_type const& param_set = as< instantiation_type >(chain);
+        initialization_reference const& param_set = as< initialization_reference >(chain);
         // We only care if the parent exists, we can exist but be an invalid functaniod otherwise?
         // Maybe this resolver should be renamed...
 
-        assert(param_set.callee.type() != boost::typeindex::type_id< context_reference >());
+        assert(param_set.initializee.type() != boost::typeindex::type_id< context_reference >());
 
         // TODO: Distingiush between the functum/template existing but not the particular
         //  functanoid/temtanoid existing, and the functum/template not existing at all.
@@ -30,7 +30,7 @@ void quxlang::symbol_canonical_chain_exists_resolver::process(compiler* c)
         auto parent_exists_dp = get_dependency(
             [&]
             {
-                return c->lk_entity_canonical_chain_exists(param_set.callee);
+                return c->lk_entity_canonical_chain_exists(param_set.initializee);
             });
 
         if (!ready())

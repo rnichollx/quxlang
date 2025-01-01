@@ -198,8 +198,8 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "#("))
         {
-            instantiation_type param_set;
-            param_set.callee = std::move(output);
+            initialization_reference param_set;
+            param_set.initializee = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ")"))
@@ -238,10 +238,10 @@ namespace quxlang::parsers
         {
             remaining = std::string(pos, end);
 
-            instantiation_type param_set;
-            param_set.callee = temploid_reference{};
+            initialization_reference param_set;
+            param_set.initializee = temploid_reference{};
 
-            temploid_reference& sel = as< temploid_reference >(param_set.callee);
+            temploid_reference& sel = as< temploid_reference >(param_set.initializee);
             sel.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
