@@ -4,6 +4,7 @@
 #define QUXLANG_MANIPULATORS_QMANIP_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/variant_utils.hpp"
 
 namespace quxlang
@@ -127,8 +128,8 @@ namespace quxlang
 
     inline bool is_ref_implicitly_convertible_by_syntax(type_symbol from, type_symbol to)
     {
-        assert(is_ref(from));
-        assert(is_ref(to));
+        QUXLANG_ASSERT(is_ref(from));
+        QUXLANG_ASSERT(is_ref(to));
 
         if (remove_ref(from) != remove_ref(to))
         {

@@ -6,6 +6,7 @@
 #define QUXLANG_EXCEPTION_HPP
 
 #include <exception>
+#include <source_location>
 #include <stdexcept>
 
 namespace quxlang
@@ -14,6 +15,14 @@ namespace quxlang
     {
       public:
         compiler_bug(std::string what_arg) : std::logic_error("Compiler Bug:" + what_arg)
+        {
+        }
+    };
+
+    class assert_failure: public compiler_bug
+    {
+      public:
+        assert_failure(std::string what_arg, std::source_location loc = std::source_location::current()) : compiler_bug(std::string() + "Assert failure in " + loc.function_name() + " at " + loc.file_name() + ": " + what_arg)
         {
         }
     };

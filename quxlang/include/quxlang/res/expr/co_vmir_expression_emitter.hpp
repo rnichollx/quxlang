@@ -746,7 +746,7 @@ namespace quxlang
             intertype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             intertype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await prv.instanciation({.callee = lhs_function, .parameters = lhs_param_info});
+            auto lhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info});
 
             if (lhs_exists_and_callable_with)
             {
@@ -754,7 +754,7 @@ namespace quxlang
                 co_return co_await gen_call_functum(lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await prv.instanciation({.callee = rhs_function, .parameters = rhs_param_info});
+            auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info});
 
             if (rhs_exists_and_callable_with)
             {

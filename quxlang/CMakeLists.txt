@@ -240,6 +240,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/vmir2/state_engine.hpp
         sources/vmir2/state_engine.cpp
         include/quxlang/res/functanoid.hpp
+        include/quxlang/lang/lang.hpp
 
 )
 

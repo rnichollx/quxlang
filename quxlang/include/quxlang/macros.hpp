@@ -157,10 +157,16 @@ rpnx::general_coroutine< quxlang::compiler, retT> classNamespace :: className ::
 #ifndef _NDEBUG
 #define QUXLANG_DEBUG_VALUE(x) auto quxlang_dbg_val_ ## __LINE__ = x;
 #define QUXLANG_DEBUG_NAMED_VALUE(name, x) auto name = x;
+#define QUXLANG_ASSERT(x) if (!(x)) throw quxlang::assert_failure(#x);
+
+
 #else
 #define QUXLANG_DEBUG_VALUE(x)
 #define QUXLANG_DEBUG_NAMED_VALUE(name, x)
+#define QUXLANG_ASSERT(x)
 #endif
+
+
 
 
 
