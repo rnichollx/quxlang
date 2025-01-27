@@ -12,3 +12,4 @@ CMakeSettings.json
 build/
 .idea
 cmake_build
+cmake-*
