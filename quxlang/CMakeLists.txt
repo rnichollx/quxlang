@@ -61,7 +61,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/overloads.cpp
         sources/res/list_builtin_functum_overloads_resolver.cpp
         include/quxlang/manipulators/tmanip.hpp
-        include/quxlang/res/call_params_of_function_ast_resolver.hpp
         include/quxlang/ast2/ast2_type_map.hpp
         include/quxlang/data/functanoid_instanciation.hpp
         ../rpnx/include/rpnx/debug.hpp

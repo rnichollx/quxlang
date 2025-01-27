@@ -14,7 +14,6 @@
 #include "quxlang/res/constructor.hpp"
 #include "quxlang/res/function.hpp"
 #include "quxlang/res/functanoid.hpp"
-#include "quxlang/res/call_params_of_function_ast_resolver.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
