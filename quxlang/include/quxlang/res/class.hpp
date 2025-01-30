@@ -13,6 +13,7 @@ namespace quxlang
 {
 
     QUX_CO_RESOLVER(class_layout, type_symbol, class_layout);
+    QUX_CO_RESOLVER(class_builtin, type_symbol, bool);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_SIZE_FROM_CANONICAL_CHAIN_RESOLVER_HEADER_GUARD

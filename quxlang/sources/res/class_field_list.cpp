@@ -5,8 +5,11 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_declaration_list)
 {
 
-    // Step 1: Ensure this is a class
-
+    bool is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input_val));
+    if (is_builtin_class)
+    {
+        co_return {};
+    }
     ast2_symboid the_class = co_await QUX_CO_DEP(symboid, (input_val));
 
     if (!typeis< ast2_class_declaration >(the_class))
@@ -74,7 +77,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
         output_obj.push_back(f);
     }
 
-    //assert(output_obj.size() == declarations.size());
+    // assert(output_obj.size() == declarations.size());
 
     co_return output_obj;
 }

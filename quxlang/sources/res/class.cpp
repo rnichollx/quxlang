@@ -1,10 +1,25 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/compiler.hpp"
 
-#include "quxlang/res/class_layout_resolver.hpp"
+#include "quxlang/res/class.hpp"
 
 #include "quxlang/data/class_field_declaration.hpp"
 #include "quxlang/manipulators/struct_math.hpp"
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_builtin)
+{
+
+    type_symbol input_type = input;
+
+    if (typeis< int_type >(input_type) || typeis< bool_type >(input_type) || typeis< pointer_type >(input_type) || typeis< nvalue_slot >(input_type) || is_ref(input_type) || typeis<numeric_literal_reference>(input))
+    {
+        co_return true;
+    }
+    else
+    {
+        co_return false;
+    }
+}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_layout)
 {

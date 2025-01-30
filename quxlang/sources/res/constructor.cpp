@@ -35,8 +35,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
     auto kind = co_await QUX_CO_DEP(symbol_type, (input));
 
-    if (kind == symbol_kind::user_class)
+    if (kind == symbol_kind::class_)
     {
+        auto is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input));
 
         // If no user defined destructor, we need to check if there is a non-trivial default destructor
         // The default destructor is non-trivial if the destructor of any member is non-trivial

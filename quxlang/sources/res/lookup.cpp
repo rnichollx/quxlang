@@ -84,7 +84,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                 {
                     subsymbol sub2{current_context.value(), sub.name};
 
-                    auto exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (sub2));
+                    auto exists = co_await QUX_CO_DEP(exists, (sub2));
 
                     QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
 
@@ -121,7 +121,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             {
                 submember sub2{current_context.value(), sub.name};
 
-                auto exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (sub2));
+                auto exists = co_await QUX_CO_DEP(exists, (sub2));
 
                 QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
 

@@ -6,11 +6,44 @@
 #define QUXLANG_EXCEPTION_HPP
 
 #include <exception>
+#include <version>
+#ifdef __cpp_lib_source_location
 #include <source_location>
+#endif
 #include <stdexcept>
 
 namespace quxlang
 {
+#ifdef __cpp_lib_source_location
+    using source_location = std::source_location;
+
+#else
+    class source_location
+    {
+      public:
+        static source_location current()
+        {
+            return source_location();
+        }
+
+        std::string file_name() const
+        {
+            return "?";
+        }
+
+        std::string function_name() const
+        {
+            return "?";
+        }
+
+        int line() const
+        {
+            return -1;
+        }
+    };
+
+#endif
+
     class compiler_bug : public std::logic_error
     {
       public:
@@ -19,10 +52,10 @@ namespace quxlang
         }
     };
 
-    class assert_failure: public compiler_bug
+    class assert_failure : public compiler_bug
     {
       public:
-        assert_failure(std::string what_arg, std::source_location loc = std::source_location::current()) : compiler_bug(std::string() + "Assert failure in " + loc.function_name() + " at " + loc.file_name() + ": " + what_arg)
+        assert_failure(std::string what_arg, source_location loc = source_location::current()) : compiler_bug(std::string() + "Assert failure in " + loc.function_name() + " at " + loc.file_name() + ": " + what_arg)
         {
         }
     };

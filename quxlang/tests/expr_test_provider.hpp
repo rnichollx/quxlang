@@ -45,7 +45,7 @@ namespace quxlang
 
 
         std::map< type_symbol, symbol_kind > testmap_symbol_type_presets{
-                {quxlang::parsers::parse_type_symbol("I32"), symbol_kind::builtin_class},
+                {quxlang::parsers::parse_type_symbol("I32"), symbol_kind::class_},
         };
         std::map< type_symbol, type_symbol > testmap_functanoid_return_type_presets{
 

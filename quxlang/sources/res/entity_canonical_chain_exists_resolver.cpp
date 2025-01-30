@@ -5,10 +5,7 @@
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(entity_canonical_chain_exists)
-{
-   co_return co_await QUX_CO_DEP(exists, (input_val));
-}
+
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
 {
@@ -29,7 +26,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
     {
         auto parent = qualified_parent(input_val);
 
-        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (parent.value()));
+        auto parent_exists = co_await QUX_CO_DEP(exists, (parent.value()));
 
         if (!parent_exists)
         {
@@ -48,7 +45,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
         // Return false if non-match
 
         // TODO: check this
-        auto parent_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (ref.initializee));
+        auto parent_exists = co_await QUX_CO_DEP(exists, (ref.initializee));
 
         if (!parent_exists)
         {
@@ -73,7 +70,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
     }
     else if (typeis< pointer_type >(input_val))
     {
-        auto pointed_value_exists = co_await QUX_CO_DEP(entity_canonical_chain_exists, (as< pointer_type >(input_val).target));
+        auto pointed_value_exists = co_await QUX_CO_DEP(exists, (as< pointer_type >(input_val).target));
 
         co_return pointed_value_exists;
     }

@@ -11,7 +11,6 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(entity_canonical_chain_exists, type_symbol, bool);
 
 
     QUX_CO_RESOLVER(exists, type_symbol, bool);

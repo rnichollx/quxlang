@@ -42,7 +42,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
     {
         co_return co_await QUX_CO_DEP(functum_instanciation, (input_val));
     }
-    else if (kind == symbol_kind::user_function || kind == symbol_kind::builtin_function)
+    else if (kind == symbol_kind::function)
     {
         co_return co_await QUX_CO_DEP(function_instanciation, (input_val));
     }

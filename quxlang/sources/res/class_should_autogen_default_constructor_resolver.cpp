@@ -10,7 +10,7 @@ void quxlang::class_should_autogen_default_constructor_resolver::process(compile
     auto exists_dp = get_dependency(
         [&]
         {
-            return c->lk_entity_canonical_chain_exists(callee);
+            return c->lk_exists(callee);
         });
     if (!ready())
     {

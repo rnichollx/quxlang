@@ -8,18 +8,16 @@
 #include "quxlang/data/function_frame_information.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_symbol.hpp"
-#include "quxlang/res/constexpr.hpp"
 #include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
-#include "quxlang/res/constructor.hpp"
-#include "quxlang/res/function.hpp"
-#include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
+#include "quxlang/res/class.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
-#include "quxlang/res/class_layout_resolver.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "quxlang/res/class_size_from_canonical_chain_resolver.hpp"
+#include "quxlang/res/constexpr.hpp"
+#include "quxlang/res/constructor.hpp"
 #include "quxlang/res/contextualized_reference_resolver.hpp"
 #include "quxlang/res/entity_ast_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
@@ -28,6 +26,8 @@
 #include "quxlang/res/file_module_map_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/files_in_module_resolver.hpp"
+#include "quxlang/res/functanoid.hpp"
+#include "quxlang/res/function.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
@@ -42,9 +42,9 @@
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
+#include <quxlang/res/functum_exists_and_is_callable_with_resolver.hpp>
 #include <quxlang/res/functum_instanciation.hpp>
 #include <quxlang/res/functum_select_function.hpp>
-#include <quxlang/res/functum_exists_and_is_callable_with_resolver.hpp>
 #include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
@@ -141,6 +141,7 @@ namespace quxlang
         COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)
+        COMPILER_INDEX(class_builtin)
         COMPILER_INDEX(declaroids)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(expr_ir2)
@@ -204,12 +205,6 @@ namespace quxlang
             return m_class_should_autogen_default_constructor_index.lookup(cls); //
         }
 
-        index< symbol_canonical_chain_exists_resolver > m_symbol_canonical_chain_exists_index;
-
-        out< bool > lk_symbol_canonical_chain_exists(type_symbol chain)
-        {
-            return m_symbol_canonical_chain_exists_index.lookup(chain);
-        }
 
       public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(initialization_reference func_addr)
@@ -257,12 +252,8 @@ namespace quxlang
 
   
 
-        index< entity_canonical_chain_exists_resolver > m_entity_canonical_chain_exists_index;
 
-        out< bool > lk_entity_canonical_chain_exists(type_symbol const& chain)
-        {
-            return m_entity_canonical_chain_exists_index.lookup(chain);
-        }
+
 
       public:
 

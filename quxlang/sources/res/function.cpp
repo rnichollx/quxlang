@@ -121,7 +121,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
             builtin_primitive_type = true;
         }
 
-        auto parent_class_exists = co_await *c->lk_entity_canonical_chain_exists(parent);
+        auto parent_class_exists = co_await *c->lk_exists(parent);
         if (parent_class_exists)
         {
             auto decl = co_await QUX_CO_DEP(symboid, (parent));

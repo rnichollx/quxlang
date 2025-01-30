@@ -10,12 +10,10 @@
 
 // clang-format off
 RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
-
     noexist,
     module,
-    builtin_class,
-    user_class, functum, user_function,
-    builtin_function, funtanoid,
+    class_,
+    functum, function, funtanoid,
 
     global_variable,
     local_variable,

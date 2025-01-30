@@ -364,7 +364,7 @@ namespace quxlang
                 args.named["THIS"] = bound_index;
             }
 
-            if (bound_symbol_kind == symbol_kind::user_class || bound_symbol_kind == symbol_kind::builtin_class)
+            if (bound_symbol_kind == symbol_kind::class_)
             {
                 if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
                 {
