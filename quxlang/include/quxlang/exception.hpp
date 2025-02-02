@@ -47,7 +47,7 @@ namespace quxlang
     class compiler_bug : public std::logic_error
     {
       public:
-        compiler_bug(std::string what_arg) : std::logic_error("Compiler Bug:" + what_arg)
+        compiler_bug(std::string what_arg) : std::logic_error("Compiler Bug: " + what_arg)
         {
         }
     };

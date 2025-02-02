@@ -413,6 +413,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     local_ptr->data.resize(0);
     local_ptr->data.resize(sz);
     local_ptr->object_id = next_object_id++;
+    local_ptr->alive = true;
 
     return;
 }
