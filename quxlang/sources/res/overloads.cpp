@@ -112,14 +112,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
     std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (input));
     std::vector<paratype> paratypes = co_await QUX_CO_DEP(list_user_functum_formal_paratypes, (input));
 
-    std::vector< temploid_formal_intertype > results;
+    std::vector< temploid_ensig > results;
 
     for (std::size_t i = 0; i < user_defined.size(); ++i)
     {
         paratype p = paratypes.at(i);
         ast2_function_declaration const& decl = user_defined.at(i);
 
-        temploid_formal_intertype ol;
+        temploid_ensig ol;
         ol.builtin = false;
         ol.priority = decl.header.priority;
 
@@ -146,7 +146,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
 
 
     std::string name = to_string(input);
-    std::set< temploid_formal_intertype > all_overloads;
+    std::set< temploid_ensig > all_overloads;
     for (auto const& o : builtins)
     {
         assert(o.overload.builtin == true);

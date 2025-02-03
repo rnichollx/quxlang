@@ -13,8 +13,8 @@ namespace quxlang
     // Lists function overloads for a functum, they are returned in the function-order.
     QUX_CO_RESOLVER(list_user_functum_overload_declarations, type_symbol, std::vector< ast2_function_declaration >);
     QUX_CO_RESOLVER(list_user_functum_formal_paratypes, type_symbol, std::vector< paratype >);
-    QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set< temploid_formal_intertype >);
-    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::vector< temploid_formal_intertype >);
+    QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set< temploid_ensig >);
+    QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::vector< temploid_ensig >);
     QUX_CO_RESOLVER(function_declaration, temploid_reference, std::optional<ast2_function_declaration>);
 } // namespace quxlang
 

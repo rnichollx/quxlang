@@ -27,7 +27,7 @@ namespace quxlang
     struct temploid_reference;
 
     struct function_arg;
-    struct temploid_formal_intertype;
+    struct temploid_ensig;
     struct void_type;
     struct numeric_literal_reference;
     struct string_literal_reference;

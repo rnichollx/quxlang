@@ -108,13 +108,12 @@ namespace quxlang
 
     // TODO: Rename this to temploid_header or something,
     //  it is called "function header" but is also used for templates...
-    struct temploid_formal_intertype
+    struct temploid_ensig
     {
-        bool builtin = false;
-        intertype interface;
+        paratype interface;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(temploid_formal_intertype, builtin, interface, priority);
+        RPNX_MEMBER_METADATA(temploid_ensig, interface, priority);
     };
 
 
@@ -232,7 +231,7 @@ namespace quxlang
     struct temploid_reference
     {
         type_symbol templexoid;
-        temploid_formal_intertype which;
+        temploid_ensig which;
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
     };
 
