@@ -253,17 +253,19 @@ namespace quxlang::parsers
 
             skip_whitespace_and_comments(pos, end);
 
-            if (skip_keyword_if_is(pos, end, "BUILTIN"))
-            {
-                sel.which.builtin = true;
+            /*
+                        if (skip_keyword_if_is(pos, end, "BUILTIN"))
+                        {
+                            sel.which.builtin = true;
 
-                skip_whitespace(pos, end);
+                            skip_whitespace(pos, end);
 
-                if (!skip_symbol_if_is(pos, end, ";"))
-                {
-                    throw std::logic_error("Expected ';'");
-                }
-            }
+                            if (!skip_symbol_if_is(pos, end, ";"))
+                            {
+                                throw std::logic_error("Expected ';'");
+                            }
+                        }
+                        */
 
             skip_whitespace_and_comments(pos, end);
         next_arg2:
@@ -273,8 +275,8 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                auto seltype = parse_type_symbol(pos, end);
-                sel.which.interface.named[param_name] = seltype;
+                type_symbol seltype = parse_type_symbol(pos, end);
+                sel.which.interface.named[param_name].type = seltype;
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
@@ -327,7 +329,8 @@ namespace quxlang::parsers
 
             if (skip_keyword_if_is(pos, end, "BUILTIN"))
             {
-                param_set.which.builtin = true;
+                // TODO: consider if this is useful
+                // param_set.which.builtin = true;
 
                 skip_whitespace(pos, end);
 

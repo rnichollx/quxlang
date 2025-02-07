@@ -1,33 +1,75 @@
 # Glossary
 
+## Argif
+
+An _argif_ (portmanteau of "argument" and "interface") is a type that is used
+to describe the interface to a temploid (function or template) specific to
+a single positional or named parameter.
+
+The collection of argifs for a temploid is called the intertype of the temploid.
+
+Unlike a _parameter type_, an argif does not preserve information about default arguments, only whether the argument is
+defaulted.
+
+For example, given the following function:
+
+```qux
+::foo FUNCTION(%a I32, %b I32 DEFAULT(1))
+{
+    ...
+}
+```
+
+The argif for the `%b` parameter would be `I32 DEFAULTED`. In contrast, the parameter type for `%b` would be
+`I32 DEFAULT(1)`.
+
+See also: Paratype, Invotype, Intertype, Ensig, Header, Overload.
+
 ## Aggregate-Fusion
 
-Aggregate-fusion is a stage in the compilation process when processing 
-outer-scopes. It consists of combining multiple declarations of the same 
-name into one. For example, the combination of multiple functions into a 
+Aggregate-fusion is a stage in the compilation process when processing
+outer-scopes. It consists of combining multiple declarations of the same
+name into one. For example, the combination of multiple functions into a
 single functum. Aggregate-fusion can fail, for example:
 
 ```
+
 ::foo FUNCTION(%a I32):I32
 {
-  ...
+...
 }
 
 ::foo CLASS
 {
-  ...
+...
 }
+
 ```
 
-In the above example, the aggregate-fusion of `::foo` will fail because the 
-CLASS and FUNCTION declarations are incompatible. Variables and classes also 
+In the above example, the aggregate-fusion of `::foo` will fail because the
+CLASS and FUNCTION declarations are incompatible. Variables and classes also
 cannot be fused, even with other variables and classes.
 
-In general, a FUNCTION can be fused with other FUNCTIONs, a TEMPLATE can be 
-fused with other TEMPLATEs, and NAMESPACEs can be fused with other 
+In general, a FUNCTION can be fused with other FUNCTIONs, a TEMPLATE can be
+fused with other TEMPLATEs, and NAMESPACEs can be fused with other
 NAMESPACEs. Unlike FUNCTION, NAMESPACE, and TEMPLATE declarations, CLASS and
 VAR declarations cannot be fused. (i.e., there must be no more than one VAR
 or CLASS with the same name in a given scope).
+
+## Build Status
+
+Build status can be divided into 3 categories:
+
+- **Build Success**: The build process _completed and was successful_ and artifacts were generated.
+- **Build Error**: The build process _completed in failure_ due to an error in the source code.
+- **Build Exception**: The build was _unable to be completed_ by the compiler.
+
+Build exceptions are different from build errors. A build error is completed build result. In a build error, the
+compilation error is the intended result of compilation of source code that contains an error. In a build _exception_ on
+the other hand, the operation of compiling itself did not complete. A build error can never be fixed by retrying the
+build, as it indicates that the source code contains an error. A build exception, on the other hand, indicates a problem
+other than a problem with the source code, such as the compiler running out of RAM or exceeding a configured timeout,
+subprocesses being killed by OOM killer, etc.
 
 ## Declaroid
 
@@ -41,27 +83,29 @@ includes non-temploid declaroids like variables and classes.
 Example:
 
 ```
+
 ::foo FUNCTION(%a I32):I32
 {
-  ...
+...
 }
 
 ::bar VAR I32
 
 ::baz CLASS
 {
-  ...
+...
 }
 
 ::bif FUNCTION(%a I32):I32
 {
-  ...
+...
 }
 
 ::bif FUNCTION(%a I32, %b I32):I32
 {
-  ...
+...
 }
+
 ```
 
 In the above example, the declarations of `::foo`, `::bar`, and `::baz`, are
@@ -69,8 +113,8 @@ all
 declaroids. The two
 `::bif` declarations are both individually declaroids, but the aggregate
 `::bif` is
-not a declaroid as a whole. Declaroids have a single abstract-syntax-tree 
-representation. A declaroid either is directly defined in source code, or 
+not a declaroid as a whole. Declaroids have a single abstract-syntax-tree
+representation. A declaroid either is directly defined in source code, or
 results from macro-execution prior to aggregate-fusion.
 
 See also: Aggregate-fusion, Temploid, Templexoid, Function, Variable, Class.
@@ -89,27 +133,52 @@ For example in the following code:
 
 ::baz CLASS
 {
-   ::bar CLASS 
-   {
-      ...
-   }
-   
-   ::foo FUNCTION(%x bar)
-   {
-     ...
-   }
+::bar CLASS
+{
+...
 }
+
+::foo FUNCTION(%x bar)
+{
+...
+}
+}
+
 ```
 
-The "declared parameters" of `::foo FUNCTION(%x bar)` are `(%x bar)`, whereas the formal parameters are `(%x [module]::baz::bar)`. 
+The "declared parameters" of `::foo FUNCTION(%x bar)` are `(%x bar)`, whereas the formal parameters are
+`(%x [module]::baz::bar)`.
 
 ### Differs From
 
-*Paratype* - The paratype is the type of the positional and named parameters, however it does not include the parameter names. 
+*Paratype* - The paratype is the type of the positional and named parameters, however it does not include the parameter
+names.
 For example, the above formal paratype would be `([module]::baz::bar)` and the declared paratype would be `(bar)`.
 
-*Signature* - The signature is a combination of the paratype and the return type. For example, the above formal signature 
+*Signature* - The signature is a combination of the paratype and the return type. For example, the above formal
+signature
 would be `([module]::baz::bar): I32` and the declared signature would be `(bar): I32`.
+
+## Ensig
+
+A temploid's _ensig_ is a combination of its formal intertype and overload resolution criteria such as the overload
+priority.
+
+For example, given the following function:
+
+```qux
+
+::foo FUNCTION(%a I32, %b I32 DEFAULT(1)) P(1)
+{
+    ...
+}
+```
+
+The _ensig_ would be `#[I32, I32 DEFAULTED; P(1)]`.
+
+An ensig differs from an overload reference in that the ensig doesn't include a reference to the templexoid. Thus, an
+overload reference is a combination of an ensig and a templexoid reference. For example, the overload of the previous
+example function would be `::foo#[I32, I32 DEFAULTED; P(1)]`.
 
 ## Functanoid
 
@@ -133,6 +202,10 @@ However, the formal type does not instantiate temploidic parameters. For instanc
 might include temploidic types like `T(t)` (any type), `PTR(p)` (any pointer type), or `INT(i)`
 (any size integer).
 
+## Formal Header
+
+The formal header of a function includes the formal parameters, as well as any header tag regarding the function's
+priority.
 
 ## Formal Parameters
 
@@ -147,6 +220,8 @@ The formal parameters do not include the instanciation of parameters, so for exa
 of T(t) would remain as T(t) in the formal parameters, but would be resolved to a concrete type in the
 instantiated parameters.
 
+Formal parameters differs from the formal header in that the header includes non-parameter information such as the
+overload priority and `ENABLE_IF` constraints.
 
 ## Functoid
 
@@ -181,6 +256,36 @@ function-pointer in C and C++.
 
 A functum is a collection of 1 or more functions that share a symbolic name.
 A functum is a type of templexoid.
+
+## Header
+
+Headers are the set of parameters and header tags that are part of a temploid declaration.
+
+For example, given the following function:
+
+```qux
+::foo FUNCTION(%a I32, %b I32 DEFAULT(1)) P(1)
+{
+    bar(a, b);
+}
+```
+
+The header of this `::foo` declaration would be `(%a I32, %b I32 DEFAULT(1)) P(1)`.
+
+The _headers_ differ from the ensig or paratype in that the *header* is the unprocessed portion of the code or abstract
+syntax tree of the declaroid. It also includes the return declaration, if present.
+
+For example, given:
+
+```qux
+::myint ALIAS I32;
+::foo FUNCTION(%a myint) P(2): I64
+{
+
+}
+```
+
+The function's _header_ is `(%a myint) P(2): I64` but the _paratype_ is `(I32)` and the _ensig_ is `#[I32; P(2)]`.
 
 ## Template
 
@@ -228,13 +333,15 @@ when the temploid is instantiated.
 Example:
 
 ```
+
 FUNCTION(%a I32, %b T(t)) -> I32
 {
-  ...
+...
 }
+
 ```
 
-Here, the formal type of the `%b` parameter is the temploidic type `T(t)`, where `T` is the generic "any type" keyword 
+Here, the formal type of the `%b` parameter is the temploidic type `T(t)`, where `T` is the generic "any type" keyword
 and `t` is a tempar. When the function is instantiated, `t` will be parameterized with a type and the `t`
 tempar will become an alias for that concrete type. Note that `T(t)` is a temploidic type, not a tempar, but `t` itself
 is a tempar within this context.
@@ -250,12 +357,12 @@ See also: Concrete-Type, Tempar
 
 ### See also
 
- * Concrete Type
- * Temploidic Type
- * Formal Type
- * Declared Type
- * Instantiated Type
- * Paratype
+* Concrete Type
+* Temploidic Type
+* Formal Type
+* Declared Type
+* Instantiated Type
+* Paratype
 
 ## Instantiation-Reference
 
@@ -265,31 +372,50 @@ particular temploid or templexoid with a given set of parameters.
 Example:
 
 ```
+
 foo#(I32, I64)
+
 ```
 
 If there are multiple candidates, then the instantiation-reference is
 proceded by a selection-reference in canonical form. Example:
 
 ```
+
 foo#[I32, T(t)]#(I32, I64)
+
 ```
 
 This can be shorted to the selstantiation syntax sugar:
 
 ```
+
 foo#{I32, T(t): I64}
+
 ```
+
+## Intertype
+
+An intertype is the set of named and position argifs of a temploid.
 
 ## Selection-Reference
 
-A selection-reference is a reference to a specific temploid of a templexoid.
+A selection-reference is a reference to a specific temploid of a templexoid. It is a deprecated term that should be
+replaced with the term "overload-reference".
 
 Example:
 
 ```
+
 foo#[I32, T(t)]
+
 ```
 
 Here, `foo` is a templexoid, and the result of the type-expression is a
 non-instanciated temploid.
+
+
+
+## Overload-Reference
+
+An overload reference is a reference to a templexoid and a 

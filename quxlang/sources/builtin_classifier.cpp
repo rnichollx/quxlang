@@ -10,7 +10,7 @@ namespace quxlang
     // It assumes that we have already checked that the function is builtin and are just
     // checking which implementation to use.
     template < typename Inst >
-    bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, intertype const& call, vmir2::invocation_args const& args, bool flip = false)
+    bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, vmir2::invocation_args const& args, bool flip = false)
     {
         if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
         {

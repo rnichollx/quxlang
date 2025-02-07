@@ -59,7 +59,7 @@ namespace quxlang
 
     using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using ast2_temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
     using ast2_templexoid = rpnx::variant< std::monostate, functum, ast2_templex >;
 

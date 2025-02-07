@@ -97,9 +97,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
     }
 
-    intertype result;
+    invotype result;
 
-    std::optional< intertype > result_opt;
+    std::optional< invotype > result_opt;
 
     for (auto & dp : convertibles_dp)
     {

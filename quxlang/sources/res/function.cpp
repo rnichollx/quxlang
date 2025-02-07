@@ -208,7 +208,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_functum_overloads)
 
         else if (name == "CONSTRUCTOR")
         {
-           co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
+            co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
         }
 
             else if (name == "DESTRUCTOR")

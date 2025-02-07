@@ -7,14 +7,13 @@
 #include "rpnx/metadata.hpp"
 #include "rpnx/variant.hpp"
 #include <compare>
+#include <map>
 #include <rpnx/compare.hpp>
 #include <rpnx/metadata.hpp>
 #include <rpnx/resolver_utilities.hpp>
-#include <map>
 #include <vector>
 
 #include <quxlang/data/fwd.hpp>
-
 
 RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
 
@@ -23,10 +22,10 @@ RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine);
 
 namespace quxlang
 {
-    std::optional<pointer_class> pointer_class_template_match(pointer_class template_class, pointer_class match_class);
-    std::optional<qualifier> qualifier_template_match(qualifier template_qual, qualifier match_qual);
+    std::optional< pointer_class > pointer_class_template_match(pointer_class template_class, pointer_class match_class);
+    std::optional< qualifier > qualifier_template_match(qualifier template_qual, qualifier match_qual);
 
-    std::optional<qualifier> qualifier_template_match_noconv(qualifier template_qual, qualifier match_qual);
+    std::optional< qualifier > qualifier_template_match_noconv(qualifier template_qual, qualifier match_qual);
 
     struct void_type
     {
@@ -38,7 +37,7 @@ namespace quxlang
         RPNX_EMPTY_METADATA(thistype);
     };
 
-    struct intertype
+    struct invotype
     {
         std::map< std::string, type_symbol > named;
         std::vector< type_symbol > positional;
@@ -48,13 +47,13 @@ namespace quxlang
             return positional.size() + named.size();
         }
 
-        RPNX_MEMBER_METADATA(intertype, named, positional);
+        RPNX_MEMBER_METADATA(invotype, named, positional);
     };
 
     struct declared_parameter
     {
-        std::optional<std::string> api_name;
-        std::optional<std::string> name;
+        std::optional< std::string > api_name;
+        std::optional< std::string > name;
         type_symbol type;
         std::optional< expression > default_value;
 
@@ -69,7 +68,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(declared_parameters, positional, named);
     };
 
+    struct temploid_header
+    {
+        declared_parameters params;
+        std::optional< std::int64_t > priority;
 
+        RPNX_MEMBER_METADATA(temploid_header, params, priority);
+    };
 
     struct parameter_type
     {
@@ -78,6 +83,8 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(parameter_type, type, default_value);
     };
+
+
 
     struct paratype
     {
@@ -91,8 +98,8 @@ namespace quxlang
 
     struct param_names
     {
-        std::vector<std::optional<std::string>> positional;
-        std::map<std::string, std::string > named;
+        std::vector< std::optional< std::string > > positional;
+        std::map< std::string, std::string > named;
 
         RPNX_MEMBER_METADATA(param_names, positional, named);
     };
@@ -106,11 +113,26 @@ namespace quxlang
         RPNX_MEMBER_METADATA(function_arg, name, api_name, type)
     };
 
-    // TODO: Rename this to temploid_header or something,
-    //  it is called "function header" but is also used for templates...
+    struct argif
+    {
+        type_symbol type;
+        bool is_defaulted = false;
+
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted);
+    };
+
+    // Interface type - used in things like overload resolution
+    struct intertype
+    {
+        std::vector< argif > positional;
+        std::map<std::string, argif > named;
+
+        RPNX_MEMBER_METADATA(intertype, positional, named);
+    };
+
     struct temploid_ensig
     {
-        paratype interface;
+        intertype interface;
         std::optional< std::int64_t > priority;
 
         RPNX_MEMBER_METADATA(temploid_ensig, interface, priority);
@@ -122,7 +144,7 @@ namespace quxlang
     struct overload
     {
         bool builtin = false;
-        paratype params;
+        invotype params;
         std::optional< std::int64_t > priority;
 
         RPNX_MEMBER_METADATA(overload, builtin, params, priority);
@@ -131,20 +153,18 @@ namespace quxlang
     struct signature
     {
         overload ol;
-        std::optional<type_symbol> return_type;
+        std::optional< type_symbol > return_type;
 
         RPNX_MEMBER_METADATA(signature, ol, return_type);
     };
 
     struct sigtype
     {
-        intertype params;
-        std::optional<type_symbol> return_type;
+        invotype params;
+        std::optional< type_symbol > return_type;
 
         RPNX_MEMBER_METADATA(sigtype, params, return_type);
     };
-
-
 
     struct numeric_literal_reference
     {
@@ -201,8 +221,6 @@ namespace quxlang
         RPNX_EMPTY_METADATA(bool_type);
     };
 
-
-
     struct pointer_type
     {
         type_symbol target;
@@ -211,8 +229,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(pointer_type, target, ptr_class, qual);
     };
-
-
 
     struct value_expression_reference
     {
@@ -224,9 +240,11 @@ namespace quxlang
     {
         type_symbol initializee;
 
-        intertype parameters;
+        invotype parameters;
         RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters);
     };
+
+
 
     struct temploid_reference
     {
@@ -234,7 +252,6 @@ namespace quxlang
         temploid_ensig which;
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
     };
-
 
     struct auto_reference
     {
@@ -293,8 +310,7 @@ namespace quxlang
 
     std::string to_string(type_symbol const&);
 
-    std::optional<type_symbol> func_class(type_symbol const & func);
-
+    std::optional< type_symbol > func_class(type_symbol const& func);
 
 } // namespace quxlang
 
@@ -318,9 +334,6 @@ struct rpnx::resolver_traits< quxlang::initialization_reference >
     }
 };
 
-
 #include <quxlang/data/expression.hpp>
-
-
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD

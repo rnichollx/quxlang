@@ -16,7 +16,7 @@ namespace quxlang
     std::string to_string(vmir2::invocation_args const& ref);
     std::string to_string(type_symbol const& ref);
 
-    std::string to_string(intertype const& ref);
+    std::string to_string(invotype const& ref);
 
 
     bool is_ref(type_symbol type);

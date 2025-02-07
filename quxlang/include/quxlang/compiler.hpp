@@ -28,6 +28,7 @@
 #include "quxlang/res/files_in_module_resolver.hpp"
 #include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/function.hpp"
+#include "quxlang/res/temploid.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
@@ -111,7 +112,7 @@ namespace quxlang
         friend class template_instanciation_ast_resolver;
         friend class temploid_instanciation_parameter_set_resolver;
         friend class functum_instanciation_parameter_map_resolver;
-        //friend class co_vmir_expression_emitter;
+        // friend class co_vmir_expression_emitter;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
@@ -133,8 +134,7 @@ namespace quxlang
         filelist m_file_list;
         singleton< filelist_resolver > m_filelist_resolver;
         // class_list_resolver m_class_list_resolver;
-        //index< file_content_resolver > m_file_contents_index;
-        index< file_ast_resolver > m_file_ast_index;
+        // index< file_content_resolver > m_file_contents_index;
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(constexpr_bool)
@@ -177,12 +177,14 @@ namespace quxlang
         COMPILER_INDEX(symboid_subdeclaroids)
         COMPILER_INDEX(template_instanciation)
         COMPILER_INDEX(template_instanciation_ast)
+        // COMPILER_INDEX(templex_instanciation)
         COMPILER_INDEX(templex_select_template)
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)
         COMPILER_INDEX(temploid_instanciation_parameter_set)
-        COMPILER_INDEX(temploid_formal_header_list)
-        COMPILER_INDEX(temploid_formal_header_set)
+        COMPILER_INDEX(templexoid_user_header_list)
+        COMPILER_INDEX(templexoid_user_ensig_set)
+        COMPILER_INDEX(templexoid_ensig_set)
         COMPILER_INDEX(variable_type)
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure2)
@@ -206,7 +208,6 @@ namespace quxlang
             return m_class_should_autogen_default_constructor_index.lookup(cls); //
         }
 
-
       public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(initialization_reference func_addr)
         {
@@ -221,8 +222,6 @@ namespace quxlang
             m_solver.solve(this, node);
             return node->get();
         }
-
-
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {
@@ -242,29 +241,16 @@ namespace quxlang
       public:
       private:
         // index< class_list_resolver > m_class_list_index;
-        
-          COMPILER_INDEX(implicitly_convertible_to);
 
+        COMPILER_INDEX(implicitly_convertible_to);
 
         auto lk_implicitly_convertible_to(type_symbol from, type_symbol to)
         {
             return m_implicitly_convertible_to_index.lookup(implicitly_convertible_to_query{from, to});
         }
 
-  
-
-
-
-
       public:
-
       private:
-
-
-
-
-
-
         index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
 
         out< std::size_t > lk_class_size_from_canonical_lookup_chain(type_symbol const& chain)
@@ -309,15 +295,8 @@ namespace quxlang
 
         // Get the parsed AST for a file
 
-        // Should actually be named lk_file_contents, but kept for legacy reasons
-        // DEPRECATED: Use lk_file_contents instead
-        out< std::string > file_contents(std::string const& filename);
 
-        // Migrate to using lk_file_contents as the name
-        out< std::string > lk_file_contents(std::string const& filename)
-        {
-            return file_contents(filename);
-        }
+
 
         // Look up the AST for a given glass given a paritcular cannonical chain
 
@@ -325,12 +304,7 @@ namespace quxlang
         // Each get_* function calls the lk_* function and then solves the graph
       public:
         // Gets the content of a named file
-        std::string get_file_contents(std::string const& filename)
-        {
-            auto node = file_contents(filename);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         std::size_t get_class_size(type_symbol const& chain)
         {
@@ -346,8 +320,7 @@ namespace quxlang
             return size->get();
         }
 
-
-        //function_ast get_function_ast_of_overload(type_symbol chain);
+        // function_ast get_function_ast_of_overload(type_symbol chain);
     };
 
 } // namespace quxlang

@@ -69,6 +69,8 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref);
 
+    std::string to_string(expression const & expr);
+
     struct is_template_visitor
     {
       public:
@@ -345,31 +347,33 @@ namespace quxlang
 
             output += " #{";
 
-            if (sel.which.builtin)
+            // TODO: consider if keep this
+            if (false) // (sel.which.builtin)
             {
                 output += "BUILTIN; ";
             }
             bool first = true;
-            for (auto const& [name, type] : sel.which.interface.named)
+            for (auto const& [name, param] : sel.which.interface.named)
             {
                 if (first)
                     first = false;
                 else
                     output += ", ";
-                output += "@" + name + " " + to_string(type);
-                if (ref.parameters.named.at(name) != type)
+                output += "@" + name + " " + to_string(param.type);
+                if (ref.parameters.named.at(name) != param.type)
                 {
                     output += ": " + to_string(ref.parameters.named.at(name));
                 }
             }
             for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
             {
+                auto const & param = sel.which.interface.positional.at(i);
                 if (first)
                     first = false;
                 else
                     output += ", ";
-                output += to_string(sel.which.interface.positional.at(i));
-                if (ref.parameters.positional.at(i) != sel.which.interface.positional.at(i))
+                output += to_string(param.type);
+                if (ref.parameters.positional.at(i) != sel.which.interface.positional.at(i).type)
                 {
                     output += ": " + to_string(ref.parameters.positional.at(i));
                 }
@@ -491,7 +495,7 @@ namespace quxlang
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.templexoid) + "#[";
         bool first = true;
-        if (ref.which.builtin)
+        if (false) // ref.which.builtin)
         {
             output += "BUILTIN; ";
         }
@@ -501,7 +505,7 @@ namespace quxlang
                 first = false;
             else
                 output += ", ";
-            output += "@" + arg.first + " " + to_string(arg.second);
+            output += "@" + arg.first + " " + to_string(arg.second.type);
         }
         for (auto const& arg : ref.which.interface.positional)
         {
@@ -945,7 +949,7 @@ namespace quxlang
     {
         return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
     }
-    std::string to_string(intertype const& ref)
+    std::string to_string(invotype const& ref)
     {
         std::string output;
         bool first = true;
@@ -1099,7 +1103,7 @@ namespace quxlang
             {
                 return std::move(results);
             }
-            bool check(intertype template_ct, intertype match_ct, bool conv);
+            bool check(invotype template_ct, invotype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
 
             bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
@@ -1247,7 +1251,7 @@ namespace quxlang
                 return check(tmpl.target, val.target, false);
             }
         };
-        bool template_matcher::check(intertype template_ct, intertype match_ct, bool conv)
+        bool template_matcher::check(invotype template_ct, invotype match_ct, bool conv)
         {
             if (template_ct.named.size() != match_ct.named.size())
             {

@@ -24,25 +24,6 @@ void quxlang::merge_entity(ast2_symboid& destination, ast2_declarable const& sou
 
         functum & destination_functum = as< functum >(destination);
 
-        temploid_ensig ol;
-
-        // TODO: Consider exporting the extraction of call_type
-        //  from call_paramters to a function
-        for (ast2_function_parameter const& param : func.header.call_parameters)
-        {
-            if (param.api_name.has_value())
-            {
-                rpnx::unimplemented();
-            }
-            ol.interface.positional.push_back(param.type);
-        }
-
-       // auto it = destination_functum.functions.find(ol);
-       // if (it != destination_functum.functions.end())
-       // {
-       //     throw std::logic_error("Functum already declared with the same overload");
-       // }
-
         destination_functum.functions.push_back(func);
     }
     else if (typeis< ast2_class_declaration >(source))

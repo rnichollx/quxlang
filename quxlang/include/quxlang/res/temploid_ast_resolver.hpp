@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(ast, ast2_temploid, std::string);
+    QUX_CO_RESOLVER(ast, temploid, std::string);
 }
 
 #endif //TEMPLOID_AST_RESOLVER_HPP
