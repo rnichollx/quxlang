@@ -1,6 +1,7 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler.hpp>
+#include <quxlang/res/functum.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 {
@@ -28,7 +29,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     for (auto const& o : overloads)
     {
-        auto candidate = co_await QUX_CO_DEP(overload_set_instanciate_with, ({.overload = o, .call = input.parameters}));
+        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = o, .params = input.parameters}));
         if (candidate)
         {
             std::size_t priority = o.priority.value_or(0);
@@ -59,4 +60,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     }
 
     QUX_CO_ANSWER(*best_match.begin());
+}
+
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_exists_and_is_callable_with)
+{
+    auto ol = co_await QUX_CO_DEP(functum_instanciation, (input_val));
+
+    QUX_CO_ANSWER(ol.has_value());
 }

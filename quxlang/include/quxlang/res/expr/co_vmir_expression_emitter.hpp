@@ -632,7 +632,6 @@ namespace quxlang
         {
             auto callee = as< temploid_reference >(what.initializee);
 
-            assert(callee.which.builtin);
 
             auto functum = callee.templexoid;
 
@@ -656,20 +655,21 @@ namespace quxlang
             co_return;
         }
 
-        auto gen_invoke(initialization_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            if (true && typeis< temploid_reference >(what.initializee) && as< temploid_reference >(what.initializee).which.builtin)
+            auto is_builtin = co_await prv.function_builtin(what);
+            if (is_builtin)
             {
                 co_return co_await gen_invoke_builtin(what, args);
             }
 
             if (args.named.contains("RETURN"))
             {
-                assert(args.size() == what.parameters.size() + 1);
+                assert(args.size() == what.params.size() + 1);
             }
             else
             {
-                assert(args.size() == what.parameters.size());
+                assert(args.size() == what.params.size());
             }
             std::string what_invoke = to_string(what);
 

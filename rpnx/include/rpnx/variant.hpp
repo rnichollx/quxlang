@@ -709,10 +709,9 @@ namespace rpnx
                 throw std::bad_variant_access();
             }
 
-            using type = std::tuple_element_t< N, std::tuple< Ts... > >;
             // If it is, return a reference to the value, casted to T
             assert(valid());
-            return *static_cast< type const* >(m_data);
+            return *static_cast< typename std::tuple_element <N, std::tuple<Ts...> >::type const* >(m_data);
         }
 
         bool operator==(basic_variant< Allocator, Ts... > const& other) const

@@ -38,6 +38,7 @@ namespace quxlang
         std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
         std::string operator()(pointer_type const&) const;
+        std::string operator()(instanciation_reference const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -69,7 +70,7 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref);
 
-    std::string to_string(expression const & expr);
+    std::string to_string(expression const& expr);
 
     struct is_template_visitor
     {
@@ -81,6 +82,21 @@ namespace quxlang
         bool operator()(subsymbol const& ref) const
         {
             return is_template(ref.of);
+        }
+
+        bool operator()(instanciation_reference const& type)
+        {
+            for (auto& p : type.params.positional)
+            {
+                if (is_template(p))
+                    return true;
+            }
+            for (auto& p : type.params.named)
+            {
+                if (is_template(p.second))
+                    return true;
+            }
+            return is_template(type.temploid);
         }
 
         bool operator()(pointer_type const& ref) const
@@ -336,51 +352,6 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(initialization_reference const& ref) const
     {
-        // There are 3 types of selection/instanciation,
-        // only selection #[ ]
-        // only instanciation #( )
-        // both selection & instantiation #{ }
-        if (typeis< temploid_reference >(ref.initializee))
-        {
-            temploid_reference const& sel = as< temploid_reference >(ref.initializee);
-            std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
-
-            output += " #{";
-
-            // TODO: consider if keep this
-            if (false) // (sel.which.builtin)
-            {
-                output += "BUILTIN; ";
-            }
-            bool first = true;
-            for (auto const& [name, param] : sel.which.interface.named)
-            {
-                if (first)
-                    first = false;
-                else
-                    output += ", ";
-                output += "@" + name + " " + to_string(param.type);
-                if (ref.parameters.named.at(name) != param.type)
-                {
-                    output += ": " + to_string(ref.parameters.named.at(name));
-                }
-            }
-            for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
-            {
-                auto const & param = sel.which.interface.positional.at(i);
-                if (first)
-                    first = false;
-                else
-                    output += ", ";
-                output += to_string(param.type);
-                if (ref.parameters.positional.at(i) != sel.which.interface.positional.at(i).type)
-                {
-                    output += ": " + to_string(ref.parameters.positional.at(i));
-                }
-            }
-            output += "}";
-            return output;
-        }
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.initializee);
         output += " #(";
         bool first = true;
@@ -403,6 +374,50 @@ namespace quxlang
         output += ")";
         return output;
     }
+
+    std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
+    {
+
+        temploid_reference const& sel = ref.temploid;
+        std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
+
+        output += " #{";
+
+        // TODO: consider if keep this
+        if (false) // (sel.which.builtin)
+        {
+            output += "BUILTIN; ";
+        }
+        bool first = true;
+        for (auto const& [name, param] : sel.which.interface.named)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + name + " " + to_string(param.type);
+            if (ref.params.named.at(name) != param.type)
+            {
+                output += ": " + to_string(ref.params.named.at(name));
+            }
+        }
+        for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
+        {
+            auto const& param = sel.which.interface.positional.at(i);
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += to_string(param.type);
+            if (ref.params.positional.at(i) != sel.which.interface.positional.at(i).type)
+            {
+                output += ": " + to_string(ref.params.positional.at(i));
+            }
+        }
+        output += "}";
+        return output;
+    }
+
     std::string qualified_symbol_stringifier::operator()(mvalue_reference const& ref) const
     {
         return "MUT& " + rpnx::apply_visitor< std::string >(*this, ref.target);
@@ -949,6 +964,18 @@ namespace quxlang
     {
         return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
     }
+
+    std::string to_string(argif const& arg)
+    {
+        std::string output;
+        output += to_string(arg.type);
+        if (arg.is_defaulted)
+        {
+            output += " DEFAULTED";
+        }
+        return output;
+    }
+
     std::string to_string(invotype const& ref)
     {
         std::string output;
@@ -1104,6 +1131,7 @@ namespace quxlang
                 return std::move(results);
             }
             bool check(invotype template_ct, invotype match_ct, bool conv);
+            bool check(intertype template_ct, intertype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
 
             bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
@@ -1143,6 +1171,42 @@ namespace quxlang
                 }
 
                 return check(tmpl.of, val.of, conv);
+            }
+
+            bool check_impl(instanciation_reference const& tmpl, instanciation_reference const& val, bool conv)
+            {
+                if (!check(tmpl.temploid, val.temploid, conv))
+                {
+                    return false;
+                }
+
+                if (tmpl.params.named.size() != val.params.named.size())
+                {
+                    return false;
+                }
+
+                for (auto const& [name, type] : tmpl.params.named)
+                {
+                    if (!check(type, val.params.named.at(name), conv))
+                    {
+                        return false;
+                    }
+                }
+
+                if (tmpl.params.positional.size() != val.params.positional.size())
+                {
+                    return false;
+                }
+
+                for (size_t i = 0; i < tmpl.params.positional.size(); i++)
+                {
+                    if (!check(tmpl.params.positional[i], val.params.positional[i], conv))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             bool check_impl(initialization_reference const& tmpl, initialization_reference const& val, bool conv)
@@ -1279,6 +1343,53 @@ namespace quxlang
             for (size_t i = 0; i < template_ct.positional.size(); i++)
             {
                 if (!check(template_ct.positional[i], match_ct.positional[i], conv))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+
+        bool template_matcher::check(intertype template_ct, intertype match_ct, bool conv)
+        {
+            if (template_ct.named.size() != match_ct.named.size())
+            {
+                return false;
+            }
+
+            for (auto const& [name, type] : template_ct.named)
+            {
+                if (match_ct.named.find(name) == match_ct.named.end())
+                {
+                    return false;
+                }
+
+                if (type.is_defaulted != match_ct.named.at(name).is_defaulted)
+                {
+                    return false;
+                }
+
+                if (!check(type.type, match_ct.named.at(name).type, conv))
+                {
+                    return false;
+                }
+            }
+
+            if (template_ct.positional.size() != match_ct.positional.size())
+            {
+                return false;
+            }
+
+            for (size_t i = 0; i < template_ct.positional.size(); i++)
+            {
+                if (!check(template_ct.positional[i].type, match_ct.positional[i].type, conv))
+                {
+                    return false;
+                }
+
+                if (template_ct.positional[i].is_defaulted != match_ct.positional[i].is_defaulted)
                 {
                     return false;
                 }

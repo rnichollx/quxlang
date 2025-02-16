@@ -152,10 +152,10 @@ namespace quxlang
 
     struct signature
     {
-        overload ol;
+        temploid_ensig ensig;
         std::optional< type_symbol > return_type;
 
-        RPNX_MEMBER_METADATA(signature, ol, return_type);
+        RPNX_MEMBER_METADATA(signature, ensig, return_type);
     };
 
     struct sigtype
@@ -236,6 +236,8 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
+
+
     struct initialization_reference
     {
         type_symbol initializee;
@@ -251,6 +253,13 @@ namespace quxlang
         type_symbol templexoid;
         temploid_ensig which;
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
+    };
+
+    struct instanciation_reference
+    {
+        temploid_reference temploid;
+        invotype params;
+        RPNX_MEMBER_METADATA(instanciation_reference, temploid, params);
     };
 
     struct auto_reference

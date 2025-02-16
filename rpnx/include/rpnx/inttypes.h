@@ -3,7 +3,7 @@
 #ifndef QUXLANG_INTTYPES_H
 #define QUXLANG_INTTYPES_H
 
-#include <inttypes.h>
+#include <cinttypes>
 
 #if defined(_WIN64)
 typedef signed __int64 ssize_t;

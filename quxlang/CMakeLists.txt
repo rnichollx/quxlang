@@ -42,7 +42,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/res/symbol_is_class_resolver.hpp
         include/quxlang/data/function_while_statement.hpp
         include/quxlang/data/symbol_type.hpp
-        include/quxlang/res/functum_exists_and_is_callable_with_resolver.hpp
         include/quxlang/operators.hpp
         include/quxlang/data/vm_expr_reinterpret.hpp
         include/quxlang/data/vm_expr_poison.hpp
@@ -190,10 +189,9 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/data/builtins.hpp
         include/quxlang/res/expr/co_vmir_expression_emitter.hpp
         sources/co_vmir_emitter.cpp
-        sources/res/functum_selection.cpp
+        sources/res/functum.cpp
         include/quxlang/data/function_header.hpp
-        include/quxlang/res/functum_instanciation.hpp
-        include/quxlang/res/functum_select_function.hpp
+        include/quxlang/res/functum.hpp
         include/quxlang/data/fwd.hpp
         include/quxlang/res/declaroids_resolver.hpp
         include/quxlang/res/resolver.hpp
@@ -211,7 +209,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/res/templex_select_template.hpp
         include/quxlang/res/resolvers.hpp
         sources/res/function_instanciation.cpp
-        sources/res/functum_exists_and_is_callable_with.cpp
         include/quxlang/builtins.hpp
         include/quxlang/data/builtin_functions.hpp
         sources/res/function_builtin.cpp

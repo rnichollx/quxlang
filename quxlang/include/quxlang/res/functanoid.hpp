@@ -17,10 +17,9 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(functanoid_parameter_map, initialization_reference, temploid_instanciation_parameter_set);
-    QUX_CO_RESOLVER(functanoid_return_type, initialization_reference, type_symbol);
-    QUX_CO_RESOLVER(functanoid_sigtype, initialization_reference, sigtype);
-    QUX_CO_RESOLVER(functanoid_param_names, initialization_reference, param_names);
+    QUX_CO_RESOLVER(functanoid_parameter_map, instanciation_reference, temploid_instanciation_parameter_set);
+    QUX_CO_RESOLVER(functanoid_return_type, instanciation_reference, type_symbol);
+    QUX_CO_RESOLVER(functanoid_sigtype, instanciation_reference, sigtype);
 
 } // namespace quxlang
 

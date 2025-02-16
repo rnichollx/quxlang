@@ -46,7 +46,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
 
         invotype decl_args;
         decl_args.positional = decl.m_template_args;
-        auto can_use_this_template = co_await *c->lk_overload_set_instanciate_with(overload_set_instanciate_with_q{.overload = temploid_ensig{.interface = templ_instanciation_args}, .call = decl_args});
+        auto can_use_this_template = co_await *c->lk_function_ensig_initialize_with(function_ensig_initialize_with_q{.overload = temploid_ensig{.interface = templ_instanciation_args}, .call = decl_args});
         if (can_use_this_template)
         {
             if (!template_priority.has_value() || priority > *template_priority)

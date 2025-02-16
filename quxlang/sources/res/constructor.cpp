@@ -22,7 +22,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
     for (auto& ol : user_defined_dtor)
     {
-        auto candidate = co_await QUX_CO_DEP(overload_set_instanciate_with, ({.overload = ol, .call = dtor_call_type}));
+        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.overload = ol, .call = dtor_call_type}));
 
         if (candidate)
         {

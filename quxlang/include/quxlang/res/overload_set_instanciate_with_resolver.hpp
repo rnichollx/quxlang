@@ -11,15 +11,7 @@
 
 namespace quxlang
 {
-    struct overload_set_instanciate_with_q
-    {
-        temploid_ensig overload;
-        invotype call;
 
-        RPNX_MEMBER_METADATA(overload_set_instanciate_with_q, overload, call);
-    };
-
-    QUX_CO_RESOLVER(overload_set_instanciate_with, overload_set_instanciate_with_q, std::optional< invotype >);
 
 } // namespace quxlang
 

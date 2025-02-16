@@ -28,13 +28,12 @@
 #include "quxlang/res/files_in_module_resolver.hpp"
 #include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/function.hpp"
-#include "quxlang/res/temploid.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
-#include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
 #include "quxlang/res/overloads.hpp"
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
+#include "quxlang/res/temploid.hpp"
 #include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
 #include "quxlang/res/variable.hpp"
@@ -43,9 +42,7 @@
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
-#include <quxlang/res/functum_exists_and_is_callable_with_resolver.hpp>
-#include <quxlang/res/functum_instanciation.hpp>
-#include <quxlang/res/functum_select_function.hpp>
+#include <quxlang/res/functum.hpp>
 #include <quxlang/res/instanciation.hpp>
 #include <quxlang/res/interpret_bool_resolver.hpp>
 #include <quxlang/res/interpret_value_resolver.hpp>
@@ -105,7 +102,7 @@ namespace quxlang
         friend class called_functanoids_resolver;
         friend class list_builtin_functum_overloads_resolver;
         friend class call_params_of_function_ast_resolver;
-        friend class overload_set_instanciate_with_resolver;
+        friend class function_ensig_initialize_with_resolver;
         friend class type_map_resolver;
         friend class temploid_instanciation_ast_resolver;
         friend class template_instanciation_parameter_set_resolver;
@@ -148,12 +145,13 @@ namespace quxlang
         COMPILER_INDEX(exists)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
-        COMPILER_INDEX(functanoid_param_names)
+
         COMPILER_INDEX(functanoid_sigtype)
         COMPILER_INDEX(function_positional_parameter_names)
         COMPILER_INDEX(function_builtin)
+        COMPILER_INDEX(function_param_names)
         COMPILER_INDEX(functum_exists_and_is_callable_with)
-        COMPILER_INDEX(functum_instanciation)
+        COMPILER_INDEX(functum_initialize)
         COMPILER_INDEX(functum_select_function)
         COMPILER_INDEX(function_declaration)
         COMPILER_INDEX(function_instanciation)
@@ -170,7 +168,7 @@ namespace quxlang
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(nontrivial_default_dtor)
-        COMPILER_INDEX(overload_set_instanciate_with)
+        COMPILER_INDEX(function_ensig_initialize_with)
         COMPILER_INDEX(procedure_linksymbol)
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
@@ -181,7 +179,7 @@ namespace quxlang
         COMPILER_INDEX(templex_select_template)
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)
-        COMPILER_INDEX(temploid_instanciation_parameter_set)
+        COMPILER_INDEX(instanciation_parameter_map)
         COMPILER_INDEX(templexoid_user_header_list)
         COMPILER_INDEX(templexoid_user_ensig_set)
         COMPILER_INDEX(templexoid_ensig_set)
@@ -216,7 +214,7 @@ namespace quxlang
             return node->get();
         }
 
-        vmir2::functanoid_routine2 get_vm_procedure2(initialization_reference func_addr)
+        vmir2::functanoid_routine2 get_vm_procedure2(instanciation_reference func_addr)
         {
             auto node = lk_vm_procedure2(func_addr);
             m_solver.solve(this, node);

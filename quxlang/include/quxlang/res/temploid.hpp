@@ -22,6 +22,9 @@ namespace quxlang
     QUX_CO_RESOLVER(templexoid_ensig_set, type_symbol, std::set< temploid_ensig >);
 
     QUX_CO_RESOLVER(temploid_is_builtin, temploid_reference, bool);
+
+
+
 } // namespace quxlang
 
 #endif // TEMPLOID_H

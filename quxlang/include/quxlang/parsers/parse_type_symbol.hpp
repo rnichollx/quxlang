@@ -25,6 +25,23 @@ namespace quxlang::parsers
         return result.value();
     }
 
+    template < typename It >
+    argif parse_argif(It& pos, It end)
+    {
+        argif result;
+        result.type = parse_type_symbol(pos, end);
+        skip_whitespace(pos, end);
+        if (skip_keyword_if_is(pos, end, "DEFAULTED"))
+        {
+            result.is_defaulted = true;
+        }
+        else
+        {
+            result.is_defaulted = false;
+        }
+        return result;
+    }
+
     inline type_symbol parse_type_symbol(std::string str)
     {
         auto pos = str.begin();

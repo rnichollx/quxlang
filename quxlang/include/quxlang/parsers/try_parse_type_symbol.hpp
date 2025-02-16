@@ -19,6 +19,9 @@ namespace quxlang::parsers
     type_symbol parse_type_symbol(It& pos, It end);
 
     template < typename It >
+    argif parse_argif(It& pos, It end);
+
+    template < typename It >
     std::optional< type_symbol > try_parse_type_symbol(It& pos, It end)
     {
         type_symbol output = context_reference{};
@@ -289,8 +292,19 @@ namespace quxlang::parsers
             }
             else
             {
-                auto seltype = parse_type_symbol(pos, end);
-                sel.which.interface.positional.push_back(seltype);
+                argif arg;
+                arg.type = parse_type_symbol(pos, end);
+                skip_whitespace(pos, end);
+                if (skip_keyword_if_is(pos, end, "DEFAULTED"))
+                {
+                    arg.is_defaulted = true;
+                }
+                else
+                {
+                    arg.is_defaulted = false;
+                }
+
+                sel.which.interface.positional.push_back(arg);
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
@@ -298,7 +312,7 @@ namespace quxlang::parsers
                 }
                 else
                 {
-                    param_set.parameters.positional.push_back(seltype);
+                    param_set.parameters.positional.push_back(arg.type);
                 }
             }
 
@@ -348,11 +362,11 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                param_set.which.interface.named[param_name] = parse_type_symbol(pos, end);
+                param_set.which.interface.named[param_name] = parse_argif(pos, end);
             }
             else
             {
-                param_set.which.interface.positional.push_back(parse_type_symbol(pos, end));
+                param_set.which.interface.positional.push_back(parse_argif(pos, end));
             }
 
             skip_whitespace_and_comments(pos, end);

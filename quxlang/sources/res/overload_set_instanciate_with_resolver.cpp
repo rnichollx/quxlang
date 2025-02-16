@@ -1,6 +1,6 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include "quxlang/res/overload_set_instanciate_with_resolver.hpp"
+#include "quxlang/res/function.hpp"
 
 #include "../../../rpnx/include/rpnx/debug.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
@@ -10,10 +10,10 @@
 
 using namespace quxlang;
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
 {
-    auto os = input.overload;
-    auto args = input.call;
+    auto os = input.ensig;
+    auto args = input.params;
     // TODO: support default values for arguments
 
     auto val = this;
@@ -49,9 +49,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         std::string arg_type_str = to_string(arg_type);
         std::string param_type_str = to_string(param_type);
 
-        if (is_template(param_type))
+        // TODO: Default argument support.
+
+        if (is_template(param_type.type))
         {
-            auto match = match_template(param_type, arg_type);
+            auto match = match_template(param_type.type, arg_type);
             if (match.has_value())
             {
                 continue;
@@ -63,7 +65,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type));
+            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type.type));
             add_co_dependency(convertibles_dp.back());
         }
     }
@@ -72,13 +74,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
     {
         auto arg_type = args.positional.at(i);
         auto param_type = os.interface.positional.at(i);
-        if (is_template(param_type))
+        if (is_template(param_type.type))
         {
 
             QUXLANG_DEBUG(std::string arg_type_str = to_string(arg_type));
             QUXLANG_DEBUG(std::string param_type_str = to_string(param_type));
 
-            auto tmatch = match_template(param_type, arg_type);
+            auto tmatch = match_template(param_type.type, arg_type);
             if (tmatch.has_value())
             {
                 convertibles_dp.push_back(nullptr);
@@ -91,7 +93,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type));
+            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type.type));
 
             add_co_dependency(convertibles_dp.back());
         }
@@ -121,9 +123,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         auto arg_type = type;
         auto param_type = it->second;
 
-        if (is_template(param_type))
+        if (is_template(param_type.type))
         {
-            auto match = match_template(param_type, arg_type);
+            auto match = match_template(param_type.type, arg_type);
             assert(match); // checked already above
 
             result.named[name] = std::move(match.value().type);
@@ -139,7 +141,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
                 co_return std::nullopt;
             }
 
-            result.named[name] = param_type;
+            result.named[name] = param_type.type;
         }
     }
 
@@ -148,9 +150,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
         auto arg_type = args.positional[i];
         auto param_type = os.interface.positional[i];
 
-        if (is_template(param_type))
+        if (is_template(param_type.type))
         {
-            auto match = match_template(param_type, arg_type);
+            auto match = match_template(param_type.type, arg_type);
             assert(match); // checked already above
 
             result.positional.push_back(std::move(match.value().type));
@@ -165,7 +167,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(overload_set_instanciate_with)
                 co_return std::nullopt;
             }
 
-            result.positional.push_back(param_type);
+            result.positional.push_back(param_type.type);
         }
     }
 

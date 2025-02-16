@@ -12,6 +12,12 @@
 
 namespace quxlang
 {
+    std::string mangle_internal(std::string const& str);
+    std::string mangle_internal(type_symbol const& qt);
+    std::string mangle_internal(argif const& arg);
+
+    std::string mangle(type_symbol const& func);
+
     inline std::string mangle_internal(std::string const& str)
     {
         std::string result;
@@ -39,6 +45,20 @@ namespace quxlang
             return result;
         }
     }
+
+    inline std::string mangle_internal(argif const& arg)
+    {
+        std::string result;
+        if (arg.is_defaulted)
+        {
+            result += "D";
+        }
+        result += mangle_internal(arg.type);
+
+        return result;
+    }
+
+
     inline std::string mangle_internal(type_symbol const& qt)
     {
         if (qt.type() == typeid(module_reference))

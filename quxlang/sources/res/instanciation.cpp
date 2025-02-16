@@ -7,6 +7,39 @@
 #include "quxlang/res/function.hpp"
 #include "quxlang/compiler.hpp"
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation_parameter_map)
+{
+    temploid_reference func_name = input.temploid;
+
+    output_type result;
+
+
+    // TODO: support named parameters?
+    for (std::size_t i = 0; i < input.params.positional.size(); i++)
+    {
+        auto template_arg = func_name.which.interface.positional.at(i);
+        // TODO: should the selection reference be decontextualized early?
+        // TODO: Handle defaulted parameter logic if needed?
+
+        type_symbol instanciation_arg = input.params.positional.at(i);
+        assert(!is_contextual(instanciation_arg));
+        std::string instanciation_arg_str = to_string(instanciation_arg);
+
+        auto match_results = match_template(template_arg.type, instanciation_arg);
+        assert(match_results.has_value());
+
+        for (auto x : match_results.value().matches)
+        {
+            if (result.parameter_map.find(x.first) != result.parameter_map.end())
+            {
+                throw std::logic_error("Duplicate template parameter " + x.first + " redeclared in the same template instanciation.");
+            }
+            result.parameter_map[x.first] = x.second;
+        }
+    }
+
+    co_return result;
+}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 {
@@ -19,7 +52,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 
 
     // Get the overload?
-    auto call_set = co_await QUX_CO_DEP(overload_set_instanciate_with, (overload_set_instanciate_with_q{.overload = sel_ref.which, .call = input_val.parameters}));
+    auto call_set = co_await QUX_CO_DEP(function_ensig_initialize_with, (function_ensig_initialize_with_q{.overload = sel_ref.which, .call = input_val.parameters}));
 
     if (!call_set)
     {
