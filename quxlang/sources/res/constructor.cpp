@@ -14,7 +14,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
     auto user_defined_dtor = co_await QUX_CO_DEP(list_user_functum_overloads, (dtor_symbol));
 
-    auto dtor_call_type = intertype{.named{{"THIS", dvalue_slot{input}}}};
+    auto dtor_call_type = invotype{.named{{"THIS", dvalue_slot{input}}}};
+    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = input}}}};
 
     // Look through destructors to find default destructor
 
@@ -22,12 +23,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
     for (auto& ol : user_defined_dtor)
     {
-        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.overload = ol, .call = dtor_call_type}));
+        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = ol, .params = dtor_call_type}));
 
         if (candidate)
         {
-            auto dtor_selection = temploid_reference{.templexoid = input, .which = ol};
-            auto dtor_instanciation = initialization_reference{.initializee = dtor_selection, .parameters = *candidate};
+            auto dtor_selection = temploid_reference{.templexoid = dtor_symbol, .which = ol};
+            auto dtor_instanciation = instanciation_reference{.temploid = dtor_selection, .params = *candidate};
 
             co_return dtor_instanciation;
         }
@@ -38,6 +39,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
     if (kind == symbol_kind::class_)
     {
         auto is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input));
+
+        if (is_builtin_class)
+        {
+            co_return std::nullopt;
+        }
 
         // If no user defined destructor, we need to check if there is a non-trivial default destructor
         // The default destructor is non-trivial if the destructor of any member is non-trivial
@@ -51,9 +57,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
             if (member_has_nontrivial_dtor)
             {
                 // We need a built-in destructor
-                auto builtin_dtor_selection = temploid_reference{.templexoid = input, .which = {.builtin = true, .interface = dtor_call_type}};
+                auto builtin_dtor_selection = temploid_reference{.templexoid = dtor_symbol, .which = temploid_ensig{.interface = dtor_default_intertype}};
 
-                auto builtin_dtor_instanciation = initialization_reference{.initializee = builtin_dtor_selection, .parameters = dtor_call_type, };
+                auto builtin_dtor_instanciation = instanciation_reference{
+                    .temploid = builtin_dtor_selection,
+                    .params = dtor_call_type,
+                };
 
                 co_return builtin_dtor_instanciation;
             }

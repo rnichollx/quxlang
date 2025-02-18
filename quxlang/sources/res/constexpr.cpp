@@ -23,7 +23,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
 
         for (type_symbol const& funcname : missing_functanoids)
         {
-            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname));
+            if (!typeis< instanciation_reference >(funcname))
+            {
+                throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
+            }
+            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname.template get_as < instanciation_reference >()));
 
             interp.add_functanoid(funcname, ir2_other);
         }

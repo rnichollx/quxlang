@@ -400,11 +400,11 @@ namespace quxlang
             return exec.create_numeric_literal(str);
         }
 
-        auto gen_call_functanoid(initialization_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
 
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
-            auto const& call_args_types = what.parameters;
+            auto const& call_args_types = what.params;
 
             // TODO: Support defaulted parameters.
 
@@ -536,11 +536,11 @@ namespace quxlang
 
             if (invocation_args.named.contains("RETURN"))
             {
-                assert(invocation_args.size() == what.parameters.size() + 1);
+                assert(invocation_args.size() == what.params.size() + 1);
             }
             else
             {
-                assert(invocation_args.size() == what.parameters.size());
+                assert(invocation_args.size() == what.params.size());
             }
 
             co_await gen_invoke(what, invocation_args);
@@ -628,9 +628,9 @@ namespace quxlang
             }
         }
 
-        auto gen_invoke_builtin(initialization_reference what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
+        auto gen_invoke_builtin(instanciation_reference what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
-            auto callee = as< temploid_reference >(what.initializee);
+            auto callee = what.temploid;
 
 
             auto functum = callee.templexoid;
@@ -657,7 +657,7 @@ namespace quxlang
 
         auto gen_invoke(instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
-            auto is_builtin = co_await prv.function_builtin(what);
+            auto is_builtin = co_await prv.function_builtin(what.temploid);
             if (is_builtin)
             {
                 co_return co_await gen_invoke_builtin(what, args);

@@ -1001,6 +1001,31 @@ namespace quxlang
         return output;
     }
 
+    std::string to_string(intertype const& ref)
+    {
+        std::string output;
+        bool first = true;
+        output += "INTERTYPE(";
+        for (auto const& [name, arg] : ref.named)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + name + " " + to_string(arg);
+        }
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += to_string(arg);
+        }
+        output += ")";
+        return output;
+    }
+
     type_symbol get_templexoid(initialization_reference const& ref)
     {
         auto callee = ref.initializee;
@@ -1013,7 +1038,7 @@ namespace quxlang
     std::optional< type_symbol > func_class(type_symbol const& func)
     {
         std::string func_str = to_string(func);
-        auto tmplx = get_templexoid(func.get_as< initialization_reference >());
+        auto tmplx = func.get_as< instanciation_reference >().temploid.templexoid;
         if (tmplx.type_is< submember >())
         {
             return as< submember >(tmplx).of;

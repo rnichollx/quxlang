@@ -79,7 +79,6 @@ namespace quxlang
         friend class module_ast_precursor1_resolver;
         friend class class_size_from_canonical_chain_resolver;
         friend class module_ast_resolver;
-        friend class canonical_symbol_from_contextual_symbol_resolver;
         friend class type_size_from_canonical_type_resolver;
         friend class class_layout_resolver;
         friend class class_placement_info_from_cannonical_chain_resolver;
@@ -135,7 +134,6 @@ namespace quxlang
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(constexpr_bool)
-        COMPILER_INDEX(canonical_symbol_from_contextual_symbol)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)
         COMPILER_INDEX(class_builtin)
@@ -214,12 +212,7 @@ namespace quxlang
             return node->get();
         }
 
-        vmir2::functanoid_routine2 get_vm_procedure2(instanciation_reference func_addr)
-        {
-            auto node = lk_vm_procedure2(func_addr);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {
@@ -258,10 +251,6 @@ namespace quxlang
 
         COMPILER_INDEX(module_sources);
 
-        out< type_symbol > lk_canonical_symbol_from_contextual_symbol(type_symbol type, type_symbol context)
-        {
-            return m_canonical_symbol_from_contextual_symbol_index.lookup(contextual_type_reference{.context = context, .type = type});
-        }
 
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
 

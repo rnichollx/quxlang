@@ -6,5 +6,5 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
 {
    throw rpnx::unimplemented();
-   co_return initialization_reference{};
+   co_return instanciation_reference{};
 }

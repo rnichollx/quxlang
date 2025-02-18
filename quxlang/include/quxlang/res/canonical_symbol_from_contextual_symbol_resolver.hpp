@@ -15,7 +15,7 @@
 namespace quxlang
 {
 
-    QUX_CO_RESOLVER(canonical_symbol_from_contextual_symbol, contextual_type_reference, type_symbol);
+  //  QUX_CO_RESOLVER(canonical_symbol_from_contextual_symbol, contextual_type_reference, type_symbol);
 
 
 } // namespace quxlang

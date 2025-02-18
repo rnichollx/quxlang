@@ -26,7 +26,6 @@ namespace quxlang
         }
 
         QUX_BIND(vm_procedure2);
-        QUX_BIND(canonical_symbol_from_contextual_symbol);
         QUX_BIND(lookup);
         QUX_BIND(instanciation);
         QUX_BIND(functanoid_return_type);
@@ -34,6 +33,7 @@ namespace quxlang
         QUX_BIND(class_field_list);
         QUX_BIND(functum_select_function);
         QUX_BIND(function_param_names);
+        QUX_BIND(function_builtin);
         QUX_BIND(functanoid_sigtype);
         QUX_BIND(function_declaration);
         QUX_BIND(implicitly_convertible_to);

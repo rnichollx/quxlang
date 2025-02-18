@@ -28,13 +28,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         to_type_ref.type = to_type;
         to_type_ref.context = input.context;
 
-        auto canon_ptr_to_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (to_type_ref));
+        auto canon_ptr_to_type = co_await QUX_CO_DEP(lookup, (to_type_ref));
+        if (!canon_ptr_to_type.has_value())
+        {
+            co_return std::nullopt;
+        }
 
         pointer_type canonical_ptr_type;
         canonical_ptr_type.qual = ptr.qual;
         canonical_ptr_type.ptr_class = ptr.ptr_class;
-        canonical_ptr_type.target = canon_ptr_to_type;
-
+        canonical_ptr_type.target = canon_ptr_to_type.value();
 
         co_return canonical_ptr_type;
     }
@@ -53,17 +56,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             while (current_context.has_value())
             {
                 std::string name = sub.name;
-                if (typeis< initialization_reference >(*current_context))
+                if (typeis< instanciation_reference >(*current_context))
                 {
                     QUXLANG_DEBUG({
                         std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl;
-
                     });
 
                     // Two possibilities, 1 = this is a template, 2 = this is a function
-                    initialization_reference inst = as< initialization_reference >(*current_context);
+                    instanciation_reference inst = as< instanciation_reference >(*current_context);
 
-                    auto param_set = co_await QUX_CO_DEP(temploid_instanciation_parameter_set, (inst));
+                    auto param_set = co_await QUX_CO_DEP(instanciation_parameter_map, (inst));
 
                     QUXLANG_DEBUG({
                         std::cout << "Param set, name=" << name << std::endl;
@@ -101,7 +103,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             co_return std::nullopt;
         }
 
-        auto parent_canonical = *co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context=context,.type=parent}));
+        auto parent_canonical = *co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}));
 
         co_return subsymbol{parent_canonical, sub.name};
     }
@@ -137,7 +139,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             throw std::logic_error(str.c_str());
         }
 
-        auto parent_canonical = (co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context=context,.type=parent}))).value();
+        auto parent_canonical = (co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}))).value();
 
         co_return submember{parent_canonical, sub.name};
     }
@@ -147,15 +149,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
         initialization_reference output;
 
-        auto callee_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (param_set.initializee, context));
+        auto callee_canonical = co_await QUX_CO_DEP(lookup, ({.type = param_set.initializee, .context = context}));
+        if (!callee_canonical.has_value())
+        {
+            co_return std::nullopt;
+        }
 
-        output.initializee = callee_canonical;
+        output.initializee = callee_canonical.value();
 
         for (auto& p : param_set.parameters.positional)
         {
-            auto param_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (p, context));
+            auto param_canonical = co_await QUX_CO_DEP(lookup, ({p, context}));
+            if (!param_canonical.has_value())
+            {
+                co_return std::nullopt;
+            }
 
-            output.parameters.positional.push_back(param_canonical);
+            output.parameters.positional.push_back(param_canonical.value());
             // TODO: support named parameters
         }
 
@@ -176,8 +186,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     else if (type.template type_is< mvalue_reference >())
     {
         auto target_type = as< mvalue_reference >(type).target;
-        auto target_canonical = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (target_type, context));
-        co_return mvalue_reference{target_canonical};
+        auto target_canonical = co_await QUX_CO_DEP(lookup, ({target_type, context}));
+        if (!target_canonical.has_value())
+        {
+            co_return std::nullopt;
+        }
+        co_return mvalue_reference{target_canonical.value()};
     }
     else if (typeis< void_type >(type))
     {

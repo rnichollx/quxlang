@@ -60,11 +60,11 @@ TEST(parsing, parse_class_with_variables)
     auto member2 = cl2.declarations[1];
     auto global = cl2.declarations[2];
 
-    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "a"};
+    quxlang::subdeclaroid member1_expected = quxlang::member_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "a"};
 
-    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{64, true})}, .name= "b"};
+    quxlang::subdeclaroid member2_expected = quxlang::member_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{64, true})}, .name = "b"};
 
-    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{ .decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "c"};
+    quxlang::subdeclaroid global_expected = quxlang::global_subdeclaroid{.decl = quxlang::ast2_variable_declaration{quxlang::type_symbol(quxlang::int_type{32, true})}, .name = "c"};
 
     ASSERT_TRUE(member1 == member1_expected);
     ASSERT_TRUE(member2 == member2_expected);
@@ -140,8 +140,8 @@ TEST(mangling, name_mangling_new)
     subentity2.name = "bar";
 
     quxlang::subsymbol subentity3;
-    subentity3.of=subentity2;
-    subentity3.name= "baz";
+    subentity3.of = subentity2;
+    subentity3.name = "baz";
 
     quxlang::initialization_reference param_set{subentity3, {}};
 
@@ -151,7 +151,6 @@ TEST(mangling, name_mangling_new)
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
     ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAPI32API32E");
-
 }
 
 TEST(collector_tester, order_of_operations)
@@ -259,8 +258,6 @@ TEST(collector_tester, function_call)
     ASSERT_EQ(it, it_end);
 };
 
-
-
 TEST(quxlang_modules, merge_entities)
 {
     // TODO: Needs rewrite with the replaced merger
@@ -269,9 +266,9 @@ TEST(quxlang_modules, merge_entities)
 TEST(qual, template_matching)
 {
     quxlang::type_symbol template1 = quxlang::template_reference{"foo"};
-    quxlang::type_symbol template2 = quxlang::pointer_type{ .target= quxlang::template_reference{"foo"}, .ptr_class= quxlang::pointer_class::instance, .qual=quxlang::qualifier::mut };
+    quxlang::type_symbol template2 = quxlang::pointer_type{.target = quxlang::template_reference{"foo"}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
     quxlang::type_symbol type1 = quxlang::int_type{32, true};
-    quxlang::type_symbol type2 = quxlang::pointer_type{.target=quxlang::int_type{32, true}, .ptr_class=quxlang::pointer_class::instance, .qual=quxlang::qualifier::mut};
+    quxlang::type_symbol type2 = quxlang::pointer_type{.target = quxlang::int_type{32, true}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
 
     auto res1 = quxlang::match_template(template1, type1);
 
@@ -724,13 +721,12 @@ TEST(expression_ir, generation_real)
     quxlang::compiler c(sources, "linux-x64");
     std::string expr_string = "2 + I32(@OTHER 8) - 4 < 5";
     quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-    auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr=expr, .context=mainmodule});
+    auto func = c.get_expr_ir2(quxlang::expr_ir2_input{.expr = expr, .context = mainmodule});
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
-    std::cout << "From: "<< expr_string << std::endl;
+    std::cout << "From: " << expr_string << std::endl;
     std::cout << "Generated the following IR:" << std::endl;
     std::cout << result << std::endl;
 }
-
 
 TEST(expression_ir, constexpr_result_bool)
 {
@@ -739,9 +735,10 @@ TEST(expression_ir, constexpr_result_bool)
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
     quxlang::compiler c(sources, "linux-x64");
 
-    auto get_constexpr_bool = [&](std::string expr_string) -> bool {
+    auto get_constexpr_bool = [&](std::string expr_string) -> bool
+    {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr=expr, .context=mainmodule});
+        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
         return yaynay;
     };
     auto val1 = get_constexpr_bool("2 + I32(@OTHER 8) - 4 < 5");
@@ -750,7 +747,6 @@ TEST(expression_ir, constexpr_result_bool)
     ASSERT_TRUE(val2);
 }
 
-
 TEST(expression_ir, constexpr_call_func)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
@@ -758,9 +754,10 @@ TEST(expression_ir, constexpr_call_func)
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
     quxlang::compiler c(sources, "linux-x64");
 
-    auto get_constexpr_bool = [&](std::string expr_string) -> bool {
+    auto get_constexpr_bool = [&](std::string expr_string) -> bool
+    {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr=expr, .context=mainmodule});
+        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
         return yaynay;
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
@@ -768,11 +765,9 @@ TEST(expression_ir, constexpr_call_func)
     auto val2 = get_constexpr_bool("biz(4, 3) == 7");
     ASSERT_TRUE(val2);
 
-
     auto val3 = get_constexpr_bool("boq() == 5");
     EXPECT_TRUE(val3);
 }
-
 
 TEST(expression_ir, func_gen)
 {
@@ -785,13 +780,13 @@ TEST(expression_ir, func_gen)
 
     quxlang::compiler c(sources, "linux-x64");
 
-
     auto func_name = quxlang::parsers::parse_type_symbol("::biz #{I32, I32}");
 
-    func_name = quxlang::with_context( func_name, mainmodule);
+    func_name = quxlang::with_context(func_name, mainmodule);
 
+    quxlang::instanciation_reference func_name_real = func_name.template get_as<quxlang::instanciation_reference>();
 
-    auto func = c.get_vm_procedure2(func_name);
+    auto func = c.get_vm_procedure2(func_name_real);
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 

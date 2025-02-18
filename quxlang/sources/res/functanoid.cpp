@@ -4,9 +4,6 @@
 #include "quxlang/compiler_binding.hpp"
 #include "quxlang/exception.hpp"
 
-
-
-
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
 {
     std::string input_str = quxlang::to_string(input);
@@ -19,7 +16,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
         co_return is_builtin.value().return_type;
     }
 
-
     auto decl = co_await QUX_CO_DEP(function_declaration, (selected_function));
 
     if (!decl.has_value())
@@ -29,9 +25,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
 
     contextual_type_reference decl_ctx = {.context = input_val, .type = decl.value().definition.return_type.value_or(void_type{})};
 
-    auto decl_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (decl_ctx));
+    auto decl_type = co_await QUX_CO_DEP(lookup, (decl_ctx));
 
-    co_return decl_type;
+    co_return decl_type.value();
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_sigtype)
@@ -43,34 +39,30 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_sigtype)
     result.return_type = co_await QUX_CO_DEP(functanoid_return_type, (input));
 
     co_return result;
-
 }
 
-
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_param_names)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_param_names)
 {
     // Transitional: use compiler_binder.
     compiler_binder prv(c);
-
 
     QUXLANG_DEBUG_VALUE(quxlang::to_string(input));
 
     param_names result;
 
-    result.positional.resize(input.parameters.positional.size());
-
+    result.positional.resize(input.which.interface.positional.size());
 
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared
     // between builtin and non-builtin functions.
-    auto is_builtin = as<temploid_reference> (input.initializee).which.builtin;
+    auto is_builtin = co_await prv.function_builtin(input);
 
     if (is_builtin)
     {
         co_return result;
     }
 
-    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(as< temploid_reference >(input.initializee));
+    std::optional< ast2_function_declaration > decl_opt = co_await prv.function_declaration(input);
 
     QUXLANG_COMPILER_BUG_IF(!decl_opt.has_value(), "Function declaration not found");
 
@@ -91,5 +83,4 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_param_names)
     }
 
     co_return result;
-
 }

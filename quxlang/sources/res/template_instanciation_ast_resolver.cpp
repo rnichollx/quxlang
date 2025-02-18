@@ -10,8 +10,10 @@ std::string quxlang::template_instanciation_ast_resolver::question() const
 
 auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input_type input) -> co_type
 {
-    auto args = input.parameters;
+    invotype args = input.parameters;
 
+    co_return rpnx::unimplemented();
+    /*
     auto templ = input.initializee;
 
     assert(!is_contextual(templ));
@@ -34,7 +36,7 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
     ast2_template_declaration const* selected_template = nullptr;
     std::optional< std::int64_t > template_priority;
 
-    invotype templ_instanciation_args;
+    intertype templ_instanciation_args;
     templ_instanciation_args = args;
     for (ast2_template_declaration const& decl : templ_ast.templates)
     {
@@ -70,5 +72,5 @@ auto quxlang::template_instanciation_ast_resolver::co_process(compiler* c, input
         throw std::logic_error("Ambiguous template selection");
     }
 
-    co_return *selected_template;
+    co_return *selected_template; */
 }

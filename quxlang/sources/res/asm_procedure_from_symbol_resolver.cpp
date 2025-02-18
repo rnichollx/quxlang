@@ -64,7 +64,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(asm_procedure_from_symbol)
                         // TODO: calling convention?
                     };
 
-                    QUX_CO_GETDEP(procedure_canonical, canonical_symbol_from_contextual_symbol, (proc_ctx));
+                    auto procedure_canonical = (co_await QUX_CO_DEP(lookup, (proc_ctx))).value();
                     QUX_CO_GETDEP(linkname, procedure_linksymbol, (ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical}));
                     operand_str += "=" + linkname;
                 }

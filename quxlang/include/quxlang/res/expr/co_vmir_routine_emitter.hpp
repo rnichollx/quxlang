@@ -44,13 +44,13 @@ namespace quxlang
     class vm_procedure2_generator
     {
       public:
-        vm_procedure2_generator(CoroutineProvider arg_prv, type_symbol func_arg) : prv(arg_prv), func(func_arg)
+        vm_procedure2_generator(CoroutineProvider arg_prv, instanciation_reference func_arg) : prv(arg_prv), func(func_arg)
         {
         }
         using block_index_t = std::size_t;
 
       private:
-        type_symbol func;
+        instanciation_reference func;
         CoroutineProvider prv;
         vmir2::frame_generation_state frame;
 
@@ -62,7 +62,7 @@ namespace quxlang
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
-            initialization_reference const& inst = as< initialization_reference >(func);
+            instanciation_reference const& inst = func ;
 
             auto sig = co_await prv.functanoid_sigtype(inst);
 
@@ -74,15 +74,15 @@ namespace quxlang
                 frame.entry_block().create_named_argument("RETURN", return_parameter_type, std::nullopt);
             }
 
-            auto arg_names = co_await prv.functanoid_param_names(inst);
+            auto arg_names = co_await prv.function_param_names(inst.temploid);
 
             std::size_t positional_index = 0;
             for (auto const& param_name : arg_names.positional)
             {
-                type_symbol const& param_type = inst.parameters.positional.at(positional_index);
+                type_symbol const& param_type = inst.params.positional.at(positional_index);
                 frame.entry_block().create_positional_argument(param_type, param_name);
             }
-            for (auto const& [api_name, param_type] : inst.parameters.named)
+            for (auto const& [api_name, param_type] : inst.params.named)
             {
                 std::optional< std::string > arg_name;
                 if (arg_names.named.contains(api_name))
@@ -150,8 +150,8 @@ namespace quxlang
         {
             std::size_t current_block = frame.entry_block_id();
 
-            initialization_reference const& inst = as< initialization_reference >(func);
-            auto const& sel = as< temploid_reference >(inst.initializee);
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
 
             auto functum = sel.templexoid;
 
@@ -280,7 +280,7 @@ namespace quxlang
 
         auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            type_symbol var_type = co_await prv.canonical_symbol_from_contextual_symbol({.context = func, .type = st.type});
+            type_symbol var_type = (co_await prv.lookup({.context = func, .type = st.type})).value();
 
             auto idx = co_await generate_variable(current_block, st.name, var_type);
 
@@ -379,7 +379,7 @@ namespace quxlang
             }
             else
             {
-                auto return_type = co_await prv.functanoid_return_type(as< initialization_reference >(func));
+                auto return_type = co_await prv.functanoid_return_type(func);
                 assert(typeis< void_type >(return_type));
                 frame.generate_return(current_block);
             }
@@ -449,11 +449,9 @@ namespace quxlang
 
         auto generate_body() -> typename CoroutineProvider::template co_type< void >
         {
-            auto inst = as< initialization_reference >(func);
+            auto const& inst = func;
 
-            auto function_ref_opt = co_await this->prv.functum_select_function(inst);
-            assert(function_ref_opt.has_value());
-            auto& function_ref = function_ref_opt.value();
+            auto& function_ref = inst.temploid;
 
             auto function_decl_opt = co_await this->prv.function_declaration(function_ref);
             assert(function_decl_opt.has_value());

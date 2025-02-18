@@ -52,7 +52,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 
 
     // Get the overload?
-    auto call_set = co_await QUX_CO_DEP(function_ensig_initialize_with, (function_ensig_initialize_with_q{.overload = sel_ref.which, .call = input_val.parameters}));
+    auto call_set = co_await QUX_CO_DEP(function_ensig_initialize_with, (function_ensig_initialize_with_q{.ensig = sel_ref.which, .params = input_val.parameters}));
 
     if (!call_set)
     {
@@ -60,7 +60,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
         QUX_CO_ANSWER(std::nullopt);
     }
 
-    auto result = initialization_reference{.initializee = input_val.initializee, .parameters = call_set.value()};
+    auto result = instanciation_reference{.temploid = sel_ref, .params=call_set.value()};
     QUX_CO_ANSWER(result);
 }
 
@@ -73,7 +73,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
 
     if (kind == symbol_kind::functum)
     {
-        co_return co_await QUX_CO_DEP(functum_instanciation, (input_val));
+        co_return co_await QUX_CO_DEP(functum_initialize, (input_val));
     }
     else if (kind == symbol_kind::function)
     {

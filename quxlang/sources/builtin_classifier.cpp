@@ -123,7 +123,7 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
             std::string name = "OPERATOR" + oper;
             signature sig;
 
-            sig.ensig.builtin = true;
+            //sig.ensig.builtin = true;
             sig.ensig.interface.named["THIS"] = val_parameter;
             sig.ensig.interface.named["OTHER"] = val_parameter;
             sig.return_type = bool_type{};
@@ -139,9 +139,8 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
             std::string name = "OPERATOR" + oper;
             signature sig;
 
-            sig.ol.builtin = true;
-            sig.ol.params.named["THIS"] = val_parameter;
-            sig.ol.params.named["OTHER"] = val_parameter;
+            sig.ensig.interface.named["THIS"] = val_parameter;
+            sig.ensig.interface.named["OTHER"] = val_parameter;
             sig.return_type = of_type;
 
             result[name] = sig;
@@ -152,9 +151,8 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
             std::string name = "OPERATOR" + oper;
             signature sig;
 
-            sig.ol.builtin = true;
-            sig.ol.params.named["THIS"] = val_parameter;
-            sig.ol.params.named["OTHER"] = val_parameter;
+            sig.ensig.interface.named["THIS"] = val_parameter;
+            sig.ensig.interface.named["OTHER"] = val_parameter;
             sig.return_type = of_type;
 
             result[name] = sig;

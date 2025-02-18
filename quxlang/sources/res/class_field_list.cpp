@@ -69,10 +69,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
         contextual_type_reference type_in_context;
         type_in_context.type = decl.type;
         type_in_context.context = input_val;
-        auto real_type = co_await QUX_CO_DEP(canonical_symbol_from_contextual_symbol, (type_in_context));
+        auto real_type = co_await QUX_CO_DEP(lookup, (type_in_context));
 
         f.name = decl.name;
-        f.type = real_type;
+        f.type = real_type.value();
 
         output_obj.push_back(f);
     }
