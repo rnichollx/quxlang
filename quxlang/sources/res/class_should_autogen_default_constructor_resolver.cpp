@@ -2,21 +2,7 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 
-
-void quxlang::class_should_autogen_default_constructor_resolver::process(compiler* c)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_should_autogen_default_constructor)
 {
-
-    auto callee = submember{m_cls, "CONSTRUCTOR"};
-    auto exists_dp = get_dependency(
-        [&]
-        {
-            return c->lk_exists(callee);
-        });
-    if (!ready())
-    {
-        return;
-    }
-    bool exists = exists_dp->get();
-
-    set_value(!exists);
+    co_return co_await QUX_CO_DEP(nontrivial_default_ctor, (input));
 }

@@ -39,13 +39,13 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::invoke const& inv)
 {
-    auto ivk_func_inst = inv.what.get_as< initialization_reference >();
+    auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
 
     for (std::size_t index = 0; index < inv.args.positional.size(); index++)
     {
         bool arg_alive = state.at(inv.args.positional[index]).alive;
 
-        auto arg_inst_type = ivk_func_inst.parameters.positional.at(index);
+        auto arg_inst_type = ivk_func_inst.params.positional.at(index);
 
         if (arg_inst_type.template type_is< nvalue_slot >())
         {
@@ -78,7 +78,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         }
         else
         {
-           arg_inst_type = ivk_func_inst.parameters.named.at(name);
+           arg_inst_type = ivk_func_inst.params.named.at(name);
         }
 
         if (arg_inst_type.template type_is< nvalue_slot >())

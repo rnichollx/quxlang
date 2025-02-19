@@ -280,6 +280,8 @@ namespace quxlang
 
         auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
+            std::string type_str = quxlang::to_string(st.type);
+            std::string context_str = quxlang::to_string(func);
             type_symbol var_type = (co_await prv.lookup({.context = func, .type = st.type})).value();
 
             auto idx = co_await generate_variable(current_block, st.name, var_type);
@@ -308,8 +310,8 @@ namespace quxlang
             auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
             co_await emitter.gen_call_functum(ctor, args);
 
-            auto dtor = co_await prv.nontrivial_default_dtor(var_type);
-            if (dtor.has_value())
+            auto trivially_destructible = co_await prv.default_dtor(var_type);
+            if (!trivially_destructible)
             {
                 if (!frame.non_trivial_dtors.contains(var_type))
                 {

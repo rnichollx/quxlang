@@ -58,9 +58,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                 std::string name = sub.name;
                 if (typeis< instanciation_reference >(*current_context))
                 {
-                    QUXLANG_DEBUG({
-                        std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl;
-                    });
+                    QUXLANG_DEBUG({ std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl; });
 
                     // Two possibilities, 1 = this is a template, 2 = this is a function
                     instanciation_reference inst = as< instanciation_reference >(*current_context);
@@ -80,23 +78,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                     {
                         co_return it->second;
                     }
-                    current_context = qualified_parent(current_context.value());
                 }
-                else
+
+                subsymbol sub2{current_context.value(), sub.name};
+
+                auto exists = co_await QUX_CO_DEP(exists, (sub2));
+
+                QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
+
+                if (exists)
                 {
-                    subsymbol sub2{current_context.value(), sub.name};
-
-                    auto exists = co_await QUX_CO_DEP(exists, (sub2));
-
-                    QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
-
-                    if (exists)
-                    {
-                        co_return sub2;
-                    }
+                    co_return sub2;
                 }
 
                 current_context = qualified_parent(current_context.value());
+                QUXLANG_DEBUG({ std::cout << "New context: " << quxlang::to_string(current_context.value_or(void_type{})) << std::endl; });
             }
 
             std::string str = "Could not find '" + sub.name + "'";

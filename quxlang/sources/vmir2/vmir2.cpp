@@ -97,7 +97,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
 
     block.instructions.push_back(ivk);
 
-    initialization_reference inst = as< initialization_reference >(invoked_symbol);
+    instanciation_reference inst = as< instanciation_reference >(invoked_symbol);
 
     for (auto& arg : args.positional)
     {
@@ -143,7 +143,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
             current_slot_states.at(arg).alive = true;
             continue;
         }
-        type_symbol parameter_type = inst.parameters.named.at(name);
+        type_symbol parameter_type = inst.params.named.at(name);
 
         if (typeis< nvalue_slot >(parameter_type))
         {

@@ -7,9 +7,8 @@
 #include "quxlang/data/expression.hpp"
 #include "rpnx/value.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor)
 {
-    // Check if user has defined a destructor
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
 
     auto user_defined_dtor = co_await QUX_CO_DEP(list_user_functum_overloads, (dtor_symbol));
@@ -27,12 +26,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
         if (candidate)
         {
-            auto dtor_selection = temploid_reference{.templexoid = dtor_symbol, .which = ol};
-            auto dtor_instanciation = instanciation_reference{.temploid = dtor_selection, .params = *candidate};
-
-            co_return dtor_instanciation;
+            co_return true;
         }
     }
+
+    co_return false;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
+{
+    QUXLANG_DEBUG_VALUE(quxlang::to_string(input));
+    // Check if user has defined a destructor
 
     auto kind = co_await QUX_CO_DEP(symbol_type, (input));
 
@@ -42,7 +46,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
         if (is_builtin_class)
         {
-            co_return std::nullopt;
+            co_return false;
         }
 
         // If no user defined destructor, we need to check if there is a non-trivial default destructor
@@ -52,24 +56,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(nontrivial_default_dtor)
 
         for (auto& member_fld : member_list)
         {
-            auto member_has_nontrivial_dtor = co_await QUX_CO_DEP(nontrivial_default_dtor, (member_fld.type));
-
-            if (member_has_nontrivial_dtor)
+            if (!co_await QUX_CO_DEP(trivially_destructible, (member_fld.type)))
             {
-                // We need a built-in destructor
-                auto builtin_dtor_selection = temploid_reference{.templexoid = dtor_symbol, .which = temploid_ensig{.interface = dtor_default_intertype}};
-
-                auto builtin_dtor_instanciation = instanciation_reference{
-                    .temploid = builtin_dtor_selection,
-                    .params = dtor_call_type,
-                };
-
-                co_return builtin_dtor_instanciation;
+                co_return true;
             }
         }
 
         // TODO: Inheritance?
     }
 
-    co_return std::nullopt;
+    co_return false;
 }

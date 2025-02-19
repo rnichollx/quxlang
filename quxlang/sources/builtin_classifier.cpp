@@ -176,16 +176,16 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         return std::nullopt;
     }
 
-    auto instanciation = func.cast_ptr< initialization_reference >();
+    auto instanciation = func.cast_ptr< instanciation_reference >();
     assert(instanciation);
 
-    auto selection = instanciation->initializee.cast_ptr< temploid_reference >();
+    auto selection = &instanciation->temploid;
     assert(selection);
 
     auto member = selection->templexoid.cast_ptr< submember >();
     assert(member);
 
-    auto const& call = instanciation->parameters;
+    auto const& call = instanciation->params;
 
     if (member->name == "CONSTRUCTOR")
     {

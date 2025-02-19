@@ -252,6 +252,10 @@ namespace quxlang
         {
             return as< initialization_reference >(input).initializee;
         }
+        else if (input.template type_is< instanciation_reference >())
+        {
+            return as< instanciation_reference >(input).temploid;
+        }
         else if (input.template type_is< temploid_reference >())
         {
             return as< temploid_reference >(input).templexoid;

@@ -70,6 +70,47 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
             throw rpnx::unimplemented();
         }
     }
+    else if (typeis< instanciation_reference >(input_val))
+    {
+       temploid_reference const & temploid = as<instanciation_reference>(input).temploid;
+
+       auto temploid_type = co_await QUX_CO_DEP(symbol_type, (temploid));
+
+       if (temploid_type == symbol_kind::function)
+       {
+          co_return symbol_kind::funtanoid;
+       }
+       else
+       {
+          throw rpnx::unimplemented();
+       }
+    }
+    else if (typeis<temploid_reference>(input))
+    {
+       temploid_reference const & temploid = as<temploid_reference>(input);
+
+       auto const & templexoid = temploid.templexoid;
+
+       auto templexoid_type = co_await QUX_CO_DEP(symbol_type, (templexoid));
+
+       if (templexoid_type == symbol_kind::templex)
+       {
+         co_return symbol_kind::template_;
+       }
+       else if (templexoid_type == symbol_kind::functum)
+       {
+         co_return symbol_kind::function;
+       }
+       else if (templexoid_type == symbol_kind::noexist)
+       {
+         co_return symbol_kind::noexist;
+       }
+       else
+       {
+         throw rpnx::unimplemented();
+       }
+
+    }
 
     throw rpnx::unimplemented();
 }

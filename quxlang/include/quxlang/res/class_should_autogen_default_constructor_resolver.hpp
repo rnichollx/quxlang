@@ -10,25 +10,7 @@
 
 namespace quxlang
 {
-    class class_should_autogen_default_constructor_resolver : public virtual rpnx::resolver_base< compiler, bool >
-    {
-      public:
-        using key_type = type_symbol;
-        class_should_autogen_default_constructor_resolver(type_symbol cls)
-            : m_cls(cls)
-        {
-        }
-
-        virtual std::string question() const override
-        {
-            return "class_should_autogen_default_constructor(" + to_string(m_cls) + ")";
-        }
-
-        void process(compiler* c) override;
-
-      private:
-        type_symbol m_cls;
-    };
+    QUX_CO_RESOLVER(class_should_autogen_default_constructor, type_symbol, bool);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER_GUARD

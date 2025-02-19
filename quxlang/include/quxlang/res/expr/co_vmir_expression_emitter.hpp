@@ -302,9 +302,9 @@ namespace quxlang
 
             auto dtor = co_await prv.nontrivial_default_dtor(new_type);
             std::cout << "gen_call_ctor A(" << quxlang::to_string(new_type) << ") dtor" << (dtor ? "Y" : "N") << std::endl;
-            if (dtor.has_value())
+            if (dtor)
             {
-                co_await gen_defer_dtor(retval, dtor.value(), vmir2::invocation_args{.named = {{"THIS", retval}}});
+                co_await gen_defer_dtor(retval, submember{.of=new_type,.name="DESTRUCTOR"}, vmir2::invocation_args{.named = {{"THIS", retval}}});
             }
             co_return new_object;
         }
