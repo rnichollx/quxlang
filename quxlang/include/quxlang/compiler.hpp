@@ -165,10 +165,11 @@ namespace quxlang
         COMPILER_INDEX(lookup);
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(module_source_name)
-        COMPILER_INDEX(nontrivial_default_dtor)
-        COMPILER_INDEX(nontrivial_default_ctor)
+        COMPILER_INDEX(default_dtor)
+        COMPILER_INDEX(default_ctor)
         COMPILER_INDEX(function_ensig_initialize_with)
         COMPILER_INDEX(procedure_linksymbol)
+        COMPILER_INDEX(requires_gen_default_dtor)
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
         COMPILER_INDEX(symboid_subdeclaroids)

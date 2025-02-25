@@ -15,6 +15,10 @@ namespace quxlang
     QUX_CO_RESOLVER(list_user_functum_formal_paratypes, type_symbol, std::vector< paratype >);
     QUX_CO_RESOLVER(list_functum_overloads, type_symbol, std::set< temploid_ensig >);
     QUX_CO_RESOLVER(list_user_functum_overloads, type_symbol, std::vector< temploid_ensig >);
+
+    using functum_map_formal_ensigs_output_type = std::map<temploid_ensig, std::size_t>;
+    QUX_CO_RESOLVER(list_user_functum_ensig_declarations, type_symbol, std::vector< temploid_ensig >);
+    QUX_CO_RESOLVER(functum_map_user_formal_ensigs, type_symbol, functum_map_formal_ensigs_output_type);
     QUX_CO_RESOLVER(function_declaration, temploid_reference, std::optional<ast2_function_declaration>);
 } // namespace quxlang
 

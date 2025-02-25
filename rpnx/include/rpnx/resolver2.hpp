@@ -3,7 +3,6 @@
 #ifndef RESOLVER2_HPP
 #define RESOLVER2_HPP
 
-#include <boost/any.hpp>
 #include <rpnx/serializer.hpp>
 #include <shared_mutex>
 #include <set>

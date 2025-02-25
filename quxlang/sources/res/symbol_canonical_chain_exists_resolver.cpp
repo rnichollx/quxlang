@@ -4,5 +4,3 @@
 #include "quxlang/variant_utils.hpp"
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "quxlang/compiler.hpp"
-
-#include <boost/type_index.hpp>

@@ -310,12 +310,12 @@ namespace quxlang
             auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
             co_await emitter.gen_call_functum(ctor, args);
 
-            auto trivially_destructible = co_await prv.default_dtor(var_type);
-            if (!trivially_destructible)
+            auto default_dtor = co_await prv.default_dtor(var_type);
+            if (default_dtor)
             {
                 if (!frame.non_trivial_dtors.contains(var_type))
                 {
-                    frame.non_trivial_dtors[var_type] = *dtor;
+                    frame.non_trivial_dtors[var_type] = default_dtor;
                 }
 
                 // TODO: Consider re-adding this for non-default dtors later.
