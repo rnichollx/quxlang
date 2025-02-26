@@ -75,7 +75,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         co_return (result);
     }
 
-    bool should_autogen_constructor = co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
+    bool should_autogen_constructor = co_await QUX_CO_DEP(requires_gen_default_ctor, (input));
     bool should_autogen_copy_constructor = true;
 
     // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));

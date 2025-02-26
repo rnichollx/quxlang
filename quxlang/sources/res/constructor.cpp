@@ -7,14 +7,14 @@
 #include "quxlang/data/expression.hpp"
 #include "rpnx/value.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor_exists)
 {
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
 
     auto user_defined_dtor = co_await QUX_CO_DEP(list_user_functum_overloads, (dtor_symbol));
 
     auto dtor_call_type = invotype{.named{{"THIS", dvalue_slot{input}}}};
-    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = input}}}};
+    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = dvalue_slot{input}}}}};
 
     // Look through destructors to find default destructor
 
@@ -29,71 +29,138 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor)
             instanciation_reference inst;
             inst.temploid = temploid_reference{.templexoid = dtor_symbol, .which = ol };
             inst.params = *candidate;
-            co_return inst;
+            co_return true;
         }
     }
 
-    co_return std::nullopt;
+    co_return false;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
+{
+    auto dtor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+
+    auto user_defined_dtor = co_await QUX_CO_DEP(list_user_functum_overloads, (dtor_symbol));
+
+    auto ctor_call_type = invotype{.named{{"THIS", nvalue_slot{input}}}};
+    auto ctor_default_intertype = intertype{.named{{"THIS", argif{.type = nvalue_slot{input}}}}};
+
+    // Look through destructors to find default destructor
+
+    std::optional< type_symbol > default_dtor;
+
+    for (auto& ol : user_defined_dtor)
+    {
+        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = ol, .params = ctor_call_type}));
+
+        if (candidate)
+        {
+            co_return true;
+        }
+    }
+
+    co_return false;
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_dtor)
 {
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
 
-    auto user_defined_dtor = co_await QUX_CO_DEP(list_functum_overloads, (dtor_symbol));
+    initialization_reference init;
+    init.initializee = dtor_symbol;
+    init.parameters = invotype{.named{{"THIS", dvalue_slot{input}}}};
 
-    auto dtor_call_type = invotype{.named{{"THIS", dvalue_slot{input}}}};
-    auto dtor_default_intertype = intertype{.named{{"THIS", argif{.type = input}}}};
+    auto dtor_inst = co_await QUX_CO_DEP(functum_initialize, (init));
 
-    // Look through destructors to find default destructor
+    co_return dtor_inst;
+}
 
-    std::optional< type_symbol > default_dtor;
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_ctor)
+{
+    auto ctor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
 
-    for (auto& ol : user_defined_dtor)
+    initialization_reference init;
+    init.initializee = ctor_symbol;
+    init.parameters = invotype{.named{{"THIS", nvalue_slot{input}}}};
+
+    auto ctor_inst = co_await QUX_CO_DEP(functum_initialize, (init));
+
+    co_return ctor_inst;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(trivially_constructible)
+{
+   co_return (co_await QUX_CO_DEP(default_ctor, (input))).has_value() == false;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(trivially_destructible)
+{
+    co_return (co_await QUX_CO_DEP(default_dtor, (input))).has_value() == false;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(requires_gen_default_ctor)
+{
+    auto have_user_default_ctor = co_await QUX_CO_DEP(user_default_ctor_exists, (input));
+    if (have_user_default_ctor)
     {
-        auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = ol, .params = dtor_call_type}));
-
-        if (candidate)
-        {
-            instanciation_reference inst;
-            inst.temploid = temploid_reference{.templexoid = dtor_symbol, .which = ol };
-            inst.params = *candidate;
-            co_return inst;
-        }
+        co_return false;
     }
 
-    co_return std::nullopt;
+    auto have_nontrivial_member_ctor = co_await QUX_CO_DEP(have_nontrivial_member_ctor, (input));
+
+    co_return have_nontrivial_member_ctor;
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(requires_gen_default_dtor)
 {
-    QUXLANG_DEBUG_VALUE(quxlang::to_string(input));
-    // Check if user has defined a destructor
-
-    auto kind = co_await QUX_CO_DEP(symbol_type, (input));
-
-    if (kind == symbol_kind::class_)
+    auto have_user_default_dtor = co_await QUX_CO_DEP(user_default_dtor_exists, (input));
+    if (have_user_default_dtor)
     {
-        auto is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input));
+        co_return false;
+    }
 
-        if (is_builtin_class)
+    auto have_nontrivial_member_dtor = co_await QUX_CO_DEP(have_nontrivial_member_dtor, (input));
+
+    co_return have_nontrivial_member_dtor;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_dtor)
+{
+    auto class_is_builtin = co_await QUX_CO_DEP(class_builtin, (input));
+    if (class_is_builtin)
+    {
+        co_return false;
+    }
+
+    auto class_fields = co_await QUX_CO_DEP(class_field_list, (input));
+    for (auto& field : class_fields)
+    {
+        auto field_dtor = co_await QUX_CO_DEP(default_dtor, (field.type));
+        if (field_dtor)
         {
             co_return true;
         }
+    }
 
-        // If no user defined destructor, we need to check if there is a non-trivial default destructor
-        // The default destructor is non-trivial if the destructor of any member is non-trivial
+    co_return false;
+}
 
-        auto member_list = co_await QUX_CO_DEP(class_field_list, (input));
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_ctor)
+{
+    auto class_is_builtin = co_await QUX_CO_DEP(class_builtin, (input));
+    if (class_is_builtin)
+    {
+        co_return false;
+    }
 
-        for (auto& member_fld : member_list)
+    auto class_fields = co_await QUX_CO_DEP(class_field_list, (input));
+    for (auto& field : class_fields)
+    {
+        auto field_ctor = co_await QUX_CO_DEP(default_ctor, (field.type));
+        if (field_ctor)
         {
-            if (!co_await QUX_CO_DEP(trivially_destructible, (member_fld.type)))
-            {
-                co_return false;
-            }
+            co_return true;
         }
-
     }
 
     co_return false;

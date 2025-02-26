@@ -315,7 +315,7 @@ namespace quxlang
             {
                 if (!frame.non_trivial_dtors.contains(var_type))
                 {
-                    frame.non_trivial_dtors[var_type] = default_dtor;
+                    frame.non_trivial_dtors[var_type] = default_dtor.value();
                 }
 
                 // TODO: Consider re-adding this for non-default dtors later.
@@ -340,7 +340,7 @@ namespace quxlang
         {
             auto idx = frame.entry_block().create_variable(typ, name);
 
-            auto dtor = co_await prv.nontrivial_default_dtor(typ);
+            auto dtor = co_await prv.default_dtor(typ);
             if (dtor.has_value())
             {
                 if (!frame.non_trivial_dtors.contains(typ))
@@ -438,7 +438,7 @@ namespace quxlang
             // dtor references to non_trivial_dtors if they do.
             for (auto const& slot : frame.slots.slots)
             {
-                auto dtor = co_await prv.nontrivial_default_dtor(slot.type);
+                auto dtor = co_await prv.default_dtor(slot.type);
                 if (dtor.has_value())
                 {
                     assert(!frame.non_trivial_dtors.contains(slot.type) || frame.non_trivial_dtors[slot.type] == *dtor);

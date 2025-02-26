@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(class_should_autogen_default_constructor, type_symbol, bool);
+    //QUX_CO_RESOLVER(class_should_autogen_default_constructor, type_symbol, bool);
 } // namespace quxlang
 
 #endif // QUXLANG_CLASS_SHOULD_AUTOGEN_DEFAULT_CONSTRUCTOR_RESOLVER_HEADER_GUARD

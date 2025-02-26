@@ -14,7 +14,6 @@
 #include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/class.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
-#include "quxlang/res/class_should_autogen_default_constructor_resolver.hpp"
 #include "quxlang/res/class_size_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/res/constructor.hpp"
@@ -94,7 +93,6 @@ namespace quxlang
         friend class function_frame_information_resolver;
         friend class operator_is_overloaded_with_resolver;
         friend class symbol_canonical_chain_exists_resolver;
-        friend class class_should_autogen_default_constructor_resolver;
         friend class functum_exists_and_is_callable_with_resolver;
         friend class list_functum_overloads_resolver;
         friend class functanoid_return_type_resolver;
@@ -153,11 +151,15 @@ namespace quxlang
         COMPILER_INDEX(functum_select_function)
         COMPILER_INDEX(function_declaration)
         COMPILER_INDEX(function_instanciation)
+        COMPILER_INDEX(have_nontrivial_member_ctor)
+        COMPILER_INDEX(have_nontrivial_member_dtor)
         COMPILER_INDEX(class_field_declaration_list)
         COMPILER_INDEX(interpret_bool)
         COMPILER_INDEX(interpret_value)
         COMPILER_INDEX(list_builtin_functum_overloads)
         COMPILER_INDEX(list_builtin_constructors)
+        COMPILER_INDEX(requires_gen_default_ctor)
+        COMPILER_INDEX(requires_gen_default_dtor)
         COMPILER_INDEX(list_functum_overloads)
         COMPILER_INDEX(list_user_functum_overloads)
         COMPILER_INDEX(list_user_functum_overload_declarations)
@@ -169,7 +171,6 @@ namespace quxlang
         COMPILER_INDEX(default_ctor)
         COMPILER_INDEX(function_ensig_initialize_with)
         COMPILER_INDEX(procedure_linksymbol)
-        COMPILER_INDEX(requires_gen_default_dtor)
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
         COMPILER_INDEX(symboid_subdeclaroids)
@@ -188,8 +189,8 @@ namespace quxlang
         COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure2)
         COMPILER_INDEX(user_vm_procedure2)
-        COMPILER_INDEX(user_default_dtor)
-        COMPILER_INDEX(user_default_ctor)
+        COMPILER_INDEX(user_default_dtor_exists)
+        COMPILER_INDEX(user_default_ctor_exists)
         COMPILER_INDEX(builtin_vm_procedure2)
         COMPILER_INDEX(builtin_ctor_vm_procedure2)
         COMPILER_INDEX(builtin_dtor_vm_procedure2)
@@ -202,13 +203,6 @@ namespace quxlang
             return m_called_functanoids_index.lookup(func_addr);
         }
 
-        index< class_should_autogen_default_constructor_resolver > m_class_should_autogen_default_constructor_index;
-
-        out< bool > lk_class_should_autogen_default_constructor(type_symbol const& cls)
-        {
-            return m_class_should_autogen_default_constructor_index.lookup(cls); //
-        }
-
       public:
         vm_procedure get_vm_procedure_from_canonical_functanoid(initialization_reference func_addr)
         {
@@ -216,8 +210,6 @@ namespace quxlang
             m_solver.solve(this, node);
             return node->get();
         }
-
-
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {
@@ -256,7 +248,6 @@ namespace quxlang
 
         COMPILER_INDEX(module_sources);
 
-
         index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
 
         out< std::size_t > lk_type_size_from_canonical_type(type_symbol const& ref)
@@ -287,16 +278,12 @@ namespace quxlang
 
         // Get the parsed AST for a file
 
-
-
-
         // Look up the AST for a given glass given a paritcular cannonical chain
 
         // get_* functions are used only for debugging and by non-resolver consumers of the class
         // Each get_* function calls the lk_* function and then solves the graph
       public:
         // Gets the content of a named file
-
 
         std::size_t get_class_size(type_symbol const& chain)
         {

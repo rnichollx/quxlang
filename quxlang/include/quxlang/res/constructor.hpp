@@ -25,11 +25,11 @@ namespace quxlang
 
     // Looks up any user-defined destructor for the type.
     // Returns a reference to the destructor if found, or nullopt if none exists.
-    QUX_CO_RESOLVER(user_default_dtor, type_symbol, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(user_default_dtor_exists, type_symbol, bool);
 
     // Looks up any user-defined default constructor for the type.
     // Returns a reference to the constructor if found, or nullopt if none exists.
-    QUX_CO_RESOLVER(user_default_ctor, type_symbol, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(user_default_ctor_exists, type_symbol, bool);
 
     // Determines if a type is trivially destructible.
     // Returns true if destroying an instance requires no code generation
@@ -48,6 +48,9 @@ namespace quxlang
     // Gets the effective default constructor for a type, whether user-defined or compiler-generated.
     // Returns a reference to the constructor implementation that should be used.
     QUX_CO_RESOLVER(default_ctor, type_symbol, std::optional<instanciation_reference>);
+
+    QUX_CO_RESOLVER(have_nontrivial_member_dtor, type_symbol, bool);
+    QUX_CO_RESOLVER(have_nontrivial_member_ctor, type_symbol, bool);
 }
 
 #endif // RPNX_QUXLANG_CONSTRUCTOR_HEADER
