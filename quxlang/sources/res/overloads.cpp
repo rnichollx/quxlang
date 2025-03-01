@@ -5,7 +5,7 @@
 
 #include "quxlang/operators.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overload_declarations)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_list_user_overload_declarations)
 {
     std::string name = to_string(input_val);
 
@@ -35,7 +35,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
 {
     std::string name = to_string(input_val);
 
-    auto decls = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (input));
+    auto decls = co_await QUX_CO_DEP(functum_list_user_overload_declarations, (input));
 
     std::vector< paratype > result;
 
@@ -106,13 +106,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
     co_return result;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_overloads)
 {
 
-    std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (input));
+    std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(functum_list_user_overload_declarations, (input));
     std::vector< paratype > paratypes = co_await QUX_CO_DEP(list_user_functum_formal_paratypes, (input));
 
-    std::vector< temploid_ensig > results;
+    std::set< temploid_ensig > results;
 
     for (std::size_t i = 0; i < user_defined.size(); ++i)
     {
@@ -137,57 +137,20 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_overloads)
             ol.interface.positional.push_back(std::move(arg));
         }
 
-        results.push_back(ol);
+        results.insert(ol);
     }
 
     co_return results;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_functum_overloads)
-{
-    QUX_CO_GETDEP(builtins, list_builtin_functum_overloads, (input));
-    auto user_defined_overloads = co_await QUX_CO_DEP(list_user_functum_overloads, (input));
-
-    std::string name = to_string(input);
-    std::set< temploid_ensig > all_overloads;
-    for (auto const& o : builtins)
-    {
-        all_overloads.insert(o.overload);
-    }
-
-    for (auto const& o : user_defined_overloads)
-    {
-        all_overloads.insert(o);
-    }
-
-    QUX_CO_ANSWER(all_overloads);
-}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 {
     // TODO: Rewrite this to work.
 
-    temploid_reference const& func_addr = input;
+    type_symbol const & functum = input.templexoid;
 
-    std::string dbg_func_name = to_string(input);
+    auto const &decl_map = co_await (functum_map_user_formal_ensigs, (functum));
 
-    auto functum = qualified_parent(input).value();
 
-    assert(!qualified_is_contextual(func_addr));
-
-    auto const& overloads = co_await QUX_CO_DEP(list_user_functum_overloads, (functum));
-
-    auto const& declarations = co_await QUX_CO_DEP(list_user_functum_overload_declarations, (functum));
-
-    assert(overloads.size() == declarations.size());
-
-    for (std::size_t i = 0; i < overloads.size(); i++)
-    {
-        if (overloads.at(i) == input.which)
-        {
-            co_return declarations.at(i);
-        }
-    }
-
-    throw std::logic_error("Function declaration not found");
 }

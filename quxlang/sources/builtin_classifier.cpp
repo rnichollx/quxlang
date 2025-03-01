@@ -104,7 +104,7 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
         result[name] = sig;
     }
 
-    for (auto oper : bool_operators)
+    for (auto oper : compare_operators)
     {
         std::string name = "OPERATOR" + oper;
         signature sig;

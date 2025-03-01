@@ -9,6 +9,8 @@
 #include "quxlang/data/expression.hpp"
 #include <quxlang/res/resolver.hpp>
 
+#include "quxlang/data/builtin_functions.hpp"
+
 namespace quxlang
 {
     // Determines if a type requires compiler-generated destructor.
@@ -51,6 +53,11 @@ namespace quxlang
 
     QUX_CO_RESOLVER(have_nontrivial_member_dtor, type_symbol, bool);
     QUX_CO_RESOLVER(have_nontrivial_member_ctor, type_symbol, bool);
+
+    QUX_CO_RESOLVER(list_primitive_constructors, type_symbol, std::set<primitive_function_info>);
+    QUX_CO_RESOLVER(list_primitive_destructors, type_symbol, std::set<primitive_function_info>);
+
+
 }
 
 #endif // RPNX_QUXLANG_CONSTRUCTOR_HEADER

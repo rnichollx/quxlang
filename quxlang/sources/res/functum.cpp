@@ -22,7 +22,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     assert(sym_kind == symbol_kind::functum);
 
-    auto overloads = co_await QUX_CO_DEP(list_functum_overloads, (input.initializee));
+    auto overloads = co_await QUX_CO_DEP(functum_overloads, (input.initializee));
 
     std::set< temploid_reference > best_match;
     std::optional< std::int64_t > highest_priority;
@@ -68,4 +68,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_exists_and_is_callable_with)
     auto ol = co_await QUX_CO_DEP(functum_initialize, (input_val));
 
     QUX_CO_ANSWER(ol.has_value());
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtin_overloads)
+{
+    QUX_CO_GETDEP(primitives, functum_primitive_overloads, (input));
+    co_return primitives;
 }
