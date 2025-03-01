@@ -18,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor_exists)
 
     // Look through destructors to find default destructor
 
-    std::optional< type_symbol > default_dtor;
+    std::optional< type_symbol > class_default_dtor;
 
     for (auto& ol : user_defined_dtor)
     {
@@ -47,7 +47,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
 
     // Look through destructors to find default destructor
 
-    std::optional< type_symbol > default_dtor;
+    std::optional< type_symbol > class_default_dtor;
 
     for (auto& ol : user_defined_dtor)
     {
@@ -62,7 +62,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
     co_return false;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_dtor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_default_dtor)
 {
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
 
@@ -75,7 +75,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_dtor)
     co_return dtor_inst;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_ctor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_default_ctor)
 {
     auto ctor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
 
@@ -88,17 +88,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(default_ctor)
     co_return ctor_inst;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(trivially_constructible)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_trivially_constructible)
 {
-   co_return (co_await QUX_CO_DEP(default_ctor, (input))).has_value() == false;
+   co_return (co_await QUX_CO_DEP(class_default_ctor, (input))).has_value() == false;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(trivially_destructible)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_trivially_destructible)
 {
-    co_return (co_await QUX_CO_DEP(default_dtor, (input))).has_value() == false;
+    co_return (co_await QUX_CO_DEP(class_default_dtor, (input))).has_value() == false;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(requires_gen_default_ctor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_default_ctor)
 {
     auto have_user_default_ctor = co_await QUX_CO_DEP(user_default_ctor_exists, (input));
     if (have_user_default_ctor)
@@ -111,7 +111,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(requires_gen_default_ctor)
     co_return have_nontrivial_member_ctor;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(requires_gen_default_dtor)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_default_dtor)
 {
     auto have_user_default_dtor = co_await QUX_CO_DEP(user_default_dtor_exists, (input));
     if (have_user_default_dtor)
@@ -135,7 +135,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_dtor)
     auto class_fields = co_await QUX_CO_DEP(class_field_list, (input));
     for (auto& field : class_fields)
     {
-        auto field_dtor = co_await QUX_CO_DEP(default_dtor, (field.type));
+        auto field_dtor = co_await QUX_CO_DEP(class_default_dtor, (field.type));
         if (field_dtor)
         {
             co_return true;
@@ -156,7 +156,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_ctor)
     auto class_fields = co_await QUX_CO_DEP(class_field_list, (input));
     for (auto& field : class_fields)
     {
-        auto field_ctor = co_await QUX_CO_DEP(default_ctor, (field.type));
+        auto field_ctor = co_await QUX_CO_DEP(class_default_ctor, (field.type));
         if (field_ctor)
         {
             co_return true;

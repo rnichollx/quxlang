@@ -9,11 +9,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
     std::string input_str = quxlang::to_string(input);
     temploid_reference selected_function = input.temploid;
 
-    auto is_builtin = co_await QUX_CO_DEP(function_builtin, (selected_function));
+    auto primitive = co_await QUX_CO_DEP(function_primitive, (selected_function));
 
-    if (is_builtin)
+    if (primitive)
     {
-        co_return is_builtin.value().return_type;
+        co_return primitive.value().return_type;
     }
 
     auto decl = co_await QUX_CO_DEP(function_declaration, (selected_function));

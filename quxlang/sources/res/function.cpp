@@ -61,34 +61,34 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
 {
-    std::set< primitive_function_info > result;
+    std::set< builtin_function_info > result;
 
     if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< pointer_type >())
     {
 
-        result.insert(primitive_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
         if (input.type_is< int_type >())
         {
-            result.insert(primitive_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
+            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
         }
-        result.insert(primitive_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
         co_return (result);
     }
 
-    bool should_autogen_constructor = co_await QUX_CO_DEP(requires_gen_default_ctor, (input));
+    bool should_autogen_constructor = co_await QUX_CO_DEP(class_requires_gen_default_ctor, (input));
     bool should_autogen_copy_constructor = true;
 
     // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
 
     if (should_autogen_constructor)
     {
-        result.insert(primitive_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = input});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = input});
         co_return result;
     }
 
     if (should_autogen_copy_constructor)
     {
-        result.insert(primitive_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
     }
 
     co_return result;
@@ -112,7 +112,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
     std::string const& name = as_submember.name;
 
-    std::set< primitive_function_info > allowed_operations;
+    std::set< builtin_function_info > allowed_operations;
 
     if (name.starts_with("OPERATOR"))
     {
@@ -135,7 +135,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         {
             if (is_arithmetic_operator)
             {
-                allowed_operations.insert(primitive_function_info{.overload =
+                allowed_operations.insert(builtin_function_info{.overload =
                                                                       temploid_ensig{
                                                                           .interface =
                                                                               intertype{
@@ -146,7 +146,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             }
             else if (is_compare_operator)
             {
-                allowed_operations.insert(primitive_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
             }
         }
 
@@ -159,7 +159,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             }
             else
             {
-                allowed_operations.insert(primitive_function_info{
+                allowed_operations.insert(builtin_function_info{
                     .overload = temploid_ensig{.interface =
                                                    intertype{
                                                        .named = {{"THIS", argif{make_wref(parent)}}, {"OTHER", argif{parent}}},
@@ -171,7 +171,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
         if (typeis< int_type >(parent) && compare_operators.contains(operator_name))
         {
-            allowed_operations.insert(primitive_function_info{.overload = temploid_ensig{.interface =
+            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface =
                                                                                              intertype{
                                                                                                  .named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}},
                                                                                              }},
@@ -180,28 +180,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
         if (typeis< numeric_literal_reference >(parent) && arithmetic_operators.contains(operator_name))
         {
-            std::set< primitive_function_info > allowed_operations;
+            std::set< builtin_function_info > allowed_operations;
 
-            allowed_operations.insert(primitive_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{numeric_literal_reference{}}}, {"OTHER", argif{numeric_literal_reference{}}}}}}, .return_type = numeric_literal_reference{}});
+            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{numeric_literal_reference{}}}, {"OTHER", argif{numeric_literal_reference{}}}}}}, .return_type = numeric_literal_reference{}});
             co_return (allowed_operations);
         }
 
         if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
         {
-            allowed_operations.insert(primitive_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
+            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
         }
 
         co_return (allowed_operations);
-    }
-
-    else if (name == "CONSTRUCTOR")
-    {
-        co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
-    }
-
-    else if (name == "DESTRUCTOR")
-    {
-        co_return co_await QUX_CO_DEP(list_builtin_destructors, (parent));
     }
 
     co_return {};

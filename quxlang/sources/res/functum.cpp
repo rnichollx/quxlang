@@ -72,6 +72,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_exists_and_is_callable_with)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtin_overloads)
 {
-    QUX_CO_GETDEP(primitives, functum_primitive_overloads, (input));
-    co_return primitives;
+    auto const& primitive_overloads = co_await QUX_CO_DEP( functum_primitive_overloads, (input));
+
+    std::set<temploid_ensig> results;
+
+    for (auto const & info : primitive_overloads)
+    {
+        results.insert(info.overload);
+    }
+
+    co_return results;
 }

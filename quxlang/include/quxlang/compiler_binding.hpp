@@ -39,8 +39,8 @@ namespace quxlang
         QUX_BIND(implicitly_convertible_to);
         QUX_BIND(symbol_type);
         QUX_BIND(variable_type);
-        QUX_BIND(default_dtor);
-        QUX_BIND(default_ctor);
+        QUX_BIND(class_default_dtor);
+        QUX_BIND(class_default_ctor);
 
 
         auto& implicitly_convertible_to(type_symbol from, type_symbol to)

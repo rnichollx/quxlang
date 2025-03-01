@@ -29,7 +29,7 @@ namespace quxlang
     // Note that this only refers to the QXVMIR2 instruction set, it's possible that some operations
     // which are single instructions in QXVMIR2 (like atomic add) might be multiple instructions in the
     // machine language or even a procedure invoke.
-    QUX_CO_RESOLVER(functum_primitive_overloads, type_symbol, std::set< primitive_function_info >);
+    QUX_CO_RESOLVER(functum_primitive_overloads, type_symbol, std::set< builtin_function_info >);
 
     // functum_builtin_overloads lists the set of built-in overloads of a given functum.
     // This basically means all functions that are not typed out in the source code,

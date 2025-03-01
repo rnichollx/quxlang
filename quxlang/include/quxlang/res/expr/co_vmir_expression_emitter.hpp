@@ -300,7 +300,7 @@ namespace quxlang
 
             assert(retval == 0);
 
-            auto dtor = co_await prv.default_dtor(new_type);
+            auto dtor = co_await prv.class_default_dtor(new_type);
             std::cout << "gen_call_ctor A(" << quxlang::to_string(new_type) << ") dtor" << (dtor ? "Y" : "N") << std::endl;
             if (dtor)
             {

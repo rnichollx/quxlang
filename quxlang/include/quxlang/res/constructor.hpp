@@ -17,13 +17,13 @@ namespace quxlang
     // Returns true if:
     // - The type has no user-defined destructor AND
     // - The type is not trivially destructible
-    QUX_CO_RESOLVER(requires_gen_default_dtor, type_symbol, bool);
+    QUX_CO_RESOLVER(class_requires_gen_default_dtor, type_symbol, bool);
 
     // Determines if a type requires compiler-generated constructor.
     // Returns true if:
     // - The type has no user-defined default constructor AND
     // - The type is not trivially constructible
-    QUX_CO_RESOLVER(requires_gen_default_ctor, type_symbol, bool);
+    QUX_CO_RESOLVER(class_requires_gen_default_ctor, type_symbol, bool);
 
     // Looks up any user-defined destructor for the type.
     // Returns a reference to the destructor if found, or nullopt if none exists.
@@ -36,26 +36,26 @@ namespace quxlang
     // Determines if a type is trivially destructible.
     // Returns true if destroying an instance requires no code generation
     // (i.e., no cleanup needed for the type and all its members)
-    QUX_CO_RESOLVER(trivially_destructible, type_symbol, bool);
+    QUX_CO_RESOLVER(class_trivially_destructible, type_symbol, bool);
 
     // Determines if a type is trivially constructible.
     // Returns true if constructing an instance requires no code generation
     // (i.e., no initialization needed for the type and all its members)
-    QUX_CO_RESOLVER(trivially_constructible, type_symbol, bool);
+    QUX_CO_RESOLVER(class_trivially_constructible, type_symbol, bool);
 
     // Gets the effective destructor for a type, whether user-defined or compiler-generated.
     // Returns a reference to the destructor implementation that should be used.
-    QUX_CO_RESOLVER(default_dtor, type_symbol, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(class_default_dtor, type_symbol, std::optional<instanciation_reference>);
 
     // Gets the effective default constructor for a type, whether user-defined or compiler-generated.
     // Returns a reference to the constructor implementation that should be used.
-    QUX_CO_RESOLVER(default_ctor, type_symbol, std::optional<instanciation_reference>);
+    QUX_CO_RESOLVER(class_default_ctor, type_symbol, std::optional<instanciation_reference>);
 
     QUX_CO_RESOLVER(have_nontrivial_member_dtor, type_symbol, bool);
     QUX_CO_RESOLVER(have_nontrivial_member_ctor, type_symbol, bool);
 
-    QUX_CO_RESOLVER(list_primitive_constructors, type_symbol, std::set<primitive_function_info>);
-    QUX_CO_RESOLVER(list_primitive_destructors, type_symbol, std::set<primitive_function_info>);
+    QUX_CO_RESOLVER(list_primitive_constructors, type_symbol, std::set<builtin_function_info>);
+    QUX_CO_RESOLVER(list_primitive_destructors, type_symbol, std::set<builtin_function_info>);
 
 
 }

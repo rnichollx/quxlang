@@ -143,14 +143,22 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_overloads)
     co_return results;
 }
 
-
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 {
     // TODO: Rewrite this to work.
 
-    type_symbol const & functum = input.templexoid;
+    type_symbol const& functum = input.templexoid;
 
-    auto const &decl_map = co_await (functum_map_user_formal_ensigs, (functum));
+    auto const& decl_map = co_await QUX_CO_DEP(functum_map_user_formal_ensigs, (functum));
 
+    if (!decl_map.contains(input.which))
+    {
+        throw std::logic_error("Function not found");
+    }
 
+    std::size_t index = decl_map.at(input.which);
+
+    auto const& decls = co_await QUX_CO_DEP(functum_list_user_overload_declarations, (functum));
+
+    co_return decls.at(index);
 }
