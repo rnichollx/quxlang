@@ -458,7 +458,18 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::branch const& brn)
 {
-    throw rpnx::unimplemented();
+    auto reg = brn.condition;
+
+    auto data = consume_data(reg);
+
+    if (data == std::vector<std::byte>{std::byte{0}})
+    {
+        transition(brn.target_false);
+    }
+    else
+    {
+        transition(brn.target_true);
+    }
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cast_reference const& cst)
 {

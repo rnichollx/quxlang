@@ -24,6 +24,16 @@ namespace quxlang::parsers
             {
                 break;
             }
+            if (c == '{' || c == '}')
+            {
+                break;
+            }
+
+            if (c == '[' || c == ']')
+            {
+                break;
+            }
+
             started = true;
         }
 
