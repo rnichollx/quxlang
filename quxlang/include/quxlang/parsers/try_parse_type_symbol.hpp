@@ -29,7 +29,23 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
     start:
         skip_whitespace(pos, end);
-        if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
+        if (skip_keyword_if_is(pos, end, "MODULE"))
+        {
+            module_reference m;
+            skip_whitespace(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after MODULE");
+            }
+            m.module_name = parse_identifier(pos, end);
+            skip_whitespace(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after MODULE(" + m.module_name);
+            }
+            output = m;
+        }
+        else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
         {
             output = numeric_literal_reference{};
         }
