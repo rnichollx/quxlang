@@ -972,17 +972,32 @@ namespace rpnx
             }
         }
 
+        virtual std::optional< std::string > input_string() const
+        {
+            return std::nullopt;
+        }
+
         virtual std::string question() const override
         {
             std::string typenam = boost::core::demangle(typeid(*this).name());
             std::vector< std::byte > data;
 
-            rpnx::cxx_serialize_iter(input_val, std::back_inserter(data));
+            auto input_str_opt = input_string();
 
             std::string input_str;
-            for (std::byte b : data)
+
+            if (input_str_opt.has_value())
             {
-                input_str += char(b);
+                input_str = input_str_opt.value();
+            }
+            else
+            {
+                rpnx::cxx_serialize_iter(input_val, std::back_inserter(data));
+
+                for (std::byte b : data)
+                {
+                    input_str += char(b);
+                }
             }
             return typenam + "(" + input_str + ")";
         }
