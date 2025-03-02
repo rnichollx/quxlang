@@ -98,6 +98,24 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
 
     std::map< temploid_ensig, std::size_t > output;
 
+    bool is_member_functum = typeis< submember >(input);
+    std::optional<type_symbol> class_type;
+    bool is_ctor = false;
+    bool is_dtor = false;
+    if (is_member_functum)
+    {
+        submember const& m = as< submember >(input);
+        class_type = m.of;
+        if (m.name == "CONSTRUCTOR")
+        {
+            is_ctor = true;
+        }
+        else if (m.name == "DESTRUCTOR")
+        {
+            is_dtor = true;
+        }
+    }
+
     for (std::size_t i = 0; i < decls.size(); i++)
     {
         auto const &decl = decls.at(i);
@@ -126,6 +144,26 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
                 throw std::logic_error("Type not found");
             }
             formal_ensig.interface.positional.push_back(argif{.type = formal_type_opt.value(), .is_defaulted = param.is_defaulted});
+        }
+
+        if (is_member_functum && !formal_ensig.interface.named.contains("THIS"))
+        {
+            argif this_argif;
+
+            if (is_ctor)
+            {
+                this_argif.type = nvalue_slot{.target = class_type.value()};
+            }
+            else if (is_dtor)
+            {
+                this_argif.type = dvalue_slot{.target = class_type.value()};
+            }
+            else
+            {
+                this_argif.type = auto_reference{.target = class_type.value()};
+            }
+
+            formal_ensig.interface.named["THIS"] = this_argif;
         }
 
         if (output.contains(formal_ensig))
