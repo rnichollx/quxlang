@@ -747,6 +747,18 @@ TEST(expression_ir, constexpr_result_bool)
     ASSERT_TRUE(val2);
 }
 
+TEST(builtin_state, user_func_builtin)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    quxlang::compiler c(sources, "linux-x64");
+    auto type = quxlang::parsers::parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
+
+    auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>());
+    GTEST_ASSERT_FALSE(val_builtin);
+}
+
 TEST(expression_ir, constexpr_call_func)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
