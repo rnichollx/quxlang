@@ -43,7 +43,7 @@ namespace quxlang
     // functum_user_overloads lists the set of all user overloads of a given functum.
     // A user overload is a function that is defined in the source code.
     // TODO: This should not exist, since it should return a set, not a list.
-    QUX_CO_RESOLVER(functum_user_overloads, type_symbol, std::vector< temploid_ensig >);
+    QUX_CO_RESOLVER(functum_user_overloads, type_symbol, std::set< temploid_ensig >);
 
     // functum_list_user_ensig_declarations lists all *declared* ensigs for a given functum.
     // A declared ensig is not yet formally typed, for example, a declared ensig might be

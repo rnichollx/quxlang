@@ -784,6 +784,8 @@ TEST(expression_ir, func_gen)
 
     func_name = quxlang::with_context(func_name, mainmodule);
 
+    std::string out_type_name = func_name.type().name();
+
     quxlang::instanciation_reference func_name_real = func_name.template get_as<quxlang::instanciation_reference>();
 
     auto func = c.get_vm_procedure2(func_name_real);

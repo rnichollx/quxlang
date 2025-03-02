@@ -109,34 +109,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_overloads)
 {
 
-    std::vector< ast2_function_declaration > user_defined = co_await QUX_CO_DEP(functum_list_user_overload_declarations, (input));
-    std::vector< paratype > paratypes = co_await QUX_CO_DEP(list_user_functum_formal_paratypes, (input));
+    auto const & builtins = co_await QUX_CO_DEP(functum_builtin_overloads, (input_val));
+    auto const & user = co_await QUX_CO_DEP(functum_user_overloads, (input_val));
 
-    std::set< temploid_ensig > results;
+    std::set<temploid_ensig> results;
 
-    for (std::size_t i = 0; i < user_defined.size(); ++i)
+    for (auto const & ol : builtins)
     {
-        paratype p = paratypes.at(i);
-        ast2_function_declaration const& decl = user_defined.at(i);
+        results.insert(ol);
+    }
 
-        temploid_ensig ol;
-        ol.priority = decl.header.priority;
-
-        for (auto const& [name, value] : p.named)
-        {
-            argif& arg = ol.interface.named[name];
-            arg.type = value.type;
-            arg.is_defaulted = value.default_value.has_value();
-        }
-
-        for (std::size_t i = 0; i < p.positional.size(); ++i)
-        {
-            argif arg;
-            arg.type = p.positional[i].type;
-            arg.is_defaulted = p.positional[i].default_value.has_value();
-            ol.interface.positional.push_back(std::move(arg));
-        }
-
+    for (auto const & ol : user)
+    {
         results.insert(ol);
     }
 

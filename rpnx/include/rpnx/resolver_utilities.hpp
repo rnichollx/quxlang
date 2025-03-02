@@ -606,7 +606,47 @@ namespace rpnx
             return m_kickoff_coroutines.size() + m_busy_coroutines;
         }
 
+        bool is_recursive()
+        {
+            std::set< node_base< Graph >* > touch_set;
+            check_all_transitive_unmet_dependencies(touch_set);
+            return touch_set.contains(this);
+        }
+
+        std::size_t dep_set_size()
+        {
+            std::set< node_base< Graph >* > touch_set;
+            check_all_transitive_unmet_dependencies(touch_set);
+            return touch_set.size();
+        }
+
       private:
+        void check_all_transitive_unmet_dependencies(std::set< node_base< Graph >* >& output)
+        {
+            if (output.contains(this))
+            {
+                return;
+            }
+
+            for (auto d : m_unmet_dependencies)
+            {
+                output.insert(d);
+                d->check_all_transitive_unmet_dependencies(output);
+            }
+
+            for (auto d : m_error_dependencies)
+            {
+                output.insert(d);
+                d->check_all_transitive_unmet_dependencies(output);
+            }
+
+            for (auto d : m_met_dependencies)
+            {
+                output.insert(d);
+                d->check_all_transitive_unmet_dependencies(output);
+            }
+        }
+
         std::set< node_base< Graph >* > m_met_dependencies;
         std::set< node_base< Graph >* > m_unmet_dependencies;
         std::set< node_base< Graph >* > m_error_dependencies;
@@ -1699,7 +1739,7 @@ namespace rpnx
             if (n->m_attached_by)
             {
 
-                assert(n->error_dependencies().size() + n->met_dependencies().size() == 1);
+                assert(n->error_dependencies().size() + n->met_dependencies().size() <= 1);
                 // Note: can be caused by using add_dependency instead of add_co_dependency
 
                 n = n->m_attached_by;
@@ -1926,7 +1966,15 @@ namespace rpnx
                     {
                         if (!n->resolved())
                         {
-                            QUXLANG_DEBUG({ std::cout << "Not resolved:" << n->question() << std::endl; });
+                            QUXLANG_DEBUG({ std::cout << "Not resolved: " << n->question() << std::endl; });
+                            QUXLANG_DEBUG({ std::cout << "Touch set size: " << n->dep_set_size() << std::endl; });
+                        }
+                    }
+                    for (auto const& n : m_all_nodes)
+                    {
+                        if (n->is_recursive())
+                        {
+                            QUXLANG_DEBUG({ std::cout << "RECURSIVE: " << n->question() << std::endl; });
                         }
                     }
                     throw std::runtime_error("Could not resolve node, probably recursive dependency (2)");

@@ -197,6 +197,7 @@ namespace quxlang
         COMPILER_INDEX(builtin_vm_procedure2)
         COMPILER_INDEX(builtin_ctor_vm_procedure2)
         COMPILER_INDEX(builtin_dtor_vm_procedure2)
+        COMPILER_INDEX(functum_user_overloads)
         COMPILER_INDEX(type_placement_info_from_canonical_type)
 
         index< called_functanoids_resolver > m_called_functanoids_index;

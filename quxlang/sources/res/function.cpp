@@ -114,6 +114,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
     std::set< builtin_function_info > allowed_operations;
 
+    if (name == "CONSTRUCTOR")
+    {
+        co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
+    }
+
+
     if (name.starts_with("OPERATOR"))
     {
         std::string operator_name = name.substr(8);
@@ -225,59 +231,4 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
     }
 
     co_return std::nullopt;
-}
-
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
-{
-    auto const& decls = co_await QUX_CO_DEP(functum_list_user_ensig_declarations, (input));
-
-    // TODO: Unimplemented
-    throw rpnx::unimplemented();
-}
-
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_list_user_ensig_declarations)
-{
-    auto const& decls = co_await QUX_CO_DEP(functum_list_user_overload_declarations, (input));
-
-    std::vector< temploid_ensig > output;
-
-    for (std::size_t i = 0; i < decls.size(); i++)
-    {
-        auto const& head = decls.at(i).header;
-
-        temploid_ensig ensig;
-        ensig.priority = head.priority;
-
-        for (std::size_t y = 0; y < head.call_parameters.size(); y++)
-        {
-            auto const& param = head.call_parameters.at(y);
-
-            argif arg;
-            if (param.default_expr.has_value())
-            {
-                arg.is_defaulted = true;
-            }
-
-            arg.type = param.type;
-
-            if (param.api_name.has_value())
-            {
-                if (ensig.interface.named.contains(param.api_name.value()))
-                {
-                    throw std::logic_error("Duplicate parameter name");
-                    //
-                }
-
-                ensig.interface.named[param.api_name.value()] = arg;
-            }
-            else
-            {
-                ensig.interface.positional.push_back(arg);
-            }
-        }
-
-        output.push_back(ensig);
-    }
-
-    co_return output;
 }

@@ -241,11 +241,9 @@ namespace quxlang::parsers
         {
             remaining = std::string(pos, end);
 
-            initialization_reference param_set;
-            param_set.initializee = temploid_reference{};
+            instanciation_reference param_set;
 
-            temploid_reference& sel = as< temploid_reference >(param_set.initializee);
-            sel.templexoid = std::move(output);
+            param_set.temploid.templexoid = std::move(output);
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "}"))
@@ -256,21 +254,6 @@ namespace quxlang::parsers
 
             skip_whitespace_and_comments(pos, end);
 
-            /*
-                        if (skip_keyword_if_is(pos, end, "BUILTIN"))
-                        {
-                            sel.which.builtin = true;
-
-                            skip_whitespace(pos, end);
-
-                            if (!skip_symbol_if_is(pos, end, ";"))
-                            {
-                                throw std::logic_error("Expected ';'");
-                            }
-                        }
-                        */
-
-            skip_whitespace_and_comments(pos, end);
         next_arg2:
             remaining = std::string(pos, end);
             skip_whitespace_and_comments(pos, end);
@@ -278,41 +261,32 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                type_symbol seltype = parse_type_symbol(pos, end);
-                sel.which.interface.named[param_name].type = seltype;
+                argif seltype = parse_argif(pos, end);
+                param_set.temploid.which.interface.named[param_name] = seltype;
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
-                    param_set.parameters.named[param_name] = parse_type_symbol(pos, end);
+                    skip_whitespace(pos, end);
+                    param_set.params.named[param_name] = parse_type_symbol(pos, end);
                 }
                 else
                 {
-                    param_set.parameters.named[param_name] = seltype;
+                    param_set.params.named[param_name] = seltype.type;
                 }
             }
             else
             {
-                argif arg;
-                arg.type = parse_type_symbol(pos, end);
-                skip_whitespace(pos, end);
-                if (skip_keyword_if_is(pos, end, "DEFAULTED"))
-                {
-                    arg.is_defaulted = true;
-                }
-                else
-                {
-                    arg.is_defaulted = false;
-                }
-
-                sel.which.interface.positional.push_back(arg);
+                argif seltype = parse_argif(pos, end);
+                param_set.temploid.which.interface.positional.push_back(seltype);
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
-                    param_set.parameters.positional.push_back(parse_type_symbol(pos, end));
+                    skip_whitespace(pos, end);
+                    param_set.params.positional.push_back(parse_type_symbol(pos, end));
                 }
                 else
                 {
-                    param_set.parameters.positional.push_back(arg.type);
+                    param_set.params.positional.push_back(seltype.type);
                 }
             }
 

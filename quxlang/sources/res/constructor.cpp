@@ -40,7 +40,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
 {
     auto dtor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
 
-    auto user_defined_dtor = co_await QUX_CO_DEP(functum_overloads, (dtor_symbol));
+    auto user_defined_dtor = co_await QUX_CO_DEP(functum_user_overloads, (dtor_symbol));
 
     auto ctor_call_type = invotype{.named{{"THIS", nvalue_slot{input}}}};
     auto ctor_default_intertype = intertype{.named{{"THIS", argif{.type = nvalue_slot{input}}}}};
