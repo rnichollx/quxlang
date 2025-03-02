@@ -399,6 +399,8 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
 {
     assert(current_slot_states[sdn.on_value].alive == false);
 
+    block.instructions.push_back(sdn);
+
 
     current_slot_states[sdn.on_value].delegates = invocation_args{};
 
