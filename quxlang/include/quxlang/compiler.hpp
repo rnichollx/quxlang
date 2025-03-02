@@ -167,6 +167,7 @@ namespace quxlang
         COMPILER_INDEX(functum_list_user_overload_declarations)
         COMPILER_INDEX(list_user_functum_formal_paratypes)
         COMPILER_INDEX(lookup);
+        COMPILER_INDEX(functum_list_user_ensig_declarations)
         COMPILER_INDEX(module_ast)
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(class_default_dtor)

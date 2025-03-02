@@ -47,7 +47,7 @@ namespace quxlang
     struct function;
     struct templex;
 
-    using ast2_declarable [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using ast2_declarable /*[[deprecated("replace with declaroid/symboid etc")]] */ = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
     using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
@@ -251,7 +251,7 @@ namespace quxlang
     struct ast2_named_member
     {
         std::string name;
-        ast2_declarable declaration;
+        declaroid declaration;
 
         RPNX_MEMBER_METADATA(ast2_named_member, name, declaration);
     };
@@ -287,8 +287,8 @@ namespace quxlang
 
     struct ast2_declarations
     {
-        std::vector< std::pair< std::string, ast2_declarable > > globals;
-        std::vector< std::pair< std::string, ast2_declarable > > members;
+        std::vector< std::pair< std::string, declaroid > > globals;
+        std::vector< std::pair< std::string, declaroid > > members;
 
         RPNX_MEMBER_METADATA(ast2_declarations, globals, members);
     };

@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #ifdef linux
-#warning "Undefining linux"
+// #warning "Undefining linux"
 #undef linux
 #endif
 
