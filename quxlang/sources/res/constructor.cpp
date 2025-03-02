@@ -38,9 +38,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor_exists)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
 {
-    auto dtor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    auto ctor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    auto input_str = quxlang::to_string(input);
 
-    auto user_defined_dtor = co_await QUX_CO_DEP(functum_user_overloads, (dtor_symbol));
+    auto user_defined_ctor = co_await QUX_CO_DEP(functum_user_overloads, (ctor_symbol));
 
     auto ctor_call_type = invotype{.named{{"THIS", nvalue_slot{input}}}};
     auto ctor_default_intertype = intertype{.named{{"THIS", argif{.type = nvalue_slot{input}}}}};
@@ -49,7 +50,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_ctor_exists)
 
     std::optional< type_symbol > class_default_dtor;
 
-    for (auto& ol : user_defined_dtor)
+    for (auto& ol : user_defined_ctor)
     {
         auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = ol, .params = ctor_call_type}));
 
