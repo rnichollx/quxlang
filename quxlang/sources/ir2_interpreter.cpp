@@ -286,6 +286,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec()
     {
         quxlang::vmir2::assembler ir_printer(func.second.get());
 
+        std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
+
         std::cout << ir_printer.to_string(func.second.get()) << std::endl;
     }
 
