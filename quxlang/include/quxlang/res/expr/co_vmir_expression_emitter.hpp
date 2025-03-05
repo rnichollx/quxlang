@@ -183,7 +183,7 @@ namespace quxlang
 
             if (new_state != expected_state)
             {
-                // throw compiler_bug("Slot state mismatch");
+                throw compiler_bug("Slot state mismatch");
                 std::cout << "Expected state mismatch: " << inst_str << std::endl;
                 new_state = expected_state;
             }
@@ -776,7 +776,7 @@ namespace quxlang
 
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto this_reference = submember{.of = context_reference{}, .name = "THIS"};
+            auto this_reference = subsymbol{.of = context_reference{}, .name = "THIS"};
             auto value = co_await this->lookup_symbol(this_reference);
             if (!value)
             {

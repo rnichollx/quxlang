@@ -132,7 +132,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             }
 
             std::string str = "Could not find '" + sub.name + "'";
-            throw std::logic_error(str.c_str());
+            co_return std::nullopt;
         }
 
         auto parent_canonical = (co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}))).value();

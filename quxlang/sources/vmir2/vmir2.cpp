@@ -258,6 +258,7 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::executable_block_
 void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::constexpr_set_result csr)
 {
     block.instructions.push_back(csr);
+    current_slot_states.at(csr.target).alive = false;
 }
 void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_value lcv)
 {
@@ -403,6 +404,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
 
 
     current_slot_states[sdn.on_value].delegates = invocation_args{};
+    current_slot_states[sdn.on_value].alive = true;
 
     for (auto const & arg : sdn.fields.positional)
     {
