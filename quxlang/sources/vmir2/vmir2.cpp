@@ -183,6 +183,9 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::cast_reference cst)
 {
     block.instructions.push_back(cst);
+
+    current_slot_states[cst.source_ref_index].alive = false;
+    current_slot_states[cst.target_ref_index].alive = true;
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_reference cst)
 {
@@ -295,6 +298,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::sto
     assert(current_slot_states[lfp.from_value].alive == true);
     assert(current_slot_states[lfp.to_reference].alive == true);
     current_slot_states[lfp.from_value].alive = false;
+    current_slot_states[lfp.to_reference].alive = false;
     block.instructions.push_back(lfp);
 }
 
