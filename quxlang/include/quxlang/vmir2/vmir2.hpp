@@ -317,11 +317,13 @@ namespace quxlang
         struct slot_state
         {
             bool alive = false;
+            bool storage_valid = false;
+            bool dtor_enabled = false;
             std::optional< dtor_spec > nontrivial_dtor;
             std::optional<invocation_args> delegates;
             std::optional<storage_index> delegate_of;
 
-            RPNX_MEMBER_METADATA(slot_state, alive, nontrivial_dtor, delegates, delegate_of);
+            RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of);
         };
 
         struct slot_states
