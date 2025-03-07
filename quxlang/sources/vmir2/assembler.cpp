@@ -182,7 +182,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::cast_reference inst)
     {
-        std::string result = "CSR %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index);
+        std::string result = "CRF %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index);
 
         result += " // type1=";
 
