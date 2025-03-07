@@ -74,11 +74,11 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         type_symbol arg_inst_type;
         if (name == "RETURN")
         {
-           arg_inst_type = nvalue_slot{.target = slot_info.at(index).type};
+            arg_inst_type = nvalue_slot{.target = slot_info.at(index).type};
         }
         else
         {
-           arg_inst_type = ivk_func_inst.params.named.at(name);
+            arg_inst_type = ivk_func_inst.params.named.at(name);
         }
 
         if (arg_inst_type.template type_is< nvalue_slot >())
@@ -138,6 +138,9 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     {
         throw invalid_instruction_transition_error("input slot is dead");
     }
+
+    state[csr.target].dtor_enabled = false;
+    state[csr.target].storage_valid = false;
 
     state[csr.target].alive = false;
 }
@@ -258,8 +261,16 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     }
 
     state[div.result].alive = true;
+    state[div.result].storage_valid = true;
+    state[div.result].dtor_enabled = true;
+
     state[div.a].alive = false;
+    state[div.a].storage_valid = false;
+    state[div.a].dtor_enabled = false;
+
     state[div.b].alive = false;
+    state[div.b].dtor_enabled = false;
+    state[div.b].storage_valid = false;
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_mod const& mod)
 {
@@ -380,9 +391,16 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, struct_delegate_new const& dlg)
 {
-    state.at(dlg.on_value).delegates = dlg.fields;
-    for (auto const & [name, index] : dlg.fields.named)
+    state[dlg.on_value].delegates = dlg.fields;
+    for (auto const& [name, index] : dlg.fields.named)
     {
         state[index].delegate_of = dlg.on_value;
+        state[index].storage_valid = true;
+        state[index].dtor_enabled = false;
+        state[index].alive = false;
     }
+
+    state[dlg.on_value].storage_valid = true;
+    state[dlg.on_value].dtor_enabled = false;
+    state[dlg.on_value].alive = true;
 }
