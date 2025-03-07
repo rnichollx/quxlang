@@ -23,13 +23,13 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_bind
     slots.push_back(vm_slot{.type = type, .binding_of = idx, .kind = slot_kind::binding});
     return slot_id;
 }
-quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_positional_argument(type_symbol type, std::optional<std::string> name)
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_positional_argument(type_symbol type, std::optional< std::string > name)
 {
     storage_index slot_id = slots.size();
     slots.push_back(vm_slot{.type = type, .name = name, .kind = slot_kind::positional_arg});
     return slot_id;
 }
-quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_named_argument(std::string apiname, type_symbol type, std::optional<std::string> varname)
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > varname)
 {
     storage_index slot_id = slots.size();
     slots.push_back(vm_slot{.type = type, .name = varname.value_or(apiname), .arg_name = apiname, .kind = slot_kind::named_arg});
@@ -188,6 +188,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::cast_referen
     current_slot_states[cst.source_ref_index].alive = false;
     current_slot_states[cst.target_ref_index].alive = true;
 }
+
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_reference cst)
 {
     current_slot_states[cst.reference_index].alive = true;
@@ -407,11 +408,10 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
 
     block.instructions.push_back(sdn);
 
-
     current_slot_states[sdn.on_value].delegates = invocation_args{};
     current_slot_states[sdn.on_value].alive = true;
 
-    for (auto const & arg : sdn.fields.positional)
+    for (auto const& arg : sdn.fields.positional)
     {
         assert(current_slot_states[arg].alive == false);
         current_slot_states[arg].delegate_of = sdn.on_value;
@@ -419,7 +419,7 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
         current_slot_states[sdn.on_value].delegates.value().positional.push_back(arg);
     }
 
-    for (auto const & [name, arg] : sdn.fields.named)
+    for (auto const& [name, arg] : sdn.fields.named)
     {
         current_slot_states[arg].delegate_of = sdn.on_value;
         current_slot_states[sdn.on_value].delegates.value().named[name] = arg;
