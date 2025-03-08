@@ -332,6 +332,7 @@ namespace quxlang
             // block is the parent + the new variable, which won't contain the temporary objects generated above.
             frame.block(current_block).current_slot_states[idx] = new_state;
             frame.block(current_block).block.entry_state[idx] = new_state;
+            frame.block(current_block).named_references[st.name] = idx;
 
             co_return;
         }
