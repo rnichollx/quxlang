@@ -219,6 +219,10 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
     {
         current_slot_states[idx].alive = true;
     }
+    if (label_name.has_value())
+    {
+        named_references[label_name.value()] = idx;
+    }
     return idx;
 }
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name)
@@ -251,10 +255,17 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 }
 std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::executable_block_generation_state::local_lookup(std::string name)
 {
+
+    if (this->named_references.contains(name))
+    {
+        return this->named_references.at(name);
+    }
+
     for (std::size_t i = 0; i < slots->slots.size(); i++)
     {
         if (slots->slots[i].name.has_value() && slots->slots[i].name.value() == name && current_slot_states[i].alive)
         {
+            throw compiler_bug("this shouldn't happen now");
             return i;
         }
     }
