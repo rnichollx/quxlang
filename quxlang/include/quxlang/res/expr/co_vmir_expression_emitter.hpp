@@ -782,7 +782,8 @@ namespace quxlang
             {
                 throw std::logic_error("Cannot find " + to_string(this_reference));
             }
-            co_return value.value();
+            auto field = co_await generate_dot_access(*value, what.field_name);
+            co_return field;
         }
 
         auto generate(expression_dotreference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

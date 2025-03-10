@@ -6,14 +6,16 @@ namespace quxlang::vmir2
 {
     std::string assembler::to_string(vmir2::functanoid_routine2 fnc)
     {
+        //state_engine::apply_entry(this->state, fnc.slots);
+
         std::string output;
 
         static const std::string indent = "    ";
         output += "[DTors]:\n";
 
-        for (auto const &[type, dtor]: fnc.non_trivial_dtors)
+        for (auto const& [type, dtor] : fnc.non_trivial_dtors)
         {
-           output += indent + quxlang::to_string(type) + " USES " + quxlang::to_string(dtor) + "\n";
+            output += indent + quxlang::to_string(type) + " USES " + quxlang::to_string(dtor) + "\n";
         }
 
         output += "[Slots]:\n";
@@ -42,25 +44,7 @@ namespace quxlang::vmir2
 
             auto const& blk = fnc.blocks.at(i);
 
-            output += " [< ";
-            bool first = true;
-            for (auto& [k, v] : blk.entry_state)
-            {
-                if (v.alive)
-                {
-                    if (first)
-                    {
-                        first = false;
-                    }
-                    else
-                    {
-                        output += ", ";
-                    }
-                    output += "%" + std::to_string(k);
-                }
-            }
-
-            output += " >]";
+            output += to_string(blk.entry_state);
 
             output += ":\n";
             output += this->to_string(fnc.blocks.at(i));
@@ -71,12 +55,25 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string(vmir2::executable_block const& inst)
     {
+
+        state = inst.entry_state;
+
         std::string output;
         static const std::string indent = "    ";
         for (auto& i : inst.instructions)
         {
             output += indent + this->to_string(i);
             output += "\n";
+
+            try
+            {
+                state_engine::apply(this->state, this->m_what.slots, i);
+
+                output += indent + "// state: " + this->to_string(this->state) + "\n";
+            } catch (std::exception const & e)
+            {
+                output += indent + "// state: exception: " + e.what() + "\n";
+            }
         }
         if (!inst.terminator.has_value())
         {
@@ -86,6 +83,30 @@ namespace quxlang::vmir2
         {
             output += indent + this->to_string(inst.terminator.value()) + "\n";
         }
+        return output;
+    }
+    std::string assembler::to_string(vmir2::state_engine::state_map const& state)
+    {
+        std::string output;
+        output += " [< ";
+        bool first = true;
+        for (auto& [k, v] : state)
+        {
+            if (v.alive)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    output += ", ";
+                }
+                output += "%" + std::to_string(k);
+            }
+        }
+
+        output += " >]";
         return output;
     }
     std::string assembler::to_string(vmir2::vm_instruction inst)
@@ -107,6 +128,7 @@ namespace quxlang::vmir2
             },
             inst);
     }
+
     std::string assembler::to_string(vmir2::vm_slot slt)
     {
         std::string output;

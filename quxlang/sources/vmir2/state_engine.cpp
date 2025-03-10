@@ -13,6 +13,25 @@ void quxlang::vmir2::state_engine::apply(std::map< vmir2::storage_index, slot_st
         },
         inst);
 }
+void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info)
+{
+    for (std::size_t i = 0; i < slot_info.size(); i++)
+    {
+        auto const& slot = slot_info[i];
+
+        if (slot.kind == slot_kind::named_arg || slot.kind == slot_kind::positional_arg)
+        {
+            if (!typeis< nvalue_slot >(slot.type))
+            {
+                state[i].alive = true;
+            }
+            else
+            {
+                state[i].alive = false;
+            }
+        }
+    }
+}
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_const_zero const& lcz)
 {
     if (state.at(lcz.target).alive)
@@ -103,9 +122,9 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::make_reference const& mrf)
 {
-    if (state.at(mrf.value_index).alive == false)
+    if (state.at(mrf.value_index).storage_valid == false)
     {
-        throw invalid_instruction_transition_error("Attempt to make reference to a dead slot");
+        // throw invalid_instruction_transition_error("Attempt to make reference to a dead slot");
     }
 
     if (state[mrf.reference_index].alive)
@@ -306,7 +325,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_const_int const& str)
 {
-    if (state.at(str.target).alive)
+    if (state[str.target].alive)
     {
         throw invalid_instruction_transition_error("Attempt to load int into a non-dead slot");
     }

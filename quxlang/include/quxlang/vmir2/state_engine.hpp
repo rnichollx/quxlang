@@ -15,6 +15,10 @@ namespace quxlang::vmir2
     {
       public:
         static void apply(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, vm_instruction const& inst);
+        static void apply_entry( std::map< vmir2:: storage_index, slot_state > & state,  std::vector< vm_slot > const& slot_info);
+
+        using state_map = std::map< vmir2::storage_index, slot_state >;
+        using slot_vec = std::vector< vm_slot >;
 
       private:
         // Method declarations for each type of instruction

@@ -47,6 +47,9 @@ namespace quxlang
         struct cmp_ne;
 
         struct struct_delegate_new;
+        struct struct_complete_new;
+        struct fence_byte_release;
+        struct fence_byte_acquire;
 
         using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
@@ -81,6 +84,39 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(struct_delegate_new, on_value, fields);
         };
+
+
+
+        // struct_complete_new is used in conjunction with struct_delegate_new to finalize an object.
+        // A struct's destructor becomes primed for activation after SCN.
+        // Between SDN and SCN, only the field destructors will run.
+        // SCN is called immediately before return in a constructor.
+        struct struct_complete_new
+        {
+            storage_index on_value;
+
+            RPNX_MEMBER_METADATA(struct_complete_new, on_value);
+        };
+
+        // fence_byte_acquire (FBA) causes values of type BYTE that were written to memory to be visible
+        // in a subsequent load of type ".type". If the ".type" is VOID then it acts as a global barrier for all types.
+        struct fence_byte_acquire
+        {
+            type_symbol type;
+
+            RPNX_MEMBER_METADATA(fence_byte_acquire, type);
+        };
+
+        // fence_byte_release (FBR) causes values of type ".type" written to memory to become visible to subsequent load operations
+        // of type BYTE.
+        struct fence_byte_release
+        {
+            type_symbol type;
+
+            RPNX_MEMBER_METADATA(fence_byte_release, type);
+        };
+
+
 
         // Defers a non-trivial destructor call.
         struct defer_nontrivial_dtor
@@ -400,6 +436,7 @@ namespace quxlang
             void emit(vmir2::load_from_ref lfp);
             void emit(vmir2::store_to_ref lfp);
             void emit(vmir2::defer_nontrivial_dtor dntd);
+            void emit(vmir2::struct_complete_new scn);
             void emit(vmir2::struct_delegate_new sdn);
 
             void emit(vmir2::int_add add);
@@ -459,7 +496,7 @@ namespace quxlang
                 return block_states[block].block.terminator.has_value();
             }
             std::size_t generate_entry_block();
-            std::size_t generate_subblock(std::size_t of);
+            std::size_t generate_subblock(std::size_t of, std::string dbg_str);
 
             std::size_t entry_block_id();
 

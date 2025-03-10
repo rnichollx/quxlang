@@ -26,8 +26,12 @@ namespace quxlang
 
     struct delegate
     {
+        // The name of the delegate
         std::string name;
 
+        // TODO: Delegates should be able to refer to members by complex symbols
+
+        // Expression arguments in a delegate call
         std::vector< expression_arg > args;
 
         RPNX_MEMBER_METADATA(delegate, name, args);

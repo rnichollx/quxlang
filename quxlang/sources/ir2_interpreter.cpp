@@ -46,8 +46,11 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     {
         std::vector< std::byte > data;
         bool alive = false;
+        bool storage_initiated = false;
+        bool dtor_enabled = false;
         std::uint64_t object_id{};
         std::optional< pointer_impl > ref;
+        std::weak_ptr< local > member_of;
 
         std::optional< dtor_spec > dtor;
 
@@ -306,10 +309,15 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 
     auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
 
+
+
     if (current_instr_address.instruction_index < current_block.instructions.size())
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
+        quxlang::vmir2::assembler ir_printer(current_func_ir.get());
 
+
+        std::cout << "Executing " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
@@ -421,8 +429,37 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::access_field const& acf)
 {
-    throw rpnx::unimplemented();
+    auto& frame = get_current_frame();
+    auto& parent_ref_slot = frame.local_values[acf.base_index];
+
+    if (parent_ref_slot == nullptr|| !parent_ref_slot->ref.has_value())
+    {
+        throw compiler_bug("shouldn't be possible");
+    }
+
+    auto ref_to_ptr = parent_ref_slot->ref.value().pointer_target.lock();
+
+    if (ref_to_ptr == nullptr)
+    {
+        // TODO: this isn't a compiler bug but rather a coding bug
+        throw compiler_bug("accessing field of object that does not have field");
+    }
+
+    auto & field = frame.local_values[acf.store_index];
+    if (field != nullptr)
+    {
+        throw compiler_bug("trying to load a field into existing slot");
+    }
+
+    field = std::make_shared< local > ();
+
+    auto & field_slot = ref_to_ptr->struct_members.at(acf.field_name);
+
+    field->ref = pointer_impl{.pointer_target = field_slot };
+    field->alive = true;
 }
+
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
 {
     call_func(inv.what, inv.args);
@@ -464,7 +501,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     auto data = consume_data(reg);
 
-    if (data == std::vector<std::byte>{std::byte{0}})
+    if (data == std::vector< std::byte >{std::byte{0}})
     {
         transition(brn.target_false);
     }
@@ -1007,7 +1044,38 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(quxla
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::struct_delegate_new const& sdn)
 {
-    throw rpnx::unimplemented();
+    auto& frame = get_current_frame();
+
+    auto& slot = frame.local_values[sdn.on_value];
+
+    if (slot == nullptr)
+    {
+        throw compiler_bug("this shouldn't be possible");
+    }
+
+    slot->alive = true;
+    slot->storage_initiated = true;
+    slot->dtor_enabled = false;
+
+    // TODO: May need to implement SDN on arrays?
+
+    assert(sdn.fields.positional.size() == 0);
+
+    for (auto& [name, index] : sdn.fields.named)
+    {
+        auto& field_slot = frame.local_values[index];
+        if (field_slot != nullptr)
+        {
+            throw compiler_bug("it shouldn't be possible to have a field slot pre-initialized, something is wrong with codegen");
+        }
+
+        field_slot = std::make_shared< local >();
+        field_slot->storage_initiated = true;
+        slot->struct_members[name] = field_slot;
+        field_slot->member_of = slot;
+    }
+
+    // throw rpnx::unimplemented();
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {

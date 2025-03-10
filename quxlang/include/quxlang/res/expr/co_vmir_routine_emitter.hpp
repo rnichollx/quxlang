@@ -62,7 +62,7 @@ namespace quxlang
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
-            instanciation_reference const& inst = func ;
+            instanciation_reference const& inst = func;
 
             auto sig = co_await prv.functanoid_sigtype(inst);
 
@@ -93,6 +93,8 @@ namespace quxlang
                 frame.entry_block().create_named_argument(api_name, param_type, arg_name);
             }
 
+            vmir2::state_engine::apply_entry(frame.entry_block().block.entry_state, frame.slots.slots);
+
             co_return;
         }
 
@@ -101,7 +103,14 @@ namespace quxlang
         {
             frame.generate_entry_block();
             co_await generate_arg_slots();
-            co_await generate_body();
+            if (!co_await prv.function_builtin(func.temploid))
+            {
+                co_await generate_body();
+                if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
+                {
+                    co_await generate_ctor_delegates();
+                }
+            }
             co_await generate_dtors();
             co_return frame.get_result();
         }
@@ -110,6 +119,7 @@ namespace quxlang
         {
             frame.generate_entry_block();
             co_await generate_arg_slots();
+
             // co_await generate_body();
             co_await generate_ctor_delegates({});
             co_return frame.get_result();
@@ -132,21 +142,59 @@ namespace quxlang
             co_return co_await emitter.generate_expr(expr);
         }
 
-        auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto expr_index = co_await generate_expression(current_block, expr);
             // TODO: Convert to bool if the result is not type bool
             co_return expr_index;
         }
 
-        auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(expr));
             co_await generate_expression(current_block, expr);
             co_return 0;
         }
 
-        auto generate_ctor_delegates(std::vector<delegate> delegates) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_ctor_delegates() -> typename CoroutineProvider::template co_type< void >
+        {
+            temploid_reference const& function = func.temploid;
+
+            std::optional< ast2_function_declaration > const& function_ast = co_await prv.function_declaration(function);
+
+            QUXLANG_COMPILER_BUG_IF(!function_ast.has_value(), "Expected function declaration to be defined");
+
+            auto const& decl = function_ast.value();
+
+            std::vector< delegate > delegates;
+
+            for (auto& dlg : decl.definition.delegates)
+            {
+                // TODO: support complex types
+
+                if (!dlg.target.type_is< submember >() || !dlg.target.get_as< submember >().of.type_is< context_reference >())
+                {
+                    throw rpnx::unimplemented();
+                }
+
+                delegate dlg2;
+                dlg2.name = dlg.target.get_as< submember >().name;
+
+                // TODO: Support named arguments in delegates
+                for (expression const& arg : dlg.args)
+                {
+                    dlg2.args.push_back(expression_arg{.value = arg});
+                }
+
+                delegates.push_back(dlg2);
+            }
+
+            co_await generate_ctor_delegates(delegates);
+
+            co_return;
+        }
+
+        [[nodiscard]] auto generate_ctor_delegates(std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
         {
             std::size_t current_block = frame.entry_block_id();
 
@@ -157,17 +205,17 @@ namespace quxlang
 
             type_symbol cls;
 
-            QUXLANG_COMPILER_BUG_IF(!typeis<submember>(functum), "Expected constructor to be submember");
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
 
-            cls = as<submember>(functum).of;
+            cls = as< submember >(functum).of;
 
             // This function is for default ctors, it should just default construct all member variables.
 
-            auto const & fields = co_await prv.class_field_list(cls);
+            auto const& fields = co_await prv.class_field_list(cls);
 
             vmir2::invocation_args fields_args;
 
-            for (class_field const & fld : fields)
+            for (class_field const& fld : fields)
             {
                 auto fslot = frame.slots.create_temporary(fld.type);
                 fields_args.named[fld.name] = fslot;
@@ -181,15 +229,14 @@ namespace quxlang
 
             frame.block(current_block).emit(vmir2::struct_delegate_new{.on_value = thisidx_value, .fields = fields_args});
 
-            std::set<std::string> found_delegate_names;
-            for (delegate const & dlg : delegates)
+            std::set< std::string > found_delegate_names;
+            for (delegate const& dlg : delegates)
             {
                 found_delegate_names.insert(dlg.name);
             }
 
-
             // TODO: Drop temporaries between loop iterations
-            for (class_field const & fld : fields)
+            for (class_field const& fld : fields)
             {
                 if (!found_delegate_names.contains(fld.name))
                 {
@@ -202,18 +249,16 @@ namespace quxlang
                 }
             }
 
-            for (delegate const & dlg: delegates)
-            {
-                throw rpnx::unimplemented();
-            }
+            //frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
+
 
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            block_index_t after_block = frame.generate_subblock(current_block);
-            block_index_t condition_block = frame.generate_subblock(current_block);
-            block_index_t if_block = frame.generate_subblock(current_block);
+            block_index_t after_block = frame.generate_subblock(current_block, "if_statement_after");
+            block_index_t condition_block = frame.generate_subblock(current_block, "if_statement_condition");
+            block_index_t if_block = frame.generate_subblock(current_block, "if_block");
 
             frame.generate_jump(current_block, condition_block);
 
@@ -221,13 +266,13 @@ namespace quxlang
 
             frame.generate_branch(cond, condition_block, if_block, after_block);
 
-            co_await generate_function_block(if_block, st.then_block);
+            co_await generate_function_block(if_block, st.then_block, "if_then");
             frame.generate_jump(if_block, after_block);
 
             if (st.else_block.has_value())
             {
-                block_index_t else_block = frame.generate_subblock(current_block);
-                co_await generate_function_block(else_block, *st.else_block);
+                block_index_t else_block = frame.generate_subblock(current_block, "if_statement_else");
+                co_await generate_function_block(else_block, *st.else_block, "if_else");
                 frame.generate_jump(else_block, after_block);
             }
             current_block = after_block;
@@ -235,18 +280,18 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_while_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_while_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            block_index_t condition_block = frame.generate_subblock(current_block);
-            block_index_t body_block = frame.generate_subblock(current_block);
-            block_index_t after_block = frame.generate_subblock(current_block);
+            block_index_t condition_block = frame.generate_subblock(current_block, "while_condition");
+            block_index_t body_block = frame.generate_subblock(current_block, "while_body");
+            block_index_t after_block = frame.generate_subblock(current_block, "while_after");
 
             frame.generate_jump(current_block, condition_block);
 
             vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
 
             frame.generate_branch(condition_block, cond, body_block, after_block);
-            co_await generate_function_block(body_block, st.loop_block);
+            co_await generate_function_block(body_block, st.loop_block, "while_statement");
             frame.generate_jump(body_block, condition_block);
 
             current_block = after_block;
@@ -254,14 +299,14 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_expression_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_expression_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(st.expr));
 
             QUXLANG_COMPILER_BUG_IF(frame.has_terminator(current_block), "Expected no terminator in current block");
 
-            block_index_t expr_block = frame.generate_subblock(current_block);
-            block_index_t after_block = frame.generate_subblock(current_block);
+            block_index_t expr_block = frame.generate_subblock(current_block, "expr_statement");
+            block_index_t after_block = frame.generate_subblock(current_block, "expr_after");
 
             frame.generate_jump(current_block, expr_block);
             co_await generate_void_expr(expr_block, st.expr);
@@ -272,13 +317,13 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_block const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_block const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            co_await generate_function_block(current_block, st);
+            co_await generate_function_block(current_block, st, "function_block");
             co_return;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_var_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             std::string type_str = quxlang::to_string(st.type);
             std::string context_str = quxlang::to_string(func);
@@ -293,8 +338,8 @@ namespace quxlang
             args.named["THIS"] = idx;
 
             // Generate new blocks for after an intialization steps.
-            auto new_block = frame.generate_subblock(current_block);
-            auto after_block = frame.generate_subblock(current_block);
+            auto new_block = frame.generate_subblock(current_block, "var_new");
+            auto after_block = frame.generate_subblock(current_block, "var_after");
             frame.generate_jump(current_block, new_block);
             current_block = new_block;
 
@@ -337,7 +382,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto idx = frame.entry_block().create_variable(typ, name);
 
@@ -352,7 +397,7 @@ namespace quxlang
             co_return idx;
         }
 
-        auto generate_statement_ovl(block_index_t& current_block, function_return_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_return_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             auto return_arg_opt = frame.lookup(current_block, "RETURN");
 
@@ -390,7 +435,7 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_fblock_statement(block_index_t& current_block, function_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_fblock_statement(block_index_t& current_block, function_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< void > >(
                 [&](auto st) -> typename CoroutineProvider::template co_type< void >
@@ -401,14 +446,14 @@ namespace quxlang
             co_return;
         }
 
-        auto generate_function_block(block_index_t& current_block, function_block const& block) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto generate_function_block(block_index_t& current_block, function_block const& block, std::string block_from) -> typename CoroutineProvider::template co_type< void >
         {
             assert(!frame.has_terminator(current_block));
-            auto new_block = frame.generate_subblock(current_block);
+            auto new_block = frame.generate_subblock(current_block, block_from + "_block_new");
 
             assert(!frame.has_terminator(new_block));
 
-            auto after_block = frame.generate_subblock(current_block);
+            auto after_block = frame.generate_subblock(current_block, block_from + "_block_after");
             assert(!frame.has_terminator(after_block));
 
             frame.generate_jump(current_block, new_block);
@@ -461,7 +506,7 @@ namespace quxlang
             ast2_function_declaration& function_decl = function_decl_opt.value();
 
             std::size_t block = frame.entry_block_id();
-            co_await generate_function_block(block, function_decl.definition.body);
+            co_await generate_function_block(block, function_decl.definition.body, "body");
 
             // TODO: Implement falloff
         }

@@ -437,6 +437,22 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
     }
 }
 
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_complete_new scn)
+{
+    assert(current_slot_states[scn.on_value].alive == true);
+
+    // TODO
+    //block.instructions.push_back(scn);
+
+    current_slot_states[scn.on_value].delegates = invocation_args{};
+    current_slot_states[scn.on_value].alive = true;
+
+    throw rpnx::unimplemented();
+
+
+}
+
+
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
     if (block(from).block.terminator.has_value())
@@ -474,7 +490,7 @@ std::size_t quxlang::vmir2::frame_generation_state::generate_entry_block()
 
     return 0;
 }
-std::size_t quxlang::vmir2::frame_generation_state::generate_subblock(std::size_t of)
+std::size_t quxlang::vmir2::frame_generation_state::generate_subblock(std::size_t of, std::string dbg_str)
 {
     std::size_t block_id = block_states.size();
     block_states.push_back(block(of).clone_subblock());

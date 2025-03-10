@@ -3,6 +3,8 @@
 #ifndef QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 #define QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 
+#include "state_engine.hpp"
+
 #include <quxlang/vmir2/vmir2.hpp>
 #include <string>
 
@@ -16,11 +18,15 @@ namespace quxlang::vmir2
         std::string to_string(vmir2::vm_terminator inst);
         std::string to_string(vmir2::vm_slot slt);
         std::string to_string(vmir2::executable_block const &block);
+        std::string to_string(vmir2::state_engine::state_map const & state);
 
 
         assembler(vmir2::functanoid_routine2 what) : m_what(what) {}
       private:
         vmir2::functanoid_routine2 m_what;
+        vmir2::state_engine::state_map state;
+
+        void set_arg_state();
 
         std::string to_string_internal(vmir2::access_field inst);
         std::string to_string_internal(vmir2::invoke inst);

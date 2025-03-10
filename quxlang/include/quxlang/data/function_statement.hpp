@@ -37,8 +37,9 @@ namespace quxlang
     struct function_block
     {
         std::vector< function_statement > statements;
+        std::string block_dbg_string;
 
-        RPNX_MEMBER_METADATA(function_block, statements);
+        RPNX_MEMBER_METADATA(function_block, statements, block_dbg_string);
     };
 
 } // namespace quxlang

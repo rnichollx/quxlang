@@ -124,16 +124,20 @@ namespace quxlang
     // Interface type - used in things like overload resolution
     struct intertype
     {
+        // Positional arguments of the intertype (nameless)
         std::vector< argif > positional;
+
+        // The named arguments of the intertype (e.g. @foo, @bar, @THIS, etc.)
         std::map<std::string, argif > named;
 
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
 
+    // Ensig is the portion #[...]
     struct temploid_ensig
     {
         intertype interface;
-        std::optional< std::int64_t > priority;
+        std::optional< std::int32_t > priority;
 
         RPNX_MEMBER_METADATA(temploid_ensig, interface, priority);
     };
