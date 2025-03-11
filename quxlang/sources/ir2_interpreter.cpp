@@ -133,6 +133,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_
     // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
     // Actual execution will happen in subsequent calls to exec/exec_instr
 
+    std::string funcname_str = quxlang::to_string(functype.get());
+
     stack.emplace_back();
     stack.back().type = functype;
     stack.back().ir = functanoids.at(functype);
@@ -350,7 +352,6 @@ std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size
 
     std::string type_str = quxlang::to_string(type);
 
-
     if (typeis< int_type >(type))
     {
         return (type.get_as< int_type >().bits + 7) / 8;
@@ -551,7 +552,21 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::make_pointer_to const& mpt)
 {
-    throw rpnx::unimplemented();
+
+    auto& frame = get_current_frame();
+
+    auto& source = frame.local_values.at(mpt.of_index);
+
+    if (!source || !source->ref.has_value())
+    {
+        throw constexpr_logic_execution_error("Expected source value to be valid");
+    }
+
+    pointer_impl ptr = get_pointer_to(stack.size() - 1, mpt.of_index);
+
+    create_local_value(mpt.pointer_index, true);
+
+    frame.local_values.at(mpt.pointer_index)->ref = ptr;
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::dereference_pointer const& drp)
 {
@@ -1049,18 +1064,17 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     for (auto& [name, index] : sdn.fields.named)
     {
-        auto const & field_type = frame.ir.get().slots.at(index).type;
+        auto const& field_type = frame.ir.get().slots.at(index).type;
         auto& field_slot = frame.local_values[index];
         if (field_slot != nullptr)
         {
             throw compiler_bug("it shouldn't be possible to have a field slot pre-initialized, something is wrong with codegen");
         }
 
-        if (! is_ref(field_type) )
+        if (!is_ref(field_type))
         {
             create_local_value(index, false);
         }
-
 
         slot->struct_members[name] = field_slot;
         field_slot->member_of = slot;
