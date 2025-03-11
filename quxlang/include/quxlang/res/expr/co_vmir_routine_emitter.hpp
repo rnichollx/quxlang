@@ -124,9 +124,9 @@ namespace quxlang
         {
             frame.generate_entry_block();
             co_await generate_arg_slots();
-
-            // co_await generate_body();
             co_await generate_ctor_delegates({});
+
+            co_await generate_builtin_return();
             co_return frame.get_result();
         }
 
@@ -137,6 +137,12 @@ namespace quxlang
             co_await generate_body();
             co_await generate_dtors();
             co_return frame.get_result();
+        }
+
+        auto generate_builtin_return() -> typename CoroutineProvider::template co_type< void >
+        {
+            frame.generate_return(frame.entry_block_id());
+            co_return;
         }
 
       private:
@@ -511,7 +517,11 @@ namespace quxlang
             std::size_t block = frame.entry_block_id();
             co_await generate_function_block(block, function_decl.definition.body, "body");
 
-            // TODO: Implement falloff
+            if (frame.block(block).block.terminator.has_value() == false)
+            {
+                // TODO: Check if default return is allowed.
+                frame.generate_return(block);
+            }
         }
     };
 } // namespace quxlang
