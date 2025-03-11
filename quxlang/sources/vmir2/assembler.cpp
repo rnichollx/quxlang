@@ -6,7 +6,7 @@ namespace quxlang::vmir2
 {
     std::string assembler::to_string(vmir2::functanoid_routine2 fnc)
     {
-        //state_engine::apply_entry(this->state, fnc.slots);
+        // state_engine::apply_entry(this->state, fnc.slots);
 
         std::string output;
 
@@ -46,7 +46,15 @@ namespace quxlang::vmir2
 
             output += to_string(blk.entry_state);
 
-            output += ":\n";
+            output += ":";
+
+            if (blk.dbg_name.has_value())
+            {
+                output += "// ";
+                output += blk.dbg_name.value();
+            }
+
+            output += "\n";
             output += this->to_string(fnc.blocks.at(i));
             output += "\n";
         }
@@ -70,7 +78,8 @@ namespace quxlang::vmir2
                 state_engine::apply(this->state, this->m_what.slots, i);
 
                 output += indent + "// state: " + this->to_string(this->state) + "\n";
-            } catch (std::exception const & e)
+            }
+            catch (std::exception const& e)
             {
                 output += indent + "// state: exception: " + e.what() + "\n";
             }

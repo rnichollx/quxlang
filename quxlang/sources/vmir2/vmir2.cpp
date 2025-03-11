@@ -80,6 +80,8 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
 quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_block_generation_state::clone_subblock()
 {
     executable_block_generation_state copy(*this);
+    copy.block.instructions.clear();
+    copy.block.dbg_name.reset();
     copy.block.entry_state = current_slot_states;
     return copy;
 }
@@ -442,16 +444,13 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_compl
     assert(current_slot_states[scn.on_value].alive == true);
 
     // TODO
-    //block.instructions.push_back(scn);
+    // block.instructions.push_back(scn);
 
     current_slot_states[scn.on_value].delegates = invocation_args{};
     current_slot_states[scn.on_value].alive = true;
 
     throw rpnx::unimplemented();
-
-
 }
-
 
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
@@ -495,6 +494,8 @@ std::size_t quxlang::vmir2::frame_generation_state::generate_subblock(std::size_
     std::size_t block_id = block_states.size();
     block_states.push_back(block(of).clone_subblock());
     // TODO: check states valid.
+
+    block(block_id).block.dbg_name = dbg_str;
 
     return block_id;
 }

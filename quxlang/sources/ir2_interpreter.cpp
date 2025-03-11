@@ -117,6 +117,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
 
+    std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
+
     std::vector< std::byte > use_data(std::size_t slot);
 
     std::vector< std::byte > consume_data(std::size_t slot);
@@ -309,13 +311,10 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 
     auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
 
-
-
     if (current_instr_address.instruction_index < current_block.instructions.size())
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
         quxlang::vmir2::assembler ir_printer(current_func_ir.get());
-
 
         std::cout << "Executing " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
@@ -349,6 +348,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size(const type_symbol& type)
 {
 
+    std::string type_str = quxlang::to_string(type);
+
+
     if (typeis< int_type >(type))
     {
         return (type.get_as< int_type >().bits + 7) / 8;
@@ -368,6 +370,10 @@ std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size
     {
         return this->class_layouts.at(type).size;
     }
+
+    // TODO: Consider if structs should have "size" during constexpr evaluation
+
+    return 0;
 
     throw compiler_bug("Attempt to get size of unknown type");
 }
@@ -417,13 +423,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         throw compiler_bug("Local value already has pointer");
     }
 
-    auto& local_ptr = get_current_frame().local_values[lcz.target];
+    auto local_ptr = create_local_value(lcz.target, true);
 
-    local_ptr = std::make_shared< local >();
-    local_ptr->data.resize(0);
-    local_ptr->data.resize(sz);
-    local_ptr->object_id = next_object_id++;
-    local_ptr->alive = true;
+    std::cout << "lcz: " << local_ptr->object_id << std::endl;
 
     return;
 }
@@ -432,7 +434,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     auto& frame = get_current_frame();
     auto& parent_ref_slot = frame.local_values[acf.base_index];
 
-    if (parent_ref_slot == nullptr|| !parent_ref_slot->ref.has_value())
+    if (parent_ref_slot == nullptr || !parent_ref_slot->ref.has_value())
     {
         throw compiler_bug("shouldn't be possible");
     }
@@ -445,20 +447,19 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         throw compiler_bug("accessing field of object that does not have field");
     }
 
-    auto & field = frame.local_values[acf.store_index];
+    auto& field = frame.local_values[acf.store_index];
     if (field != nullptr)
     {
         throw compiler_bug("trying to load a field into existing slot");
     }
 
-    field = std::make_shared< local > ();
+    field = std::make_shared< local >();
 
-    auto & field_slot = ref_to_ptr->struct_members.at(acf.field_name);
+    auto& field_slot = ref_to_ptr->struct_members.at(acf.field_name);
 
-    field->ref = pointer_impl{.pointer_target = field_slot };
+    field->ref = pointer_impl{.pointer_target = field_slot};
     field->alive = true;
 }
-
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
 {
@@ -603,16 +604,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     // Initialize the result local if it does not exist
     if (!frame.local_values.count(add.result))
     {
-        // Retrieve the type of the result slot
-        auto result_type = frame.ir->slots.at(add.result).type;
-
         // Create a new local for the result
-        frame.local_values[add.result] = std::make_shared< local >();
-        auto& r_data = frame.local_values[add.result]->data;
-        r_data.resize(get_type_size(result_type));
-
-        // Initialize the memory to zero just to have a defined state
-        std::fill(r_data.begin(), r_data.end(), std::byte(0));
+        create_local_value(add.result, true);
     }
 
     // Retrieve data references
@@ -658,15 +651,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     if (!frame.local_values.count(sub.result))
     {
         // Retrieve the type of the result slot
-        auto result_type = frame.ir->slots.at(sub.result).type;
-
-        // Create a new local for the result
-        frame.local_values[sub.result] = std::make_shared< local >();
-        auto& r_data = frame.local_values[sub.result]->data;
-        r_data.resize(get_type_size(result_type));
-
-        // Initialize the memory to zero
-        std::fill(r_data.begin(), r_data.end(), std::byte(0));
+        create_local_value(sub.result, true);
     }
 
     // Retrieve data references
@@ -753,6 +738,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         auto to_ptr_offset = i;
         if (to_ptr_offset >= to_ptr_target.data.size())
         {
+            std::cout << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id << std::endl;
             throw constexpr_logic_execution_error("Error executing <store_to_ref>: out of bounds write");
         }
         to_ptr_target.data[to_ptr_offset] = from_ptr_target.data[i];
@@ -1063,19 +1049,47 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     for (auto& [name, index] : sdn.fields.named)
     {
+        auto const & field_type = frame.ir.get().slots.at(index).type;
         auto& field_slot = frame.local_values[index];
         if (field_slot != nullptr)
         {
             throw compiler_bug("it shouldn't be possible to have a field slot pre-initialized, something is wrong with codegen");
         }
 
-        field_slot = std::make_shared< local >();
-        field_slot->storage_initiated = true;
+        if (! is_ref(field_type) )
+        {
+            create_local_value(index, false);
+        }
+
+
         slot->struct_members[name] = field_slot;
         field_slot->member_of = slot;
     }
 
     // throw rpnx::unimplemented();
+}
+std::shared_ptr< quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::create_local_value(std::size_t local_index, bool set_alive)
+{
+    auto& frame = get_current_frame();
+
+    auto result_type = frame.ir->slots.at(local_index).type;
+
+    frame.local_values[local_index] = std::make_shared< local >();
+    frame.local_values[local_index]->object_id = next_object_id++;
+    auto& r_data = frame.local_values[local_index]->data;
+    r_data.resize(get_type_size(result_type));
+
+    // Initialize the memory to zero just to have a defined state
+    std::fill(r_data.begin(), r_data.end(), std::byte(0));
+
+    frame.local_values[local_index]->storage_initiated = true;
+
+    if (set_alive)
+    {
+        frame.local_values[local_index]->alive = true;
+    }
+
+    return frame.local_values[local_index];
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {

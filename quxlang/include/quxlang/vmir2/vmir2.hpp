@@ -374,8 +374,9 @@ namespace quxlang
             std::map< storage_index, slot_state > entry_state;
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
+            std::optional<std::string> dbg_name;
 
-            RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator);
+            RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator, dbg_name);
         };
 
         struct slot_generation_state

@@ -53,6 +53,7 @@ namespace quxlang
         instanciation_reference func;
         CoroutineProvider prv;
         vmir2::frame_generation_state frame;
+        bool already_called_generate = false;
 
         using co_slot = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
         using co_block = typename CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
@@ -101,15 +102,19 @@ namespace quxlang
       public:
         auto generate() -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine2 >
         {
+            QUXLANG_COMPILER_BUG_IF(already_called_generate, "can only call generate() once");
+
+            already_called_generate = true;
             frame.generate_entry_block();
             co_await generate_arg_slots();
             if (!co_await prv.function_builtin(func.temploid))
             {
-                co_await generate_body();
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
                     co_await generate_ctor_delegates();
                 }
+
+                co_await generate_body();
             }
             co_await generate_dtors();
             co_return frame.get_result();
@@ -249,9 +254,7 @@ namespace quxlang
                 }
             }
 
-            //frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
-
-
+            // frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
         }
 
         [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_if_statement const& st) -> typename CoroutineProvider::template co_type< void >

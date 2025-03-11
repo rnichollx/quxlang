@@ -34,7 +34,7 @@ void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, s
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_const_zero const& lcz)
 {
-    if (state.at(lcz.target).alive)
+    if (state[lcz.target].alive)
     {
         throw invalid_instruction_transition_error("Attempt to load zero into a non-dead slot");
     }
@@ -207,7 +207,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         throw invalid_instruction_transition_error("Attempt to load from a dead slot");
     }
 
-    if (state.at(lfr.to_value).alive)
+    if (state[lfr.to_value].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
     }
@@ -226,7 +226,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         throw invalid_instruction_transition_error("Attempt to add non-alive values");
     }
 
-    if (state.at(add.result).alive)
+    if (state[add.result].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
     }
@@ -340,7 +340,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         throw invalid_instruction_transition_error("Attempt to compare non-alive values");
     }
 
-    if (state.at(str.result).alive)
+    if (state[str.result].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
     }
