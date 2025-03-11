@@ -116,6 +116,7 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::cmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
+    void exec_instr_val(vmir2::copy_reference const & cpr);
 
     std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
 
@@ -932,7 +933,15 @@ void quxlang::vmir2::ir2_interpreter::add_class_layout(quxlang::type_symbol name
 
 void quxlang::vmir2::ir2_interpreter::add_functanoid(quxlang::type_symbol addr, quxlang::vmir2::functanoid_routine2 func)
 {
+    for (auto const & dtor : func.non_trivial_dtors)
+    {
+        auto dtor_func = dtor.second;
 
+        if (!this->implementation->functanoids.contains(dtor_func))
+        {
+            this->implementation->missing_functanoids_val.insert(dtor_func);
+        }
+    }
     for (auto const& block : func.blocks)
     {
         for (auto const& instr : block.instructions)
@@ -1081,6 +1090,33 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     }
 
     // throw rpnx::unimplemented();
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::copy_reference const& cpr)
+{
+    auto ptr = get_pointer_to(current_frame_index(), cpr.from_index);
+
+    auto ref_type = get_current_frame().ir->slots.at(cpr.to_index).type;
+    if (!is_ref(ref_type))
+    {
+        throw compiler_bug("Attempt to make reference by non-reference type");
+    }
+
+    if (get_current_frame().local_values[cpr.to_index])
+    {
+        throw compiler_bug("Attempt to overwrite reference (A)");
+    }
+
+    auto& local_ptr = get_current_frame().local_values[cpr.to_index];
+    if (local_ptr)
+    {
+        throw compiler_bug("Attempt to overwrite reference (B)");
+    }
+
+    local_ptr = std::make_shared< local >();
+    local_ptr->ref = ptr;
+    local_ptr->alive = true;
+
+    return;
 }
 std::shared_ptr< quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::create_local_value(std::size_t local_index, bool set_alive)
 {

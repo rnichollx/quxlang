@@ -5,6 +5,7 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_declaration_list)
 {
 
+    std::string name = quxlang::to_string(input);
     bool is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input_val));
     if (is_builtin_class)
     {

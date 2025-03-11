@@ -193,12 +193,13 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
         throw invalid_instruction_transition_error("Attempt to dereference a dead slot");
     }
 
-    if (state.at(drp.to_reference).alive)
+    if (state[drp.to_reference].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
     }
 
     state[drp.to_reference].alive = true;
+    state[drp.from_pointer].alive = false;
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_from_ref const& lfr)
 {
@@ -422,4 +423,12 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     state[dlg.on_value].storage_valid = true;
     state[dlg.on_value].dtor_enabled = false;
     state[dlg.on_value].alive = true;
+}
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, copy_reference const& cpr)
+{
+    if (!state.at(cpr.from_index).alive)
+    {
+        throw compiler_bug("this is a bug in cpr or codegen");
+    }
+    state[cpr.to_index].alive = true;
 }

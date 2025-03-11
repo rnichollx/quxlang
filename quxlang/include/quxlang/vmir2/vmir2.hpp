@@ -21,6 +21,7 @@ namespace quxlang
         struct ret;
         struct invoke;
         struct make_reference;
+        struct copy_reference;
         struct jump;
         struct branch;
         struct cast_reference;
@@ -51,7 +52,7 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -145,6 +146,17 @@ namespace quxlang
             RPNX_MEMBER_METADATA(invoke, what, args);
         };
 
+        struct copy_reference
+        {
+            storage_index from_index;
+            storage_index to_index;
+
+
+            RPNX_MEMBER_METADATA(copy_reference, from_index, to_index);
+        };
+
+
+        // MKR makes a reference to a value
         struct make_reference
         {
             storage_index value_index;
@@ -428,6 +440,7 @@ namespace quxlang
             void emit(vmir2::invoke inv);
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);
+            void emit(vmir2::copy_reference cst);
             void emit(vmir2::constexpr_set_result csr);
             void emit(vmir2::load_const_value lcv);
             void emit(vmir2::load_const_zero lcz);

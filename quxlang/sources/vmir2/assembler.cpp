@@ -223,6 +223,11 @@ namespace quxlang::vmir2
 
         return result;
     }
+    std::string assembler::to_string_internal(vmir2::copy_reference cpr)
+    {
+        std::string result = "CPR %" + std::to_string(cpr.from_index) + ", %" + std::to_string(cpr.from_index);
+        return result;
+    }
     std::string assembler::to_string_internal(vmir2::constexpr_set_result inst)
     {
         std::string result = "CSR %" + std::to_string(inst.target);

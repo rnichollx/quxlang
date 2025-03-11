@@ -1,5 +1,6 @@
 // Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
 
+#include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 
 #include <quxlang/vmir2/vmir2.hpp>
@@ -67,13 +68,22 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
         return bind;
     }
     auto type = slots->slots.at(idx).type;
-    if (!current_slot_states[idx].alive && !typeis< nvalue_slot >(type))
+    if (typeis<dvalue_slot>(type) && !current_slot_states[idx].alive)
+    {
+        functanoid_routine2 fakefunc;
+        throw compiler_bug("Dvalue should be alive on entry");
+    }
+    if (!current_slot_states[idx].alive && !typeis< nvalue_slot >(type) && !typeis<dvalue_slot>(type))
     {
         type = create_nslot(type);
     }
     else if (typeis< nvalue_slot >(type) && current_slot_states[idx].alive)
     {
         type = type_symbol(as< nvalue_slot >(type).target);
+    }
+    else if (typeis< dvalue_slot >(type))
+    {
+        type = make_mref(type_symbol(as<dvalue_slot>(type).target));
     }
     return type;
 }
@@ -197,6 +207,12 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_referen
     block.instructions.push_back(cst);
 }
 
+
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::copy_reference cpr)
+{
+    current_slot_states[cpr.to_index].alive = true;
+    block.instructions.push_back(cpr);
+}
 bool quxlang::vmir2::executable_block_generation_state::slot_alive(storage_index idx)
 {
     return current_slot_states.at(idx).alive;

@@ -219,6 +219,30 @@ namespace quxlang
             return temp;
         }
 
+        auto copy_refernece_internal(vmir2::storage_index index)
+        {
+            // This function is used to handle the case where we have an index and need to force it into a
+            // reference type.
+            // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
+            // is encountered during an expression.
+            auto ty = this->current_type(index);
+
+            vmir2::storage_index temp = create_temporary_storage(ty);
+
+            vmir2::copy_reference ref;
+            ref.from_index = index;
+            ref.to_index = temp;
+
+            this->emit(ref);
+
+            std::string slot_type = quxlang::to_string(exec.current_type(index));
+            // this is kind of a hack, but we can presume this after the make_reference call.
+
+            exec.current_slot_states[temp].alive = true;
+
+            return temp;
+        }
+
         auto lookup_symbol(type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< vmir2::storage_index > >
         {
             std::string symbol_str = to_string(sym);
@@ -797,12 +821,15 @@ namespace quxlang
         {
 
             auto base_type = this->current_type(base);
+            std::string base_type_str = quxlang::to_string(base_type);
             auto base_type_noref = quxlang::remove_ref(base_type);
+
+            std::string base_type_noref_string = quxlang::to_string(base_type_noref);
 
             // First try to find a field with this name
             class_layout layout = co_await prv.class_layout(base_type_noref);
 
-            std::string base_type_str = to_string(base_type);
+           // std::string base_type_str = to_string(base_type);
 
             for (class_field_info const& field : layout.fields)
             {

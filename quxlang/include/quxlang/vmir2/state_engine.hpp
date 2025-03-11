@@ -46,6 +46,7 @@ namespace quxlang::vmir2
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cmp_ge const& cge);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, defer_nontrivial_dtor const& dntd);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, struct_delegate_new const& dlg);
+        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, copy_reference const & cpr);
     };
 
 } // namespace quxlang::vmir2

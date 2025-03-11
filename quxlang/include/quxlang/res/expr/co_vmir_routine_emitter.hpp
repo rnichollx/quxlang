@@ -94,6 +94,8 @@ namespace quxlang
                 frame.entry_block().create_named_argument(api_name, param_type, arg_name);
             }
 
+            auto const& fr = frame;
+
             vmir2::state_engine::apply_entry(frame.entry_block().block.entry_state, frame.slots.slots);
 
             co_return;
@@ -150,7 +152,19 @@ namespace quxlang
         {
             using V = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
             co_vmir_expression_emitter emitter(prv, func, frame.block(current_block));
-            co_return co_await emitter.generate_expr(expr);
+            try
+            {
+                auto retval = co_await emitter.generate_expr(expr);
+                co_return retval;
+            } catch (...)
+            {
+                auto invalid_routine = frame.get_result();
+
+                vmir2::assembler printer(invalid_routine);
+                std::cout << "partial result: \n" << printer.to_string(invalid_routine) << std::endl;
+
+                throw;
+            }
         }
 
         [[nodiscard]] auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
