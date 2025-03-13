@@ -225,7 +225,7 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::copy_reference cpr)
     {
-        std::string result = "CPR %" + std::to_string(cpr.from_index) + ", %" + std::to_string(cpr.from_index);
+        std::string result = "CPR %" + std::to_string(cpr.from_index) + ", %" + std::to_string(cpr.to_index);
         return result;
     }
     std::string assembler::to_string_internal(vmir2::constexpr_set_result inst)
@@ -394,6 +394,10 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::struct_delegate_new sdn)
     {
         return "SDN %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
+    }
+    std::string assembler::to_string_internal(vmir2::end_lifetime elt)
+    {
+        return "ELT %" + std::to_string(elt.of);
     }
 
 } // namespace quxlang::vmir2

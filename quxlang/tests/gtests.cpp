@@ -774,11 +774,12 @@ TEST(expression_ir, constexpr_call_func)
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
     ASSERT_FALSE(val1);
-    auto val2 = get_constexpr_bool("biz(4, 3) == 7");
-    ASSERT_TRUE(val2);
-
     auto val3 = get_constexpr_bool("boq() == 5");
     EXPECT_TRUE(val3);
+    auto val2 = get_constexpr_bool("biz(4, 3) == 8");
+    ASSERT_TRUE(val2);
+
+
 }
 
 TEST(expression_ir, func_gen)

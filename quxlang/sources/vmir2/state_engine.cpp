@@ -432,3 +432,12 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     }
     state[cpr.to_index].alive = true;
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, end_lifetime const& elt)
+{
+    if (!state.at(elt.of).alive)
+    {
+        throw compiler_bug("Input not alive");
+    }
+
+    state[elt.of].alive = false;
+}

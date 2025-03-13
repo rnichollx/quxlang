@@ -272,6 +272,10 @@ namespace quxlang
                     {
                         lookup = create_reference_internal(*lookup, make_mref(lookup_type));
                     }
+                    else
+                    {
+                        lookup = copy_refernece_internal(*lookup);
+                    }
 
                     co_return lookup;
                 }

@@ -454,6 +454,10 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_deleg
         current_slot_states[sdn.on_value].delegates.value().named[name] = arg;
     }
 }
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::end_lifetime elt)
+{
+    current_slot_states[elt.of] = {};
+}
 
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_complete_new scn)
 {

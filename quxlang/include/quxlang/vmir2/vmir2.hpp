@@ -35,6 +35,7 @@ namespace quxlang
         struct dereference_pointer;
         struct load_const_zero;
         struct defer_nontrivial_dtor;
+        struct end_lifetime;
 
         struct int_add;
         struct int_mul;
@@ -52,11 +53,18 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
         using block_index = std::uint64_t;
+
+        struct end_lifetime
+        {
+            storage_index of;
+
+            RPNX_MEMBER_METADATA(end_lifetime, of);
+        };
 
         struct invocation_args
         {
@@ -86,8 +94,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(struct_delegate_new, on_value, fields);
         };
 
-
-
         // struct_complete_new is used in conjunction with struct_delegate_new to finalize an object.
         // A struct's destructor becomes primed for activation after SCN.
         // Between SDN and SCN, only the field destructors will run.
@@ -116,8 +122,6 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(fence_byte_release, type);
         };
-
-
 
         // Defers a non-trivial destructor call.
         struct defer_nontrivial_dtor
@@ -151,10 +155,8 @@ namespace quxlang
             storage_index from_index;
             storage_index to_index;
 
-
             RPNX_MEMBER_METADATA(copy_reference, from_index, to_index);
         };
-
 
         // MKR makes a reference to a value
         struct make_reference
@@ -368,8 +370,8 @@ namespace quxlang
             bool storage_valid = false;
             bool dtor_enabled = false;
             std::optional< dtor_spec > nontrivial_dtor;
-            std::optional<invocation_args> delegates;
-            std::optional<storage_index> delegate_of;
+            std::optional< invocation_args > delegates;
+            std::optional< storage_index > delegate_of;
 
             RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of);
         };
@@ -386,7 +388,7 @@ namespace quxlang
             std::map< storage_index, slot_state > entry_state;
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
-            std::optional<std::string> dbg_name;
+            std::optional< std::string > dbg_name;
 
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator, dbg_name);
         };
@@ -407,12 +409,11 @@ namespace quxlang
 
             std::vector< vm_slot > slots;
 
-
             storage_index create_temporary(type_symbol type);
             storage_index create_variable(type_symbol type, std::string name);
             storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_positional_argument(type_symbol type, std::optional<std::string> name);
-            storage_index create_named_argument(std::string apiname, type_symbol type, std::optional<std::string> name);
+            storage_index create_positional_argument(type_symbol type, std::optional< std::string > name);
+            storage_index create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > name);
             storage_index create_numeric_literal(std::string value);
             storage_index index_binding(storage_index idx);
 
@@ -430,7 +431,7 @@ namespace quxlang
 
             vmir2::executable_block block;
             slot_generation_state* slots;
-            std::map< storage_index , slot_state > current_slot_states = {{0, slot_state{}}};
+            std::map< storage_index, slot_state > current_slot_states = {{0, slot_state{}}};
             std::map< std::string, storage_index > named_references;
 
             type_symbol current_type(storage_index idx);
@@ -452,6 +453,7 @@ namespace quxlang
             void emit(vmir2::defer_nontrivial_dtor dntd);
             void emit(vmir2::struct_complete_new scn);
             void emit(vmir2::struct_delegate_new sdn);
+            void emit(vmir2::end_lifetime elt);
 
             void emit(vmir2::int_add add);
             void emit(vmir2::int_sub sub);

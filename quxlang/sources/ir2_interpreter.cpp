@@ -79,6 +79,11 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
         return stack.back();
     }
 
+    stack_frame& current_frame()
+    {
+        return stack.back();
+    }
+
     std::size_t current_frame_index()
     {
         return stack.size() - 1;
@@ -116,7 +121,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::cmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
-    void exec_instr_val(vmir2::copy_reference const & cpr);
+    void exec_instr_val(vmir2::copy_reference const& cpr);
+    void exec_instr_val(vmir2::end_lifetime const& elt);
 
     std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
 
@@ -220,6 +226,11 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_
 
                 current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
 
+                if (typeis< dvalue_slot >(arg_type))
+                {
+                    previous_frame.local_values[previous_arg_index] = nullptr;
+                }
+
                 // The caller should have already initialized the local, not here.
                 assert(current_frame.local_values[new_arg_index] != nullptr);
 
@@ -319,7 +330,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
         quxlang::vmir2::assembler ir_printer(current_func_ir.get());
 
-        std::cout << "Executing " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
@@ -547,31 +558,64 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 {
     this->constexpr_result = consume_data(csr.target);
 }
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
 {
     throw rpnx::unimplemented();
 }
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::make_pointer_to const& mpt)
 {
-
     auto& frame = get_current_frame();
-
     auto& source = frame.local_values.at(mpt.of_index);
-
     if (!source || !source->ref.has_value())
     {
         throw constexpr_logic_execution_error("Expected source value to be valid");
     }
-
     pointer_impl ptr = get_pointer_to(stack.size() - 1, mpt.of_index);
-
-    create_local_value(mpt.pointer_index, true);
-
-    frame.local_values.at(mpt.pointer_index)->ref = ptr;
+    if (ptr.pointer_target.expired())
+    {
+        throw std::logic_error("creating a pointer to non value???");
+    }
+    auto ptrval = create_local_value(mpt.pointer_index, true);
+    ptrval->ref = ptr;
+    std::cout << "make_pointer_to: des object id: " << ptrval->object_id << std::endl;
 }
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::dereference_pointer const& drp)
 {
-    throw rpnx::unimplemented();
+    auto& frame = get_current_frame();
+
+    auto ptr = frame.local_values.at(drp.from_pointer);
+
+    std::shared_ptr< local >& ref = frame.local_values[drp.to_reference];
+
+    if (ref != nullptr)
+    {
+        throw std::logic_error("invalid");
+    }
+
+    ref = std::make_shared<local>();
+
+    if (! ptr->ref.has_value())
+    {
+        std::cout << "ptr object id: " << ptr->object_id << std::endl;
+        throw std::logic_error("pointer missing value?");
+    }
+
+    auto pointer_target = ptr->ref.value().pointer_target.lock();
+
+    if (!pointer_target)
+    {
+        throw std::logic_error("invalid 2");
+    }
+
+    pointer_impl pointer_to_target = pointer_impl{.pointer_target = pointer_target};
+
+    ref->ref = pointer_to_target;
+    ref->alive = true;
+
+
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_from_ref const& lfr)
 {
@@ -581,25 +625,20 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     {
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
-
     assert(slot->ref.has_value());
     auto load_from_ptr = slot->ref->pointer_target.lock();
-
     if (!load_from_ptr)
     {
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
-
     auto& load_from = *load_from_ptr;
-
     auto& target_slot = get_current_frame().local_values[lfr.to_value];
-
     if (target_slot == nullptr)
     {
         target_slot = std::make_shared< local >();
     }
-
     target_slot->data = load_from.data;
+    target_slot->ref = load_from.ref;
     target_slot->alive = true;
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
@@ -759,6 +798,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         }
         to_ptr_target.data[to_ptr_offset] = from_ptr_target.data[i];
     }
+
+    to_ptr_target.ref = from_ptr_target.ref;
 
     return;
 }
@@ -933,7 +974,7 @@ void quxlang::vmir2::ir2_interpreter::add_class_layout(quxlang::type_symbol name
 
 void quxlang::vmir2::ir2_interpreter::add_functanoid(quxlang::type_symbol addr, quxlang::vmir2::functanoid_routine2 func)
 {
-    for (auto const & dtor : func.non_trivial_dtors)
+    for (auto const& dtor : func.non_trivial_dtors)
     {
         auto dtor_func = dtor.second;
 
@@ -1117,6 +1158,14 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     local_ptr->alive = true;
 
     return;
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::end_lifetime const& elt)
+{
+    auto & frame = get_current_frame();
+
+    auto & local_ptr = frame.local_values.at(elt.of);
+    local_ptr->alive = false;
+    local_ptr = nullptr;
 }
 std::shared_ptr< quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::create_local_value(std::size_t local_index, bool set_alive)
 {
