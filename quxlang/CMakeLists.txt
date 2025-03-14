@@ -10,7 +10,10 @@ find_package(yaml-cpp REQUIRED)
 #target_link_libraries(quxlang PRIVATE yaml-cpp::yaml-cpp)
 include_directories(${LLVM_INCLUDE_DIRS})
 
-add_executable(quxlang_main sources/main.cpp)
+
+
+option(QUXLANG_MAIN_DEV "Build quxlang_main" OFF)
+option(QUXLANG_QXC_DEV "Build qxc" OFF)
 
 
 
@@ -244,7 +247,10 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
 
 )
 
-add_executable(qxc sources/app/qxc.cpp)
+if (QUXLANG_QXC_DEV)
+
+  add_executable(qxc sources/app/qxc.cpp)
+endif()
 
 add_executable(aprinter_test tests/aprinter_test.cpp
         include/quxlang/res/variable.hpp
@@ -258,7 +264,10 @@ add_library(quxlang-loaders
         include/quxlang/source_loader.hpp)
 target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
 
-target_link_libraries(qxc PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
+if (QUXLANG_QXC_DEV)
+  target_link_libraries(qxc PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
+endif()
+
 
 target_link_libraries(aprinter_test PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
 
@@ -281,10 +290,11 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)
 target_link_libraries(quxlang PUBLIC graphlib Boost::boost Boost::headers)
-target_link_libraries(quxlang_main PUBLIC quxlang)
-#target_precompile_headers(quxlang PRIVATE
-#        [["quxlang/compiler.hpp"]]
-#        <boost/variant.hpp>)
+
+if (QUXLANG_MAIN_DEV)
+  add_executable(quxlang_main sources/main.cpp)
+  target_link_libraries(quxlang_main PUBLIC quxlang)
+endif()
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)
@@ -312,10 +322,6 @@ if (GTest_FOUND)
     add_executable(quxlang_gtests)
     target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp)
     target_link_libraries(quxlang_gtests PRIVATE GTest::GTest GTest::Main quxlang quxlang-loaders)
-    #escape the path
-
-
-
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     gtest_discover_tests(quxlang_gtests)
 endif ()
