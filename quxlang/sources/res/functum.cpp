@@ -96,6 +96,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
 {
     auto const& decls = co_await QUX_CO_DEP(functum_list_user_ensig_declarations, (input));
 
+    std::string input_name = quxlang::to_string(input);
+
     std::map< temploid_ensig, std::size_t > output;
 
     bool is_member_functum = typeis< submember >(input);

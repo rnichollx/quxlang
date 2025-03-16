@@ -18,9 +18,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
 
     auto val = this;
 
+
      std::string to = to_string(os.interface);
      std::string from = to_string(args);
 
+    if (to == "INTERTYPE(MUT& MODULE(main)::buf)")
+    {
+        int debugger = 0;
+    }
 
     if (os.interface.positional.size() != args.positional.size())
     {

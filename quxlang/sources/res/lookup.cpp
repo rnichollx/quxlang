@@ -182,7 +182,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     else if (type.template type_is< mvalue_reference >())
     {
         auto target_type = as< mvalue_reference >(type).target;
-        auto target_canonical = co_await QUX_CO_DEP(lookup, ({target_type, context}));
+        auto target_canonical = co_await QUX_CO_DEP(lookup, ({.context = context, .type= target_type }));
         if (!target_canonical.has_value())
         {
             co_return std::nullopt;

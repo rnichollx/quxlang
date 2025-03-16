@@ -36,6 +36,10 @@ MODULE main;
   }
 }
 
+::buf FUNCTION(%a MUT& I32)
+{
+    a := a + 1;
+}
 
 ::biz FUNCTION(%a I32, %b I32): I32
 {
@@ -45,6 +49,7 @@ MODULE main;
 
     x.z := y<-;
   }
+  buf(a);
   RETURN a + b + y;
 }
 

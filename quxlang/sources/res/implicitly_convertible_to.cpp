@@ -7,6 +7,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
     type_symbol from = input.from;
     type_symbol to = input.to;
 
+    std::string from_str = quxlang::to_string(from);
+    std::string to_str = quxlang::to_string(to);
+
+
+
     if (from == to)
     {
         co_return true;
@@ -43,7 +48,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 
     std::string from_type_str = to_string(from);
 
-    if (typeis<int_type>(to) && typeis<numeric_literal_reference>(from))
+    if (typeis< int_type >(to) && typeis< numeric_literal_reference >(from))
     {
         co_return true;
     }
