@@ -1,6 +1,6 @@
-# QuxLang
+# Quxlang
 
-QuxLang is a systems programming language. It's intended as an improvement over C++ for certain uses.
+Quxlang is a systems programming language. It's intended as an improvement over C++ for certain uses.
 
 It is still in active development and is not "usable" yet.
 
