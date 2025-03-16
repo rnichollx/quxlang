@@ -141,7 +141,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
 
                                   sym.section = section_name;
 
-                                  QUXLANG_DEBUG({std::cout << "symbol name: " << sym.name << " at " << std::dec << output.position << " to " << std::dec << output.position_end << std::endl;});
+                                  QUXLANG_DEBUG({ std::cout << "symbol name: " << sym.name << " at " << std::dec << output.position << " to " << std::dec << output.position_end << std::endl; });
 
                                   for (auto const& relocation : section.relocations())
                                   {
