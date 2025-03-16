@@ -1,3 +1,34 @@
+# Runtime
+
+Example runtime statement:
+
+```quxlang
+RUNTIME (CONSTEXPR) {
+  // implementation using constexpr-safe functions only 
+} ELSE {
+  // fast implementation that runs the calculations on a GPU
+}
+```
+
+
+```quxlang
+RUNTIME (X64:SSE4) {
+   ASM X64 {
+     // fast SSE4 implementation
+   }
+} ELSE {
+  // Generic Quxlang implementation
+}
+```
+
+## Runtime options
+
+* `CONSTEXPR` Path taken when the compiler is in a constexpr execution context.
+* `X64:SSE4` Path taken if the arch is `x64` and SSE4 is enabled on the current cpu.
+
+
+
+
 # For Loop
 
 ## Syntax
