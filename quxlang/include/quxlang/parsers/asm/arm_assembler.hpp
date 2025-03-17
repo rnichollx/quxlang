@@ -51,13 +51,13 @@ namespace quxlang::parsers
                // by the try_parse_arm_asm_operand function.
                *pos != ',' &&
 
-               // ';' terminates the operand in Qux assembly syntax
+               // ';' terminates the operand in Quxlang assembly syntax
                *pos != ';' &&
 
                // These are handled by the try_parse_arm_asm_operand function, not here
                *pos != '[' && *pos != ']' &&
 
-               // No multi-line statements in Qux assembly syntax
+               // No multi-line statements in Quxlang assembly syntax
                *pos != '\n' && *pos != '\r' && *pos != '\t' &&
 
                // Shouldn't encounter this, this indicates the end of the assembler input

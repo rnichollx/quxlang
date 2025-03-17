@@ -1,4 +1,4 @@
-# Qux Resolvers
+# Quxlang Resolvers
 
 ## asm_procedure_from_symbol
 
@@ -30,7 +30,7 @@ call_ whereas formal parameters are the parameters of the _functanoid invocation
 
 Suppose for example a functum is defined with 2 functions as so:
 
-```qux
+```quxlang
 ::foo FUNCTION(I64, I32)
 {
 
@@ -57,7 +57,7 @@ invocation of the functanoid.
 
 For additional illustration:
 
-```qux
+```quxlang
 ::foo FUNCTION(I32, T(t2)) { ... }
 ::v32 VAR I32;
 ::v64 VAR I64;
@@ -107,9 +107,9 @@ A type is trivially movable if it can be moved by copying bits and resetting all
 True if the class layout does not contain holes. If a type is contiguous and trivially resettable, it can be reset by
 using memset-like zeroing operations.
 
-In Qux, types can have holes, for example, supposing we have nested structs:
+In Quxlang, types can have holes, for example, supposing we have nested structs:
 
-```qux
+```quxlang
 ::foo CLASS
 {
   .baz VAR I32;
@@ -141,10 +141,10 @@ The `buz` class in this case will be laid out like this:
 ```
 
 In this case, the `buz` class is not contiguous because there are holes between the `foo` and `y` fields for alignment.
-In C and C++, this is solved with "padding". However, unlike C and C++, Qux produces "holes" instead of padding. The
+In C and C++, this is solved with "padding". However, unlike C and C++, Quxlang produces "holes" instead of padding. The
 difference is illustrated in the following example:
 
-```qux
+```quxlang
 ::bif CLASS
 {
   .w VAR buz;
@@ -171,6 +171,6 @@ Might have a layout like this:
 
 In this case, we can see that the bif class has the same size as the buz class which is a member of bif, because the u
 variable filled a hole in the layout of the buz class. In general, it is not safe to use memset to initialize objects in
-Qux because of this behavior. Instead, the reset operation should be used.
+Quxlang because of this behavior. Instead, the reset operation should be used.
 
     

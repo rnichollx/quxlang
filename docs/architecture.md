@@ -1,18 +1,18 @@
-# Qux Compiler (qxc) Architecture
+# Quxlang Compiler (qxc) Architecture
 
 Note: Some stages of this architecture are not yet fully implemented in the
 compiler.
 
 ## Data Layers
 
-There are several layers in the Qux Compiler (qxc) architecture. Each layer has
+There are several layers in the Quxlang Compiler (qxc) architecture. Each layer has
 a specific data format that is used to
 communicate with the next layer. The layers are as follows:
 
 ### Frontend Compilation Layers
 
-1. **Source Code**: The source code is the input to the compiler. The Qux
-   Compiler accepts Qux sources, as well as
+1. **Source Code**: The source code is the input to the compiler. The Quxlang
+   Compiler accepts Quxlang sources, as well as
    assembly, module definitions, and buildfiles. There are 2 sublayers:
 
     1. **External Source Code**: This consists of the code external to the qxc
@@ -38,7 +38,7 @@ communicate with the next layer. The layers are as follows:
    done to avoid
    having to allocate memory for lexing and improve the speed of the
    compiler.
-3. **Qux Virtual Machine Intermediate Representation (QVMIR)**: The QVMIR is
+3. **Quxlang Virtual Machine Intermediate Representation (QVMIR)**: The QVMIR is
    the
    output of the
    semantic analysis. It is a mixed level IR consisting of expressions,
@@ -76,11 +76,11 @@ There are two middle pathways in the LLVM backend:
    from the AST or QVMIR (depending on the manner in which it is introduced, as
    an assembly procedure or as inline assembly) and then handed off to LLVM's
    assembler which converts it to object code. This conversion involves
-   translation between Qux Assembly format and LLVM's Assembly format. Qux
+   translation between Quxlang Assembly format and LLVM's Assembly format. Quxlang
    Assembly, for example, requires terminating semicolons for instructions and
    accepts `//` comments, while LLVM assembly does not require terminating
    semi-colons and does not accept `//` comments, instead using `;` comments.
-   In Qux Assembly, all opcodes and registers are considered keywords and
+   In Quxlang Assembly, all opcodes and registers are considered keywords and
    therefore UPPERCASE.
 2. **Object Code**: In this instance, object code is the output of the
    assembler process.

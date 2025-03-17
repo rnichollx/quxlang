@@ -55,3 +55,6 @@ What doesn't work:
 * Pointer arithmetic
 * Array and wildcard pointers
  
+## Note regarding "Qux"
+
+There is another project called "Qux" which is an abandoned/archived programming language project. Quxlang is not related to that project aside from having a similar name.

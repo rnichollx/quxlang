@@ -13,7 +13,7 @@ defaulted.
 
 For example, given the following function:
 
-```qux
+```quxlang
 ::foo FUNCTION(%a I32, %b I32 DEFAULT(1))
 {
     ...
@@ -166,7 +166,7 @@ priority.
 
 For example, given the following function:
 
-```qux
+```quxlang
 
 ::foo FUNCTION(%a I32, %b I32 DEFAULT(1)) P(1)
 {
@@ -235,7 +235,7 @@ keyword.
 ## Function Overload Set
 
 In languages like C++, "function overload set" is the term used to describe
-a collection of various function overloads that share the same name. In Qux,
+a collection of various function overloads that share the same name. In Quxlang,
 a roughly analogous concept is the "functum", although these may not be
 equivalent in all cases.
 See also: Functum.
@@ -245,9 +245,9 @@ See also: Functum.
 A function-pointer is a concept in some other programming languages like C
 and C++.
 Because
-Qux functions are like "template functions" in other programming languages like
+Quxlang functions are like "template functions" in other programming languages like
 C++,
-Qux
+Quxlang
 does not have a "function-pointer", but it does have the
 concept of a procedure-pointer, which is roughly analogous to a
 function-pointer in C and C++.
@@ -263,7 +263,7 @@ Headers are the set of parameters and header tags that are part of a temploid de
 
 For example, given the following function:
 
-```qux
+```quxlang
 ::foo FUNCTION(%a I32, %b I32 DEFAULT(1)) P(1)
 {
     bar(a, b);
@@ -277,7 +277,7 @@ syntax tree of the declaroid. It also includes the return declaration, if presen
 
 For example, given:
 
-```qux
+```quxlang
 ::myint ALIAS I32;
 ::foo FUNCTION(%a myint) P(2): I64
 {

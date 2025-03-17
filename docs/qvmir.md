@@ -1,4 +1,4 @@
-Qux VM Intermediate Representation (QVMIR)
+Quxlang VM Intermediate Representation (QVMIR)
 
 ## Local Storage
 

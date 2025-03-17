@@ -10,7 +10,7 @@ E.g.
 
 
 Old (non-coroutine):
-```qux
+```quxlang
 void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
 {
     //std::cout << this->debug_recursive() << std::endl;
