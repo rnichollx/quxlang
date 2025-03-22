@@ -31,7 +31,7 @@
 * `^^` Logical exclusive or.
 * `^->` Logical A implies B,
 * `^<-` Logical B implies A.
-* `!!` Logical negation.
+* `!!` Logical negation (suffix)
 
 ## Bitwise operators
 
