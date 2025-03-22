@@ -52,9 +52,11 @@
 
 ## Object and pointer operators
 
-* `.` Field get operator
-* `->` Pointer access operator
-* `<-` Get address-of operator
+* `.` Field get operator.
+* `->` Pointer access operator.
+* `<-` Get instance-address operator.
+* `[<-]` Get array-address operator.
+* `*<-` Get wildcard-pointer operator.
 * `?-` Get field address if non-null operator
 * `?>` Get value-or-default operator
 * `??` Booliate operator
