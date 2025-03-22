@@ -15,10 +15,6 @@ namespace quxlang
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
         std::string operator()(initialization_reference const& ref) const;
-        std::string operator()(mvalue_reference const& ref) const;
-        std::string operator()(tvalue_reference const& ref) const;
-        std::string operator()(cvalue_reference const& ref) const;
-        std::string operator()(wvalue_reference const& ref) const;
         std::string operator()(module_reference const& ref) const;
         std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
@@ -26,12 +22,8 @@ namespace quxlang
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
-
         std::string operator()(thistype const&) const;
-        std::string operator()(auto_reference const&) const;
-
         std::string operator()(numeric_literal_reference const&) const;
-        std::string operator()(avalue_reference const&) const;
         std::string operator()(template_reference const&) const;
         std::string operator()(temploid_reference const&) const;
         std::string operator()(function_arg const&) const;
@@ -141,31 +133,6 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(mvalue_reference const& ref) const
-        {
-            return is_template(ref.target);
-        }
-
-        bool operator()(tvalue_reference const& ref) const
-        {
-            return is_template(ref.target);
-        }
-
-        bool operator()(cvalue_reference const& ref) const
-        {
-            return is_template(ref.target);
-        }
-
-        bool operator()(wvalue_reference const& ref) const
-        {
-            return is_template(ref.target);
-        }
-
-        bool operator()(auto_reference const& ref) const
-        {
-            return true;
-        }
-
         bool operator()(context_reference const& ref) const
         {
             return false;
@@ -209,11 +176,6 @@ namespace quxlang
         bool operator()(numeric_literal_reference const&) const
         {
             return false;
-        }
-
-        bool operator()(avalue_reference const& ref) const
-        {
-            return is_template(ref.target);
         }
 
         bool operator()(template_reference const&) const
@@ -346,6 +308,8 @@ namespace quxlang
         case pointer_class::machine:
             output += "*";
             break;
+        case pointer_class::ref:
+            output += "&";
         }
 
         output += " ";
@@ -422,22 +386,6 @@ namespace quxlang
         return output;
     }
 
-    std::string qualified_symbol_stringifier::operator()(mvalue_reference const& ref) const
-    {
-        return "MUT& " + rpnx::apply_visitor< std::string >(*this, ref.target);
-    }
-    std::string qualified_symbol_stringifier::operator()(tvalue_reference const& ref) const
-    {
-        return "TEMP& " + rpnx::apply_visitor< std::string >(*this, ref.target);
-    }
-    std::string qualified_symbol_stringifier::operator()(cvalue_reference const& ref) const
-    {
-        return "CONST& " + rpnx::apply_visitor< std::string >(*this, ref.target);
-    }
-    std::string qualified_symbol_stringifier::operator()(wvalue_reference const& ref) const
-    {
-        return "WRITE& " + rpnx::apply_visitor< std::string >(*this, ref.target);
-    }
     std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
     {
         return "context";
@@ -476,19 +424,11 @@ namespace quxlang
         return to_string(ref.of) + "::." + ref.name;
     }
 
-    std::string qualified_symbol_stringifier::operator()(auto_reference const& ref) const
-    {
-        return "AUTO& " + to_string(ref.target);
-    }
-
     std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
         return "NUMERIC_LITERAL";
     }
-    std::string qualified_symbol_stringifier::operator()(avalue_reference const& val) const
-    {
-        return "ARGUMENT& " + to_string(val.target);
-    }
+
     std::string qualified_symbol_stringifier::operator()(template_reference const& val) const
     {
         return "T(" + val.name + ")";
@@ -560,10 +500,10 @@ namespace quxlang
             return results;
         }
 
-        if (typeis< auto_reference >(template_type))
+        if (is_auto_ref(template_type))
         {
             // Matches any reference type
-            auto_reference const& template_autoref = as< auto_reference >(template_type);
+            pointer_type const& template_autoref = as< pointer_type >(template_type);
 
             std::string type_str = to_string(type);
 
@@ -620,6 +560,11 @@ namespace quxlang
             }
             auto const& ptr_type = as< pointer_type >(type);
 
+            if (ptr_template.ptr_class != ptr_type.ptr_class)
+            {
+                return std::nullopt;
+            }
+
             auto qual_match = qualifier_template_match(ptr_template.qual, ptr_type.qual);
 
             if (!qual_match)
@@ -662,54 +607,6 @@ namespace quxlang
         {
             // it is not possible for a type to be a subdotentity_reference
             throw std::logic_error("::. cannot appear in an argument type or argument type template");
-        }
-        else if (typeis< cvalue_reference >(template_type))
-        {
-            cvalue_reference const& template_cval = as< cvalue_reference >(template_type);
-            cvalue_reference const& type_cval = as< cvalue_reference >(type);
-            auto match = match_template(template_cval.target, type_cval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = cvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< mvalue_reference >(template_type))
-        {
-            mvalue_reference const& template_mval = as< mvalue_reference >(template_type);
-            mvalue_reference const& type_mval = as< mvalue_reference >(type);
-            auto match = match_template(template_mval.target, type_mval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = mvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< wvalue_reference >(template_type))
-        {
-            wvalue_reference const& template_oval = as< wvalue_reference >(template_type);
-            wvalue_reference const& type_oval = as< wvalue_reference >(type);
-            auto match = match_template(template_oval.target, type_oval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = wvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< tvalue_reference >(template_type))
-        {
-            tvalue_reference const& template_tval = as< tvalue_reference >(template_type);
-            tvalue_reference const& type_tval = as< tvalue_reference >(type);
-            auto match = match_template(template_tval.target, type_tval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = tvalue_reference{std::move(match->type)};
-            return match;
         }
         else if (typeis< initialization_reference >(template_type))
         {
@@ -771,10 +668,10 @@ namespace quxlang
             return results;
         }
 
-        if (typeis< auto_reference >(template_type))
+        if (is_auto_ref(template_type))
         {
             // Matches any reference type
-            auto_reference const& template_autoref = as< auto_reference >(template_type);
+            pointer_type const& template_autoref = as< pointer_type >(template_type);
 
             std::string type_str = to_string(type);
 
@@ -831,6 +728,11 @@ namespace quxlang
             }
             auto const& ptr_type = as< pointer_type >(type);
 
+            if (ptr_template.ptr_class != ptr_type.ptr_class)
+            {
+                return std::nullopt;
+            }
+
             auto qual_match = qualifier_template_match(ptr_template.qual, ptr_type.qual);
 
             if (!qual_match)
@@ -873,54 +775,6 @@ namespace quxlang
         {
             // it is not possible for a type to be a subdotentity_reference
             throw std::logic_error("::. cannot appear in an argument type or argument type template");
-        }
-        else if (typeis< cvalue_reference >(template_type))
-        {
-            cvalue_reference const& template_cval = as< cvalue_reference >(template_type);
-            cvalue_reference const& type_cval = as< cvalue_reference >(type);
-            auto match = match_template(template_cval.target, type_cval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = cvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< mvalue_reference >(template_type))
-        {
-            mvalue_reference const& template_mval = as< mvalue_reference >(template_type);
-            mvalue_reference const& type_mval = as< mvalue_reference >(type);
-            auto match = match_template(template_mval.target, type_mval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = mvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< wvalue_reference >(template_type))
-        {
-            wvalue_reference const& template_oval = as< wvalue_reference >(template_type);
-            wvalue_reference const& type_oval = as< wvalue_reference >(type);
-            auto match = match_template(template_oval.target, type_oval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = wvalue_reference{std::move(match->type)};
-            return match;
-        }
-        else if (typeis< tvalue_reference >(template_type))
-        {
-            tvalue_reference const& template_tval = as< tvalue_reference >(template_type);
-            tvalue_reference const& type_tval = as< tvalue_reference >(type);
-            auto match = match_template(template_tval.target, type_tval.target);
-            if (!match)
-            {
-                return std::nullopt;
-            }
-            match->type = tvalue_reference{std::move(match->type)};
-            return match;
         }
         else if (typeis< initialization_reference >(template_type))
         {
@@ -1138,6 +992,12 @@ namespace quxlang
                 return pointer_class::machine;
             }
             return std::nullopt;
+        case pointer_class::ref:
+            if (match_class == pointer_class::ref)
+            {
+                return pointer_class::ref;
+            }
+            return std::nullopt;
         }
 
         throw compiler_bug("should be unreachable");
@@ -1166,11 +1026,6 @@ namespace quxlang
             bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
-            }
-
-            bool check_impl(auto_reference const& template_val, auto_reference const& match_val, bool conv)
-            {
-                return check(template_val.target, match_val.target, false);
             }
 
             bool check_impl(subsymbol const& template_val, subsymbol const& match_val, bool conv)
@@ -1299,26 +1154,6 @@ namespace quxlang
                 return true;
             }
 
-            bool check_impl(tvalue_reference const& tmpl, tvalue_reference const& val, bool conv)
-            {
-                return check(tmpl.target, val.target, conv);
-            }
-
-            bool check_impl(wvalue_reference const& tmpl, wvalue_reference const& val, bool conv)
-            {
-                return check(tmpl.target, val.target, conv);
-            }
-
-            bool check_impl(mvalue_reference const& tmpl, mvalue_reference const& val, bool conv)
-            {
-                return check(tmpl.target, val.target, conv);
-            }
-
-            bool check_impl(cvalue_reference const& tmpl, cvalue_reference const& val, bool conv)
-            {
-                return check(tmpl.target, val.target, conv);
-            }
-
             bool check_impl(bound_type_reference const& tmpl, bound_type_reference const& val, bool conv)
             {
                 if (!check(tmpl.bound_symbol, val.bound_symbol, false))
@@ -1379,7 +1214,6 @@ namespace quxlang
 
             return true;
         }
-
 
         bool template_matcher::check(intertype template_ct, intertype match_ct, bool conv)
         {
@@ -1446,7 +1280,7 @@ namespace quxlang
                 }
             }
 
-            if (typeis< auto_reference >(template_val))
+            if (is_auto_ref(template_val))
             {
                 if (is_ref(match_val))
                 {

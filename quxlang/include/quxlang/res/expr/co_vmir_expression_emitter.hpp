@@ -842,7 +842,7 @@ namespace quxlang
                     vmir2::access_field access;
                     access.base_index = base;
                     access.field_name = field.name;
-                    type_symbol result_ref_type = recast_reference(base_type, field.type);
+                    type_symbol result_ref_type = recast_reference(base_type.template get_as<pointer_type>(), field.type);
                     access.store_index = create_temporary_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 

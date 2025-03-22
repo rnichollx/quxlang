@@ -82,7 +82,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
             {
                 parameter_type default_this{};
                 // By default, AUTO& THISTYPE
-                default_this.type = auto_reference{.target = thistype_type};
+                default_this.type = pointer_type{.target = thistype_type, .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
                 p.named["THIS"] = default_this;
             }
             else if (is_constructor)

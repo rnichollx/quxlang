@@ -58,7 +58,6 @@ namespace quxlang
         return result;
     }
 
-
     inline std::string mangle_internal(type_symbol const& qt)
     {
         if (qt.type() == typeid(module_reference))
@@ -94,6 +93,9 @@ namespace quxlang
             case pointer_class::machine:
                 output += "M";
                 break;
+            case pointer_class::ref:
+                output += "R";
+                break;
             default:
                 throw std::logic_error("unimplemented");
             }
@@ -110,6 +112,15 @@ namespace quxlang
                 break;
             case qualifier::write:
                 output += "W";
+                break;
+            case qualifier::input:
+                output += "I";
+                break;
+            case qualifier::output:
+                output += "O";
+                break;
+            case qualifier::auto_:
+                output += "A";
                 break;
             default:
                 throw std::logic_error("unimplemented");
@@ -153,22 +164,6 @@ namespace quxlang
         {
             // TODO: Implement
             throw std::logic_error("unimplemented");
-        }
-        else if (typeis< mvalue_reference >(qt))
-        {
-            return "RM" + mangle_internal(as< mvalue_reference >(qt).target);
-        }
-        else if (typeis< cvalue_reference >(qt))
-        {
-            return "RC" + mangle_internal(as< cvalue_reference >(qt).target);
-        }
-        else if (typeis< wvalue_reference >(qt))
-        {
-            return "RO" + mangle_internal(as< wvalue_reference >(qt).target);
-        }
-        else if (typeis< tvalue_reference >(qt))
-        {
-            return "RT" + mangle_internal(as< tvalue_reference >(qt).target);
         }
         else if (typeis< temploid_reference >(qt))
         {

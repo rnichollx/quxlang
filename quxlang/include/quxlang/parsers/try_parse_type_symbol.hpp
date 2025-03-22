@@ -90,7 +90,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return mvalue_reference{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (skip_keyword_if_is(pos, end, "CONST"))
         {
@@ -99,7 +99,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return cvalue_reference{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
         }
         else if (skip_keyword_if_is(pos, end, "WRITE"))
         {
@@ -108,7 +108,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after WRITE");
             }
-            return wvalue_reference{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
         }
         else if (skip_keyword_if_is(pos, end, "TEMP"))
         {
@@ -117,7 +117,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return tvalue_reference{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {
@@ -133,7 +133,7 @@ namespace quxlang::parsers
             if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after DESTROY");
+                throw std::logic_error("Expected && after DESTROY");
             }
             return dvalue_slot{parse_type_symbol(pos, end)};
         }
@@ -144,7 +144,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after DESTROY");
             }
-            return auto_reference{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
@@ -169,7 +169,7 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            return pointer_type{parse_type_symbol(pos, end)};
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
         }
         else
         {

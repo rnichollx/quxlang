@@ -18,7 +18,7 @@
 RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrinsic);
 
 RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
-RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine);
+RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
 namespace quxlang
 {
@@ -264,42 +264,6 @@ namespace quxlang
         temploid_reference temploid;
         invotype params;
         RPNX_MEMBER_METADATA(instanciation_reference, temploid, params);
-    };
-
-    struct auto_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(auto_reference, target);
-    };
-
-    struct mvalue_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(mvalue_reference, target);
-    };
-
-    struct cvalue_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(cvalue_reference, target);
-    };
-
-    struct wvalue_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(wvalue_reference, target);
-    };
-
-    struct avalue_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(avalue_reference, target);
-    };
-
-    struct tvalue_reference
-    {
-        type_symbol target;
-        RPNX_MEMBER_METADATA(tvalue_reference, target);
     };
 
     struct nvalue_slot

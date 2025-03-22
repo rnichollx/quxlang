@@ -19,13 +19,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 
     if (remove_ref(to) == remove_ref(from))
     {
-        if (typeis< cvalue_reference >(to) && !typeis< wvalue_reference >(from))
+
+        if (is_const_ref(to) && !is_write_ref(from))
         {
             // All value/reference types can be implicitly cast to CONST&
             // except OUT& references
             co_return true;
         }
-        else if (!is_ref(from) && (typeis< tvalue_reference >(to) || typeis< wvalue_reference >(to)))
+        else if (!is_ref(from) && (is_temp_ref(to) || is_write_ref(to)))
         {
             // TODO: Allow ivalue pseudo-type here.
 
@@ -33,12 +34,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
             // implicitly.
             co_return true;
         }
-        else if (typeis< mvalue_reference >(from) && typeis< wvalue_reference >(to))
+        else if (is_mut_ref(from) && is_write_ref(to))
         {
             // Mutable references can be implicitly cast to output references.
             co_return true;
         }
-        else if (!is_ref(to) && !typeis< wvalue_reference >(from))
+        else if (!is_ref(to) && !is_write_ref(from))
         {
             co_return true;
         }

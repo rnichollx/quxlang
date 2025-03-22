@@ -16,13 +16,8 @@ namespace quxlang
     struct int_type;
     struct bool_type;
 
-    struct auto_reference;
 
-    struct mvalue_reference;
-    struct tvalue_reference;
-    struct wvalue_reference;
-    struct cvalue_reference;
-    struct avalue_reference;
+
 
     struct nvalue_slot;
     struct temploid_reference;
@@ -39,7 +34,7 @@ namespace quxlang
     struct thistype;
     struct pointer_type;
 
-    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, pointer_type, tvalue_reference, mvalue_reference, cvalue_reference, wvalue_reference, bound_type_reference, numeric_literal_reference, auto_reference, nvalue_slot, dvalue_slot >;
+    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, pointer_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot >;
 
     struct expression_multiply;
     struct expression_modulus;

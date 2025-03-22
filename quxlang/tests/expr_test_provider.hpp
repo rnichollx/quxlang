@@ -104,7 +104,7 @@ namespace quxlang
 
                 if (slot_alive(index).await_resume())
                 {
-                    new_type = mvalue_reference{.target = ty};
+                    new_type = pointer_type{.target = ty, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
                 }
                 else
                 {

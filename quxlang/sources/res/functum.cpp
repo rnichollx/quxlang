@@ -162,7 +162,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
             }
             else
             {
-                this_argif.type = auto_reference{.target = class_type.value()};
+                this_argif.type = pointer_type{.target = class_type.value(), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
             }
 
             formal_ensig.interface.named["THIS"] = this_argif;
