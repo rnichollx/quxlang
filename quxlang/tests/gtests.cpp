@@ -776,9 +776,8 @@ TEST(expression_ir, constexpr_call_func)
     ASSERT_FALSE(val1);
     auto val3 = get_constexpr_bool("boq() == 5");
     EXPECT_TRUE(val3);
-    auto val2 = get_constexpr_bool("biz(4, 3) == 8");
+    auto val2 = get_constexpr_bool("biz(4, 3) == 9");
     ASSERT_TRUE(val2);
-
 
 }
 

@@ -139,13 +139,9 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
                 throw std::logic_error("Cannot invoke a functanoid with a parameter on a dead slot.");
             }
 
-            if (!is_ref(arg_type))
-            {
-                // In quxlang calling convention, callee is responsible for destroying the argument.
-                current_slot_states.at(arg).alive = false;
-            }
 
-            // however, references are not destroyed when passed as arguments.
+            // In quxlang calling convention, callee is responsible for destroying the argument.
+            current_slot_states.at(arg).alive = false;
         }
     }
     for (auto& [name, arg] : args.named)
