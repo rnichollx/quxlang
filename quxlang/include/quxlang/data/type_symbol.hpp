@@ -180,6 +180,14 @@ namespace quxlang
         RPNX_EMPTY_METADATA(context_reference);
     };
 
+    struct array_type
+    {
+        type_symbol element_type;
+        expression element_count;
+
+        RPNX_MEMBER_METADATA(array_type, element_type, element_count);
+    };
+
     struct template_reference
     {
         std::string name;

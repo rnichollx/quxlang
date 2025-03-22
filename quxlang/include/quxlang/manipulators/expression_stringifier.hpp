@@ -24,6 +24,21 @@ namespace quxlang
             return "(" + to_string(expr.lhs) + " + " + to_string(expr.rhs) + ")";
         }
 
+        std::string operator()(expression_brackets const& brkts) const
+        {
+            std::string result;
+            result += to_string(brkts.lhs);
+            result += "[";
+            for (std::size_t i = 0; i < brkts.bracketed.size(); i++)
+            {
+                result += to_string(brkts.bracketed[i]);
+                if (i != brkts.bracketed.size() - 1)
+                    result += ", ";
+            }
+            result += "]";
+            return result;
+        }
+
         std::string operator()(expression_numeric_literal const& expr) const
         {
             return expr.value;

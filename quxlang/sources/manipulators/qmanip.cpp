@@ -19,6 +19,7 @@ namespace quxlang
         std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
+        std::string operator()(array_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
@@ -89,6 +90,11 @@ namespace quxlang
                     return true;
             }
             return is_template(type.temploid);
+        }
+
+        bool operator()(array_type const& ref) const
+        {
+            return is_template(ref.element_type);
         }
 
         bool operator()(pointer_type const& ref) const
@@ -268,6 +274,12 @@ namespace quxlang
     {
         return to_string(ref.of) + "::" + ref.name;
     }
+
+    std::string qualified_symbol_stringifier::operator()(array_type const& arr) const
+    {
+        return "[" + to_string(arr.element_count) + "] " + to_string(arr.element_type);
+    }
+
     std::string qualified_symbol_stringifier::operator()(pointer_type const& ref) const
     {
         std::string output;
@@ -1045,6 +1057,20 @@ namespace quxlang
                 }
 
                 return check(template_val.target, match_val.target, true);
+            }
+
+            bool check_impl(array_type const& template_val, array_type const& match_val, bool conv)
+            {
+                // TODO: Allow match expressions against element count
+                // This may require lookup expressions
+                // currently this is not possible because the check occurs outside the compiler context.
+
+                if (template_val.element_count != match_val.element_count)
+                {
+                    return false;
+                }
+
+                return check(template_val.element_type, match_val.element_type, true);
             }
 
             bool check_impl(submember const& tmpl, submember const& val, bool conv)

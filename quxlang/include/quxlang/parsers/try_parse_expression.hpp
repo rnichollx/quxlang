@@ -68,8 +68,7 @@ namespace quxlang::parsers
                 {".!^", 7}, // bitwise equilvalent
 
                 // plus some additional shift and rotation operators
-                {".<<", 7}, {".+>>", 7}, {".>>", 7}, {".@<", 7}, {".@>", 7}
-                // clang-format on
+                {".<<", 7}, {".+>>", 7}, {".>>", 7}, {".@<", 7}, {".@>", 7} // clang-format on
             };
 
             std::string sym = peek_symbol(pos, end);
@@ -225,22 +224,42 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, ":("))
         {
-           // TODO: This part
-           throw rpnx::unimplemented();
+            // TODO: This part
+            throw rpnx::unimplemented();
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-           expression_rightarrow arrow;
-          arrow.lhs = std::move(*bindings[bindings.size() - 1]);
-          *bindings[bindings.size() - 1] = std::move(arrow);
-          goto next_operator;
+            expression_rightarrow arrow;
+            arrow.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(arrow);
+            goto next_operator;
         }
         else if (skip_symbol_if_is(pos, end, "<-"))
         {
-           expression_leftarrow arrow;
-          arrow.lhs = std::move(*bindings[bindings.size() - 1]);
-          *bindings[bindings.size() - 1] = std::move(arrow);
-          goto next_operator;
+            expression_leftarrow arrow;
+            arrow.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(arrow);
+            goto next_operator;
+        }
+        else if (skip_symbol_if_is(pos, end, "["))
+        {
+            expression_brackets brkts;
+            brkts.lhs = std::move(*bindings[bindings.size() - 1]);
+            while (true)
+            {
+                brkts.bracketed.push_back(parse_expression(pos, end));
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "]"))
+                {
+                    break;
+                }
+                else if (!skip_symbol_if_is(pos, end, ","))
+                {
+                    throw std::logic_error("Expected ',' or ']' in brackets");
+                }
+            }
+            *bindings[bindings.size() - 1] = std::move(brkts);
+            goto next_operator;
         }
         else
         {

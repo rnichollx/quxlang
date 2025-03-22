@@ -13,8 +13,14 @@
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
 
+
 namespace quxlang::parsers
 {
+
+    template <typename It>
+    expression parse_expression(It& pos, It end);
+
+
     template < typename It >
     type_symbol parse_type_symbol(It& pos, It end);
 
@@ -60,6 +66,25 @@ namespace quxlang::parsers
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = *int_kw;
+        }
+        else if (skip_symbol_if_is(pos, end, "["))
+        {
+            array_type arr;
+
+            skip_whitespace(pos, end);
+            arr.element_count = parse_expression(pos, end);
+
+            skip_whitespace(pos, end);
+            if (!skip_symbol_if_is(pos, end, "]"))
+            {
+                throw std::logic_error("Expected ']' after array count");
+            }
+
+            skip_whitespace(pos, end);
+
+            arr.element_type = parse_type_symbol(pos, end);
+
+            output = arr;
         }
         else if (skip_keyword_if_is(pos, end, "T"))
         {
@@ -376,5 +401,9 @@ namespace quxlang::parsers
     }
 
 } // namespace quxlang::parsers
+
+
+#include <quxlang/parsers/parse_expression.hpp>
+
 
 #endif // TRY_PARSE_TYPE_SYMBOL_HPP
