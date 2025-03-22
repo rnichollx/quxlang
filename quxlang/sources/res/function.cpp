@@ -82,7 +82,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
 
     if (should_autogen_constructor)
     {
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = input});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
         co_return result;
     }
 
@@ -119,6 +119,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
     }
 
+    if (name == "OPERATOR[]" && parent.type_is< array_type >())
+    {
+
+        static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::mut, qualifier::temp, qualifier::write};
+
+        for (qualifier qv : quals)
+        {
+            // TODO: should this always be 64-bit?
+            builtin_function_info br_info;
+            br_info.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}, .positional = {argif{.type = int_type{.bits = 64}}}}};
+            br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
+
+            allowed_operations.insert(br_info);
+        }
+    }
 
     if (name.starts_with("OPERATOR"))
     {
@@ -200,7 +215,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         co_return (allowed_operations);
     }
 
-    co_return {};
+    co_return allowed_operations;
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_builtin)

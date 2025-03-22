@@ -120,6 +120,11 @@ namespace quxlang
             return *ptr;
         }
 
+        T const & read() const
+        {
+            return *ptr;
+        }
+
         // Method to modify the object of type T
         T& edit()
         {

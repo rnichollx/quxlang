@@ -70,6 +70,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
             throw rpnx::unimplemented();
         }
     }
+    else if (typeis <array_type>(input_val))
+    {
+        co_return symbol_kind::class_;
+    }
     else if (typeis< instanciation_reference >(input_val))
     {
        temploid_reference const & temploid = as<instanciation_reference>(input).temploid;

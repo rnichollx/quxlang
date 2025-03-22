@@ -40,12 +40,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure2)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure2)
 {
-    auto type_match = quxlang::parsers::parse_type_symbol("T(t1)::.CONSTRUCTOR#{@THIS NEW& T(t1)}");
+    auto ctor_match = quxlang::parsers::parse_type_symbol("T(t1)::.CONSTRUCTOR#{@THIS NEW& T(t1)}");
 
 
-    QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(type_match));
+    auto input_str = quxlang::to_string(input);
 
-    auto template_match_result = match_template2(type_match, input);
+    QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(ctor_match));
+
+    auto template_match_result = match_template2(ctor_match, input);
 
     if (template_match_result)
     {

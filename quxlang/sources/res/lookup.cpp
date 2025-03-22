@@ -187,6 +187,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     {
         co_return type;
     }
+    else if (typeis< array_type >(type))
+    {
+        auto const& arry = type.template get_as< array_type >();
+        constexpr_input ce_input;
+        ce_input.context = context;
+        ce_input.expr = arry.element_count;
+        std::uint64_t element_count = co_await QUX_CO_DEP(constexpr_u64, (ce_input));
+        array_type result_type;
+        result_type.element_count = expression_numeric_literal{std::to_string(element_count)};
+        auto lookup_element_type = co_await QUX_CO_DEP(lookup, ({.type = arry.element_type, .context = context}));
+        if (!lookup_element_type.has_value())
+        {
+            co_return std::nullopt;
+        }
+        result_type.element_type = lookup_element_type.value();
+        co_return result_type;
+    }
     else
     {
         std::string str = std::string() + "unimplemented: " + type.type().name();

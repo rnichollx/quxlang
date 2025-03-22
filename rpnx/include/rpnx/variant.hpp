@@ -775,6 +775,33 @@ namespace rpnx
             return m_vinf != nullptr && m_vinf->m_index == index_of< T, Ts... >::value;
         }
 
+        template <typename T, typename F>
+        bool match(F && func)
+        {
+            if (type_is<T>())
+            {
+                func(get_as<T>());
+                return true;
+            }
+
+            return false;
+        }
+
+        template <typename T, typename F>
+        bool match(F && func) const
+        {
+            if (type_is<T>())
+            {
+                func(get_as<T>());
+                return true;
+            }
+
+            return false;
+        }
+
+
+
+
         template < typename T >
         T* cast_ptr()
         {

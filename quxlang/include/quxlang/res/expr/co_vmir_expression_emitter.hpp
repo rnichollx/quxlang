@@ -92,6 +92,10 @@ namespace quxlang
             {
                 co_return co_await this->generate(as< expression_leftarrow >(std::move(expr)));
             }
+            else if (typeis< expression_brackets >(expr))
+            {
+                co_return co_await this->generate(as< expression_brackets >(std::move(expr)));
+            }
             else
             {
                 throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
@@ -332,7 +336,7 @@ namespace quxlang
             std::cout << "gen_call_ctor A(" << quxlang::to_string(new_type) << ") dtor" << (dtor ? "Y" : "N") << std::endl;
             if (dtor)
             {
-                co_await gen_defer_dtor(retval, submember{.of=new_type,.name="DESTRUCTOR"}, vmir2::invocation_args{.named = {{"THIS", retval}}});
+                co_await gen_defer_dtor(retval, submember{.of = new_type, .name = "DESTRUCTOR"}, vmir2::invocation_args{.named = {{"THIS", retval}}});
             }
             co_return new_object;
         }
@@ -660,7 +664,6 @@ namespace quxlang
         {
             auto callee = what.temploid;
 
-
             auto functum = callee.templexoid;
 
             intrinsic_builtin_classifier classifier{prv.output_info(), exec};
@@ -802,6 +805,25 @@ namespace quxlang
             co_return val;
         }
 
+        auto generate(expression_brackets const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto lhs_val = co_await generate_expr(what.lhs);
+
+            vmir2::invocation_args invoke_brackets_args;
+            invoke_brackets_args.named["THIS"] = lhs_val;
+
+            for (auto& arg : what.bracketed)
+            {
+                invoke_brackets_args.positional.push_back(co_await generate_expr(arg));
+            }
+
+            type_symbol lhs_class_type = this->current_type(lhs_val);
+            lhs_class_type = remove_ref(lhs_class_type);
+            auto call_brackets_operator = submember{lhs_class_type, "OPERATOR[]"};
+
+            co_return co_await gen_call_functum(call_brackets_operator, invoke_brackets_args);
+        }
+
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto this_reference = subsymbol{.of = context_reference{}, .name = "THIS"};
@@ -833,7 +855,7 @@ namespace quxlang
             // First try to find a field with this name
             class_layout layout = co_await prv.class_layout(base_type_noref);
 
-           // std::string base_type_str = to_string(base_type);
+            // std::string base_type_str = to_string(base_type);
 
             for (class_field_info const& field : layout.fields)
             {
@@ -842,7 +864,7 @@ namespace quxlang
                     vmir2::access_field access;
                     access.base_index = base;
                     access.field_name = field.name;
-                    type_symbol result_ref_type = recast_reference(base_type.template get_as<pointer_type>(), field.type);
+                    type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
                     access.store_index = create_temporary_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 

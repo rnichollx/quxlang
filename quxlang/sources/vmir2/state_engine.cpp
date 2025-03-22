@@ -56,6 +56,15 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     state[acf.store_index].alive = true;
     state[acf.base_index].alive = false;
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, access_array const& aca)
+{
+
+    // TODO: add state checks
+
+    state[aca.base_index].alive = false;
+    state[aca.index_index].alive = false;
+    state[aca.store_index].alive = true;
+}
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::invoke const& inv)
 {
     auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
@@ -153,6 +162,16 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::constexpr_set_result const& csr)
 {
+    // Special case: CSR with numeric literal should just return that numeric literal
+
+    if (slot_info.at(csr.target).kind == slot_kind::literal)
+    {
+        if (slot_info.at(csr.target).type.template type_is< numeric_literal_reference >())
+        {
+            return;
+        }
+    }
+
     if (!state.at(csr.target).alive)
     {
         throw invalid_instruction_transition_error("input slot is dead");

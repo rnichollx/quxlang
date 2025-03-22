@@ -29,6 +29,7 @@ namespace quxlang
             void exec(type_symbol func);
 
             bool get_cr_bool();
+            std::uint64_t get_cr_u64();
         };
     } // namespace vmir2
 } // namespace quxlang

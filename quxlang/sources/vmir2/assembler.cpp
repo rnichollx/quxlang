@@ -191,6 +191,12 @@ namespace quxlang::vmir2
         result += quxlang::to_string(this->m_what.slots.at(inst.store_index).type);
         return result;
     }
+    std::string assembler::to_string_internal(vmir2::access_array inst)
+    {
+        std::string result;
+        result += "ACA %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.index_index) + ", %" + std::to_string(inst.store_index);
+        return result;
+    }
 
     std::string assembler::to_string_internal(vmir2::invoke inst)
     {

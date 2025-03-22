@@ -130,6 +130,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_dtor)
     auto class_is_builtin = co_await QUX_CO_DEP(class_builtin, (input));
     if (class_is_builtin)
     {
+        if (typeis<array_type>(input))
+        {
+            co_return !co_await QUX_CO_DEP(class_trivially_destructible, (input.get_as<array_type>().element_type));
+        }
         co_return false;
     }
 
@@ -151,6 +155,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_ctor)
     auto class_is_builtin = co_await QUX_CO_DEP(class_builtin, (input));
     if (class_is_builtin)
     {
+        if (typeis<array_type>(input))
+        {
+            co_return !co_await QUX_CO_DEP(class_trivially_constructible, (input.get_as<array_type>().element_type));
+        }
         co_return false;
     }
 

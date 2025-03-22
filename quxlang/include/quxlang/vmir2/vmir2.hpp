@@ -18,6 +18,7 @@ namespace quxlang
     namespace vmir2
     {
         struct access_field;
+        struct access_array;
         struct ret;
         struct invoke;
         struct make_reference;
@@ -53,7 +54,7 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -140,6 +141,14 @@ namespace quxlang
             std::string field_name;
 
             RPNX_MEMBER_METADATA(access_field, base_index, store_index, field_name);
+        };
+
+        struct access_array
+        {
+            storage_index base_index = 0;
+            storage_index index_index = 0;
+            storage_index store_index = 0;
+            RPNX_MEMBER_METADATA(access_array, base_index, index_index, store_index);
         };
 
         struct invoke
@@ -438,6 +447,7 @@ namespace quxlang
 
             executable_block_generation_state clone_subblock();
             void emit(vmir2::access_field fld);
+            void emit(vmir2::access_array aca);
             void emit(vmir2::invoke inv);
             void emit(vmir2::cast_reference cst);
             void emit(vmir2::make_reference cst);

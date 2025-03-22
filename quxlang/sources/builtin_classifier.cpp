@@ -165,6 +165,10 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 {
     std::string funcname = to_string(func);
 
+    if (funcname == "[4] I64::.OPERATOR[] #{@THIS CONST& [4] I64, U64}")
+    {
+        int debugpoint = 0;
+    }
     auto cls = func_class(func);
     if (!cls)
     {
@@ -186,6 +190,26 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
     assert(member);
 
     auto const& call = instanciation->params;
+
+    if (member->name == "OPERATOR[]")
+    {
+        if (cls->template type_is< array_type >())
+        {
+            if (call.named.contains("THIS") && args.named.contains("RETURN") && call.positional.size() == 1 && args.size() == 3)
+            {
+                auto this_slot_id = args.named.at("THIS");
+                auto index_slot_id = args.positional.at(0);
+                auto return_slot_id = args.named.at("RETURN");
+
+                vmir2::access_array aca{};
+                aca.base_index = this_slot_id;
+                aca.index_index = index_slot_id;
+                aca.store_index = return_slot_id;
+
+                return aca;
+            }
+        }
+    }
 
     if (member->name == "CONSTRUCTOR")
     {
@@ -323,5 +347,6 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 
 bool quxlang::intrinsic_builtin_classifier::is_intrinsic_type(type_symbol of_type)
 {
-    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >();
+    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >() ||
+           of_type.type_is< array_type >();
 }

@@ -68,12 +68,12 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
         return bind;
     }
     auto type = slots->slots.at(idx).type;
-    if (typeis<dvalue_slot>(type) && !current_slot_states[idx].alive)
+    if (typeis< dvalue_slot >(type) && !current_slot_states[idx].alive)
     {
         functanoid_routine2 fakefunc;
         throw compiler_bug("Dvalue should be alive on entry");
     }
-    if (!current_slot_states[idx].alive && !typeis< nvalue_slot >(type) && !typeis<dvalue_slot>(type))
+    if (!current_slot_states[idx].alive && !typeis< nvalue_slot >(type) && !typeis< dvalue_slot >(type))
     {
         type = create_nslot(type);
     }
@@ -83,7 +83,7 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
     }
     else if (typeis< dvalue_slot >(type))
     {
-        type = make_mref(type_symbol(as<dvalue_slot>(type).target));
+        type = make_mref(type_symbol(as< dvalue_slot >(type).target));
     }
     return type;
 }
@@ -100,6 +100,13 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field
     block.instructions.push_back(fld);
     current_slot_states[fld.store_index].alive = true;
     current_slot_states[fld.base_index].alive = false;
+}
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_array aca)
+{
+    block.instructions.push_back(aca);
+    current_slot_states[aca.store_index].alive = true;
+    current_slot_states[aca.base_index].alive = false;
+    current_slot_states[aca.index_index].alive = false;
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
 {
@@ -138,7 +145,6 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
             {
                 throw std::logic_error("Cannot invoke a functanoid with a parameter on a dead slot.");
             }
-
 
             // In quxlang calling convention, callee is responsible for destroying the argument.
             current_slot_states.at(arg).alive = false;
@@ -179,13 +185,9 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
                 throw std::logic_error("Cannot invoke a functanoid with a parameter on a dead slot.");
             }
 
-            if (!is_ref(arg_type))
-            {
-                // In quxlang calling convention, callee is responsible for destroying the argument.
-                // however, references are not destroyed when passed as arguments.
-                std::cout << "Setting slot " << arg << " dead" << std::endl;
-                current_slot_states.at(arg).alive = false;
-            }
+            // In quxlang calling convention, callee is responsible for destroying the argument.
+            // however, references are not destroyed when passed as arguments.
+            current_slot_states.at(arg).alive = false;
         }
     }
 }
@@ -202,7 +204,6 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_referen
     current_slot_states[cst.reference_index].alive = true;
     block.instructions.push_back(cst);
 }
-
 
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::copy_reference cpr)
 {

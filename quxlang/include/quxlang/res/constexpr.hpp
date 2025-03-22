@@ -21,6 +21,7 @@ namespace quxlang
 
 
     QUX_CO_RESOLVER(constexpr_bool, constexpr_input, bool);
+    QUX_CO_RESOLVER(constexpr_u64, constexpr_input, std::uint64_t);
 }
 
 #endif //CONSTEXPR_HPP

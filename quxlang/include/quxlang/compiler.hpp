@@ -132,6 +132,7 @@ namespace quxlang
 
         COMPILER_INDEX(asm_procedure_from_symbol)
         COMPILER_INDEX(constexpr_bool)
+        COMPILER_INDEX(constexpr_u64)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)
         COMPILER_INDEX(class_builtin)

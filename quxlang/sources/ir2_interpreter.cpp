@@ -8,6 +8,7 @@
 
 #include "quxlang/compiler.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 namespace quxlang
@@ -30,6 +31,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     std::map< cow< type_symbol >, class_layout > class_layouts;
     std::map< cow< type_symbol >, cow< functanoid_routine2 > > functanoids;
     std::vector< std::byte > constexpr_result;
+    std::optional< type_symbol > constexpr_result_type;
+    std::optional< type_symbol > constexpr_result_type_value;
 
     std::set< type_symbol > missing_functanoids_val;
 
@@ -97,6 +100,7 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::access_field const& acf);
+    void exec_instr_val(vmir2::access_array const& acf);
     void exec_instr_val(vmir2::invoke const& inv);
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
@@ -125,11 +129,15 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::end_lifetime const& elt);
 
     std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
+    void init_storage(std::shared_ptr< local > local_value, type_symbol type);
 
     std::vector< std::byte > use_data(std::size_t slot);
 
     std::vector< std::byte > consume_data(std::size_t slot);
     std::vector< std::byte > copy_data(std::size_t slot);
+
+    std::uint64_t consume_u64(std::size_t slot);
+
     uint64_t alloc_object_id();
     void set_data(std::size_t slot, std::vector< std::byte > data);
 };
@@ -374,21 +382,22 @@ std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size
         return 1;
     }
 
+    // Pointer data is stored in ref, not data bytes.
     if (typeis< pointer_type >(type))
     {
-        return 8;
+        return 0;
     }
 
+    // Structs should not have data bytes
     if (this->class_layouts.contains(type))
     {
-        return this->class_layouts.at(type).size;
+        return 0;
     }
 
     // TODO: Consider if structs should have "size" during constexpr evaluation
 
     return 0;
 
-    throw compiler_bug("Attempt to get size of unknown type");
 }
 
 quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_pointer_to(std::size_t frame, std::size_t slot)
@@ -437,6 +446,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     }
 
     auto local_ptr = create_local_value(lcz.target, true);
+    init_storage(local_ptr, type);
 
     std::cout << "lcz: " << local_ptr->object_id << std::endl;
 
@@ -469,6 +479,39 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     field = std::make_shared< local >();
 
     auto& field_slot = ref_to_ptr->struct_members.at(acf.field_name);
+
+    field->ref = pointer_impl{.pointer_target = field_slot};
+    field->alive = true;
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::access_array const& aca)
+{
+    auto& frame = get_current_frame();
+    auto& parent_ref_slot = frame.local_values[aca.base_index];
+
+    if (parent_ref_slot == nullptr || !parent_ref_slot->ref.has_value())
+    {
+        throw compiler_bug("shouldn't be possible");
+    }
+
+    auto ref_to_ptr = parent_ref_slot->ref.value().pointer_target.lock();
+
+    if (ref_to_ptr == nullptr)
+    {
+        // TODO: this isn't a compiler bug but rather a coding bug
+        throw compiler_bug("accessing field of object that does not have field");
+    }
+
+    auto& field = frame.local_values[aca.store_index];
+    if (field != nullptr)
+    {
+        throw compiler_bug("trying to load a field into existing slot");
+    }
+
+    field = std::make_shared< local >();
+
+    auto arry_index = consume_u64(aca.index_index);
+
+    auto& field_slot = ref_to_ptr->array_members.at(arry_index);
 
     field->ref = pointer_impl{.pointer_target = field_slot};
     field->alive = true;
@@ -556,6 +599,48 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result const& csr)
 {
+    auto& frame = get_current_frame();
+
+    auto& slot_info = frame.ir.read().slots;
+    if (slot_info.at(csr.target).kind == slot_kind::literal)
+    {
+        if (slot_info.at(csr.target).type.template type_is< numeric_literal_reference >())
+        {
+            // Special case, we can set the result directly as if it were U64
+            auto literal_value = slot_info.at(csr.target).literal_value.value();
+            std::uint64_t result = 0;
+
+            while (literal_value.empty() == false)
+            {
+                if (std::numeric_limits< std::uint64_t >::max() / 10 < result)
+                {
+                    throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                }
+                result *= 10;
+                if (std::numeric_limits< std::uint64_t >::max() - (literal_value.back() - '0') < result)
+                {
+                    throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                }
+                result += (literal_value.back() - '0');
+
+                literal_value.pop_back();
+            }
+
+            while (result > 0)
+            {
+                this->constexpr_result.push_back(static_cast< std::byte >(result & 0xFF));
+                result >>= 8;
+            }
+
+            while (this->constexpr_result.size() < 8)
+            {
+                this->constexpr_result.push_back(std::byte{0});
+            }
+
+            return;
+        }
+    }
+
     this->constexpr_result = consume_data(csr.target);
 }
 
@@ -595,9 +680,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         throw std::logic_error("invalid");
     }
 
-    ref = std::make_shared<local>();
+    ref = std::make_shared< local >();
 
-    if (! ptr->ref.has_value())
+    if (!ptr->ref.has_value())
     {
         std::cout << "ptr object id: " << ptr->object_id << std::endl;
         throw std::logic_error("pointer missing value?");
@@ -614,8 +699,6 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     ref->ref = pointer_to_target;
     ref->alive = true;
-
-
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_from_ref const& lfr)
 {
@@ -1014,6 +1097,20 @@ bool quxlang::vmir2::ir2_interpreter::get_cr_bool()
     assert(this->implementation->constexpr_result.size() == 1);
     return this->implementation->constexpr_result == std::vector< std::byte >{std::byte(1)};
 }
+std::uint64_t quxlang::vmir2::ir2_interpreter::get_cr_u64()
+{
+    std::uint64_t result = 0;
+    if (this->implementation->constexpr_result.size() != 8)
+    {
+        throw std::logic_error("expected uint64");
+    }
+    for (std::size_t i = 0; i < 8; i++)
+    {
+        result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(this->implementation->constexpr_result[i])) << (i * 8));
+    }
+    return result;
+}
+
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_interpreter::missing_functanoids()
 {
     return this->implementation->missing_functanoids_val;
@@ -1052,6 +1149,20 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
     std::vector< std::byte > data = it->second->data;
 
     return data;
+}
+std::uint64_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::consume_u64(std::size_t slot)
+{
+    auto data = consume_data(slot);
+    if (data.size() != 8)
+    {
+        throw std::logic_error("expected uint64");
+    }
+    std::uint64_t result = 0;
+    for (std::size_t i = 0; i < 8; i++)
+    {
+        result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(data[i])) << (i * 8));
+    }
+    return result;
 }
 uint64_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::alloc_object_id()
 {
@@ -1161,9 +1272,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::end_lifetime const& elt)
 {
-    auto & frame = get_current_frame();
+    auto& frame = get_current_frame();
 
-    auto & local_ptr = frame.local_values.at(elt.of);
+    auto& local_ptr = frame.local_values.at(elt.of);
     local_ptr->alive = false;
     local_ptr = nullptr;
 }
@@ -1189,6 +1300,59 @@ std::shared_ptr< quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local > 
     }
 
     return frame.local_values[local_index];
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::init_storage(std::shared_ptr< local > local_value, type_symbol type)
+{
+    local_value->storage_initiated = true;
+
+    if (class_layouts.contains(type))
+    {
+        class_layout const& layout = class_layouts.at(type);
+
+        for (auto const& field : layout.fields)
+        {
+
+            auto const& name = field.name;
+            if (local_value->struct_members[name] == nullptr)
+            {
+                local_value->struct_members[name] = std::make_shared< local >();
+            }
+
+            local_value->struct_members[name]->member_of = local_value;
+            init_storage(local_value->struct_members[name], field.type);
+        }
+    }
+
+    type.match< array_type >(
+        [&](array_type const& array_type)
+        {
+            if (!array_type.element_count.match< expression_numeric_literal >(
+                    [&](expression_numeric_literal const& literal)
+                    {
+                        std::uint64_t element_count = parsers::str_to_int< std::uint64_t >(literal.value);
+                        local_value->array_members.resize(element_count);
+                        for (std::size_t i = 0; i < element_count; i++)
+                        {
+                            if (local_value->array_members.at(i) == nullptr)
+                            {
+                                local_value->array_members.at(i) = std::make_shared< local >();
+                            }
+                            local_value->array_members.at(i)->member_of = local_value;
+                            init_storage(local_value->array_members.at(i), array_type.element_type);
+                        }
+                    }))
+            {
+                // The expression must have been resolved to a single numeric literal at this point,
+                // types like `[4 + 5]I32` should have been reduced to `[9]I32` before adding to IR.
+                throw std::logic_error("unresolved array type");
+            }
+        });
+
+    if (get_type_size(type) > 0)
+    {
+        local_value->data.resize(get_type_size(type));
+        std::fill(local_value->data.begin(), local_value->data.end(), std::byte(0));
+    }
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {
