@@ -617,13 +617,13 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
                     throw std::logic_error("Overflow in numeric literal to U64 conversion");
                 }
                 result *= 10;
-                if (std::numeric_limits< std::uint64_t >::max() - (literal_value.back() - '0') < result)
+                if (std::numeric_limits< std::uint64_t >::max() - (literal_value.front() - '0') < result)
                 {
                     throw std::logic_error("Overflow in numeric literal to U64 conversion");
                 }
-                result += (literal_value.back() - '0');
+                result += (literal_value.front() - '0');
 
-                literal_value.pop_back();
+                literal_value.erase(literal_value.begin(), literal_value.begin() + 1);
             }
 
             while (result > 0)
