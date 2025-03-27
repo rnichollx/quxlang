@@ -39,7 +39,7 @@ namespace quxlang
         {
             auto template_arg_contextual = template_ast.m_template_args[i];
 
-            auto template_arg = (co_await *c->lk_lookup({.type=template_arg_contextual,.context= template_name})).value();
+            auto template_arg = (co_await *c->lk_lookup({.context= template_name, .type=template_arg_contextual,})).value();
             std::string template_arg_str = to_string(template_arg);
 
             type_symbol instanciation_arg = template_instanciation_parameters.positional[i];

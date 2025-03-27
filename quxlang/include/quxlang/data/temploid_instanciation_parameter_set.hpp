@@ -29,7 +29,7 @@ struct rpnx::resolver_traits<quxlang::temploid_instanciation_parameter_set>
                 result += ", ";
             }
             first = false;
-            result += k + ": " + to_string(v);
+            result += k + ": " + quxlang::to_string(v);
         }
         result += "}";
         return result;

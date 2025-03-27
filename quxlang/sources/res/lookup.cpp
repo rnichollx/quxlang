@@ -145,7 +145,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
         initialization_reference output;
 
-        auto callee_canonical = co_await QUX_CO_DEP(lookup, ({.type = param_set.initializee, .context = context}));
+        auto callee_canonical = co_await QUX_CO_DEP(lookup, ({.context = context, .type = param_set.initializee, }));
         if (!callee_canonical.has_value())
         {
             co_return std::nullopt;
@@ -155,7 +155,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
         for (auto& p : param_set.parameters.positional)
         {
-            auto param_canonical = co_await QUX_CO_DEP(lookup, ({p, context}));
+            auto param_canonical = co_await QUX_CO_DEP(lookup, ({.context= context, .type = p}));
             if (!param_canonical.has_value())
             {
                 co_return std::nullopt;
