@@ -1,0 +1,17 @@
+MODULE main;
+
+
+::yak CLASS
+{
+   .z VAR -> I32;
+   .f VAR =>> I32;
+   .f_count VAR SZ;
+
+   .DESTRUCTOR FUNCTION()
+   {
+     IF (.z??)
+     {
+        .z-> := .z-> + 1;
+     }
+   }
+}

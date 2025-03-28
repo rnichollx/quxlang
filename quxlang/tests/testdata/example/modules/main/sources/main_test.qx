@@ -54,18 +54,6 @@ MODULE main;
   RETURN a + b + y;
 }
 
-::yak CLASS
-{
-   .z VAR -> I32;
-
-   .DESTRUCTOR FUNCTION()
-   {
-     IF (.z)
-     {
-        .z-> := .z-> + 1;
-     }
-   }
-}
 
 ::mif FUNCTION(): I64
 {
