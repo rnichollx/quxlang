@@ -45,17 +45,13 @@
 * `.<|` bitwise left rotate
 * `.|>` bitwise right rotate
 * `.+>` bitwise arithmetic shift
-* `.?<` bitwise first set index
-* `.?>` bitwise last set index
-* `.!<` bitwise first unset index
-* `.!>` bitwise last unset index
 
 ## Object and pointer operators
 
 * `.` Field get operator.
 * `->` Pointer access operator.
 * `<-` Get instance-address operator.
-* `[<-]` Get array-address operator.
+* `<<=` Get array-address operator.
 * `*<-` Get wildcard-pointer operator.
 * `?-` Get field address if non-null operator
 * `?>` Get value-or-default operator

@@ -37,6 +37,10 @@ namespace quxlang
         struct load_const_zero;
         struct defer_nontrivial_dtor;
         struct end_lifetime;
+        struct ptr_offset;
+        struct ptr_comp;
+        struct ptr_to_i;
+        struct i_to_ptr;
 
         struct int_add;
         struct int_mul;
