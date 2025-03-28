@@ -156,7 +156,8 @@ namespace quxlang
             {
                 auto retval = co_await emitter.generate_expr(expr);
                 co_return retval;
-            } catch (...)
+            }
+            catch (...)
             {
                 auto invalid_routine = frame.get_result();
 
@@ -170,7 +171,11 @@ namespace quxlang
         [[nodiscard]] auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             auto expr_index = co_await generate_expression(current_block, expr);
-            // TODO: Convert to bool if the result is not type bool
+            auto expr_type = this->frame.block(current_block).slots->slots.at(expr_index).type;
+            if (!typeis< bool_type >(expr_type))
+            {
+                throw std::logic_error("Expected BOOL expression in IF statement");
+            }
             co_return expr_index;
         }
 

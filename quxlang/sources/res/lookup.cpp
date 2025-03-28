@@ -16,6 +16,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         std::cout << "Looking up type: " << to_string(type) << std::endl;
     });
 
+    if (type.type_is<size_type>())
+    {
+        co_return int_type{.bits = c->m_output_info.pointer_size() * 8, .has_sign = false };
+    }
+
     if (type.template type_is< pointer_type >())
     {
         pointer_type const& ptr = as< pointer_type >(type);

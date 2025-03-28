@@ -242,6 +242,11 @@ namespace quxlang
         RPNX_MEMBER_METADATA(pointer_type, target, ptr_class, qual);
     };
 
+    struct size_type
+    {
+        RPNX_EMPTY_METADATA(size_type);
+    };
+
     struct value_expression_reference
     {
         // TODO: Implement

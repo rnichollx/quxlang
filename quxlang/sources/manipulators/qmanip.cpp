@@ -20,6 +20,7 @@ namespace quxlang
         std::string operator()(int_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
         std::string operator()(array_type const& ref) const;
+        std::string operator()(size_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
@@ -75,6 +76,11 @@ namespace quxlang
         bool operator()(subsymbol const& ref) const
         {
             return is_template(ref.of);
+        }
+
+        bool operator()(size_type const &)
+        {
+            return false;
         }
 
         bool operator()(instanciation_reference const& type)
@@ -273,6 +279,11 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(subsymbol const& ref) const
     {
         return to_string(ref.of) + "::" + ref.name;
+    }
+
+    std::string qualified_symbol_stringifier::operator()(size_type const& ref) const
+    {
+        return "SZ";
     }
 
     std::string qualified_symbol_stringifier::operator()(array_type const& arr) const
@@ -1059,6 +1070,11 @@ namespace quxlang
                 return check(template_val.target, match_val.target, true);
             }
 
+
+            bool check_impl(size_type const& template_val, size_type const& match_val, bool conv)
+            {
+                return true;
+            }
             bool check_impl(array_type const& template_val, array_type const& match_val, bool conv)
             {
                 // TODO: Allow match expressions against element count

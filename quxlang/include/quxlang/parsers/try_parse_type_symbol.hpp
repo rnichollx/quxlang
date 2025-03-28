@@ -171,6 +171,10 @@ namespace quxlang::parsers
             }
             return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
+        else if (skip_keyword_if_is(pos, end, "SZ"))
+        {
+            return size_type{};
+        }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
             // TODO: Support multiple modules
@@ -195,6 +199,10 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, "->"))
         {
             return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+        }
+        else if (skip_symbol_if_is(pos, end, "=>>"))
+        {
+            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
         }
         else
         {
