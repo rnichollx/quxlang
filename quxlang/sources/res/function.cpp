@@ -119,6 +119,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
     }
 
+    if (name == "OPERATOR??" && (parent.test< pointer_type >([](pointer_type p){ return p.ptr_class != pointer_class::ref; })  || parent.type_is<int_type>()))
+    {
+        builtin_function_info bl_info;
+
+        bl_info.overload = temploid_ensig{.interface = {.named = {{"THIS", {parent}}}}};
+
+        bl_info.return_type = bool_type{};
+
+        allowed_operations.insert(bl_info);
+    }
+
     if (name == "OPERATOR[]" && parent.type_is< array_type >())
     {
 

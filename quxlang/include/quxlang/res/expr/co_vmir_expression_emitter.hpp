@@ -96,6 +96,10 @@ namespace quxlang
             {
                 co_return co_await this->generate(as< expression_brackets >(std::move(expr)));
             }
+            else if (typeis< expression_booliate >(expr))
+            {
+                co_return co_await this->generate(as< expression_booliate >(std::move(expr)));
+            }
             else
             {
                 throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
@@ -141,7 +145,8 @@ namespace quxlang
 
             if (!instanciation)
             {
-                throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
+                std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
+                throw std::logic_error(message);
             }
 
             co_return co_await this->gen_call_functanoid(instanciation.value(), args);
@@ -805,6 +810,13 @@ namespace quxlang
             co_return val;
         }
 
+        auto generate(expression_booliate input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto val = co_await generate_expr(input.lhs);
+            auto oper = this->get_class_member(val, "OPERATOR??");
+            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named={{"THIS", val}}});
+        }
+
         auto generate(expression_brackets const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto lhs_val = co_await generate_expr(what.lhs);
@@ -822,6 +834,14 @@ namespace quxlang
             auto call_brackets_operator = submember{lhs_class_type, "OPERATOR[]"};
 
             co_return co_await gen_call_functum(call_brackets_operator, invoke_brackets_args);
+        }
+
+        auto get_class_member(storage_index val, std::string func)
+        {
+            auto val_type = this->current_type(val);
+            auto val_class = remove_ref(val_type);
+            auto func_ref = submember{val_class, func};
+            return func_ref;
         }
 
         auto generate(expression_thisdot_reference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >

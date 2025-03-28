@@ -95,6 +95,19 @@ quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_blo
     copy.block.entry_state = current_slot_states;
     return copy;
 }
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool tb)
+{
+    block.instructions.push_back(tb);
+    current_slot_states[tb.from].alive = false;
+    current_slot_states[tb.to].alive= true;
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool_not tbn)
+{
+    block.instructions.push_back(tbn);
+    current_slot_states[tbn.from].alive = false;
+    current_slot_states[tbn.to].alive= true;
+}
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field fld)
 {
     block.instructions.push_back(fld);

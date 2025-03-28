@@ -41,6 +41,8 @@ namespace quxlang
         struct ptr_comp;
         struct ptr_to_i;
         struct i_to_ptr;
+        struct to_bool;
+        struct to_bool_not;
 
         struct int_add;
         struct int_mul;
@@ -58,7 +60,7 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -323,6 +325,21 @@ namespace quxlang
             RPNX_MEMBER_METADATA(cmp_ge, a, b, result);
         };
 
+        struct to_bool
+        {
+            storage_index from;
+                storage_index to;
+
+            RPNX_MEMBER_METADATA(to_bool, from, to);
+        };
+
+        struct to_bool_not
+        {
+            storage_index from;
+            storage_index to;
+            RPNX_MEMBER_METADATA(to_bool_not, from, to);
+        };
+
         struct jump
         {
             block_index target;
@@ -450,6 +467,8 @@ namespace quxlang
             type_symbol current_type(storage_index idx);
 
             executable_block_generation_state clone_subblock();
+            void emit(vmir2::to_bool_not tbn);
+            void emit(vmir2::to_bool tb);
             void emit(vmir2::access_field fld);
             void emit(vmir2::access_array aca);
             void emit(vmir2::invoke inv);

@@ -191,6 +191,23 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 
     auto const& call = instanciation->params;
 
+    if (member->name == "OPERATOR??")
+    {
+        if (cls->template type_is< pointer_type >() && cls->as<pointer_type>().ptr_class != pointer_class::ref)
+        {
+            if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            {
+                auto this_slot_id = args.named.at("THIS");
+
+                vmir2::to_bool tb{};
+                tb.from = this_slot_id;
+                tb.to = args.named.at("RETURN");
+
+                return tb;
+            }
+        }
+    }
+
     if (member->name == "OPERATOR[]")
     {
         if (cls->template type_is< array_type >())

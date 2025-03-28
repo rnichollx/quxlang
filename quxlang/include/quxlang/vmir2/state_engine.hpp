@@ -22,6 +22,8 @@ namespace quxlang::vmir2
 
       private:
         // Method declarations for each type of instruction
+        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool const& tb);
+        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool_not const& acf);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, load_const_zero const& lcz);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, access_field const& acf);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, access_array const& acf);

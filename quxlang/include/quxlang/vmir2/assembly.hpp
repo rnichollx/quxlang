@@ -28,6 +28,9 @@ namespace quxlang::vmir2
 
         void set_arg_state();
 
+        std::string to_string_internal(vmir2::to_bool inst);
+        std::string to_string_internal(vmir2::to_bool_not inst);
+
         std::string to_string_internal(vmir2::access_field inst);
         std::string to_string_internal(vmir2::access_array inst);
         std::string to_string_internal(vmir2::invoke inst);

@@ -191,6 +191,19 @@ namespace quxlang::vmir2
         result += quxlang::to_string(this->m_what.slots.at(inst.store_index).type);
         return result;
     }
+
+    std::string assembler::to_string_internal(vmir2::to_bool inst)
+    {
+        std::string result = "TB %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::to_bool_not inst)
+    {
+        std::string result = "TBN %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);
+        return result;
+    }
+
     std::string assembler::to_string_internal(vmir2::access_array inst)
     {
         std::string result;

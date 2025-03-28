@@ -261,6 +261,20 @@ namespace quxlang::parsers
             *bindings[bindings.size() - 1] = std::move(brkts);
             goto next_operator;
         }
+        else if (skip_symbol_if_is(pos, end, "??"))
+        {
+            expression_booliate blt;
+            blt.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(blt);
+            goto next_operator;
+        }
+        else if (skip_symbol_if_is(pos, end, "?!"))
+        {
+            expression_antibooliate blt;
+            blt.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(blt);
+            goto next_operator;
+        }
         else
         {
             return result;

@@ -24,18 +24,29 @@ namespace quxlang
             return "(" + to_string(expr.lhs) + " + " + to_string(expr.rhs) + ")";
         }
 
+
+        std::string  operator()(expression_booliate const & be) const
+        {
+            return to_string(be.lhs) + " ??";
+        }
+
+        std::string  operator()(expression_antibooliate const & be) const
+        {
+            return to_string(be.lhs) + " ?!";
+        }
+
         std::string operator()(expression_brackets const& brkts) const
         {
             std::string result;
             result += to_string(brkts.lhs);
-            result += "[";
+            result += " [ ";
             for (std::size_t i = 0; i < brkts.bracketed.size(); i++)
             {
                 result += to_string(brkts.bracketed[i]);
                 if (i != brkts.bracketed.size() - 1)
-                    result += ", ";
+                    result += " , ";
             }
-            result += "]";
+            result += " ]";
             return result;
         }
 
@@ -139,7 +150,10 @@ namespace quxlang
 
     inline std::string to_string(expression const& expr)
     {
-        return rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
+        auto str= rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
+
+        // TODO: replace all "  " with " "
+        return str;
     }
 } // namespace quxlang
 

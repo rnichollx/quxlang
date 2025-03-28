@@ -26,6 +26,8 @@ namespace quxlang
     struct expression_move_assign;
     struct expression_parenthesis;
     struct expression_brackets;
+    struct expression_booliate;
+    struct expression_antibooliate;
 
     struct expression_and;
     struct expression_or;
@@ -111,8 +113,24 @@ namespace quxlang
 
         std::vector<expression> bracketed;
 
-        RPNX_MEMBER_METADATA(expression_brackets, lhs);
+        RPNX_MEMBER_METADATA(expression_brackets, lhs, bracketed);
     };
+
+    struct expression_booliate
+    {
+        expression lhs;
+
+        RPNX_MEMBER_METADATA(expression_booliate, lhs);
+    };
+
+    struct expression_antibooliate
+    {
+        expression lhs;
+
+        RPNX_MEMBER_METADATA(expression_antibooliate, lhs);
+    };
+
+
 
 
 

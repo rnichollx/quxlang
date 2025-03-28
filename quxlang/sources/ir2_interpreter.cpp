@@ -100,7 +100,9 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::access_field const& acf);
-    void exec_instr_val(vmir2::access_array const& acf);
+    void exec_instr_val(vmir2::to_bool const& lcz);
+    void exec_instr_val(vmir2::to_bool_not const& acf);
+    void exec_instr_val(vmir2::access_array const& aca);
     void exec_instr_val(vmir2::invoke const& inv);
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
@@ -140,6 +142,11 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     uint64_t alloc_object_id();
     void set_data(std::size_t slot, std::vector< std::byte > data);
+
+    bool consume_bool(std::size_t slot);
+    void output_bool(std::size_t slot, bool value);
+
+    type_symbol frame_slot_data_type(std::size_t slot);
 };
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_symbol > functype, vmir2::invocation_args args)
@@ -338,7 +345,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
         quxlang::vmir2::assembler ir_printer(current_func_ir.get());
 
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        std::cout << "Executi   ng in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
@@ -397,7 +404,6 @@ std::size_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_type_size
     // TODO: Consider if structs should have "size" during constexpr evaluation
 
     return 0;
-
 }
 
 quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_pointer_to(std::size_t frame, std::size_t slot)
@@ -482,6 +488,99 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     field->ref = pointer_impl{.pointer_target = field_slot};
     field->alive = true;
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
+{
+    // There are two different versions of TB instruction, one which operates on pointer and one which
+    // operates on integers.
+    // These work the same on real machines, but because we treat pointers specially in constexpr, we
+        // need to handle them differently.
+
+    auto typ = frame_slot_data_type(tb.from);
+
+    if (typ.type_is< pointer_type >() && !(typ.get_as<pointer_type>().ptr_class == pointer_class::ref))
+    {
+        auto &local = get_current_frame().local_values[tb.from];
+
+        if (local == nullptr)
+        {
+            // Maybe invalid instruction? but this should have been caught earlier
+            // throw invalid_instruction_transition_error("missing slot");
+            throw compiler_bug("slot missing");
+        }
+
+        if (!local->alive)
+        {
+            throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
+        }
+
+        output_bool(tb.to, local->ref.has_value());
+    }
+    else
+    {
+        auto data = consume_data(tb.from);
+
+        bool result = false;
+
+        for (auto const& byte : data)
+        {
+            if (byte != std::byte{0})
+            {
+                result = true;
+                break;
+            }
+        }
+
+        output_bool(tb.to, result);
+    }
+
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::to_bool_not const& tbn)
+{
+    // There are two different versions of TB instruction, one which operates on pointer and one which
+    // operates on integers.
+    // These work the same on real machines, but because we treat pointers specially in constexpr, we
+    // need to handle them differently.
+
+    auto typ = frame_slot_data_type(tbn.from);
+
+    if (typ.type_is< pointer_type >() && !(typ.template as<pointer_type>().ptr_class == pointer_class::ref))
+    {
+        auto &local = get_current_frame().local_values[tbn.from];
+
+        if (local == nullptr)
+        {
+            // Maybe invalid instruction? but this should have been caught earlier
+            // throw invalid_instruction_transition_error("missing slot");
+            throw compiler_bug("slot missing");
+        }
+
+        if (!local->alive)
+        {
+            throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
+        }
+
+        output_bool(tbn.to, !local->ref.has_value());
+    }
+    else
+    {
+        auto data = consume_data(tbn.from);
+
+        bool result = false;
+
+        for (auto const& byte : data)
+        {
+            if (byte != std::byte{0})
+            {
+                result = true;
+                break;
+            }
+        }
+
+        output_bool(tbn.to, !result);
+    }
+
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::access_array const& aca)
 {
@@ -1173,8 +1272,6 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::set_data(std::size_t
 {
     auto& frame = get_current_frame();
 
-    auto it = frame.local_values.find(slot);
-
     auto& local_ptr = frame.local_values[slot];
     if (local_ptr == nullptr)
     {
@@ -1184,6 +1281,75 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::set_data(std::size_t
     local.data = std::move(data);
     local.object_id = alloc_object_id();
     local.alive = true;
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::output_bool(std::size_t slot_index, bool value)
+{
+    auto& frame = get_current_frame();
+
+    auto slot_type = frame_slot_data_type(slot_index);
+    if (slot_type != bool_type{})
+    {
+        throw invalid_instruction_error("Error in [output_bool]: slot is not a boolean");
+    }
+
+    auto& slot = frame.local_values[slot_index];
+    slot = std::make_shared< local >();
+
+    init_storage(slot, bool_type{});
+
+    set_data(slot_index, {value ? std::byte(1) : std::byte(0)});
+}
+quxlang::type_symbol quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::frame_slot_data_type(std::size_t slot)
+{
+    auto& frame = get_current_frame();
+
+    auto const& ir = frame.ir.read();
+    if (ir.slots.at(slot).kind != slot_kind::local)
+    {
+        throw invalid_instruction_error("Error in [frame_slot_data_type]: slot is not a local");
+    }
+
+    return ir.slots.at(slot).type;
+}
+
+bool quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::consume_bool(std::size_t slot)
+{
+    auto& frame = get_current_frame();
+
+    auto& local_ptr = frame.local_values[slot];
+
+    if (local_ptr == nullptr)
+    {
+        throw invalid_instruction_transition_error("Error in [consume_bool]: slot does not exist");
+    }
+
+    if (!local_ptr->alive)
+    {
+        throw invalid_instruction_transition_error("Error in [consume_bool]: slot is not alive");
+    }
+
+    auto& slot_val = frame.ir.read().slots.at(slot);
+    if (slot_val.kind != slot_kind::local)
+    {
+        throw invalid_instruction_error("Error in [consume_bool]: slot is not a local");
+    }
+
+    if (slot_val.type.type_is< bool_type >())
+    {
+        throw invalid_instruction_error("Error in [consume_bool]: slot is not a boolean");
+    }
+
+    if (local_ptr->data.size() != 1)
+    {
+        throw compiler_bug("Error in [consume_bool]: boolean slot has invalid size");
+    }
+
+    auto result = local_ptr->data[0] != std::byte(0);
+
+    local_ptr->alive = false;
+    local_ptr = nullptr;
+    return result;
 }
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(quxlang::vmir2::defer_nontrivial_dtor const& dntd)

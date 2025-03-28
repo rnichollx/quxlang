@@ -32,6 +32,39 @@ void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, s
         }
     }
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool const& tb)
+{
+    if (!state.at(tb.from).alive)
+    {
+        throw invalid_instruction_transition_error("from entry must be live");
+    }
+    if (state[tb.to].alive)
+    {
+        throw invalid_instruction_transition_error("to entry must be dead");
+    }
+
+    state[tb.from].alive = false;
+    state[tb.to].alive = true;
+
+}
+
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool_not const& tbn)
+{
+    if (!state.at(tbn.from).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to store into a dead slot");
+    }
+    if (state[tbn.to].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to store into a non-dead slot");
+    }
+
+    state[tbn.from].alive = false;
+    state[tbn.to].alive = true;
+
+}
+
+
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_const_zero const& lcz)
 {
     if (state[lcz.target].alive)

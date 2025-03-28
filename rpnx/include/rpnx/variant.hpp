@@ -681,7 +681,40 @@ namespace rpnx
         }
 
         template < typename T >
+        T& as()
+        {
+            assert(valid());
+            // static_assert(has_cvref_removed_identical_type<T>(), "Must be in type list");
+            //  Check if the variant is currently holding a value of type T
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                // If it is not, throw an exception
+                throw std::bad_variant_access();
+            }
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T* >(m_data);
+        }
+
+        template < typename T >
         T const& get_as() const
+        {
+            assert(valid());
+            static_assert(has_cvref_removed_identical_type< T >(), "Must be in type list");
+
+            // Check if the variant is currently holding a value of type T
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                // If it is not, throw an exception
+                throw std::bad_variant_access();
+            }
+            assert(valid());
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T const* >(m_data);
+        }
+
+
+        template < typename T >
+        T const& as() const
         {
             assert(valid());
             static_assert(has_cvref_removed_identical_type< T >(), "Must be in type list");
@@ -775,6 +808,17 @@ namespace rpnx
             return m_vinf != nullptr && m_vinf->m_index == index_of< T, Ts... >::value;
         }
 
+        template <typename ... Ts2>
+        bool type_any_of() const
+        {
+            assert(valid());
+            if (m_vinf == nullptr)
+            {
+                return false;
+            }
+            return (type_is<Ts2>() || ...);
+        }
+
         template <typename T, typename F>
         bool match(F && func)
         {
@@ -786,6 +830,15 @@ namespace rpnx
 
             return false;
         }
+        template <typename T, typename F>
+        bool test(F && func)
+        {
+            if (type_is<T>())
+            {
+                return func(get_as<T>());
+            }
+            return false;
+        }
 
         template <typename T, typename F>
         bool match(F && func) const
@@ -794,6 +847,18 @@ namespace rpnx
             {
                 func(get_as<T>());
                 return true;
+            }
+
+            return false;
+        }
+
+
+        template <typename T, typename F>
+        bool test(F && func) const
+        {
+            if (type_is<T>())
+            {
+                return func(get_as<T>());
             }
 
             return false;
