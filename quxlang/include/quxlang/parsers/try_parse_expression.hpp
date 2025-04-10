@@ -229,7 +229,9 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            expression_rightarrow arrow;
+            //expression_rightarrow arrow;
+            expression_unary_postfix arrow;
+            arrow.operator_str = "->";
             arrow.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(arrow);
             goto next_operator;
@@ -263,16 +265,26 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "??"))
         {
-            expression_booliate blt;
+            expression_unary_postfix blt;
+            blt.operator_str = "??";
             blt.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(blt);
             goto next_operator;
         }
         else if (skip_symbol_if_is(pos, end, "?!"))
         {
-            expression_antibooliate blt;
+            expression_unary_postfix blt;
+            blt.operator_str = "?!";
             blt.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(blt);
+            goto next_operator;
+        }
+        else if (skip_symbol_if_is(pos, end, "++"))
+        {
+            expression_unary_postfix inc;
+            inc.operator_str = "++";
+            inc.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(inc);
             goto next_operator;
         }
         else

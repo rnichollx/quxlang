@@ -13,5 +13,14 @@ MODULE main;
      {
         .z-> := .z-> + 1;
      }
+
+     IF (.f??)
+     {
+        WHILE(.f_count > 0)
+        {
+           .f-> ++;
+           .f_count := .f_count - 1;
+        }
+     }
    }
 }

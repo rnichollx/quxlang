@@ -19,21 +19,17 @@ namespace quxlang
         {
         }
 
-        std::string operator()(expression_add const& expr) const
+        std::string operator()(expression_unary_postfix const& be) const
         {
-            return "(" + to_string(expr.lhs) + " + " + to_string(expr.rhs) + ")";
+            return "(" + to_string(be.lhs) + " " + be.operator_str + ")";
+        }
+
+        std::string operator()(expression_unary_prefix const& be) const
+        {
+            return "(" + be.operator_str + " " + to_string(be.rhs) + ")";
         }
 
 
-        std::string  operator()(expression_booliate const & be) const
-        {
-            return to_string(be.lhs) + " ??";
-        }
-
-        std::string  operator()(expression_antibooliate const & be) const
-        {
-            return to_string(be.lhs) + " ?!";
-        }
 
         std::string operator()(expression_brackets const& brkts) const
         {
@@ -145,12 +141,12 @@ namespace quxlang
         {
             std::string output = "(" + to_string(expr.lhs) + " -> )";
             return output;
-        };
+        }
     };
 
     inline std::string to_string(expression const& expr)
     {
-        auto str= rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
+        auto str = rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
 
         // TODO: replace all "  " with " "
         return str;

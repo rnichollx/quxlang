@@ -26,8 +26,6 @@ namespace quxlang
     struct expression_move_assign;
     struct expression_parenthesis;
     struct expression_brackets;
-    struct expression_booliate;
-    struct expression_antibooliate;
 
     struct expression_and;
     struct expression_or;
@@ -36,7 +34,6 @@ namespace quxlang
     struct expression_nor;
     struct expression_implies;
     struct expression_implied;
-
 
     struct expression_this_reference
     {
@@ -83,6 +80,22 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_binary, operator_str, lhs, rhs);
     };
 
+    struct expression_unary_prefix
+    {
+        std::string operator_str;
+        expression rhs;
+
+        RPNX_MEMBER_METADATA(expression_unary_prefix, operator_str, rhs);
+    };
+
+    struct expression_unary_postfix
+    {
+        std::string operator_str;
+        expression lhs;
+
+        RPNX_MEMBER_METADATA(expression_unary_postfix, operator_str, lhs);
+    };
+
     struct expression_dotreference
     {
         expression lhs;
@@ -111,23 +124,9 @@ namespace quxlang
     {
         expression lhs;
 
-        std::vector<expression> bracketed;
+        std::vector< expression > bracketed;
 
         RPNX_MEMBER_METADATA(expression_brackets, lhs, bracketed);
-    };
-
-    struct expression_booliate
-    {
-        expression lhs;
-
-        RPNX_MEMBER_METADATA(expression_booliate, lhs);
-    };
-
-    struct expression_antibooliate
-    {
-        expression lhs;
-
-        RPNX_MEMBER_METADATA(expression_antibooliate, lhs);
     };
 
 

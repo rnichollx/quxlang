@@ -318,7 +318,7 @@ namespace quxlang
 
             vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
 
-            frame.generate_branch(condition_block, cond, body_block, after_block);
+            frame.generate_branch(cond, condition_block, body_block, after_block);
             co_await generate_function_block(body_block, st.loop_block, "while_statement");
             frame.generate_jump(body_block, condition_block);
 

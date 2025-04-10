@@ -52,60 +52,12 @@ namespace quxlang
 
         auto generate_expr(expression expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            if (typeis< expression_symbol_reference >(expr))
-            {
-                co_return co_await (this->generate(as< expression_symbol_reference >(std::move(expr))));
-            }
-            else if (typeis< expression_binary >(expr))
-            {
-                std::cout << "generate binary" << as< expression_binary >(expr).operator_str << std::endl;
-                co_return co_await (this->generate(as< expression_binary >(std::move(expr))));
-            }
-            else if (typeis< expression_call >(expr))
-            {
-                std::cout << "generate call" << std::endl; // << as<expression_call>(expr).callee << std::endl;
-
-                co_return co_await (this->gen_call_expr(as< expression_call >(std::move(expr))));
-            }
-            else if (typeis< expression_numeric_literal >(expr))
-            {
-                std::cout << "Generate a numeric literal" << std::endl;
-                co_return co_await this->generate(as< expression_numeric_literal >(std::move(expr)));
-            }
-            else if (typeis< expression_thisdot_reference >(expr))
-            {
-                co_return co_await this->generate(as< expression_thisdot_reference >(std::move(expr)));
-            }
-            else if (typeis< expression_this_reference >(expr))
-            {
-                co_return co_await this->generate(as< expression_this_reference >(std::move(expr)));
-            }
-            else if (typeis< expression_dotreference >(expr))
-            {
-                co_return co_await this->generate(as< expression_dotreference >(std::move(expr)));
-            }
-            else if (typeis< expression_rightarrow >(expr))
-            {
-                co_return co_await this->generate(as< expression_rightarrow >(std::move(expr)));
-            }
-            else if (typeis< expression_leftarrow >(expr))
-            {
-                co_return co_await this->generate(as< expression_leftarrow >(std::move(expr)));
-            }
-            else if (typeis< expression_brackets >(expr))
-            {
-                co_return co_await this->generate(as< expression_brackets >(std::move(expr)));
-            }
-            else if (typeis< expression_booliate >(expr))
-            {
-                co_return co_await this->generate(as< expression_booliate >(std::move(expr)));
-            }
-            else
-            {
-                throw std::logic_error("Unimplemented handler for " + std::string(expr.type().name()));
-            }
-
-            assert(false);
+            co_return co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index > >(
+                [&](auto&& val)
+                {
+                    return generate(std::forward< decltype(val) >(val));
+                },
+                expr);
         }
 
         auto gen_call_functum(type_symbol func, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -346,7 +298,14 @@ namespace quxlang
             co_return new_object;
         }
 
-        auto gen_call_expr(expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+
+
+
+
+
+
+
+        auto generate(expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             std::cout << "gen_call_expr A()" << std::endl;
             auto callee = co_await generate_expr(call.callee);
@@ -439,7 +398,6 @@ namespace quxlang
 
         auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
-
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
 
@@ -622,7 +580,6 @@ namespace quxlang
 
         auto gen_value_constructor_conversion(storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
-
             type_symbol value_type = this->current_type(value_index);
             std::cout << "gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
@@ -719,7 +676,6 @@ namespace quxlang
 
         auto generate(expression_symbol_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-
             std::string sym = quxlang::to_string(expr.symbol);
             auto value_opt = (co_await this->lookup_symbol(expr.symbol));
 
@@ -731,10 +687,21 @@ namespace quxlang
             co_return value_opt.value();
         }
 
+        auto generate(expression_sizeof szof) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            // TODO: implement this.
+            throw rpnx::unimplemented();
+        }
+
         auto generate(expression_this_reference expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             throw rpnx::unimplemented();
             co_return 0;
+        }
+
+        auto generate(expression_target target) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            throw rpnx::unimplemented();
         }
 
         auto generate(expression_leftarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -810,11 +777,18 @@ namespace quxlang
             co_return val;
         }
 
-        auto generate(expression_booliate input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto generate(expression_unary_postfix input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto val = co_await generate_expr(input.lhs);
-            auto oper = this->get_class_member(val, "OPERATOR??");
-            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named={{"THIS", val}}});
+            auto oper = this->get_class_member(val, "OPERATOR" + input.operator_str);
+            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
+        }
+
+        auto generate(expression_unary_prefix input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            auto val = co_await generate_expr(input.rhs);
+            auto oper = this->get_class_member(val, "OPERATOR" + input.operator_str + "PREFIX");
+            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
         }
 
         auto generate(expression_brackets const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
@@ -856,6 +830,11 @@ namespace quxlang
             co_return field;
         }
 
+        auto generate(expression_string_literal expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            throw rpnx::unimplemented();
+        }
+
         auto generate(expression_dotreference what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto parent = co_await generate_expr(what.lhs);
@@ -865,7 +844,6 @@ namespace quxlang
 
         auto generate_dot_access(storage_index base, std::string field_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-
             auto base_type = this->current_type(base);
             std::string base_type_str = quxlang::to_string(base_type);
             auto base_type_noref = quxlang::remove_ref(base_type);
