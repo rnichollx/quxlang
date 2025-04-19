@@ -32,6 +32,56 @@ void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, s
         }
     }
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, increment const& tb)
+{
+    if (!state.at(tb.target).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to increment a dead slot");
+    }
+
+    state[tb.target].alive = false;
+    state[tb.oldval].alive = true;
+}
+
+
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, decrement const& acf)
+{
+    // TODO: State checks
+    state[acf.target].alive = false;
+    state[acf.oldval].alive = true;
+}
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, preincrement const& pinc)
+{
+   if (!state.at(pinc.target).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to increment a dead slot");
+    }
+
+    if (state[pinc.target2].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to increment a non-dead slot");
+    }
+
+    state[pinc.target].alive = false;
+    state[pinc.target2].alive = true;
+}
+
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, predecrement const& pdec)
+{
+    if (!state[pdec.target].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to increment a dead slot");
+    }
+
+    if (state[pdec.target2].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to increment a non-dead slot");
+    }
+
+    state[pdec.target].alive = false;
+    state[pdec.target2].alive = true;
+}
+
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool const& tb)
 {
     if (!state.at(tb.from).alive)
@@ -45,7 +95,6 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
     state[tb.from].alive = false;
     state[tb.to].alive = true;
-
 }
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool_not const& tbn)
@@ -61,9 +110,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
     state[tbn.from].alive = false;
     state[tbn.to].alive = true;
-
 }
-
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::load_const_zero const& lcz)
 {

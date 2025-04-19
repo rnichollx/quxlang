@@ -1,0 +1,325 @@
+#ifndef QUXLANG_BYTEMATH_HPP
+#define QUXLANG_BYTEMATH_HPP
+
+#include <algorithm>
+#include <cstdint>
+#include <utility>
+#include <vector>
+
+namespace quxlang
+{
+
+    // Add the two numbers
+    std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b);
+    // multiply the two numbers
+    std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b);
+    // divide the two numbers
+    std::vector< std::byte > le_unsigned_div(std::vector< std::byte > a, std::vector< std::byte > b);
+
+    // subtract the two numbers, assuming a >= b
+    std::vector< std::byte > le_unsigned_sub(std::vector< std::byte > a, std::vector< std::byte > b);
+
+    // compare two numbers a < b
+    bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b);
+
+    // remainder of a / b
+    std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b);
+
+    std::uint8_t le_get(std::vector< std::byte > const& data, std::size_t index);
+
+    inline std::pair< std::uint8_t, std::uint8_t > bytewise_add(std::uint8_t a, std::uint8_t b, std::uint8_t c)
+    {
+        std::uint16_t sum = std::uint16_t(0) + a + b + c;
+
+        std::uint8_t carry = sum >> 8;
+        std::uint8_t result = sum & 0xFF;
+
+        return {result, carry};
+    }
+
+    inline std::uint8_t le_get(std::vector< std::byte > const& data, std::size_t index)
+    {
+        if (index >= data.size())
+        {
+            return 0;
+        }
+
+        return static_cast< std::uint8_t >(data[index]);
+    }
+
+    inline void le_trim(std::vector< std::byte >& v)
+    {
+        while (v.size() > 1 && v.back() == std::byte{0})
+        {
+            v.pop_back();
+        }
+    }
+
+    inline std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        std::uint8_t carry = 0;
+        std::uint8_t result = 0;
+
+        for (std::size_t index = 0; index < std::max(a.size(), b.size()); index++)
+        {
+            std::uint8_t a_byte = le_get(a, index);
+            std::uint8_t b_byte = le_get(b, index);
+
+            std::tie(result, carry) = bytewise_add(a_byte, b_byte, carry);
+
+            if (index < a.size())
+            {
+                a[index] = static_cast< std::byte >(result);
+            }
+            else
+            {
+                a.push_back(static_cast< std::byte >(result));
+            }
+        }
+
+        if (carry)
+        {
+            a.push_back(static_cast< std::byte >(carry));
+        }
+
+        return std::move(a);
+    }
+
+    inline std::vector< std::byte > le_unsigned_sub(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        std::uint8_t borrow = 0;
+
+        for (std::size_t index = 0; index < a.size(); ++index)
+        {
+            std::uint16_t ai = static_cast< std::uint8_t >(a[index]);
+            std::uint16_t bi = le_get(b, index);
+            std::uint16_t tmp = 0;
+
+            if (ai < bi + borrow)
+            {
+                tmp = ai + 0x100 - bi - borrow;
+                borrow = 1;
+            }
+            else
+            {
+                tmp = ai - bi - borrow;
+                borrow = 0;
+            }
+
+            a[index] = static_cast< std::byte >(tmp & 0xFF);
+        }
+
+        le_trim(a);
+        return std::move(a);
+    }
+
+    inline bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
+    {
+        // compare trimmed lengths
+        std::size_t na = a.size(), nb = b.size();
+        while (na > 1 && a[na - 1] == std::byte{0})
+            --na;
+        while (nb > 1 && b[nb - 1] == std::byte{0})
+            --nb;
+
+        if (na != nb)
+        {
+            return na < nb;
+        }
+
+        // same length: compare most significant byte first
+        for (std::size_t i = na; i-- > 0;)
+        {
+            auto ai = static_cast< std::uint8_t >(a[i]);
+            auto bi = static_cast< std::uint8_t >(b[i]);
+            if (ai != bi)
+            {
+                return ai < bi;
+            }
+        }
+
+        return false;
+    }
+
+    inline std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        std::vector< std::byte > result(a.size() + b.size(), std::byte{0});
+
+        for (std::size_t i = 0; i < a.size(); ++i)
+        {
+            std::uint16_t carry = 0;
+            std::uint8_t ai = le_get(a, i);
+
+            for (std::size_t j = 0; j < b.size(); ++j)
+            {
+                std::size_t k = i + j;
+                std::uint16_t prod = std::uint16_t(ai) * std::uint16_t(le_get(b, j)) + std::uint16_t(static_cast< std::uint8_t >(result[k])) + carry;
+
+                result[k] = static_cast< std::byte >(prod & 0xFF);
+                carry = prod >> 8;
+            }
+
+            result[i + b.size()] = static_cast< std::byte >(carry);
+        }
+
+        le_trim(result);
+        return std::move(result);
+    }
+
+    // helper: divmod via long division by byte-wise trial
+    inline std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        le_trim(a);
+        le_trim(b);
+
+        // division by zero -> return zero quotient, original a as rem
+        if (b.size() == 0 || (b.size() == 1 && b[0] == std::byte{0}))
+        {
+            return {std::vector< std::byte >{std::byte{0}}, std::move(a)};
+        }
+
+        if (!le_comp_less(a, b))
+        {
+            std::size_t n = a.size();
+            std::size_t m = b.size();
+            std::size_t t = (n >= m ? n - m : 0);
+
+            std::vector< std::uint8_t > q_big(t + 1, 0);
+
+            for (std::size_t shift = t + 1; shift-- > 0;)
+            {
+                // binary search d in [0..255]
+                std::uint8_t lo = 0, hi = 255, best = 0;
+                while (lo <= hi)
+                {
+                    std::uint8_t mid = std::uint8_t((lo + hi) >> 1);
+
+                    // compute b * mid
+                    std::vector< std::byte > prod;
+                    prod.reserve(b.size() + 1);
+                    std::uint16_t carry = 0;
+                    for (std::size_t j = 0; j < m; ++j)
+                    {
+                        std::uint16_t v = std::uint16_t(le_get(b, j)) * mid + carry;
+                        prod.push_back(static_cast< std::byte >(v & 0xFF));
+                        carry = v >> 8;
+                    }
+                    if (carry)
+                        prod.push_back(static_cast< std::byte >(carry));
+
+                    // shift by 'shift' bytes
+                    std::vector< std::byte > shifted(shift, std::byte{0});
+                    shifted.insert(shifted.end(), prod.begin(), prod.end());
+                    le_trim(shifted);
+
+                    // compare shifted <= a ?
+                    if (!le_comp_less(a, shifted))
+                    {
+                        best = mid;
+                        lo = mid + 1;
+                    }
+                    else
+                    {
+                        if (mid == 0)
+                            break;
+                        hi = mid - 1;
+                    }
+                }
+
+                if (best)
+                {
+                    // subtract best * b << shift from a
+                    std::vector< std::byte > prod;
+                    prod.reserve(b.size() + 1);
+                    std::uint16_t carry = 0;
+                    for (std::size_t j = 0; j < m; ++j)
+                    {
+                        std::uint16_t v = std::uint16_t(le_get(b, j)) * best + carry;
+                        prod.push_back(static_cast< std::byte >(v & 0xFF));
+                        carry = v >> 8;
+                    }
+                    if (carry)
+                        prod.push_back(static_cast< std::byte >(carry));
+
+                    std::vector< std::byte > to_sub(shift, std::byte{0});
+                    to_sub.insert(to_sub.end(), prod.begin(), prod.end());
+                    a = le_unsigned_sub(std::move(a), std::move(to_sub));
+                }
+
+                q_big[t - shift] = best;
+            }
+
+            // build little-endian quotient
+            std::vector< std::byte > q_le;
+            q_le.reserve(q_big.size());
+            for (std::size_t i = 0; i < q_big.size(); ++i)
+            {
+                q_le.push_back(static_cast< std::byte >(q_big[q_big.size() - 1 - i]));
+            }
+            le_trim(q_le);
+
+            return {std::move(q_le), std::move(a)};
+        }
+        else
+        {
+            // a < b
+            return {std::vector< std::byte >{std::byte{0}}, std::move(a)};
+        }
+    }
+
+    inline std::vector< std::byte > le_unsigned_div(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        return le_unsigned_divmod(std::move(a), std::move(b)).first;
+    }
+
+    inline std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        return le_unsigned_divmod(std::move(a), std::move(b)).second;
+    }
+
+    template < typename UInt >
+    inline std::pair< UInt, bool > le_to_u(std::vector< std::byte > const& data)
+    {
+        static_assert(std::is_integral_v< UInt >, "Int must be an integral type");
+        constexpr UInt maxval = std::numeric_limits< UInt >::max();
+
+        UInt v = 0;
+        // process most‐significant byte first
+        for (std::size_t i = data.size(); i-- > 0;)
+        {
+            std::uint8_t b = static_cast< std::uint8_t >(data[i]);
+            // will shifting left by 8 overflow?
+            if (v > (maxval >> 8))
+            {
+                return {0, false};
+            }
+            v <<= 8;
+            // will adding b overflow?
+            if (static_cast< U >(b) > (maxval - v))
+            {
+                return {0, false};
+            }
+            v += static_cast< U >(b);
+        }
+        return {static_cast< UInt >(v), true};
+    }
+
+    template < typename UInt >
+    std::vector< std::byte > u_to_le(UInt value)
+    {
+        static_assert(std::is_integral_v< UInt >, "UInt must be an integral type");
+        static_assert(std::is_unsigned_v< UInt >, "UInt must be an unsigned type");
+        std::vector< std::byte > result;
+
+        while (value != 0)
+        {
+            result.push_back(static_cast< std::byte >(value & 0xFF));
+            value >>= 8;
+        }
+
+        return result;
+    }
+
+} // namespace quxlang
+
+#endif // BYTEMATH_HPP

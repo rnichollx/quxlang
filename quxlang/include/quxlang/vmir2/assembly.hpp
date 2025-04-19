@@ -28,6 +28,10 @@ namespace quxlang::vmir2
 
         void set_arg_state();
 
+        std::string to_string_internal(vmir2::increment inst);
+        std::string to_string_internal(vmir2::decrement inst);
+        std::string to_string_internal(vmir2::preincrement inst);
+        std::string to_string_internal(vmir2::predecrement inst);
         std::string to_string_internal(vmir2::to_bool inst);
         std::string to_string_internal(vmir2::to_bool_not inst);
 

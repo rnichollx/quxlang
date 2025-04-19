@@ -192,6 +192,25 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::decrement inst)
+    {
+        return "DEC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.oldval);
+    }
+    std::string assembler::to_string_internal(vmir2::preincrement inst)
+    {
+        return "PINC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.target2);
+    }
+
+    std::string assembler::to_string_internal(vmir2::predecrement inst)
+    {
+        return "PDEC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.target2);
+    }
+
+    std::string assembler::to_string_internal(vmir2::increment inst)
+    {
+        return "INC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.oldval);
+    }
+
     std::string assembler::to_string_internal(vmir2::to_bool inst)
     {
         std::string result = "TB %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);

@@ -43,6 +43,10 @@ namespace quxlang
         struct i_to_ptr;
         struct to_bool;
         struct to_bool_not;
+        struct increment;
+        struct decrement;
+        struct preincrement;
+        struct predecrement;
 
         struct int_add;
         struct int_mul;
@@ -60,7 +64,7 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -328,7 +332,7 @@ namespace quxlang
         struct to_bool
         {
             storage_index from;
-                storage_index to;
+            storage_index to;
 
             RPNX_MEMBER_METADATA(to_bool, from, to);
         };
@@ -338,6 +342,34 @@ namespace quxlang
             storage_index from;
             storage_index to;
             RPNX_MEMBER_METADATA(to_bool_not, from, to);
+        };
+
+        struct increment
+        {
+            storage_index target;
+            storage_index oldval;
+            RPNX_MEMBER_METADATA(increment, target, oldval);
+        };
+
+        struct decrement
+        {
+            storage_index target;
+            storage_index oldval;
+            RPNX_MEMBER_METADATA(decrement, target, oldval);
+        };
+
+        struct preincrement
+        {
+            storage_index target;
+            storage_index target2;
+            RPNX_MEMBER_METADATA(increment, target, target2);
+        };
+
+        struct predecrement
+        {
+            storage_index target;
+            storage_index target2;
+            RPNX_MEMBER_METADATA(decrement, target, target2);
         };
 
         struct jump
@@ -467,6 +499,8 @@ namespace quxlang
             type_symbol current_type(storage_index idx);
 
             executable_block_generation_state clone_subblock();
+            void emit(vmir2::increment inc);
+            void emit(vmir2::decrement dec);
             void emit(vmir2::to_bool_not tbn);
             void emit(vmir2::to_bool tb);
             void emit(vmir2::access_field fld);

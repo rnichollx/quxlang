@@ -98,6 +98,10 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     void transition(vmir2::block_index block);
 
+    void exec_instr_val(vmir2::increment const& inc);
+    void exec_instr_val(vmir2::decrement const& dec);
+    void exec_instr_val(vmir2::preincrement const& inc);
+    void exec_instr_val(vmir2::predecrement const& dec);
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::access_field const& acf);
     void exec_instr_val(vmir2::to_bool const& lcz);
@@ -434,6 +438,7 @@ quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmi
         return *ptr;
     }
 }
+
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_zero const& lcz)
 {
