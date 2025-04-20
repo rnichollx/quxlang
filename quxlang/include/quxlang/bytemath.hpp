@@ -2,7 +2,9 @@
 #define QUXLANG_BYTEMATH_HPP
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -21,6 +23,11 @@ namespace quxlang
 
     // compare two numbers a < b
     bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b);
+
+    inline bool le_comp_eq(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
+    {
+        return !le_comp_less(a, b) && !le_comp_less(b, a);
+    }
 
     // remainder of a / b
     std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b);
@@ -115,26 +122,25 @@ namespace quxlang
 
     inline bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
     {
-        // compare trimmed lengths
-        std::size_t na = a.size(), nb = b.size();
-        while (na > 1 && a[na - 1] == std::byte{0})
-            --na;
-        while (nb > 1 && b[nb - 1] == std::byte{0})
-            --nb;
+        std::size_t maxlen = std::max(a.size(), b.size());
 
-        if (na != nb)
+        for (std::size_t i = maxlen - 1; true; --i)
         {
-            return na < nb;
-        }
+            std::uint8_t ai = le_get(a, i);
+            std::uint8_t bi = le_get(b, i);
 
-        // same length: compare most significant byte first
-        for (std::size_t i = na; i-- > 0;)
-        {
-            auto ai = static_cast< std::uint8_t >(a[i]);
-            auto bi = static_cast< std::uint8_t >(b[i]);
-            if (ai != bi)
+            if (ai < bi)
             {
-                return ai < bi;
+                return true;
+            }
+            else if (ai > bi)
+            {
+                return false;
+            }
+
+            if (i == 0)
+            {
+                break;
             }
         }
 
@@ -295,11 +301,11 @@ namespace quxlang
             }
             v <<= 8;
             // will adding b overflow?
-            if (static_cast< U >(b) > (maxval - v))
+            if (static_cast< UInt >(b) > (maxval - v))
             {
                 return {0, false};
             }
-            v += static_cast< U >(b);
+            v += static_cast< UInt >(b);
         }
         return {static_cast< UInt >(v), true};
     }
@@ -314,7 +320,63 @@ namespace quxlang
         while (value != 0)
         {
             result.push_back(static_cast< std::byte >(value & 0xFF));
-            value >>= 8;
+            // Double shift for case where uint8 is used.
+            value >>= 4;
+            value >>= 4;
+        }
+
+        return result;
+    }
+
+    inline std::string le_to_string(std::vector< std::byte > number)
+    {
+        std::string result;
+        std::vector< std::byte > ten = {std::byte{10}};
+
+        while (!le_comp_eq(number, {}))
+        {
+            auto mod_result = le_unsigned_divmod(std::move(number), ten);
+            assert(mod_result.second.size() <= 1);
+            assert(le_comp_less(mod_result.second, ten));
+
+            std::uint8_t mod_val = le_get(mod_result.second, 0);
+            assert(mod_val < 10);
+            char digit = static_cast< char >(mod_val + '0');
+            result.push_back(digit);
+            number = std::move(mod_result.first);
+        }
+        std::reverse(result.begin(), result.end());
+        if (result.empty())
+        {
+            result = "0";
+        }
+        return result;
+    }
+
+    inline std::vector< std::byte > string_to_le(std::string const& str)
+    {
+        std::vector< std::byte > result;
+        std::vector< std::byte > ten = {std::byte{10}};
+        for (std::size_t i = 0; i < str.size(); ++i)
+        {
+            char c = str[i];
+            if (c < '0' || c > '9')
+            {
+                throw std::invalid_argument("Invalid character in string: " + std::string(1, c));
+            }
+            if (result.empty() && c == '0')
+            {
+                continue; // skip leading zeros
+            }
+
+            auto digit = u_to_le(static_cast< std::uint8_t >(c - '0'));
+
+            result = le_unsigned_mult(result, ten);
+            result = le_unsigned_add(result, digit);
+        }
+        if (result.empty())
+        {
+            result.push_back(std::byte{0});
         }
 
         return result;

@@ -18,6 +18,10 @@ namespace quxlang
     static std::set< std::string > const assignment_operators = {":=", ":<"};
     static std::set< std::string > const arithmetic_operators = {"+", "-", "*", "/", "%"};
 
+    static std::set<std::string> const incdec_operators = {"++", "--"};
+
+
+
     static std::string const rightarrow_operator = "->";
     static std::string const leftarrow_operator = "<-";
 

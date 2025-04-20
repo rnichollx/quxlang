@@ -211,10 +211,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/res/template_instanciation.hpp
         include/quxlang/res/templex_select_template.hpp
         include/quxlang/res/resolvers.hpp
-        sources/res/function_instanciation.cpp
         include/quxlang/builtins.hpp
         include/quxlang/data/builtin_functions.hpp
-        sources/res/function_builtin.cpp
         include/quxlang/res/vm_procedure2.hpp
         sources/res/vm_procedure2.cpp
         sources/res/template_instanciation_resolver.cpp
@@ -321,9 +319,14 @@ set(QUXLANG_TESTS_TESTDATA_PATH "${CMAKE_SOURCE_DIR}/quxlang/tests/testdata" CAC
 if (GTest_FOUND)
     enable_testing()
     add_executable(quxlang_gtests)
+    add_executable(quxlang_math_gtests)
     target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp)
     target_link_libraries(quxlang_gtests PRIVATE GTest::GTest GTest::Main quxlang quxlang-loaders)
+    target_link_libraries(quxlang_math_gtests PRIVATE GTest::GTest GTest::Main)
+    target_include_directories(quxlang_math_gtests PRIVATE include)
+    target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
+    gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests)
 endif ()
 

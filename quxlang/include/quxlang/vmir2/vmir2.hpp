@@ -362,14 +362,14 @@ namespace quxlang
         {
             storage_index target;
             storage_index target2;
-            RPNX_MEMBER_METADATA(increment, target, target2);
+            RPNX_MEMBER_METADATA(preincrement, target, target2);
         };
 
         struct predecrement
         {
             storage_index target;
             storage_index target2;
-            RPNX_MEMBER_METADATA(decrement, target, target2);
+            RPNX_MEMBER_METADATA(predecrement, target, target2);
         };
 
         struct jump
@@ -501,6 +501,8 @@ namespace quxlang
             executable_block_generation_state clone_subblock();
             void emit(vmir2::increment inc);
             void emit(vmir2::decrement dec);
+            void emit(vmir2::preincrement inc);
+            void emit(vmir2::predecrement dec);
             void emit(vmir2::to_bool_not tbn);
             void emit(vmir2::to_bool tb);
             void emit(vmir2::access_field fld);

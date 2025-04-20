@@ -11,6 +11,7 @@
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
+
 namespace quxlang
 {
     struct interp_addr
@@ -869,6 +870,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         r_data.resize(a_data.size());
     }
 
+
+
     // Perform two's complement addition in little-endian order
     std::uint16_t carry = 0;
     for (std::size_t i = 0; i < r_data.size(); ++i)
@@ -1566,6 +1569,25 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::
 
     current_frame.address.block = block;
     current_frame.address.instruction_index = 0;
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::preincrement const& instr)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::predecrement const& instr)
+{
+    throw rpnx::unimplemented();
 }
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::use_data(std::size_t slot)
 {

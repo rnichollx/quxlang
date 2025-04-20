@@ -99,15 +99,43 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool tb)
 {
     block.instructions.push_back(tb);
     current_slot_states[tb.from].alive = false;
-    current_slot_states[tb.to].alive= true;
+    current_slot_states[tb.to].alive = true;
 }
 
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool_not tbn)
 {
     block.instructions.push_back(tbn);
     current_slot_states[tbn.from].alive = false;
-    current_slot_states[tbn.to].alive= true;
+    current_slot_states[tbn.to].alive = true;
 }
+
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::predecrement pdec)
+{
+    block.instructions.push_back(pdec);
+    current_slot_states[pdec.target].alive = false;
+    current_slot_states[pdec.target2].alive = true;
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::decrement dec)
+{
+    block.instructions.push_back(dec);
+    current_slot_states[dec.target].alive = false;
+    current_slot_states[dec.oldval].alive = true;
+}
+
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::increment inc)
+{
+    block.instructions.push_back(inc);
+    current_slot_states[inc.target].alive = false;
+    current_slot_states[inc.oldval].alive = true;
+}
+void quxlang::vmir2::executable_block_generation_state::emit(vmir2::preincrement pinc)
+{
+    block.instructions.push_back(pinc);
+    current_slot_states[pinc.target].alive = false;
+    current_slot_states[pinc.target2].alive = true;
+}
+
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field fld)
 {
     block.instructions.push_back(fld);
