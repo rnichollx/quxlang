@@ -6,6 +6,8 @@
 #include "quxlang/data/vm_procedure.hpp"
 #include <quxlang/res/resolver.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
+#include <quxlang/manipulators/qmanip.hpp>
+
 namespace quxlang
 {
     QUX_CO_RESOLVER(vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);

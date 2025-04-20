@@ -4,11 +4,144 @@
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/manipulators/expression_stringifier.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/value.hpp"
 
 namespace quxlang
 {
+    struct array_type;
+
+    struct expression_stringifier
+    {
+        expression_stringifier()
+        {
+        }
+
+        std::string operator()(expression_unary_postfix const& be) const
+        {
+            return "(" + to_string(be.lhs) + " " + be.operator_str + ")";
+        }
+
+        std::string operator()(expression_unary_prefix const& be) const
+        {
+            return "(" + be.operator_str + " " + to_string(be.rhs) + ")";
+        }
+
+
+
+        std::string operator()(expression_brackets const& brkts) const
+        {
+            std::string result;
+            result += to_string(brkts.lhs);
+            result += " [ ";
+            for (std::size_t i = 0; i < brkts.bracketed.size(); i++)
+            {
+                result += to_string(brkts.bracketed[i]);
+                if (i != brkts.bracketed.size() - 1)
+                    result += " , ";
+            }
+            result += " ]";
+            return result;
+        }
+
+        std::string operator()(expression_numeric_literal const& expr) const
+        {
+            return expr.value;
+        }
+
+        std::string operator()(expression_dotreference const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + "." + expr.field_name + ")";
+        }
+
+        std::string operator()(expression_call const& expr) const
+        {
+            std::string result = "(" + to_string(expr.callee) + "(";
+            for (int i = 0; i < expr.args.size(); i++)
+            {
+                auto arg = expr.args[i].value;
+                result += to_string(arg);
+                if (i != expr.args.size() - 1)
+                    result += ", ";
+            }
+            result += "))";
+            return result;
+        }
+
+        std::string operator()(expression_lvalue_reference const& lvalue) const
+        {
+            return lvalue.identifier;
+        }
+
+        std::string operator()(expression_multiply const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " * " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_xor const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " ^^ " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_and const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " && " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_copy_assign const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " := " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_binary const& expr) const
+        {
+            return "(" + to_string(expr.lhs) + " " + expr.operator_str + " " + to_string(expr.rhs) + ")";
+        }
+
+        std::string operator()(expression_this_reference const& expr) const
+        {
+            return "THIS";
+        }
+
+        std::string operator()(expression_thisdot_reference const& expr) const
+        {
+            return "." + expr.field_name;
+        }
+
+        std::string operator()(expression_symbol_reference const& expr) const
+        {
+            return to_string(expr.symbol);
+        }
+
+        std::string operator()(expression_target const& expr) const
+        {
+            return "TARGET" + expr.target;
+        }
+
+        std::string operator()(expression_sizeof const& expr) const
+        {
+            return "SIZEOF(" + to_string(expr.what) + ")";
+        }
+
+        std::string operator()(expression_string_literal const& expr) const
+        {
+            // TODO: Escape
+            return "\"" + expr.value + "\"";
+        }
+
+        std::string operator()(expression_leftarrow const& expr) const
+        {
+            std::string output = "(" + to_string(expr.lhs) + " <- )";
+            return output;
+        }
+
+        std::string operator()(expression_rightarrow const& expr) const
+        {
+            std::string output = "(" + to_string(expr.lhs) + " -> )";
+            return output;
+        }
+    };
 
     struct qualified_symbol_stringifier
     {
@@ -19,7 +152,7 @@ namespace quxlang
         std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
-        std::string operator()(array_type const& ref) const;
+        std::string operator()(quxlang::array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
@@ -286,10 +419,7 @@ namespace quxlang
         return "SZ";
     }
 
-    std::string qualified_symbol_stringifier::operator()(array_type const& arr) const
-    {
-        return "[" + to_string(arr.element_count) + "] " + to_string(arr.element_type);
-    }
+
 
     std::string qualified_symbol_stringifier::operator()(pointer_type const& ref) const
     {
@@ -1374,4 +1504,17 @@ std::optional< quxlang::template_match_results > quxlang::match_template2(type_s
         return matcher.take_results();
     }
     return std::nullopt;
+}
+
+std::string quxlang::to_string(quxlang::type_symbol const& ref)
+{
+    return rpnx::apply_visitor< std::string >(quxlang::qualified_symbol_stringifier{}, ref);
+}
+
+std::string quxlang::to_string(expression const& expr)
+{
+    auto str = rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
+
+    // TODO: replace all "  " with " "
+    return str;
 }
