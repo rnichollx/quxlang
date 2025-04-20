@@ -208,7 +208,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::increment inst)
     {
-        return "INC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.oldval);
+        return "INC %" + std::to_string(inst.value) + ", %" + std::to_string(inst.result);
     }
 
     std::string assembler::to_string_internal(vmir2::to_bool inst)

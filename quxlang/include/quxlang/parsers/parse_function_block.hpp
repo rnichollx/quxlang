@@ -3,17 +3,18 @@
  * @brief Contains parsers for function block constructs in Quxlang.
  *
  * This file defines functions to parse function blocks enclosed in braces '{' and '}'.
- * It utilizes helper functions to skip whitespace and comments and converts the
+ * It utilizes helper functions to skip whitespace and comments and converts the 
  * input into a structured function_block.
  */
 
- // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
 #include <quxlang/data/function_block.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_statement.hpp>
+#include <quxlang/parsers/fwd.hpp> // added forward declarations
 
 namespace quxlang::parsers
 {

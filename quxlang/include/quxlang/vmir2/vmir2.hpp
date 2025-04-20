@@ -346,9 +346,9 @@ namespace quxlang
 
         struct increment
         {
-            storage_index target;
-            storage_index oldval;
-            RPNX_MEMBER_METADATA(increment, target, oldval);
+            storage_index value;
+            storage_index result;
+            RPNX_MEMBER_METADATA(increment, value, result);
         };
 
         struct decrement

@@ -215,8 +215,8 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             auto this_slot_id = args.named.at("THIS");
 
             vmir2::increment inc{};
-            inc.target = this_slot_id;
-            inc.oldval = args.named.at("RETURN");
+            inc.value = this_slot_id;
+            inc.result = args.named.at("RETURN");
             return inc;
         }
     }

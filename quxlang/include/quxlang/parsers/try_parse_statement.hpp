@@ -1,15 +1,13 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
-
 #ifndef QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
 #include <quxlang/data/function_statement.hpp>
+#include <quxlang/parsers/parse_if_statement.hpp>
+#include <quxlang/parsers/parse_return_statement.hpp>
+#include <quxlang/parsers/parse_var_statement.hpp>
+#include <quxlang/parsers/parse_while_statement.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
-#include <quxlang/parsers/parse_if_statement.hpp>
-#include <quxlang/parsers/parse_var_statement.hpp>
-#include <quxlang/parsers/parse_return_statement.hpp>
-#include <quxlang/parsers/parse_while_statement.hpp>
-
+#include <quxlang/parsers/fwd.hpp> // added forward declarations
 
 namespace quxlang::parsers
 {
@@ -24,6 +22,11 @@ namespace quxlang::parsers
         if (remaining.starts_with("I32::CONSTRU"))
         {
             int x = 0;
+        }
+
+        if (auto res = try_parse_function_block(pos, end); res)
+        {
+            return *res;
         }
 
         std::optional< function_expression_statement > exp_st;

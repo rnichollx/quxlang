@@ -126,8 +126,8 @@ void quxlang::vmir2::executable_block_generation_state::emit(vmir2::decrement de
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::increment inc)
 {
     block.instructions.push_back(inc);
-    current_slot_states[inc.target].alive = false;
-    current_slot_states[inc.oldval].alive = true;
+    current_slot_states[inc.value].alive = false;
+    current_slot_states[inc.result].alive = true;
 }
 void quxlang::vmir2::executable_block_generation_state::emit(vmir2::preincrement pinc)
 {

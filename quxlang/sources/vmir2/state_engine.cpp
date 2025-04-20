@@ -34,13 +34,13 @@ void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, s
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, increment const& tb)
 {
-    if (!state.at(tb.target).alive)
+    if (!state.at(tb.value).alive)
     {
         throw invalid_instruction_transition_error("Attempt to increment a dead slot");
     }
 
-    state[tb.target].alive = false;
-    state[tb.oldval].alive = true;
+    state[tb.value].alive = false;
+    state[tb.result].alive = true;
 }
 
 
