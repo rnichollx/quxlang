@@ -63,6 +63,11 @@ MODULE main;
   x[2] := 3;
   x[3] := 4;
 
+  {
+    VAR q yak;
+
+  }
+
   RETURN x[0] + x[1] + x[2] + x[3];
 }
 
@@ -70,6 +75,31 @@ MODULE main;
 ::boq FUNCTION(): I32
 {
   RETURN 5;
+}
+
+
+::yak CLASS
+{
+   .z VAR -> I32;
+   .f VAR =>> I32;
+   .f_count VAR SZ;
+
+   .DESTRUCTOR FUNCTION()
+   {
+     IF (.z??)
+     {
+        .z-> := .z-> + 1;
+     }
+
+     IF (.f??)
+     {
+        WHILE(.f_count > 0)
+        {
+           .f-> ++;
+           .f_count := .f_count - 1;
+        }
+     }
+   }
 }
 
 ::main FUNCTION(): I32

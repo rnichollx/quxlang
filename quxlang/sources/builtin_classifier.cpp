@@ -70,7 +70,7 @@ std::vector< quxlang::signature > quxlang::intrinsic_builtin_classifier::list_co
     auto numeric_parameter = argif{.type = numeric_literal_reference{}};
 
     // Default CTOR
-    result.push_back(signature{.ensig = temploid_ensig{ .interface = intertype{.named = {{"THIS", new_parameter}}}}});
+    result.push_back(signature{.ensig = temploid_ensig{.interface = intertype{.named = {{"THIS", new_parameter}}}}});
 
     // Copy CTOR
     result.push_back(signature{.ensig = temploid_ensig{.interface = intertype{.named = {{"THIS", new_parameter}, {"OTHER", numeric_parameter}}}}});
@@ -123,7 +123,7 @@ std::map< std::string, quxlang::signature > quxlang::intrinsic_builtin_classifie
             std::string name = "OPERATOR" + oper;
             signature sig;
 
-            //sig.ensig.builtin = true;
+            // sig.ensig.builtin = true;
             sig.ensig.interface.named["THIS"] = val_parameter;
             sig.ensig.interface.named["OTHER"] = val_parameter;
             sig.return_type = bool_type{};
@@ -193,7 +193,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 
     if (member->name == "OPERATOR??")
     {
-        if (cls->template type_is< pointer_type >() && cls->as<pointer_type>().ptr_class != pointer_class::ref)
+        if (cls->template type_is< pointer_type >() && cls->as< pointer_type >().ptr_class != pointer_class::ref)
         {
             if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
             {
@@ -205,6 +205,56 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 
                 return tb;
             }
+        }
+    }
+
+    if (member->name == "OPERATOR++" && cls->template type_is< int_type >())
+    {
+        if (call.named.contains("THIS") && call.size() == 1)
+        {
+            auto this_slot_id = args.named.at("THIS");
+
+            vmir2::increment inc{};
+            inc.target = this_slot_id;
+            inc.oldval = args.named.at("RETURN");
+            return inc;
+        }
+    }
+    else if (member->name == "OPERATOR++RHS" && cls->template type_is< int_type >())
+    {
+        if (call.named.contains("THIS") && call.size() == 1)
+        {
+            auto this_slot_id = args.named.at("THIS");
+
+            vmir2::preincrement preinc{};
+            preinc.target = this_slot_id;
+            preinc.target2 = args.named.at("RETURN");
+            return preinc;
+        }
+    }
+
+    if (member->name == "OPERATOR--" && cls->template type_is< int_type >())
+    {
+        if (call.named.contains("THIS") && call.size() == 1)
+        {
+            auto this_slot_id = args.named.at("THIS");
+
+            vmir2::decrement dec{};
+            dec.target = this_slot_id;
+            dec.oldval = args.named.at("RETURN");
+            return dec;
+        }
+    }
+    else if (member->name == "OPERATOR--RHS" && cls->template type_is< int_type >())
+    {
+        if (call.named.contains("THIS") && call.size() == 1)
+        {
+            auto this_slot_id = args.named.at("THIS");
+
+            vmir2::predecrement predec{};
+            predec.target = this_slot_id;
+            predec.target2 = args.named.at("RETURN");
+            return predec;
         }
     }
 
@@ -333,27 +383,27 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_eq>(instr, "==", true, *member, call, args))
+        if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_ne>(instr, "!=", true, *member, call, args))
+        if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_lt>(instr, "<", true, *member, call, args))
+        if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_lt>(instr, ">", true, *member, call, args, true))
+        if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_ge>(instr, "<=", true, *member, call, args, true))
+        if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
         {
             return instr;
         }
-        if (implement_binary_instruction<vmir2::cmp_ge>(instr, ">=", true, *member, call, args))
+        if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
         {
             return instr;
         }
@@ -364,6 +414,5 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 
 bool quxlang::intrinsic_builtin_classifier::is_intrinsic_type(type_symbol of_type)
 {
-    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >() ||
-           of_type.type_is< array_type >();
+    return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >() || of_type.type_is< array_type >();
 }

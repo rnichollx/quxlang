@@ -119,7 +119,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
     }
 
-    if (name == "OPERATOR??" && (parent.test< pointer_type >([](pointer_type p){ return p.ptr_class != pointer_class::ref; })  || parent.type_is<int_type>()))
+    if (name == "OPERATOR??" && (parent.test< pointer_type >(
+                                     [](pointer_type p)
+                                     {
+                                         return p.ptr_class != pointer_class::ref;
+                                     }) ||
+                                 parent.type_is< int_type >()))
     {
         builtin_function_info bl_info;
 
@@ -150,6 +155,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
     {
         std::string operator_name = name.substr(8);
         bool is_rhs = false;
+
         if (operator_name.ends_with("RHS"))
         {
             operator_name = operator_name.substr(0, operator_name.size() - 3);
@@ -180,6 +186,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             else if (is_compare_operator)
             {
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
+            }
+            else if (is_incdec_operator && !is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS",  argif{make_mref(parent)}}}}}, .return_type = parent});
+            }
+            else if (is_incdec_operator && is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS",  argif{make_mref(parent)}}}}}, .return_type = make_mref(parent)});
             }
         }
 

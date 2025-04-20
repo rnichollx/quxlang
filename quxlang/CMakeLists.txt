@@ -4,11 +4,10 @@ endif ()
 
 find_package(GTest REQUIRED)
 find_package(Boost REQUIRED)
-find_package(LLVM 16 REQUIRED)
+
 #find_package(lld REQUIRED)
 find_package(yaml-cpp REQUIRED)
 #target_link_libraries(quxlang PRIVATE yaml-cpp::yaml-cpp)
-include_directories(${LLVM_INCLUDE_DIRS})
 
 
 
@@ -142,10 +141,10 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/data/code_relocation.hpp
         include/quxlang/macros.hpp
         include/quxlang/manipulators/symbolmap.hpp
-        include/quxlang/manipulators/llvm_symbol_relocation.hpp
-        sources/manipulators/llvm_symbol_relocation.cpp
-        include/quxlang/manipulators/convert_llvm_object.hpp
-        sources/manipulators/convert_llvm_object.cpp
+        #include/quxlang/manipulators/llvm_symbol_relocation.hpp
+        #sources/manipulators/llvm_symbol_relocation.cpp
+        #include/quxlang/manipulators/convert_llvm_object.hpp
+        #sources/manipulators/convert_llvm_object.cpp
         include/quxlang/data/machine.hpp
         include/quxlang/manipulators/llvm_lookup.hpp
         include/quxlang/input_aggregator.hpp
@@ -265,6 +264,17 @@ target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
 
 if (QUXLANG_QXC_DEV)
   target_link_libraries(qxc PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
+  #include_directories(${LLVM_INCLUDE_DIRS})
+  #find_package(LLVM 16 REQUIRED)
+  # for each property that starts with LLVM, link to it
+#foreach (target IN LISTS targets)
+#    if ((target MATCHES "^LLVM.*" OR target MATCHES "^lld.*") AND NOT target MATCHES "^LLVMLineEditor$" AND NOT target MATCHES "^LLVMHello$")
+#        message(STATUS "Linking to ${target}")
+#        target_link_libraries(quxlang PUBLIC ${target})
+#    else ()
+#        message(STATUS "Not linking to ${target}")
+#    endif ()
+#endforeach ()
 endif()
 
 
@@ -301,15 +311,7 @@ add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LI
 get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
 
 
-# for each property that starts with LLVM, link to it
-foreach (target IN LISTS targets)
-    if ((target MATCHES "^LLVM.*" OR target MATCHES "^lld.*") AND NOT target MATCHES "^LLVMLineEditor$" AND NOT target MATCHES "^LLVMHello$")
-        message(STATUS "Linking to ${target}")
-        target_link_libraries(quxlang PUBLIC ${target})
-    else ()
-        message(STATUS "Not linking to ${target}")
-    endif ()
-endforeach ()
+
 
 # TOOD: This should be a flag instead of a variable
 

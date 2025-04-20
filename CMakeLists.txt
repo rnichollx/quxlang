@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(quxlang)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
-find_package(LLVM REQUIRED)
+#find_package(LLVM REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 
 add_subdirectory(rpnx)
