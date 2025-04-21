@@ -971,10 +971,7 @@ namespace quxlang
         return std::nullopt;
     }
 
-    std::string to_string(type_symbol const& ref)
-    {
-        return rpnx::apply_visitor< std::string >(qualified_symbol_stringifier{}, ref);
-    }
+
 
     std::string to_string(argif const& arg)
     {
