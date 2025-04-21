@@ -152,7 +152,7 @@ namespace quxlang
         std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
-        std::string operator()(quxlang::array_type const& arr) const;
+        std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
@@ -417,6 +417,11 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(size_type const& ref) const
     {
         return "SZ";
+    }
+
+    std::string qualified_symbol_stringifier::operator()(array_type const& arr) const
+    {
+        return "[" + to_string(arr.element_count) + "] " + to_string(arr.element_type);
     }
 
 
