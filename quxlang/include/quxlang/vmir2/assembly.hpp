@@ -65,11 +65,10 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::cmp_lt inst);
         std::string to_string_internal(vmir2::cmp_ge inst);
 
-
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::ret inst);
-
+        std::string to_string_internal(vmir2::pointer_arith inst);
 
     };
 

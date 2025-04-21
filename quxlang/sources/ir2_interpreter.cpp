@@ -134,6 +134,7 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
     void exec_instr_val(vmir2::copy_reference const& cpr);
     void exec_instr_val(vmir2::end_lifetime const& elt);
+    void exec_instr_val(vmir2::pointer_arith const& par);
 
     std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
@@ -1589,6 +1590,10 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 {
     throw rpnx::unimplemented();
 }
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::pointer_arith const& par)
+{
+    throw rpnx::unimplemented();
+}
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::use_data(std::size_t slot)
 {
     auto slot_ptr = get_current_frame().local_values[slot];
@@ -1615,3 +1620,4 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
         return slot_ptr->data;
     }
 }
+

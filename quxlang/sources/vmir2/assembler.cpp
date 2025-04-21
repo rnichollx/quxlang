@@ -6,8 +6,6 @@ namespace quxlang::vmir2
 {
     std::string assembler::to_string(vmir2::functanoid_routine2 fnc)
     {
-        // state_engine::apply_entry(this->state, fnc.slots);
-
         std::string output;
 
         static const std::string indent = "    ";
@@ -437,5 +435,14 @@ namespace quxlang::vmir2
     {
         return "ELT %" + std::to_string(elt.of);
     }
+    std::string assembler::to_string_internal(vmir2::pointer_arith inst)
+    {
+        return "PAR %" + std::to_string(inst.from) +
+               ", " + std::to_string(inst.multiplier) +
+               " %" + std::to_string(inst.offset) +
+               ", %" + std::to_string(inst.result);
+    }
+
 
 } // namespace quxlang::vmir2
+

@@ -20,6 +20,7 @@ namespace quxlang
     std::string to_string(invotype const& ref);
     std::string to_string(intertype const& ref);
     std::string to_string(argif const& ref);
+    std::string to_string(expression const& expr);
 
     bool is_ref(type_symbol type);
 
@@ -334,3 +335,4 @@ namespace quxlang
 } // namespace quxlang
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
+

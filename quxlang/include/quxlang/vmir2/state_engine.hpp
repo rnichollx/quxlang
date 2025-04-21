@@ -55,8 +55,10 @@ namespace quxlang::vmir2
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, struct_delegate_new const& dlg);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, copy_reference const & cpr);
         static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, end_lifetime const & elt);
+        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_arith const& par);
     };
 
 } // namespace quxlang::vmir2
 
 #endif // RPNX_QUXLANG_STATE_ENGINE_HEADER
+

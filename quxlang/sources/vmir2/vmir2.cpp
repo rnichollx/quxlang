@@ -1,5 +1,3 @@
-// Copyright 2024 Ryan Nicholl, rnicholl@protonmail.com
-
 #include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 
@@ -42,6 +40,12 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_nume
     storage_index slot_id = slots.size();
     slots.push_back(vm_slot{.type = numeric_literal_reference{}, .literal_value = value, .kind = slot_kind::literal});
     return slot_id;
+}
+
+// Definition for slot_generation_state constructor
+quxlang::vmir2::slot_generation_state::slot_generation_state()
+{
+    slots.push_back(vmir2::vm_slot{.type = void_type{}, .name = "VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
 }
 
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::index_binding(storage_index idx)
@@ -95,162 +99,21 @@ quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_blo
     copy.block.entry_state = current_slot_states;
     return copy;
 }
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool tb)
+
+// Definition for executable_block_generation_state::emit for vm_instruction
+void quxlang::vmir2::executable_block_generation_state::emit(vm_instruction inst)
 {
-    block.instructions.push_back(tb);
-    current_slot_states[tb.from].alive = false;
-    current_slot_states[tb.to].alive = true;
+    block.instructions.push_back(inst);
+    state_engine::apply(current_slot_states, slots->slots, inst);
 }
 
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::to_bool_not tbn)
+// Definition for executable_block_generation_state::emit for vm_terminator
+void quxlang::vmir2::executable_block_generation_state::emit(vm_terminator term)
 {
-    block.instructions.push_back(tbn);
-    current_slot_states[tbn.from].alive = false;
-    current_slot_states[tbn.to].alive = true;
+    block.terminator = term;
+    // No state update needed for terminators.
 }
 
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::predecrement pdec)
-{
-    block.instructions.push_back(pdec);
-    current_slot_states[pdec.target].alive = false;
-    current_slot_states[pdec.target2].alive = true;
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::decrement dec)
-{
-    block.instructions.push_back(dec);
-    current_slot_states[dec.target].alive = false;
-    current_slot_states[dec.oldval].alive = true;
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::increment inc)
-{
-    block.instructions.push_back(inc);
-    current_slot_states[inc.value].alive = false;
-    current_slot_states[inc.result].alive = true;
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::preincrement pinc)
-{
-    block.instructions.push_back(pinc);
-    current_slot_states[pinc.target].alive = false;
-    current_slot_states[pinc.target2].alive = true;
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_field fld)
-{
-    block.instructions.push_back(fld);
-    current_slot_states[fld.store_index].alive = true;
-    current_slot_states[fld.base_index].alive = false;
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::access_array aca)
-{
-    block.instructions.push_back(aca);
-    current_slot_states[aca.store_index].alive = true;
-    current_slot_states[aca.base_index].alive = false;
-    current_slot_states[aca.index_index].alive = false;
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::invoke ivk)
-{
-    type_symbol invoked_symbol = ivk.what;
-    vmir2::invocation_args args = ivk.args;
-    std::cout << "emit_invoke(" << quxlang::to_string(invoked_symbol) << ")"
-              << " " << quxlang::to_string(args) << std::endl;
-
-    block.instructions.push_back(ivk);
-
-    instanciation_reference inst = as< instanciation_reference >(invoked_symbol);
-
-    for (auto& arg : args.positional)
-    {
-        type_symbol arg_type = current_type(arg);
-        if (typeis< nvalue_slot >(arg_type))
-        {
-            if (current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a NEW& parameter on a live slot.");
-            }
-            current_slot_states.at(arg).alive = true;
-        }
-
-        else if (typeis< dvalue_slot >(arg_type))
-        {
-            if (!current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a DESTROY& parameter on a dead slot.");
-            }
-            current_slot_states.at(arg).alive = false;
-        }
-        else
-        {
-            if (!current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a parameter on a dead slot.");
-            }
-
-            // In quxlang calling convention, callee is responsible for destroying the argument.
-            current_slot_states.at(arg).alive = false;
-        }
-    }
-    for (auto& [name, arg] : args.named)
-    {
-        type_symbol arg_type = current_type(arg);
-        if (name == "RETURN")
-        {
-            current_slot_states.at(arg).alive = true;
-            continue;
-        }
-        type_symbol parameter_type = inst.params.named.at(name);
-
-        if (typeis< nvalue_slot >(parameter_type))
-        {
-            if (current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a NEW& parameter on a live slot.");
-            }
-            std::cout << "Setting slot " << arg << " alive" << std::endl;
-            current_slot_states.at(arg).alive = true;
-        }
-
-        else if (typeis< dvalue_slot >(parameter_type))
-        {
-            if (!current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a DESTROY& parameter on a dead slot.");
-            }
-            current_slot_states.at(arg).alive = false;
-        }
-        else
-        {
-            if (!current_slot_states.at(arg).alive)
-            {
-                throw std::logic_error("Cannot invoke a functanoid with a parameter on a dead slot.");
-            }
-
-            // In quxlang calling convention, callee is responsible for destroying the argument.
-            // however, references are not destroyed when passed as arguments.
-            current_slot_states.at(arg).alive = false;
-        }
-    }
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::cast_reference cst)
-{
-    block.instructions.push_back(cst);
-
-    current_slot_states[cst.source_ref_index].alive = false;
-    current_slot_states[cst.target_ref_index].alive = true;
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::make_reference cst)
-{
-    current_slot_states[cst.reference_index].alive = true;
-    block.instructions.push_back(cst);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::copy_reference cpr)
-{
-    current_slot_states[cpr.to_index].alive = true;
-    block.instructions.push_back(cpr);
-}
 bool quxlang::vmir2::executable_block_generation_state::slot_alive(storage_index idx)
 {
     return current_slot_states.at(idx).alive;
@@ -327,189 +190,6 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::executable_block_
     }
     return std::nullopt;
 }
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::constexpr_set_result csr)
-{
-    block.instructions.push_back(csr);
-    current_slot_states.at(csr.target).alive = false;
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_value lcv)
-{
-    current_slot_states.at(lcv.target).alive = true;
-    block.instructions.push_back(lcv);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_int lci)
-{
-    current_slot_states[lci.target].alive = true;
-    block.instructions.push_back(lci);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::make_pointer_to mpt)
-{
-    current_slot_states[mpt.pointer_index].alive = true;
-    block.instructions.push_back(mpt);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::dereference_pointer drp)
-{
-    current_slot_states[drp.from_pointer].alive = false;
-    current_slot_states[drp.to_reference].alive = true;
-    block.instructions.push_back(drp);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_from_ref lfp)
-{
-    assert(current_slot_states[lfp.from_reference].alive);
-    current_slot_states[lfp.from_reference].alive = false;
-    current_slot_states[lfp.to_value].alive = true;
-    block.instructions.push_back(lfp);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::store_to_ref lfp)
-{
-    assert(current_slot_states[lfp.from_value].alive == true);
-    assert(current_slot_states[lfp.to_reference].alive == true);
-    current_slot_states[lfp.from_value].alive = false;
-    current_slot_states[lfp.to_reference].alive = false;
-    block.instructions.push_back(lfp);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_add add)
-{
-    assert(current_slot_states[add.a].alive);
-    assert(current_slot_states[add.b].alive);
-    current_slot_states[add.a].alive = false;
-    current_slot_states[add.b].alive = false;
-    current_slot_states[add.result].alive = true;
-    block.instructions.push_back(add);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_sub sub)
-{
-    assert(current_slot_states[sub.a].alive);
-    assert(current_slot_states[sub.b].alive);
-    current_slot_states[sub.a].alive = false;
-    current_slot_states[sub.b].alive = false;
-    current_slot_states[sub.result].alive = true;
-    block.instructions.push_back(sub);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_mul mul)
-{
-    assert(current_slot_states[mul.a].alive);
-    assert(current_slot_states[mul.b].alive);
-    current_slot_states[mul.a].alive = false;
-    current_slot_states[mul.b].alive = false;
-    current_slot_states[mul.result].alive = true;
-    block.instructions.push_back(mul);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_div div)
-{
-    assert(current_slot_states[div.a].alive);
-    assert(current_slot_states[div.b].alive);
-    current_slot_states[div.a].alive = false;
-    current_slot_states[div.b].alive = false;
-    current_slot_states[div.result].alive = true;
-    block.instructions.push_back(div);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::int_mod mod)
-{
-    assert(current_slot_states[mod.a].alive);
-    assert(current_slot_states[mod.b].alive);
-    current_slot_states[mod.a].alive = false;
-    current_slot_states[mod.b].alive = false;
-    current_slot_states[mod.result].alive = true;
-    block.instructions.push_back(mod);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::load_const_zero lcz)
-{
-    current_slot_states[lcz.target].alive = true;
-    block.instructions.push_back(lcz);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_eq ceq)
-{
-    assert(current_slot_states[ceq.a].alive);
-    assert(current_slot_states[ceq.b].alive);
-    current_slot_states[ceq.a].alive = false;
-    current_slot_states[ceq.b].alive = false;
-    current_slot_states[ceq.result].alive = true;
-    block.instructions.push_back(ceq);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_ne cne)
-{
-    assert(current_slot_states[cne.a].alive);
-    assert(current_slot_states[cne.b].alive);
-    current_slot_states[cne.a].alive = false;
-    current_slot_states[cne.b].alive = false;
-    current_slot_states[cne.result].alive = true;
-    block.instructions.push_back(cne);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_lt clt)
-{
-    assert(current_slot_states[clt.a].alive);
-    assert(current_slot_states[clt.b].alive);
-    current_slot_states[clt.a].alive = false;
-    current_slot_states[clt.b].alive = false;
-    current_slot_states[clt.result].alive = true;
-    block.instructions.push_back(clt);
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::cmp_ge cge)
-{
-    assert(current_slot_states[cge.a].alive);
-    assert(current_slot_states[cge.b].alive);
-    current_slot_states[cge.a].alive = false;
-    current_slot_states[cge.b].alive = false;
-    current_slot_states[cge.result].alive = true;
-    block.instructions.push_back(cge);
-}
-void quxlang::vmir2::executable_block_generation_state::emit(quxlang::vmir2::defer_nontrivial_dtor dntd)
-{
-    block.instructions.push_back(dntd);
-    current_slot_states[dntd.on_value].nontrivial_dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_delegate_new sdn)
-{
-    assert(current_slot_states[sdn.on_value].alive == false);
-
-    block.instructions.push_back(sdn);
-
-    current_slot_states[sdn.on_value].delegates = invocation_args{};
-    current_slot_states[sdn.on_value].alive = true;
-
-    for (auto const& arg : sdn.fields.positional)
-    {
-        assert(current_slot_states[arg].alive == false);
-        current_slot_states[arg].delegate_of = sdn.on_value;
-
-        current_slot_states[sdn.on_value].delegates.value().positional.push_back(arg);
-    }
-
-    for (auto const& [name, arg] : sdn.fields.named)
-    {
-        current_slot_states[arg].delegate_of = sdn.on_value;
-        current_slot_states[sdn.on_value].delegates.value().named[name] = arg;
-    }
-}
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::end_lifetime elt)
-{
-    current_slot_states[elt.of] = {};
-}
-
-void quxlang::vmir2::executable_block_generation_state::emit(vmir2::struct_complete_new scn)
-{
-    assert(current_slot_states[scn.on_value].alive == true);
-
-    // TODO
-    // block.instructions.push_back(scn);
-
-    current_slot_states[scn.on_value].delegates = invocation_args{};
-    current_slot_states[scn.on_value].alive = true;
-
-    throw rpnx::unimplemented();
-}
-
 void quxlang::vmir2::frame_generation_state::generate_jump(std::size_t from, std::size_t to)
 {
     if (block(from).block.terminator.has_value())
@@ -590,6 +270,12 @@ std::optional< quxlang::vmir2::storage_index > quxlang::vmir2::frame_generation_
         }
     }
     return std::nullopt;
+}
+
+// Definition for frame_generation_state::has_terminator
+bool quxlang::vmir2::frame_generation_state::has_terminator(std::size_t block)
+{
+    return block_states[block].block.terminator.has_value();
 }
 
 quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()

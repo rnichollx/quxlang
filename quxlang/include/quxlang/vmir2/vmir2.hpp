@@ -1,5 +1,3 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
-
 #ifndef QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 #define QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 
@@ -64,7 +62,9 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement >;
+        struct pointer_arith;
+
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -132,6 +132,23 @@ namespace quxlang
             type_symbol type;
 
             RPNX_MEMBER_METADATA(fence_byte_release, type);
+        };
+
+        // pointer_arith (PAR) is used to calculate the offset of a pointer.
+        // It is used to calculate the offset of a pointer to a struct member.
+        // args:
+        // 1. from: the array pointer to start from
+        // 2. multiplier: either 1 or -1, depending on if used for addition or subtraction
+        // 3. offset: the offset of the element relative to the starting pointer
+        // 4. result: the result of the pointer offset calculation
+        struct pointer_arith
+        {
+            storage_index from;
+            std::int64_t multiplier;
+            storage_index offset;
+            storage_index result;
+
+            RPNX_MEMBER_METADATA(pointer_arith, from, multiplier, offset, result);
         };
 
         // Defers a non-trivial destructor call.
@@ -458,10 +475,7 @@ namespace quxlang
         struct slot_generation_state
         {
 
-            slot_generation_state()
-            {
-                slots.push_back(vmir2::vm_slot{.type = void_type{}, .name = "VOID", .literal_value = "VOID", .kind = vmir2::slot_kind::literal});
-            }
+            slot_generation_state(); // moved out-of-line
 
             slot_generation_state(const slot_generation_state&) = default;
             slot_generation_state(slot_generation_state&&) = default;
@@ -499,41 +513,9 @@ namespace quxlang
             type_symbol current_type(storage_index idx);
 
             executable_block_generation_state clone_subblock();
-            void emit(vmir2::increment inc);
-            void emit(vmir2::decrement dec);
-            void emit(vmir2::preincrement inc);
-            void emit(vmir2::predecrement dec);
-            void emit(vmir2::to_bool_not tbn);
-            void emit(vmir2::to_bool tb);
-            void emit(vmir2::access_field fld);
-            void emit(vmir2::access_array aca);
-            void emit(vmir2::invoke inv);
-            void emit(vmir2::cast_reference cst);
-            void emit(vmir2::make_reference cst);
-            void emit(vmir2::copy_reference cst);
-            void emit(vmir2::constexpr_set_result csr);
-            void emit(vmir2::load_const_value lcv);
-            void emit(vmir2::load_const_zero lcz);
-            void emit(vmir2::load_const_int lci);
-            void emit(vmir2::make_pointer_to lci);
-            void emit(vmir2::dereference_pointer drp);
-            void emit(vmir2::load_from_ref lfp);
-            void emit(vmir2::store_to_ref lfp);
-            void emit(vmir2::defer_nontrivial_dtor dntd);
-            void emit(vmir2::struct_complete_new scn);
-            void emit(vmir2::struct_delegate_new sdn);
-            void emit(vmir2::end_lifetime elt);
 
-            void emit(vmir2::int_add add);
-            void emit(vmir2::int_sub sub);
-            void emit(vmir2::int_mul mul);
-            void emit(vmir2::int_div div);
-            void emit(vmir2::int_mod mod);
-
-            void emit(vmir2::cmp_eq ceq);
-            void emit(vmir2::cmp_ne cne);
-            void emit(vmir2::cmp_lt clt);
-            void emit(vmir2::cmp_ge cge);
+            void emit(vm_instruction inst); // moved out-of-line
+            void emit(vm_terminator term); // moved out-of-line
 
             bool slot_alive(storage_index idx);
 
@@ -576,10 +558,7 @@ namespace quxlang
             void generate_jump(std::size_t from, std::size_t to);
             void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
             void generate_return(std::size_t from);
-            inline bool has_terminator(std::size_t block)
-            {
-                return block_states[block].block.terminator.has_value();
-            }
+            bool has_terminator(std::size_t block); // moved out-of-line
             std::size_t generate_entry_block();
             std::size_t generate_subblock(std::size_t of, std::string dbg_str);
 

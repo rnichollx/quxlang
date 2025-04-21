@@ -540,3 +540,24 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
     state[elt.of].alive = false;
 }
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_arith const& par)
+{
+    if (!state.at(par.from).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to perform pointer arithmetic on a dead slot");
+    }
+
+    if (!state.at(par.offset).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to use a dead offset slot");
+    }
+
+    if (state.at(par.result).alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to store pointer arithmetic result into a non-dead slot");
+    }
+
+    state[par.result].alive = true;
+    state[par.from].alive = false;
+    state[par.offset].alive = false;
+}
