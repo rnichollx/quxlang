@@ -25,7 +25,7 @@ namespace quxlang
     struct expression_copy_assign;
     struct expression_move_assign;
     struct expression_parenthesis;
-    struct expression_brackets;
+    struct expression_multibind;
 
     struct expression_and;
     struct expression_or;
@@ -120,14 +120,16 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_leftarrow, lhs);
     };
 
-    struct expression_brackets
+    struct expression_multibind
     {
+        std::string operator_str;
         expression lhs;
-
         std::vector< expression > bracketed;
 
-        RPNX_MEMBER_METADATA(expression_brackets, lhs, bracketed);
+        RPNX_MEMBER_METADATA(expression_multibind, operator_str, lhs, bracketed);
     };
+
+
 
 
 

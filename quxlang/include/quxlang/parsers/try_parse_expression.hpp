@@ -229,7 +229,7 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            //expression_rightarrow arrow;
+            // expression_rightarrow arrow;
             expression_unary_postfix arrow;
             arrow.operator_str = "->";
             arrow.lhs = std::move(*bindings[bindings.size() - 1]);
@@ -245,7 +245,29 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "["))
         {
-            expression_brackets brkts;
+            expression_multibind brkts;
+            brkts.operator_str = "OPERATOR[]";
+            brkts.lhs = std::move(*bindings[bindings.size() - 1]);
+            while (true)
+            {
+                brkts.bracketed.push_back(parse_expression(pos, end));
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "]"))
+                {
+                    break;
+                }
+                else if (!skip_symbol_if_is(pos, end, ","))
+                {
+                    throw std::logic_error("Expected ',' or ']' in brackets");
+                }
+            }
+            *bindings[bindings.size() - 1] = std::move(brkts);
+            goto next_operator;
+        }
+        else if (skip_symbol_if_is(pos, end, "[&"))
+        {
+            expression_multibind brkts;
+            brkts.operator_str = "OPERATOR[&]";
             brkts.lhs = std::move(*bindings[bindings.size() - 1]);
             while (true)
             {

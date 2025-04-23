@@ -791,7 +791,7 @@ namespace quxlang
             co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
         }
 
-        auto generate(expression_brackets const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto generate(expression_multibind const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto lhs_val = co_await generate_expr(what.lhs);
 
@@ -805,7 +805,7 @@ namespace quxlang
 
             type_symbol lhs_class_type = this->current_type(lhs_val);
             lhs_class_type = remove_ref(lhs_class_type);
-            auto call_brackets_operator = submember{lhs_class_type, "OPERATOR[]"};
+            auto call_brackets_operator = submember{lhs_class_type, what.operator_str};
 
             co_return co_await gen_call_functum(call_brackets_operator, invoke_brackets_args);
         }

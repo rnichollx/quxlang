@@ -351,7 +351,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
         quxlang::vmir2::assembler ir_printer(current_func_ir.get());
 
-        std::cout << "Executi   ng in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
@@ -441,7 +441,6 @@ quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmi
     }
 }
 
-
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_zero const& lcz)
 {
     auto const& type = get_current_frame().ir->slots.at(lcz.target).type;
@@ -501,13 +500,13 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     // There are two different versions of TB instruction, one which operates on pointer and one which
     // operates on integers.
     // These work the same on real machines, but because we treat pointers specially in constexpr, we
-        // need to handle them differently.
+    // need to handle them differently.
 
     auto typ = frame_slot_data_type(tb.from);
 
-    if (typ.type_is< pointer_type >() && !(typ.get_as<pointer_type>().ptr_class == pointer_class::ref))
+    if (typ.type_is< pointer_type >() && !(typ.get_as< pointer_type >().ptr_class == pointer_class::ref))
     {
-        auto &local = get_current_frame().local_values[tb.from];
+        auto& local = get_current_frame().local_values[tb.from];
 
         if (local == nullptr)
         {
@@ -540,7 +539,6 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
         output_bool(tb.to, result);
     }
-
 }
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::to_bool_not const& tbn)
@@ -552,9 +550,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     auto typ = frame_slot_data_type(tbn.from);
 
-    if (typ.type_is< pointer_type >() && !(typ.template as<pointer_type>().ptr_class == pointer_class::ref))
+    if (typ.type_is< pointer_type >() && !(typ.template as< pointer_type >().ptr_class == pointer_class::ref))
     {
-        auto &local = get_current_frame().local_values[tbn.from];
+        auto& local = get_current_frame().local_values[tbn.from];
 
         if (local == nullptr)
         {
@@ -587,7 +585,6 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
         output_bool(tbn.to, !result);
     }
-
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::access_array const& aca)
 {
@@ -870,8 +867,6 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         // but ideally, all should be consistent via IR definitions.
         r_data.resize(a_data.size());
     }
-
-
 
     // Perform two's complement addition in little-endian order
     std::uint16_t carry = 0;
@@ -1592,7 +1587,20 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::pointer_arith const& par)
 {
-    throw rpnx::unimplemented();
+    auto slot_ptr = get_current_frame().local_values[par.from];
+    if (slot_ptr == nullptr)
+    {
+        throw invalid_instruction_transition_error("Error in [pointer_arith]: slot not allocated");
+    }
+
+    if (!slot_ptr->alive)
+    {
+        throw invalid_instruction_transition_error("Error in [pointer_arith]: slot not alive");
+    }
+
+
+
+
 }
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::use_data(std::size_t slot)
 {
@@ -1620,4 +1628,3 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
         return slot_ptr->data;
     }
 }
-

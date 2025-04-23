@@ -30,7 +30,7 @@ namespace quxlang
 
 
     static std::map< std::string, std::string > const builtin_funcs{
-        {"INT(i)::.OPREATOR+(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPREATOR-(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR*(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR/(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR:=(@THIS OUT& i, @OTHER i)", "i"},
+        {"INT(i)::.OPERATOR+(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR-(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR*(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR/(@THIS i, @OTHER i)", "i"}, {"INT(i)::.OPERATOR:=(@THIS OUT& i, @OTHER i)", "i"},
 
     };
 
