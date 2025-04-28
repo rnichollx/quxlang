@@ -1079,7 +1079,7 @@ namespace rpnx
             }
 
             template < typename R2 >
-            auto& await_transform(general_coroutine< Graph, R2 >&& cr)
+            auto&& await_transform(general_coroutine< Graph, R2 >&& cr)
             {
                 return cr;
             }
@@ -1571,7 +1571,7 @@ namespace rpnx
                 return n;
             }
             template < typename R2 >
-            auto& await_transform(general_coroutine< Graph, R2 >&& n)
+            auto&& await_transform(general_coroutine< Graph, R2 >&& n)
             {
                 return n;
             }
