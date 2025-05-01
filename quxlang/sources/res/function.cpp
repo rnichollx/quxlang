@@ -169,6 +169,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         bool is_assignment_operator = assignment_operators.contains(operator_name);
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
+        bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
 
         if (is_int_type)
         {
@@ -236,6 +237,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
+        }
+        if (typeis <pointer_type>(parent) && operator_name == "+")
+        {
+            auto uintptr_type = co_await QUX_CO_DEP(uintpointer_type, (std::monostate{}));
+            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
         }
 
         co_return (allowed_operations);

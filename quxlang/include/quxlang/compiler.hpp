@@ -33,6 +33,7 @@
 #include "quxlang/res/overloads.hpp"
 #include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/temploid.hpp"
+#include "quxlang/res/pointer.hpp"
 #include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
 #include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
 #include "quxlang/res/variable.hpp"
@@ -200,6 +201,7 @@ namespace quxlang
         COMPILER_INDEX(builtin_dtor_vm_procedure2)
         COMPILER_INDEX(functum_user_overloads)
         COMPILER_INDEX(type_placement_info_from_canonical_type)
+        COMPILER_INDEX(uintpointer_type)
 
         index< called_functanoids_resolver > m_called_functanoids_index;
 

@@ -242,6 +242,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/lang/lang.hpp
         include/quxlang/res/temploid.hpp
         include/quxlang/bytemath.hpp
+        include/quxlang/res/pointer.hpp
+        sources/res/pointer.cpp
 
 )
 
