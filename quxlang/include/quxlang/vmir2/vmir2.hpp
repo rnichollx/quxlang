@@ -63,8 +63,9 @@ namespace quxlang
         struct fence_byte_acquire;
 
         struct pointer_arith;
+        struct pointer_diff;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -150,6 +151,18 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(pointer_arith, from, multiplier, offset, result);
         };
+
+        // pointer_diff(PDF) is used to find the offset between two pointers in the same array
+        struct pointer_diff
+        {
+            storage_index from;
+            storage_index to;
+            storage_index result;
+
+            RPNX_MEMBER_METADATA(pointer_diff, from, to, result);
+        };
+
+
 
         // Defers a non-trivial destructor call.
         struct defer_nontrivial_dtor

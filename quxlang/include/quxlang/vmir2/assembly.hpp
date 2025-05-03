@@ -1,5 +1,3 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
-
 #ifndef QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 #define QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 
@@ -69,9 +67,11 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::ret inst);
         std::string to_string_internal(vmir2::pointer_arith inst);
+        std::string to_string_internal(vmir2::pointer_diff inst);
 
     };
 
 }; // namespace quxlang::vmir2
 
 #endif // RPNX_QUXLANG_ASSEMBLY_HEADER
+

@@ -1,4 +1,3 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include <quxlang/manipulators/vmmanip.hpp>
 #include <quxlang/vmir2/assembly.hpp>
 
@@ -443,6 +442,10 @@ namespace quxlang::vmir2
                ", %" + std::to_string(inst.result);
     }
 
+    std::string assembler::to_string_internal(vmir2::pointer_diff inst)
+    {
+        std::string result = "PDF %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to) + ", %" + std::to_string(inst.result);
+        return result;
+    }
 
 } // namespace quxlang::vmir2
-

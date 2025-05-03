@@ -1,30 +1,22 @@
 //
-// Created by rnicholl on 4/28/25.
+// Created by Ryan Nicholl on 2025-04-30.
 //
-
 #include "quxlang/res/pointer.hpp"
 
 #include "quxlang/compiler.hpp"
-#include "quxlang/data/type_symbol.hpp"
+
+#include <quxlang/vmir2/vmir2.hpp>
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(uintpointer_type)
 {
-    auto machin_info = c->m_output_info;
+    auto machine_info = c->m_output_info;
 
-    auto ptr_size = machin_info.pointer_size();
-    // ptr_size is size in bytes, so we need to multiply by 8 to get bits
-    auto bits = ptr_size * 8;
-
-    co_return int_type{.bits = bits, .has_sign = false};
+    co_return int_type{.bits = machine_info.pointer_size() * 8, .has_sign = false};
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(sintpointer_type)
 {
-    auto machin_info = c->m_output_info;
+    auto machine_info = c->m_output_info;
 
-    auto ptr_size = machin_info.pointer_size();
-    // ptr_size is size in bytes, so we need to multiply by 8 to get bits
-    auto bits = ptr_size * 8;
-
-    co_return int_type{.bits = bits, .has_sign = true};
+    co_return int_type{.bits = machine_info.pointer_size() * 8, .has_sign = true};
 }

@@ -4,6 +4,14 @@
 #include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/exception.hpp"
 
+// Never use .at( ) when checking state as this code should never throw out_of_range.
+// Use operator[] instead.
+// It may not already exist, which should be treated as a dead slot.
+// We want to throw invalid_instruction_transition_error if we try to access a dead slot,
+// instead of out_of_range.
+
+// It's okay for the code to throw out_of_range if we try to access a slot_info that doesn't exist, but never for slot state.
+
 void quxlang::vmir2::state_engine::apply(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::vm_instruction const& inst)
 {
     rpnx::apply_visitor< void >(
@@ -34,7 +42,7 @@ void quxlang::vmir2::state_engine::apply_entry(std::map< vmir2::storage_index, s
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, increment const& tb)
 {
-    if (!state.at(tb.value).alive)
+    if (!state[tb.value].alive)
     {
         throw invalid_instruction_transition_error("Attempt to increment a dead slot");
     }
@@ -84,7 +92,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool const& tb)
 {
-    if (!state.at(tb.from).alive)
+    if (!state[tb.from].alive)
     {
         throw invalid_instruction_transition_error("from entry must be live");
     }
@@ -99,7 +107,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool_not const& tbn)
 {
-    if (!state.at(tbn.from).alive)
+    if (!state[tbn.from].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store into a dead slot");
     }
@@ -151,7 +159,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
     for (std::size_t index = 0; index < inv.args.positional.size(); index++)
     {
-        bool arg_alive = state.at(inv.args.positional[index]).alive;
+        bool arg_alive = state[inv.args.positional[index]].alive;
 
         auto arg_inst_type = ivk_func_inst.params.positional.at(index);
 
@@ -228,7 +236,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::cast_reference const& crf)
 {
-    if (state.at(crf.source_ref_index).alive == false)
+    if (state[crf.source_ref_index].alive == false)
     {
         throw invalid_instruction_transition_error("Attempt to cast reference to a dead slot");
     }
@@ -321,7 +329,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_add const& add)
 {
-    if (!state.at(add.a).alive || !state.at(add.b).alive)
+    if (!state[add.a].alive || !state[add.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to add non-alive values");
     }
@@ -337,7 +345,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_sub const& sub)
 {
-    if (!state.at(sub.a).alive || !state.at(sub.b).alive)
+    if (!state[sub.a].alive || !state[sub.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to sub non-alive values");
     }
@@ -353,7 +361,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_mul const& mul)
 {
-    if (!state.at(mul.a).alive || !state.at(mul.b).alive)
+    if (!state[mul.a].alive || !state[mul.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to mul non-alive values");
     }
@@ -369,7 +377,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_div const& div)
 {
-    if (!state.at(div.a).alive || !state.at(div.b).alive)
+    if (!state[div.a].alive || !state[div.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to div non-alive values");
     }
@@ -393,7 +401,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::int_mod const& mod)
 {
-    if (!state.at(mod.a).alive || !state.at(mod.b).alive)
+    if (!state[mod.a].alive || !state[mod.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to mod non-alive values");
     }
@@ -435,7 +443,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::cmp_eq const& str)
 {
-    if (!state.at(str.a).alive || !state.at(str.b).alive)
+    if (!state[str.a].alive || !state[str.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to compare non-alive values");
     }
@@ -452,7 +460,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::cmp_ge const& str)
 {
-    if (!state.at(str.a).alive || !state.at(str.b).alive)
+    if (!state[str.a].alive || !state[str.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to compare non-alive values");
     }
@@ -469,7 +477,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::cmp_lt const& str)
 {
-    if (!state.at(str.a).alive || !state.at(str.b).alive)
+    if (!state[str.a].alive || !state[str.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to compare non-alive values");
     }
@@ -486,7 +494,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, quxlang::vmir2::cmp_ne const& str)
 {
-    if (!state.at(str.a).alive || !state.at(str.b).alive)
+    if (!state[str.a].alive || !state[str.b].alive)
     {
         throw invalid_instruction_transition_error("Attempt to compare non-alive values");
     }
@@ -525,7 +533,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, copy_reference const& cpr)
 {
-    if (!state.at(cpr.from_index).alive)
+    if (!state[cpr.from_index].alive)
     {
         throw compiler_bug("this is a bug in cpr or codegen");
     }
@@ -533,7 +541,7 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, end_lifetime const& elt)
 {
-    if (!state.at(elt.of).alive)
+    if (!state[elt.of].alive)
     {
         throw compiler_bug("Input not alive");
     }
@@ -542,17 +550,17 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
 }
 void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_arith const& par)
 {
-    if (!state.at(par.from).alive)
+    if (!state[par.from].alive)
     {
         throw invalid_instruction_transition_error("Attempt to perform pointer arithmetic on a dead slot");
     }
 
-    if (!state.at(par.offset).alive)
+    if (!state[par.offset].alive)
     {
         throw invalid_instruction_transition_error("Attempt to use a dead offset slot");
     }
 
-    if (state.at(par.result).alive)
+    if (state[par.result].alive)
     {
         throw invalid_instruction_transition_error("Attempt to store pointer arithmetic result into a non-dead slot");
     }
@@ -561,3 +569,26 @@ void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index
     state[par.from].alive = false;
     state[par.offset].alive = false;
 }
+
+void quxlang::vmir2::state_engine::apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_diff const& pdf)
+{
+    if (!state[pdf.from].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to calculate pointer difference with a dead 'from' slot");
+    }
+
+    if (!state[pdf.to].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to calculate pointer difference with a dead 'to' slot");
+    }
+
+    if (state[pdf.result].alive)
+    {
+        throw invalid_instruction_transition_error("Attempt to store pointer difference result into a non-dead slot");
+    }
+
+    state[pdf.result].alive = true;
+    state[pdf.from].alive = false;
+    state[pdf.to].alive = false;
+}
+

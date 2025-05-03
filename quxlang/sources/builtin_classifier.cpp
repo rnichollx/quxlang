@@ -409,6 +409,38 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         }
     }
 
+    if (cls->template type_is< pointer_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
+    {
+        if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
+        {
+            vmir2::pointer_arith par;
+            par.from = args.named.at("THIS");
+            if (member->name == "OPERATOR-")
+            {
+                par.multiplier = -1;
+            }
+            else
+            {
+                assert(member->name == "OPERATOR+");
+                par.multiplier = 1;
+            }
+            par.offset = args.named.at("OTHER");
+
+            par.result = args.named.at("RETURN");
+
+            return par;
+        }
+
+        if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< pointer_type >() && call.size() == 2)
+        {
+            vmir2::pointer_diff pdf;
+            pdf.from = args.named.at("THIS");
+            pdf.to = args.named.at("OTHER");
+            pdf.result = args.named.at("RETURN");
+            return pdf;
+        }
+    }
+
     return std::nullopt;
 }
 
