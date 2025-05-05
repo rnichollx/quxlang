@@ -169,7 +169,7 @@ namespace quxlang
         }
 
         le_trim(result);
-        return std::move(result);
+        return result;
     }
 
     // helper: divmod via long division by byte-wise trial

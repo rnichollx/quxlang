@@ -16,6 +16,7 @@ namespace quxlang::parsers
     template < typename It >
     expression parse_expression(It& pos, It end)
     {
+        std::string remaining = std::string(pos, end);
         if (auto output = try_parse_expression(pos, end); output)
         {
             return output.value();

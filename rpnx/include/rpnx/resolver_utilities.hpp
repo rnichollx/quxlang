@@ -1915,11 +1915,11 @@ namespace rpnx
 
                     if (n->has_value())
                     {
-                        QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl; });
+                       // QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl; });
                     }
                     else
                     {
-                        QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: error" << std::endl; });
+                      //  QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: error" << std::endl; });
                     }
                 }
 

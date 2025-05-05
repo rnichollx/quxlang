@@ -45,13 +45,24 @@ MODULE main;
 ::biz FUNCTION(%a I32, %b I32): I32
 {
   VAR y I32;
+
+  VAR q [3]I32;
+
+  q[0] := 1;
+  q[1] := 2;
+  q[2] := 3;
+
+
   IF (y == 0) {
     VAR x yak;
 
     x.z := y<-;
+
+    x.f := q[& 0];
+    x.f_count := 3;
   }
   buf(a);
-  RETURN a + b + y;
+  RETURN a + b + y + q[0] + q[1] + q[2];
 }
 
 
@@ -68,9 +79,24 @@ MODULE main;
 }
 
 
+// [4]->I32
+// ->  [4]I32
+// ->  [4]->I32
+// =>> I32
+// [4]I32
+
+// *I32
+// ^I32
+
+
 ::boq FUNCTION(): I32
 {
   RETURN 5;
+}
+
+::boq FUNCTION(%a I32): I32
+{
+  RETURN a + 5;
 }
 
 

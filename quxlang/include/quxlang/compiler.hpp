@@ -144,7 +144,6 @@ namespace quxlang
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(functum_builtin_overloads)
-
         COMPILER_INDEX(functanoid_sigtype)
         COMPILER_INDEX(function_positional_parameter_names)
         COMPILER_INDEX(function_builtin)

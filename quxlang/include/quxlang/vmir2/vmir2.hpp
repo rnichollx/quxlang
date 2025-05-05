@@ -78,6 +78,11 @@ namespace quxlang
             RPNX_MEMBER_METADATA(end_lifetime, of);
         };
 
+        struct newtype
+        {
+            RPNX_EMPTY_METADATA(newtype);
+        };
+
         struct invocation_args
         {
             std::map< std::string, storage_index > named;

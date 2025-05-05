@@ -24,11 +24,12 @@ namespace quxlang
 
                 instr.a = this_slot_id;
                 instr.b = other_slot_id;
-                instr.result = args.named.at("RETURN");
-                if (member.name == "OPERATOR" + operator_str + "RHS")
+                if (flip)
                 {
                     std::swap(instr.a, instr.b);
                 }
+                instr.result = args.named.at("RETURN");
+
 
                 out = instr;
                 return true;
@@ -258,7 +259,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         }
     }
 
-    if (member->name == "OPERATOR[]")
+    if (member->name == "OPERATOR[]" || member->name == "OPERATOR[&]")
     {
         if (cls->template type_is< array_type >())
         {

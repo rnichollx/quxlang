@@ -6,6 +6,7 @@
 
 #include "quxlang/vmir2/ir2_interpreter.hpp"
 
+#include "quxlang/bytemath.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/parsers/parse_int.hpp"
@@ -1118,16 +1119,20 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     auto a = consume_data(clt.a);
     auto b = consume_data(clt.b);
 
+    std::cout << "CLT " << le_to_string(a) << " " << le_to_string(b) << std::endl;
+
     for (std::size_t i = a.size() - 1; true; i--)
     {
         if (a[i] < b[i])
         {
             set_data(clt.result, {std::byte(1)});
+            std::cout << "CLT: " << le_to_string(a) << " < " << le_to_string(b) << std::endl;
             return;
         }
         if (a[i] > b[i])
         {
             set_data(clt.result, {std::byte(0)});
+            std::cout << "CLT: " << le_to_string(a) << " > " << le_to_string(b) << std::endl;
             return;
         }
         if (i == 0)
@@ -1569,6 +1574,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
+    //current_frame
+
     throw rpnx::unimplemented();
 }
 

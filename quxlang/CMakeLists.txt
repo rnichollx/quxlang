@@ -334,3 +334,4 @@ if (GTest_FOUND)
     gtest_discover_tests(quxlang_gtests)
 endif ()
 
+

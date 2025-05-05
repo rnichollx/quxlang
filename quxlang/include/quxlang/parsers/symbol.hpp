@@ -28,7 +28,7 @@ namespace quxlang::parsers
             {
                 break;
             }
-            if (c == '[' && ((pos+1) == end || *(pos+1) != '&'))
+            if (c == '[' && (pos == end || *pos != '&'))
             {
                 break;
             }
