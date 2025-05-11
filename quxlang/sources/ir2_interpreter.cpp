@@ -41,15 +41,31 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     std::uint64_t next_object_id = 1;
 
     struct local;
+    struct primitive_object;
+    struct array_object;
+    struct struct_object;
+    struct pref_object;
+
+    using object = rpnx::variant< primitive_object, array_object, struct_object, pref_object >;
 
     struct pointer_impl
     {
         std::weak_ptr< local > pointer_target;
+        std::optional< std::int64_t > invalid_offset;
+        bool invalidated = false;
+    };
+
+    struct object_pointer_impl
+    {
+        std::weak_ptr< object > pointer_target;
+        std::optional< std::int64_t > invalid_offset;
+        bool invalidated = false;
     };
 
     struct local
     {
         std::vector< std::byte > data;
+        bool negative;
         bool alive = false;
         bool storage_initiated = false;
         bool dtor_enabled = false;
@@ -61,6 +77,40 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
+    };
+
+    struct object_base
+    {
+        std::weak_ptr< object > member_of;
+        std::uint64_t object_id{};
+        std::optional< dtor_spec > dtor;
+        bool alive = false;
+        bool storage_initiated = false;
+    };
+
+    using primitive_value = rpnx::variant< bool, bytemath::le_sint, bytemath::le_uint >;
+
+    struct primitive_object : public object_base
+    {
+        std::vector< std::byte > data;
+        bool is_negative = false;
+        bool is_unspecified = false;
+        std::size_t bits = 0;
+    };
+
+    struct array_object : public object_base
+    {
+        std::vector< std::shared_ptr< object > > array_members;
+    };
+
+    struct struct_object : public object_base
+    {
+        std::map< std::string, std::shared_ptr< object > > struct_members;
+    };
+
+    struct pref_object : public object_base
+    {
+        std::optional< pointer_impl > ref;
     };
 
     struct stack_frame
@@ -141,10 +191,23 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     std::shared_ptr< local > create_local_value(std::size_t local_index, bool set_alive);
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
 
+    std::shared_ptr< local > load_from_reference(std::size_t slot, bool consume);
+    pointer_impl load_from_pointer(std::size_t slot, bool consume);
+    void store_as_reference(std::size_t slot, std::shared_ptr< local > value);
+    void store_as_pointer(std::size_t slot, pointer_impl value);
+
+    bool is_reference_type(quxlang::vmir2::storage_index slot);
+    bool is_pointer_type(quxlang::vmir2::storage_index slot);
+
     std::vector< std::byte > use_data(std::size_t slot);
 
-    std::vector< std::byte > consume_data(std::size_t slot);
+    std::vector< std::byte > slot_consume_data(std::size_t slot);
     std::vector< std::byte > copy_data(std::size_t slot);
+
+    std::vector< std::byte > local_consume_data(std::shared_ptr< local > local_value);
+    void local_set_data(std::shared_ptr< local > local_value, std::vector< std::byte > data);
+
+    pointer_impl pointer_arith(pointer_impl input, std::int64_t offset, type_symbol type);
 
     std::uint64_t consume_u64(std::size_t slot);
 
@@ -155,6 +218,8 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
     void output_bool(std::size_t slot, bool value);
 
     type_symbol frame_slot_data_type(std::size_t slot);
+
+    std::size_t type_size(type_symbol type);
 };
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::call_func(cow< type_symbol > functype, vmir2::invocation_args args)
@@ -526,7 +591,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     }
     else
     {
-        auto data = consume_data(tb.from);
+        auto data = slot_consume_data(tb.from);
 
         bool result = false;
 
@@ -572,7 +637,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     }
     else
     {
-        auto data = consume_data(tbn.from);
+        auto data = slot_consume_data(tbn.from);
 
         bool result = false;
 
@@ -661,7 +726,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 {
     auto reg = brn.condition;
 
-    auto data = consume_data(reg);
+    auto data = slot_consume_data(reg);
 
     if (data == std::vector< std::byte >{std::byte{0}})
     {
@@ -746,7 +811,7 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
         }
     }
 
-    this->constexpr_result = consume_data(csr.target);
+    this->constexpr_result = slot_consume_data(csr.target);
 }
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -1096,8 +1161,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cmp_eq const& ceq)
 {
-    auto a = consume_data(ceq.a);
-    auto b = consume_data(ceq.b);
+    auto a = slot_consume_data(ceq.a);
+    auto b = slot_consume_data(ceq.b);
 
     assert(a.size() == b.size());
 
@@ -1116,23 +1181,23 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::cmp_lt const& clt)
 {
-    auto a = consume_data(clt.a);
-    auto b = consume_data(clt.b);
+    auto a = slot_consume_data(clt.a);
+    auto b = slot_consume_data(clt.b);
 
-    std::cout << "CLT " << le_to_string(a) << " " << le_to_string(b) << std::endl;
+    std::cout << "CLT " << bytemath::le_to_string(a) << " " << bytemath::le_to_string(b) << std::endl;
 
     for (std::size_t i = a.size() - 1; true; i--)
     {
         if (a[i] < b[i])
         {
             set_data(clt.result, {std::byte(1)});
-            std::cout << "CLT: " << le_to_string(a) << " < " << le_to_string(b) << std::endl;
+            std::cout << "CLT: " << bytemath::le_to_string(a) << " < " << bytemath::le_to_string(b) << std::endl;
             return;
         }
         if (a[i] > b[i])
         {
             set_data(clt.result, {std::byte(0)});
-            std::cout << "CLT: " << le_to_string(a) << " > " << le_to_string(b) << std::endl;
+            std::cout << "CLT: " << bytemath::le_to_string(a) << " > " << bytemath::le_to_string(b) << std::endl;
             return;
         }
         if (i == 0)
@@ -1225,7 +1290,7 @@ std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_interpreter::missing
     return this->implementation->missing_functanoids_val;
 }
 
-std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::consume_data(std::size_t slot)
+std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::slot_consume_data(std::size_t slot)
 {
     auto& frame = get_current_frame();
 
@@ -1235,13 +1300,10 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
         throw constexpr_logic_execution_error("Error in [consume_data] substep: slot does not exist");
     }
 
+    auto local = it->second;
+
     // Move the data out of the local
-    std::vector< std::byte > data = std::move(it->second->data);
-
-    // Reset the slot to nullptr
-    it->second.reset();
-
-    return data;
+    return local_consume_data(local);
 }
 
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::copy_data(std::size_t slot)
@@ -1259,9 +1321,75 @@ std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::
 
     return data;
 }
+std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local_consume_data(std::shared_ptr< local > local_value)
+{
+    std::vector< std::byte > data = std::move(local_value->data);
+    local_value->alive = false;
+    if (local_value->member_of.lock() != nullptr)
+    {
+        local_value->storage_initiated = false;
+    }
+    return data;
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local_set_data(std::shared_ptr< local > local_value, std::vector< std::byte > data)
+{
+    // TODO: Consider check if value already alive or not.
+    local_value->data = std::move(data);
+    local_value->alive = true;
+    local_value->storage_initiated = true;
+    return;
+}
+
+quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_arith(pointer_impl input, std::int64_t offset, type_symbol type)
+{
+    // TODO: Invalidate the pointer if the type is not equal to the actual type of the array type.
+
+    auto target_object = input.pointer_target.lock();
+
+    auto target_arry = target_object->member_of.lock();
+
+    if (!target_arry)
+    {
+        throw constexpr_logic_execution_error("pointer arithmetic within non-array pointer");
+    }
+
+    std::optional< std::int64_t > position_in_arry;
+
+    if (target_arry->array_members.size() > std::numeric_limits< std::int64_t >::max())
+    {
+        throw compiler_bug("array too large for compiler to handle");
+    }
+
+    for (std::int64_t index = 0; index < target_arry->array_members.size(); index++)
+    {
+        if (target_arry->array_members[index] == target_object)
+        {
+            position_in_arry = index;
+            break;
+        }
+    }
+
+    assert(position_in_arry.has_value());
+
+    // TODO: Verify this calculation doesn't/can't overflow
+    std::int64_t new_position = position_in_arry.value() + offset + input.invalid_offset.value_or(0);
+
+    if (new_position < 0 || new_position >= target_arry->array_members.size())
+    {
+        input.invalid_offset = new_position;
+    }
+    else
+    {
+        input.invalid_offset = std::nullopt;
+        input.pointer_target = target_arry->array_members[new_position];
+    }
+
+    return input;
+}
+
 std::uint64_t quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::consume_u64(std::size_t slot)
 {
-    auto data = consume_data(slot);
+    auto data = slot_consume_data(slot);
     if (data.size() != 8)
     {
         throw std::logic_error("expected uint64");
@@ -1530,6 +1658,125 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::init_storage(std::sh
         std::fill(local_value->data.begin(), local_value->data.end(), std::byte(0));
     }
 }
+std::shared_ptr< quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::local > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::load_from_reference(std::size_t slot, bool consume)
+{
+    auto& frame = get_current_frame();
+    auto& local_ptr = frame.local_values[slot];
+
+    if (local_ptr == nullptr)
+    {
+        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not allocated");
+    }
+
+    if (!local_ptr->alive)
+    {
+        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not alive");
+    }
+
+    auto ptr_ref = local_ptr->ref;
+    if (consume)
+    {
+        local_ptr->alive = false;
+        local_ptr->ref = std::nullopt;
+    }
+
+    if (!ptr_ref.has_value())
+    {
+        throw constexpr_logic_execution_error("nullptr dereference");
+    }
+
+    auto ptr_target = ptr_ref.value().pointer_target.lock();
+
+    if (!ptr_target)
+    {
+        throw constexpr_logic_execution_error("dereferencing invalidated pointer or reference");
+    }
+
+    return ptr_target;
+}
+quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::pointer_impl quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::load_from_pointer(std::size_t slot, bool consume)
+{
+    auto& frame = get_current_frame();
+    auto& local_ptr = frame.local_values[slot];
+
+    if (local_ptr == nullptr)
+    {
+        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not allocated");
+    }
+
+    if (!local_ptr->alive)
+    {
+        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not alive");
+    }
+
+    auto ptr_ref = local_ptr->ref;
+    if (consume)
+    {
+        local_ptr->alive = false;
+        local_ptr->ref = std::nullopt;
+    }
+
+    if (!ptr_ref.has_value())
+    {
+        throw constexpr_logic_execution_error("uninitialized dereference");
+    }
+
+    return ptr_ref.value();
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::store_as_reference(std::size_t slot, std::shared_ptr< local > value)
+{
+    auto& local_ptr = get_current_frame().local_values[slot];
+    local_ptr = nullptr;
+    create_local_value(slot, true);
+    local_ptr->ref = pointer_impl{.pointer_target = value};
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::store_as_pointer(std::size_t slot, pointer_impl value)
+{
+    auto& local_ptr = get_current_frame().local_values[slot];
+
+    // TODO: is this correct?
+    local_ptr = nullptr;
+
+    create_local_value(slot, true);
+    local_ptr->ref = value;
+}
+bool quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::is_reference_type(quxlang::vmir2::storage_index slot)
+{
+    auto& slots = get_current_frame().ir.read().slots;
+
+    if (slots.size() <= slot)
+    {
+        throw invalid_instruction_error("slot doesn't exist");
+    }
+
+    auto const& slot_type = slots.at(slot).type;
+
+    if (slot_type.type_is< pointer_type >() && slot_type.as< pointer_type >().ptr_class == pointer_class::ref)
+    {
+        return true;
+    }
+
+    return false;
+}
+bool quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::is_pointer_type(quxlang::vmir2::storage_index slot)
+{
+    auto& slots = get_current_frame().ir.read().slots;
+
+    if (slots.size() <= slot)
+    {
+        throw invalid_instruction_error("slot doesn't exist");
+    }
+
+    auto const& slot_type = slots.at(slot).type;
+
+    if (slot_type.type_is< pointer_type >() && slot_type.as< pointer_type >().ptr_class != pointer_class::ref)
+    {
+        return true;
+    }
+
+    return false;
+}
+
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {
     std::vector< vmir2::storage_index > values_to_destroy;
@@ -1574,9 +1821,31 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::transition(quxlang::
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
-    //current_frame
+    // current_frame
+    auto value_to_increment = load_from_reference(instr.value, false);
+    // TODO: Validate object is an int?
 
-    throw rpnx::unimplemented();
+    auto const& type = frame_slot_data_type(instr.value);
+
+    auto type_int_g = type.get_as< pointer_type >().target;
+
+    if (!type_int_g.type_is< int_type >())
+    {
+        // TODO: Add support for pointer++
+        throw invalid_instruction_error("Error in [increment]: slot is not an int");
+    }
+
+    int_type const& type_int = type_int_g.get_as< int_type >();
+
+    auto val = local_consume_data(value_to_increment);
+
+    val = bytemath::le_unsigned_add(std::move(val), {std::byte(1)});
+
+    val = bytemath::le_truncate(std::move(val), type_int.bits);
+
+    local_set_data(value_to_increment, std::move(val));
+
+    store_as_reference(instr.result, value_to_increment);
 }
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)
@@ -1595,20 +1864,51 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::pointer_arith const& par)
 {
-    auto slot_ptr = get_current_frame().local_values[par.from];
-    if (slot_ptr == nullptr)
+
+    auto ptr = load_from_pointer(par.from, true);
+
+    // quxlang::bytemath::le_sint multiplier;
+
+    auto val = slot_consume_data(par.offset);
+
+    auto const& offset_type = get_current_frame().ir->slots.at(par.offset).type;
+
+    if (!offset_type.type_is< int_type >())
     {
-        throw invalid_instruction_transition_error("Error in [pointer_arith]: slot not allocated");
+        throw compiler_bug("Error in [pointer_arith]: offset is not an integer");
     }
 
-    if (!slot_ptr->alive)
+    auto const& offset_int = offset_type.get_as< int_type >();
+
+    // TODO: Handle signed offsets
+    if (offset_int.has_sign)
     {
-        throw invalid_instruction_transition_error("Error in [pointer_arith]: slot not alive");
+        throw rpnx::unimplemented();
     }
+    auto offset_val = slot_consume_data(par.offset);
+
+    std::int64_t offset = 0;
+    bool ok = false;
+
+    if (par.multiplier == -1)
+    {
+        auto offset_val_s = bytemath::le_signed_sub(bytemath::le_sint{ .data = {std::byte(0)}}, bytemath::le_sint{.data = offset_val, .is_negative = false});
+        std::tie(offset, ok) = bytemath::le_to_sint< std::int64_t >(offset_val_s);
+    }
+    else
+    {
+        std::tie(offset, ok) = bytemath::le_to_sint< std::int64_t >(bytemath::le_sint{.data =offset_val, .is_negative = false});
+    }
+    // TODO: Handle !ok
+
+    assert(ok);
 
 
 
+    type_symbol const& pointer_type = get_current_frame().ir->slots.at(par.result).type;
+    pointer_impl new_ptr = pointer_arith(ptr, offset, pointer_type);
 
+    store_as_pointer(par.result, new_ptr);
 }
 std::vector< std::byte > quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::use_data(std::size_t slot)
 {
@@ -1642,4 +1942,3 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
     // Stub implementation for pointer_diff
     throw rpnx::unimplemented();
 }
-

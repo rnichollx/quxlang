@@ -665,6 +665,42 @@ namespace rpnx
             return *this;
         }
 
+        template <typename T>
+        T & static_cast_as()
+        {
+            return apply_visitor< T& >([]( auto & arg ) -> T&
+            {
+                return static_cast< T& >(arg);
+            });
+        }
+
+        template <typename T>
+        T const & static_cast_as() const
+        {
+            return apply_visitor< T const& >([]( auto & arg ) -> T const&
+            {
+                return static_cast< T const& >(arg);
+            });
+        }
+
+        template <typename T>
+        T * dynamic_cast_as()
+        {
+            return apply_visitor< T* >([]( auto & arg ) -> T*
+            {
+                return dynamic_cast< T* >(arg);
+            });
+        }
+
+        template <typename T>
+        T const * dynamic_cast_as() const
+        {
+            return apply_visitor< T const* >([]( auto & arg ) -> T const*
+            {
+                return dynamic_cast< T const* >(arg);
+            });
+        }
+
         template < typename T >
         T& get_as()
         {

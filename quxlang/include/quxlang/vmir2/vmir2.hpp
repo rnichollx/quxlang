@@ -592,6 +592,14 @@ namespace quxlang
             RPNX_MEMBER_METADATA(frame_generation_state, slots);
         };
 
+
+        struct state_transition
+        {
+            bool entry_alive = false;
+            bool exit_alive = false;
+
+            RPNX_MEMBER_METADATA(state_transition, entry_alive, exit_alive);
+        };
     } // namespace vmir2
 
 }; // namespace quxlang

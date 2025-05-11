@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace quxlang
+namespace quxlang::bytemath
 {
 
     // Add the two numbers
@@ -328,6 +328,8 @@ namespace quxlang
         return result;
     }
 
+
+
     inline std::string le_to_string(std::vector< std::byte > number)
     {
         std::string result;
@@ -382,6 +384,98 @@ namespace quxlang
         return result;
     }
 
-} // namespace quxlang
+    inline std::vector< std::byte > le_truncate(std::vector< std::byte > data, std::size_t size_in_bits)
+    {
+
+        std::size_t total_num_result_bytes = (size_in_bits + 7) / 8;
+        std::size_t num_bits_in_last_byte = size_in_bits % 8;
+        if (num_bits_in_last_byte == 0 && size_in_bits != 0)
+        {
+            num_bits_in_last_byte = 8;
+        }
+        if (data.size() > total_num_result_bytes)
+        {
+            data.resize(total_num_result_bytes);
+        }
+
+        if (total_num_result_bytes != 0 && data.size() == total_num_result_bytes && num_bits_in_last_byte != 8)
+        {
+            // Clear the bits above the specified size
+            std::uint8_t mask = (1 << num_bits_in_last_byte) - 1;
+            data[total_num_result_bytes - 1] &= static_cast< std::byte >(mask);
+        }
+
+        if (data.empty())
+        {
+            data.push_back(std::byte{0});
+        }
+
+        return data;
+    }
+
+    struct le_uint
+    {
+        std::vector< std::byte > data;
+    };
+
+    struct le_sint
+    {
+        std::vector< std::byte > data;
+        bool is_negative = false;
+    };
+
+    inline le_sint le_signed_add(le_sint a, le_sint b)
+    {
+        bool a_negative = a.is_negative;
+        bool b_negative = b.is_negative;
+
+        if (a_negative == b_negative)
+        {
+            auto result = le_unsigned_add(std::move(a.data), std::move(b.data));
+            return {std::move(result), a_negative};
+        }
+        else
+        {
+            if (le_comp_less(a.data, b.data))
+            {
+                auto result = le_unsigned_sub(std::move(b.data), std::move(a.data));
+                return {std::move(result), !b_negative};
+            }
+            else
+            {
+                auto result = le_unsigned_sub(std::move(a.data), std::move(b.data));
+                return {std::move(result), a_negative};
+            }
+        }
+    }
+
+    inline le_sint le_signed_sub(le_sint a, le_sint b)
+    {
+        b.is_negative = !b.is_negative;
+        return le_signed_add(std::move(a), std::move(b));
+    }
+
+    inline le_sint le_signed_mult(le_sint a, le_sint b)
+    {
+        auto result = le_unsigned_mult(std::move(a.data), std::move(b.data));
+        return {.data = std::move(result), .is_negative = a.is_negative != b.is_negative};
+    }
+
+    inline le_sint le_signed_div(le_sint a, le_sint b)
+    {
+        auto result = le_unsigned_div(std::move(a.data), std::move(b.data));
+        return {.data = std::move(result), .is_negative = a.is_negative != b.is_negative};
+    }
+
+    template < typename SInt >
+    inline std::pair< SInt, bool > le_to_sint(le_sint const& data)
+    {
+        if (data.is_negative)
+        {
+
+        }
+    }
+
+} // namespace quxlang::bytemath
 
 #endif // BYTEMATH_HPP
