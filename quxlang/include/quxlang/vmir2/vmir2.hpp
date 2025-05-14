@@ -476,7 +476,11 @@ namespace quxlang
                 {
                     return false;
                 }
-                if (!alive && (delegate_of.has_value() || delegates.has_value() || dtor_enabled))
+                if (!alive && (delegates.has_value() || dtor_enabled))
+                {
+                    return false;
+                }
+                if (!storage_valid && delegate_of.has_value())
                 {
                     return false;
                 }
