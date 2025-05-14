@@ -470,6 +470,23 @@ namespace quxlang
             std::optional< invocation_args > delegates;
             std::optional< storage_index > delegate_of;
 
+            bool valid() const
+            {
+                if (alive && !storage_valid)
+                {
+                    return false;
+                }
+                if (!alive && (delegate_of.has_value() || delegates.has_value() || dtor_enabled))
+                {
+                    return false;
+                }
+                if (nontrivial_dtor.has_value() && !dtor_enabled)
+                {
+                    return false;
+                }
+                return true;
+            }
+
             RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of);
         };
 

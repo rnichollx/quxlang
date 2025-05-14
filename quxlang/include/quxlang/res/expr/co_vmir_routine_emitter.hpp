@@ -96,7 +96,7 @@ namespace quxlang
 
             auto const& fr = frame;
 
-            vmir2::state_engine::apply_entry(frame.entry_block().block.entry_state, frame.slots.slots);
+            vmir2::state_engine(frame.entry_block().block.entry_state, frame.slots.slots).apply_entry();
 
             co_return;
         }
@@ -396,6 +396,7 @@ namespace quxlang
             }
 
             vmir2::slot_state new_state = frame.block(current_block).current_slot_states[idx];
+            assert(new_state.valid());
 
             frame.generate_jump(current_block, after_block);
             current_block = after_block;

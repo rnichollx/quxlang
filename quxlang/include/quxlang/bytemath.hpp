@@ -10,6 +10,9 @@
 
 namespace quxlang::bytemath
 {
+    struct le_sint;
+    struct le_uint;
+
 
     // Add the two numbers
     std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b);
@@ -59,6 +62,11 @@ namespace quxlang::bytemath
         while (v.size() > 1 && v.back() == std::byte{0})
         {
             v.pop_back();
+        }
+
+        if (v.size() == 0)
+        {
+            v.push_back(std::byte{0});
         }
     }
 
@@ -171,6 +179,8 @@ namespace quxlang::bytemath
         le_trim(result);
         return result;
     }
+    inline le_sint le_signed_mult(le_sint a, le_sint b);
+
 
     // helper: divmod via long division by byte-wise trial
     inline std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b)
@@ -283,6 +293,71 @@ namespace quxlang::bytemath
         return le_unsigned_divmod(std::move(a), std::move(b)).second;
     }
 
+    inline std::vector< std::byte > le_shift_down(std::vector< std::byte > value, std::size_t shift)
+    {
+        std::size_t byte_shift = shift / 8;
+        std::size_t bit_shift = shift % 8;
+
+        value.erase(value.begin(), value.begin() + std::min(byte_shift, value.size()));
+
+        if (bit_shift > 0)
+        {
+            std::size_t num_bytes = value.size();
+            if (num_bytes != 0)
+            {
+                for (std::size_t i = 0; i < num_bytes - 1; ++i)
+                {
+                    value[i] = static_cast< std::byte >((static_cast< std::uint8_t >(value[i]) >> bit_shift) | (static_cast< std::uint8_t >(value[i + 1]) << (8 - bit_shift)));
+                }
+
+                value[num_bytes - 1] = static_cast< std::byte >(static_cast< std::uint8_t >(value[num_bytes - 1]) >> bit_shift);
+            }
+        }
+
+        if (value.empty())
+        {
+            value.push_back(std::byte{0});
+        }
+
+        return value;
+    }
+
+    inline std::vector< std::byte > le_shift_up(std::vector< std::byte > value, std::size_t shift)
+    {
+        std::size_t byte_shift = shift / 8;
+        std::size_t bit_shift = shift % 8;
+
+        if (value.empty())
+        {
+            return {std::byte{0}};
+        }
+
+        value.insert(value.begin(), byte_shift, std::byte{0});
+
+        if (bit_shift > 0)
+        {
+            std::size_t num_bytes = value.size();
+            std::byte carry = std::byte{0};
+
+            for (std::size_t i = 0; i < num_bytes; ++i)
+            {
+                std::uint8_t current = static_cast< std::uint8_t >(value[i]);
+                std::uint8_t next_carry = (current >> (8 - bit_shift));
+                std::uint8_t shifted = (current << bit_shift) | static_cast< std::uint8_t >(carry);
+
+                value[i] = static_cast< std::byte >(shifted);
+                carry = static_cast< std::byte >(next_carry);
+            }
+
+            if (carry != std::byte{0})
+            {
+                value.push_back(carry);
+            }
+        }
+
+        return value;
+    }
+
     template < typename UInt >
     inline std::pair< UInt, bool > le_to_u(std::vector< std::byte > const& data)
     {
@@ -327,8 +402,6 @@ namespace quxlang::bytemath
 
         return result;
     }
-
-
 
     inline std::string le_to_string(std::vector< std::byte > number)
     {
@@ -416,13 +489,188 @@ namespace quxlang::bytemath
     struct le_uint
     {
         std::vector< std::byte > data;
+
+        le_uint() : data{std::byte(0)}
+        {
+        }
+
+        template < typename U >
+        le_uint(U value)
+        {
+            static_assert(std::is_integral_v< U >, "U must be an integral type");
+
+            data = u_to_le(value);
+        }
     };
 
     struct le_sint
     {
         std::vector< std::byte > data;
         bool is_negative = false;
+
+
+        le_sint(std::vector< std::byte> data, bool is_negative = false) : data(std::move(data)), is_negative(is_negative)
+        {
+
+        }
+
+        template < typename I >
+        le_sint(I value)
+        {
+            static_assert(std::numeric_limits< I >::radix == 2);
+
+            if (value == 0)
+            {
+                data = {std::byte(0)};
+                return;
+            }
+            if (value == 1)
+            {
+                data = {std::byte(1)};
+                return;
+            }
+            if (value == 2)
+            {
+                data = {std::byte(2)};
+                return;
+            }
+            if (value == -1)
+            {
+                data = {std::byte(1)};
+                is_negative = true;
+                return;
+            }
+            if (value < 0)
+            {
+                is_negative = true;
+                le_sint extra{-1};
+
+                while (value > 0)
+                {
+                    // Cannot use bitwise operations for non-two's complement integers
+                    // This is well-defined for C++11 onward even for sign-magnitude integers
+                    if (value % 2 == -1)
+                    {
+                        this->data = le_unsigned_add(std::move(this->data), extra.data);
+                    }
+                    extra.data = le_shift_up(extra.data,  1);
+
+                    value = value / 2;
+                }
+
+            }
+        }
+
+        bool operator==(le_sint const& other) const
+        {
+            return is_negative == other.is_negative && le_comp_eq(data, other.data);
+        }
+
+        bool operator != (le_sint const& other) const
+        {
+            return !(*this == other);
+        }
+
+        bool operator < (le_sint const& other) const
+        {
+            if (is_negative != other.is_negative)
+            {
+                return is_negative;
+            }
+            if (is_negative)
+            {
+                return le_comp_less(other.data, data);
+            }
+            else
+            {
+                return le_comp_less(data, other.data);
+            }
+        }
+
+        bool operator > (le_sint const& other) const
+        {
+            if (is_negative != other.is_negative)
+            {
+                return !is_negative;
+            }
+            if (is_negative)
+            {
+                return le_comp_less(data, other.data);
+            }
+            else
+            {
+                return le_comp_less(other.data, data);
+            }
+        }
+
+        bool operator <= (le_sint const& other) const
+        {
+            return !(*this > other);
+        }
+
+        bool operator >= (le_sint const& other) const
+        {
+            return !(*this < other);
+        }
+
+
+        template <typename I>
+        std::pair<I, bool> to_int() &&
+        {
+            static le_sint max_value = le_sint(std::numeric_limits<I>::max());
+            static le_sint min_value = le_sint(std::numeric_limits<I>::min());
+            static le_sint zero = le_sint(0);
+
+            le_trim(data);
+
+            if (*this > max_value)
+            {
+                return {0, false};
+            }
+            if (*this < min_value)
+            {
+                return {0, false};
+            }
+
+            if (*this == zero)
+            {
+                return {0, true};
+            }
+
+            I result = 0;
+
+            while (*this > 0)
+            {
+                result <<= 4;
+                result += I(std::uint8_t(data[data.size()-1]) & 0xF0);
+                result <<= 4;
+                result += I(std::uint8_t(data[data.size()]) & 0xF);
+
+                data = le_shift_down(std::move(data), 8);
+            }
+
+            while (*this < 0)
+            {
+                result <<= 4;
+                result -= I(std::uint8_t(data[data.size()-1]) & 0xF0);
+                result <<= 4;
+                result -= I(std::uint8_t(data[data.size()]) & 0xF);
+
+                data = le_shift_down(std::move(data), 8);
+            }
+
+            return {result, true};
+        }
+
+        template <typename I>
+        std::pair<I, bool> to_int() const &
+        {
+            le_sint this_copy = *this;
+            return std::move(this_copy).to_int<I>();
+        }
     };
+
+
 
     inline le_sint le_signed_add(le_sint a, le_sint b)
     {
@@ -455,26 +703,21 @@ namespace quxlang::bytemath
         return le_signed_add(std::move(a), std::move(b));
     }
 
-    inline le_sint le_signed_mult(le_sint a, le_sint b)
-    {
-        auto result = le_unsigned_mult(std::move(a.data), std::move(b.data));
-        return {.data = std::move(result), .is_negative = a.is_negative != b.is_negative};
-    }
+
 
     inline le_sint le_signed_div(le_sint a, le_sint b)
     {
         auto result = le_unsigned_div(std::move(a.data), std::move(b.data));
-        return {.data = std::move(result), .is_negative = a.is_negative != b.is_negative};
+        return le_sint( std::move(result), a.is_negative != b.is_negative);
     }
 
-    template < typename SInt >
-    inline std::pair< SInt, bool > le_to_sint(le_sint const& data)
+    inline le_sint le_signed_mult(le_sint a, le_sint b)
     {
-        if (data.is_negative)
-        {
-
-        }
+        auto result = le_unsigned_mult(std::move(a.data), std::move(b.data));
+        return le_sint( std::move(result), a.is_negative != b.is_negative);
     }
+
+
 
 } // namespace quxlang::bytemath
 

@@ -104,7 +104,7 @@ quxlang::vmir2::executable_block_generation_state quxlang::vmir2::executable_blo
 void quxlang::vmir2::executable_block_generation_state::emit(vm_instruction inst)
 {
     block.instructions.push_back(inst);
-    state_engine::apply(current_slot_states, slots->slots, inst);
+    state_engine(current_slot_states, slots->slots).apply(inst);
 }
 
 // Definition for executable_block_generation_state::emit for vm_terminator
@@ -137,6 +137,7 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
     if (!typeis< nvalue_slot >(type))
     {
         current_slot_states[idx].alive = true;
+        current_slot_states[idx].storage_valid = true;
     }
     if (label_name.has_value())
     {
@@ -151,6 +152,7 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
     if (!typeis< nvalue_slot >(type))
     {
         current_slot_states[idx].alive = true;
+        current_slot_states[idx].storage_valid = true;
     }
     if (interface_name == "RETURN" || interface_name == "THIS")
     {
@@ -165,6 +167,9 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
 {
     auto idx = slots->create_numeric_literal(value);
     current_slot_states[idx].alive = true;
+    current_slot_states[idx].storage_valid = true;
+    // TODO: This is not actually a storable object, but we need to handle this for now because there
+    // is not separation between codegen slots and IR slots.
     return idx;
 }
 

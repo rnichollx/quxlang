@@ -13,6 +13,8 @@
 #include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 
+#include <deque>
+
 namespace quxlang
 {
     struct interp_addr
@@ -122,11 +124,12 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
         std::map< std::size_t, std::shared_ptr< local > > local_values;
     };
 
-    std::vector< stack_frame > stack;
+    std::deque< stack_frame > stack;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
     void exec();
 
+    quxlang::vmir2::state_engine::state_diff get_state_diff();
     void exec_instr();
 
     stack_frame& get_current_frame()
@@ -216,6 +219,14 @@ class quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl
 
     bool consume_bool(std::size_t slot);
     void output_bool(std::size_t slot, bool value);
+
+    slot_state get_current_slot_state(std::size_t frame_index, std::size_t slot_index);
+    quxlang::vmir2::state_engine::state_map get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
+    quxlang::vmir2::state_engine::state_map get_current_state_map(std::size_t frame_index);
+    slot_state get_expected_slot_state_postexec(std::size_t frame_index, std::size_t slot_index, std::size_t instruction_index);
+
+    void require_valid_input_precondition(std::size_t slot);
+    void require_valid_output_precondition(std::size_t slot);
 
     type_symbol frame_slot_data_type(std::size_t slot);
 
@@ -403,6 +414,25 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec()
         exec_instr();
     }
 }
+quxlang::vmir2::state_engine::state_diff quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_state_diff()
+{
+    auto const & current_instr_address = stack.back().address;
+    auto expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+
+    auto current_statemap = get_current_state_map(current_frame_index());
+
+    state_engine::state_diff result;
+
+    for (auto const& [index, state] : current_statemap)
+    {
+        if (expected_state[index] != state)
+        {
+            result[index] = {state, expected_state[index]};
+        }
+    }
+
+    return result;
+}
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 {
     interp_addr& current_instr_address = stack.back().address;
@@ -413,21 +443,42 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
 
     auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
 
+    quxlang::vmir2::assembler ir_printer(current_func_ir.get());
+
     if (current_instr_address.instruction_index < current_block.instructions.size())
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
-        quxlang::vmir2::assembler ir_printer(current_func_ir.get());
+
 
         std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
+
+
+
+
+        auto expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+        auto start_frame_id = current_frame_index();
+        auto current_statemap = get_current_state_map(current_frame_index());
+
+        auto state_diff = this->get_state_diff();
+
+
+        std::cout << "Expected current state: " << ir_printer.to_string(expected_state) << std::endl;
+        std::cout << "Current state: " << ir_printer.to_string(current_statemap) << std::endl;
+
+        assert(current_statemap == expected_state);
+
+
+        std::size_t stack_size1 = stack.size();
         rpnx::apply_visitor< void >(
             [this](auto const& param)
             {
                 return this->exec_instr_val(param);
             },
             instr);
+        std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
         return;
     }
@@ -437,6 +488,8 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr()
     {
         throw constexpr_logic_execution_error("Constexpr execution reached end of block with undefined behavior");
     }
+
+    std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
 
     rpnx::apply_visitor< void >(
         [this](auto const& param)
@@ -953,10 +1006,14 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::int_sub const& sub)
 {
+    require_valid_input_precondition(sub.a);
+    require_valid_input_precondition(sub.b);
+    require_valid_output_precondition(sub.result);
+
     auto& frame = get_current_frame();
 
     // Initialize the result local if it does not exist
-    if (!frame.local_values.count(sub.result))
+    if (!frame.local_values.count(sub.result) || frame.local_values[sub.result] == nullptr)
     {
         // Retrieve the type of the result slot
         create_local_value(sub.result, true);
@@ -1058,9 +1115,9 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 }
 void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2::load_const_int const& lci)
 {
-    if (!get_current_frame().local_values.contains(lci.target))
+    if (!get_current_frame().local_values.contains(lci.target) || get_current_frame().local_values[lci.target] == nullptr)
     {
-        get_current_frame().local_values[lci.target] = std::make_shared< local >();
+        create_local_value(lci.target, true);
     }
     auto int_type = get_current_frame().ir->slots.at(lci.target).type;
 
@@ -1437,6 +1494,76 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::output_bool(std::siz
     init_storage(slot, bool_type{});
 
     set_data(slot_index, {value ? std::byte(1) : std::byte(0)});
+}
+quxlang::vmir2::slot_state quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_current_slot_state(std::size_t frame_index, std::size_t slot_index)
+{
+    quxlang::vmir2::slot_state result;
+
+    auto& frame_object = this->stack.at(frame_index);
+
+    if (!frame_object.local_values.contains(slot_index) || frame_object.local_values[slot_index] == nullptr)
+    {
+        return result;
+    }
+
+    result.alive = frame_object.local_values[slot_index]->alive;
+    result.storage_valid = frame_object.local_values[slot_index]->storage_initiated;
+
+    // TODO: copy other fields also as needed
+    return result;
+}
+quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
+{
+    auto const& func_ir = stack.at(frame_index).ir.read();
+    state_engine::state_map state = func_ir.blocks.at(block_index).entry_state;
+
+    auto const& instructions = func_ir.blocks.at(block_index).instructions;
+
+    for (std::size_t i = 0; i < instruction_index; i++)
+    {
+        auto const& instr = instructions[i];
+        state_engine(state, func_ir.slots).apply(instr);
+    }
+
+    for (std::size_t i = 0; i < func_ir.slots.size(); i++)
+    {
+        state[i];
+    }
+
+    return state;
+}
+quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_current_state_map(std::size_t frame_index)
+{
+    auto const& current_frame = stack.at(frame_index);
+    auto const& func_ir = current_frame.ir.read();
+
+    state_engine::state_map result;
+
+    for (std::size_t i = 0; i < func_ir.slots.size(); i++)
+    {
+        result[i] = get_current_slot_state(frame_index, i);
+    }
+
+
+    return result;
+}
+
+
+
+
+quxlang::vmir2::slot_state quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::get_expected_slot_state_postexec(std::size_t frame_index, std::size_t slot_index, std::size_t instruction_index)
+{
+    throw rpnx::unimplemented();
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::require_valid_input_precondition(std::size_t slot)
+{
+    assert(get_current_frame().local_values.contains(slot));
+    assert(get_current_frame().local_values[slot] != nullptr);
+    assert(get_current_frame().local_values[slot]->alive);
+}
+void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::require_valid_output_precondition(std::size_t slot)
+{
+    assert(!get_current_frame().local_values.contains(slot) || get_current_frame().local_values[slot] == nullptr || !get_current_frame().local_values[slot]->alive);
 }
 quxlang::type_symbol quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::frame_slot_data_type(std::size_t slot)
 {
@@ -1892,18 +2019,16 @@ void quxlang::vmir2::ir2_interpreter::ir2_interpreter_impl::exec_instr_val(vmir2
 
     if (par.multiplier == -1)
     {
-        auto offset_val_s = bytemath::le_signed_sub(bytemath::le_sint{ .data = {std::byte(0)}}, bytemath::le_sint{.data = offset_val, .is_negative = false});
-        std::tie(offset, ok) = bytemath::le_to_sint< std::int64_t >(offset_val_s);
+        auto offset_val_s = bytemath::le_signed_sub(bytemath::le_sint{{std::byte(0)}, false}, bytemath::le_sint{offset_val, false});
+        std::tie(offset, ok) = offset_val_s.to_int< std::int64_t >();
     }
     else
     {
-        std::tie(offset, ok) = bytemath::le_to_sint< std::int64_t >(bytemath::le_sint{.data =offset_val, .is_negative = false});
+        std::tie(offset, ok) = bytemath::le_sint{offset_val, false}.to_int< std::int64_t >();
     }
     // TODO: Handle !ok
 
     assert(ok);
-
-
 
     type_symbol const& pointer_type = get_current_frame().ir->slots.at(par.result).type;
     pointer_impl new_ptr = pointer_arith(ptr, offset, pointer_type);

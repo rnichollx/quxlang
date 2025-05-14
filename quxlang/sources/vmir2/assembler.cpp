@@ -72,7 +72,7 @@ namespace quxlang::vmir2
 
             try
             {
-                state_engine::apply(this->state, this->m_what.slots, i);
+                state_engine(this->state, this->m_what.slots).apply(i);
 
                 output += indent + "// state: " + this->to_string(this->state) + "\n";
             }

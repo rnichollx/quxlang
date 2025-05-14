@@ -133,6 +133,10 @@ namespace quxlang
 
             std::string inst_str = vmir2::assembler(rt).to_string(val);
             auto old_state = exec.current_slot_states;
+            for (auto const & st :exec.current_slot_states)
+            {
+                assert(st.second.valid());
+            }
             rpnx::apply_visitor< void >(
                 [&](auto val)
                 {
@@ -140,7 +144,7 @@ namespace quxlang
                 },
                 val);
             auto expected_state = old_state;
-            vmir2::state_engine::apply(expected_state, exec.slots->slots, val);
+            vmir2::state_engine(expected_state, exec.slots->slots).apply(val);
             auto& new_state = exec.current_slot_states;
 
             if (new_state != expected_state)

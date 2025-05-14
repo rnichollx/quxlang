@@ -13,53 +13,71 @@ namespace quxlang::vmir2
 {
     class state_engine
     {
-      public:
-        static void apply(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, vm_instruction const& inst);
-        static void apply_entry( std::map< vmir2:: storage_index, slot_state > & state,  std::vector< vm_slot > const& slot_info);
+    private:
+        std::map< vmir2::storage_index, slot_state >& state;
+        std::vector< vm_slot > const& slot_info;
+    public:
+        state_engine(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info)
+            : state(state), slot_info(slot_info)
+        {
+        }
+
+        void apply(vm_instruction const& inst);
+        void apply_entry();
+
+        void check_state_valid();
 
         using state_map = std::map< vmir2::storage_index, slot_state >;
         using slot_vec = std::vector< vm_slot >;
+        using state_diff = std::map< vmir2::storage_index, std::pair< slot_state, slot_state > >;
 
-      private:
-        // Method declarations for each type of instruction
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, increment const& tb);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, decrement const& acf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, preincrement const& tb);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, predecrement const& acf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool const& tb);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, to_bool_not const& acf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, load_const_zero const& lcz);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, access_field const& acf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, access_array const& acf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, invoke const& inv);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, make_reference const& mrf);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cast_reference const& cst);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, constexpr_set_result const& csr);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, load_const_value const& lcv);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, make_pointer_to const& mpt);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, dereference_pointer const& drp);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, load_from_ref const& lfr);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, ret const& ret);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, int_add const& add);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, int_sub const& sub);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, int_mul const& mul);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, int_div const& div);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, int_mod const& mod);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, store_to_ref const& str);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, load_const_int const& lci);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cmp_eq const& ceq);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cmp_ne const& cne);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cmp_lt const& clt);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, cmp_ge const& cge);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, defer_nontrivial_dtor const& dntd);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, struct_delegate_new const& dlg);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, copy_reference const & cpr);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, end_lifetime const & elt);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_arith const& par);
-        static void apply_internal(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info, pointer_diff const& par);
+    private:
+        void apply_internal(increment const& tb);
+        void apply_internal(decrement const& acf);
+        void apply_internal(preincrement const& tb);
+        void apply_internal(predecrement const& acf);
+        void apply_internal(to_bool const& tb);
+        void apply_internal(to_bool_not const& acf);
+        void apply_internal(load_const_zero const& lcz);
+        void apply_internal(access_field const& acf);
+        void apply_internal(access_array const& acf);
+        void apply_internal(invoke const& inv);
+        void apply_internal(make_reference const& mrf);
+        void apply_internal(cast_reference const& cst);
+        void apply_internal(constexpr_set_result const& csr);
+        void apply_internal(load_const_value const& lcv);
+        void apply_internal(make_pointer_to const& mpt);
+        void apply_internal(dereference_pointer const& drp);
+        void apply_internal(load_from_ref const& lfr);
+        void apply_internal(ret const& ret);
+        void apply_internal(int_add const& add);
+        void apply_internal(int_sub const& sub);
+        void apply_internal(int_mul const& mul);
+        void apply_internal(int_div const& div);
+        void apply_internal(int_mod const& mod);
+        void apply_internal(store_to_ref const& str);
+        void apply_internal(load_const_int const& lci);
+        void apply_internal(cmp_eq const& ceq);
+        void apply_internal(cmp_ne const& cne);
+        void apply_internal(cmp_lt const& clt);
+        void apply_internal(cmp_ge const& cge);
+        void apply_internal(defer_nontrivial_dtor const& dntd);
+        void apply_internal(struct_delegate_new const& dlg);
+        void apply_internal(copy_reference const& cpr);
+        void apply_internal(end_lifetime const& elt);
+        void apply_internal(pointer_arith const& par);
+        void apply_internal(pointer_diff const& par);
+
+        void mustbe_inttype(storage_index idx);
+        void mustbe_booltype(storage_index idx);
+        void mustbe_pointertype(storage_index idx);
+        void mustbe_reftype(storage_index idx);
+
+        void readonly(storage_index idx);
+        void consume(storage_index idx);
+        void output(storage_index idx);
     };
 
 } // namespace quxlang::vmir2
 
 #endif // RPNX_QUXLANG_STATE_ENGINE_HEADER
-
