@@ -12,15 +12,15 @@ namespace quxlang
 {
     namespace vmir2
     {
-        class ir2_interpreter
+        class ir2_constexpr_interpreter
         {
           private:
-            class ir2_interpreter_impl;
-            ir2_interpreter_impl * implementation;
+            class ir2_constexpr_interpreter_impl;
+            ir2_constexpr_interpreter_impl * implementation;
 
           public:
-            ir2_interpreter();
-            ~ir2_interpreter();
+            ir2_constexpr_interpreter();
+            ~ir2_constexpr_interpreter();
             // Adds a class layout (for accessing fields)
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid(type_symbol addr, functanoid_routine2 func);

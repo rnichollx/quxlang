@@ -229,8 +229,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/intrinsic_classifier.hpp
         sources/builtin_classifier.cpp
         sources/res/function.cpp
-        include/quxlang/vmir2/ir2_interpreter.hpp
-        sources/ir2_interpreter.cpp
+        include/quxlang/vmir2/ir2_constexpr_interpreter.hpp
+        sources/ir2_constexpr_interpreter.cpp
         include/quxlang/res/constexpr.hpp
         sources/res/constexpr.cpp
         include/quxlang/exception.hpp
