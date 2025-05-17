@@ -730,7 +730,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("trying to load a field into existing slot");
     }
 
-    field = std::make_shared< local >();
+    create_local_value(aca.store_index, true);
 
     auto arry_index = consume_u64(aca.index_index);
 
@@ -738,6 +738,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     field->ref = pointer_impl{.pointer_target = field_slot};
     field->alive = true;
+
+    parent_ref_slot = nullptr;
+
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
@@ -931,20 +934,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
     assert(slot->ref.has_value());
+
     auto load_from_ptr = slot->ref->pointer_target.lock();
+    slot = nullptr;
     if (!load_from_ptr)
     {
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
     auto& load_from = *load_from_ptr;
-    auto& target_slot = get_current_frame().local_values[lfr.to_value];
-    if (target_slot == nullptr)
-    {
-        target_slot = std::make_shared< local >();
-    }
+    create_local_value(lfr.to_value, true);
+
+    auto &target_slot = get_current_frame().local_values[lfr.to_value];
     target_slot->data = load_from.data;
     target_slot->ref = load_from.ref;
-    target_slot->alive = true;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {
@@ -1377,7 +1379,7 @@ std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexp
 {
     std::vector< std::byte > data = std::move(local_value->data);
     local_value->alive = false;
-    if (local_value->member_of.lock() != nullptr)
+    if (local_value->member_of.lock() == nullptr)
     {
         local_value->storage_initiated = false;
     }
@@ -1496,13 +1498,22 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
 
     auto& frame_object = this->stack.at(frame_index);
 
-    if (!frame_object.local_values.contains(slot_index) || frame_object.local_values[slot_index] == nullptr)
+    auto& slot_ptr = frame_object.local_values[slot_index];
+
+
+    if (!frame_object.local_values.contains(slot_index) || slot_ptr == nullptr)
     {
         return result;
     }
 
-    result.alive = frame_object.local_values[slot_index]->alive;
-    result.storage_valid = frame_object.local_values[slot_index]->storage_initiated;
+    auto &slot_object = *slot_ptr;
+
+    result.alive = slot_object.alive;
+    result.storage_valid = slot_object.storage_initiated;
+
+    if (slot_object.member_of.lock() != nullptr)
+    {
+    }
 
     // TODO: copy other fields also as needed
     return result;
