@@ -969,7 +969,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     stack.pop_back();
     if (stack.size() >= 1)
     {
-        get_current_frame().address.instruction_index++;
+       // get_current_frame().address.instruction_index++;
     }
 }
 
@@ -980,7 +980,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     require_valid_output_precondition(sub.result);
 
     auto a = consume_local(sub.a);
-        auto b = consume_local(sub.b);
+    auto b = consume_local(sub.b);
     auto r = create_local_value(sub.result, true);
 
     // Retrieve data references
@@ -1484,7 +1484,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& frame = get_current_frame();
 
-    auto &local_ptr = frame.local_values[slot];
+    auto& local_ptr = frame.local_values[slot];
     if (local_ptr == nullptr)
     {
         create_local_value(slot, true);
@@ -1874,22 +1874,21 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::load_from_pointer(std::size_t slot, bool consume)
 {
     auto& frame = get_current_frame();
-    auto& local_ptr = frame.local_values[slot];
+    std::shared_ptr< local > local_ptr;
 
-    if (local_ptr == nullptr)
+    if (consume)
     {
-        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not allocated");
+        local_ptr = consume_local(slot);
+    }
+    else
+    {
+        local_ptr = frame.local_values[slot];
     }
 
-    if (!local_ptr->alive)
-    {
-        throw invalid_instruction_transition_error("Error in [load_from_reference]: slot not alive");
-    }
 
     auto ptr_ref = local_ptr->ref;
     if (consume)
     {
-        local_ptr->alive = false;
         local_ptr->ref = std::nullopt;
     }
 
