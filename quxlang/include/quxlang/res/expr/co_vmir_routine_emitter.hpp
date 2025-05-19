@@ -97,6 +97,7 @@ namespace quxlang
             auto const& fr = frame;
 
             vmir2::state_engine(frame.entry_block().block.entry_state, frame.slots.slots).apply_entry();
+            vmir2::state_engine(frame.entry_block().current_slot_states, frame.slots.slots).apply_entry();
 
             co_return;
         }
@@ -257,6 +258,7 @@ namespace quxlang
 
             auto thisidx_value = thisidx.value();
 
+            auto & fr = frame;
             frame.block(current_block).emit(vmir2::struct_delegate_new{.on_value = thisidx_value, .fields = fields_args});
 
             std::set< std::string > found_delegate_names;

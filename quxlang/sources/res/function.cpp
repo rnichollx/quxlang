@@ -144,7 +144,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}, .positional = {argif{.type = uintptr_type}}}};
+            br_info.overload = temploid_ensig{.interface = intertype{ .positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},}};
             br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
 
             allowed_operations.insert(br_info);
@@ -159,7 +159,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}, .positional = {argif{.type = uintptr_type}}}};
+            br_info.overload = temploid_ensig{.interface = intertype{ .positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
             br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
 
             allowed_operations.insert(br_info);

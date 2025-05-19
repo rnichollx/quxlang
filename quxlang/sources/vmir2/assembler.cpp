@@ -98,7 +98,7 @@ namespace quxlang::vmir2
         bool first = true;
         for (auto& [k, v] : state)
         {
-            if (v.alive)
+            if (v.alive || v.storage_valid)
             {
                 if (first)
                 {
@@ -109,6 +109,32 @@ namespace quxlang::vmir2
                     output += ", ";
                 }
                 output += "%" + std::to_string(k);
+
+                if (v.alive)
+                {
+                    output += "[A]";
+                }
+                else if (v.storage_valid)
+                {
+                    output += "[S]";
+                }
+
+                if (v.delegate_of)
+                {
+                    output += "[D <- %" + std::to_string(*v.delegate_of) + "]";
+                }
+                if (v.delegates.has_value())
+                {
+                    auto const& d = v.delegates.value();
+                    for (auto const& [name, idx] : d.named)
+                    {
+                        output += "[D @" + name + " -> %" + std::to_string(idx) + "]";
+                    }
+                    for (auto const& idx : d.positional)
+                    {
+                        output += "[D -> %% %" + std::to_string(idx) + "]";
+                    }
+                }
             }
         }
 
@@ -436,10 +462,7 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::pointer_arith inst)
     {
-        return "PAR %" + std::to_string(inst.from) +
-               ", " + std::to_string(inst.multiplier) +
-               " %" + std::to_string(inst.offset) +
-               ", %" + std::to_string(inst.result);
+        return "PAR %" + std::to_string(inst.from) + ", " + std::to_string(inst.multiplier) + " %" + std::to_string(inst.offset) + ", %" + std::to_string(inst.result);
     }
 
     std::string assembler::to_string_internal(vmir2::pointer_diff inst)

@@ -42,6 +42,7 @@ void quxlang::vmir2::state_engine::apply_entry()
             else
             {
                 state[i].alive = false;
+                state[i].storage_valid = true;
             }
         }
     }
@@ -346,7 +347,7 @@ void quxlang::vmir2::state_engine::output(storage_index idx)
         throw invalid_instruction_transition_error("output already set");
     }
     state[idx].alive = true;
-    if (state[idx].storage_valid != state[idx].delegate_of.has_value())
+    if (!state[idx].storage_valid && state[idx].delegate_of.has_value())
     {
         throw invalid_instruction_transition_error("output not valid");
     }
