@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.22)
 project(quxlang)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 #find_package(LLVM REQUIRED)
@@ -14,16 +14,13 @@ message(STATUS "${targets}")
 
 
 # link to the llvm libraries
-#target_link_libraries(ryanscript1031 PUBLIC ${LLVM_LIBS})
+#target_link_libraries(quxlang PUBLIC ${LLVM_LIBS})
 
 
 
 # for each property that starts with LLVM, link to it
 foreach (target IN LISTS targets)
     if (target MATCHES "^LLVM.*" AND NOT target MATCHES "^LLVMLineEditor$")
-    #    target_link_libraries(ryanscript1031 PRIVATE ${target})
+    #    target_link_libraries(quxlang PRIVATE ${target})
     endif ()
 endforeach ()
-
-#target_include_directories(ryanscript1031 PRIVATE ${LLVM_INCLUDE_DIRS})
-#target_link_libraries(ryanscript1031 PUBLIC Boost::boost LLVMIRReader LLVMCore LLVMSupport LLVMMC LLVMMCParser LLVMMCDisassembler LLVMTarget LLVMBinaryFormat LLVMDemangle LLVMMCJIT)
