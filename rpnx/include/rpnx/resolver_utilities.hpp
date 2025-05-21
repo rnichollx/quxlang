@@ -1823,10 +1823,10 @@ namespace rpnx
                 eptr = std::current_exception();
             }
 
-            drawer d;
-            d.draw(node.get());
-            std::string result = d.ss.str();
-            std::cout << d.ss.str() << std::endl;
+            //drawer d;
+            //d.draw(node.get());
+            //std::string result = d.ss.str();
+            //std::cout << d.ss.str() << std::endl;
 
             if (eptr)
             {
