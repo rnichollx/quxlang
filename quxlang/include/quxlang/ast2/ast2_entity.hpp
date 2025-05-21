@@ -38,6 +38,7 @@ namespace quxlang
     struct ast2_template_declaration;
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
+    struct ast2_static_test;
     struct ast2_extern;
     struct ast2_asm_procedure_declaration;
     struct functum;
@@ -47,9 +48,8 @@ namespace quxlang
     struct function;
     struct templex;
 
-    using ast2_declarable /*[[deprecated("replace with declaroid/symboid etc")]] */ = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
@@ -240,10 +240,18 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_function_declaration, header, definition);
     };
 
+    struct ast2_static_test
+    {
+        ast2_source_location location;
+        ast2_function_definition definition;
+
+        RPNX_MEMBER_METADATA(ast2_static_test, definition);
+    };
+
     struct ast2_named_global
     {
         std::string name;
-        ast2_declarable declaration;
+        declaroid declaration;
 
         RPNX_MEMBER_METADATA(ast2_named_global, name, declaration);
     };
@@ -314,7 +322,7 @@ namespace quxlang
     };
 
     std::string to_string(ast2_function_declaration const& ref);
-    std::string to_string(ast2_declarable const& ref);
+    std::string to_string(declaroid const& ref);
     std::string to_string(expression const& ref);
 
 } // namespace quxlang

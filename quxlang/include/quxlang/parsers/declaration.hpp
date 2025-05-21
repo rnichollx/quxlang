@@ -25,10 +25,10 @@ namespace quxlang::parsers
     std::optional< ast2_top_declaration > try_parse_top_declaration(It& pos, It end);
 
     template < typename It >
-    ast2_declarable parse_declaroid(It& pos, It end);
+    declaroid parse_declaroid(It& pos, It end);
 
     template < typename It >
-    std::optional< ast2_declarable > try_parse_declaroid(It& pos, It end);
+    std::optional< declaroid > try_parse_declaroid(It& pos, It end);
 
     template < typename It >
     std::optional< subdeclaroid > try_parse_subdeclaroid(It& pos, It end);
@@ -92,10 +92,10 @@ namespace quxlang::parsers
 
 
     template < typename It >
-    std::optional< ast2_declarable > try_parse_declaroid(It& pos, It end)
+    std::optional< declaroid > try_parse_declaroid(It& pos, It end)
     {
         skip_whitespace_and_comments(pos, end);
-        std::optional< ast2_declarable > output;
+        std::optional< declaroid > output;
         output = try_parse_template(pos, end);
         if (output)
         {
@@ -124,6 +124,12 @@ namespace quxlang::parsers
             return output;
         }
 
+        output = try_parse_static_test(pos, end);
+        if (output)
+        {
+            return output;
+        }
+
         output = try_parse_namespace(pos, end);
         return output;
     }
@@ -143,7 +149,13 @@ namespace quxlang::parsers
     template < typename It >
     declaroid parse_declaroid(It& pos, It end)
     {
-        return try_parse_declaroid(pos, end).value();
+        auto decl = try_parse_declaroid(pos, end);
+
+        if (!decl.has_value())
+        {
+            throw std::logic_error("expected declaroid");
+        }
+        return std::move(decl.value());
     }
 
     template < typename It >

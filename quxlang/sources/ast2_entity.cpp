@@ -5,7 +5,7 @@ namespace quxlang
 {
 
 } // namespace quxlang
-std::string quxlang::to_string(ast2_declarable const& ref)
+std::string quxlang::to_string(declaroid const& ref)
 {
     return "";
 }

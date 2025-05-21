@@ -38,6 +38,26 @@ namespace quxlang::parsers
         out->location.set(begin, pos);
         return out;
     }
+
+
+    template < typename It >
+    std::optional< ast2_static_test > try_parse_static_test(It& pos, It end)
+    {
+        std::string str (pos, end);
+
+        It begin = pos;
+        std::optional< ast2_static_test > out;
+
+        if (!skip_keyword_if_is(pos, end, "STATIC_TEST"))
+        {
+            return out;
+        }
+        out = ast2_static_test{};
+
+        out->definition.body = parse_function_block(pos, end);
+        out->location.set(begin, pos);
+        return out;
+    }
 } // namespace quxlang::parsers
 
 #endif // TRY_PARSE_FUNCTION_DECLARATION_HPP

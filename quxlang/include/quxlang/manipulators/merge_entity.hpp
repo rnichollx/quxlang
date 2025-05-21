@@ -7,7 +7,7 @@
 
 namespace quxlang
 {
-    void merge_entity(ast2_symboid& destination, ast2_declarable const& source);
+    void merge_entity(ast2_symboid& destination, declaroid const& source);
 } // namespace quxlang
 
 #endif // QUXLANG_MERGE_ENTITY_HEADER_GUARD

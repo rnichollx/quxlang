@@ -224,7 +224,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         }
     }
 
-    if (member->name == "OPERATOR++" && (cls->template type_is< int_type >() || is_arry_pointer(*cls)))
+    if (member->name == "OPERATOR++" && has_incdec_operation_with_incdec_ir(*cls))
     {
         if (call.named.contains("THIS") && call.size() == 1)
         {

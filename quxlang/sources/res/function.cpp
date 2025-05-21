@@ -144,7 +144,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{ .positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},}};
+            br_info.overload = temploid_ensig{.interface = intertype{
+                                                  .positional = {argif{.type = uintptr_type}},
+                                                  .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},
+                                              }};
             br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
 
             allowed_operations.insert(br_info);
@@ -159,7 +162,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{ .positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
+            br_info.overload = temploid_ensig{.interface = intertype{.positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
             br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
 
             allowed_operations.insert(br_info);
@@ -167,8 +170,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
     }
 
     // TODO: Add support for OPERATOR[] and OPERATOR[&] for array pointers
-
-
 
     if (name.starts_with("OPERATOR"))
     {
@@ -253,7 +254,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             co_return (allowed_operations);
         }
 
-
         if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
@@ -268,7 +268,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             {
                 // Arithmetic
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
-
             }
 
             if (ptr.ptr_class == pointer_class::array && operator_name == "-" && !is_rhs)
@@ -280,9 +279,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = uintptr_type});
             }
 
-            if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name) && !is_rhs)
+            if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name))
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(parent)}}}}}, .return_type = make_mref(parent)});
+                if (!is_rhs)
+                {
+                    // Postfix
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(ptr)}}}}}, .return_type = parent});
+                }
+                else
+                {
+                    // prefix operator
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(ptr)}}}}}, .return_type = make_mref(parent)});
+                }
             }
         }
 

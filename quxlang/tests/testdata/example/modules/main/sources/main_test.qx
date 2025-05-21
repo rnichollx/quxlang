@@ -152,6 +152,11 @@ MODULE main;
   RETURN x[1] ;
 }
 
+::pinc_test2 STATIC_TEST
+{
+
+}
+
 ::main FUNCTION(): I32
 {
   VAR x I32;
