@@ -87,6 +87,15 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_asm_procedure_declaration >(source);
     }
+    else if (typeis< ast2_static_test > (destination))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::logic_error("Cannot merge static test into already existing entity");
+        }
+
+        destination = as < ast2_static_test >(source);
+    }
     else
     {
         rpnx::unimplemented();

@@ -154,7 +154,7 @@ MODULE main;
 
 ::pinc_test2 STATIC_TEST
 {
-
+  ASSERT (3 == 4);
 }
 
 ::main FUNCTION(): I32

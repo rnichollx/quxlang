@@ -244,6 +244,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/bytemath.hpp
         include/quxlang/res/pointer.hpp
         sources/res/pointer.cpp
+        sources/res/static_test.cpp
 
 )
 
@@ -254,7 +255,8 @@ endif()
 
 add_executable(aprinter_test tests/aprinter_test.cpp
         include/quxlang/res/variable.hpp
-        include/quxlang/res/function.hpp)
+        include/quxlang/res/function.hpp
+        include/quxlang/res/static_test.hpp)
 
 add_library(quxlang-loaders
         sources/loaders/module_loader.cpp

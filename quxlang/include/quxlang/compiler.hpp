@@ -59,6 +59,7 @@
 #include <quxlang/res/templex_select_template.hpp>
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
+#include <quxlang/res/static_test.hpp>
 #include <shared_mutex>
 
 // clang-format off
@@ -167,6 +168,7 @@ namespace quxlang
         COMPILER_INDEX(functum_overloads)
         COMPILER_INDEX(functum_list_user_overload_declarations)
         COMPILER_INDEX(list_user_functum_formal_paratypes)
+        COMPILER_INDEX(list_static_tests)
         COMPILER_INDEX(lookup);
         COMPILER_INDEX(functum_list_user_ensig_declarations)
         COMPILER_INDEX(module_ast)
