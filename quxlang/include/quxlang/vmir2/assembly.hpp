@@ -26,6 +26,7 @@ namespace quxlang::vmir2
 
         void set_arg_state();
 
+        std::string to_string_internal(vmir2::assert_instr const &asrt);
         std::string to_string_internal(vmir2::increment inst);
         std::string to_string_internal(vmir2::decrement inst);
         std::string to_string_internal(vmir2::preincrement inst);

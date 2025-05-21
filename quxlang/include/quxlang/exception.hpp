@@ -100,6 +100,15 @@ namespace quxlang
         }
     };
 
+
+    class constexpr_assert_failure : public constexpr_logic_execution_error
+    {
+      public:
+        constexpr_assert_failure(std::string what_arg) : constexpr_logic_execution_error(what_arg)
+        {
+        }
+    };
+
     class invalid_instruction_error : public std::logic_error
     {
       public:

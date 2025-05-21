@@ -188,6 +188,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_incdec_int(storage_index input_slot, storage_index output_slot, bool increment);
     void exec_incdec_ptr(storage_index input_slot, storage_index output_slot, bool increment);
 
+    void exec_instr_val(vmir2::assert_instr const& asrt);
     void exec_instr_val(vmir2::decrement const& dec);
     void exec_instr_val(vmir2::preincrement const& inc);
     void exec_instr_val(vmir2::predecrement const& dec);
@@ -2079,6 +2080,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     ptr = pointer_arith(ptr.value(), increment ? 1 : -1, void_type{});
 
     this->store_as_reference(output_slot, value_to_increase);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::assert_instr const& asrt)
+{
+    auto reg = asrt.condition;
+
+    auto data = slot_consume_data(reg);
+
+    if (data == std::vector< std::byte >{std::byte{0}})
+    {
+        throw constexpr_logic_execution_error("assertion failed: " + asrt.message);
+    }
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)

@@ -32,6 +32,7 @@ namespace quxlang::vmir2
         using state_diff = std::map< vmir2::storage_index, std::pair< slot_state, slot_state > >;
 
     private:
+        void apply_internal(assert_instr const &asrt);
         void apply_internal(increment const& tb);
         void apply_internal(decrement const& acf);
         void apply_internal(preincrement const& tb);

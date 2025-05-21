@@ -2,6 +2,7 @@
 #include "rpnx/value.hpp"
 
 #include <quxlang/vmir2/vmir2.hpp>
+#include <quxlang/ast2/source_location.hpp>
 
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_temporary(type_symbol type)
 {
@@ -282,6 +283,7 @@ bool quxlang::vmir2::frame_generation_state::has_terminator(std::size_t block)
 {
     return block_states[block].block.terminator.has_value();
 }
+
 
 quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()
 {

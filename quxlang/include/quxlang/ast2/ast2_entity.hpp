@@ -13,23 +13,10 @@
 #include <quxlang/ast2/ast2_function_delegate.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/resolver_utilities.hpp>
+#include "quxlang/ast2/source_location.hpp"
 
 namespace quxlang
 {
-    struct ast2_source_location
-    {
-        std::size_t file_id = {};
-        std::size_t begin_index = {};
-        std::size_t end_index = {};
-
-        template < typename It >
-        void set(It begin, It end)
-        {
-            // TODO: Do something here later maybe
-        }
-
-        RPNX_MEMBER_METADATA(ast2_source_location, file_id, begin_index, end_index);
-    };
     struct ast2_namespace_declaration;
     struct ast2_variable_declaration;
     struct ast2_file_declaration;

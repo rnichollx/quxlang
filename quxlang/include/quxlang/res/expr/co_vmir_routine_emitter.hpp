@@ -428,6 +428,26 @@ namespace quxlang
             co_return idx;
         }
 
+        [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_assert_statement const & asrt) -> typename CoroutineProvider::template co_type< void >
+        {
+            block_index_t after_block = frame.generate_subblock(current_block, "assert_statement_after");
+            block_index_t condition_block = frame.generate_subblock(current_block, "if_statement_condition");
+
+            frame.generate_jump(current_block, condition_block);
+
+            vmir2::storage_index cond = co_await generate_bool_expr(condition_block, asrt.condition);
+
+            vmir2::assert_instr asrt_instr{.condition = cond, .message = asrt.tagline.value_or("NO_MESSAGE_TAG"), .location = asrt.location};
+            frame.block(condition_block).emit(asrt_instr);
+
+            frame.generate_jump(condition_block, after_block);
+
+
+            current_block = after_block;
+
+            co_return;
+        }
+
         [[nodiscard]] auto generate_statement_ovl(block_index_t& current_block, function_return_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             auto return_arg_opt = frame.lookup(current_block, "RETURN");

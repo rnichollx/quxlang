@@ -9,6 +9,12 @@
 #include <string>
 #include <vector>
 
+#include <quxlang/ast2/source_location.hpp>
+
+namespace quxlang
+{
+    struct ast2_source_location;
+}
 RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, named_arg, local, literal, symbol, binding);
 
 namespace quxlang
@@ -62,10 +68,12 @@ namespace quxlang
         struct fence_byte_release;
         struct fence_byte_acquire;
 
+        struct assert_instr;
+
         struct pointer_arith;
         struct pointer_diff;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         using storage_index = std::uint64_t;
@@ -167,7 +175,16 @@ namespace quxlang
             RPNX_MEMBER_METADATA(pointer_diff, from, to, result);
         };
 
+        // We make assert a custom instruction so it can be used during constexpr and cause the
+        // constexpr evaluation to fail. Especially for use in STATIC_TEST.
+        struct assert_instr
+        {
+            storage_index condition;
+            std::string message;
+            std::optional< ast2_source_location > location;
 
+            RPNX_MEMBER_METADATA(assert_instr, condition, message, location);
+        };
 
         // Defers a non-trivial destructor call.
         struct defer_nontrivial_dtor
@@ -554,7 +571,7 @@ namespace quxlang
             executable_block_generation_state clone_subblock();
 
             void emit(vm_instruction inst); // moved out-of-line
-            void emit(vm_terminator term); // moved out-of-line
+            void emit(vm_terminator term);  // moved out-of-line
 
             bool slot_alive(storage_index idx);
 
@@ -598,6 +615,8 @@ namespace quxlang
             void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
             void generate_return(std::size_t from);
             bool has_terminator(std::size_t block); // moved out-of-line
+
+            void generate_assert(std::size_t condition, std::optional< std::string > tagline, ast2_source_location const& loc);
             std::size_t generate_entry_block();
             std::size_t generate_subblock(std::size_t of, std::string dbg_str);
 
@@ -612,7 +631,6 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(frame_generation_state, slots);
         };
-
 
         struct state_transition
         {

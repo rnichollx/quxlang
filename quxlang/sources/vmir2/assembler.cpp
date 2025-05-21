@@ -229,6 +229,15 @@ namespace quxlang::vmir2
         return "PDEC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.target2);
     }
 
+    std::string assembler::to_string_internal(vmir2::assert_instr const& asrt)
+    {
+        std::string message;
+        // TODO: Escape the message so it wont look weird if it has quotes in it
+        message = "\"" + asrt.message + "\"";
+
+        // TODO: convert the location to string also
+        return "ASRT %" + std::to_string(asrt.condition) + ", " + message + ", @@ <TODO>";
+    }
     std::string assembler::to_string_internal(vmir2::increment inst)
     {
         return "INC %" + std::to_string(inst.value) + ", %" + std::to_string(inst.result);

@@ -149,6 +149,10 @@ MODULE main;
   y-> ++ ;
   y-> ++ ;
 
+  VAR three I32;
+  three := 3;
+  ASSERT (three == 3);
+
   RETURN x[1] ;
 }
 

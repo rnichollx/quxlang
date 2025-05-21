@@ -47,6 +47,10 @@ namespace quxlang::parsers
         {
             return parse_while_statement(pos, end);
         }
+        if (next_keyword(pos, end) == "ASSERT")
+        {
+            return parse_assert_statement(pos, end);
+        }
         else if (auto expr_st = try_parse_expression_statement(pos, end); expr_st)
         {
             return *expr_st;

@@ -57,6 +57,10 @@ void quxlang::vmir2::state_engine::check_state_valid()
         assert(st.valid());
     }
 }
+void quxlang::vmir2::state_engine::apply_internal(assert_instr const& asrt)
+{
+    consume(asrt.condition);
+}
 
 void quxlang::vmir2::state_engine::apply_internal(increment const& inc)
 {
