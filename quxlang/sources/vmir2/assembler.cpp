@@ -217,7 +217,7 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::decrement inst)
     {
-        return "DEC %" + std::to_string(inst.target) + ", %" + std::to_string(inst.oldval);
+        return "DEC %" + std::to_string(inst.value) + ", %" + std::to_string(inst.result);
     }
     std::string assembler::to_string_internal(vmir2::preincrement inst)
     {

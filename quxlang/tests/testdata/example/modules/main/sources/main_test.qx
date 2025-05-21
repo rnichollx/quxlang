@@ -120,10 +120,36 @@ MODULE main;
            .f-> ++;
            // .f := .f + 1;
            .f++;
+           .f--;
+           .f++;
            .f_count := .f_count - 1;
         }
      }
    }
+}
+
+::pinc_test FUNCTION() : I32
+{
+
+  VAR x [4]I32;
+
+  x[0] := 0;
+  x[1] := 0;
+  x[2] := 0;
+  x[3] := 0;
+
+  VAR y =>> I32;
+
+  y := x[& 0];
+
+  y++;
+  y++;
+  y--;
+
+  y-> ++ ;
+  y-> ++ ;
+
+  RETURN x[1] ;
 }
 
 ::main FUNCTION(): I32

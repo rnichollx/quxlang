@@ -388,9 +388,9 @@ namespace quxlang
 
         struct decrement
         {
-            storage_index target;
-            storage_index oldval;
-            RPNX_MEMBER_METADATA(decrement, target, oldval);
+            storage_index value;
+            storage_index result;
+            RPNX_MEMBER_METADATA(decrement, value, result);
         };
 
         struct preincrement

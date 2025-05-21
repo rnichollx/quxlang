@@ -256,8 +256,8 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             auto this_slot_id = args.named.at("THIS");
 
             vmir2::decrement dec{};
-            dec.target = this_slot_id;
-            dec.oldval = args.named.at("RETURN");
+            dec.value = this_slot_id;
+            dec.result = args.named.at("RETURN");
             return dec;
         }
     }

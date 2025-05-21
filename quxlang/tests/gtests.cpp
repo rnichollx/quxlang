@@ -780,6 +780,8 @@ TEST(expression_ir, constexpr_call_func)
     ASSERT_TRUE(val3);
     auto val4 = get_constexpr_bool("mif() == 10");
     ASSERT_TRUE(val4);
+    auto val5 = get_constexpr_bool("pinc_test() == 2");
+    ASSERT_TRUE(val5);
 
 }
 

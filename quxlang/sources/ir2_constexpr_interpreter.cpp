@@ -183,6 +183,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     void exec_instr_val(vmir2::increment const& inc);
 
+    void exec_instr_val_incdec(storage_index val, storage_index result, bool increment);
+
     void exec_incdec_int(storage_index input_slot, storage_index output_slot, bool increment);
     void exec_incdec_ptr(storage_index input_slot, storage_index output_slot, bool increment);
 
@@ -2001,7 +2003,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
-    auto const& type = frame_slot_data_type(instr.value);
+    exec_instr_val_incdec(instr.value, instr.result, true);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val_incdec(storage_index val, storage_index result, bool increment)
+{
+    auto const& type = frame_slot_data_type(val);
 
     if (!typeis< pointer_type >(type))
     {
@@ -2012,11 +2018,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (typeis< int_type >(type_int_or_pointer_g))
     {
-        exec_incdec_int(instr.value, instr.result, true);
+        exec_incdec_int(val, result, increment);
     }
     else if (typeis< pointer_type >(type_int_or_pointer_g))
     {
-        exec_incdec_ptr(instr.value, instr.result, true);
+        exec_incdec_ptr(val, result, increment);
     }
     else
     {
@@ -2077,7 +2083,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)
 {
-    throw rpnx::unimplemented();
+    exec_instr_val_incdec(instr.value, instr.result, false);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::preincrement const& instr)

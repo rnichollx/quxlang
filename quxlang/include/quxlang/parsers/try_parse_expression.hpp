@@ -309,6 +309,14 @@ namespace quxlang::parsers
             *bindings[bindings.size() - 1] = std::move(inc);
             goto next_operator;
         }
+        else if (skip_symbol_if_is(pos, end, "--"))
+        {
+            expression_unary_postfix dec;
+            dec.operator_str = "--";
+            dec.lhs = std::move(*bindings[bindings.size() - 1]);
+            *bindings[bindings.size() - 1] = std::move(dec);
+            goto next_operator;
+        }
         else
         {
             return result;

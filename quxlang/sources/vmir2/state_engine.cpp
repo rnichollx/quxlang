@@ -66,8 +66,8 @@ void quxlang::vmir2::state_engine::apply_internal(increment const& inc)
 
 void quxlang::vmir2::state_engine::apply_internal(decrement const& dec)
 {
-    consume(dec.target);
-    output(dec.oldval);
+    consume(dec.value);
+    output(dec.result);
 }
 
 void quxlang::vmir2::state_engine::apply_internal(preincrement const& pinc)
