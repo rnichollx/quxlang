@@ -118,7 +118,8 @@ MODULE main;
         WHILE(.f_count > 0)
         {
            .f-> ++;
-           .f := .f + 1;
+           // .f := .f + 1;
+           .f++;
            .f_count := .f_count - 1;
         }
      }

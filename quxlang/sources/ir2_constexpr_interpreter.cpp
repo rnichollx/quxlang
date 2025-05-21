@@ -182,6 +182,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void transition(vmir2::block_index block);
 
     void exec_instr_val(vmir2::increment const& inc);
+
+    void exec_incdec_int(storage_index input_slot, storage_index output_slot, bool increment);
+    void exec_incdec_ptr(storage_index input_slot, storage_index output_slot, bool increment);
+
     void exec_instr_val(vmir2::decrement const& dec);
     void exec_instr_val(vmir2::preincrement const& inc);
     void exec_instr_val(vmir2::predecrement const& dec);
@@ -969,7 +973,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     stack.pop_back();
     if (stack.size() >= 1)
     {
-       // get_current_frame().address.instruction_index++;
+        // get_current_frame().address.instruction_index++;
     }
 }
 
@@ -1855,6 +1859,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     {
         local_ptr->alive = false;
         local_ptr->ref = std::nullopt;
+        local_ptr = nullptr;
     }
 
     if (!ptr_ref.has_value())
@@ -1884,7 +1889,6 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     {
         local_ptr = frame.local_values[slot];
     }
-
 
     auto ptr_ref = local_ptr->ref;
     if (consume)
@@ -1997,31 +2001,78 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
-    // current_frame
-    auto value_to_increment = load_from_reference(instr.value, false);
-    // TODO: Validate object is an int?
-
     auto const& type = frame_slot_data_type(instr.value);
 
-    auto type_int_g = type.get_as< pointer_type >().target;
-
-    if (!type_int_g.type_is< int_type >())
+    if (!typeis< pointer_type >(type))
     {
-        // TODO: Add support for pointer++
-        throw invalid_instruction_error("Error in [increment]: slot is not an int");
+        throw invalid_instruction_error("Expected reference to int or pointer to increment, but got " + to_string(type) + " instead");
     }
+
+    auto type_int_or_pointer_g = type.get_as< pointer_type >().target;
+
+    if (typeis< int_type >(type_int_or_pointer_g))
+    {
+        exec_incdec_int(instr.value, instr.result, true);
+    }
+    else if (typeis< pointer_type >(type_int_or_pointer_g))
+    {
+        exec_incdec_ptr(instr.value, instr.result, true);
+    }
+    else
+    {
+        throw invalid_instruction_error("Error in [increment]: slot is not an int or pointer");
+    }
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(storage_index input_slot, storage_index output_slot, bool increment)
+{
+    auto const& type = frame_slot_data_type(input_slot);
+    auto type_int_g = type.get_as< pointer_type >().target;
 
     int_type const& type_int = type_int_g.get_as< int_type >();
 
+    auto value_to_increment = load_from_reference(input_slot, false);
+
     auto val = local_consume_data(value_to_increment);
 
-    val = bytemath::le_unsigned_add(std::move(val), {std::byte(1)});
-
+    if (increment)
+    {
+        val = bytemath::le_unsigned_add(std::move(val), {std::byte(1)});
+    }
+    else
+    {
+        val = bytemath::le_unsigned_sub(std::move(val), {std::byte(1)});
+    }
     val = bytemath::le_truncate(std::move(val), type_int.bits);
 
     local_set_data(value_to_increment, std::move(val));
 
-    store_as_reference(instr.result, value_to_increment);
+    store_as_reference(output_slot, value_to_increment);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_ptr(storage_index input_slot, storage_index output_slot, bool increment)
+{
+    auto value_to_increase = load_from_reference(input_slot, false);
+
+    auto& ptr = value_to_increase->ref;
+
+    auto const& pointer_ref_type_v = get_current_frame().ir->slots.at(input_slot).type;
+
+    if (!typeis< pointer_type >(pointer_ref_type_v) || !as< pointer_type >(pointer_ref_type_v).target.type_is< pointer_type >())
+    {
+        // TODO: Also double check this is array pointer
+        throw invalid_instruction_error("Error in [increment]: slot is not a reference");
+    }
+
+    auto const& pointer_type_v = as< pointer_type >(pointer_ref_type_v).target.as< pointer_type >();
+
+    if (!ptr.has_value())
+    {
+        ptr = pointer_impl{};
+    }
+
+    // TODO: include type?
+    ptr = pointer_arith(ptr.value(), increment ? 1 : -1, void_type{});
+
+    this->store_as_reference(output_slot, value_to_increase);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)

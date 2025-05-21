@@ -166,6 +166,21 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
 {
     std::string funcname = to_string(func);
 
+
+    auto is_arry_pointer = [](type_symbol const& type)
+    {
+        if (type.type_is< pointer_type >())
+        {
+            auto const& ptr = type.as< pointer_type >();
+            return ptr.ptr_class == pointer_class::array;
+        }
+        return false;
+    };
+    auto has_incdec_operation_with_incdec_ir = [&](type_symbol const& type)
+    {
+        return typeis<int_type>(type) || is_arry_pointer(type);
+    };
+
     if (funcname == "[4] I64::.OPERATOR[] #{@THIS CONST& [4] I64, U64}")
     {
         int debugpoint = 0;
@@ -209,7 +224,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         }
     }
 
-    if (member->name == "OPERATOR++" && cls->template type_is< int_type >())
+    if (member->name == "OPERATOR++" && (cls->template type_is< int_type >() || is_arry_pointer(*cls)))
     {
         if (call.named.contains("THIS") && call.size() == 1)
         {
@@ -221,7 +236,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             return inc;
         }
     }
-    else if (member->name == "OPERATOR++RHS" && cls->template type_is< int_type >())
+    else if (member->name == "OPERATOR++RHS" && has_incdec_operation_with_incdec_ir(*cls))
     {
         if (call.named.contains("THIS") && call.size() == 1)
         {
@@ -234,7 +249,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
         }
     }
 
-    if (member->name == "OPERATOR--" && cls->template type_is< int_type >())
+    if (member->name == "OPERATOR--" && has_incdec_operation_with_incdec_ir(*cls))
     {
         if (call.named.contains("THIS") && call.size() == 1)
         {
@@ -246,7 +261,7 @@ std::optional< quxlang::vmir2::vm_instruction > quxlang::intrinsic_builtin_class
             return dec;
         }
     }
-    else if (member->name == "OPERATOR--RHS" && cls->template type_is< int_type >())
+    else if (member->name == "OPERATOR--RHS" && has_incdec_operation_with_incdec_ir(*cls))
     {
         if (call.named.contains("THIS") && call.size() == 1)
         {

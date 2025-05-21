@@ -253,6 +253,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             co_return (allowed_operations);
         }
 
+
         if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
@@ -277,6 +278,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
                 // 2 pointer diff
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = uintptr_type});
+            }
+
+            if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name) && !is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(parent)}}}}}, .return_type = make_mref(parent)});
             }
         }
 
