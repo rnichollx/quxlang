@@ -38,6 +38,7 @@ What works:
 * Assignment statements
 * CONST&, MUT&, TEMP& etc. references.
 * Constexpr evaluation of expressions that result in bool
+* Pointer arithmetic
 
 What doesn't work:
 
@@ -51,8 +52,6 @@ What doesn't work:
 * Exceptions
 * Polymorphism / virtual functions
 * Named arguments in certain contexts.
-* Type lookup in specific scenarios
-* Pointer arithmetic
 * Array and wildcard pointers
  
 ## Note regarding "Qux"
