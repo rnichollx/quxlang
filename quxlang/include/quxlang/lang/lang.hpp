@@ -5,71 +5,71 @@
 #ifndef LANG_HPP
 #define LANG_HPP
 
+#include <map>
 #include <string>
 
 namespace quxlang
 {
     struct localizer
     {
-        std::string kw_if;
-        std::string kw_for;
-        std::string kw_loop;
-        std::string kw_after;
-        std::string kw_else;
-        std::string kw_return;
-        std::string kw_break;
-        std::string kw_continue;
-        std::string kw_var;
-        std::string kw_function;
-        std::string kw_class;
-        std::string kw_module;
-        std::string kw_struct;
-        std::string kw_signed_int;
-        std::string kw_unsigned_int;
-
+        std::set< std::string > all_keywords;
+        std::set< std::string > kw_values;
+        std::map< std::string, std::map< std::string, std::string > > tr_from;
+        std::map< std::string, std::map< std::string, std::string > > tr_to;
 
         void init_en()
         {
-            kw_if = "IF";
-            kw_for = "FOR";
-            kw_loop = "LOOP";
-            kw_after = "AFTER";
-            kw_else = "ELSE";
-            kw_return = "RETURN";
-            kw_break = "BREAK";
-            kw_continue = "CONTINUE";
-            kw_var = "VAR";
-            kw_function = "FUNCTION";
-            kw_class = "CLASS";
-            kw_module = "MODULE";
-            kw_struct = "STRUCT";
-            kw_signed_int = "I";
-            kw_unsigned_int = "U";
-        }
 
+            // kw values are non-literal keywords that can appear as part of a non-type expression
+            kw_values = {"NULLPTR", "UNSPECIFIED", "POISON", "SIZEOF", "ALIGNOF", "IS_SINGLETON", "IS_ARRAY", "IS_CLASS", "HAS_MEMBER", "CALLABLE_WITH"};
+
+            // Initialize the set of English keywords
+            all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "VAR", "FUNCTION", "CLASS", "MODULE", "STRUCT", "I", "U"};
+
+            for (const auto& keyword : kw_values)
+            {
+                all_keywords.insert(keyword);
+            }
+
+            // Build identity mapping for English using all_keywords
+            for (const auto& keyword : all_keywords)
+            {
+                tr_from["EN"][keyword] = keyword;
+            }
+            tr_to["EN"] = tr_from["EN"];
+        }
 
         void init_jp()
         {
-            kw_if = "MOSHI";
-            kw_for = "TAME";
-            kw_loop = "WA";
-            kw_after = "ATO";
-            kw_else = "SOREIGAI";
-            kw_return = "MODORU";
-            kw_break = "KIRU";
-            kw_continue = "TSUZUKERU";
-            kw_var = "HENNSUU";
-            kw_function = "KINOU";
-            kw_class = "KURASU";
-            kw_module = "MODYURU";
-            kw_struct = "KOZOU";
-            kw_signed_int = "SE";
-            kw_unsigned_int = "MU";
+            // clang-format off
+            tr_to["JP"] = {
+                {"IF", "MOSHI"},
+                {"FOR", "TAME"},
+                {"LOOP", "WA"},
+                {"AFTER", "ATO"},
+                {"ELSE", "SOREIGAI"},
+                {"RETURN", "MODORU"},
+                {"BREAK", "KIRU"},
+                {"CONTINUE", "TSUZUKERU"},
+                {"VAR", "HENNSUU"},
+                {"FUNCTION", "KINOU"},
+                {"CLASS", "KURASU"},
+                {"MODULE", "MODYURU"},
+                {"STRUCT", "KOZOU"},
+                {"I", "SE"},
+                {"U", "MU"},
+
+            };
+            // clang-format on
+
+            // Build tr_from by looping over tr_to
+            for (const auto& [en, jp] : tr_to["JP"])
+            {
+                tr_from["JP"][jp] = en;
+            }
         }
     };
 
+} // namespace quxlang
 
-}
-
-
-#endif //LANG_HPP
+#endif // LANG_HPP

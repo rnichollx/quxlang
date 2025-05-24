@@ -198,6 +198,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         constexpr_input ce_input;
         ce_input.context = context;
         ce_input.expr = arry.element_count;
+        // TODO: support non-64bit platforms
         std::uint64_t element_count = co_await QUX_CO_DEP(constexpr_u64, (ce_input));
         array_type result_type;
         result_type.element_count = expression_numeric_literal{std::to_string(element_count)};

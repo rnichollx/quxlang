@@ -5,6 +5,7 @@
 
 namespace quxlang::parsers
 {
+
     template <typename It>
     inline auto iter_parse_keyword(It begin, It end) -> It
     {

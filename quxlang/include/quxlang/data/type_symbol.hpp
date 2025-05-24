@@ -143,6 +143,13 @@ namespace quxlang
     };
 
 
+    struct builtin_kw
+    {
+        std::string name;
+
+        RPNX_MEMBER_METADATA(builtin_kw, name);
+    };
+
 
 
     struct overload
