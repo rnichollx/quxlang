@@ -1,0 +1,20 @@
+LANGUAGE QUXLANG EN 1.0;
+
+IMPORT itanium;
+
+
+::unwind_personality_proc INCLUDE_IF(ABI_EH_ITANIUM_EH_FRAME) PROCEDURE CC("ccc") IMPL unwind_handler;
+
+::unwind_action BITMASK STORAGE(I32)
+{
+  search_phase VALUE(1),
+  cleanup_phase VALUE(2),
+  handler_frame VALUE(4),
+  force_unwind VALUE(8),
+  end_of_stack VALUE(16)
+}
+
+::unwind_personality FUNCTION(%version I32, %action unwind_action, %exc ^VOID, %context ^VOID) NOUNWIND: I32
+{
+  TODO NOCOMPILE "Unimplemented"
+}
