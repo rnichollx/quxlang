@@ -129,6 +129,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_multibind, operator_str, lhs, bracketed);
     };
 
+    struct expression_value_keyword
+    {
+        std::string keyword;
+
+        RPNX_MEMBER_METADATA(expression_value_keyword, keyword);
+    };
+
 
 
 

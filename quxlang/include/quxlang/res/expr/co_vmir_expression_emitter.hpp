@@ -19,7 +19,6 @@
 #include "rpnx/simple_coroutine.hpp"
 #include <quxlang/macros.hpp>
 
-
 namespace quxlang
 {
 
@@ -133,7 +132,7 @@ namespace quxlang
 
             std::string inst_str = vmir2::assembler(rt).to_string(val);
             auto old_state = exec.current_slot_states;
-            for (auto const & st :exec.current_slot_states)
+            for (auto const& st : exec.current_slot_states)
             {
                 assert(st.second.valid());
             }
@@ -303,13 +302,6 @@ namespace quxlang
             co_return new_object;
         }
 
-
-
-
-
-
-
-
         auto generate(expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             std::cout << "gen_call_expr A()" << std::endl;
@@ -399,6 +391,11 @@ namespace quxlang
         auto create_numeric_literal(std::string str)
         {
             return exec.create_numeric_literal(str);
+        }
+
+        auto create_bool_literal(bool val)
+        {
+            return exec.create_bool_literal(val);
         }
 
         auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
@@ -727,6 +724,40 @@ namespace quxlang
             this->emit(make_pointer);
 
             co_return pointer_storage;
+        }
+
+        auto generate(expression_value_keyword const& kw) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        {
+            if (kw.keyword == "TRUE")
+            {
+                co_return co_await this->create_bool_literal(true);
+            }
+            if (kw.keyword == "FALSE")
+            {
+                co_return co_await this->create_bool_literal(false);
+            }
+            output_info arch = prv.output_info();
+
+            if (kw.keyword == "ARCH_X64")
+            {
+                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::x86_64);
+            }
+            if (kw.keyword == "ARCH_X86")
+            {
+                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::x86_32);
+            }
+
+            if (kw.keyword == "ARCH_ARM32")
+            {
+                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::arm_32);
+            }
+
+            if (kw.keyword == "ARCH_ARM64")
+            {
+                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::arm_64);
+            }
+
+            throw rpnx::unimplemented();
         }
 
         auto generate(expression_rightarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
