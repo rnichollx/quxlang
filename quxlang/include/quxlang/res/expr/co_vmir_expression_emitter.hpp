@@ -730,31 +730,46 @@ namespace quxlang
         {
             if (kw.keyword == "TRUE")
             {
-                co_return co_await this->create_bool_literal(true);
+                co_return this->create_bool_literal(true);
             }
             if (kw.keyword == "FALSE")
             {
-                co_return co_await this->create_bool_literal(false);
+                co_return this->create_bool_literal(false);
             }
             output_info arch = prv.output_info();
 
             if (kw.keyword == "ARCH_X64")
             {
-                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::x86_64);
+                co_return this->create_bool_literal(arch.cpu_type == cpu::x86_64);
             }
             if (kw.keyword == "ARCH_X86")
             {
-                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::x86_32);
+                co_return this->create_bool_literal(arch.cpu_type == cpu::x86_32);
             }
 
             if (kw.keyword == "ARCH_ARM32")
             {
-                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::arm_32);
+                co_return this->create_bool_literal(arch.cpu_type == cpu::arm_32);
             }
 
             if (kw.keyword == "ARCH_ARM64")
             {
-                co_return co_await this->create_bool_literal(arch.cpu_type == cpu::arm_64);
+                co_return this->create_bool_literal(arch.cpu_type == cpu::arm_64);
+            }
+
+            if (kw.keyword == "OS_LINUX")
+            {
+                co_return this->create_bool_literal(arch.os_type == os::linux);
+            }
+
+            if (kw.keyword == "OS_WINDOWS")
+            {
+                co_return this->create_bool_literal(arch.os_type == os::windows);
+            }
+
+            if (kw.keyword == "OS_MACOS")
+            {
+                co_return this->create_bool_literal(arch.os_type == os::macos);
             }
 
             throw rpnx::unimplemented();

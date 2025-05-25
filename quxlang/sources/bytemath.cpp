@@ -1,5 +1,6 @@
 #include "quxlang/bytemath.hpp"
 
+#include <stdexcept>
 
 namespace quxlang::bytemath
 {

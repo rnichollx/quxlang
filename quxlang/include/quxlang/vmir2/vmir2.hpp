@@ -547,6 +547,7 @@ namespace quxlang
             storage_index create_positional_argument(type_symbol type, std::optional< std::string > name);
             storage_index create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > name);
             storage_index create_numeric_literal(std::string value);
+            storage_index create_bool_literal(bool value);
             storage_index index_binding(storage_index idx);
 
             RPNX_MEMBER_METADATA(slot_generation_state, slots);
@@ -582,6 +583,7 @@ namespace quxlang
             storage_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
 
             storage_index create_numeric_literal(std::string value);
+            storage_index create_bool_literal(bool value);
             storage_index index_binding(storage_index idx);
 
             std::optional< storage_index > local_lookup(std::string name);

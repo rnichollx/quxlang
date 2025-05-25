@@ -1,8 +1,8 @@
 #include "quxlang/vmir2/assembly.hpp"
 #include "rpnx/value.hpp"
 
-#include <quxlang/vmir2/vmir2.hpp>
 #include <quxlang/ast2/source_location.hpp>
+#include <quxlang/vmir2/vmir2.hpp>
 
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_temporary(type_symbol type)
 {
@@ -38,8 +38,16 @@ quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_name
 
 quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_numeric_literal(std::string value)
 {
+    // TODO Check if this literal already exists
     storage_index slot_id = slots.size();
     slots.push_back(vm_slot{.type = numeric_literal_reference{}, .literal_value = value, .kind = slot_kind::literal});
+    return slot_id;
+}
+quxlang::vmir2::storage_index quxlang::vmir2::slot_generation_state::create_bool_literal(bool value)
+{
+    // TODO Check if this literal already exists.
+    storage_index slot_id = slots.size();
+    slots.push_back(vm_slot{.type = bool_type{}, .literal_value = value ? "TRUE" : "FALSE", .kind = slot_kind::literal});
     return slot_id;
 }
 
@@ -173,6 +181,15 @@ quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state:
     // is not separation between codegen slots and IR slots.
     return idx;
 }
+quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::create_bool_literal(bool value)
+{
+    auto idx = slots->create_bool_literal(value);
+    current_slot_states[idx].alive = true;
+    current_slot_states[idx].storage_valid = true;
+    // TODO: This is not actually a storable object, but we need to handle this for now because there
+    // is not separation between codegen slots and IR slots.
+    return idx;
+}
 
 quxlang::vmir2::storage_index quxlang::vmir2::executable_block_generation_state::index_binding(storage_index idx)
 {
@@ -283,7 +300,6 @@ bool quxlang::vmir2::frame_generation_state::has_terminator(std::size_t block)
 {
     return block_states[block].block.terminator.has_value();
 }
-
 
 quxlang::vmir2::functanoid_routine2 quxlang::vmir2::frame_generation_state::get_result()
 {
