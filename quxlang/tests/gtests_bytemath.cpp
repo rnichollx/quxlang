@@ -9,16 +9,17 @@
 
 // Use the namespace for convenience
 using namespace quxlang;
+using namespace quxlang::bytemath;
 
 // Helper function to simplify testing comparison results
 // Converts byte vectors to strings before comparison for readability
 std::string compare_and_format(const std::vector<std::byte>& a, const std::vector<std::byte>& b) {
-    bool less = le_comp_less(a, b);
-    bool greater = le_comp_less(b, a);
+    bool less = bytemath::le_comp_less(a, b);
+    bool greater = bytemath::le_comp_less(b, a);
     bool equal = !less && !greater; // Or use le_comp_eq(a, b);
 
-    std::string a_str = le_to_string(a);
-    std::string b_str = le_to_string(b);
+    std::string a_str = bytemath::le_to_string(a);
+    std::string b_str = bytemath::le_to_string(b);
 
     if (less) return a_str + " < " + b_str;
     if (greater) return a_str + " > " + b_str;
@@ -31,9 +32,9 @@ std::string compare_and_format(const std::vector<std::byte>& a, const std::vecto
 
 // Test le_unsigned_add
 TEST(ByteMathAdd, BasicAddition) {
-    auto a = string_to_le("123");
-    auto b = string_to_le("456");
-    auto result = le_unsigned_add(a, b);
+    auto a = bytemath::string_to_le("123");
+    auto b = bytemath::string_to_le("456");
+    auto result = bytemath::le_unsigned_add(a, b);
     EXPECT_EQ(le_to_string(result), "579");
 }
 

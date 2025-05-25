@@ -5,7 +5,6 @@
 
 #include "data/target_configuration.hpp"
 #include "quxlang/data/class_layout.hpp"
-#include "quxlang/data/function_frame_information.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/data/vm_procedure.hpp"
