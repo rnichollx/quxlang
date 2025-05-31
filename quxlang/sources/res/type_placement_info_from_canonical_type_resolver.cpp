@@ -14,7 +14,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
 
         type_placement_info result;
         result.alignment = m.pointer_align();
-        result.size = m.pointer_size();
+        result.size = m.pointer_size_bytes();
 
         co_return result;
     }

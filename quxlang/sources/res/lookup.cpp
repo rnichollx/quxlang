@@ -18,7 +18,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
     if (type.type_is<size_type>())
     {
-        co_return int_type{.bits = c->m_output_info.pointer_size() * 8, .has_sign = false };
+        co_return int_type{.bits = c->m_output_info.pointer_size_bytes() * 8, .has_sign = false };
     }
 
     if (type.template type_is< pointer_type >())

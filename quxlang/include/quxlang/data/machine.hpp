@@ -31,7 +31,7 @@ namespace quxlang
         os os_type = os::none;
         binary binary_type = binary::none;
 
-        constexpr inline std::size_t pointer_size() const
+        constexpr inline std::size_t pointer_size_bytes() const
         {
             switch (cpu_type)
             {
@@ -57,7 +57,7 @@ namespace quxlang
 
         constexpr size_t pointer_align() const noexcept
         {
-            return pointer_size();
+            return pointer_size_bytes();
         }
     };
 
