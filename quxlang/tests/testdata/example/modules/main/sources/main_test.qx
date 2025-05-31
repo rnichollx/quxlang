@@ -5,7 +5,7 @@ MODULE main;
   RETURN a + b;
 }
 
-::runtime_main INCLUDE_IF(TARGET("CPU") == "ARM64") ASM_PROCEDURE ARM LINKNAME("_start")
+::runtime_main INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM LINKNAME("_start")
   CALLABLE(X1 I32, X2 I32)
 {
   MOV X7, 1; // Comment
@@ -33,6 +33,21 @@ MODULE main;
     .x := .x + 1;
   }
 }
+
+::arch_int INCLUDE_IF(ARCH_X64) FUNCTION(): I32
+{
+  RETURN 2;
+}
+
+::arch_int INCLUDE_IF(ARCH_ARM64) FUNCTION(): I32
+{
+  RETURN 1;
+}
+
+// ::arch_int INCLUDE_IF(ARCH_ARM64) FUNCTION(): I32
+// {
+//  RETURN 3;
+// }
 
 ::buf FUNCTION(%a MUT& I32)
 {

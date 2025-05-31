@@ -894,6 +894,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             return;
         }
+
+        if (slot_info.at(csr.target).type.template type_is< bool_type >())
+        {
+            // Special case, we can set the result directly as if it were a string
+            auto literal_value = slot_info.at(csr.target).literal_value.value();
+            if (literal_value == "TRUE")
+            {
+                this->constexpr_result = {std::byte{1}};
+            }
+            else if (literal_value == "FALSE")
+            {
+                this->constexpr_result = {std::byte{0}};
+            }
+            else
+            {
+                throw std::logic_error("Invalid boolean literal in constexpr context");
+            }
+
+            return;
+        }
     }
 
     this->constexpr_result = slot_consume_data(csr.target);

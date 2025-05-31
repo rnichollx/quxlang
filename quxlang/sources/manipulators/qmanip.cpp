@@ -28,6 +28,11 @@ namespace quxlang
             return "(" + be.operator_str + " " + to_string(be.rhs) + ")";
         }
 
+        std::string operator()(expression_value_keyword const & kw) const
+        {
+            return kw.keyword;
+        }
+
 
 
         std::string operator()(expression_multibind const& brkts) const

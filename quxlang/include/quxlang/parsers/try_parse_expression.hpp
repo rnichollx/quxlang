@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_EXPRESSION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_EXPRESSION_HEADER_GUARD
+#include "quxlang/lang/lang.hpp"
+
 #include <optional>
 #include <quxlang/data/expression.hpp>
 #include <quxlang/data/type_symbol.hpp>
@@ -101,6 +103,11 @@ namespace quxlang::parsers
     template < typename It >
     std::optional< expression > try_parse_expression(It& pos, It end)
     {
+        static localizer loc;
+
+        // TODO: Make this not hardcoded
+        std::string lang = "EN";
+
         skip_whitespace_and_comments(pos, end);
 
         std::string remaining{pos, end};
@@ -123,7 +130,19 @@ namespace quxlang::parsers
         remaining = std::string(pos, end);
         std::optional< type_symbol > sym;
         skip_whitespace_and_comments(pos, end);
-        if (auto str = try_parse_string_literal(pos, end); str)
+
+        auto kw_pre_translate = next_keyword(pos, end);
+        auto kw = loc.translate_from(lang, kw_pre_translate);
+
+        if (kw.has_value() && loc.is_value_kw(*kw))
+        {
+            discard_keyword(pos, end);
+            expression_value_keyword expr_kw;
+            expr_kw.keyword = *kw;
+            *value_bind_point = expr_kw;
+            have_anything = true;
+        }
+        else if (auto str = try_parse_string_literal(pos, end); str)
         {
             expression_string_literal str_lit;
             str_lit.value = str.value();

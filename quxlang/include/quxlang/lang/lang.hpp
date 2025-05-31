@@ -6,6 +6,8 @@
 #define LANG_HPP
 
 #include <map>
+#include <optional>
+#include <set>
 #include <string>
 
 namespace quxlang
@@ -17,11 +19,65 @@ namespace quxlang
         std::map< std::string, std::map< std::string, std::string > > tr_from;
         std::map< std::string, std::map< std::string, std::string > > tr_to;
 
+        localizer()
+        {
+            init_en();
+            init_jp();
+        }
+
+        bool is_value_kw(std::string const & str)
+        {
+
+            return kw_values.contains(str);
+        }
+
+
+
+        std::optional< std::string > translate_from(std::string const& lang, std::string const& kw)
+        {
+            auto const& translator = tr_from.at(lang);
+
+            auto it = translator.find(kw);
+
+            if (it != translator.end())
+            {
+                return it->second;
+            }
+            else
+            {
+                return std::nullopt;
+            }
+        }
+
         void init_en()
         {
 
             // kw values are non-literal keywords that can appear as part of a non-type expression
-            kw_values = {"NULLPTR", "UNSPECIFIED", "POISON", "SIZEOF", "ALIGNOF", "IS_SINGLETON", "IS_ARRAY", "IS_CLASS", "HAS_MEMBER", "CALLABLE_WITH"};
+
+            // clang-format off
+            kw_values = {
+                "NULLPTR",
+                "UNSPECIFIED",
+                "POISON",
+                "FALSE",
+                "TRUE",
+                "ARCH_X64",
+                "ARCH_X86",
+                "ARCH_ARM32",
+                "ARCH_ARM64",
+                "ARCH_RISCV64",
+
+                "KERNEL_LINUX",
+                "KERNEL_NT",
+                "KERNEL_BSD",
+                "KERNEL_XNU",
+
+                "OS_WINDOWS",
+                "OS_LINUX",
+                "OS_BSD",
+                "OS_MACOS"
+            };
+            // clang-format on
 
             // Initialize the set of English keywords
             all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "VAR", "FUNCTION", "CLASS", "MODULE", "STRUCT", "I", "U"};

@@ -51,16 +51,41 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
     {
         if (typeis< member_subdeclaroid >(subdecl) && is_member && subname == as< member_subdeclaroid >(subdecl).name)
         {
-            // TODO: Check include_if here
-            output.push_back(as< member_subdeclaroid >(subdecl).decl);
+            auto const& member = as< member_subdeclaroid >(subdecl);
+
+            bool included = true;
+            if (member.include_if)
+            {
+                constexpr_input cx_input;
+                cx_input.context = parent_addr.value();
+                cx_input.expr = *member.include_if;
+                included = co_await QUX_CO_DEP(constexpr_bool, (cx_input));
+            }
+
+            if (!included)
+            {
+                continue;
+            }
+            output.push_back(member.decl);
         }
         else if (typeis< global_subdeclaroid >(subdecl) && !is_member && subname == as< global_subdeclaroid >(subdecl).name)
         {
-            // TODO: Check include_if here
+            auto const& global = as< global_subdeclaroid >(subdecl);
+            bool included = true;
+            if (global.include_if)
+            {
+                constexpr_input cx_input;
+                cx_input.context = parent_addr.value();
+                cx_input.expr = *global.include_if;
+                included = co_await QUX_CO_DEP(constexpr_bool, (cx_input));
+            }
+            if (!included)
+            {
+                continue;
+            }
             output.push_back(as< global_subdeclaroid >(subdecl).decl);
         }
     }
 
     co_return output;
-
 }

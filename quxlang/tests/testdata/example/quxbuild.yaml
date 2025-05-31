@@ -17,6 +17,20 @@ linux-x64:
   cpu: x64
 
 
+linux-arm64:
+  modules:
+    runtime:
+      source: linux-runtime
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    main:
+      source: main
+  platform: linux
+  cpu: ARM64
+
+
 linux-x86:
   modules:
     foolib:

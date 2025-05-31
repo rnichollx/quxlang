@@ -1,12 +1,62 @@
+LANGUAGE QUXLANG EN 1.0;
+
+INCLUDE_FILE_IF(KERNEL_LINUX);
+
+// Stub system calls, these needs to be checked for accuracy.
+// Mainly for testing assembler stuff, don't assume these are correct.
+
+
 ::linux NAMESPACE
 {
-  ::syscall NAMESPACE {
+  ::syscall NAMESPACE
+  {
+    ::exit INCLUDE_IF(ARCH_X64) ASM_PROCEDURE X64
+      CALLABLE(RAX I32)
+    {
+      MOV RAX, 60
+      XOR RDI, RDI
+      SYSCALL
+    }
 
-    INCLUDE_IF(TARGET_IS(ARM64))
-    ::exit ASM_FUNCTION(%R0 I32; CLOBBER R7)
+    ::exit INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM
+      CALLABLE(X1 I32)
     {
       MOV R7, 1
       SVC 0
     }
+
+    ::write INCLUDE_IF(ARCH_X64) ASM_PROCEDURE X64
+      CALLABLE(RAX I32, RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+    {
+      MOV RAX, 1
+      SYSCALL
+      RET
+    }
+
+    ::write INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM
+      CALLABLE(X1 I32, X2 I32, X3 I32, X4 I32; RETURN X1 I32)
+    {
+      MOV X7, 64
+      SVC 0
+      RET
+    }
+
+    ::read INCLUDE_IF(ARCH_X64) ASM_PROCEDURE X64
+      CALLABLE(RAX I32, RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+    {
+      MOV RAX, 0
+      SYSCALL
+      RET
+    }
+
+    ::read INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM
+      CALLABLE(X1 I32, X2 I32, X3 I32, X4 I32; RETURN X1 I32)
+    {
+      MOV X7, 63
+      SVC 0
+      RET
+    }
+
+
   }
 }

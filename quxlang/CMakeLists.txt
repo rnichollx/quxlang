@@ -27,7 +27,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/data/vm_if.hpp
         include/quxlang/data/expression_equals.hpp
         include/quxlang/data/numeric_literal.hpp
-        include/quxlang/data/function_frame_information.hpp
         sources/example_file.cpp
         include/quxlang/res/operator_is_overloaded_with_resolver.hpp
         include/quxlang/data/lookup_type.hpp
@@ -246,6 +245,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/pointer.cpp
         sources/res/static_test.cpp
         include/quxlang/ast2/source_location.hpp
+        sources/bytemath.cpp
 
 )
 
