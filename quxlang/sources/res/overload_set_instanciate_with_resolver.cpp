@@ -88,7 +88,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
             auto tmatch = match_template(param_type.type, arg_type);
             if (tmatch.has_value())
             {
-                convertibles_dp.push_back(nullptr);
                 continue;
             }
             else

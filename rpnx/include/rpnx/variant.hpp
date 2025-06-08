@@ -259,7 +259,7 @@ namespace rpnx
         }
         else if constexpr (C == call_type::optional)
         {
-            if (std::is_invocable< F, decltype(variant.template get_n< N >()) >::value)
+            if constexpr (std::is_invocable< F, decltype(variant.template get_n< N >()) >::value)
             {
                 if constexpr (std::is_same_v< R, void >)
                 {

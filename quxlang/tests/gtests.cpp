@@ -265,8 +265,8 @@ TEST(quxlang_modules, merge_entities)
 
 TEST(qual, template_matching)
 {
-    quxlang::type_symbol template1 = quxlang::template_reference{"foo"};
-    quxlang::type_symbol template2 = quxlang::pointer_type{.target = quxlang::template_reference{"foo"}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
+    quxlang::type_symbol template1 = quxlang::auto_temploidic{"foo"};
+    quxlang::type_symbol template2 = quxlang::pointer_type{.target = quxlang::auto_temploidic{"foo"}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
     quxlang::type_symbol type1 = quxlang::int_type{32, true};
     quxlang::type_symbol type2 = quxlang::pointer_type{.target = quxlang::int_type{32, true}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
 
@@ -785,6 +785,9 @@ TEST(expression_ir, constexpr_call_func)
 
     auto val6 = get_constexpr_bool("arch_int() == 2");
     ASSERT_TRUE(val6);
+
+    auto val7 = get_constexpr_bool("yip() == 8");
+    ASSERT_TRUE(val7);
 
 
 }

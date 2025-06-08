@@ -86,9 +86,31 @@ namespace quxlang::parsers
 
             output = arr;
         }
-        else if (skip_keyword_if_is(pos, end, "T"))
+        else if (skip_keyword_if_is(pos, end, "AUTO"))
         {
-            template_reference tref;
+            auto_temploidic tref;
+
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "("))
+            {
+                skip_whitespace_and_comments(pos, end);
+                tref.name = parse_identifier(pos, end);
+                if (tref.name.empty())
+                {
+                    throw std::logic_error("Expected identifier after T(");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw std::logic_error("Expected ')' after T(" + tref.name);
+                }
+            }
+
+            output = tref;
+        }
+        else if (skip_keyword_if_is(pos, end, "TT"))
+        {
+            type_temploidic tref;
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, "("))

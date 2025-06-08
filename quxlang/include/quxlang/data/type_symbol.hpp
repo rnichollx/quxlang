@@ -195,10 +195,16 @@ namespace quxlang
         RPNX_MEMBER_METADATA(array_type, element_type, element_count);
     };
 
-    struct template_reference
+    struct auto_temploidic
     {
         std::string name;
-        RPNX_MEMBER_METADATA(template_reference, name);
+        RPNX_MEMBER_METADATA(auto_temploidic, name);
+    };
+
+    struct type_temploidic
+    {
+        std::string name;
+        RPNX_MEMBER_METADATA(type_temploidic, name);
     };
 
     struct bound_type_reference;

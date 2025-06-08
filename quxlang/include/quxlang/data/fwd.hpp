@@ -28,13 +28,14 @@ namespace quxlang
     struct numeric_literal_reference;
     struct string_literal_reference;
     struct context_reference;
-    struct template_reference;
+    struct auto_temploidic;
     struct dvalue_slot;
     struct bound_type_reference;
     struct thistype;
     struct pointer_type;
+    struct type_temploidic;
 
-    using type_symbol = rpnx::variant< void_type, context_reference, template_reference, module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, pointer_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type >;
+    using type_symbol = rpnx::variant< void_type, context_reference, auto_temploidic, type_temploidic, module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, pointer_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type >;
 
     struct expression_multiply;
     struct expression_modulus;

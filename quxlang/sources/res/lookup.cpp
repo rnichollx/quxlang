@@ -188,7 +188,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     {
         co_return type;
     }
-    else if (typeis< template_reference >(type))
+    else if (typeis< auto_temploidic >(type))
+    {
+        co_return type;
+    }
+    else if (typeis< type_temploidic >(type))
     {
         co_return type;
     }

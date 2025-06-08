@@ -59,6 +59,7 @@
 #include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 #include <quxlang/res/static_test.hpp>
+#include <quxlang/res/ensig.hpp>
 #include <shared_mutex>
 
 // clang-format off
@@ -178,6 +179,8 @@ namespace quxlang
         COMPILER_INDEX(procedure_linksymbol)
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
+        COMPILER_INDEX(symbol_tempars)
+        COMPILER_INDEX(ensig_tempars)
         COMPILER_INDEX(symboid_subdeclaroids)
         COMPILER_INDEX(template_instanciation)
         COMPILER_INDEX(template_instanciation_ast)

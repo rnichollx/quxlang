@@ -246,6 +246,8 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/static_test.cpp
         include/quxlang/ast2/source_location.hpp
         sources/bytemath.cpp
+        include/quxlang/res/ensig.hpp
+        sources/res/ensig.cpp
 
 )
 

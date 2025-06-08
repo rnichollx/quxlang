@@ -164,7 +164,8 @@ namespace quxlang
         std::string operator()(void_type const&) const;
         std::string operator()(thistype const&) const;
         std::string operator()(numeric_literal_reference const&) const;
-        std::string operator()(template_reference const&) const;
+        std::string operator()(auto_temploidic const&) const;
+        std::string operator()(type_temploidic const&) const;
         std::string operator()(temploid_reference const&) const;
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
@@ -328,7 +329,12 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(template_reference const&) const
+        bool operator()(auto_temploidic const&) const
+        {
+            return true;
+        }
+
+        bool operator()(type_temploidic const&) const
         {
             return true;
         }
@@ -592,9 +598,13 @@ namespace quxlang
         return "NUMERIC_LITERAL";
     }
 
-    std::string qualified_symbol_stringifier::operator()(template_reference const& val) const
+    std::string qualified_symbol_stringifier::operator()(auto_temploidic const& val) const
     {
-        return "T(" + val.name + ")";
+        return "AUTO(" + val.name + ")";
+    }
+    std::string qualified_symbol_stringifier::operator()(type_temploidic const& val) const
+    {
+        return "TT(" + val.name + ")";
     }
 
     std::string qualified_symbol_stringifier::operator()(function_arg const& ref) const
@@ -650,10 +660,10 @@ namespace quxlang
 
         // Template portion match.
         // e.g. T(t1) matches I32 and sets t1 to I32
-        if (typeis< template_reference >(template_type))
+        if (typeis< auto_temploidic >(template_type))
         {
             template_match_results output;
-            auto name = as< template_reference >(template_type).name;
+            auto name = as< auto_temploidic >(template_type).name;
             if (!name.empty())
             {
                 output.matches[name] = type;
@@ -817,11 +827,36 @@ namespace quxlang
         assert(is_canonical(type));
 
         // Template portion match.
-        // e.g. T(t1) matches I32 and sets t1 to I32
-        if (typeis< template_reference >(template_type))
+        // e.g. AUTO(t1) matches I32 and sets t1 to I32
+        if (typeis< auto_temploidic >(template_type))
         {
             template_match_results output;
-            auto name = as< template_reference >(template_type).name;
+            auto name = as< auto_temploidic >(template_type).name;
+
+            type_symbol const * type_target = nullptr;
+            if (type.type_is< pointer_type >() && type.as< pointer_type >().ptr_class == pointer_class::ref)
+            {
+                type_target = &as< pointer_type >(type).target;
+            }
+            else
+            {
+                type_target = &type;
+            }
+
+            if (!name.empty())
+            {
+                output.matches[name] = *type_target;
+            }
+            output.type = *type_target;
+            results = std::move(output);
+            return results;
+        }
+
+        if (typeis< type_temploidic >(template_type))
+        {
+            template_match_results output;
+            auto name = as< auto_temploidic >(template_type).name;
+
             if (!name.empty())
             {
                 output.matches[name] = type;
@@ -1183,7 +1218,12 @@ namespace quxlang
             bool check(intertype template_ct, intertype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
 
-            bool check_impl(template_reference const& template_val, template_reference const& match_val, bool conv)
+            bool check_impl(auto_temploidic const& template_val, auto_temploidic const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(type_temploidic const& template_val, type_temploidic const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
             }
@@ -1444,9 +1484,9 @@ namespace quxlang
             std::string template_str = to_string(template_val);
             std::string match_str = to_string(match_val);
 
-            if (typeis< template_reference >(template_val))
+            if (typeis< auto_temploidic >(template_val))
             {
-                auto const& template_ref = as< template_reference >(template_val);
+                auto const& template_ref = as< auto_temploidic >(template_val);
 
                 if (results.matches.find(template_ref.name) != results.matches.end())
                 {
@@ -1458,6 +1498,21 @@ namespace quxlang
                     return true;
                 }
             }
+            if (typeis< type_temploidic >(template_val))
+            {
+                auto const& template_ref = as< type_temploidic >(template_val);
+
+                if (results.matches.find(template_ref.name) != results.matches.end())
+                {
+                    return results.matches[template_ref.name] == match_val;
+                }
+                else
+                {
+                    results.matches[template_ref.name] = match_val;
+                    return true;
+                }
+            }
+
 
             if (is_auto_ref(template_val))
             {

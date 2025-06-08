@@ -505,8 +505,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto state_diff = this->get_state_diff();
 
-        std::cout << "Expected current state: " << ir_printer.to_string(expected_state) << std::endl;
-        std::cout << "Current state: " << ir_printer.to_string(current_statemap) << std::endl;
+        std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
+        std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
 
         assert(current_statemap == expected_state);
 
@@ -519,6 +519,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             instr);
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
+        std::cout << std::endl;
         return;
     }
 
@@ -1587,9 +1588,9 @@ quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interprete
 
     auto const& instructions = func_ir.blocks.at(block_index).instructions;
 
-    for (std::size_t i = 0; i < instruction_index; i++)
+    for (std::size_t i = 0; i < instruction_index && i < instructions.size(); i++)
     {
-        auto const& instr = instructions[i];
+        auto const& instr = instructions.at(i);
         state_engine(state, func_ir.slots).apply(instr);
     }
 

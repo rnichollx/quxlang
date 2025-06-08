@@ -112,6 +112,18 @@ MODULE main;
   RETURN a + 5;
 }
 
+::yip FUNCTION(%a AUTO(t1)) : t1
+{
+  RETURN a + 1;
+}
+
+::yip FUNCTION(): I32
+{
+  VAR x I32;
+  x := 7;
+  RETURN yip(x);
+}
+
 
 
 
