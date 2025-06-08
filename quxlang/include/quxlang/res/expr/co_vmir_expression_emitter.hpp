@@ -393,9 +393,16 @@ namespace quxlang
             return exec.create_numeric_literal(str);
         }
 
-        auto create_bool_literal(bool val)
+
+
+        auto create_bool_value(bool val)
         {
-            return exec.create_bool_literal(val);
+            auto boolv = exec.create_temporary(bool_type{});
+            vmir2::load_const_int lci;
+            lci.value = val ? "1" : "0";
+            lci.target = boolv;
+            emit(lci);
+            return boolv;
         }
 
         auto gen_call_functanoid(instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
@@ -730,46 +737,46 @@ namespace quxlang
         {
             if (kw.keyword == "TRUE")
             {
-                co_return this->create_bool_literal(true);
+                co_return this->create_bool_value(true);
             }
             if (kw.keyword == "FALSE")
             {
-                co_return this->create_bool_literal(false);
+                co_return this->create_bool_value(false);
             }
             output_info arch = prv.output_info();
 
             if (kw.keyword == "ARCH_X64")
             {
-                co_return this->create_bool_literal(arch.cpu_type == cpu::x86_64);
+                co_return this->create_bool_value(arch.cpu_type == cpu::x86_64);
             }
             if (kw.keyword == "ARCH_X86")
             {
-                co_return this->create_bool_literal(arch.cpu_type == cpu::x86_32);
+                co_return this->create_bool_value(arch.cpu_type == cpu::x86_32);
             }
 
             if (kw.keyword == "ARCH_ARM32")
             {
-                co_return this->create_bool_literal(arch.cpu_type == cpu::arm_32);
+                co_return this->create_bool_value(arch.cpu_type == cpu::arm_32);
             }
 
             if (kw.keyword == "ARCH_ARM64")
             {
-                co_return this->create_bool_literal(arch.cpu_type == cpu::arm_64);
+                co_return this->create_bool_value(arch.cpu_type == cpu::arm_64);
             }
 
             if (kw.keyword == "OS_LINUX")
             {
-                co_return this->create_bool_literal(arch.os_type == os::linux);
+                co_return this->create_bool_value(arch.os_type == os::linux);
             }
 
             if (kw.keyword == "OS_WINDOWS")
             {
-                co_return this->create_bool_literal(arch.os_type == os::windows);
+                co_return this->create_bool_value(arch.os_type == os::windows);
             }
 
             if (kw.keyword == "OS_MACOS")
             {
-                co_return this->create_bool_literal(arch.os_type == os::macos);
+                co_return this->create_bool_value(arch.os_type == os::macos);
             }
 
             throw rpnx::unimplemented();

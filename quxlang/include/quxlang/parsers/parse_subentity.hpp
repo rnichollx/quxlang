@@ -14,7 +14,7 @@ namespace quxlang::parsers
     template < typename It >
     inline std::string parse_subentity(It& begin, It end)
     {
-        static std::set< std::string > subentity_keywords = {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR"};
+        static std::set< std::string > subentity_keywords = {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR", "SERIALIZE", "DESERIALIZE"};
 
         auto pos = iter_parse_identifier(begin, end);
         if (pos != begin)
