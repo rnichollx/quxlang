@@ -11,6 +11,7 @@
 
 namespace quxlang::vmir2
 {
+
     class state_engine
     {
     private:

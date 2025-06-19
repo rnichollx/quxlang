@@ -603,6 +603,7 @@ namespace quxlang
             RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names, non_trivial_dtors);
         };
 
+
         struct frame_generation_state
         {
             slot_generation_state slots;

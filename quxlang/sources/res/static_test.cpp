@@ -10,7 +10,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_static_tests)
 {
     auto input_subdeclaroids = co_await QUX_CO_DEP(symboid_subdeclaroids, (input_val));
 
-
     std::set< type_symbol > result;
 
     for (subdeclaroid const& sdcl : input_subdeclaroids)
@@ -47,4 +46,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_static_tests)
 
         result.insert(subsymbol{.of = input, .name = sdcl_2.name});
     }
+
+    throw rpnx::unimplemented();
 }

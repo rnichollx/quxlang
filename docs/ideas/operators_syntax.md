@@ -39,6 +39,7 @@
 * `.||` bitwise or.
 * `.!&` bitwise not-and.
 * `.!|` bitwise not-or.
+* `.?>` bitwise a implies b.
 * `.^^` bitwise exclusive or.
 * `.<<` bitwise left shift.
 * `.>>` bitwise right shift
