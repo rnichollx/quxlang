@@ -82,11 +82,7 @@ namespace quxlang
         {
         }
 
-        auto typeof_vm_value(expression expr) -> typename CoroutineProvider::template co_type< quxlang::type_symbol >
-        {
-            rpnx::unimplemented();
-            return {};
-        }
+
 
         auto generate_expr(vmir2::block_index& idx, expression expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
@@ -162,7 +158,10 @@ namespace quxlang
 
         auto create_binding(storage_index bindval, type_symbol bind_type)
         {
-            return exec.create_binding(bindval, bind_type);
+            codegen_binding binding;
+            binding.bound_symbol = bind_type;
+            binding.bound_value = bindval;
+            this->state.genvalues.push_back(binding);
         }
 
         void emit(block_index& bidx, vmir2::vm_instruction val)
