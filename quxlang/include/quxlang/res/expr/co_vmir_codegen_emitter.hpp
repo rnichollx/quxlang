@@ -213,7 +213,7 @@ namespace quxlang
             ref.value_index = index;
             ref.reference_index = temp;
 
-            this->emit(ref);
+            this->emit(bidx, ref);
 
             return temp;
         }

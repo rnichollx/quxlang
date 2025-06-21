@@ -457,9 +457,34 @@ namespace quxlang
             RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, arg_name, binding_of, kind);
         };
 
+        struct slottype
+        {
+            type_symbol type;
+
+            RPNX_MEMBER_METADATA(slottype, type);
+        };
+
+        struct routine_parameter
+        {
+            type_symbol type;
+            std::size_t assign_index;
+
+            RPNX_MEMBER_METADATA(routine_parameter, type, assign_index);
+        };
+
+        struct routine_parameters
+        {
+            std::vector<routine_parameter> positional_parmeters;
+            std::map< std::string, routine_parameter > named_parameters;
+
+            RPNX_MEMBER_METADATA(routine_parameters, positional_parmeters, named_parameters);
+        };
+
         struct vm_context
         {
             std::vector< vm_slot > slots;
+
+
         };
 
         struct functanoid_routine
@@ -602,7 +627,6 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names, non_trivial_dtors);
         };
-
 
         struct frame_generation_state
         {
