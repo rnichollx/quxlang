@@ -79,10 +79,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
 
     std::vector< bool > temp;
     quxlang::compiler_binder binder(c);
-    quxlang::vmir2::slot_generation_state slotstates;
-    quxlang::vmir2::executable_block_generation_state blockstate(&slotstates);
-    co_vmir_generator< quxlang::compiler_binder > emitter(binder, input.context,  blockstate);
-    auto result = co_await emitter.generate_expr(input.expr);
+    co_vmir_generator< quxlang::compiler_binder > emitter(binder, input.context);
+    auto result = co_await emitter.co_generate_expr(input.expr);
     vmir2::constexpr_set_result csr{};
     csr.target = result;
     blockstate.emit(csr);

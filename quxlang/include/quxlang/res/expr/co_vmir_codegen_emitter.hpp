@@ -60,11 +60,23 @@ namespace quxlang
         {
             type_symbol bound_symbol;
             storage_index bound_value;
+
+            RPNX_MEMBER_METADATA(codegen_binding, bound_symbol, bound_value);
         };
 
         struct codegen_local
         {
             type_symbol type;
+
+            RPNX_MEMBER_METADATA(codegen_local, type);
+        };
+
+        struct codegen_literal
+        {
+            type_symbol type;
+            std::string value;
+
+            RPNX_MEMBER_METADATA(codegen_literal, type, value);
         };
 
         using codegen_value = rpnx::variant< codegen_binding, codegen_literal, codegen_local >;
@@ -76,6 +88,7 @@ namespace quxlang
             std::vector< codegen_argument > positional_args;
             std::map< std::string, codegen_argument > named_args;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
+            std::map< std::string, storage_index > codegen_numeric_literals;
         };
 
       private:
@@ -330,19 +343,19 @@ namespace quxlang
             co_return index;
         }
 
-        auto gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto co_gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             vmir2::invocation_args args;
             args.named["OTHER"] = idx;
-            co_return co_await gen_call_ctor(to_type, std::move(args));
+            co_return co_await co_gen_call_ctor(to_type, std::move(args));
         }
 
-        auto gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
             auto new_object = create_temporary_storage(new_type);
             args.named["THIS"] = new_object;
-            auto retval = co_await gen_call_functum(bidx, ctor, args);
+            auto retval = co_await co_gen_call_functum(bidx, ctor, args);
 
             assert(retval == 0);
 
@@ -355,10 +368,10 @@ namespace quxlang
             co_return new_object;
         }
 
-        auto generate(block_index& bidx, expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        auto co_generate(block_index& bidx, expression_call call) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             std::cout << "gen_call_expr A()" << std::endl;
-            auto callee = co_await generate_expr(bidx, call.callee);
+            auto callee = co_await co_generate_expr(bidx, call.callee);
 
             type_symbol callee_type = this->current_type(callee);
             std::cout << "gen_call_expr B() -> callee_type=" << quxlang::to_string(callee_type) << std::endl;
@@ -387,7 +400,7 @@ namespace quxlang
 
             for (auto& arg : call.args)
             {
-                auto arg_val_idx = co_await generate_expr(bidx, arg.value);
+                auto arg_val_idx = co_await co_generate_expr(bidx, arg.value);
 
                 // This is probably actually useless?
                 // TODO: Test if this does anything
@@ -417,16 +430,16 @@ namespace quxlang
                 }
                 auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
 
-                auto val = co_await gen_call_ctor(object_type, args);
+                auto val = co_await co_gen_call_ctor(object_type, args);
 
                 co_return val;
             }
 
-            co_return co_await gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
+            co_return co_await co_gen_call_functum(as< bound_type_reference >(callee_type).bound_symbol, args);
         }
 
       public:
-        auto gen_defer_dtor(block_index& bidx, storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto co_gen_defer_dtor(block_index& bidx, storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             co_return;
             // TODO: Maybe re-add this later, for now, don't use for default dtors.
@@ -442,20 +455,29 @@ namespace quxlang
 
         auto create_numeric_literal(std::string str)
         {
-            return exec.create_numeric_literal(str);
+            if (auto it = this->state.codegen_numeric_literals.find(str); it != this->state.codegen_numeric_literals.end())
+            {
+                return it->second;
+            }
+            codegen_literal lit;
+            lit.type = numeric_literal_reference{};
+            lit.value = str;
+            this->state.genvalues.push_back(lit);
+            this->state.codegen_numeric_literals[str] = this->state.genvalues.size() - 1;
+            return this->state.genvalues.size() - 1;
         }
 
-        auto create_bool_value(bool val)
+        auto create_bool_value(block_index bidx, bool val)
         {
-            auto boolv = exec.create_temporary(bool_type{});
+            auto boolv = this->create_temporary(bidx, bool_type{});
             vmir2::load_const_int lci;
             lci.value = val ? "1" : "0";
             lci.target = boolv;
-            emit(lci);
+            emit(bidx, lci);
             return boolv;
         }
 
-        auto gen_call_functanoid(block_index& bidx, instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, vmir2::invocation_args expression_args) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
         {
             std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
@@ -490,7 +512,7 @@ namespace quxlang
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
                     // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
-                    co_await gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
+                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
 
                     // When we complete the constructor of the argument, we need to queue the destructor of the argument.
                     // We also need to save the deferral so we can remove it from the deferral list prior to invoking
@@ -513,7 +535,7 @@ namespace quxlang
                     vmir2::invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
 
                     // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
-                    co_await gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
+                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
 
                     co_return index;
                 }
@@ -539,7 +561,7 @@ namespace quxlang
                     // assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
                     //  We need to hook into the provider because we might encounter a situation where
                     //   we need knowledge of base/derived classes etc. to do a cast.
-                    auto new_index = co_await gen_implicit_conversion(bidx, arg_expr_index, arg_target_type);
+                    auto new_index = co_await co_gen_implicit_conversion(bidx, arg_expr_index, arg_target_type);
 
                     co_return new_index;
                 }
@@ -578,7 +600,6 @@ namespace quxlang
             {
                 auto return_slot = create_temporary_storage(return_type);
                 std::cout << "Created return slot " << return_slot << std::endl;
-                exec.current_slot_states[return_slot];
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
                 invocation_args.named["RETURN"] = return_slot;
@@ -597,7 +618,7 @@ namespace quxlang
                 assert(invocation_args.size() == what.params.size());
             }
 
-            co_await gen_invoke(bidx, what, invocation_args);
+            co_await co_gen_invoke(bidx, what, invocation_args);
 
             co_return retval;
         }
@@ -614,7 +635,7 @@ namespace quxlang
                 throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
             }
 
-            auto new_index = this->create_temporary_storage(block, target_ref_type);
+            auto new_index = this->create_temporary_storage(bidx, target_ref_type);
 
             vmir2::cast_reference csr;
             csr.source_ref_index = ref_index;
@@ -634,13 +655,13 @@ namespace quxlang
         auto co_gen_value_conversion(block_index& bidx, storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
             // TODO: support conversion other than via constructor.
-            co_return co_await gen_value_constructor_conversion(bidx, value_index, target_value_type);
+            co_return co_await co_gen_value_constructor_conversion(bidx, value_index, target_value_type);
         }
 
         auto co_gen_value_constructor_conversion(block_index& bidx, storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
         {
             type_symbol value_type = this->current_type(value_index);
-            std::cout << "gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
+            std::cout << "co_gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
             auto new_value_index = create_temporary_storage(target_value_type);
 
@@ -648,7 +669,7 @@ namespace quxlang
 
             vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
 
-            co_return co_await gen_call_functum(bidx, conversion_functum, args);
+            co_return co_await co_gen_call_functum(bidx, conversion_functum, args);
         }
 
         auto co_gen_implicit_conversion(block_index& bidx, storage_index value_index, type_symbol target_type) -> typename CoroutineProvider::template co_type< storage_index >
@@ -665,7 +686,7 @@ namespace quxlang
             {
                 if (is_ref(value_type))
                 {
-                    co_return co_await gen_reference_conversion(bidx, value_index, target_type);
+                    co_return co_await co_gen_reference_conversion(bidx, value_index, target_type);
                 }
                 else
                 {
@@ -675,7 +696,7 @@ namespace quxlang
             }
             else
             {
-                co_return co_await gen_value_conversion(bidx, value_index, target_type);
+                co_return co_await co_gen_value_conversion(bidx, value_index, target_type);
             }
         }
 
@@ -685,9 +706,7 @@ namespace quxlang
 
             auto functum = callee.templexoid;
 
-            intrinsic_builtin_classifier classifier{prv.output_info(), exec};
-
-            auto intrinsic = classifier.intrinsic_instruction(what, args);
+            auto intrinsic = this->intrinsic_instruction(what, args);
             if (intrinsic.has_value())
             {
                 this->emit(bidx, intrinsic.value());
@@ -705,12 +724,345 @@ namespace quxlang
             co_return;
         }
 
+        bool is_intrinsic_type(type_symbol of_type)
+        {
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >() || of_type.type_is< array_type >();
+        }
+
+        // This implements builtin operators for primitives,
+        // It assumes that we have already checked that the function is builtin and are just
+        // checking which implementation to use.
+        template < typename Inst >
+        bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, vmir2::invocation_args const& args, bool flip = false)
+        {
+            if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
+            {
+
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
+                {
+                    auto this_slot_id = args.named.at("THIS");
+                    auto other_slot_id = args.named.at("OTHER");
+
+                    Inst instr{};
+
+                    instr.a = this_slot_id;
+                    instr.b = other_slot_id;
+                    if (flip)
+                    {
+                        std::swap(instr.a, instr.b);
+                    }
+                    instr.result = args.named.at("RETURN");
+
+                    out = instr;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, vmir2::invocation_args args)
+        {
+            std::string funcname = to_string(func);
+
+            auto is_arry_pointer = [](type_symbol const& type)
+            {
+                if (type.type_is< pointer_type >())
+                {
+                    auto const& ptr = type.as< pointer_type >();
+                    return ptr.ptr_class == pointer_class::array;
+                }
+                return false;
+            };
+            auto has_incdec_operation_with_incdec_ir = [&](type_symbol const& type)
+            {
+                return typeis< int_type >(type) || is_arry_pointer(type);
+            };
+
+            if (funcname == "[4] I64::.OPERATOR[] #{@THIS CONST& [4] I64, U64}")
+            {
+                int debugpoint = 0;
+            }
+            auto cls = func_class(func);
+            if (!cls)
+            {
+                return std::nullopt;
+            }
+
+            if (!is_intrinsic_type(*cls))
+            {
+                return std::nullopt;
+            }
+
+            auto instanciation = func.cast_ptr< instanciation_reference >();
+            assert(instanciation);
+
+            auto selection = &instanciation->temploid;
+            assert(selection);
+
+            auto member = selection->templexoid.cast_ptr< submember >();
+            assert(member);
+
+            auto const& call = instanciation->params;
+
+            if (member->name == "OPERATOR??")
+            {
+                if (cls->template type_is< pointer_type >() && cls->as< pointer_type >().ptr_class != pointer_class::ref)
+                {
+                    if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+                    {
+                        auto this_slot_id = args.named.at("THIS");
+
+                        vmir2::to_bool tb{};
+                        tb.from = this_slot_id;
+                        tb.to = args.named.at("RETURN");
+
+                        return tb;
+                    }
+                }
+            }
+
+            if (member->name == "OPERATOR++" && has_incdec_operation_with_incdec_ir(*cls))
+            {
+                if (call.named.contains("THIS") && call.size() == 1)
+                {
+                    auto this_slot_id = args.named.at("THIS");
+
+                    vmir2::increment inc{};
+                    inc.value = this_slot_id;
+                    inc.result = args.named.at("RETURN");
+                    return inc;
+                }
+            }
+            else if (member->name == "OPERATOR++RHS" && has_incdec_operation_with_incdec_ir(*cls))
+            {
+                if (call.named.contains("THIS") && call.size() == 1)
+                {
+                    auto this_slot_id = args.named.at("THIS");
+
+                    vmir2::preincrement preinc{};
+                    preinc.target = this_slot_id;
+                    preinc.target2 = args.named.at("RETURN");
+                    return preinc;
+                }
+            }
+
+            if (member->name == "OPERATOR--" && has_incdec_operation_with_incdec_ir(*cls))
+            {
+                if (call.named.contains("THIS") && call.size() == 1)
+                {
+                    auto this_slot_id = args.named.at("THIS");
+
+                    vmir2::decrement dec{};
+                    dec.value = this_slot_id;
+                    dec.result = args.named.at("RETURN");
+                    return dec;
+                }
+            }
+            else if (member->name == "OPERATOR--RHS" && has_incdec_operation_with_incdec_ir(*cls))
+            {
+                if (call.named.contains("THIS") && call.size() == 1)
+                {
+                    auto this_slot_id = args.named.at("THIS");
+
+                    vmir2::predecrement predec{};
+                    predec.target = this_slot_id;
+                    predec.target2 = args.named.at("RETURN");
+                    return predec;
+                }
+            }
+
+            if (member->name == "OPERATOR[]" || member->name == "OPERATOR[&]")
+            {
+                if (cls->template type_is< array_type >())
+                {
+                    if (call.named.contains("THIS") && args.named.contains("RETURN") && call.positional.size() == 1 && args.size() == 3)
+                    {
+                        auto this_slot_id = args.named.at("THIS");
+                        auto index_slot_id = args.positional.at(0);
+                        auto return_slot_id = args.named.at("RETURN");
+
+                        vmir2::access_array aca{};
+                        aca.base_index = this_slot_id;
+                        aca.index_index = index_slot_id;
+                        aca.store_index = return_slot_id;
+
+                        return aca;
+                    }
+                }
+            }
+
+            if (member->name == "CONSTRUCTOR")
+            {
+                if (call.named.contains("OTHER"))
+                {
+                    auto const& other = call.named.at("OTHER");
+                    if (cls->template type_is< int_type >() && other.type_is< numeric_literal_reference >())
+                    {
+                        auto other_slot_id = args.named.at("OTHER");
+
+                        auto const& other_slot = state.genvalues.at(other_slot_id);
+
+                        assert(other_slot.template type_is< codegen_literal >());
+
+                        auto const& other_literal = other_slot.template get_as< codegen_literal >();
+                        auto const& other_slot_value = other_literal.value;
+
+                        vmir2::load_const_int result;
+                        result.value = other_slot_value;
+                        result.target = args.named.at("THIS");
+
+                        return result;
+                    }
+                    else if (other == make_cref(*cls))
+                    {
+                        auto other_slot_id = args.named.at("OTHER");
+                        auto this_slot_id = args.named.at("THIS");
+
+                        vmir2::load_from_ref lfr{};
+                        lfr.from_reference = other_slot_id;
+                        lfr.to_value = this_slot_id;
+
+                        return lfr;
+                    }
+                }
+                else if (args.size() == 1 && args.named.contains("THIS"))
+                {
+                    vmir2::load_const_zero result{};
+                    result.target = args.named.at("THIS");
+                    return result;
+                }
+            }
+
+            if (member->name == "OPERATOR:=")
+            {
+                if (cls->template type_is< int_type >() || cls->template type_is< bool_type >() || cls->template type_is< pointer_type >())
+                {
+                    if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
+                    {
+                        auto const& other = call.named.at("OTHER");
+                        auto const& this_ = call.named.at("THIS");
+
+                        if ((other == *cls) && this_ == make_wref(*cls))
+                        {
+                            auto other_slot_id = args.named.at("OTHER");
+                            auto this_slot_id = args.named.at("THIS");
+
+                            vmir2::store_to_ref mov{};
+                            mov.from_value = other_slot_id;
+                            mov.to_reference = this_slot_id;
+
+                            return mov;
+                        }
+                    }
+                }
+            }
+            else if (member->name == "OPERATOR->")
+            {
+                if (cls->template type_is< pointer_type >())
+                {
+                    if (call.named.contains("THIS") && args.size() == 2)
+                    {
+
+                        auto this_slot_id = args.named.at("THIS");
+
+                        vmir2::dereference_pointer deref{};
+                        deref.from_pointer = this_slot_id;
+                        deref.to_reference = args.named.at("RETURN");
+
+                        return deref;
+                    }
+                }
+            }
+            else if (cls->template type_is< int_type >())
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::int_add >(instr, "+", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::int_sub >(instr, "-", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::int_mul >(instr, "*", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::int_div >(instr, "/", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::int_mod >(instr, "%", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                {
+                    return instr;
+                }
+            }
+
+            if (cls->template type_is< pointer_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
+            {
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
+                {
+                    vmir2::pointer_arith par;
+                    par.from = args.named.at("THIS");
+                    if (member->name == "OPERATOR-")
+                    {
+                        par.multiplier = -1;
+                    }
+                    else
+                    {
+                        assert(member->name == "OPERATOR+");
+                        par.multiplier = 1;
+                    }
+                    par.offset = args.named.at("OTHER");
+
+                    par.result = args.named.at("RETURN");
+
+                    return par;
+                }
+
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< pointer_type >() && call.size() == 2)
+                {
+                    vmir2::pointer_diff pdf;
+                    pdf.from = args.named.at("THIS");
+                    pdf.to = args.named.at("OTHER");
+                    pdf.result = args.named.at("RETURN");
+                    return pdf;
+                }
+            }
+
+            return std::nullopt;
+        }
+
         auto co_gen_invoke(block_index& bidx, instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             auto is_builtin = co_await prv.function_builtin(what.temploid);
             if (is_builtin)
             {
-                co_return co_await gen_invoke_builtin(bidx, what, args);
+                co_return co_await co_gen_invoke_builtin(bidx, what, args);
             }
 
             if (args.named.contains("RETURN"))
@@ -832,17 +1184,17 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_rightarrow expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto value = co_await generate_expr(bidx, expr.lhs);
+            auto value = co_await co_generate_expr(bidx, expr.lhs);
             auto rightarrow = submember{.of = remove_ref(this->current_type(value)), .name = "OPERATOR->"};
             vmir2::invocation_args args = {.named = {{"THIS", value}}};
-            co_return co_await gen_call_functum(rightarrow, args);
+            co_return co_await co_gen_call_functum(rightarrow, args);
             co_return 0;
         }
 
         auto co_generate(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto lhs = co_await generate_expr(bidx, input.lhs);
-            auto rhs = co_await generate_expr(bidx, input.rhs);
+            auto lhs = co_await co_generate_expr(bidx, input.lhs);
+            auto rhs = co_await co_generate_expr(bidx, input.rhs);
 
             type_symbol lhs_type = this->current_type(lhs);
             type_symbol rhs_type = this->current_type(rhs);
@@ -860,7 +1212,7 @@ namespace quxlang
             if (lhs_exists_and_callable_with)
             {
                 auto lhs_args = vmir2::invocation_args{.named = {{"THIS", lhs}, {"OTHER", rhs}}};
-                co_return co_await gen_call_functum(lhs_function, lhs_args);
+                co_return co_await co_gen_call_functum(lhs_function, lhs_args);
             }
 
             auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info});
@@ -885,35 +1237,35 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto val = co_await generate_expr(bidx, input.lhs);
+            auto val = co_await co_generate_expr(bidx, input.lhs);
             auto oper = this->get_class_member(val, "OPERATOR" + input.operator_str);
-            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
+            co_return co_await co_gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
         }
 
         auto co_generate(block_index& bidx, expression_unary_prefix input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto val = co_await generate_expr(bidx, input.rhs);
+            auto val = co_await co_generate_expr(bidx, input.rhs);
             auto oper = this->get_class_member(val, "OPERATOR" + input.operator_str + "PREFIX");
-            co_return co_await gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
+            co_return co_await co_gen_call_functum(oper, vmir2::invocation_args{.named = {{"THIS", val}}});
         }
 
         auto co_generate(block_index& bidx, expression_multibind const& what) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto lhs_val = co_await generate_expr(bidx, what.lhs);
+            auto lhs_val = co_await co_generate_expr(bidx, what.lhs);
 
             vmir2::invocation_args invoke_brackets_args;
             invoke_brackets_args.named["THIS"] = lhs_val;
 
             for (auto& arg : what.bracketed)
             {
-                invoke_brackets_args.positional.push_back(co_await generate_expr(bidx, arg));
+                invoke_brackets_args.positional.push_back(co_await co_generate_expr(bidx, arg));
             }
 
             type_symbol lhs_class_type = this->current_type(lhs_val);
             lhs_class_type = remove_ref(lhs_class_type);
             auto call_brackets_operator = submember{lhs_class_type, what.operator_str};
 
-            co_return co_await gen_call_functum(call_brackets_operator, invoke_brackets_args);
+            co_return co_await co_gen_call_functum(call_brackets_operator, invoke_brackets_args);
         }
 
         auto get_class_member(storage_index val, std::string func)
@@ -991,7 +1343,7 @@ namespace quxlang
             throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
 
-        auto co_generate_body(block_index& current_block) -> typename CoroutineProvider::template co_type< void >
+        auto co_generate_body(block_index& current_block, instanciation_reference func) -> typename CoroutineProvider::template co_type< void >
         {
             auto const& inst = func;
 
@@ -1001,12 +1353,12 @@ namespace quxlang
             assert(function_decl_opt.has_value());
             ast2_function_declaration& function_decl = function_decl_opt.value();
 
-            co_await generate_function_block(current_block, function_decl.definition.body, "body");
+            co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 
             if (state.blocks.at(current_block).terminator.has_value() == false)
             {
                 // TODO: Check if default return is allowed.
-                co_await this->generate_return(current_block);
+                co_await this->co_generate_return(current_block);
             }
 
             co_return;
