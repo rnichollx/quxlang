@@ -70,7 +70,7 @@ quxlang::type_symbol quxlang::vmir2::executable_block_generation_state::current_
 {
     if (idx >= slots->slots.size())
     {
-        throw std::make_exception_ptr(std::logic_error("Not found"));
+        throw std::logic_error("Not found");
     }
 
     auto& slot = slots->slots.at(idx);

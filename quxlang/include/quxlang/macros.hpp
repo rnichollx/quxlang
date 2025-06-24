@@ -33,8 +33,8 @@
         auto tie() { return std::tie(location, __VA_ARGS__); }   \
         auto tie_ast() const { return std::tie(__VA_ARGS__); } \
         auto tie_ast() { return std::tie(__VA_ARGS__); } \
-        auto serial_interface() const { return tie(); } \
-        auto serial_interface() { return tie(); } \
+        auto serialize_interface() const { return tie(); } \
+        auto deserialize_interface() { return tie(); } \
         auto operator<=>(ast2_ ## ty  const& other) const { return rpnx::compare(tie(), other.tie()); } \
         bool operator==(ast2_ ## ty const& other) const { return tie() == other.tie(); } \
         bool operator!=(ast2_ ## ty const& other) const { return tie() != other.tie(); } \
@@ -52,8 +52,8 @@
         auto tie() { return std::tie(location, __VA_ARGS__); }   \
         auto tie_ast() const { return std::tie(__VA_ARGS__); } \
         auto tie_ast() { return std::tie(__VA_ARGS__); } \
-        auto serial_interface() const { return tie(); } \
-        auto serial_interface() { return tie(); } \
+auto serialize_interface() const { return tie(); } \
+auto deserialize_interface() { return tie(); } \
         auto operator<=>(ast2_ ## ty  const& other) const { return rpnx::compare(tie(), other.tie()); } \
         bool operator==(ast2_ ## ty const& other) const { return tie() == other.tie(); } \
         bool operator!=(ast2_ ## ty const& other) const { return tie() != other.tie(); } \

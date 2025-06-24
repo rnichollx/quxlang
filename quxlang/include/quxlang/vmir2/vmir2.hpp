@@ -474,10 +474,10 @@ namespace quxlang
 
         struct routine_parameters
         {
-            std::vector<routine_parameter> positional_parmeters;
-            std::map< std::string, routine_parameter > named_parameters;
+            std::vector<routine_parameter> positional;
+            std::map< std::string, routine_parameter > named;
 
-            RPNX_MEMBER_METADATA(routine_parameters, positional_parmeters, named_parameters);
+            RPNX_MEMBER_METADATA(routine_parameters, positional, named);
         };
 
         struct vm_context
@@ -626,6 +626,17 @@ namespace quxlang
             std::map< type_symbol, type_symbol > non_trivial_dtors;
 
             RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names, non_trivial_dtors);
+        };
+
+        struct functanoid_routine3
+        {
+            std::vector< slottype > local_types;
+            std::vector< executable_block > blocks;
+            std::map< block_index, std::string > block_names;
+            std::map< type_symbol, type_symbol > non_trivial_dtors;
+
+            RPNX_MEMBER_METADATA(functanoid_routine3, local_types, blocks, block_names, non_trivial_dtors);
+
         };
 
         struct frame_generation_state

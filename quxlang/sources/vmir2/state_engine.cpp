@@ -65,11 +65,41 @@ void quxlang::vmir2::state_engine::apply_entry()
 void quxlang::vmir2::state_engine2::apply_entry()
 {
     check_state_valid();
-    for (std::size_t i = 0; i < slot_info.size(); i++)
-    {
-        auto const& slot = slot_info[i];
 
-        // TODO: Check arguments
+    for (std::size_t i = 0; i < this->routine_params.positional.size(); i++)
+    {
+        auto const& param = this->routine_params.positional[i];
+
+        std::size_t param_slot_index = param.assign_index;
+
+
+        if (param.type.template type_is< nvalue_slot >())
+        {
+            state[param_slot_index].alive = false;
+            state[param_slot_index].storage_valid = true;
+        }
+        else
+        {
+            state[param_slot_index].alive = true;
+            state[param_slot_index].storage_valid = true;
+        }
+    }
+
+    for (auto const& [name, param] : this->routine_params.named)
+    {
+        std::size_t param_slot_index = param.assign_index;
+
+
+        if (param.type.template type_is< nvalue_slot >())
+        {
+            state[param_slot_index].alive = false;
+            state[param_slot_index].storage_valid = true;
+        }
+        else
+        {
+            state[param_slot_index].alive = true;
+            state[param_slot_index].storage_valid = true;
+        }
     }
     check_state_valid();
 }
@@ -334,12 +364,7 @@ void quxlang::vmir2::state_engine::apply_internal(constexpr_set_result const& cs
 
 void quxlang::vmir2::state_engine2::apply_internal(constexpr_set_result const& csr)
 {
-    if (slot_info.at(csr.target).kind != slot_kind::literal)
-    {
-        // Special exception, CSR can operate on literals for now.
-        // TODO: Get rid of this exception because it's messy.
-        consume(csr.target);
-    }
+    consume(csr.target);
 }
 
 void quxlang::vmir2::state_engine::apply_internal(load_const_value const& lcv)

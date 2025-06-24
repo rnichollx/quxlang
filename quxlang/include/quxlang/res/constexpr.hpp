@@ -19,9 +19,27 @@ namespace quxlang
         RPNX_MEMBER_METADATA(constexpr_input, expr, context);
     };
 
+    struct constexpr_input2
+    {
+        expression expr;
+        type_symbol context;
+        type_symbol type;
+
+        RPNX_MEMBER_METADATA(constexpr_input2, expr, context, type);
+    };
+
+    struct constexpr_result
+    {
+        cow<type_symbol> type;
+        cow<std::vector<std::byte>> value;
+
+        RPNX_MEMBER_METADATA(constexpr_result, type, value);
+    };
 
     QUX_CO_RESOLVER(constexpr_bool, constexpr_input, bool);
     QUX_CO_RESOLVER(constexpr_u64, constexpr_input, std::uint64_t);
+    QUX_CO_RESOLVER(constexpr_eval, constexpr_input2, constexpr_result);
+
 }
 
 #endif //CONSTEXPR_HPP

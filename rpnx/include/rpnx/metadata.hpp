@@ -21,8 +21,8 @@ namespace rpnx
 #define RPNX_EMPTY_METADATA(ty) \
     auto tie() const { return std::tie(); } \
     auto tie() { return std::tie(); } \
-    auto serial_interface() const { return tie(); } \
-    auto serial_interface() { return tie(); } \
+    auto serialize_interface() const { return tie(); } \
+    auto deserialize_interface() { return tie(); } \
     auto operator<=>(ty const& other) const { return rpnx::compare(tie(), other.tie()); } \
     bool operator==(ty const& other) const { return tie() == other.tie(); } \
     bool operator!=(ty const& other) const { return tie() != other.tie(); } \
@@ -36,8 +36,8 @@ namespace rpnx
 #define RPNX_MEMBER_METADATA_IMPL(ty, ...) \
     auto tie() const { return std::tie(__VA_ARGS__); } \
     auto tie() { return std::tie(__VA_ARGS__); } \
-    auto serial_interface() const { return tie(); } \
-    auto serial_interface() { return tie(); } \
+    auto serialize_interface() const { return tie(); } \
+    auto deserialize_interface() { return tie(); } \
     auto operator<=>(ty const& other) const { return rpnx::compare(tie(), other.tie()); } \
     bool operator==(ty const& other) const { return tie() == other.tie(); } \
     bool operator!=(ty const& other) const { return tie() != other.tie(); } \

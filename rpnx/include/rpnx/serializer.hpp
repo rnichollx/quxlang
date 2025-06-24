@@ -17,12 +17,12 @@ namespace rpnx
 {
 
     template < typename T >
-    concept has_serial_interface = requires(T t, const T ct) {
+    concept has_serial_interface = requires(T t, T const ct) {
         {
-            t.serial_interface()
+            t.deserialize_interface()
         };
         {
-            ct.serial_interface()
+            ct.serialize_interface()
         };
     };
 
@@ -637,12 +637,12 @@ namespace rpnx
       public:
         static auto constexpr serialize_iter(S const& input, It output) -> It
         {
-            return rpnx::serialize_iter(input.serial_interface(), output);
+            return rpnx::serialize_iter(input.serialize_interface(), output);
         }
 
         static auto constexpr serialize_iter(S const& input, It output, It end) -> It
         {
-            return rpnx::serialize_iter(input.serial_interface(), output, end);
+            return rpnx::serialize_iter(input.serialize_interface(), output, end);
         }
     };
 
@@ -652,12 +652,12 @@ namespace rpnx
       public:
         static auto constexpr deserialize_iter(S& output, It input) -> It
         {
-            return rpnx::deserialize_iter(output.serial_interface(), input);
+            return rpnx::deserialize_iter(output.deserialize_interface(), input);
         }
 
         static auto constexpr deserialize_iter(S& output, It input, It end) -> It
         {
-            return rpnx::deserialize_iter(output.serial_interface(), input, end);
+            return rpnx::deserialize_iter(output.deserialize_interface(), input, end);
         }
     };
 

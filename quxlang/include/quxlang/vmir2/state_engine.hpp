@@ -85,9 +85,10 @@ namespace quxlang::vmir2
     private:
         std::map< vmir2::storage_index, slot_state >& state;
         std::vector< slottype > const& slot_info;
+        routine_parameters const& routine_params;
     public:
-        state_engine2(std::map< vmir2::storage_index, slot_state >& state, std::vector< slottype > const& slot_info)
-            : state(state), slot_info(slot_info)
+        state_engine2(std::map< vmir2::storage_index, slot_state >& state, std::vector< slottype > const& slot_info, routine_parameters const& params)
+            : state(state), slot_info(slot_info), routine_params(params)
         {
         }
 

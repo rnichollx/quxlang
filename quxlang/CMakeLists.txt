@@ -248,6 +248,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/bytemath.cpp
         include/quxlang/res/ensig.hpp
         sources/res/ensig.cpp
+        sources/res/expr_ir3.cpp
 
 )
 
