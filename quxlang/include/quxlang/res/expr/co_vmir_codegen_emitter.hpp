@@ -17,6 +17,7 @@
 #include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
+#include "rpnx/uint64_base.hpp"
 #include <quxlang/macros.hpp>
 
 namespace quxlang
@@ -31,18 +32,41 @@ namespace quxlang
     template < expr_co_provider CoroutineProvider >
     class co_vmir_generator
     {
-        using storage_index = std::uint64_t;
-        using deferral_index = std::uint64_t;
-        using value_index = std::uint64_t;
-        using block_index = std::uint64_t;
+
+        // The following structs are basically integer types but they can't be interconverted with each other.
+        // They are used to represent different indices in the code generation state.
+
+        struct deferral_index : public rpnx::uint64_base< deferral_index >
+        {
+            using rpnx::uint64_base< deferral_index >::uint64_base;
+        };
+
+        struct storage_index : public rpnx::uint64_base< storage_index >
+        {
+            using rpnx::uint64_base< storage_index >::uint64_base;
+        };
+        struct value_index : public rpnx::uint64_base< value_index >
+        {
+            using rpnx::uint64_base< value_index >::uint64_base;
+        };
+
+        struct block_index : public rpnx::uint64_base< block_index >
+        {
+            using rpnx::uint64_base< block_index >::uint64_base;
+        };
+
+        struct local_index : public rpnx::uint64_base< local_index >
+        {
+            using rpnx::uint64_base< local_index >::uint64_base;
+        };
 
         struct codegen_literal;
         struct codegen_local;
         struct codegen_argument;
         struct codegen_block
         {
-            std::map< storage_index, vmir2::slot_state > entry_state;
-            std::map< storage_index, vmir2::slot_state > current_state;
+            std::map< local_index, vmir2::slot_state > entry_state;
+            std::map< local_index, vmir2::slot_state > current_state;
             std::vector< vmir2::vm_instruction > instructions;
             std::optional< vmir2::vm_terminator > terminator;
             std::optional< std::string > dbg_name;
@@ -59,16 +83,16 @@ namespace quxlang
         struct codegen_binding
         {
             type_symbol bound_symbol;
-            storage_index bound_value;
+            value_index bound_value;
 
             RPNX_MEMBER_METADATA(codegen_binding, bound_symbol, bound_value);
         };
 
         struct codegen_local
         {
-            type_symbol type;
+            storage_index local_index;
 
-            RPNX_MEMBER_METADATA(codegen_local, type);
+            RPNX_MEMBER_METADATA(codegen_local, local_index);
         };
 
         struct codegen_literal
@@ -84,11 +108,14 @@ namespace quxlang
         struct codegen_state
         {
             std::vector< codegen_value > genvalues{codegen_binding{.bound_symbol = void_type(), .bound_value = 0}};
+            std::vector< vmir2::slottype > locals{vmir2::slottype{.type = void_type()}};
             std::map< storage_index, codegen_block > blocks;
             std::vector< codegen_argument > positional_args;
             std::map< std::string, codegen_argument > named_args;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
             std::map< std::string, storage_index > codegen_numeric_literals;
+            std::map< std::string, storage_index > top_level_lookups;
+            std::map< std::string, storage_index > top_level_lookups_weak;
         };
 
       private:
@@ -103,7 +130,7 @@ namespace quxlang
 
         auto co_generate_constexpr_eval(expression expr, type_symbol type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
-            auto result_value = this->create_temporary_storage(type);
+            auto result_value = this->create_local_storage(type);
 
             auto constructor = submember{.of = type, .name = "CONSTRUCTOR"};
         }
@@ -189,7 +216,7 @@ namespace quxlang
             return type;
         }
 
-        storage_index index_binding(storage_index idx)
+        storage_index genlocal_index(storage_index idx)
         {
             if (idx == 0)
             {
@@ -207,10 +234,23 @@ namespace quxlang
             return index_binding(bound_to_index);
         }
 
-        auto create_temporary_storage(type_symbol type) -> vmir2::storage_index
+        storage_index local_index(storage_index idx)
+        {
+            if (idx == 0)
+            {
+                return 0;
+            }
+            codegen_local& local = this->state.genvalues.at(idx).template get_as< codegen_local >();
+
+            return local.local_index;
+        }
+
+        auto create_local_storage(type_symbol type) -> vmir2::storage_index
         {
             codegen_local storage;
             storage.type = type;
+            this->state.locals.push_back(vmir2::slottype{.type = type});
+            storage.local_index = this->state.locals.size() - 1;
             this->state.genvalues.push_back(storage);
             return this->state.genvalues.size() - 1;
         }
@@ -245,7 +285,7 @@ namespace quxlang
             // is encountered during an expression.
             auto ty = this->current_type(index);
 
-            vmir2::storage_index temp = create_temporary_storage(bidx, new_type);
+            vmir2::storage_index temp = create_local_storage(bidx, new_type);
 
             vmir2::make_reference ref;
             ref.value_index = index;
@@ -264,7 +304,7 @@ namespace quxlang
             // is encountered during an expression.
             auto ty = this->current_type(index);
 
-            vmir2::storage_index temp = create_temporary_storage(ty);
+            vmir2::storage_index temp = create_local_storage(ty);
 
             vmir2::copy_reference ref;
             ref.from_index = index;
@@ -353,7 +393,7 @@ namespace quxlang
         auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
         {
             auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
-            auto new_object = create_temporary_storage(new_type);
+            auto new_object = create_local_storage(new_type);
             args.named["THIS"] = new_object;
             auto retval = co_await co_gen_call_functum(bidx, ctor, args);
 
@@ -501,7 +541,7 @@ namespace quxlang
                 if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
                     std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << quxlang::to_string(expression_args) << std::endl;
-                    auto index = create_temporary_storage(arg_target_type);
+                    auto index = create_local_storage(arg_target_type);
 
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
@@ -527,7 +567,7 @@ namespace quxlang
                         co_return arg_expr_index;
                     }
 
-                    auto index = create_temporary_storage(arg_target_type);
+                    auto index = create_local_storage(arg_target_type);
                     std::cout << "Created argument slot " << index << std::endl;
                     // Alive is false
                     auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
@@ -598,7 +638,7 @@ namespace quxlang
 
             if (!typeis< void_type >(return_type))
             {
-                auto return_slot = create_temporary_storage(return_type);
+                auto return_slot = create_local_storage(return_type);
                 std::cout << "Created return slot " << return_slot << std::endl;
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
@@ -635,7 +675,7 @@ namespace quxlang
                 throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
             }
 
-            auto new_index = this->create_temporary_storage(bidx, target_ref_type);
+            auto new_index = this->create_local_storage(bidx, target_ref_type);
 
             vmir2::cast_reference csr;
             csr.source_ref_index = ref_index;
@@ -663,7 +703,7 @@ namespace quxlang
             type_symbol value_type = this->current_type(value_index);
             std::cout << "co_gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
-            auto new_value_index = create_temporary_storage(target_value_type);
+            auto new_value_index = create_local_storage(target_value_type);
 
             auto conversion_functum = submember{target_value_type, "CONSTRUCTOR"};
 
@@ -1124,7 +1164,7 @@ namespace quxlang
 
             auto non_ref_type = remove_ref(type);
 
-            auto pointer_storage = create_temporary_storage(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            auto pointer_storage = create_local_storage(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
 
             make_pointer.pointer_index = pointer_storage;
 
@@ -1320,7 +1360,7 @@ namespace quxlang
                     access.base_index = base;
                     access.field_name = field.name;
                     type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
-                    access.store_index = create_temporary_storage(result_ref_type);
+                    access.store_index = create_local_storage(result_ref_type);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
                     this->emit(bidx, access);
@@ -1437,6 +1477,206 @@ namespace quxlang
 
             vmir2::jump jump_instruction{.target = to};
             from_block.terminator = jump_instruction;
+        }
+
+        bool has_terminator(block_index const& block) const
+        {
+            return state.blocks.at(block).terminator.has_value();
+        }
+
+        auto co_generate_arg_info(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+            QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
+            // Precondition: Func is a fully instanciated symbol
+            instanciation_reference const& inst = func;
+
+            // This function should be called before generating any blocks.
+            assert(state.blocks.empty());
+
+            // TODO: Support AUTO return types
+            auto sig = co_await prv.functanoid_sigtype(inst);
+
+            type_symbol return_type = sig.return_type.value_or(void_type()); // co_await prv.functanoid_return_type(inst);
+
+            if (!typeis< void_type >(return_type))
+            {
+                type_symbol return_parameter_type = create_nslot(return_type);
+                state.named_args["RETURN"].type = return_parameter_type;
+                state.named_args["RETURN"].index = this->create_local_storage(return_parameter_type);
+            }
+
+            auto arg_names = co_await prv.function_param_names(inst.temploid);
+
+            std::size_t positional_index = 0;
+            for (auto const& param_name : arg_names.positional)
+            {
+                type_symbol const& param_type = inst.params.positional.at(positional_index);
+                auto param_idx = this->create_local_storage(param_type);
+                state.positional_args.push_back({.type = param_type, .index = param_idx});
+                state.top_level_lookups[param_name] = param_idx;
+                positional_index++;
+            }
+            for (auto const& [api_name, param_type] : inst.params.named)
+            {
+                std::optional< std::string > arg_name;
+                if (arg_names.named.contains(api_name))
+                {
+                    arg_name = arg_names.named.at(api_name);
+                }
+                auto arg_idx = this->create_local_storage(param_type);
+                state.named_args[api_name] = {
+                    .type = param_type,
+                    .index = arg_idx,
+                };
+
+                // If a local name is provided, it's strongly defined and the API name is weakly defined.
+                // Otherwise, the API name is strongly defined.
+
+                // Weakly defined names can be shadowed by strongly defined names.
+
+                // TODO: Check for conflicts with existing names in the top-level lookups.
+
+                if (arg_name.has_value())
+                {
+                    state.top_level_lookups[arg_name.value()] = arg_idx;
+                    state.top_level_lookups_weak[api_name] = arg_idx;
+                }
+                else
+                {
+                    state.top_level_lookups[api_name] = arg_idx;
+                }
+            }
+
+            co_return;
+        }
+
+        void generate_entry_block()
+        {
+            // This function should be called before generating any blocks.
+            assert(state.blocks.empty());
+
+            state.blocks.emplace_back();
+            codegen_block& entry_block = state.blocks.back();
+
+            auto& entry_state = entry_block.current_state;
+
+            // TODO: Finish this
+            // state_engine2(state, )
+
+            // Create a block for the function body
+            state.current_block = 0;
+        }
+
+        [[nodiscard]]
+
+        auto co_generate_functanoid(instanciation_reference func) -> typename CoroutineProvider::template co_type< void >
+        {
+            co_await this->co_generate_arg_slots();
+            this->generate_entry_block();
+            if (!co_await prv.function_builtin(func.temploid))
+            {
+                if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
+                {
+                    co_await co_generate_ctor_delegates();
+                }
+
+                co_await co_generate_body();
+            }
+            co_await co_generate_dtors();
+        }
+
+        [[nodiscard]] auto co_generate_ctor_delegates(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+            temploid_reference const& function = func.temploid;
+
+            std::optional< ast2_function_declaration > const& function_ast = co_await prv.function_declaration(function);
+
+            QUXLANG_COMPILER_BUG_IF(!function_ast.has_value(), "Expected function declaration to be defined");
+
+            auto const& decl = function_ast.value();
+
+            std::vector< delegate > delegates;
+
+            for (auto& dlg : decl.definition.delegates)
+            {
+                // TODO: support complex types
+
+                if (!dlg.target.type_is< submember >() || !dlg.target.get_as< submember >().of.type_is< context_reference >())
+                {
+                    throw rpnx::unimplemented();
+                }
+
+                delegate dlg2;
+                dlg2.name = dlg.target.get_as< submember >().name;
+
+                // TODO: Support named arguments in delegates
+                for (expression const& arg : dlg.args)
+                {
+                    dlg2.args.push_back(expression_arg{.value = arg});
+                }
+
+                delegates.push_back(dlg2);
+            }
+
+            co_await co_generate_ctor_delegates(delegates);
+
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
+        {
+
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            // This function is for default ctors, it should just default construct all member variables.
+
+            auto const& fields = co_await prv.class_field_list(cls);
+
+            vmir2::invocation_args fields_args;
+
+            for (class_field const& fld : fields)
+            {
+                auto fslot = this->create_temporary(fld.type);
+                fields_args.named[fld.name] = fslot;
+            }
+
+            auto thisidx = this->lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            this->emit(current_block, vmir2::struct_delegate_new{.on_value = thisidx_value, .fields = fields_args});
+
+            std::set< std::string > found_delegate_names;
+            for (delegate const& dlg : delegates)
+            {
+                found_delegate_names.insert(dlg.name);
+            }
+
+            // TODO: Drop temporaries between loop iterations
+            for (class_field const& fld : fields)
+            {
+                if (!found_delegate_names.contains(fld.name))
+                {
+                    auto ctor = submember{.of = fld.type, .name = "CONSTRUCTOR"};
+                    vmir2::invocation_args args;
+                    args.named["THIS"] = fields_args.named.at(fld.name);
+
+                    co_await this->co_gen_call_functum(current_block, ctor, args);
+                }
+            }
+
+            // frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
         }
     };
 

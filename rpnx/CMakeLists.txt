@@ -12,5 +12,6 @@ add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp include/rpnx/
         include/rpnx/resolver2.hpp
         include/rpnx/compat/variant_serializer.hpp
         include/rpnx/metadata.hpp
-        include/rpnx/inttypes.h)
+        include/rpnx/inttypes.h
+        include/rpnx/uint64_base.hpp)
 target_include_directories(graphlib INTERFACE include/)
