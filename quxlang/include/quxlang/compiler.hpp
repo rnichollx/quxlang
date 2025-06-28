@@ -136,6 +136,7 @@ namespace quxlang
         COMPILER_INDEX(constexpr_bool)
         COMPILER_INDEX(constexpr_u64)
         COMPILER_INDEX(constexpr_eval)
+        COMPILER_INDEX(constexpr_routine)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)
         COMPILER_INDEX(class_builtin)

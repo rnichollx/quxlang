@@ -15,10 +15,10 @@ namespace quxlang::vmir2
     class state_engine
     {
     private:
-        std::map< vmir2::storage_index, slot_state >& state;
+        std::map< vmir2::local_index, slot_state >& state;
         std::vector< vm_slot > const& slot_info;
     public:
-        state_engine(std::map< vmir2::storage_index, slot_state >& state, std::vector< vm_slot > const& slot_info)
+        state_engine(std::map< vmir2::local_index, slot_state >& state, std::vector< vm_slot > const& slot_info)
             : state(state), slot_info(slot_info)
         {
         }
@@ -28,9 +28,9 @@ namespace quxlang::vmir2
 
         void check_state_valid();
 
-        using state_map = std::map< vmir2::storage_index, slot_state >;
+        using state_map = std::map< vmir2::local_index, slot_state >;
         using slot_vec = std::vector< vm_slot >;
-        using state_diff = std::map< vmir2::storage_index, std::pair< slot_state, slot_state > >;
+        using state_diff = std::map< vmir2::local_index, std::pair< slot_state, slot_state > >;
 
     private:
         void apply_internal(assert_instr const &asrt);
@@ -70,24 +70,24 @@ namespace quxlang::vmir2
         void apply_internal(pointer_arith const& par);
         void apply_internal(pointer_diff const& par);
 
-        void mustbe_inttype(storage_index idx);
-        void mustbe_booltype(storage_index idx);
-        void mustbe_pointertype(storage_index idx);
-        void mustbe_reftype(storage_index idx);
+        void mustbe_inttype(local_index idx);
+        void mustbe_booltype(local_index idx);
+        void mustbe_pointertype(local_index idx);
+        void mustbe_reftype(local_index idx);
 
-        void readonly(storage_index idx);
-        void consume(storage_index idx);
-        void output(storage_index idx);
+        void readonly(local_index idx);
+        void consume(local_index idx);
+        void output(local_index idx);
     };
 
     class state_engine2
     {
     private:
-        std::map< vmir2::storage_index, slot_state >& state;
-        std::vector< slottype > const& slot_info;
+        std::map< vmir2::local_index, slot_state >& state;
+        std::vector< local_type > const& slot_info;
         routine_parameters const& routine_params;
     public:
-        state_engine2(std::map< vmir2::storage_index, slot_state >& state, std::vector< slottype > const& slot_info, routine_parameters const& params)
+        state_engine2(std::map< vmir2::local_index, slot_state >& state, std::vector< local_type > const& slot_info, routine_parameters const& params)
             : state(state), slot_info(slot_info), routine_params(params)
         {
         }
@@ -97,9 +97,9 @@ namespace quxlang::vmir2
 
         void check_state_valid();
 
-        using state_map = std::map< vmir2::storage_index, slot_state >;
+        using state_map = std::map< vmir2::local_index, slot_state >;
         using slot_vec = std::vector< vm_slot >;
-        using state_diff = std::map< vmir2::storage_index, std::pair< slot_state, slot_state > >;
+        using state_diff = std::map< vmir2::local_index, std::pair< slot_state, slot_state > >;
 
     private:
         void apply_internal(assert_instr const &asrt);
@@ -139,14 +139,14 @@ namespace quxlang::vmir2
         void apply_internal(pointer_arith const& par);
         void apply_internal(pointer_diff const& par);
 
-        void mustbe_inttype(storage_index idx);
-        void mustbe_booltype(storage_index idx);
-        void mustbe_pointertype(storage_index idx);
-        void mustbe_reftype(storage_index idx);
+        void mustbe_inttype(local_index idx);
+        void mustbe_booltype(local_index idx);
+        void mustbe_pointertype(local_index idx);
+        void mustbe_reftype(local_index idx);
 
-        void readonly(storage_index idx);
-        void consume(storage_index idx);
-        void output(storage_index idx);
+        void readonly(local_index idx);
+        void consume(local_index idx);
+        void output(local_index idx);
     };
 
 } // namespace quxlang::vmir2

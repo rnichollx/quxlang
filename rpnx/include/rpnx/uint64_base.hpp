@@ -138,7 +138,17 @@ namespace rpnx
             return value_ == other.value_;
         }
 
+        bool operator==( uint64_base<derived_t> const& other) const
+        {
+            return value_ == other.value_;
+        }
+
         bool operator!=(const derived_t& other) const
+        {
+            return value_ != other.value_;
+        }
+
+        bool operator!=(uint64_base<derived_t> const& other) const
         {
             return value_ != other.value_;
         }
@@ -235,7 +245,42 @@ namespace rpnx
         {
             return value_;
         }
+
+        auto tie() const
+        {
+            return std::tie(value_);
+        }
+        auto tie()
+        {
+            return std::tie(value_);
+        }
+
+        static auto constexpr strings()
+        {
+            return std::vector< std::string >{ "value" };
+        }
+
+
     };
 } // namespace rpnx
+
+// RPNX_UNIQUE_U64 implements a unique type derived from uint64_base
+// This type has the properties of a uint64_t, but different types
+// cannot interconvert with each other, even if they have the same
+// bit width.
+#define RPNX_UNIQUE_U64(name) \
+    struct name : public rpnx::uint64_base< name > \
+    { \
+        using rpnx::uint64_base< name >::uint64_base; \
+        static constexpr auto class_name() { return #name; } \
+        using rpnx::uint64_base< name >::operator=; \
+        name() = default; \
+        using rpnx::uint64_base< name >::operator==; \
+        using rpnx::uint64_base< name >::operator!=; \
+        using rpnx::uint64_base< name >::operator<; \
+        using rpnx::uint64_base< name >::operator>; \
+        using rpnx::uint64_base< name >::operator<=; \
+        using rpnx::uint64_base< name >::operator>=; \
+    };
 
 #endif // UINT64_BASE_HPP

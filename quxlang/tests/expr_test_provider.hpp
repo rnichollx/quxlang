@@ -29,7 +29,7 @@ namespace quxlang
         struct loadable_symbol
         {
             type_symbol type;
-            vmir2::storage_index index;
+            vmir2::local_index index;
             bool is_mut;
         };
 
@@ -78,7 +78,7 @@ namespace quxlang
             template < typename T >
             using co_type = rpnx::simple_coroutine< T >;
 
-            vmir2::storage_index create_reference_internal(vmir2::storage_index index)
+            vmir2::local_index create_reference_internal(vmir2::local_index index)
             {
                 // This function is used to handle the case where we have an index and need to force it into a
                 // reference type.
@@ -111,7 +111,7 @@ namespace quxlang
                     assert(!typeis< nvalue_slot >(ty));
                     new_type = nvalue_slot{.target = ty};
                 }
-                vmir2::storage_index temp = create_temporary_storage_internal(new_type);
+                vmir2::local_index temp = create_temporary_storage_internal(new_type);
                 vmir2::make_reference ref;
                 ref.value_index = index;
                 ref.reference_index = temp;
@@ -126,7 +126,7 @@ namespace quxlang
                 return temp;
             }
 
-            vmir2::storage_index create_reference_internal(vmir2::storage_index index, type_symbol new_type)
+            vmir2::local_index create_reference_internal(vmir2::local_index index, type_symbol new_type)
             {
                 // This function is used to handle the case where we have an index and need to force it into a
                 // reference type.
@@ -140,7 +140,7 @@ namespace quxlang
                     types.push_back(quxlang::to_string(slot.type));
                 }
 
-                vmir2::storage_index temp = create_temporary_storage_internal(new_type);
+                vmir2::local_index temp = create_temporary_storage_internal(new_type);
                 vmir2::make_reference ref;
                 ref.value_index = index;
                 ref.reference_index = temp;
@@ -154,7 +154,7 @@ namespace quxlang
                 return temp;
             }
 
-            rpnx::awaitable_result< std::optional< vmir2::storage_index > > lookup_symbol(type_symbol sym)
+            rpnx::awaitable_result< std::optional< vmir2::local_index > > lookup_symbol(type_symbol sym)
             {
                 auto it = parent.loadable_symbols.find(sym);
                 if (it != parent.loadable_symbols.end())
@@ -163,11 +163,11 @@ namespace quxlang
 
                     if (is_ref(sym.type))
                     {
-                        return rpnx::result< std::optional< vmir2::storage_index > >(sym.index);
+                        return rpnx::result< std::optional< vmir2::local_index > >(sym.index);
                     }
                     else
                     {
-                        return std::optional< vmir2::storage_index >(create_reference_internal(sym.index));
+                        return std::optional< vmir2::local_index >(create_reference_internal(sym.index));
                     }
                 }
                 else
@@ -176,7 +176,7 @@ namespace quxlang
                 }
             }
 
-            rpnx::awaitable_result< quxlang::type_symbol > index_type(vmir2::storage_index idx)
+            rpnx::awaitable_result< quxlang::type_symbol > index_type(vmir2::local_index idx)
             {
                 if (idx < parent.slots.size())
                 {
@@ -196,7 +196,7 @@ namespace quxlang
                 }
             }
 
-            rpnx::awaitable_result< bool > slot_alive(vmir2::storage_index idx)
+            rpnx::awaitable_result< bool > slot_alive(vmir2::local_index idx)
             {
                 if (idx < parent.slot_alive.size())
                 {
@@ -220,7 +220,7 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< vmir2::storage_index > create_binding( vmir2::storage_index index, type_symbol bound_symbol)
+            rpnx::awaitable_result< vmir2::local_index > create_binding( vmir2::local_index index, type_symbol bound_symbol)
             {
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
@@ -241,7 +241,7 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< vmir2::storage_index > index_binding(vmir2::storage_index index)
+            rpnx::awaitable_result< vmir2::local_index > index_binding(vmir2::local_index index)
             {
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
@@ -270,14 +270,14 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< vmir2::storage_index > create_temporary_storage(type_symbol type)
+            rpnx::awaitable_result< vmir2::local_index > create_temporary_storage(type_symbol type)
             {
                 return create_temporary_storage_internal(type);
             }
 
-            vmir2::storage_index create_temporary_storage_internal(type_symbol type)
+            vmir2::local_index create_temporary_storage_internal(type_symbol type)
             {
-                vmir2::storage_index idx = parent.slots.size();
+                vmir2::local_index idx = parent.slots.size();
                 parent.slots.push_back(vmir2::vm_slot{.type = type, .name = "TEMP" + std::to_string(idx)});
                 parent.slot_alive.push_back(false);
                 return idx;
@@ -302,7 +302,7 @@ namespace quxlang
                  throw rpnx::unimplemented();
             }
 
-            rpnx::awaitable_result< vmir2::storage_index > implicit_cast_reference(vmir2::storage_index index, type_symbol target)
+            rpnx::awaitable_result< vmir2::local_index > implicit_cast_reference(vmir2::local_index index, type_symbol target)
             {
                 if (!is_ref_implicitly_convertible_by_syntax(index_type(index).await_resume(), target))
                 {
@@ -415,9 +415,9 @@ namespace quxlang
                 return {};
             }
 
-            rpnx::awaitable_result< vmir2::storage_index > create_numeric_literal(std::string value)
+            rpnx::awaitable_result< vmir2::local_index > create_numeric_literal(std::string value)
             {
-                vmir2::storage_index idx = parent.slots.size();
+                vmir2::local_index idx = parent.slots.size();
                 parent.slots.push_back(vmir2::vm_slot{.type = numeric_literal_reference{}, .name = "LITERAL" + std::to_string(idx), .literal_value = value});
                 parent.slot_alive.push_back(true);
                 return idx;

@@ -73,20 +73,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_u64)
     co_return interp.get_cr_u64();
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_routine)
 {
     quxlang::vmir2::functanoid_routine3 r;
 
     std::vector< bool > temp;
     quxlang::compiler_binder binder(c);
     co_vmir_generator< quxlang::compiler_binder > emitter(binder, input.context);
-    auto result = co_await emitter.co_generate_expr(input.expr);
-    vmir2::constexpr_set_result csr{};
-    csr.target = result;
-    blockstate.emit(csr);
-    r.slots = blockstate.slots->slots;
-    r.blocks.emplace_back();
-    r.blocks.at(0) = blockstate.block;
-    r.blocks.at(0).terminator = vmir2::ret{};
-    co_return r;
+    auto result = co_await emitter.co_generate_constexpr_eval(input.expr, input.type);
+
+    co_return result;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
+{
+    vmir2::ir2_constexpr_interpreter interp;
+
+    auto ir3 = co_await QUX_CO_DEP(constexpr_routine, (constexpr_input2{input.expr, input.context, input.type}));
+
+    co_return result;
 }

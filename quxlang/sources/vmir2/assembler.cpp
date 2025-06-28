@@ -17,15 +17,15 @@ namespace quxlang::vmir2
 
         output += "[Slots]:\n";
 
-        for (std::size_t i = 1; i < fnc.slots.size(); i++)
+        for (std::size_t i = 1; i < fnc.local_types.size(); i++)
         {
-            output += indent + "" + std::to_string(i) + ": " + this->to_string(fnc.slots.at(i));
+            output += indent + "" + std::to_string(i) + ": " + this->to_string(fnc.local_types.at(i));
             output += "\n";
         }
 
         output += "[Blocks]:\n";
 
-        for (std::size_t i = 0; i < fnc.blocks.size(); i++)
+        for (block_index i = block_index(0); i < fnc.blocks.size(); i++)
         {
             std::string block_name;
             if (fnc.block_names.contains(i))
@@ -72,7 +72,20 @@ namespace quxlang::vmir2
 
             try
             {
-                state_engine(this->state, this->m_what.slots).apply(i);
+               if (m_what.type_is< vmir2::functanoid_routine2 >())
+               {
+                   auto const& what = m_what.get_as< vmir2::functanoid_routine2 >();
+                   state_engine(this->state, what.local_types).apply(i);
+               }
+                else if (m_what.type_is< vmir2::functanoid_routine3 >())
+                {
+                    auto const& what = m_what.get_as< vmir2::functanoid_routine3 >();
+                    state_engine2(this->state, what.local_types, {}).apply(i);
+                }
+                else
+                {
+                    throw rpnx::unimplemented();
+                }
 
                 output += indent + "// state: " + this->to_string(this->state) + "\n";
             }
@@ -207,11 +220,14 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
         std::string result = "ACF %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;
-
-        result += " // type1=";
-        result += quxlang::to_string(this->m_what.slots.at(inst.base_index).type);
-        result += " type2=";
-        result += quxlang::to_string(this->m_what.slots.at(inst.store_index).type);
+        // Use apply_visitor since both types have the same logic
+        rpnx::apply_visitor<void>([&](auto&& what)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(what.local_types.at(inst.base_index).type);
+            result += " type2=";
+            result += quxlang::to_string(what.local_types.at(inst.store_index).type);
+        }, this->m_what);
         return result;
     }
 
@@ -271,12 +287,14 @@ namespace quxlang::vmir2
     {
         std::string result = "MKR %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
 
-        result += " // type1=";
-        result += quxlang::to_string(this->m_what.slots.at(inst.value_index).type);
-
-        result += " type2=";
-
-        result += quxlang::to_string(this->m_what.slots.at(inst.reference_index).type);
+        // Use apply_visitor since both types have the same logic
+        rpnx::apply_visitor<void>([&](auto&& what)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(what.local_types.at(inst.value_index).type);
+            result += " type2=";
+            result += quxlang::to_string(what.local_types.at(inst.reference_index).type);
+        }, this->m_what);
 
         return result;
     }
@@ -285,11 +303,14 @@ namespace quxlang::vmir2
     {
         std::string result = "CRF %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index);
 
-        result += " // type1=";
-
-        result += quxlang::to_string(this->m_what.slots.at(inst.source_ref_index).type);
-        result += " type2=";
-        result += quxlang::to_string(this->m_what.slots.at(inst.target_ref_index).type);
+        // Use apply_visitor since both types have the same logic
+        rpnx::apply_visitor<void>([&](auto&& what)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(what.local_types.at(inst.source_ref_index).type);
+            result += " type2=";
+            result += quxlang::to_string(what.local_types.at(inst.target_ref_index).type);
+        }, this->m_what);
 
         return result;
     }

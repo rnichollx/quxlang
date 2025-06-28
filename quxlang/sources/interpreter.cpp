@@ -23,11 +23,11 @@ quxlang::interp_value quxlang::interpreter::call(vmir2::functanoid_routine2 cons
 
     auto named_args = args.named;
 
-    current_frame->slots.resize(func.slots.size());
+    current_frame->slots.resize(func.local_types.size());
 
-    for (std::size_t i = 0; i < func.slots.size(); i++)
+    for (std::size_t i = 0; i < func.local_types.size(); i++)
     {
-        auto const & slot = func.slots[i];
+        auto const & slot = func.local_types[i];
 
         if (slot.kind == vmir2::slot_kind::positional_arg)
         {

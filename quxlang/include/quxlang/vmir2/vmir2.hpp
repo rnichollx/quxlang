@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <quxlang/ast2/source_location.hpp>
+#include <rpnx/uint64_base.hpp>
 
 namespace quxlang
 {
@@ -76,12 +77,13 @@ namespace quxlang
         using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
-        using storage_index = std::uint64_t;
-        using block_index = std::uint64_t;
+        RPNX_UNIQUE_U64( local_index );
+
+        RPNX_UNIQUE_U64( block_index );
 
         struct end_lifetime
         {
-            storage_index of;
+            local_index of;
 
             RPNX_MEMBER_METADATA(end_lifetime, of);
         };
@@ -93,8 +95,8 @@ namespace quxlang
 
         struct invocation_args
         {
-            std::map< std::string, storage_index > named;
-            std::vector< storage_index > positional;
+            std::map< std::string, local_index > named;
+            std::vector< local_index > positional;
 
             inline auto size() const
             {
@@ -113,7 +115,7 @@ namespace quxlang
         // The slot type of the delegates should be of the same type as the fields, omitting NEW&.
         struct struct_delegate_new
         {
-            storage_index on_value;
+            local_index on_value;
             invocation_args fields;
 
             RPNX_MEMBER_METADATA(struct_delegate_new, on_value, fields);
@@ -125,7 +127,7 @@ namespace quxlang
         // SCN is called immediately before return in a constructor.
         struct struct_complete_new
         {
-            storage_index on_value;
+            local_index on_value;
 
             RPNX_MEMBER_METADATA(struct_complete_new, on_value);
         };
@@ -157,10 +159,10 @@ namespace quxlang
         // 4. result: the result of the pointer offset calculation
         struct pointer_arith
         {
-            storage_index from;
+            local_index from;
             std::int64_t multiplier;
-            storage_index offset;
-            storage_index result;
+            local_index offset;
+            local_index result;
 
             RPNX_MEMBER_METADATA(pointer_arith, from, multiplier, offset, result);
         };
@@ -168,9 +170,9 @@ namespace quxlang
         // pointer_diff(PDF) is used to find the offset between two pointers in the same array
         struct pointer_diff
         {
-            storage_index from;
-            storage_index to;
-            storage_index result;
+            local_index from;
+            local_index to;
+            local_index result;
 
             RPNX_MEMBER_METADATA(pointer_diff, from, to, result);
         };
@@ -179,7 +181,7 @@ namespace quxlang
         // constexpr evaluation to fail. Especially for use in STATIC_TEST.
         struct assert_instr
         {
-            storage_index condition;
+            local_index condition;
             std::string message;
             std::optional< ast2_source_location > location;
 
@@ -190,7 +192,7 @@ namespace quxlang
         struct defer_nontrivial_dtor
         {
             type_symbol func;
-            storage_index on_value;
+            local_index on_value;
             invocation_args args;
 
             RPNX_MEMBER_METADATA(defer_nontrivial_dtor, func, on_value, args);
@@ -198,8 +200,8 @@ namespace quxlang
 
         struct access_field
         {
-            storage_index base_index = 0;
-            storage_index store_index = 0;
+            local_index base_index = local_index(0);
+            local_index store_index = local_index(0);
             std::string field_name;
 
             RPNX_MEMBER_METADATA(access_field, base_index, store_index, field_name);
@@ -207,9 +209,9 @@ namespace quxlang
 
         struct access_array
         {
-            storage_index base_index = 0;
-            storage_index index_index = 0;
-            storage_index store_index = 0;
+            local_index base_index = local_index(0);
+            local_index index_index = local_index(0);
+            local_index store_index = local_index(0);
             RPNX_MEMBER_METADATA(access_array, base_index, index_index, store_index);
         };
 
@@ -223,8 +225,8 @@ namespace quxlang
 
         struct copy_reference
         {
-            storage_index from_index;
-            storage_index to_index;
+            local_index from_index;
+            local_index to_index;
 
             RPNX_MEMBER_METADATA(copy_reference, from_index, to_index);
         };
@@ -232,38 +234,38 @@ namespace quxlang
         // MKR makes a reference to a value
         struct make_reference
         {
-            storage_index value_index;
-            storage_index reference_index;
+            local_index value_index;
+            local_index reference_index;
 
             RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
         };
 
         struct make_pointer_to
         {
-            storage_index of_index;
-            storage_index pointer_index;
+            local_index of_index;
+            local_index pointer_index;
 
             RPNX_MEMBER_METADATA(make_pointer_to, of_index, pointer_index);
         };
 
         struct cast_reference
         {
-            storage_index source_ref_index;
-            storage_index target_ref_index;
+            local_index source_ref_index;
+            local_index target_ref_index;
 
             RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index);
         };
 
         struct constexpr_set_result
         {
-            storage_index target;
+            local_index target;
             RPNX_MEMBER_METADATA(constexpr_set_result, target);
         };
 
         struct load_const_value
         {
 
-            storage_index target;
+            local_index target;
             std::vector< std::byte > value;
 
             RPNX_MEMBER_METADATA(load_const_value, target, value);
@@ -272,24 +274,24 @@ namespace quxlang
         // Converts a pointer into a reference to the pointed-to value
         struct dereference_pointer
         {
-            storage_index from_pointer;
-            storage_index to_reference;
+            local_index from_pointer;
+            local_index to_reference;
 
             RPNX_MEMBER_METADATA(dereference_pointer, from_pointer, to_reference);
         };
 
         struct load_from_ref
         {
-            storage_index from_reference;
-            storage_index to_value;
+            local_index from_reference;
+            local_index to_value;
 
             RPNX_MEMBER_METADATA(load_from_ref, from_reference, to_value);
         };
 
         struct store_to_ref
         {
-            storage_index from_value;
-            storage_index to_reference;
+            local_index from_value;
+            local_index to_reference;
 
             RPNX_MEMBER_METADATA(store_to_ref, from_value, to_reference);
         };
@@ -297,130 +299,130 @@ namespace quxlang
         struct load_const_int
         {
 
-            storage_index target;
+            local_index target;
             std::string value;
             RPNX_MEMBER_METADATA(load_const_int, target, value);
         };
 
         struct load_const_zero
         {
-            storage_index target;
+            local_index target;
             RPNX_MEMBER_METADATA(load_const_zero, target);
         };
 
         struct int_add
         {
 
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(int_add, a, b, result);
         };
 
         struct int_sub
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(int_sub, a, b, result);
         };
 
         struct int_mul
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(int_mul, a, b, result);
         };
 
         struct int_div
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(int_div, a, b, result);
         };
 
         struct int_mod
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(int_mod, a, b, result);
         };
 
         struct cmp_eq
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(cmp_eq, a, b, result);
         };
 
         struct cmp_ne
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(cmp_ne, a, b, result);
         };
 
         struct cmp_lt
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(cmp_lt, a, b, result);
         };
 
         struct cmp_ge
         {
-            storage_index a;
-            storage_index b;
-            storage_index result;
+            local_index a;
+            local_index b;
+            local_index result;
             RPNX_MEMBER_METADATA(cmp_ge, a, b, result);
         };
 
         struct to_bool
         {
-            storage_index from;
-            storage_index to;
+            local_index from;
+            local_index to;
 
             RPNX_MEMBER_METADATA(to_bool, from, to);
         };
 
         struct to_bool_not
         {
-            storage_index from;
-            storage_index to;
+            local_index from;
+            local_index to;
             RPNX_MEMBER_METADATA(to_bool_not, from, to);
         };
 
         struct increment
         {
-            storage_index value;
-            storage_index result;
+            local_index value;
+            local_index result;
             RPNX_MEMBER_METADATA(increment, value, result);
         };
 
         struct decrement
         {
-            storage_index value;
-            storage_index result;
+            local_index value;
+            local_index result;
             RPNX_MEMBER_METADATA(decrement, value, result);
         };
 
         struct preincrement
         {
-            storage_index target;
-            storage_index target2;
+            local_index target;
+            local_index target2;
             RPNX_MEMBER_METADATA(preincrement, target, target2);
         };
 
         struct predecrement
         {
-            storage_index target;
-            storage_index target2;
+            local_index target;
+            local_index target2;
             RPNX_MEMBER_METADATA(predecrement, target, target2);
         };
 
@@ -438,7 +440,7 @@ namespace quxlang
 
         struct branch
         {
-            storage_index condition;
+            local_index condition;
             block_index target_true;
             block_index target_false;
 
@@ -451,30 +453,30 @@ namespace quxlang
             std::optional< std::string > name;
             std::optional< std::string > literal_value;
             std::optional< std::string > arg_name;
-            std::optional< storage_index > binding_of;
+            std::optional< local_index > binding_of;
             slot_kind kind;
 
             RPNX_MEMBER_METADATA(vm_slot, type, name, literal_value, arg_name, binding_of, kind);
         };
 
-        struct slottype
+        struct local_type
         {
             type_symbol type;
 
-            RPNX_MEMBER_METADATA(slottype, type);
+            RPNX_MEMBER_METADATA(local_type, type);
         };
 
         struct routine_parameter
         {
             type_symbol type;
-            std::size_t assign_index;
+            local_index assign_index;
 
             RPNX_MEMBER_METADATA(routine_parameter, type, assign_index);
         };
 
         struct routine_parameters
         {
-            std::vector<routine_parameter> positional;
+            std::vector< routine_parameter > positional;
             std::map< std::string, routine_parameter > named;
 
             RPNX_MEMBER_METADATA(routine_parameters, positional, named);
@@ -483,8 +485,6 @@ namespace quxlang
         struct vm_context
         {
             std::vector< vm_slot > slots;
-
-
         };
 
         struct functanoid_routine
@@ -510,7 +510,7 @@ namespace quxlang
             bool dtor_enabled = false;
             std::optional< dtor_spec > nontrivial_dtor;
             std::optional< invocation_args > delegates;
-            std::optional< storage_index > delegate_of;
+            std::optional< local_index > delegate_of;
 
             bool valid() const
             {
@@ -545,7 +545,7 @@ namespace quxlang
 
         struct executable_block
         {
-            std::map< storage_index, slot_state > entry_state;
+            std::map< local_index, slot_state > entry_state;
             std::vector< vm_instruction > instructions;
             std::optional< vm_terminator > terminator;
             std::optional< std::string > dbg_name;
@@ -566,14 +566,14 @@ namespace quxlang
 
             std::vector< vm_slot > slots;
 
-            storage_index create_temporary(type_symbol type);
-            storage_index create_variable(type_symbol type, std::string name);
-            storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_positional_argument(type_symbol type, std::optional< std::string > name);
-            storage_index create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > name);
-            storage_index create_numeric_literal(std::string value);
-            storage_index create_bool_literal(bool value);
-            storage_index index_binding(storage_index idx);
+            local_index create_temporary(type_symbol type);
+            local_index create_variable(type_symbol type, std::string name);
+            local_index create_binding(local_index idx, type_symbol type);
+            local_index create_positional_argument(type_symbol type, std::optional< std::string > name);
+            local_index create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > name);
+            local_index create_numeric_literal(std::string value);
+            local_index create_bool_literal(bool value);
+            local_index index_binding(local_index idx);
 
             RPNX_MEMBER_METADATA(slot_generation_state, slots);
         };
@@ -589,54 +589,53 @@ namespace quxlang
 
             vmir2::executable_block block;
             slot_generation_state* slots;
-            std::map< storage_index, slot_state > current_slot_states = {{0, slot_state{}}};
-            std::map< std::string, storage_index > named_references;
+            std::map< local_index, slot_state > current_slot_states = {{local_index(0), slot_state{}}};
+            std::map< std::string, local_index > named_references;
 
-            type_symbol current_type(storage_index idx);
+            type_symbol current_type(local_index idx);
 
             executable_block_generation_state clone_subblock();
 
             void emit(vm_instruction inst); // moved out-of-line
             void emit(vm_terminator term);  // moved out-of-line
 
-            bool slot_alive(storage_index idx);
+            bool slot_alive(local_index idx);
 
-            storage_index create_temporary(type_symbol type);
-            storage_index create_variable(type_symbol type, std::string name);
-            storage_index create_binding(storage_index idx, type_symbol type);
-            storage_index create_positional_argument(type_symbol type, std::optional< std::string > label_name);
-            storage_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
+            local_index create_temporary(type_symbol type);
+            local_index create_variable(type_symbol type, std::string name);
+            local_index create_binding(local_index idx, type_symbol type);
+            local_index create_positional_argument(type_symbol type, std::optional< std::string > label_name);
+            local_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
 
-            storage_index create_numeric_literal(std::string value);
-            storage_index create_bool_literal(bool value);
-            storage_index index_binding(storage_index idx);
+            local_index create_numeric_literal(std::string value);
+            local_index create_bool_literal(bool value);
+            local_index index_binding(local_index idx);
 
-            std::optional< storage_index > local_lookup(std::string name);
+            std::optional< local_index > local_lookup(std::string name);
 
             RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
         };
 
         struct functanoid_routine2
         {
-            std::vector< vm_slot > slots;
-            block_index entry_block = 0;
+            std::vector< vm_slot > local_types;
+            block_index entry_block = block_index(0);
             std::optional< block_index > return_block;
             std::vector< executable_block > blocks;
             std::map< block_index, std::string > block_names;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
 
-            RPNX_MEMBER_METADATA(functanoid_routine2, slots, entry_block, return_block, blocks, block_names, non_trivial_dtors);
+            RPNX_MEMBER_METADATA(functanoid_routine2, local_types, entry_block, return_block, blocks, block_names, non_trivial_dtors);
         };
 
         struct functanoid_routine3
         {
-            std::vector< slottype > local_types;
+            std::vector< local_type > local_types;
             std::vector< executable_block > blocks;
             std::map< block_index, std::string > block_names;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
 
             RPNX_MEMBER_METADATA(functanoid_routine3, local_types, blocks, block_names, non_trivial_dtors);
-
         };
 
         struct frame_generation_state
@@ -663,7 +662,7 @@ namespace quxlang
             executable_block_generation_state& entry_block();
             executable_block_generation_state& block(std::size_t id);
 
-            std::optional< storage_index > lookup(std::size_t block_id, std::string name);
+            std::optional< local_index > lookup(std::size_t block_id, std::string name);
 
             functanoid_routine2 get_result();
 

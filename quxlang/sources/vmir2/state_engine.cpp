@@ -41,7 +41,7 @@ void quxlang::vmir2::state_engine2::apply(quxlang::vmir2::vm_instruction const& 
 void quxlang::vmir2::state_engine::apply_entry()
 {
     check_state_valid();
-    for (std::size_t i = 0; i < slot_info.size(); i++)
+    for (local_index i = local_index(0); i < slot_info.size(); i++)
     {
         auto const& slot = slot_info[i];
 
@@ -66,11 +66,11 @@ void quxlang::vmir2::state_engine2::apply_entry()
 {
     check_state_valid();
 
-    for (std::size_t i = 0; i < this->routine_params.positional.size(); i++)
+    for (local_index i = local_index(0); i < this->routine_params.positional.size(); i++)
     {
         auto const& param = this->routine_params.positional[i];
 
-        std::size_t param_slot_index = param.assign_index;
+        local_index param_slot_index = param.assign_index;
 
 
         if (param.type.template type_is< nvalue_slot >())
@@ -87,7 +87,7 @@ void quxlang::vmir2::state_engine2::apply_entry()
 
     for (auto const& [name, param] : this->routine_params.named)
     {
-        std::size_t param_slot_index = param.assign_index;
+        auto param_slot_index = param.assign_index;
 
 
         if (param.type.template type_is< nvalue_slot >())
@@ -661,21 +661,21 @@ void quxlang::vmir2::state_engine2::apply_internal(pointer_diff const& pdf)
     output(pdf.result);
 }
 
-void quxlang::vmir2::state_engine::readonly(storage_index idx)
+void quxlang::vmir2::state_engine::readonly(local_index idx)
 {
     if (!state[idx].alive || !state[idx].storage_valid)
     {
         throw invalid_instruction_transition_error("readonly input not alive state");
     }
 }
-void quxlang::vmir2::state_engine2::readonly(storage_index idx)
+void quxlang::vmir2::state_engine2::readonly(local_index idx)
 {
     if (!state[idx].alive || !state[idx].storage_valid)
     {
         throw invalid_instruction_transition_error("readonly input not alive state");
     }
 }
-void quxlang::vmir2::state_engine::consume(storage_index idx)
+void quxlang::vmir2::state_engine::consume(local_index idx)
 {
     if (!state[idx].alive || !state[idx].storage_valid)
     {
@@ -685,7 +685,7 @@ void quxlang::vmir2::state_engine::consume(storage_index idx)
     state[idx].storage_valid = state[idx].delegate_of.has_value();
 }
 
-void quxlang::vmir2::state_engine2::consume(storage_index idx)
+void quxlang::vmir2::state_engine2::consume(local_index idx)
 {
     if (!state[idx].alive || !state[idx].storage_valid)
     {
@@ -694,7 +694,7 @@ void quxlang::vmir2::state_engine2::consume(storage_index idx)
     state[idx].alive = false;
     state[idx].storage_valid = state[idx].delegate_of.has_value();
 }
-void quxlang::vmir2::state_engine::output(storage_index idx)
+void quxlang::vmir2::state_engine::output(local_index idx)
 {
     if (state[idx].alive)
     {
@@ -708,7 +708,7 @@ void quxlang::vmir2::state_engine::output(storage_index idx)
     state[idx].storage_valid = true;
 }
 
-void quxlang::vmir2::state_engine2::output(storage_index idx)
+void quxlang::vmir2::state_engine2::output(local_index idx)
 {
     if (state[idx].alive)
     {

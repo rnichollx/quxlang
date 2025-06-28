@@ -231,7 +231,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(expr_ir2)
     vmir2::constexpr_set_result csr{};
     csr.target = result;
     blockstate.emit(csr);
-    r.slots = blockstate.slots->slots;
+    r.local_types = blockstate.slots->slots;
     r.blocks.emplace_back();
     r.blocks.at(0) = blockstate.block;
     r.blocks.at(0).terminator = vmir2::ret{};

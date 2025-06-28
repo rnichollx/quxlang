@@ -19,9 +19,9 @@ namespace quxlang::vmir2
         std::string to_string(vmir2::state_engine::state_map const & state);
 
 
-        assembler(vmir2::functanoid_routine2 what) : m_what(what) {}
+        assembler(rpnx::variant<vmir2::functanoid_routine2, vmir2::functanoid_routine3> what) : m_what(what) {}
       private:
-        vmir2::functanoid_routine2 m_what;
+        rpnx::variant<vmir2::functanoid_routine2, vmir2::functanoid_routine3> m_what;
         vmir2::state_engine::state_map state;
 
         void set_arg_state();

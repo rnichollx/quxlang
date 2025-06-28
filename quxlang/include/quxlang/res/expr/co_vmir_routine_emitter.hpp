@@ -55,7 +55,7 @@ namespace quxlang
         vmir2::frame_generation_state frame;
         bool already_called_generate = false;
 
-        using co_slot = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
+        using co_slot = typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >;
         using co_block = typename CoroutineProvider::template co_type< quxlang::vmir2::block_index >;
         using co_void = typename CoroutineProvider::template co_type< void >;
 
@@ -149,9 +149,9 @@ namespace quxlang
         }
 
       private:
-        [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >
+        [[nodiscard]] auto generate_expression(block_index_t& current_block, expression const& expr) -> typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >
         {
-            using V = typename CoroutineProvider::template co_type< quxlang::vmir2::storage_index >;
+            using V = typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >;
             co_vmir_expression_emitter emitter(prv, func, frame.block(current_block));
             try
             {
@@ -169,7 +169,7 @@ namespace quxlang
             }
         }
 
-        [[nodiscard]] auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_bool_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::local_index >
         {
             auto expr_index = co_await generate_expression(current_block, expr);
             auto expr_type = this->frame.block(current_block).slots->slots.at(expr_index).type;
@@ -180,7 +180,7 @@ namespace quxlang
             co_return expr_index;
         }
 
-        [[nodiscard]] auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_void_expr(block_index_t current_block, expression const& expr) -> typename CoroutineProvider::template co_type< vmir2::local_index >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(expr));
             co_await generate_expression(current_block, expr);
@@ -292,7 +292,7 @@ namespace quxlang
 
             frame.generate_jump(current_block, condition_block);
 
-            vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
+            vmir2::local_index cond = co_await generate_bool_expr(condition_block, st.condition);
 
             frame.generate_branch(cond, condition_block, if_block, after_block);
 
@@ -318,7 +318,7 @@ namespace quxlang
 
             frame.generate_jump(current_block, condition_block);
 
-            vmir2::storage_index cond = co_await generate_bool_expr(condition_block, st.condition);
+            vmir2::local_index cond = co_await generate_bool_expr(condition_block, st.condition);
 
             frame.generate_branch(cond, condition_block, body_block, after_block);
             co_await generate_function_block(body_block, st.loop_block, "while_statement");
@@ -413,7 +413,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::storage_index >
+        [[nodiscard]] auto generate_variable(block_index_t& current_block, std::string const& name, type_symbol typ) -> typename CoroutineProvider::template co_type< vmir2::local_index >
         {
             auto idx = frame.entry_block().create_variable(typ, name);
 
@@ -435,7 +435,7 @@ namespace quxlang
 
             frame.generate_jump(current_block, condition_block);
 
-            vmir2::storage_index cond = co_await generate_bool_expr(condition_block, asrt.condition);
+            vmir2::local_index cond = co_await generate_bool_expr(condition_block, asrt.condition);
 
             vmir2::assert_instr asrt_instr{.condition = cond, .message = asrt.tagline.value_or("NO_MESSAGE_TAG"), .location = asrt.location};
             frame.block(condition_block).emit(asrt_instr);

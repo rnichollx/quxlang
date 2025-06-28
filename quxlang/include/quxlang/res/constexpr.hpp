@@ -6,6 +6,7 @@
 #define CONSTEXPR_HPP
 
 #include "quxlang/data/expression.hpp"
+#include "quxlang/vmir2/vmir2.hpp"
 
 #include <quxlang/res/resolver.hpp>
 
@@ -39,6 +40,7 @@ namespace quxlang
     QUX_CO_RESOLVER(constexpr_bool, constexpr_input, bool);
     QUX_CO_RESOLVER(constexpr_u64, constexpr_input, std::uint64_t);
     QUX_CO_RESOLVER(constexpr_eval, constexpr_input2, constexpr_result);
+    QUX_CO_RESOLVER(constexpr_routine, constexpr_input2, vmir2::functanoid_routine3);
 
 }
 
