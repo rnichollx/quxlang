@@ -184,7 +184,7 @@ namespace quxlang
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(expr));
             co_await generate_expression(current_block, expr);
-            co_return 0;
+            co_return vmir2::local_index(0);
         }
 
         [[nodiscard]] auto generate_ctor_delegates() -> typename CoroutineProvider::template co_type< void >

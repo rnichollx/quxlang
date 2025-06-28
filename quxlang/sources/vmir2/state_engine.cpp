@@ -70,7 +70,7 @@ void quxlang::vmir2::state_engine2::apply_entry()
     {
         auto const& param = this->routine_params.positional[i];
 
-        local_index param_slot_index = param.assign_index;
+        local_index param_slot_index = param.local_index;
 
 
         if (param.type.template type_is< nvalue_slot >())
@@ -87,7 +87,7 @@ void quxlang::vmir2::state_engine2::apply_entry()
 
     for (auto const& [name, param] : this->routine_params.named)
     {
-        auto param_slot_index = param.assign_index;
+        auto param_slot_index = param.local_index;
 
 
         if (param.type.template type_is< nvalue_slot >())

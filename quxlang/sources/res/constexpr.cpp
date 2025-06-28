@@ -91,5 +91,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
 
     auto ir3 = co_await QUX_CO_DEP(constexpr_routine, (constexpr_input2{input.expr, input.context, input.type}));
 
-    co_return result;
+    throw rpnx::unimplemented();
+    co_return {};
 }

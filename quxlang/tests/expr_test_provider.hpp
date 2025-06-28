@@ -17,7 +17,11 @@ namespace quxlang
         inline expr_test_provider()
         {
             auto type = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #(@THIS I32, I32)");
-            this->testmap_instanciation_presets[as< initialization_reference >(type)] = quxlang::initialization_reference{.initializee = quxlang::temploid_reference{.templexoid = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .which = temploid_ensig{ .interface = quxlang::intertype{.named = {{"THIS", argif{ quxlang::parsers::parse_type_symbol("I32")}}}, .positional = {argif{quxlang::parsers::parse_type_symbol("I32")}}}}}, .parameters = quxlang::invotype{.named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}}, .positional = {quxlang::parsers::parse_type_symbol("I32")}, }};
+            this->testmap_instanciation_presets[as< initialization_reference >(type)] = quxlang::initialization_reference{.initializee = quxlang::temploid_reference{.templexoid = quxlang::parsers::parse_type_symbol("I32::.OPERATOR+"), .which = temploid_ensig{.interface = quxlang::intertype{.named = {{"THIS", argif{quxlang::parsers::parse_type_symbol("I32")}}}, .positional = {argif{quxlang::parsers::parse_type_symbol("I32")}}}}},
+                                                                                                                          .parameters = quxlang::invotype{
+                                                                                                                              .named = {{"THIS", quxlang::parsers::parse_type_symbol("I32")}},
+                                                                                                                              .positional = {quxlang::parsers::parse_type_symbol("I32")},
+                                                                                                                          }};
         }
         // Slot 0 is always reserved for the void slot
         // Including as data to avoid special-casing this.
@@ -43,13 +47,12 @@ namespace quxlang
 
         };
 
-
         std::map< type_symbol, symbol_kind > testmap_symbol_type_presets{
-                {quxlang::parsers::parse_type_symbol("I32"), symbol_kind::class_},
+            {quxlang::parsers::parse_type_symbol("I32"), symbol_kind::class_},
         };
         std::map< type_symbol, type_symbol > testmap_functanoid_return_type_presets{
 
-        // clang-format off
+            // clang-format off
         {quxlang::parsers::parse_type_symbol("I32::.OPERATOR+ #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"), quxlang::parsers::parse_type_symbol("I32")},
 
         {quxlang::parsers::parse_type_symbol("I32::.OPERATOR- #[BUILTIN; @THIS I32, @OTHER I32 ] #( @THIS I32, @OTHER I32 )"), quxlang::parsers::parse_type_symbol("I32")},
@@ -61,12 +64,12 @@ namespace quxlang
             // clang-format on
         };
 
+        static inline auto quxtype(std::string val) -> type_symbol
+        {
+            return quxlang::parsers::parse_type_symbol(val);
+        }
 
-        static inline auto quxtype(std::string val) -> type_symbol { return quxlang::parsers::parse_type_symbol(val);}
-
-        std::map< implicitly_convertible_to_query, bool > testmap_implicitly_convertible_to_presets {
-            { implicitly_convertible_to_query{.from = quxtype("MUT& I32"), .to=quxtype("CONST& I32")}, true }
-        };
+        std::map< implicitly_convertible_to_query, bool > testmap_implicitly_convertible_to_presets{{implicitly_convertible_to_query{.from = quxtype("MUT& I32"), .to = quxtype("CONST& I32")}, true}};
 
         struct co_provider
         {
@@ -188,7 +191,6 @@ namespace quxlang
                     {
                         return create_nslot(parent.slots.at(idx).type);
                     }
-
                 }
                 else
                 {
@@ -220,7 +222,7 @@ namespace quxlang
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
 
-            rpnx::awaitable_result< vmir2::local_index > create_binding( vmir2::local_index index, type_symbol bound_symbol)
+            rpnx::awaitable_result< vmir2::local_index > create_binding(vmir2::local_index index, type_symbol bound_symbol)
             {
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
             }
@@ -277,21 +279,21 @@ namespace quxlang
 
             vmir2::local_index create_temporary_storage_internal(type_symbol type)
             {
-                vmir2::local_index idx = parent.slots.size();
+                vmir2::local_index idx(parent.slots.size());
                 parent.slots.push_back(vmir2::vm_slot{.type = type, .name = "TEMP" + std::to_string(idx)});
                 parent.slot_alive.push_back(false);
                 return idx;
             }
 
-            rpnx::awaitable_result<void> emit_cast_reference(vmir2::cast_reference cst)
+            rpnx::awaitable_result< void > emit_cast_reference(vmir2::cast_reference cst)
             {
-               parent.slot_alive.at(cst.target_ref_index) = true;
-               return rpnx::awaitable_result<void>();
+                parent.slot_alive.at(cst.target_ref_index) = true;
+                return rpnx::awaitable_result< void >();
             }
 
             rpnx::awaitable_result< bool > implicitly_convertible_to(type_symbol from, type_symbol to)
             {
-                 std::cout << "implicitly_convertible_to(" << quxlang::to_string(from) << ", " << quxlang::to_string(to) << ")" << std::endl;
+                std::cout << "implicitly_convertible_to(" << quxlang::to_string(from) << ", " << quxlang::to_string(to) << ")" << std::endl;
                 auto it = parent.testmap_implicitly_convertible_to_presets.find(implicitly_convertible_to_query{.from = from, .to = to});
                 if (it != parent.testmap_implicitly_convertible_to_presets.end())
                 {
@@ -299,7 +301,7 @@ namespace quxlang
                 }
                 return std::make_exception_ptr(std::logic_error("Not implemented"));
 
-                 throw rpnx::unimplemented();
+                throw rpnx::unimplemented();
             }
 
             rpnx::awaitable_result< vmir2::local_index > implicit_cast_reference(vmir2::local_index index, type_symbol target)
@@ -314,14 +316,14 @@ namespace quxlang
                 return ref;
             }
 
-            rpnx::awaitable_result<void> emit(vmir2::access_field af)
+            rpnx::awaitable_result< void > emit(vmir2::access_field af)
             {
                 parent.instructions.push_back(af);
                 parent.slot_alive.at(af.store_index) = true;
                 return {};
             }
 
-            rpnx::awaitable_result<void> emit(vmir2::invoke ivk)
+            rpnx::awaitable_result< void > emit(vmir2::invoke ivk)
             {
 
                 std::cout << "emit_invoke(" << quxlang::to_string(ivk.what) << ")"
@@ -417,7 +419,7 @@ namespace quxlang
 
             rpnx::awaitable_result< vmir2::local_index > create_numeric_literal(std::string value)
             {
-                vmir2::local_index idx = parent.slots.size();
+                vmir2::local_index idx(parent.slots.size());
                 parent.slots.push_back(vmir2::vm_slot{.type = numeric_literal_reference{}, .name = "LITERAL" + std::to_string(idx), .literal_value = value});
                 parent.slot_alive.push_back(true);
                 return idx;

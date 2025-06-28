@@ -258,7 +258,7 @@ namespace quxlang
 
             vmir2::local_index index = vmir2::local_index(0);
 
-            auto binding = create_binding(0, canonical_symbol);
+            auto binding = create_binding(vmir2::local_index(0), canonical_symbol);
 
             if (kind == quxlang::symbol_kind::global_variable)
             {
@@ -788,7 +788,7 @@ namespace quxlang
             auto rightarrow = submember{.of = remove_ref(this->current_type(value)), .name = "OPERATOR->"};
             vmir2::invocation_args args = {.named = {{"THIS", value}}};
             co_return co_await gen_call_functum(rightarrow, args);
-            co_return 0;
+            co_return vmir2::local_index(0);
         }
 
         auto generate(expression_binary input) -> typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >

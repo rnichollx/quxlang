@@ -469,9 +469,9 @@ namespace quxlang
         struct routine_parameter
         {
             type_symbol type;
-            local_index assign_index;
+            local_index local_index;
 
-            RPNX_MEMBER_METADATA(routine_parameter, type, assign_index);
+            RPNX_MEMBER_METADATA(routine_parameter, type, local_index);
         };
 
         struct routine_parameters
@@ -631,11 +631,12 @@ namespace quxlang
         struct functanoid_routine3
         {
             std::vector< local_type > local_types;
+            routine_parameters parameters;
             std::vector< executable_block > blocks;
             std::map< block_index, std::string > block_names;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
 
-            RPNX_MEMBER_METADATA(functanoid_routine3, local_types, blocks, block_names, non_trivial_dtors);
+            RPNX_MEMBER_METADATA(functanoid_routine3, local_types, parameters, blocks, block_names, non_trivial_dtors);
         };
 
         struct frame_generation_state
