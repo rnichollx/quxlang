@@ -36,7 +36,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::map< cow< type_symbol >, class_layout > class_layouts;
     std::map< cow< type_symbol >, cow< functanoid_routine2 > > functanoids;
     std::map< cow< type_symbol >, cow< functanoid_routine3 > > functanoids3;
-    std::vector< std::byte > constexpr_result;
+    std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
     std::optional< type_symbol > constexpr_result_type_value;
 
@@ -1132,13 +1132,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             while (result > 0)
             {
-                this->constexpr_result.push_back(static_cast< std::byte >(result & 0xFF));
+                this->constexpr_result_v.push_back(static_cast< std::byte >(result & 0xFF));
                 result >>= 8;
             }
 
-            while (this->constexpr_result.size() < 8)
+            while (this->constexpr_result_v.size() < 8)
             {
-                this->constexpr_result.push_back(std::byte{0});
+                this->constexpr_result_v.push_back(std::byte{0});
             }
 
             return;
@@ -1150,11 +1150,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             auto literal_value = slot_info.at(csr.target).literal_value.value();
             if (literal_value == "TRUE")
             {
-                this->constexpr_result = {std::byte{1}};
+                this->constexpr_result_v = {std::byte{1}};
             }
             else if (literal_value == "FALSE")
             {
-                this->constexpr_result = {std::byte{0}};
+                this->constexpr_result_v = {std::byte{0}};
             }
             else
             {
@@ -1165,7 +1165,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
     }
 
-    this->constexpr_result = slot_consume_data(csr.target);
+    this->constexpr_result_v = slot_consume_data(csr.target);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -1612,21 +1612,25 @@ void quxlang::vmir2::ir2_constexpr_interpreter::exec3(type_symbol func)
 }
 bool quxlang::vmir2::ir2_constexpr_interpreter::get_cr_bool()
 {
-    assert(this->implementation->constexpr_result.size() == 1);
-    return this->implementation->constexpr_result == std::vector< std::byte >{std::byte(1)};
+    assert(this->implementation->constexpr_result_v.size() == 1);
+    return this->implementation->constexpr_result_v == std::vector< std::byte >{std::byte(1)};
 }
 std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::get_cr_u64()
 {
     std::uint64_t result = 0;
-    if (this->implementation->constexpr_result.size() != 8)
+    if (this->implementation->constexpr_result_v.size() != 8)
     {
         throw std::logic_error("expected uint64");
     }
     for (std::size_t i = 0; i < 8; i++)
     {
-        result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(this->implementation->constexpr_result[i])) << (i * 8));
+        result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(this->implementation->constexpr_result_v[i])) << (i * 8));
     }
     return result;
+}
+quxlang::constexpr_result quxlang::vmir2::ir2_constexpr_interpreter::get_cr_value()
+{
+    return constexpr_result{.type = void_type{}, .value= this->implementation->constexpr_result_v};
 }
 
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()

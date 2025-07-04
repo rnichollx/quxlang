@@ -9,35 +9,28 @@
 //
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
 {
-    expr_ir2_input inp;
+    constexpr_input2 inp;
     inp.context = input_val.context;
     inp.expr = input_val.expr;
+    inp.type = bool_type{}; // We want a boolean result
 
-    auto ir2 = co_await QUX_CO_DEP(expr_ir2, (inp));
+    auto eval = co_await QUX_CO_DEP(constexpr_eval, (inp));
 
-    vmir2::ir2_constexpr_interpreter interp;
-
-    interp.add_functanoid(void_type{}, ir2);
-
-    while (!interp.missing_functanoids().empty())
+    if (eval.value == std::vector{std::byte{0}})
     {
-        auto missing_functanoids = interp.missing_functanoids();
 
-        for (type_symbol const& funcname : missing_functanoids)
-        {
-            if (!typeis< instanciation_reference >(funcname))
-            {
-                throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
-            }
-            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname.template get_as < instanciation_reference >()));
+        co_return false;
+    }
+    else if (eval.value == std::vector{std::byte{1}})
+    {
+        co_return true;
+    }
+    else
 
-            interp.add_functanoid(funcname, ir2_other);
-        }
+    {
+        throw compiler_bug("shouldnt get here");
     }
 
-    interp.exec(void_type{});
-
-    co_return interp.get_cr_bool();
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_u64)
@@ -62,7 +55,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_u64)
             {
                 throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
             }
-            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname.template get_as < instanciation_reference >()));
+            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname.template get_as< instanciation_reference >()));
 
             interp.add_functanoid(funcname, ir2_other);
         }
@@ -91,6 +84,33 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
 
     auto ir3 = co_await QUX_CO_DEP(constexpr_routine, (constexpr_input2{input.expr, input.context, input.type}));
 
-    throw rpnx::unimplemented();
-    co_return {};
+    constexpr_input2 inp;
+    inp.context = input_val.context;
+    inp.expr = input_val.expr;
+    inp.type = bool_type{}; // We want a boolean result
+
+    interp.add_functanoid3(void_type{}, ir3);
+
+    while (!interp.missing_functanoids().empty())
+    {
+        auto missing_functanoids = interp.missing_functanoids();
+
+        for (type_symbol const& funcname : missing_functanoids)
+        {
+            if (!typeis< instanciation_reference >(funcname))
+            {
+                throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
+            }
+            vmir2::functanoid_routine3 const& ir2_other = co_await QUX_CO_DEP(vm_procedure3, (funcname.template get_as< instanciation_reference >()));
+
+            interp.add_functanoid3(funcname, ir2_other);
+        }
+    }
+
+    interp.exec(void_type{});
+
+    auto val = interp.get_cr_value();
+    val.type = type_symbol( bool_type{});
+    co_return val;
+
 }

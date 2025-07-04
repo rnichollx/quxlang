@@ -7,6 +7,7 @@
 
 #include "quxlang/data/class_layout.hpp"
 #include "quxlang/data/type_symbol.hpp"
+#include "quxlang/res/constexpr.hpp"
 #include "vmir2.hpp"
 namespace quxlang
 {
@@ -32,6 +33,8 @@ namespace quxlang
 
             bool get_cr_bool();
             std::uint64_t get_cr_u64();
+
+            constexpr_result get_cr_value();
         };
     } // namespace vmir2
 } // namespace quxlang
