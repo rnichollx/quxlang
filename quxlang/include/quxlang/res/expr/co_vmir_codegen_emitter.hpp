@@ -1446,7 +1446,7 @@ namespace quxlang
 
         }
 
-        auto co_generate_body(block_index& current_block, instanciation_reference func) -> typename CoroutineProvider::template co_type< void >
+        auto co_generate_body(block_index& current_block, instanciation_reference const &func) -> typename CoroutineProvider::template co_type< void >
         {
             auto const& inst = func;
 
@@ -1646,16 +1646,17 @@ namespace quxlang
         {
             co_await this->co_generate_arg_info(func);
             this->generate_entry_block();
+            block_index current_block(0);
             if (!co_await prv.function_builtin(func.temploid))
             {
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
-                    co_await co_generate_ctor_delegates();
+                    co_await co_generate_ctor_delegates(current_block, func);
                 }
 
-                co_await co_generate_body();
+                co_await co_generate_body(current_block);
             }
-            co_await co_generate_dtors();
+            co_await co_generate_dtors(current_block);
 
             co_return get_result();
         }
@@ -1677,7 +1678,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_ctor_delegates(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto co_generate_ctor_delegates(block_index &bidx, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
         {
             temploid_reference const& function = func.temploid;
 
@@ -1710,7 +1711,7 @@ namespace quxlang
                 delegates.push_back(dlg2);
             }
 
-            co_await co_generate_ctor_delegates(delegates);
+            co_await co_generate_ctor_delegates(bidx, func, delegates);
 
             co_return;
         }
