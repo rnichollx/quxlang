@@ -36,8 +36,6 @@ namespace quxlang
         using rpnx::uint64_base< deferral_index >::uint64_base;
     };
 
-    using storage_index = vmir2::local_index;
-
     RPNX_UNIQUE_U64(value_index);
 
     using block_index = vmir2::block_index;
@@ -745,14 +743,14 @@ namespace quxlang
             co_return index;
         }
 
-        auto co_gen_idx_conversion(storage_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >
+        auto co_gen_idx_conversion(value_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< value_index >
         {
-            vmir2::invocation_args args;
+            codegen_invocation_args args;
             args.named["OTHER"] = idx;
             co_return co_await co_gen_call_ctor(to_type, std::move(args));
         }
 
-        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< quxlang::vmir2::local_index >
+        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
             auto new_object = create_local_value(new_type);
