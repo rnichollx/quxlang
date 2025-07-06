@@ -750,7 +750,7 @@ namespace quxlang
             co_return co_await co_gen_call_ctor(to_type, std::move(args));
         }
 
-        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
             auto new_object = create_local_value(new_type);
@@ -839,7 +839,7 @@ namespace quxlang
         }
 
       public:
-        auto co_gen_defer_dtor(block_index& bidx, storage_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto co_gen_defer_dtor(block_index& bidx, value_index val, type_symbol dtor, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             co_return;
             // TODO: Maybe re-add this later, for now, don't use for default dtors.
@@ -884,7 +884,7 @@ namespace quxlang
 
             // TODO: Support defaulted parameters.
 
-            vmir2::invocation_args invocation_args;
+            codegen_invocation_args invocation_args;
 
             auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> typename CoroutineProvider::template co_type< value_index >
             {
@@ -994,7 +994,7 @@ namespace quxlang
             auto return_type = co_await prv.functanoid_return_type(what);
 
             // Index 0 is defined to be the special "void" value.
-            vmir2::local_index retval(0);
+            value_index retval(0);
 
             if (!typeis< void_type >(return_type))
             {
@@ -1023,7 +1023,7 @@ namespace quxlang
             co_return retval;
         }
 
-        auto co_gen_reinterpret_reference(block_index& bidx, storage_index ref_index, type_symbol target_ref_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto co_gen_reinterpret_reference(block_index& bidx, value_index ref_index, type_symbol target_ref_type) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto ref_type = this->current_type(ref_index);
 
@@ -1038,7 +1038,7 @@ namespace quxlang
             auto new_index = this->create_local_value(bidx, target_ref_type);
 
             vmir2::cast_reference csr;
-            csr.source_ref_index = ref_index;
+            csr.source_ref_index = get_local_index(ref_index);
             csr.target_ref_index = new_index;
 
             this->emit(bidx, csr);
@@ -1046,61 +1046,61 @@ namespace quxlang
             co_return new_index;
         }
 
-        auto co_gen_reference_conversion(block_index& bidx, storage_index value_index, type_symbol target_reference_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto co_gen_reference_conversion(block_index& bidx, value_index vidx, type_symbol target_reference_type) -> typename CoroutineProvider::template co_type< value_index >
         {
             // TODO: Support dynamic/static casts
-            co_return co_await co_gen_reinterpret_reference(bidx, value_index, target_reference_type);
+            co_return co_await co_gen_reinterpret_reference(bidx, vidx, target_reference_type);
         }
 
-        auto co_gen_value_conversion(block_index& bidx, storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto co_gen_value_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< value_index >
         {
             // TODO: support conversion other than via constructor.
-            co_return co_await co_gen_value_constructor_conversion(bidx, value_index, target_value_type);
+            co_return co_await co_gen_value_constructor_conversion(bidx, vidx, target_value_type);
         }
 
-        auto co_gen_value_constructor_conversion(block_index& bidx, storage_index value_index, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto co_gen_value_constructor_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> typename CoroutineProvider::template co_type< value_index >
         {
-            type_symbol value_type = this->current_type(value_index);
-            std::cout << "co_gen_value_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
+            type_symbol value_type = this->current_type(vidx);
+            std::cout << "co_gen_value_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
             auto new_value_index = create_local_value(target_value_type);
 
             auto conversion_functum = submember{target_value_type, "CONSTRUCTOR"};
 
-            vmir2::invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", value_index}}};
+            codegen_invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", vidx}}};
 
             co_return co_await co_gen_call_functum(bidx, conversion_functum, args);
         }
 
-        auto co_gen_implicit_conversion(block_index& bidx, value_index value_index, value_index target_type) -> typename CoroutineProvider::template co_type< storage_index >
+        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type) -> typename CoroutineProvider::template co_type< value_index >
         {
-            type_symbol value_type = this->current_type(value_index);
-            std::cout << "gen_implicit_conversion(" << value_index << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
+            type_symbol value_type = this->current_type(bidx, vidx);
+            std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
 
             if (value_type == target_type)
             {
-                co_return value_index;
+                co_return vidx;
             }
 
             if (is_ref(target_type))
             {
                 if (is_ref(value_type))
                 {
-                    co_return co_await co_gen_reference_conversion(bidx, value_index, target_type);
+                    co_return co_await co_gen_reference_conversion(bidx, vidx, target_type);
                 }
                 else
                 {
-                    auto temp_index = create_reference_internal(bidx, value_index, make_tref(value_type));
+                    auto temp_index = create_reference_internal(bidx, vidx, make_tref(value_type));
                     co_return co_await gen_reference_conversion(bidx, temp_index, target_type);
                 }
             }
             else
             {
-                co_return co_await co_gen_value_conversion(bidx, value_index, target_type);
+                co_return co_await co_gen_value_conversion(bidx, vidx, target_type);
             }
         }
 
-        auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, vmir2::invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
+        auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
             auto callee = what.temploid;
 
@@ -1114,10 +1114,10 @@ namespace quxlang
             }
 
             std::string what_str = to_string(what);
-            std::string args_str = to_string(args);
+            //std::string args_str = to_string(args);
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = args;
+            ivk.args =get_invocation_args( args);
 
             this->emit(bidx, ivk);
 
@@ -1133,15 +1133,15 @@ namespace quxlang
         // It assumes that we have already checked that the function is builtin and are just
         // checking which implementation to use.
         template < typename Inst >
-        bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, vmir2::invocation_args const& args, bool flip = false)
+        bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, codegen_invocation_args const& args, bool flip = false)
         {
             if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
             {
 
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
                 {
-                    auto this_slot_id = args.named.at("THIS");
-                    auto other_slot_id = args.named.at("OTHER");
+                    auto this_slot_id = get_local_index(args.named.at("THIS"));
+                    auto other_slot_id = get_local_index(args.named.at("OTHER"));
 
                     Inst instr{};
 
@@ -1160,7 +1160,7 @@ namespace quxlang
             return false;
         }
 
-        std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, vmir2::invocation_args args)
+        std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, codegen_invocation_args args)
         {
             std::string funcname = to_string(func);
 
@@ -1213,8 +1213,8 @@ namespace quxlang
                         auto this_slot_id = args.named.at("THIS");
 
                         vmir2::to_bool tb{};
-                        tb.from = this_slot_id;
-                        tb.to = args.named.at("RETURN");
+                        tb.from = get_local_index(this_slot_id);
+                        tb.to = get_local_index(args.named.at("RETURN"));
 
                         return tb;
                     }
@@ -1228,8 +1228,8 @@ namespace quxlang
                     auto this_slot_id = args.named.at("THIS");
 
                     vmir2::increment inc{};
-                    inc.value = this_slot_id;
-                    inc.result = args.named.at("RETURN");
+                    inc.value = get_local_index(this_slot_id);
+                    inc.result = get_local_index(args.named.at("RETURN"));
                     return inc;
                 }
             }
@@ -1240,8 +1240,8 @@ namespace quxlang
                     auto this_slot_id = args.named.at("THIS");
 
                     vmir2::preincrement preinc{};
-                    preinc.target = this_slot_id;
-                    preinc.target2 = args.named.at("RETURN");
+                    preinc.target = get_local_index(this_slot_id);
+                    preinc.target2 = get_local_index(args.named.at("RETURN"));
                     return preinc;
                 }
             }
@@ -1253,8 +1253,8 @@ namespace quxlang
                     auto this_slot_id = args.named.at("THIS");
 
                     vmir2::decrement dec{};
-                    dec.value = this_slot_id;
-                    dec.result = args.named.at("RETURN");
+                    dec.value = get_local_index(this_slot_id);
+                    dec.result = get_local_index(args.named.at("RETURN"));
                     return dec;
                 }
             }
@@ -1265,8 +1265,8 @@ namespace quxlang
                     auto this_slot_id = args.named.at("THIS");
 
                     vmir2::predecrement predec{};
-                    predec.target = this_slot_id;
-                    predec.target2 = args.named.at("RETURN");
+                    predec.target = get_local_index(this_slot_id);
+                    predec.target2 = get_local_index(args.named.at("RETURN"));
                     return predec;
                 }
             }
@@ -1282,9 +1282,9 @@ namespace quxlang
                         auto return_slot_id = args.named.at("RETURN");
 
                         vmir2::access_array aca{};
-                        aca.base_index = this_slot_id;
-                        aca.index_index = index_slot_id;
-                        aca.store_index = return_slot_id;
+                        aca.base_index = get_local_index(this_slot_id);
+                        aca.index_index = get_local_index(index_slot_id);
+                        aca.store_index = get_local_index(return_slot_id);
 
                         return aca;
                     }
@@ -1309,7 +1309,7 @@ namespace quxlang
 
                         vmir2::load_const_int result;
                         result.value = other_slot_value;
-                        result.target = args.named.at("THIS");
+                        result.target = get_local_index(args.named.at("THIS"));
 
                         return result;
                     }
@@ -1319,8 +1319,8 @@ namespace quxlang
                         auto this_slot_id = args.named.at("THIS");
 
                         vmir2::load_from_ref lfr{};
-                        lfr.from_reference = other_slot_id;
-                        lfr.to_value = this_slot_id;
+                        lfr.from_reference = get_local_index(other_slot_id);
+                        lfr.to_value = get_local_index(this_slot_id);
 
                         return lfr;
                     }
@@ -1328,7 +1328,7 @@ namespace quxlang
                 else if (args.size() == 1 && args.named.contains("THIS"))
                 {
                     vmir2::load_const_zero result{};
-                    result.target = args.named.at("THIS");
+                    result.target = get_local_index(args.named.at("THIS"));
                     return result;
                 }
             }
@@ -1348,8 +1348,8 @@ namespace quxlang
                             auto this_slot_id = args.named.at("THIS");
 
                             vmir2::store_to_ref mov{};
-                            mov.from_value = other_slot_id;
-                            mov.to_reference = this_slot_id;
+                            mov.from_value = get_local_index(other_slot_id);
+                            mov.to_reference = get_local_index(this_slot_id);
 
                             return mov;
                         }
@@ -1366,8 +1366,8 @@ namespace quxlang
                         auto this_slot_id = args.named.at("THIS");
 
                         vmir2::dereference_pointer deref{};
-                        deref.from_pointer = this_slot_id;
-                        deref.to_reference = args.named.at("RETURN");
+                        deref.from_pointer = get_local_index(this_slot_id);
+                        deref.to_reference = get_local_index(args.named.at("RETURN"));
 
                         return deref;
                     }
@@ -1457,7 +1457,7 @@ namespace quxlang
             return std::nullopt;
         }
 
-        auto co_gen_invoke(block_index& bidx, instanciation_reference what, vmir2::invocation_args args) -> typename CoroutineProvider::template co_type< void >
+        auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< void >
         {
             auto is_builtin = co_await prv.function_builtin(what.temploid);
             if (is_builtin)
@@ -1668,7 +1668,7 @@ namespace quxlang
             co_return co_await co_gen_call_functum(call_brackets_operator, invoke_brackets_args);
         }
 
-        auto get_class_member(storage_index val, std::string func)
+        auto get_class_member(value_index val, std::string func)
         {
             auto val_type = this->current_type(val);
             auto val_class = remove_ref(val_type);
@@ -1699,7 +1699,7 @@ namespace quxlang
             co_return co_await co_generate_dot_access(bidx, parent, what.field_name);
         }
 
-        auto co_generate_dot_access(block_index& bidx, storage_index base, std::string field_name) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto base_type = this->current_type(base);
             std::string base_type_str = quxlang::to_string(base_type);
@@ -1717,14 +1717,15 @@ namespace quxlang
                 if (field.name == field_name)
                 {
                     vmir2::access_field access;
-                    access.base_index = base;
+                    access.base_index = get_local_index(base);
                     access.field_name = field.name;
                     type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
-                    access.store_index = create_local_value(result_ref_type);
+                    auto result_idx = create_local_value(result_ref_type);
+                    access.store_index = get_local_index(result_idx);
                     std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
                     this->emit(bidx, access);
-                    co_return access.store_index;
+                    co_return result_idx;
                 }
             }
 
