@@ -1,3 +1,5 @@
+#include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
+
 #include <quxlang/manipulators/vmmanip.hpp>
 #include <quxlang/vmir2/assembly.hpp>
 
@@ -80,7 +82,7 @@ namespace quxlang::vmir2
                 else if (m_what.type_is< vmir2::functanoid_routine3 >())
                 {
                     auto const& what = m_what.get_as< vmir2::functanoid_routine3 >();
-                    state_engine2(this->state, what.local_types, {}).apply(i);
+                    codegen_state_engine(this->state, what.local_types, {}).apply(i);
                 }
                 else
                 {
