@@ -637,26 +637,26 @@ namespace quxlang
 
 
 
-        auto create_reference_internal(block_index& bidx, vmir2::local_index index, type_symbol const& new_type)
+        auto create_reference_internal(block_index& bidx, value_index index, type_symbol const& new_type)
         {
             // This function is used to handle the case where we have an index and need to force it into a
             // reference type.
             // This is mainly used in three places, implied ctor "THIS" argument, dtor, and when a symbol
             // is encountered during an expression.
-            auto ty = this->current_type(index);
+            auto ty = this->current_type(bidx, index);
 
-            vmir2::local_index temp = create_local_value(bidx, new_type);
+            value_index temp = create_local_value( new_type);
 
             vmir2::make_reference ref;
-            ref.value_index = index;
-            ref.reference_index = temp;
+            ref.value_index = get_local_index(index);
+            ref.reference_index = get_local_index(temp);
 
             this->emit(bidx, ref);
 
             return temp;
         }
 
-        auto copy_refernece_internal(vmir2::local_index index)
+        auto copy_refernece_internal(block_index bidx, value_index index)
         {
             // This function is used to handle the case where we have an index and need to force it into a
             // reference type.
@@ -664,13 +664,13 @@ namespace quxlang
             // is encountered during an expression.
             auto ty = this->current_type(index);
 
-            vmir2::local_index temp = create_local_value(ty);
+            auto temp = create_local_value(ty);
 
             vmir2::copy_reference ref;
-            ref.from_index = index;
-            ref.to_index = temp;
+            ref.from_index = get_local_index(index);
+            ref.to_index = get_local_index(temp);
 
-            this->emit(ref);
+            this->emit(bidx, ref);
             return temp;
         }
 
@@ -1091,7 +1091,7 @@ namespace quxlang
                 else
                 {
                     auto temp_index = create_reference_internal(bidx, vidx, make_tref(value_type));
-                    co_return co_await gen_reference_conversion(bidx, temp_index, target_type);
+                    co_return co_await co_gen_reference_conversion(bidx, temp_index, target_type);
                 }
             }
             else
@@ -1117,7 +1117,7 @@ namespace quxlang
             //std::string args_str = to_string(args);
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args =get_invocation_args( args);
+            ivk.args = get_invocation_args(args);
 
             this->emit(bidx, ivk);
 
@@ -1427,7 +1427,7 @@ namespace quxlang
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
                 {
                     vmir2::pointer_arith par;
-                    par.from = args.named.at("THIS");
+                    par.from = get_local_index(args.named.at("THIS"));
                     if (member->name == "OPERATOR-")
                     {
                         par.multiplier = -1;
@@ -1437,19 +1437,17 @@ namespace quxlang
                         assert(member->name == "OPERATOR+");
                         par.multiplier = 1;
                     }
-                    par.offset = args.named.at("OTHER");
-
-                    par.result = args.named.at("RETURN");
-
+                    par.offset = get_local_index(args.named.at("OTHER"));
+                    par.result = get_local_index(args.named.at("RETURN"));
                     return par;
                 }
 
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< pointer_type >() && call.size() == 2)
                 {
                     vmir2::pointer_diff pdf;
-                    pdf.from = args.named.at("THIS");
-                    pdf.to = args.named.at("OTHER");
-                    pdf.result = args.named.at("RETURN");
+                    pdf.from = get_local_index(args.named.at("THIS"));
+                    pdf.to = get_local_index(args.named.at("OTHER"));
+                    pdf.result = get_local_index(args.named.at("RETURN"));
                     return pdf;
                 }
             }
@@ -1477,7 +1475,7 @@ namespace quxlang
 
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = args;
+            ivk.args = get_invocation_args(args);
 
             this->emit(bidx, ivk);
             co_return;
