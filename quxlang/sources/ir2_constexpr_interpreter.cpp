@@ -1598,6 +1598,33 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid(quxlang::type_sym
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func)
 {
+    // Track missing dtors
+    for (auto const& dtor : func.non_trivial_dtors)
+    {
+        auto dtor_func = dtor.second;
+        if (!this->implementation->functanoids3.contains(dtor_func))
+        {
+            this->implementation->missing_functanoids_val.insert(dtor_func);
+        }
+    }
+    // Track missing invoked functions
+    for (auto const& block : func.blocks)
+    {
+        for (auto const& instr : block.instructions)
+        {
+            if (typeis< vmir2::invoke >(instr))
+            {
+                auto const& inv = instr.get_as< vmir2::invoke >();
+                auto called_func = inv.what;
+                if (!this->implementation->functanoids3.contains(called_func))
+                {
+                    this->implementation->missing_functanoids_val.insert(called_func);
+                }
+            }
+        }
+    }
+    this->implementation->functanoids3[addr] = std::move(func);
+    this->implementation->missing_functanoids_val.erase(addr);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::exec(type_symbol func)
@@ -1607,6 +1634,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::exec(type_symbol func)
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::exec3(type_symbol func)
 {
+    this->implementation->exec_mode = 2;
     this->implementation->call_func(func, {});
     this->implementation->exec3();
 }

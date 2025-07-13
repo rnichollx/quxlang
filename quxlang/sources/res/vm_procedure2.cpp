@@ -109,6 +109,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
     throw compiler_bug("not implemented or bug");
 }
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure3)
+{
+    std::string input_name = quxlang::to_string(input);
+    co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+
+    co_return co_await gen.co_generate_builtin_ctor(input);
+}
+
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_dtor_vm_procedure2)
 {
     vm_procedure2_generator gen(compiler_binder(c), input);

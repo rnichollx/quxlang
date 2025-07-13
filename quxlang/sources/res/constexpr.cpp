@@ -107,7 +107,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
         }
     }
 
-    interp.exec(void_type{});
+    interp.exec3(void_type{});
 
     auto val = interp.get_cr_value();
     val.type = type_symbol( bool_type{});
