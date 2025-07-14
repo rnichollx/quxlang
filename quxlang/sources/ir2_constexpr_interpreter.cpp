@@ -232,6 +232,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::pointer_diff const& pdf);
 
     std::shared_ptr< local > create_local_value(vmir2::local_index local_idx, bool set_alive);
+    std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > create_local_value3(vmir2::local_index local_idx, bool set_alive);
 
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
 
@@ -264,7 +265,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     slot_state get_current_slot_state(std::size_t frame_index, local_index slot_index);
     quxlang::vmir2::state_engine::state_map get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
+    quxlang::vmir2::state_engine::state_map get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
     quxlang::vmir2::state_engine::state_map get_current_state_map(std::size_t frame_index);
+    quxlang::vmir2::state_engine::state_map get_current_state_map3(std::size_t frame_index);
     slot_state get_expected_slot_state_postexec(std::size_t frame_index, std::size_t slot_index, std::size_t instruction_index);
 
     void require_valid_input_precondition(local_index slot);
@@ -638,7 +641,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     while (!stack.empty())
     {
-        exec_instr();
+        if (exec_mode == 1)
+        {
+            exec_instr();
+        }
+        else if (exec_mode == 2)
+        {
+            exec_instr3();
+        }
+        else
+        {
+            throw compiler_bug("Unknown exec mode for exec");
+        }
     }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec3()
@@ -649,9 +663,33 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 quxlang::vmir2::state_engine::state_diff quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_state_diff()
 {
     auto const& current_instr_address = stack.back().address;
-    auto expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+    state_engine::state_map expected_state;
+    if (exec_mode == 1)
+    {
+        expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+    }
+    else if (exec_mode == 2)
+    {
+        expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+    }
+    else
+    {
+        throw compiler_bug("Unknown exec mode for get_state_diff");
+    }
 
-    auto current_statemap = get_current_state_map(current_frame_index());
+    state_engine::state_map current_statemap;
+    if (exec_mode == 1)
+    {
+        current_statemap = get_current_state_map(current_frame_index());
+    }
+    else if (exec_mode == 2)
+    {
+        current_statemap = get_current_state_map3(current_frame_index());
+    }
+    else
+    {
+        throw compiler_bug("Unknown exec mode for get_state_diff");
+    }
 
     state_engine::state_diff result;
 
@@ -732,7 +770,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto const& current_func = stack.back().type;
 
-    auto const& current_func_ir = functanoids3.at(current_func.get());
+    auto current_func_ir = functanoids3.at(current_func.get());
 
     auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
 
@@ -747,9 +785,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
 
-        auto expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+        auto expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
         auto start_frame_id = current_frame_index();
-        auto current_statemap = get_current_state_map(current_frame_index());
+        auto current_statemap = get_current_state_map3(current_frame_index());
 
         auto state_diff = this->get_state_diff();
 
@@ -1105,67 +1143,75 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& frame = get_current_frame();
 
-    auto& slot_info = frame.ir.read().local_types;
-    if (slot_info.at(csr.target).kind == slot_kind::literal)
+    if (exec_mode == 1)
     {
-        if (slot_info.at(csr.target).type.template type_is< numeric_literal_reference >())
+        auto& slot_info = frame.ir.read().local_types;
+        if (slot_info.at(csr.target).kind == slot_kind::literal)
         {
-            // Special case, we can set the result directly as if it were U64
-            auto literal_value = slot_info.at(csr.target).literal_value.value();
-            std::uint64_t result = 0;
-
-            while (literal_value.empty() == false)
+            if (slot_info.at(csr.target).type.template type_is< numeric_literal_reference >())
             {
-                if (std::numeric_limits< std::uint64_t >::max() / 10 < result)
+                // Special case, we can set the result directly as if it were U64
+                auto literal_value = slot_info.at(csr.target).literal_value.value();
+                std::uint64_t result = 0;
+
+                while (literal_value.empty() == false)
                 {
-                    throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                    if (std::numeric_limits< std::uint64_t >::max() / 10 < result)
+                    {
+                        throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                    }
+                    result *= 10;
+                    if (std::numeric_limits< std::uint64_t >::max() - (literal_value.front() - '0') < result)
+                    {
+                        throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                    }
+                    result += (literal_value.front() - '0');
+
+                    literal_value.erase(literal_value.begin(), literal_value.begin() + 1);
                 }
-                result *= 10;
-                if (std::numeric_limits< std::uint64_t >::max() - (literal_value.front() - '0') < result)
+
+                while (result > 0)
                 {
-                    throw std::logic_error("Overflow in numeric literal to U64 conversion");
+                    this->constexpr_result_v.push_back(static_cast< std::byte >(result & 0xFF));
+                    result >>= 8;
                 }
-                result += (literal_value.front() - '0');
 
-                literal_value.erase(literal_value.begin(), literal_value.begin() + 1);
+                while (this->constexpr_result_v.size() < 8)
+                {
+                    this->constexpr_result_v.push_back(std::byte{0});
+                }
+
+                return;
             }
 
-            while (result > 0)
+            if (slot_info.at(csr.target).type.template type_is< bool_type >())
             {
-                this->constexpr_result_v.push_back(static_cast< std::byte >(result & 0xFF));
-                result >>= 8;
-            }
+                // Special case, we can set the result directly as if it were a string
+                auto literal_value = slot_info.at(csr.target).literal_value.value();
+                if (literal_value == "TRUE")
+                {
+                    this->constexpr_result_v = {std::byte{1}};
+                }
+                else if (literal_value == "FALSE")
+                {
+                    this->constexpr_result_v = {std::byte{0}};
+                }
+                else
+                {
+                    throw std::logic_error("Invalid boolean literal in constexpr context");
+                }
 
-            while (this->constexpr_result_v.size() < 8)
-            {
-                this->constexpr_result_v.push_back(std::byte{0});
+                return;
             }
-
-            return;
         }
 
-        if (slot_info.at(csr.target).type.template type_is< bool_type >())
-        {
-            // Special case, we can set the result directly as if it were a string
-            auto literal_value = slot_info.at(csr.target).literal_value.value();
-            if (literal_value == "TRUE")
-            {
-                this->constexpr_result_v = {std::byte{1}};
-            }
-            else if (literal_value == "FALSE")
-            {
-                this->constexpr_result_v = {std::byte{0}};
-            }
-            else
-            {
-                throw std::logic_error("Invalid boolean literal in constexpr context");
-            }
-
-            return;
-        }
+        this->constexpr_result_v = slot_consume_data(csr.target);
+    }
+    else
+    {
+        this->constexpr_result_v = slot_consume_data(csr.target);
     }
 
-    this->constexpr_result_v = slot_consume_data(csr.target);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -1401,7 +1447,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     create_local_value(lci.target, true);
 
-    auto int_type = get_current_frame().ir->local_types.at(lci.target).type;
+    type_symbol int_type;
+    if (exec_mode == 1)
+    {
+        int_type = get_current_frame().ir->local_types.at(lci.target).type;
+    }
+    else if (exec_mode == 2)
+    {
+        int_type = get_current_frame().ir3->local_types.at(lci.target).type;
+    }
+    else
+    {
+        throw compiler_bug("Unknown exec mode for load_const_int");
+    }
 
     if (int_type.type_is< nvalue_slot >())
     {
@@ -1658,7 +1716,7 @@ std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::get_cr_u64()
 }
 quxlang::constexpr_result quxlang::vmir2::ir2_constexpr_interpreter::get_cr_value()
 {
-    return constexpr_result{.type = void_type{}, .value= this->implementation->constexpr_result_v};
+    return constexpr_result{.type = void_type{}, .value = this->implementation->constexpr_result_v};
 }
 
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()
@@ -1889,10 +1947,47 @@ quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interprete
 
     return state;
 }
+
+quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
+{
+    vmir2::functanoid_routine3 const& func_ir = stack.at(frame_index).ir3.read();
+    state_engine::state_map state = func_ir.blocks.at(block_index).entry_state;
+
+    auto const& instructions = func_ir.blocks.at(block_index).instructions;
+
+    for (std::size_t i = 0; i < instruction_index && i < instructions.size(); i++)
+    {
+        auto const& instr = instructions.at(i);
+        codegen_state_engine(state, func_ir.local_types, func_ir.parameters).apply(instr);
+    }
+
+    for (local_index i(0); i < func_ir.local_types.size(); i++)
+    {
+        state[i];
+    }
+
+    return state;
+}
+
 quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map(std::size_t frame_index)
 {
     auto const& current_frame = stack.at(frame_index);
     auto const& func_ir = current_frame.ir.read();
+
+    state_engine::state_map result;
+
+    for (local_index i(0); i < func_ir.local_types.size(); i++)
+    {
+        result[i] = get_current_slot_state(frame_index, i);
+    }
+
+    return result;
+}
+
+quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map3(std::size_t frame_index)
+{
+    auto const& current_frame = stack.at(frame_index);
+    auto const& func_ir = current_frame.ir3.read();
 
     state_engine::state_map result;
 
@@ -2074,9 +2169,41 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value(vmir2::local_index local_idx, bool set_alive)
 {
+    if (exec_mode == 2)
+    {
+        return create_local_value3(local_idx, set_alive);
+    }
+
     auto& frame = get_current_frame();
 
     auto result_type = frame.ir->local_types.at(local_idx).type;
+
+    if (frame.local_values[local_idx] == nullptr)
+    {
+        frame.local_values[local_idx] = std::make_shared< local >();
+        frame.local_values[local_idx]->object_id = next_object_id++;
+    }
+    auto& r_data = frame.local_values[local_idx]->data;
+    r_data.resize(get_type_size(result_type));
+
+    // Initialize the memory to zero just to have a defined state
+    std::fill(r_data.begin(), r_data.end(), std::byte(0));
+
+    frame.local_values[local_idx]->storage_initiated = true;
+
+    if (set_alive)
+    {
+        frame.local_values[local_idx]->alive = true;
+    }
+
+    return frame.local_values[local_idx];
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value3(vmir2::local_index local_idx, bool set_alive)
+{
+    auto& frame = get_current_frame();
+
+    auto result_type = frame.ir3->local_types.at(local_idx).type;
 
     if (frame.local_values[local_idx] == nullptr)
     {
