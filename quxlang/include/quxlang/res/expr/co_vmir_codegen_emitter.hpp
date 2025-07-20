@@ -1524,7 +1524,11 @@ namespace quxlang
             std::string context_str = quxlang::to_string(ctx);
             type_symbol var_type = (co_await prv.lookup({.context = ctx, .type = st.type})).value();
 
-            auto idx = this->generate_variable_local(current_block, st.name, var_type);
+            block_index new_expr_block = this->generate_subblock(current_block, "var_new");
+            block_index after_block = this->generate_subblock(current_block, "var_after");
+            block_index initial_block = current_block;
+
+            auto idx = this->generate_variable_local(new_expr_block, st.name, var_type);
 
             std::string var_type_name = quxlang::to_string(var_type);
 
@@ -1533,20 +1537,19 @@ namespace quxlang
             args.named["THIS"] = idx;
 
             // Generate new blocks for after an intialization steps.
-            block_index new_block = this->generate_subblock(current_block, "var_new");
-            block_index after_block = this->generate_subblock(current_block, "var_after");
-            this->generate_jump(current_block, new_block);
-            current_block = new_block;
+
+            this->generate_jump(current_block, new_expr_block);
+            current_block = new_expr_block;
 
             // TODO: Function var statement needs named constructor support
             for (auto const& init : st.initializers)
             {
-                auto init_idx = co_await co_generate_expr(current_block, init);
+                auto init_idx = co_await co_generate_expr(new_expr_block, init);
                 args.positional.push_back(init_idx);
             }
 
             auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
-            co_await this->co_gen_call_functum(current_block, ctor, args);
+            co_await this->co_gen_call_functum(new_expr_block, ctor, args);
 
             auto class_default_dtor = co_await prv.class_default_dtor(var_type);
             if (class_default_dtor)
@@ -1560,11 +1563,12 @@ namespace quxlang
                 // co_await emitter.gen_defer_dtor(idx, dtor.value(), codegen_invocation_args{.named = {{"THIS", idx}}});
             }
 
-            vmir2::slot_state new_state = state.blocks.at(current_block).current_state[get_local_index(idx)];
+            vmir2::slot_state new_state = state.blocks.at(new_expr_block).current_state[get_local_index(idx)];
             assert(new_state.valid());
 
-            this->generate_jump(current_block, after_block);
-            this->generate_survivor_local(current_block, after_block, get_local_index(idx));
+            this->generate_jump(new_expr_block, after_block);
+            this->generate_survivor_local(new_expr_block, after_block, get_local_index(idx));
+            this->generate_survivor_lookup(new_expr_block, after_block, st.name);
             current_block = after_block;
 
             // the after_block is cloned from the parent block, so the new variable isn't alive in that block
@@ -1801,6 +1805,8 @@ namespace quxlang
             codegen_block& current_block_ref = this->state.blocks.at(current_block);
 
             new_block.entry_state = current_block_ref.current_state;
+            new_block.current_state = new_block.entry_state;
+            new_block.lookup_values = current_block_ref.lookup_values;
 
             return block_index(this->state.blocks.size() - 1);
         }
