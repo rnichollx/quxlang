@@ -3,7 +3,7 @@
 #ifndef RPNX_SERIALIZER_HPP
 #define RPNX_SERIALIZER_HPP
 
-#include <boost/core/demangle.hpp>
+#include <rpnx/demangle.hpp>
 #include <concepts>
 #include <optional>
 #include <vector>
@@ -935,7 +935,7 @@ namespace rpnx
       public:
         static auto constexpr serialize_iter(T const& value, It output) -> It
         {
-            std::string typename_str = boost::core::demangle(typeid(T).name());
+            std::string typename_str = rpnx::demangle(typeid(T).name());
 
             for (auto c : typename_str)
             {
@@ -1259,7 +1259,7 @@ namespace rpnx
             std::string type_str = "variant_value_type";
             output = rpnx::json_serialize_iter(type_str, output);
             *output++ = std::byte(':');
-            std::string type_name = boost::core::demangle(value.type().name());
+            std::string type_name = rpnx::demangle(value.type().name());
             // meta_info<rpnx::basic_variant<A, Ts...>>::type_name();
             output = rpnx::json_serialize_iter(type_name, output);
 
@@ -1294,7 +1294,7 @@ namespace rpnx
         static auto constexpr serialize_iter(rpnx::basic_variant< A, Ts... > const& value, It output) -> It
         {
 
-            std::string type_name = boost::core::demangle(typeid(rpnx::basic_variant< A, Ts... >).name());
+            std::string type_name = rpnx::demangle(typeid(rpnx::basic_variant< A, Ts... >).name());
             // meta_info<rpnx::basic_variant<A, Ts...>>::type_name();
             // output = rpnx::cxx_serialize_iter(type_name, output);
             *output++ = std::byte('{');
@@ -1326,7 +1326,7 @@ namespace rpnx
       public:
         static auto constexpr serialize_iter(E const& value, It output) -> It
         {
-            std::string type_name = boost::core::demangle(typeid(E).name());
+            std::string type_name = rpnx::demangle(typeid(E).name());
             auto name = enum_traits< E >::to_string(value);
             type_name += "::";
             type_name += name;

@@ -1017,7 +1017,9 @@ namespace rpnx
         }
     };
 
-} // namespace rpnx
+}// namespace rpnx
+
+#include <rpnx/demangle.hpp>
 
 #endif // QUXLANG_VARIANT_HPP
 

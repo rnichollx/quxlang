@@ -246,7 +246,7 @@ namespace rpnx
 
         virtual question_output_type() const
         {
-            return boost::core::demangle(typeid(T).name());
+            return rpnx::demangle(typeid(T).name());
         }
 
         virtual std::string output_string() override

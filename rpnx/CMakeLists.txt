@@ -13,5 +13,6 @@ add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp include/rpnx/
         include/rpnx/compat/variant_serializer.hpp
         include/rpnx/metadata.hpp
         include/rpnx/inttypes.h
-        include/rpnx/uint64_base.hpp)
+        include/rpnx/uint64_base.hpp
+        include/rpnx/demangle.hpp)
 target_include_directories(graphlib INTERFACE include/)

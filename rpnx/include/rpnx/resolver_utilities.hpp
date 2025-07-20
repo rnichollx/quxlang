@@ -15,7 +15,7 @@
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
 #include "serializer.hpp"
-#include <boost/core/demangle.hpp>
+#include <rpnx/demangle.hpp>
 #include <concepts>
 #include <memory>
 #include <rpnx/result.hpp>
@@ -159,7 +159,7 @@ namespace rpnx
         template < typename T2 >
         static std::string default_stringify(T2&&, ...)
         {
-            return std::string("?(") + boost::core::demangle(typeid(T).name()) + ")";
+            return std::string("?(") + rpnx::demangle(typeid(T).name()) + ")";
         }
 
         static std::string stringify(T const& t)
@@ -979,7 +979,7 @@ namespace rpnx
 
         virtual std::string question() const override
         {
-            std::string typenam = boost::core::demangle(typeid(*this).name());
+            std::string typenam = rpnx::demangle(typeid(*this).name());
             std::vector< std::byte > data;
 
             auto input_str_opt = input_string();

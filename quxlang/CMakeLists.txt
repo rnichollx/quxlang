@@ -3,7 +3,6 @@ if (CMAKE_IS_TOP_LEVEL_PROJECT)
 endif ()
 
 find_package(GTest REQUIRED)
-find_package(Boost REQUIRED)
 
 #find_package(lld REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -306,7 +305,7 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         ../rpnx/include/rpnx/value.hpp include/quxlang/ex/unexpected_eof.hpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)
-target_link_libraries(quxlang PUBLIC graphlib Boost::boost Boost::headers)
+target_link_libraries(quxlang PUBLIC graphlib)
 
 if (QUXLANG_MAIN_DEV)
   add_executable(quxlang_main sources/main.cpp)

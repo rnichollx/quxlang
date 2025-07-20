@@ -4,7 +4,6 @@
 #define QUXLANG_MANIPULATORS_MANGLER_HEADER_GUARD
 #include <string>
 
-#include <boost/type_index.hpp>
 
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include "quxlang/data/canonical_type_reference.hpp"
