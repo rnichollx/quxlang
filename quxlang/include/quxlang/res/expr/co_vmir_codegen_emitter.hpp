@@ -1461,7 +1461,7 @@ namespace quxlang
             {
                 throw std::logic_error("Cannot branch from a block that already has a terminator");
             }
-            this->state.blocks.at(from).terminator = vmir2::branch{.condition = local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)};
+            this->state.blocks.at(from).terminator = vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)};
         }
 
         auto block(block_index blk) -> codegen_block&
