@@ -165,6 +165,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr();
     void exec_instr3();
 
+    type_symbol get_local_type(local_index slot);
+    type_symbol get_local_type(std::size_t frame, local_index slot);
+
+
     stack_frame& get_current_frame()
     {
         return stack.back();
@@ -185,6 +189,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     pointer_impl get_pointer_to(std::size_t frame, local_index slot);
 
     void transition(vmir2::block_index block);
+    void transition3(quxlang::vmir2::block_index block);
 
     void exec_instr_val(vmir2::increment const& inc);
 
@@ -500,26 +505,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto const& current_func_ir = current_func_ir_v.get_as< cow< vmir2::functanoid_routine3 > >();
 
-        auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index)
+        auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant<std::size_t, std::string> param_index)
         {
-            type_symbol const& arg_type = current_func_ir->local_types[new_arg_index].type;
-
-            std::string arg_type_str = quxlang::to_string(arg_type);
-
-            if (!typeis< nvalue_slot >(arg_type))
+            type_symbol param_type;
+            if (param_index.template type_is<std::size_t>())
             {
-                if (!previous_frame.local_values[previous_arg_index]->alive)
+                param_type = current_func_ir->parameters.positional.at(param_index.get_as<std::size_t>()).type;
+            }
+            else
+            {
+                param_type = current_func_ir->parameters.named.at(param_index.get_as<std::string>()).type;
+            }
+
+            std::string param_type_str = quxlang::to_string(param_type);
+
+            if (!typeis< nvalue_slot >(param_type))
+            {
+                if (!(previous_frame.local_values[previous_arg_index] && previous_frame.local_values[previous_arg_index]->alive))
                 {
                     throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
                 }
             }
 
-            if (typeis< nvalue_slot >(arg_type) || typeis< dvalue_slot >(arg_type))
+            if (typeis< nvalue_slot >(param_type) || typeis< dvalue_slot >(param_type))
             {
                 // Slots create a shared reference to the same object in a previous frame, unlike all other
                 // calls which consume their arguments.
 
-                if (typeis< nvalue_slot >(arg_type))
+                if (typeis< nvalue_slot >(param_type))
                 {
                     // The existing storage might not exist, allocate it now if so.
 
@@ -537,7 +550,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
                 current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
 
-                if (typeis< dvalue_slot >(arg_type))
+                if (typeis< dvalue_slot >(param_type))
                 {
                     previous_frame.local_values[previous_arg_index] = nullptr;
                 }
@@ -545,14 +558,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 // The caller should have already initialized the local, not here.
                 assert(current_frame.slot_has_storage(new_arg_index));
 
-                if (typeis< nvalue_slot >(arg_type))
+                if (typeis< nvalue_slot >(param_type))
                 {
                     // NEW& values should NOT be alive when we enter the function,
                     // and are alive when we return except via exception
                     assert(!current_frame.local_values[new_arg_index]->alive);
                 }
 
-                if (typeis< dvalue_slot >(arg_type))
+                if (typeis< dvalue_slot >(param_type))
                 {
                     // DESTROY& values should be alive when we enter the function
                     // and are not alive when we return OR throw an exception
@@ -562,7 +575,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             else
             {
-                assert(!typeis< nvalue_slot >(arg_type) && !typeis< dvalue_slot >(arg_type));
+                assert(!typeis< nvalue_slot >(param_type) && !typeis< dvalue_slot >(param_type));
                 // In all other cases, the argument is consumed by the call,
 
                 current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
@@ -576,7 +589,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto positional_arg_id = 0;
         // Look through all slots in the new function for arguments
-        for (auto param_index(0); param_index < current_func_ir->parameters.positional.size(); param_index++)
+        for (std::size_t param_index(0); param_index < current_func_ir->parameters.positional.size(); param_index++)
         {
             auto const& positional_param = current_func_ir->parameters.positional[param_index];
             local_index new_arg_index = positional_param.local_index;
@@ -591,7 +604,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             positional_arg_id++;
 
-            handle_arg(previous_arg_index, new_arg_index);
+            handle_arg(previous_arg_index, new_arg_index, param_index);
         }
 
         for (auto const& [name, named_param] : current_func_ir->parameters.named)
@@ -604,7 +617,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             auto previous_arg_index = args.named.at(name);
             auto new_arg_index = named_param.local_index;
 
-            handle_arg(previous_arg_index, new_arg_index);
+            handle_arg(previous_arg_index, new_arg_index, name);
         }
 
         // We should have gone through all args at this point.
@@ -825,6 +838,36 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         *terminator_instruction);
     return;
 }
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(local_index slot)
+{
+    if (exec_mode == 1)
+    {
+        return stack.back().ir->local_types.at(slot).type;
+    }
+    else if (exec_mode == 2)
+    {
+        return stack.back().ir3->local_types.at(slot).type;
+    }
+    else
+    {
+        throw compiler_bug("Unknown exec mode for get_local_type");
+    }
+}
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(std::size_t frame, local_index slot)
+{
+    if (exec_mode == 1)
+    {
+        return stack[frame].ir->local_types.at(slot).type;
+    }
+    else if (exec_mode == 2)
+    {
+        return stack[frame].ir3->local_types.at(slot).type;
+    }
+    else
+    {
+        throw compiler_bug("Unknown exec mode for get_local_type");
+    }
+}
 
 std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_type_size(const type_symbol& type)
 {
@@ -862,7 +905,7 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
 {
     // This can either be a value or a reference,
 
-    bool is_ref = quxlang::is_ref(stack[frame].ir->local_types.at(slot).type);
+    bool is_ref = quxlang::is_ref(get_local_type(frame, slot));
 
     if (!is_ref)
     {
@@ -889,7 +932,7 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_zero const& lcz)
 {
-    auto const& type = get_current_frame().ir->local_types.at(lcz.target).type;
+    auto const& type = get_local_type(lcz.target);
 
     auto sz = get_type_size(type);
 
@@ -1068,7 +1111,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto ptr = get_pointer_to(current_frame_index(), mrf.value_index);
 
-    auto ref_type = get_current_frame().ir->local_types.at(mrf.reference_index).type;
+    auto ref_type = get_local_type(mrf.reference_index);
     if (!is_ref(ref_type))
     {
         throw compiler_bug("Attempt to make reference by non-reference type");
@@ -2398,10 +2441,58 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {
+    if (exec_mode == 2)
+    {
+        transition3(block);
+        return;
+    }
     std::vector< vmir2::local_index > values_to_destroy;
 
     auto& current_frame = get_current_frame();
     auto const& current_func_ir = current_frame.ir;
+
+    auto const& target_block = current_func_ir->blocks.at(block);
+
+    std::set< vmir2::local_index > current_values;
+    std::set< vmir2::local_index > entry_values;
+
+    for (auto& [idx, local] : current_frame.local_values)
+    {
+        if (local != nullptr)
+        {
+            if (local->alive && !target_block.entry_state.contains(idx))
+            {
+                auto slot_type = current_func_ir->local_types.at(idx).type;
+                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
+                if (local_has_nontrivial_dtor)
+                {
+                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
+                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    return;
+                }
+                else
+                {
+                    local = nullptr;
+                }
+            }
+        }
+
+        if (target_block.entry_state.contains(idx) && target_block.entry_state.at(idx).alive && (local == nullptr || local->alive == false))
+        {
+            throw compiler_bug("Error in [transition]: slot not alive");
+        }
+    }
+
+    current_frame.address.block = block;
+    current_frame.address.instruction_index = 0;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition3(quxlang::vmir2::block_index block)
+{
+    std::vector< vmir2::local_index > values_to_destroy;
+
+    auto& current_frame = get_current_frame();
+    auto const& current_func_ir = current_frame.ir3;
 
     auto const& target_block = current_func_ir->blocks.at(block);
 

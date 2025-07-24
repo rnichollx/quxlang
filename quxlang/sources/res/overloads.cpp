@@ -131,13 +131,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_declaration)
 {
     // TODO: Rewrite this to work.
 
-    type_symbol const& functum = input.templexoid;
+    type_symbol functum = input.templexoid;
+    std::string name = to_string(functum);
 
     auto const& decl_map = co_await QUX_CO_DEP(functum_map_user_formal_ensigs, (functum));
 
+
     if (!decl_map.contains(input.which))
     {
-        throw std::logic_error("Function not found");
+        co_return std::nullopt;
     }
 
     std::size_t index = decl_map.at(input.which);

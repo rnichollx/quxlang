@@ -628,28 +628,8 @@ namespace rpnx
             return *this;
         }
 
-        basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > const& other)
-        {
-            //assert(this != nullptr);
-            if (this == &other)
-            {
-                return *this;
-            }
-            assert(valid());
 
-            auto data_copy = other.m_vinf->m_general_info.m_copy(m_alloc, other.m_data);
-
-            reset();
-
-            m_alloc = other.m_alloc;
-            m_vinf = other.m_vinf;
-            m_data = data_copy;
-
-            assert(valid());
-            return *this;
-        }
-
-        basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... >&& other)
+        basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > other)
         {
             assert(valid());
 
@@ -965,7 +945,7 @@ namespace rpnx
 
       private:
         template < typename T, std::size_t N >
-        static constexpr std::size_t cvref_removed_identical_index()
+        static consteval std::size_t cvref_removed_identical_index()
         {
             if constexpr (N >= sizeof...(Ts))
             {

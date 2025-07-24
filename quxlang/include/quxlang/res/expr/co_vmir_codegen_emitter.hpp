@@ -1651,7 +1651,7 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
-            co_await co_generate_ctor_delegates(current_block, func);
+            co_await co_generate_ctor_delegates(current_block, func, {});
             co_await co_generate_builtin_return(current_block);
             co_return get_result();
         }
@@ -1857,11 +1857,11 @@ namespace quxlang
             return this->state.blocks.at(block).terminator.has_value();
         }
 
-        auto co_generate_arg_info(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        auto co_generate_arg_info(instanciation_reference func) -> typename CoroutineProvider::template co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
-            instanciation_reference const& inst = func;
+            instanciation_reference inst = func;
 
             // This function should be called before generating any blocks.
             assert(this->state.blocks.empty());
@@ -1876,7 +1876,9 @@ namespace quxlang
                 type_symbol return_parameter_type = create_nslot(return_type);
                 type_symbol const& return_local_type = return_type;
                 this->state.params.named["RETURN"].type = return_parameter_type;
-                this->state.params.named["RETURN"].local_index = get_local_index(this->create_local_value(return_local_type));
+                auto return_valueidx = this->create_local_value(return_local_type);
+                this->state.params.named["RETURN"].local_index = get_local_index(return_valueidx);
+                this->state.top_level_lookups["RETURN"] = return_valueidx;
             }
 
             auto arg_names = co_await prv.function_param_names(inst.temploid);
@@ -1900,7 +1902,16 @@ namespace quxlang
                 {
                     arg_name = arg_names.named.at(api_name);
                 }
-                auto arg_idx = this->create_local_value(param_type);
+                auto local_type = param_type;
+                if (typeis< nvalue_slot >(local_type))
+                {
+                    local_type = type_symbol(as< nvalue_slot >(local_type).target);
+                }
+                else if (typeis< dvalue_slot >(local_type))
+                {
+                    local_type = as< dvalue_slot >(local_type).target;
+                }
+                auto arg_idx = this->create_local_value(local_type);
                 this->state.params.named[api_name] = {
                     .type = param_type,
                     .local_index = get_local_index(arg_idx),
