@@ -6,6 +6,7 @@
 
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
 
+#include "quxlang/backends/asm/arm_asm_converter.hpp"
 #include "quxlang/bytemath.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/exception.hpp"
@@ -278,7 +279,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void require_valid_input_precondition(local_index slot);
     void require_valid_output_precondition(local_index slot);
 
-    type_symbol frame_slot_data_type(std::size_t slot);
+    type_symbol frame_slot_data_type(vmir2::local_index slot);
 
     std::size_t type_size(type_symbol type);
 
@@ -2056,17 +2057,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     assert(!get_current_frame().local_values.contains(slot) || get_current_frame().local_values[slot] == nullptr || !get_current_frame().local_values[slot]->alive);
 }
-quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::frame_slot_data_type(std::size_t slot)
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::frame_slot_data_type(vmir2::local_index slot)
 {
-    auto& frame = get_current_frame();
-
-    auto const& ir = frame.ir.read();
-    if (ir.local_types.at(slot).kind != slot_kind::local)
-    {
-        throw invalid_instruction_error("Error in [frame_slot_data_type]: slot is not a local");
-    }
-
-    return ir.local_types.at(slot).type;
+    return get_local_type(slot);
 }
 quxlang::vmir2::local_index quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_index(std::size_t frame_index, std::shared_ptr< local > local_value)
 {
@@ -2162,7 +2155,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     for (auto& [name, index] : sdn.fields.named)
     {
-        auto const& field_type = frame.ir.get().local_types.at(index).type;
+        auto const& field_type = get_local_type(index);
         auto& field_slot = frame.local_values[index];
         if (field_slot != nullptr)
         {
@@ -2184,7 +2177,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto ptr = get_pointer_to(current_frame_index(), cpr.from_index);
 
-    auto ref_type = get_current_frame().ir->local_types.at(cpr.to_index).type;
+    auto ref_type = get_local_type(cpr.to_index);
     if (!is_ref(ref_type))
     {
         throw compiler_bug("Attempt to make reference by non-reference type");
@@ -2588,7 +2581,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto& ptr = value_to_increase->ref;
 
-    auto const& pointer_ref_type_v = get_current_frame().ir->local_types.at(input_slot).type;
+    auto const& pointer_ref_type_v = get_local_type(input_slot);
 
     if (!typeis< pointer_type >(pointer_ref_type_v) || !as< pointer_type >(pointer_ref_type_v).target.type_is< pointer_type >())
     {
@@ -2643,7 +2636,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto val = slot_consume_data(par.offset);
 
-    auto const& offset_type = get_current_frame().ir->local_types.at(par.offset).type;
+    auto const& offset_type = get_local_type(par.offset);
 
     if (!offset_type.type_is< int_type >())
     {
@@ -2675,7 +2668,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     assert(ok);
 
-    type_symbol const& pointer_type = get_current_frame().ir->local_types.at(par.result).type;
+    type_symbol const& pointer_type = get_local_type(par.result);
     pointer_impl new_ptr = pointer_arith(ptr, offset, pointer_type);
 
     store_as_pointer(par.result, new_ptr);
