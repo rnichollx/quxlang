@@ -842,7 +842,7 @@ TEST(expression_ir, func_gen)
 
     quxlang::instanciation_reference func_name_real = func_name.template get_as<quxlang::instanciation_reference>();
 
-    auto func = c.get_vm_procedure2(func_name_real);
+    auto func = c.get_vm_procedure3(func_name_real);
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 

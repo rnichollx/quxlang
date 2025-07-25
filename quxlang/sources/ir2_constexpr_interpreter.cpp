@@ -645,7 +645,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         for (auto const& func : functanoids3)
         {
-            // TODO: implement printing for functanoids3
+            quxlang::vmir2::assembler ir_printer(func.second.get());
+
+            std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
+
+            std::cout << ir_printer.to_string(func.second.get()) << std::endl;
         }
     }
     else

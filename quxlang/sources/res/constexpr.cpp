@@ -35,33 +35,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_u64)
 {
-    expr_ir2_input inp;
+    constexpr_input2 inp;
     inp.context = input_val.context;
     inp.expr = input_val.expr;
+    inp.type = bool_type{}; // We want a boolean result
 
-    auto ir2 = co_await QUX_CO_DEP(expr_ir2, (inp));
-
-    vmir2::ir2_constexpr_interpreter interp;
-
-    interp.add_functanoid(void_type{}, ir2);
-
-    while (!interp.missing_functanoids().empty())
-    {
-        auto missing_functanoids = interp.missing_functanoids();
-
-        for (type_symbol const& funcname : missing_functanoids)
-        {
-            if (!typeis< instanciation_reference >(funcname))
-            {
-                throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
-            }
-            vmir2::functanoid_routine2 const& ir2_other = co_await QUX_CO_DEP(vm_procedure2, (funcname.template get_as< instanciation_reference >()));
-
-            interp.add_functanoid(funcname, ir2_other);
-        }
-    }
-
-    interp.exec(void_type{});
+    auto eval = co_await QUX_CO_DEP(constexpr_eval, (inp));
 
     co_return interp.get_cr_u64();
 }

@@ -1079,6 +1079,32 @@ namespace quxlang
         return output;
     }
 
+
+    std::string to_string(vmir2::routine_parameters const& ref)
+    {
+        std::string output;
+        bool first = true;
+        output += "PARAMETERS(";
+        for (auto const& [name, arg] : ref.named)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += "@" + name + " " + to_string(arg.type);
+        }
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+                first = false;
+            else
+                output += ", ";
+            output += to_string(arg.type);
+        }
+        output += ")";
+        return output;
+    }
+
     type_symbol get_templexoid(initialization_reference const& ref)
     {
         auto callee = ref.initializee;

@@ -146,6 +146,8 @@ namespace quxlang
 
             this->generate_return(current_block);
 
+            co_await co_generate_dtor_references();
+
             co_return get_result();
         }
 
@@ -1653,6 +1655,7 @@ namespace quxlang
             block_index current_block = block_index(0);
             co_await co_generate_ctor_delegates(current_block, func, {});
             co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
             co_return get_result();
         }
 
@@ -1662,6 +1665,7 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             throw rpnx::unimplemented();
             co_await co_generate_dtors();
+            co_await co_generate_dtor_references();
             co_return get_result();
         }
 
@@ -1673,6 +1677,7 @@ namespace quxlang
         }
         auto get_result()
         {
+
             vmir2::functanoid_routine3 result;
             for (auto const& [type, dtor] : this->state.non_trivial_dtors)
             {

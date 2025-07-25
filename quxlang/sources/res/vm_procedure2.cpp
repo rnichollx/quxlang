@@ -12,7 +12,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure2)
 {
-
+    throw compiler_bug("removed");
 
     if (co_await QUX_CO_DEP(function_builtin, (input.temploid)))
     {
@@ -53,6 +53,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_vm_procedure3)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure2)
 {
+    throw compiler_bug("removed");
     std::string input_name = quxlang::to_string(input);
     vm_procedure2_generator gen(compiler_binder(c), input);
 
@@ -61,6 +62,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure2)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure2)
 {
+    throw compiler_bug("removed");
     auto ctor_match = quxlang::parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
 
 
@@ -119,9 +121,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure3)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_dtor_vm_procedure2)
 {
-    vm_procedure2_generator gen(compiler_binder(c), input);
-
-    co_return co_await gen.generate_builtin_dtor();
+    throw compiler_bug("removed");
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_dtor_vm_procedure3)

@@ -60,6 +60,50 @@ namespace quxlang::vmir2
 
         return output;
     }
+    std::string assembler::to_string(vmir2::functanoid_routine3 fnc)
+    {
+        std::string output;
+
+        static const std::string indent = "    ";
+        output += "[DTors]:\n";
+
+        for (auto const& [type, dtor] : fnc.non_trivial_dtors)
+        {
+            output += indent + quxlang::to_string(type) + " USES " + quxlang::to_string(dtor) + "\n";
+        }
+
+        output += "[Slots]:\n";
+
+        for (std::size_t i = 0; i < fnc.local_types.size(); i++)
+        {
+            output += indent + std::to_string(i) + ": " + this->to_string(fnc.local_types.at(i));
+            output += "\n";
+        }
+
+        output += "[Parameters]:\n";
+        output += indent + quxlang::to_string(fnc.parameters) + "\n";
+
+        output += "[Blocks]:\n";
+
+        for (block_index i = block_index(0); i < fnc.blocks.size(); i++)
+        {
+            std::string block_name;
+            if (fnc.block_names.contains(i))
+            {
+                block_name = "BLOCK" + std::to_string(i) + "[" + fnc.block_names.at(i) + "]";
+            }
+            else
+            {
+                block_name = "BLOCK" + std::to_string(i);
+            }
+
+            output += indent + block_name + "\n";
+            output += this->to_string(fnc.blocks.at(i));
+            output += "\n";
+        }
+
+        return output;
+    }
     std::string assembler::to_string(vmir2::executable_block const& inst)
     {
 
@@ -174,6 +218,11 @@ namespace quxlang::vmir2
                 return this->to_string_internal(x);
             },
             inst);
+    }
+
+    std::string assembler::to_string(vmir2::local_type lct)
+    {
+        return quxlang::to_string(lct.type);
     }
 
     std::string assembler::to_string(vmir2::vm_slot slt)

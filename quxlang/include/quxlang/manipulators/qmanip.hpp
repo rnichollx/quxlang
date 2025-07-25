@@ -13,11 +13,13 @@ namespace quxlang
     namespace vmir2
     {
         struct invocation_args;
+        struct routine_parameters;
     }
     std::string to_string(vmir2::invocation_args const& ref);
     std::string to_string(type_symbol const& ref);
 
     std::string to_string(invotype const& ref);
+    std::string to_string(vmir2::routine_parameters const& ref);
     std::string to_string(intertype const& ref);
     std::string to_string(argif const& ref);
     std::string to_string(expression const& expr);
