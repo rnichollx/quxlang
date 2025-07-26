@@ -25,7 +25,7 @@ namespace quxlang
         {
         }
 
-        QUX_BIND(vm_procedure2);
+        QUX_BIND(vm_procedure3);
         QUX_BIND(lookup);
         QUX_BIND(instanciation);
         QUX_BIND(functanoid_return_type);

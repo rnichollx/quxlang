@@ -1320,33 +1320,53 @@ namespace quxlang
             auto false_block = this->generate_subblock(bidx, "logic_and_false");
             auto true_block = this->generate_subblock(bidx, "logic_and_true");
             auto after_block = this->generate_subblock(bidx, "logic_and_after");
-
             auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
-
-
             auto rhs_block = this->generate_subblock(lhs_block, "logic_and_rhs");
             this->generate_branch(lhs, lhs_block, rhs_block, false_block);
             this->kill_entry_value(rhs_block, lhs);
-
-
             auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
-
             this->generate_branch(rhs, rhs_block, true_block, false_block);
-
             vmir2::load_const_bool set_false;
             set_false.value = false;
             set_false.target = get_local_index(result_bool);
             this->emit(false_block, set_false);
-
             vmir2::load_const_bool set_true;
             set_true.value = true;
             set_true.target = get_local_index(result_bool);
             this->emit(true_block, set_true);
-
             this->generate_jump(false_block, after_block);
             this->generate_jump(true_block, after_block);
             this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
-
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+        auto co_generate_logic_nand(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_nand_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_nand_false");
+            auto true_block = this->generate_subblock(bidx, "logic_nand_true");
+            auto after_block = this->generate_subblock(bidx, "logic_nand_after");
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_nand_rhs");
+            this->generate_branch(lhs, lhs_block, rhs_block, true_block);
+            this->kill_entry_value(rhs_block, lhs);
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+            this->generate_branch(rhs, rhs_block, false_block, true_block);
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
             bidx = after_block;
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             co_return result_bool;
@@ -1359,6 +1379,11 @@ namespace quxlang
                 if (input.operator_str == "&&")
                 {
                     co_return co_await co_generate_logic_and(bidx, input);
+                }
+
+                if (input.operator_str == "!&")
+                {
+                    co_return co_await co_generate_logic_nand(bidx, input);
                 }
             }
             auto lhs = co_await co_generate_expr(bidx, input.lhs);

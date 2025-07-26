@@ -34,7 +34,7 @@ MODULE main;
   }
 }
 
-::arch_int INCLUDE_IF(ARCH_X64 && OS_LINUX) FUNCTION(): I32
+::arch_int INCLUDE_IF(ARCH_X64 && OS_LINUX ) FUNCTION(): I32
 {
   RETURN 2;
 }
