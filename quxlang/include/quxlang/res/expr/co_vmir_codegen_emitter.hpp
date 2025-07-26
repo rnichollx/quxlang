@@ -582,10 +582,10 @@ namespace quxlang
         auto create_bool_value(block_index bidx, bool val) -> value_index
         {
             auto boolv = this->create_local_value(bool_type{});
-            vmir2::load_const_int lci;
-            lci.value = val ? "1" : "0";
-            lci.target = get_local_index(boolv);
-            emit(bidx, lci);
+            vmir2::load_const_bool lcb;
+            lcb.value = val;
+            lcb.target = get_local_index(boolv);
+            emit(bidx, lcb);
             return boolv;
         }
 
@@ -1333,14 +1333,14 @@ namespace quxlang
 
             this->generate_branch(rhs, rhs_block, true_block, false_block);
 
-            vmir2::load_const_int set_false;
-            set_false.value = "0";
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
             set_false.target = get_local_index(result_bool);
             this->emit(false_block, set_false);
 
-            vmir2::load_const_int set_true;
-            set_true.value = "1";
-            set_false.target = get_local_index(result_bool);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
             this->emit(true_block, set_true);
 
             this->generate_jump(false_block, after_block);

@@ -121,7 +121,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     struct stack_frame
     {
         cow< type_symbol > type;
-        cow< functanoid_routine2 > ir;
         cow< functanoid_routine3 > ir3;
         interp_addr address;
 
@@ -169,7 +168,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     type_symbol get_local_type(local_index slot);
     type_symbol get_local_type(std::size_t frame, local_index slot);
 
-
     stack_frame& get_current_frame()
     {
         return stack.back();
@@ -204,6 +202,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::preincrement const& inc);
     void exec_instr_val(vmir2::predecrement const& dec);
     void exec_instr_val(vmir2::load_const_zero const& lcz);
+    void exec_instr_val(vmir2::load_const_bool const& lcb);
     void exec_instr_val(vmir2::access_field const& acf);
     void exec_instr_val(vmir2::to_bool const& lcz);
     void exec_instr_val(vmir2::to_bool_not const& acf);
@@ -296,21 +295,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     stack.emplace_back();
     stack.back().type = functype;
-    if (exec_mode == 1)
-    {
 
-        stack.back().ir = functanoids.at(functype);
-        stack.back().address = {functype, functanoids.at(functype)->entry_block, 0};
-    }
-    else if (exec_mode == 2)
-    {
-        stack.back().ir3 = functanoids3.at(functype);
-        stack.back().address = {functype, block_index(0), 0};
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for call_func");
-    }
+    stack.back().ir3 = functanoids3.at(functype);
+    stack.back().address = {functype, block_index(0), 0};
 
     if (functype == void_type{})
     {
@@ -333,18 +320,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > > current_func_ir_v = [&]() -> rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > >
     {
-        if (exec_mode == 1)
-        {
-            return stack.back().ir;
-        }
-        else if (exec_mode == 2)
-        {
-            return stack.back().ir3;
-        }
-        else
-        {
-            throw compiler_bug("Unknown exec mode for call_func");
-        }
+        return stack.back().ir3;
     }();
 
     // Now there should be at minimum 2 frames, the caller frame and the callee frame.
@@ -355,18 +331,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > > previous_func_ir = [&]() -> rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > >
     {
-        if (exec_mode == 1)
-        {
-            return stack[stack.size() - 2].ir;
-        }
-        else if (exec_mode == 2)
-        {
-            return stack[stack.size() - 2].ir3;
-        }
-        else
-        {
-            throw compiler_bug("Unknown exec mode for call_func");
-        }
+        return stack[stack.size() - 2].ir3;
     }();
 
     std::size_t arg_count = 0;
@@ -506,16 +471,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto const& current_func_ir = current_func_ir_v.get_as< cow< vmir2::functanoid_routine3 > >();
 
-        auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant<std::size_t, std::string> param_index)
+        auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant< std::size_t, std::string > param_index)
         {
             type_symbol param_type;
-            if (param_index.template type_is<std::size_t>())
+            if (param_index.template type_is< std::size_t >())
             {
-                param_type = current_func_ir->parameters.positional.at(param_index.get_as<std::size_t>()).type;
+                param_type = current_func_ir->parameters.positional.at(param_index.get_as< std::size_t >()).type;
             }
             else
             {
-                param_type = current_func_ir->parameters.named.at(param_index.get_as<std::string>()).type;
+                param_type = current_func_ir->parameters.named.at(param_index.get_as< std::string >()).type;
             }
 
             std::string param_type_str = quxlang::to_string(param_type);
@@ -845,33 +810,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(local_index slot)
 {
-    if (exec_mode == 1)
-    {
-        return stack.back().ir->local_types.at(slot).type;
-    }
-    else if (exec_mode == 2)
-    {
-        return stack.back().ir3->local_types.at(slot).type;
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for get_local_type");
-    }
+    return stack.back().ir3->local_types.at(slot).type;
 }
 quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(std::size_t frame, local_index slot)
 {
-    if (exec_mode == 1)
-    {
-        return stack[frame].ir->local_types.at(slot).type;
-    }
-    else if (exec_mode == 2)
-    {
-        return stack[frame].ir3->local_types.at(slot).type;
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for get_local_type");
-    }
+    return stack[frame].ir3->local_types.at(slot).type;
 }
 
 std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_type_size(const type_symbol& type)
@@ -957,6 +900,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::cout << "lcz: " << local_ptr->object_id << std::endl;
 
     return;
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_bool const& lcb)
+{
+    auto const& type = get_local_type(lcb.target);
+
+    auto sz = get_type_size(type);
+
+    if (type != bool_type{})
+    {
+        throw compiler_bug("Cannot load bool into non-bool type");
+    }
+
+    if (get_current_frame().local_values[lcb.target] && get_current_frame().local_values[lcb.target]->alive)
+    {
+        throw compiler_bug("Local value already has pointer");
+    }
+
+    auto local_ptr = create_local_value(lcb.target, true);
+    init_storage(local_ptr, type);
+
+    if (lcb.value)
+    {
+        local_ptr->data = std::vector< std::byte >(sz, std::byte{1});
+    }
+    else
+    {
+        local_ptr->data = std::vector< std::byte >(sz, std::byte{0});
+    }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::access_field const& acf)
 {
@@ -1189,77 +1160,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result const& csr)
 {
-    auto& frame = get_current_frame();
-
-    if (exec_mode == 1)
-    {
-        auto& slot_info = frame.ir.read().local_types;
-        if (slot_info.at(csr.target).kind == slot_kind::literal)
-        {
-            if (slot_info.at(csr.target).type.template type_is< numeric_literal_reference >())
-            {
-                // Special case, we can set the result directly as if it were U64
-                auto literal_value = slot_info.at(csr.target).literal_value.value();
-                std::uint64_t result = 0;
-
-                while (literal_value.empty() == false)
-                {
-                    if (std::numeric_limits< std::uint64_t >::max() / 10 < result)
-                    {
-                        throw std::logic_error("Overflow in numeric literal to U64 conversion");
-                    }
-                    result *= 10;
-                    if (std::numeric_limits< std::uint64_t >::max() - (literal_value.front() - '0') < result)
-                    {
-                        throw std::logic_error("Overflow in numeric literal to U64 conversion");
-                    }
-                    result += (literal_value.front() - '0');
-
-                    literal_value.erase(literal_value.begin(), literal_value.begin() + 1);
-                }
-
-                while (result > 0)
-                {
-                    this->constexpr_result_v.push_back(static_cast< std::byte >(result & 0xFF));
-                    result >>= 8;
-                }
-
-                while (this->constexpr_result_v.size() < 8)
-                {
-                    this->constexpr_result_v.push_back(std::byte{0});
-                }
-
-                return;
-            }
-
-            if (slot_info.at(csr.target).type.template type_is< bool_type >())
-            {
-                // Special case, we can set the result directly as if it were a string
-                auto literal_value = slot_info.at(csr.target).literal_value.value();
-                if (literal_value == "TRUE")
-                {
-                    this->constexpr_result_v = {std::byte{1}};
-                }
-                else if (literal_value == "FALSE")
-                {
-                    this->constexpr_result_v = {std::byte{0}};
-                }
-                else
-                {
-                    throw std::logic_error("Invalid boolean literal in constexpr context");
-                }
-
-                return;
-            }
-        }
-
-        this->constexpr_result_v = slot_consume_data(csr.target);
-    }
-    else
-    {
-        this->constexpr_result_v = slot_consume_data(csr.target);
-    }
-
+    this->constexpr_result_v = slot_consume_data(csr.target);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -1495,28 +1396,24 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     create_local_value(lci.target, true);
 
-    type_symbol int_type;
-    if (exec_mode == 1)
+    type_symbol int_type_v;
+
+    int_type_v = get_current_frame().ir3->local_types.at(lci.target).type;
+
+    if (int_type_v.type_is< nvalue_slot >())
     {
-        int_type = get_current_frame().ir->local_types.at(lci.target).type;
-    }
-    else if (exec_mode == 2)
-    {
-        int_type = get_current_frame().ir3->local_types.at(lci.target).type;
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for load_const_int");
+        auto copy = int_type_v.get_as< nvalue_slot >().target;
+
+        int_type_v = copy;
     }
 
-    if (int_type.type_is< nvalue_slot >())
+    if (!int_type_v.type_is< int_type >())
     {
-        auto copy = int_type.get_as< nvalue_slot >().target;
-
-        int_type = copy;
+        throw compiler_bug("Expected integer type for load_const_int");
     }
+
     auto& data = get_current_frame().local_values[lci.target]->data;
-    data.resize(get_type_size(int_type));
+    data.resize(get_type_size(int_type_v));
 
     std::string str = lci.value;
 
@@ -1977,23 +1874,7 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
 }
 quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
 {
-    auto const& func_ir = stack.at(frame_index).ir.read();
-    state_engine::state_map state = func_ir.blocks.at(block_index).entry_state;
-
-    auto const& instructions = func_ir.blocks.at(block_index).instructions;
-
-    for (std::size_t i = 0; i < instruction_index && i < instructions.size(); i++)
-    {
-        auto const& instr = instructions.at(i);
-        state_engine(state, func_ir.local_types).apply(instr);
-    }
-
-    for (local_index i(0); i < func_ir.local_types.size(); i++)
-    {
-        state[i];
-    }
-
-    return state;
+    throw compiler_bug("removed");
 }
 
 quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
@@ -2019,17 +1900,7 @@ quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interprete
 
 quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map(std::size_t frame_index)
 {
-    auto const& current_frame = stack.at(frame_index);
-    auto const& func_ir = current_frame.ir.read();
-
-    state_engine::state_map result;
-
-    for (local_index i(0); i < func_ir.local_types.size(); i++)
-    {
-        result[i] = get_current_slot_state(frame_index, i);
-    }
-
-    return result;
+    throw compiler_bug("removed");
 }
 
 quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map3(std::size_t frame_index)
@@ -2079,45 +1950,6 @@ quxlang::vmir2::local_index quxlang::vmir2::ir2_constexpr_interpreter::ir2_const
 
     // assert(false);
     return local_index(0);
-}
-
-bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_bool(local_index slot)
-{
-    auto& frame = get_current_frame();
-
-    auto& local_ptr = frame.local_values[slot];
-
-    if (local_ptr == nullptr)
-    {
-        throw invalid_instruction_transition_error("Error in [consume_bool]: slot does not exist");
-    }
-
-    if (!local_ptr->alive)
-    {
-        throw invalid_instruction_transition_error("Error in [consume_bool]: slot is not alive");
-    }
-
-    auto& slot_val = frame.ir.read().local_types.at(slot);
-    if (slot_val.kind != slot_kind::local)
-    {
-        throw invalid_instruction_error("Error in [consume_bool]: slot is not a local");
-    }
-
-    if (slot_val.type.type_is< bool_type >())
-    {
-        throw invalid_instruction_error("Error in [consume_bool]: slot is not a boolean");
-    }
-
-    if (local_ptr->data.size() != 1)
-    {
-        throw compiler_bug("Error in [consume_bool]: boolean slot has invalid size");
-    }
-
-    auto result = local_ptr->data[0] != std::byte(0);
-
-    local_ptr->alive = false;
-    local_ptr = nullptr;
-    return result;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(quxlang::vmir2::defer_nontrivial_dtor const& dntd)
@@ -2209,34 +2041,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value(vmir2::local_index local_idx, bool set_alive)
 {
-    if (exec_mode == 2)
-    {
-        return create_local_value3(local_idx, set_alive);
-    }
-
-    auto& frame = get_current_frame();
-
-    auto result_type = frame.ir->local_types.at(local_idx).type;
-
-    if (frame.local_values[local_idx] == nullptr)
-    {
-        frame.local_values[local_idx] = std::make_shared< local >();
-        frame.local_values[local_idx]->object_id = next_object_id++;
-    }
-    auto& r_data = frame.local_values[local_idx]->data;
-    r_data.resize(get_type_size(result_type));
-
-    // Initialize the memory to zero just to have a defined state
-    std::fill(r_data.begin(), r_data.end(), std::byte(0));
-
-    frame.local_values[local_idx]->storage_initiated = true;
-
-    if (set_alive)
-    {
-        frame.local_values[local_idx]->alive = true;
-    }
-
-    return frame.local_values[local_idx];
+    return create_local_value3(local_idx, set_alive);
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value3(vmir2::local_index local_idx, bool set_alive)
@@ -2401,87 +2206,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::is_reference_type(quxlang::vmir2::local_index slot)
 {
-    auto& slots = get_current_frame().ir.read().local_types;
-
-    if (slots.size() <= slot)
-    {
-        throw invalid_instruction_error("slot doesn't exist");
-    }
-
-    auto const& slot_type = slots.at(slot).type;
-
-    if (slot_type.type_is< pointer_type >() && slot_type.as< pointer_type >().ptr_class == pointer_class::ref)
-    {
-        return true;
-    }
-
-    return false;
+    throw compiler_bug("removed");
 }
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::is_pointer_type(quxlang::vmir2::local_index slot)
 {
-    auto& slots = get_current_frame().ir.read().local_types;
-
-    if (slots.size() <= slot)
-    {
-        throw invalid_instruction_error("slot doesn't exist");
-    }
-
-    auto const& slot_type = slots.at(slot).type;
-
-    if (slot_type.type_is< pointer_type >() && slot_type.as< pointer_type >().ptr_class != pointer_class::ref)
-    {
-        return true;
-    }
-
-    return false;
+    throw compiler_bug("removed");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition(quxlang::vmir2::block_index block)
 {
-    if (exec_mode == 2)
-    {
-        transition3(block);
-        return;
-    }
-    std::vector< vmir2::local_index > values_to_destroy;
 
-    auto& current_frame = get_current_frame();
-    auto const& current_func_ir = current_frame.ir;
-
-    auto const& target_block = current_func_ir->blocks.at(block);
-
-    std::set< vmir2::local_index > current_values;
-    std::set< vmir2::local_index > entry_values;
-
-    for (auto& [idx, local] : current_frame.local_values)
-    {
-        if (local != nullptr)
-        {
-            if (local->alive && !target_block.entry_state.contains(idx))
-            {
-                auto slot_type = current_func_ir->local_types.at(idx).type;
-                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local_has_nontrivial_dtor)
-                {
-                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
-                    call_func(dtor, {.named = {{"THIS", idx}}});
-                    return;
-                }
-                else
-                {
-                    local = nullptr;
-                }
-            }
-        }
-
-        if (target_block.entry_state.contains(idx) && target_block.entry_state.at(idx).alive && (local == nullptr || local->alive == false))
-        {
-            throw compiler_bug("Error in [transition]: slot not alive");
-        }
-    }
-
-    current_frame.address.block = block;
-    current_frame.address.instruction_index = 0;
+    transition3(block);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition3(quxlang::vmir2::block_index block)

@@ -467,6 +467,19 @@ namespace quxlang::vmir2
         output += "}";
         return output;
     }
+    std::string assembler::to_string_internal(vmir2::load_const_bool inst)
+    {
+        std::string result = "LCB %" + std::to_string(inst.target) + ", ";
+        if (inst.value)
+        {
+            result += "true";
+        }
+        else
+        {
+            result += "false";
+        }
+        return result;
+    }
     std::string assembler::to_string_internal(vmir2::load_const_int inst)
     {
         return "LCI %" + std::to_string(inst.target) + ", " + inst.value;

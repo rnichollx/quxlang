@@ -48,6 +48,7 @@ namespace quxlang::vmir2
         void apply_internal(cast_reference const& cst);
         void apply_internal(constexpr_set_result const& csr);
         void apply_internal(load_const_value const& lcv);
+        void apply_internal(load_const_bool const& lcb);
         void apply_internal(make_pointer_to const& mpt);
         void apply_internal(dereference_pointer const& drp);
         void apply_internal(load_from_ref const& lfr);
@@ -188,6 +189,11 @@ namespace quxlang::vmir2
         void apply_internal(vmir2::load_const_zero const& lcz)
         {
             output(lcz.target);
+        }
+
+        void apply_internal(vmir2::load_const_bool const& lcb)
+        {
+            output(lcb.target);
         }
         void apply_internal(vmir2::access_field const& acf)
         {

@@ -68,13 +68,14 @@ namespace quxlang
         struct struct_complete_new;
         struct fence_byte_release;
         struct fence_byte_acquire;
+        struct load_const_bool;
 
         struct assert_instr;
 
         struct pointer_arith;
         struct pointer_diff;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64( local_index );
@@ -303,6 +304,14 @@ namespace quxlang
             std::string value;
             RPNX_MEMBER_METADATA(load_const_int, target, value);
         };
+
+        struct load_const_bool
+        {
+            local_index target;
+            bool value;
+            RPNX_MEMBER_METADATA(load_const_bool, target, value);
+        };
+
 
         struct load_const_zero
         {

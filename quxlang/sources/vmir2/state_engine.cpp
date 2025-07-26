@@ -187,6 +187,10 @@ void quxlang::vmir2::state_engine::apply_internal(load_const_value const& lcv)
 {
     output(lcv.target);
 }
+void quxlang::vmir2::state_engine::apply_internal(load_const_bool const& lcb)
+{
+    output(lcb.target);
+}
 
 void quxlang::vmir2::state_engine::apply_internal(make_pointer_to const& mpt)
 {
