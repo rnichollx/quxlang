@@ -2488,6 +2488,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     std::vector< vmir2::local_index > values_to_destroy;
 
+    auto original_block = get_current_frame().address.block;
+
     auto& current_frame = get_current_frame();
     auto const& current_func_ir = current_frame.ir3;
 
@@ -2519,6 +2521,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         if (target_block.entry_state.contains(idx) && target_block.entry_state.at(idx).alive && (local == nullptr || local->alive == false))
         {
+            auto idxvar = idx;
             throw compiler_bug("Error in [transition]: slot not alive");
         }
     }

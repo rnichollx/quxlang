@@ -114,7 +114,6 @@ namespace quxlang
         RPNX_MEMBER_METADATA(codegen_invocation_args, named, positional);
     };
 
-
     template < codegen_co_provider CoroutineProvider >
     class co_vmir_generator
     {
@@ -137,7 +136,10 @@ namespace quxlang
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
             auto current_block = block_index(0);
+            std::string type_str = to_string(type);
+            std::string expr_str = to_string(expr);
             auto result_val = co_await this->co_generate_typed_expr(current_block, expr, type);
+            assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             assert(result_val != value_index(0));
             vmir2::constexpr_set_result csr;
             assert(this->current_type(current_block, result_val) == type);
@@ -172,12 +174,16 @@ namespace quxlang
 
         auto co_generate_expr(block_index& bidx, expression const& expr) -> typename CoroutineProvider::template co_type< value_index >
         {
-            co_return co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< value_index > >(
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result = co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< value_index > >(
                 [&](auto&& val)
                 {
                     return co_generate(bidx, std::forward< decltype(val) >(val));
                 },
                 expr);
+            std::string expr_str = to_string(expr);
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result;
         }
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
@@ -247,10 +253,8 @@ namespace quxlang
                 return bound_type_reference{.carried_type = bound_type, .bound_symbol = bound_symbol};
             }
 
-
             auto local_idx = get_local_index(idx);
             auto& slot_state = block.current_state[local_idx];
-
 
             if (slot.template type_is< codegen_binding >())
             {
@@ -777,7 +781,8 @@ namespace quxlang
 
             codegen_invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", vidx}}};
 
-            co_return co_await co_gen_call_functum(bidx, conversion_functum, args);
+            co_await co_gen_call_functum(bidx, conversion_functum, args);
+            co_return new_value_index;
         }
 
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type) -> typename CoroutineProvider::template co_type< value_index >
@@ -787,6 +792,7 @@ namespace quxlang
 
             if (value_type == target_type)
             {
+                assert(vidx != value_index(0));
                 co_return vidx;
             }
 
@@ -1253,7 +1259,10 @@ namespace quxlang
 
             if (kw.keyword == "ARCH_X64")
             {
-                co_return this->create_bool_value(bidx, arch.cpu_type == cpu::x86_64);
+                assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+                auto result = this->create_bool_value(bidx, arch.cpu_type == cpu::x86_64);
+                assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+                co_return result;
             }
             if (kw.keyword == "ARCH_X86")
             {
@@ -1296,8 +1305,62 @@ namespace quxlang
             co_return co_await co_gen_call_functum(bidx, rightarrow, args);
         }
 
+        void kill_entry_value(block_index bidx, value_index vidx)
+        {
+            assert(this->state.blocks.at(bidx).instructions.empty());
+            this->state.blocks.at(bidx).entry_state.erase(get_local_index(vidx));
+            this->state.blocks.at(bidx).current_state.erase(get_local_index(vidx));
+        }
+        auto co_generate_logic_and(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_and_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_and_false");
+            auto true_block = this->generate_subblock(bidx, "logic_and_true");
+            auto after_block = this->generate_subblock(bidx, "logic_and_after");
+
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+
+
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_and_rhs");
+            this->generate_branch(lhs, lhs_block, rhs_block, false_block);
+            this->kill_entry_value(rhs_block, lhs);
+
+
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+
+            this->generate_branch(rhs, rhs_block, true_block, false_block);
+
+            vmir2::load_const_int set_false;
+            set_false.value = "0";
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+
+            vmir2::load_const_int set_true;
+            set_true.value = "1";
+            set_false.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
+
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+
         auto co_generate(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
         {
+            if (logic_operators.contains(input.operator_str))
+            {
+                if (input.operator_str == "&&")
+                {
+                    co_return co_await co_generate_logic_and(bidx, input);
+                }
+            }
             auto lhs = co_await co_generate_expr(bidx, input.lhs);
             auto rhs = co_await co_generate_expr(bidx, input.rhs);
 
@@ -1388,7 +1451,9 @@ namespace quxlang
 
         auto co_generate_typed_expr(block_index& bidx, expression expr, type_symbol target_type) -> typename CoroutineProvider::template co_type< value_index >
         {
+            std::string expr_str = quxlang::to_string(expr);
             auto expr_val = co_await co_generate_expr(bidx, expr);
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
 
             auto type_of_expr = this->current_type(bidx, expr_val);
 
@@ -1691,6 +1756,7 @@ namespace quxlang
                 block2.instructions = MOVEREL(block.instructions);
                 block2.entry_state = block.entry_state;
                 block2.terminator = MOVEREL(block.terminator);
+                block2.dbg_name = block.dbg_name;
 
                 result.blocks.push_back(block2);
             }

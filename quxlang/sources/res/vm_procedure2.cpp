@@ -38,9 +38,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure3)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_vm_procedure2)
 {
-    vm_procedure2_generator gen(compiler_binder(c), input);
-
-    co_return co_await gen.generate();
+    throw compiler_bug("removed");
 }
 
 
@@ -54,10 +52,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_vm_procedure3)
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure2)
 {
     throw compiler_bug("removed");
-    std::string input_name = quxlang::to_string(input);
-    vm_procedure2_generator gen(compiler_binder(c), input);
-
-    co_return co_await gen.generate_builtin_ctor();
+    // std::string input_name = quxlang::to_string(input);
+    // vm_procedure2_generator gen(compiler_binder(c), input);
+    //
+    // co_return co_await gen.generate_builtin_ctor();
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure2)
@@ -68,21 +66,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure2)
 
     auto input_str = quxlang::to_string(input);
 
-    QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(ctor_match));
-
-    auto template_match_result = match_template2(ctor_match, input);
-
-    if (template_match_result)
-    {
-        co_return co_await QUX_CO_DEP(builtin_ctor_vm_procedure2, (input));
-    }
-    else if (match_template2(quxlang::parsers::parse_type_symbol("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
-    {
-        auto result =  co_await QUX_CO_DEP(builtin_dtor_vm_procedure2, (input));
-        co_return result;
-    }
-
-    throw compiler_bug("not implemented or bug");
+    // QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(ctor_match));
+    //
+    // auto template_match_result = match_template2(ctor_match, input);
+    //
+    // if (template_match_result)
+    // {
+    //     co_return co_await QUX_CO_DEP(builtin_ctor_vm_procedure2, (input));
+    // }
+    // else if (match_template2(quxlang::parsers::parse_type_symbol("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
+    // {
+    //     auto result =  co_await QUX_CO_DEP(builtin_dtor_vm_procedure2, (input));
+    //     co_return result;
+    // }
+    //
+    // throw compiler_bug("not implemented or bug");
 }
 
 

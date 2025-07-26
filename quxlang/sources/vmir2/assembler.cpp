@@ -97,7 +97,12 @@ namespace quxlang::vmir2
                 block_name = "BLOCK" + std::to_string(i);
             }
 
-            output += indent + block_name + "\n";
+            output +=  block_name + " " + to_string(fnc.blocks.at(i).entry_state);
+            if (fnc.blocks.at(i).dbg_name.has_value())
+            {
+                output += " // " + fnc.blocks.at(i).dbg_name.value();
+            }
+                output += "\n";
             output += this->to_string(fnc.blocks.at(i));
             output += "\n";
         }
