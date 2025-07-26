@@ -3,15 +3,14 @@
 #ifndef QUXLANG_PARSERS_PARSE_EXPRESSION_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_EXPRESSION_HEADER_GUARD
 
+#include "quxlang/data/parser_data.hpp"
+
 #include <quxlang/parsers/try_parse_expression.hpp>
 
 namespace quxlang::parsers
 {
     template < typename It >
     std::optional< expression > try_parse_expression(It& pos, It end);
-
-
-
 
     template < typename It >
     expression parse_expression(It& pos, It end)

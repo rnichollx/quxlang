@@ -4,6 +4,8 @@
 #define RPNX_COW_HEADER_GUARD
 
 #include <memory>
+#include <vector>
+#include <string>
 
 namespace rpnx
 {

@@ -3,12 +3,13 @@
 #define QUXLANG_DATA_TARGET_CONFIGURATION_HEADER_GUARD
 
 #include "machine.hpp"
+#include "rpnx/cow.hpp"
 
 #include <map>
-#include <string>
 #include <memory>
-#include <rpnx/metadata.hpp>
 #include <optional>
+#include <rpnx/metadata.hpp>
+#include <string>
 
 namespace quxlang
 {
@@ -27,7 +28,7 @@ namespace quxlang
         // layers) but it's added so in the future we can load the file once in some sort
         // of ram cache.
         // TODO: Reuse the same source file object for multiple targets.
-        std::map< std::string, std::shared_ptr< source_file > > files;
+        std::map< std::string, rpnx::cow< source_file > > files;
 
         RPNX_MEMBER_METADATA(module_source, files);
     };

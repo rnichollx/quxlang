@@ -22,7 +22,6 @@ namespace quxlang::parsers
     template <typename It>
     std::optional< ast2_asm_operand_component > try_parse_arm_asm_operand_component(It& pos, It end)
     {
-        QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand_component" << std::endl;});
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_extern > exte = try_parse_ast2_extern(pos, end);
         if (exte)
