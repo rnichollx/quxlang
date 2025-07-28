@@ -1249,7 +1249,7 @@ namespace rpnx
         bool await_ready() noexcept
         {
             assert(m_result || co_promise_ptr);
-            return m_result;
+            return m_result.has_result();
         }
 
         template < typename Result2 >
