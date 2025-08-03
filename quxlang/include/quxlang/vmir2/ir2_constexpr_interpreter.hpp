@@ -24,7 +24,6 @@ namespace quxlang
             ~ir2_constexpr_interpreter();
             // Adds a class layout (for accessing fields)
             void add_class_layout(type_symbol name, class_layout layout);
-            void add_functanoid(type_symbol addr, functanoid_routine2 func);
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
 
             std::set< type_symbol > const & missing_functanoids();

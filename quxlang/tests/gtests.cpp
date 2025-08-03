@@ -810,6 +810,25 @@ TEST(expression_ir, constexpr_call_func_arm)
 
 }
 
+TEST(expression_ir, constexpr_xip)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    quxlang::compiler c(sources, "linux-arm64");
+
+    auto get_constexpr_bool = [&](std::string expr_string) -> bool
+    {
+        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
+        return yaynay;
+    };
+    auto val1 = get_constexpr_bool("xip() == 1");
+    ASSERT_TRUE(val1);
+
+
+}
+
 TEST(expression_ir, func_gen)
 {
 

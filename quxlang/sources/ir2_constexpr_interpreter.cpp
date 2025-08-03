@@ -35,7 +35,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
   private:
     std::size_t exec_mode = 1;
     std::map< cow< type_symbol >, class_layout > class_layouts;
-    std::map< cow< type_symbol >, cow< functanoid_routine2 > > functanoids;
     std::map< cow< type_symbol >, cow< functanoid_routine3 > > functanoids3;
     std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
@@ -161,7 +160,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec();
     void exec3();
 
-    quxlang::vmir2::state_engine::state_diff get_state_diff();
+    quxlang::vmir2::state_diff get_state_diff();
     void exec_instr();
     void exec_instr3();
 
@@ -269,10 +268,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void output_bool(local_index slot_index, bool value);
 
     slot_state get_current_slot_state(std::size_t frame_index, local_index slot_index);
-    quxlang::vmir2::state_engine::state_map get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
-    quxlang::vmir2::state_engine::state_map get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
-    quxlang::vmir2::state_engine::state_map get_current_state_map(std::size_t frame_index);
-    quxlang::vmir2::state_engine::state_map get_current_state_map3(std::size_t frame_index);
+    quxlang::vmir2::state_map get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
+    quxlang::vmir2::state_map get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index);
+    quxlang::vmir2::state_map get_current_state_map(std::size_t frame_index);
+    quxlang::vmir2::state_map get_current_state_map3(std::size_t frame_index);
     slot_state get_expected_slot_state_postexec(std::size_t frame_index, std::size_t slot_index, std::size_t instruction_index);
 
     void require_valid_input_precondition(local_index slot);
@@ -318,10 +317,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     std::string funcname = quxlang::to_string(functype.get());
 
-    rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > > current_func_ir_v = [&]() -> rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > >
-    {
-        return stack.back().ir3;
-    }();
+    cow< vmir2::functanoid_routine3 > current_func_ir_v = stack.back().ir3;
 
     // Now there should be at minimum 2 frames, the caller frame and the callee frame.
     if (stack.size() < 2)
@@ -329,10 +325,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("Attempt to call function with arguments without a stack frame");
     }
 
-    rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > > previous_func_ir = [&]() -> rpnx::variant< cow< vmir2::functanoid_routine2 >, cow< vmir2::functanoid_routine3 > >
-    {
-        return stack[stack.size() - 2].ir3;
-    }();
+    auto previous_func_ir = stack[stack.size() - 2].ir3;
 
     std::size_t arg_count = 0;
     std::size_t positional_arg_id = 0;
@@ -341,301 +334,143 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& current_frame = stack.back();
     auto& previous_frame = stack[stack.size() - 2];
 
-    if (current_func_ir_v.type_is< cow< vmir2::functanoid_routine2 > >())
+    auto const& current_func_ir = current_func_ir_v.get();
 
+    auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant< std::size_t, std::string > param_index)
     {
-        auto const& current_func_ir = current_func_ir_v.get_as< cow< vmir2::functanoid_routine2 > >();
-        // Look through all slots in the new function for arguments
-        for (local_index slot_index(0); slot_index < current_func_ir->local_types.size(); slot_index++)
+        type_symbol param_type;
+        if (param_index.template type_is< std::size_t >())
         {
-            auto const& slot = current_func_ir->local_types[slot_index];
+            param_type = current_func_ir.parameters.positional.at(param_index.get_as< std::size_t >()).type;
+        }
+        else
+        {
+            param_type = current_func_ir.parameters.named.at(param_index.get_as< std::string >()).type;
+        }
 
-            if (slot.kind != vmir2::slot_kind::named_arg && slot.kind != vmir2::slot_kind::positional_arg)
+        std::string param_type_str = quxlang::to_string(param_type);
+
+        if (!typeis< nvalue_slot >(param_type))
+        {
+            if (!(previous_frame.local_values[previous_arg_index] && previous_frame.local_values[previous_arg_index]->alive))
             {
-                continue;
-            }
-
-            arg_count++;
-
-            auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index)
-            {
-                type_symbol const& arg_type = slot.type;
-
-                std::string arg_type_str = quxlang::to_string(arg_type);
-
-                if (!typeis< nvalue_slot >(arg_type))
-                {
-                    if (!previous_frame.local_values[previous_arg_index]->alive)
-                    {
-                        throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
-                    }
-                }
-
-                if (typeis< nvalue_slot >(arg_type) || typeis< dvalue_slot >(arg_type))
-                {
-                    // Slots create a shared reference to the same object in a previous frame, unlike all other
-                    // calls which consume their arguments.
-
-                    if (typeis< nvalue_slot >(arg_type))
-                    {
-                        // The existing storage might not exist, allocate it now if so.
-
-                        if (!previous_frame.slot_has_storage(previous_arg_index))
-                        {
-                            previous_frame.init_local_storage(previous_arg_index);
-                        }
-                    }
-                    else
-                    {
-                        assert(previous_frame.slot_alive(previous_arg_index));
-                    }
-
-                    assert(previous_frame.slot_has_storage(previous_arg_index));
-
-                    current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
-
-                    if (typeis< dvalue_slot >(arg_type))
-                    {
-                        previous_frame.local_values[previous_arg_index] = nullptr;
-                    }
-
-                    // The caller should have already initialized the local, not here.
-                    assert(current_frame.slot_has_storage(new_arg_index));
-
-                    if (typeis< nvalue_slot >(arg_type))
-                    {
-                        // NEW& values should NOT be alive when we enter the function,
-                        // and are alive when we return except via exception
-                        assert(!current_frame.local_values[new_arg_index]->alive);
-                    }
-
-                    if (typeis< dvalue_slot >(arg_type))
-                    {
-                        // DESTROY& values should be alive when we enter the function
-                        // and are not alive when we return OR throw an exception
-                        assert(current_frame.local_values[new_arg_index]->alive);
-                    }
-                }
-
-                else
-                {
-                    assert(!typeis< nvalue_slot >(arg_type) && !typeis< dvalue_slot >(arg_type));
-                    // In all other cases, the argument is consumed by the call,
-
-                    current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
-                    previous_frame.local_values[previous_arg_index] = nullptr;
-
-                    // TODO: If the type is trivially relocatable, invalidate all prior references to it now
-                    // We don't currently pass this information, so this is a TODO.
-                }
-            };
-
-            if (slot.kind == vmir2::slot_kind::named_arg)
-            {
-                auto const& arg_name = slot.name;
-
-                assert(arg_name.has_value());
-
-                if (!args.named.contains(*arg_name))
-                {
-                    throw compiler_bug("Missing named argument");
-                }
-
-                auto previous_arg_index = args.named.at(*arg_name);
-                auto new_arg_index = slot_index;
-
-                handle_arg(previous_arg_index, new_arg_index);
-            }
-            else if (slot.kind == vmir2::slot_kind::positional_arg)
-            {
-                if (positional_arg_id >= args.positional.size())
-                {
-                    throw compiler_bug("Missing positional argument");
-                }
-
-                auto previous_arg_index = args.positional.at(positional_arg_id);
-
-                positional_arg_id++;
-                auto new_arg_index = slot_index;
-
-                handle_arg(previous_arg_index, new_arg_index);
+                throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
             }
         }
 
-        // We should have gone through all args at this point.
-        assert(arg_count == args.size());
-    }
-    else
-    {
-        assert(current_func_ir_v.type_is< cow< vmir2::functanoid_routine3 > >());
-
-        auto const& current_func_ir = current_func_ir_v.get_as< cow< vmir2::functanoid_routine3 > >();
-
-        auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant< std::size_t, std::string > param_index)
+        if (typeis< nvalue_slot >(param_type) || typeis< dvalue_slot >(param_type))
         {
-            type_symbol param_type;
-            if (param_index.template type_is< std::size_t >())
+            // Slots create a shared reference to the same object in a previous frame, unlike all other
+            // calls which consume their arguments.
+
+            if (typeis< nvalue_slot >(param_type))
             {
-                param_type = current_func_ir->parameters.positional.at(param_index.get_as< std::size_t >()).type;
+                // The existing storage might not exist, allocate it now if so.
+
+                if (!previous_frame.slot_has_storage(previous_arg_index))
+                {
+                    previous_frame.init_local_storage(previous_arg_index);
+                }
             }
             else
             {
-                param_type = current_func_ir->parameters.named.at(param_index.get_as< std::string >()).type;
+                assert(previous_frame.slot_alive(previous_arg_index));
             }
 
-            std::string param_type_str = quxlang::to_string(param_type);
+            assert(previous_frame.slot_has_storage(previous_arg_index));
 
-            if (!typeis< nvalue_slot >(param_type))
+            current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+
+            if (typeis< dvalue_slot >(param_type))
             {
-                if (!(previous_frame.local_values[previous_arg_index] && previous_frame.local_values[previous_arg_index]->alive))
-                {
-                    throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
-                }
-            }
-
-            if (typeis< nvalue_slot >(param_type) || typeis< dvalue_slot >(param_type))
-            {
-                // Slots create a shared reference to the same object in a previous frame, unlike all other
-                // calls which consume their arguments.
-
-                if (typeis< nvalue_slot >(param_type))
-                {
-                    // The existing storage might not exist, allocate it now if so.
-
-                    if (!previous_frame.slot_has_storage(previous_arg_index))
-                    {
-                        previous_frame.init_local_storage(previous_arg_index);
-                    }
-                }
-                else
-                {
-                    assert(previous_frame.slot_alive(previous_arg_index));
-                }
-
-                assert(previous_frame.slot_has_storage(previous_arg_index));
-
-                current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
-
-                if (typeis< dvalue_slot >(param_type))
-                {
-                    previous_frame.local_values[previous_arg_index] = nullptr;
-                }
-
-                // The caller should have already initialized the local, not here.
-                assert(current_frame.slot_has_storage(new_arg_index));
-
-                if (typeis< nvalue_slot >(param_type))
-                {
-                    // NEW& values should NOT be alive when we enter the function,
-                    // and are alive when we return except via exception
-                    assert(!current_frame.local_values[new_arg_index]->alive);
-                }
-
-                if (typeis< dvalue_slot >(param_type))
-                {
-                    // DESTROY& values should be alive when we enter the function
-                    // and are not alive when we return OR throw an exception
-                    assert(current_frame.local_values[new_arg_index]->alive);
-                }
-            }
-
-            else
-            {
-                assert(!typeis< nvalue_slot >(param_type) && !typeis< dvalue_slot >(param_type));
-                // In all other cases, the argument is consumed by the call,
-
-                current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
                 previous_frame.local_values[previous_arg_index] = nullptr;
-
-                // TODO: If the type is trivially relocatable, invalidate all prior references to it now
-                // We don't currently pass this information, so this is a TODO.
             }
-            arg_count++;
-        };
 
-        auto positional_arg_id = 0;
-        // Look through all slots in the new function for arguments
-        for (std::size_t param_index(0); param_index < current_func_ir->parameters.positional.size(); param_index++)
-        {
-            auto const& positional_param = current_func_ir->parameters.positional[param_index];
-            local_index new_arg_index = positional_param.local_index;
-            auto const& slot = current_func_ir->local_types[new_arg_index];
+            // The caller should have already initialized the local, not here.
+            assert(current_frame.slot_has_storage(new_arg_index));
 
-            if (positional_arg_id >= args.positional.size())
+            if (typeis< nvalue_slot >(param_type))
             {
-                throw compiler_bug("Missing positional argument");
+                // NEW& values should NOT be alive when we enter the function,
+                // and are alive when we return except via exception
+                assert(!current_frame.local_values[new_arg_index]->alive);
             }
 
-            auto previous_arg_index = args.positional.at(positional_arg_id);
-
-            positional_arg_id++;
-
-            handle_arg(previous_arg_index, new_arg_index, param_index);
+            if (typeis< dvalue_slot >(param_type))
+            {
+                // DESTROY& values should be alive when we enter the function
+                // and are not alive when we return OR throw an exception
+                assert(current_frame.local_values[new_arg_index]->alive);
+            }
         }
 
-        for (auto const& [name, named_param] : current_func_ir->parameters.named)
+        else
         {
-            if (!args.named.contains(name))
-            {
-                throw compiler_bug("Missing named argument: " + name);
-            }
+            assert(!typeis< nvalue_slot >(param_type) && !typeis< dvalue_slot >(param_type));
+            // In all other cases, the argument is consumed by the call,
 
-            auto previous_arg_index = args.named.at(name);
-            auto new_arg_index = named_param.local_index;
+            current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+            previous_frame.local_values[previous_arg_index] = nullptr;
 
-            handle_arg(previous_arg_index, new_arg_index, name);
+            // TODO: If the type is trivially relocatable, invalidate all prior references to it now
+            // We don't currently pass this information, so this is a TODO.
+        }
+        arg_count++;
+    };
+
+    // Look through all slots in the new function for arguments
+    for (std::size_t param_index(0); param_index < current_func_ir.parameters.positional.size(); param_index++)
+    {
+        auto const& positional_param = current_func_ir.parameters.positional[param_index];
+        local_index new_arg_index = positional_param.local_index;
+        auto const& slot = current_func_ir.local_types[new_arg_index];
+
+        if (positional_arg_id >= args.positional.size())
+        {
+            throw compiler_bug("Missing positional argument");
         }
 
-        // We should have gone through all args at this point.
-        assert(arg_count == args.size());
+        auto previous_arg_index = args.positional.at(positional_arg_id);
+
+        positional_arg_id++;
+
+        handle_arg(previous_arg_index, new_arg_index, param_index);
     }
+
+    for (auto const& [name, named_param] : current_func_ir.parameters.named)
+    {
+        if (!args.named.contains(name))
+        {
+            throw compiler_bug("Missing named argument: " + name);
+        }
+
+        auto previous_arg_index = args.named.at(name);
+        auto new_arg_index = named_param.local_index;
+
+        handle_arg(previous_arg_index, new_arg_index, name);
+    }
+
+    // We should have gone through all args at this point.
+    assert(arg_count == args.size());
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec()
 {
     // print all functanoids
 
-    if (exec_mode == 1)
+    for (auto const& func : functanoids3)
     {
-        for (auto const& func : functanoids)
-        {
-            quxlang::vmir2::assembler ir_printer(func.second.get());
+        quxlang::vmir2::assembler ir_printer(func.second.get());
 
-            std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
+        std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
 
-            std::cout << ir_printer.to_string(func.second.get()) << std::endl;
-        }
-    }
-    else if (exec_mode == 2)
-    {
-        for (auto const& func : functanoids3)
-        {
-            quxlang::vmir2::assembler ir_printer(func.second.get());
-
-            std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
-
-            std::cout << ir_printer.to_string(func.second.get()) << std::endl;
-        }
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for exec");
+        std::cout << ir_printer.to_string(func.second.get()) << std::endl;
     }
 
     while (!stack.empty())
     {
-        if (exec_mode == 1)
-        {
-            exec_instr();
-        }
-        else if (exec_mode == 2)
-        {
-            exec_instr3();
-        }
-        else
-        {
-            throw compiler_bug("Unknown exec mode for exec");
-        }
+
+        exec_instr3();
     }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec3()
@@ -643,38 +478,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     exec_mode = 2;
     exec();
 }
-quxlang::vmir2::state_engine::state_diff quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_state_diff()
+quxlang::vmir2::state_diff quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_state_diff()
 {
     auto const& current_instr_address = stack.back().address;
-    state_engine::state_map expected_state;
-    if (exec_mode == 1)
-    {
-        expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
-    }
-    else if (exec_mode == 2)
-    {
-        expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for get_state_diff");
-    }
+    state_map expected_state;
 
-    state_engine::state_map current_statemap;
-    if (exec_mode == 1)
-    {
-        current_statemap = get_current_state_map(current_frame_index());
-    }
-    else if (exec_mode == 2)
-    {
-        current_statemap = get_current_state_map3(current_frame_index());
-    }
-    else
-    {
-        throw compiler_bug("Unknown exec mode for get_state_diff");
-    }
+    expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
 
-    state_engine::state_diff result;
+    state_map current_statemap;
+
+    current_statemap = get_current_state_map3(current_frame_index());
+
+    state_diff result;
 
     for (auto const& [index, state] : current_statemap)
     {
@@ -688,64 +503,7 @@ quxlang::vmir2::state_engine::state_diff quxlang::vmir2::ir2_constexpr_interpret
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr()
 {
-    interp_addr& current_instr_address = stack.back().address;
-
-    auto const& current_func = stack.back().type;
-
-    auto const& current_func_ir = functanoids.at(current_func.get());
-
-    auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
-
-    quxlang::vmir2::assembler ir_printer(current_func_ir.get());
-
-    if (current_instr_address.instruction_index < current_block.instructions.size())
-    {
-        vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
-
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
-        // If there is an error here, it usually means there is an instruction which is not implemented
-        // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
-        // should be implemented to throw a derivative of std::logic_error.
-
-        auto expected_state = get_expected_state_map_preexec(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
-        auto start_frame_id = current_frame_index();
-        auto current_statemap = get_current_state_map(current_frame_index());
-
-        auto state_diff = this->get_state_diff();
-
-        std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
-        std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
-
-        assert(current_statemap == expected_state);
-
-        std::size_t stack_size1 = stack.size();
-        rpnx::apply_visitor< void >(
-            [this](auto const& param)
-            {
-                return this->exec_instr_val(param);
-            },
-            instr);
-        std::size_t stack_size2 = stack.size();
-        current_instr_address.instruction_index++;
-        std::cout << std::endl;
-        return;
-    }
-
-    auto const terminator_instruction = current_block.terminator;
-    if (!terminator_instruction)
-    {
-        throw constexpr_logic_execution_error("Constexpr execution reached end of block with undefined behavior");
-    }
-
-    std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
-
-    rpnx::apply_visitor< void >(
-        [this](auto const& param)
-        {
-            return this->exec_instr_val(param);
-        },
-        *terminator_instruction);
-    return;
+  throw compiler_bug("removed");
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr3()
 {
@@ -1568,37 +1326,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_class_layout(quxlang::type_s
     this->implementation->class_layouts[name] = std::move(layout);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid(quxlang::type_symbol addr, quxlang::vmir2::functanoid_routine2 func)
-{
-    for (auto const& dtor : func.non_trivial_dtors)
-    {
-        auto dtor_func = dtor.second;
-
-        if (!this->implementation->functanoids.contains(dtor_func))
-        {
-            this->implementation->missing_functanoids_val.insert(dtor_func);
-        }
-    }
-    for (auto const& block : func.blocks)
-    {
-        for (auto const& instr : block.instructions)
-        {
-            if (typeis< vmir2::invoke >(instr))
-            {
-                auto const& inv = instr.get_as< vmir2::invoke >();
-
-                auto called_func = inv.what;
-
-                if (!this->implementation->functanoids.contains(called_func))
-                {
-                    this->implementation->missing_functanoids_val.insert(called_func);
-                }
-            }
-        }
-    }
-    this->implementation->functanoids[addr] = std::move(func);
-    this->implementation->missing_functanoids_val.erase(addr);
-}
 void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func)
 {
     // Track missing dtors
@@ -1872,15 +1599,15 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
 
     return result;
 }
-quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
+quxlang::vmir2::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
 {
     throw compiler_bug("removed");
 }
 
-quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
+quxlang::vmir2::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_expected_state_map_preexec3(std::size_t frame_index, std::size_t block_index, std::size_t instruction_index)
 {
     vmir2::functanoid_routine3 const& func_ir = stack.at(frame_index).ir3.read();
-    state_engine::state_map state = func_ir.blocks.at(block_index).entry_state;
+    state_map state = func_ir.blocks.at(block_index).entry_state;
 
     auto const& instructions = func_ir.blocks.at(block_index).instructions;
 
@@ -1898,17 +1625,17 @@ quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interprete
     return state;
 }
 
-quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map(std::size_t frame_index)
+quxlang::vmir2::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map(std::size_t frame_index)
 {
     throw compiler_bug("removed");
 }
 
-quxlang::vmir2::state_engine::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map3(std::size_t frame_index)
+quxlang::vmir2::state_map quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_current_state_map3(std::size_t frame_index)
 {
     auto const& current_frame = stack.at(frame_index);
     auto const& func_ir = current_frame.ir3.read();
 
-    state_engine::state_map result;
+    state_map result;
 
     for (local_index i(0); i < func_ir.local_types.size(); i++)
     {

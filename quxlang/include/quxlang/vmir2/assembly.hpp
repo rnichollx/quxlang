@@ -11,20 +11,19 @@ namespace quxlang::vmir2
     class assembler
     {
       public:
-        std::string to_string(vmir2::functanoid_routine2 inst);
         std::string to_string(vmir2::functanoid_routine3 inst);
         std::string to_string(vmir2::vm_instruction inst);
         std::string to_string(vmir2::vm_terminator inst);
         std::string to_string(vmir2::local_type inst);
         std::string to_string(vmir2::vm_slot slt);
         std::string to_string(vmir2::executable_block const &block);
-        std::string to_string(vmir2::state_engine::state_map const & state);
+        std::string to_string(vmir2::state_map const & state);
 
 
-        assembler(rpnx::variant<vmir2::functanoid_routine2, vmir2::functanoid_routine3> what) : m_what(what) {}
+        assembler(vmir2::functanoid_routine3 what) : m_what(what) {}
       private:
-        rpnx::variant<vmir2::functanoid_routine2, vmir2::functanoid_routine3> m_what;
-        vmir2::state_engine::state_map state;
+        vmir2::functanoid_routine3 m_what;
+        vmir2::state_map state;
 
         void set_arg_state();
 

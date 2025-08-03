@@ -10,13 +10,7 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);
-    QUX_CO_RESOLVER(user_vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);
-    QUX_CO_RESOLVER(builtin_vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);
 
-
-    QUX_CO_RESOLVER(builtin_ctor_vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);
-    QUX_CO_RESOLVER(builtin_dtor_vm_procedure2, instanciation_reference, vmir2::functanoid_routine2);
 
     QUX_CO_RESOLVER(vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
     QUX_CO_RESOLVER(user_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);

@@ -125,13 +125,47 @@ MODULE main;
 }
 
 
+::xip FUNCTION() :I32
+{
+  VAR x I32;
+  x := 8;
+  ASSERT (x == 8);
 
+  test_dtor_executes();
+
+  RETURN 1;
+}
+
+::test_dtor_executes FUNCTION()
+{
+  VAR x I32;
+
+  {
+    VAR y yak;
+    y.z := x<-;
+  }
+
+  ASSERT (x == 1);
+
+}
+
+::test_lambda FUNCTION()
+{
+  VAR x I32;
+
+ // AUTO z := ~
+ // {
+ //   x++;
+ // };
+
+}
 
 ::yak CLASS
 {
    .z VAR -> I32;
    .f VAR =>> I32;
    .f_count VAR SZ;
+
 
 
    .DESTRUCTOR FUNCTION()

@@ -5,61 +5,6 @@
 
 namespace quxlang::vmir2
 {
-    std::string assembler::to_string(vmir2::functanoid_routine2 fnc)
-    {
-        std::string output;
-
-        static const std::string indent = "    ";
-        output += "[DTors]:\n";
-
-        for (auto const& [type, dtor] : fnc.non_trivial_dtors)
-        {
-            output += indent + quxlang::to_string(type) + " USES " + quxlang::to_string(dtor) + "\n";
-        }
-
-        output += "[Slots]:\n";
-
-        for (std::size_t i = 1; i < fnc.local_types.size(); i++)
-        {
-            output += indent + "" + std::to_string(i) + ": " + this->to_string(fnc.local_types.at(i));
-            output += "\n";
-        }
-
-        output += "[Blocks]:\n";
-
-        for (block_index i = block_index(0); i < fnc.blocks.size(); i++)
-        {
-            std::string block_name;
-            if (fnc.block_names.contains(i))
-            {
-                block_name = "BLOCK" + std::to_string(i) + "[" + fnc.block_names.at(i) + "]";
-            }
-            else
-            {
-                block_name = "BLOCK" + std::to_string(i);
-            }
-
-            output += block_name;
-
-            auto const& blk = fnc.blocks.at(i);
-
-            output += to_string(blk.entry_state);
-
-            output += ":";
-
-            if (blk.dbg_name.has_value())
-            {
-                output += "// ";
-                output += blk.dbg_name.value();
-            }
-
-            output += "\n";
-            output += this->to_string(fnc.blocks.at(i));
-            output += "\n";
-        }
-
-        return output;
-    }
     std::string assembler::to_string(vmir2::functanoid_routine3 fnc)
     {
         std::string output;
@@ -97,12 +42,12 @@ namespace quxlang::vmir2
                 block_name = "BLOCK" + std::to_string(i);
             }
 
-            output +=  block_name + " " + to_string(fnc.blocks.at(i).entry_state);
+            output += block_name + " " + to_string(fnc.blocks.at(i).entry_state);
             if (fnc.blocks.at(i).dbg_name.has_value())
             {
                 output += " // " + fnc.blocks.at(i).dbg_name.value();
             }
-                output += "\n";
+            output += "\n";
             output += this->to_string(fnc.blocks.at(i));
             output += "\n";
         }
@@ -123,20 +68,8 @@ namespace quxlang::vmir2
 
             try
             {
-               if (m_what.type_is< vmir2::functanoid_routine2 >())
-               {
-                   auto const& what = m_what.get_as< vmir2::functanoid_routine2 >();
-                   state_engine(this->state, what.local_types).apply(i);
-               }
-                else if (m_what.type_is< vmir2::functanoid_routine3 >())
-                {
-                    auto const& what = m_what.get_as< vmir2::functanoid_routine3 >();
-                    codegen_state_engine(this->state, what.local_types, {}).apply(i);
-                }
-                else
-                {
-                    throw rpnx::unimplemented();
-                }
+                auto const& what = m_what;
+                codegen_state_engine(this->state, what.local_types, {}).apply(i);
 
                 output += indent + "// state: " + this->to_string(this->state) + "\n";
             }
@@ -155,7 +88,7 @@ namespace quxlang::vmir2
         }
         return output;
     }
-    std::string assembler::to_string(vmir2::state_engine::state_map const& state)
+    std::string assembler::to_string(vmir2::state_map const& state)
     {
         std::string output;
         output += " [< ";
@@ -277,13 +210,12 @@ namespace quxlang::vmir2
     {
         std::string result = "ACF %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;
         // Use apply_visitor since both types have the same logic
-        rpnx::apply_visitor<void>([&](auto&& what)
-        {
-            result += " // type1=";
-            result += quxlang::to_string(what.local_types.at(inst.base_index).type);
-            result += " type2=";
-            result += quxlang::to_string(what.local_types.at(inst.store_index).type);
-        }, this->m_what);
+
+        result += " // type1=";
+        result += quxlang::to_string(m_what.local_types.at(inst.base_index).type);
+        result += " type2=";
+        result += quxlang::to_string(m_what.local_types.at(inst.store_index).type);
+
         return result;
     }
 
@@ -344,13 +276,11 @@ namespace quxlang::vmir2
         std::string result = "MKR %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);
 
         // Use apply_visitor since both types have the same logic
-        rpnx::apply_visitor<void>([&](auto&& what)
-        {
-            result += " // type1=";
-            result += quxlang::to_string(what.local_types.at(inst.value_index).type);
-            result += " type2=";
-            result += quxlang::to_string(what.local_types.at(inst.reference_index).type);
-        }, this->m_what);
+
+        result += " // type1=";
+        result += quxlang::to_string(m_what.local_types.at(inst.value_index).type);
+        result += " type2=";
+        result += quxlang::to_string(m_what.local_types.at(inst.reference_index).type);
 
         return result;
     }
@@ -360,13 +290,11 @@ namespace quxlang::vmir2
         std::string result = "CRF %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index);
 
         // Use apply_visitor since both types have the same logic
-        rpnx::apply_visitor<void>([&](auto&& what)
-        {
-            result += " // type1=";
-            result += quxlang::to_string(what.local_types.at(inst.source_ref_index).type);
-            result += " type2=";
-            result += quxlang::to_string(what.local_types.at(inst.target_ref_index).type);
-        }, this->m_what);
+
+        result += " // type1=";
+        result += quxlang::to_string(m_what.local_types.at(inst.source_ref_index).type);
+        result += " type2=";
+        result += quxlang::to_string(m_what.local_types.at(inst.target_ref_index).type);
 
         return result;
     }

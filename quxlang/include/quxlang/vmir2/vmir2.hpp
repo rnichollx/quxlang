@@ -562,80 +562,9 @@ namespace quxlang
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator, dbg_name);
         };
 
-        struct slot_generation_state
-        {
 
-            slot_generation_state(); // moved out-of-line
 
-            slot_generation_state(const slot_generation_state&) = default;
-            slot_generation_state(slot_generation_state&&) = default;
 
-            slot_generation_state& operator=(const slot_generation_state&) = default;
-            slot_generation_state& operator=(slot_generation_state&&) = default;
-
-            std::vector< vm_slot > slots;
-
-            local_index create_temporary(type_symbol type);
-            local_index create_variable(type_symbol type, std::string name);
-            local_index create_binding(local_index idx, type_symbol type);
-            local_index create_positional_argument(type_symbol type, std::optional< std::string > name);
-            local_index create_named_argument(std::string apiname, type_symbol type, std::optional< std::string > name);
-            local_index create_numeric_literal(std::string value);
-            local_index create_bool_literal(bool value);
-            local_index index_binding(local_index idx);
-
-            RPNX_MEMBER_METADATA(slot_generation_state, slots);
-        };
-
-        struct executable_block_generation_state
-        {
-
-            executable_block_generation_state(slot_generation_state* slots) : slots(slots)
-            {
-            }
-            executable_block_generation_state(const executable_block_generation_state&) = default;
-            executable_block_generation_state(executable_block_generation_state&&) = default;
-
-            vmir2::executable_block block;
-            slot_generation_state* slots;
-            std::map< local_index, slot_state > current_slot_states = {{local_index(0), slot_state{}}};
-            std::map< std::string, local_index > named_references;
-
-            type_symbol current_type(local_index idx);
-
-            executable_block_generation_state clone_subblock();
-
-            void emit(vm_instruction inst); // moved out-of-line
-            void emit(vm_terminator term);  // moved out-of-line
-
-            bool slot_alive(local_index idx);
-
-            local_index create_temporary(type_symbol type);
-            local_index create_variable(type_symbol type, std::string name);
-            local_index create_binding(local_index idx, type_symbol type);
-            local_index create_positional_argument(type_symbol type, std::optional< std::string > label_name);
-            local_index create_named_argument(std::string interface_name, type_symbol type, std::optional< std::string > label_name);
-
-            local_index create_numeric_literal(std::string value);
-            local_index create_bool_literal(bool value);
-            local_index index_binding(local_index idx);
-
-            std::optional< local_index > local_lookup(std::string name);
-
-            RPNX_MEMBER_METADATA(executable_block_generation_state, block, current_slot_states);
-        };
-
-        struct functanoid_routine2
-        {
-            std::vector< vm_slot > local_types;
-            block_index entry_block = block_index(0);
-            std::optional< block_index > return_block;
-            std::vector< executable_block > blocks;
-            std::map< block_index, std::string > block_names;
-            std::map< type_symbol, type_symbol > non_trivial_dtors;
-
-            RPNX_MEMBER_METADATA(functanoid_routine2, local_types, entry_block, return_block, blocks, block_names, non_trivial_dtors);
-        };
 
         struct functanoid_routine3
         {
@@ -648,36 +577,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(functanoid_routine3, local_types, parameters, blocks, block_names, non_trivial_dtors);
         };
 
-        struct frame_generation_state
-        {
-            slot_generation_state slots;
-
-            std::map< type_symbol, type_symbol > non_trivial_dtors;
-
-            std::vector< vmir2::executable_block_generation_state > block_states;
-            std::map< std::string, std::size_t > block_map;
-            std::optional< std::size_t > entry_block_opt;
-
-            void generate_jump(std::size_t from, std::size_t to);
-            void generate_branch(std::size_t condition, std::size_t from, std::size_t true_branch, std::size_t false_branch);
-            void generate_return(std::size_t from);
-            bool has_terminator(std::size_t block); // moved out-of-line
-
-            void generate_assert(std::size_t condition, std::optional< std::string > tagline, ast2_source_location const& loc);
-            std::size_t generate_entry_block();
-            std::size_t generate_subblock(std::size_t of, std::string dbg_str);
-
-            std::size_t entry_block_id();
-
-            executable_block_generation_state& entry_block();
-            executable_block_generation_state& block(std::size_t id);
-
-            std::optional< local_index > lookup(std::size_t block_id, std::string name);
-
-            functanoid_routine2 get_result();
-
-            RPNX_MEMBER_METADATA(frame_generation_state, slots);
-        };
 
         struct state_transition
         {
