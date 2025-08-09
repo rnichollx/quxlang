@@ -504,7 +504,7 @@ quxlang::vmir2::state_diff quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr()
 {
-  throw compiler_bug("removed");
+    throw compiler_bug("removed");
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr3()
 {
@@ -2007,7 +2007,6 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     // TODO: This has a lot of duplicated code with `transition3`, consider refactoring.
 
-
     // TODO: This function doesn't take int account all possible exit transitions, namely DVALUE slots are not handled correctly.
     std::vector< vmir2::local_index > values_to_destroy;
 
@@ -2018,7 +2017,6 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     state_map exit_state;
     codegen_state_engine(exit_state, current_func_ir->local_types, current_func_ir->parameters).apply_normal_exit();
-
 
     std::set< vmir2::local_index > current_values;
     std::set< vmir2::local_index > entry_values;
@@ -2032,12 +2030,39 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return false;
     };
 
+    std::set< vmir2::local_index > destroy_values;
+
+    auto handle_routine_parameter = [&](routine_parameter const& param)
+    {
+        if (param.type.type_is< dvalue_slot >())
+        {
+            destroy_values.insert(param.local_index);
+        }
+    };
+    // neeed to loop over parameters and check which ones are DESTROY[T] slots.
+    for (auto const& [_, param] : current_func_ir->parameters.named)
+    {
+        handle_routine_parameter(param);
+    }
+
+    for (auto const& param : current_func_ir->parameters.positional)
+    {
+        handle_routine_parameter(param);
+    }
+
     for (auto& [idx, local] : current_frame.local_values)
     {
         auto lidx = idx;
         if (local != nullptr)
         {
-            if (local->alive && !value_should_be_alive(idx))
+            if (destroy_values.contains(idx))
+            {
+                // If the local is a DESTROY[T] slot, then returning from this function
+                // sets it to not alive by definition.
+                // However, this does not eliminate the underlying storage.
+                local->alive = false;
+            }
+            else if (local->alive && !value_should_be_alive(idx))
             {
                 auto slot_type = current_func_ir->local_types.at(idx).type;
                 bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
