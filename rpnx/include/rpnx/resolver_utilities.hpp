@@ -15,9 +15,9 @@
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
 #include "serializer.hpp"
-#include <rpnx/demangle.hpp>
 #include <concepts>
 #include <memory>
+#include <rpnx/demangle.hpp>
 #include <rpnx/result.hpp>
 #include <sstream>
 
@@ -620,31 +620,61 @@ namespace rpnx
             return touch_set.size();
         }
 
+        node_base< Graph >* find_blame_node()
+        {
+            if (this->is_recursive())
+            {
+                return this;
+            }
+
+            if (this->m_unmet_dependencies.size() == 0 && this->m_error_dependencies.size() == 0)
+            {
+                return this;
+            }
+
+            if (m_error_dependencies.size() != 0)
+            {
+                return this;
+            }
+            if (m_unmet_dependencies.size() != 0)
+            {
+                auto n = m_unmet_dependencies.begin();
+                for (auto d : m_unmet_dependencies)
+                {
+                    return d->find_blame_node();
+                }
+            }
+
+            throw std::logic_error("No blame node found, this should not happen");
+        }
+
       private:
         void check_all_transitive_unmet_dependencies(std::set< node_base< Graph >* >& output)
         {
-            if (output.contains(this))
-            {
-                return;
-            }
+
+
 
             for (auto d : m_unmet_dependencies)
             {
+                if (output.contains(d))
+                {
+                    continue;
+                }
                 output.insert(d);
                 d->check_all_transitive_unmet_dependencies(output);
             }
 
             for (auto d : m_error_dependencies)
             {
+                if (output.contains(d))
+                {
+                    continue;
+                }
                 output.insert(d);
                 d->check_all_transitive_unmet_dependencies(output);
             }
 
-            for (auto d : m_met_dependencies)
-            {
-                output.insert(d);
-                d->check_all_transitive_unmet_dependencies(output);
-            }
+
         }
 
         std::set< node_base< Graph >* > m_met_dependencies;
@@ -1823,10 +1853,10 @@ namespace rpnx
                 eptr = std::current_exception();
             }
 
-            //drawer d;
-            //d.draw(node.get());
-            //std::string result = d.ss.str();
-            //std::cout << d.ss.str() << std::endl;
+            // drawer d;
+            // d.draw(node.get());
+            // std::string result = d.ss.str();
+            // std::cout << d.ss.str() << std::endl;
 
             if (eptr)
             {
@@ -1915,11 +1945,11 @@ namespace rpnx
 
                     if (n->has_value())
                     {
-                       // QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl; });
+                        // QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: " << n->answer() << std::endl; });
                     }
                     else
                     {
-                      //  QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: error" << std::endl; });
+                        //  QUXLANG_DEBUG({ std::cout << "Q: " << n->question() << " A: error" << std::endl; });
                     }
                 }
 
@@ -1992,6 +2022,8 @@ namespace rpnx
                             QUXLANG_DEBUG({ std::cout << "RECURSIVE: " << n->question() << std::endl; });
                         }
                     }
+
+                    auto blame = n->find_blame_node();
                     throw std::runtime_error("Could not resolve node, probably recursive dependency (2)");
                 }
                 // QUXLANG_DEBUG({std::cout << n->debug() << std::endl;});

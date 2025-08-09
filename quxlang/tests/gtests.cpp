@@ -840,7 +840,7 @@ TEST(expression_ir, func_gen)
 
     quxlang::compiler c(sources, "linux-x64");
 
-    auto func_name = quxlang::parsers::parse_type_symbol("::biz #{I32, I32}");
+    auto func_name = quxlang::parsers::parse_type_symbol("MODULE(main)::biz #{I32, I32}");
 
     func_name = quxlang::with_context(func_name, mainmodule);
 

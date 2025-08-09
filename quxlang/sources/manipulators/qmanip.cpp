@@ -150,6 +150,7 @@ namespace quxlang
 
     struct qualified_symbol_stringifier
     {
+        std::string operator()(freebound_identifier const& ref) const;
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
         std::string operator()(initialization_reference const& ref) const;
@@ -220,6 +221,11 @@ namespace quxlang
         bool operator()(size_type const &)
         {
             return false;
+        }
+
+        bool operator()(freebound_identifier const& ref) const
+        {
+            return false; // Freebound identifiers are not templates
         }
 
         bool operator()(instanciation_reference const& type)
@@ -555,9 +561,13 @@ namespace quxlang
         return output;
     }
 
+    std::string qualified_symbol_stringifier::operator()(freebound_identifier const& ref) const
+    {
+        return ref.name;
+    }
     std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
     {
-        return "context";
+        return "CONTEXT";
     }
     std::string qualified_symbol_stringifier::operator()(bound_type_reference const& ref) const
     {
@@ -586,7 +596,14 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(module_reference const& ref) const
     {
-        return "MODULE(" + ref.module_name + ")";
+        if (ref.module_name.has_value())
+        {
+            return "MODULE(" + ref.module_name.value() + ")";
+        }
+        else
+        {
+            return "CURRENT_MODULE";
+        }
     }
     std::string qualified_symbol_stringifier::operator()(submember const& ref) const
     {
@@ -1261,6 +1278,11 @@ namespace quxlang
                     return false;
                 }
                 return check(template_val.of, match_val.of, false);
+            }
+
+            bool check_impl(freebound_identifier const& template_val, freebound_identifier const& match_val, bool conv)
+            {
+               throw compiler_bug("can't use a freebound identifier as a template parameter");
             }
 
             bool check_impl(pointer_type const& template_val, pointer_type const& match_val, bool conv)

@@ -13,13 +13,11 @@
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
 
-
 namespace quxlang::parsers
 {
 
-    template <typename It>
+    template < typename It >
     expression parse_expression(It& pos, It end);
-
 
     template < typename It >
     type_symbol parse_type_symbol(It& pos, It end);
@@ -47,7 +45,7 @@ namespace quxlang::parsers
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after MODULE(" + m.module_name);
+                throw std::logic_error("Expected ')' after MODULE(" + m.module_name.value() + ")");
             }
             output = m;
         }
@@ -130,6 +128,10 @@ namespace quxlang::parsers
 
             output = tref;
         }
+        else if (skip_symbol_if_is(pos, end, "&"))
+        {
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+        }
         else if (skip_keyword_if_is(pos, end, "MUT"))
         {
             if (!skip_symbol_if_is(pos, end, "&"))
@@ -137,7 +139,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (skip_keyword_if_is(pos, end, "CONST"))
         {
@@ -146,7 +148,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
         }
         else if (skip_keyword_if_is(pos, end, "WRITE"))
         {
@@ -155,7 +157,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after WRITE");
             }
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
         }
         else if (skip_keyword_if_is(pos, end, "TEMP"))
         {
@@ -164,7 +166,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {
@@ -191,7 +193,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after DESTROY");
             }
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
         else if (skip_keyword_if_is(pos, end, "SZ"))
         {
@@ -199,14 +201,11 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
-            // TODO: Support multiple modules
-            output = module_reference{"main"};
-
             auto ident = parse_subentity(pos, end);
             if (ident.empty())
                 throw std::logic_error("expected identifier after ::");
 
-            output = subsymbol{std::move(output), std::move(ident)};
+            output = subsymbol{context_reference(), std::move(ident)};
         }
         else if (skip_symbol_if_is(pos, end, "."))
         {
@@ -216,15 +215,15 @@ namespace quxlang::parsers
             {
                 return std::nullopt;
             }
-            output = submember{std::move(output), std::move(ident)};
+            output = submember{freebound_identifier{"THIS"}, std::move(ident)};
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
         }
         else if (skip_symbol_if_is(pos, end, "=>>"))
         {
-            return pointer_type{.target=parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
+            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
         }
         else
         {
@@ -234,7 +233,7 @@ namespace quxlang::parsers
             {
                 return std::nullopt;
             }
-            output = subsymbol{std::move(output), std::move(ident)};
+            output = freebound_identifier{.name = std::move(ident)};
         }
 
     check_next:
@@ -432,8 +431,6 @@ namespace quxlang::parsers
 
 } // namespace quxlang::parsers
 
-
 #include <quxlang/parsers/parse_expression.hpp>
-
 
 #endif // TRY_PARSE_TYPE_SYMBOL_HPP

@@ -61,7 +61,8 @@ namespace quxlang
     {
         if (qt.type() == typeid(module_reference))
         {
-            return "M" + (as< module_reference >(qt)).module_name;
+            assert(qt.get_as< module_reference >().module_name.has_value());
+            return "M" + (as< module_reference >(qt)).module_name.value();
         }
         else if (qt.template type_is< subsymbol >())
         {

@@ -187,6 +187,15 @@ namespace quxlang
         RPNX_EMPTY_METADATA(context_reference);
     };
 
+
+
+    struct freebound_identifier
+    {
+        std::string name;
+
+        RPNX_MEMBER_METADATA(freebound_identifier, name);
+    };
+
     struct array_type
     {
         type_symbol element_type;
@@ -212,10 +221,11 @@ namespace quxlang
 
     struct module_reference
     {
-        std::string module_name;
+        std::optional<std::string> module_name;
 
         RPNX_MEMBER_METADATA(module_reference, module_name);
     };
+
 
     struct subsymbol
     {

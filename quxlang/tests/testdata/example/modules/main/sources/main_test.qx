@@ -136,6 +136,13 @@ MODULE main;
   RETURN 1;
 }
 
+
+::yak_dtors FUNCTION(%a yak, %b &I32): I32
+{
+  a.z := b<-;
+  RETURN 1;
+}
+
 ::test_dtor_executes FUNCTION()
 {
   VAR x I32;
@@ -147,6 +154,9 @@ MODULE main;
 
   ASSERT (x == 1);
 
+  yak_dtors(yak() , x);
+
+  ASSERT (x == 2);
 }
 
 ::test_lambda FUNCTION()

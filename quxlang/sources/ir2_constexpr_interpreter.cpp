@@ -188,6 +188,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     void transition(vmir2::block_index block);
     void transition3(quxlang::vmir2::block_index block);
+    bool transition_normal_exit();
 
     void exec_instr_val(vmir2::increment const& inc);
 
@@ -994,11 +995,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {
-    // TODO: Run destructors
-    stack.pop_back();
-    if (stack.size() >= 1)
+    // transition_normal_exit will push a destructor call onto the stack and then return false,
+    // or if no more destructors are needed, it will return true.
+    // When it returns true, we are done running destructors and can pop the current stack frame.
+
+    std::string back_addr = quxlang::to_string(stack.back().address.func.get());
+    auto exit_ok = transition_normal_exit();
+    if (exit_ok)
     {
-        // get_current_frame().address.instruction_index++;
+        stack.pop_back();
     }
 }
 
@@ -1972,12 +1977,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 {
                     auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
                     call_func(dtor, {.named = {{"THIS", idx}}});
+                    // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
                     return;
                 }
                 else
                 {
                     local = nullptr;
                 }
+            }
+            else if (!target_block.entry_state.contains(idx))
+            {
+                // If the local is not alive, we can safely remove it
+                local = nullptr;
             }
         }
 
@@ -1990,6 +2001,73 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     current_frame.address.block = block;
     current_frame.address.instruction_index = 0;
+}
+
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::transition_normal_exit()
+{
+    // TODO: This has a lot of duplicated code with `transition3`, consider refactoring.
+
+
+    // TODO: This function doesn't take int account all possible exit transitions, namely DVALUE slots are not handled correctly.
+    std::vector< vmir2::local_index > values_to_destroy;
+
+    auto original_block = get_current_frame().address.block;
+
+    auto& current_frame = get_current_frame();
+    auto const& current_func_ir = current_frame.ir3;
+
+    state_map exit_state;
+    codegen_state_engine(exit_state, current_func_ir->local_types, current_func_ir->parameters).apply_normal_exit();
+
+
+    std::set< vmir2::local_index > current_values;
+    std::set< vmir2::local_index > entry_values;
+
+    auto value_should_be_alive = [&](vmir2::local_index idx) -> bool
+    {
+        if (exit_state.contains(idx))
+        {
+            return exit_state.at(idx).alive;
+        }
+        return false;
+    };
+
+    for (auto& [idx, local] : current_frame.local_values)
+    {
+        auto lidx = idx;
+        if (local != nullptr)
+        {
+            if (local->alive && !value_should_be_alive(idx))
+            {
+                auto slot_type = current_func_ir->local_types.at(idx).type;
+                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
+                if (local_has_nontrivial_dtor)
+                {
+                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
+                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
+                    return false;
+                }
+                else
+                {
+                    local = nullptr;
+                }
+            }
+            else if (!value_should_be_alive(idx))
+            {
+                // If the local is not alive, we can safely remove it
+                local = nullptr;
+            }
+        }
+
+        if (value_should_be_alive(idx) && (local == nullptr || local->alive == false))
+        {
+            auto idxvar = idx;
+            throw compiler_bug("Error in [transition]: slot not alive");
+        }
+    }
+
+    return true;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {

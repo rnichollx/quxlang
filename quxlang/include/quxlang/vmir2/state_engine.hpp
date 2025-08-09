@@ -12,7 +12,6 @@
 namespace quxlang::vmir2
 {
 
-
     using state_map = std::map< vmir2::local_index, slot_state >;
     using slot_vec = std::vector< vm_slot >;
     using state_diff = std::map< vmir2::local_index, std::pair< slot_state, slot_state > >;
@@ -74,6 +73,115 @@ namespace quxlang::vmir2
                 {
                     state[param_slot_index].alive = true;
                     state[param_slot_index].storage_valid = true;
+                }
+            }
+            check_state_valid();
+        }
+
+        // apply_normal_exit is used to apply the normal exit state of a function,
+        // when it returns without an exception.
+        // Any values passed by value are destroyed, NEW&& values are set to alive.
+        void apply_normal_exit()
+        {
+            check_state_valid();
+            for (local_index i = local_index(0); i < routine_params.positional.size(); i++)
+            {
+                auto const& param = routine_params.positional[i];
+                local_index param_slot_index = param.local_index;
+
+                if (param.type.template type_is< nvalue_slot >())
+                {
+                    // NEW&& values are set to alive
+                    state[param_slot_index].alive = true;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else if (param.type.template type_is< dvalue_slot >())
+                {
+                    // DESTROY&& values are destroyed, but their storage remains valid upon exit
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else
+                {
+                    // other values no longer exist after the function returns
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = false;
+                }
+            }
+            for (auto const& [name, param] : routine_params.named)
+            {
+                auto param_slot_index = param.local_index;
+
+                if (param.type.template type_is< nvalue_slot >())
+                {
+                    // NEW&& values are set to alive
+                    state[param_slot_index].alive = true;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else if (param.type.template type_is< dvalue_slot >())
+                {
+                    // DESTROY& values are destroyed, but their storage remains valid upon exit
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else
+                {
+                    // other values are destroyed
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = false;
+                }
+            }
+            check_state_valid();
+        }
+
+        void apply_exception_exit()
+        {
+            check_state_valid();
+            for (local_index i = local_index(0); i < routine_params.positional.size(); i++)
+            {
+                auto const& param = routine_params.positional[i];
+                local_index param_slot_index = param.local_index;
+
+                if (param.type.template type_is< nvalue_slot >())
+                {
+                    // NEW&& values are set to alive
+                    state[param_slot_index].alive = true;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else if (param.type.template type_is< dvalue_slot >())
+                {
+                    // DESTROY& values are destroyed, but their storage remains valid upon exit
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else
+                {
+                    // DESTROY& values are destroyed
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = false;
+                }
+            }
+            for (auto const& [name, param] : routine_params.named)
+            {
+                auto param_slot_index = param.local_index;
+
+                if (param.type.template type_is< nvalue_slot >())
+                {
+                    // NEW&& values are *not* initialized when an exception is thrown,
+                    // but their storage remains valid
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else if (param.type.template type_is< dvalue_slot >())
+                {
+                    // DESTROY&& values are destroyed, but their storage remains valid upon exit
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = true;
+                }
+                else
+                {
+                    state[param_slot_index].alive = false;
+                    state[param_slot_index].storage_valid = false;
                 }
             }
             check_state_valid();

@@ -14,7 +14,7 @@ namespace quxlang
     {
         struct invocation_args;
         struct routine_parameters;
-    }
+    } // namespace vmir2
     std::string to_string(vmir2::invocation_args const& ref);
     std::string to_string(type_symbol const& ref);
 
@@ -238,7 +238,7 @@ namespace quxlang
 
     inline bool is_temp_ref(type_symbol type)
     {
-        if (typeis<pointer_type>(type))
+        if (typeis< pointer_type >(type))
         {
             return as< pointer_type >(type).qual == qualifier::temp && as< pointer_type >(type).ptr_class == pointer_class::ref;
         }
@@ -309,7 +309,12 @@ namespace quxlang
 
     inline bool qualified_is_contextual(type_symbol const& ref)
     {
-        if (ref.type_is< context_reference >())
+        if (ref.type_is< module_reference >() && !ref.get_as< module_reference >().module_name.has_value())
+        {
+            // This is a module reference without a name, which is considered contextual to the current module
+            return true;
+        }
+        if (ref.type_is< context_reference >() || ref.type_is< freebound_identifier >())
         {
             return true;
         }
@@ -337,4 +342,3 @@ namespace quxlang
 } // namespace quxlang
 
 #endif // QUXLANG_QUALIFIED_SYMBOL_REFERENCE_HEADER_GUARD
-

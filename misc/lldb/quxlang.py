@@ -51,6 +51,7 @@ def TypeSymbolSummary(valobj, internal_dict):
 
 def __lldb_init_module(debugger, internal_dict):
     # Get the default category
+    print("Initializing quxlang lldb module")
     category = debugger.GetCategory("default")
     if not category.IsValid():
         print("Warning: Could not get default category")

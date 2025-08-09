@@ -32,6 +32,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_sigtype)
 {
+    assert(!qualified_is_contextual(input));
     sigtype result;
 
     result.params = input.params;

@@ -62,6 +62,8 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
+        std::string remaining_after_name = std::string(pos, end);
+
         arg_type = parse_type_symbol(pos, end);
 
         result.push_back(std::move(arg));

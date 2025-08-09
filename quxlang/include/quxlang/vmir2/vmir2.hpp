@@ -496,13 +496,7 @@ namespace quxlang
             std::vector< vm_slot > slots;
         };
 
-        struct functanoid_routine
-        {
-            std::vector< vm_slot > slots;
-            std::vector< vm_instruction > instructions;
 
-            RPNX_MEMBER_METADATA(functanoid_routine, slots, instructions);
-        };
 
         struct dtor_spec
         {
