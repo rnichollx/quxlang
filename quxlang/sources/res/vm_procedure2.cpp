@@ -50,23 +50,56 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
 
     if (template_match_result)
     {
-        co_return co_await QUX_CO_DEP(builtin_ctor_vm_procedure3, (input));
+        co_return co_await QUX_CO_DEP(builtin_default_ctor_vm_procedure3, (input));
     }
     else if (match_template2(quxlang::parsers::parse_type_symbol("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
     {
         auto result =  co_await QUX_CO_DEP(builtin_dtor_vm_procedure3, (input));
         co_return result;
     }
+    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    {
+        auto result = co_await QUX_CO_DEP(builtin_copy_ctor_vm_procedure3, (input));
+        co_return result;
+    }
+    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER TEMP& AUTO(t1)}"), input))
+    {
+        auto result = co_await QUX_CO_DEP(builtin_move_ctor_vm_procedure3, (input));
+        co_return result;
+    }
+
 
     throw compiler_bug("not implemented or bug");
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_ctor_vm_procedure3)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_default_ctor_vm_procedure3)
 {
     std::string input_name = quxlang::to_string(input);
     co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
 
     co_return co_await gen.co_generate_builtin_ctor(input);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_copy_ctor_vm_procedure3)
+{
+    co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+
+    co_return co_await gen.co_generate_builtin_copy_ctor(input);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_move_ctor_vm_procedure3)
+{
+    co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+
+    co_return co_await gen.co_generate_builtin_move_ctor(input);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_swap_vm_procedure3)
+{
+    throw compiler_bug("not implemented");
+    //co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+
+    //co_return co_await gen.co_generate_builtin_swap(input);
 }
 
 

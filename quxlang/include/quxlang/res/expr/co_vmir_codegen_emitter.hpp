@@ -222,6 +222,14 @@ namespace quxlang
             if (!instanciation)
             {
                 std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
+
+                auto functum_overloeads = co_await prv.functum_overloads(func);
+
+                for (auto const& overload : functum_overloeads)
+                {
+                    message += "\n - Candidate: " + to_string(overload.interface);
+                }
+
                 throw std::logic_error(message);
             }
 
@@ -1755,6 +1763,30 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!qualified_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            co_await co_generate_copy_ctor_delegates(current_block, func);
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_move_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!qualified_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            co_await co_generate_move_ctor_delegates(current_block, func);
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_dtor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
 
@@ -2147,6 +2179,178 @@ namespace quxlang
             return result;
         }
 
+        auto co_copy_ref(block_index& current_block, value_index val) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            type_symbol val_type = this->current_type(current_block, val);
+            // This function should convert an mref to tref
+
+            if (!val_type.type_is< pointer_type >())
+            {
+                throw std::logic_error("Expected a reference type");
+            }
+
+            auto vptr = val_type.get_as< pointer_type >();
+
+            if (vptr.ptr_class != pointer_class::ref)
+            {
+                throw std::logic_error("Expected a reference type");
+            }
+
+            auto copy_idx = this->create_local_value(vptr);
+            this->emit(current_block, vmir2::copy_reference{.from_index = get_local_index(val), .to_index = get_local_index(copy_idx)});
+            co_return copy_idx;
+        }
+
+        auto co_generate_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            auto const& fields = co_await prv.class_field_list(cls);
+
+            // Implicit copy ctor delegates just calls copy constructor on all fields.
+
+            codegen_invocation_args fields_args;
+
+            for (class_field const& fld : fields)
+            {
+                auto fslot = this->create_local_value(fld.type);
+                fields_args.named[fld.name] = fslot;
+            }
+
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
+            auto otheridx_value = otheridx.value();
+
+            this->emit(current_block, vmir2::struct_delegate_new{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
+
+            for (class_field const& fld : fields)
+            {
+                auto temporary_block = this->generate_subblock(current_block, "copy_ctor_temp_" + fld.name);
+                auto after_ctor_block = this->generate_subblock(current_block, "copy_ctor_after_" + fld.name);
+                this->generate_jump(current_block, temporary_block);
+                auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
+                auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
+                auto field_type = fld.type;
+                assert(!qualified_is_contextual(field_type));
+                auto field_copy_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                codegen_invocation_args args;
+                args.named["THIS"] = fields_args.named.at(fld.name);
+                args.named["OTHER"] = other_field;
+                co_await this->co_gen_call_functum(temporary_block, field_copy_ctor_functum, args);
+                this->generate_jump(temporary_block, after_ctor_block);
+                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(fields_args.named.at(fld.name)));
+                current_block = after_ctor_block;
+            }
+
+            // TODO: Include SCN in delegate constructors?
+            // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
+        }
+
+        auto co_generate_move(block_index& current_block, value_index val) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            type_symbol val_type = this->current_type(current_block, val);
+            // This function should convert an mref to tref
+
+            if (!val_type.type_is< pointer_type >())
+            {
+                // No-op if the value is not a reference type
+                co_return val;
+            }
+
+            auto vptr = val_type.get_as< pointer_type >();
+
+            if (vptr.ptr_class != pointer_class::ref)
+            {
+                // This is another non-reference type, so we can just return the value as is.
+                co_return val;
+            }
+
+            if (vptr.qual == qualifier::mut)
+            {
+                auto tref_type = vptr;
+                vptr.qual = qualifier::temp;
+                auto tref = this->create_local_value(tref_type);
+                this->emit(current_block, vmir2::cast_reference{.source_ref_index = this->get_local_index(val), .target_ref_index = this->get_local_index(tref)});
+                co_return tref;
+            }
+
+            // TODO: Maybe this should be an error if e.g. it's a const ref?
+
+            co_return val;
+        }
+
+        auto co_generate_move_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            // This function is for default ctors, it should just default construct all member variables.
+
+            auto const& fields = co_await prv.class_field_list(cls);
+
+            codegen_invocation_args fields_args;
+
+            for (class_field const& fld : fields)
+            {
+                auto fslot = this->create_local_value(fld.type);
+                fields_args.named[fld.name] = fslot;
+            }
+
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
+            auto otheridx_value = otheridx.value();
+
+            for (class_field const& fld : fields)
+            {
+                auto temporary_block = this->generate_subblock(current_block, "move_ctor_temp_" + fld.name);
+                auto after_ctor_block = this->generate_subblock(current_block, "move_ctor_after_" + fld.name);
+                this->generate_jump(current_block, temporary_block);
+                auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
+                auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
+                auto field_type = fld.type;
+                assert(!qualified_is_contextual(field_type));
+                auto field_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                other_field = co_await this->co_generate_move(temporary_block, other_field);
+                codegen_invocation_args args;
+                args.named["THIS"] = fields_args.named.at(fld.name);
+                args.named["OTHER"] = other_field;
+                co_await this->co_gen_call_functum(temporary_block, field_ctor_functum, args);
+                this->generate_jump(temporary_block, after_ctor_block);
+                this->generate_survivor_local(temporary_block, after_ctor_block, get_local_index(fields_args.named.at(fld.name)));
+                current_block = after_ctor_block;
+            }
+        }
+
         [[nodiscard]] auto co_generate_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
         {
 
@@ -2199,6 +2403,9 @@ namespace quxlang
                     co_await this->co_gen_call_functum(current_block, ctor, args);
                 }
             }
+
+            // TODO: Should this execute before the body?
+            // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
 
             // frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
         }

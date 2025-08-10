@@ -483,6 +483,10 @@ namespace quxlang::vmir2
     {
         return "SDN %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
     }
+    std::string assembler::to_string_internal(vmir2::struct_complete_new scn)
+    {
+        return "SCN %" + std::to_string(scn.on_value);
+    }
     std::string assembler::to_string_internal(vmir2::end_lifetime elt)
     {
         return "ELT %" + std::to_string(elt.of);

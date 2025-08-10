@@ -133,6 +133,7 @@ MODULE main;
 
   test_dtor_executes();
   test_arry_pointers();
+  test_argument_passing();
 
   RETURN 1;
 }
@@ -218,7 +219,6 @@ MODULE main;
   test_argument_passing_helper(@arg b, @int i);
 
   ASSERT(i == 6);
-
 }
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)

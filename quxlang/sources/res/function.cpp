@@ -76,19 +76,25 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
     }
 
     bool should_autogen_constructor = co_await QUX_CO_DEP(class_requires_gen_default_ctor, (input));
-    bool should_autogen_copy_constructor = true;
+    bool should_autogen_copy_constructor = co_await QUX_CO_DEP(class_requires_gen_copy_ctor, (input));
+    bool should_autogen_move_constructor = co_await QUX_CO_DEP(class_requires_gen_move_ctor, (input));
 
     // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
 
     if (should_autogen_constructor)
     {
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
-        co_return result;
+       // co_return result;
     }
 
     if (should_autogen_copy_constructor)
     {
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
+    }
+
+    if (should_autogen_move_constructor)
+    {
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_tref(input)}}}}}, .return_type = void_type{}});
     }
 
     co_return result;

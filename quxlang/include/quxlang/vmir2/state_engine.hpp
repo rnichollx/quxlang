@@ -410,6 +410,19 @@ namespace quxlang::vmir2
             state[dlg.on_value].dtor_enabled = false;
             state[dlg.on_value].alive = true;
         }
+
+        void apply_internal(vmir2::struct_complete_new const& scn)
+        {
+            auto delegates = state[scn.on_value].delegates.value();
+
+            for (auto const& [name, index] : delegates.named)
+            {
+                state.erase(index);
+            }
+            state[scn.on_value].alive = true;
+            state[scn.on_value].storage_valid = true;
+            state[scn.on_value].dtor_enabled = true;
+        }
         void apply_internal(vmir2::copy_reference const& cpr)
         {
             readonly(cpr.from_index);

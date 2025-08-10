@@ -36,6 +36,7 @@ namespace quxlang
         QUX_BIND(function_builtin);
         QUX_BIND(functanoid_sigtype);
         QUX_BIND(function_declaration);
+        QUX_BIND(functum_overloads);
         QUX_BIND(implicitly_convertible_to);
         QUX_BIND(symbol_type);
         QUX_BIND(variable_type);

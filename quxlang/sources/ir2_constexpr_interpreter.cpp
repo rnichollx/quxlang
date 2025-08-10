@@ -81,6 +81,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
+        std::optional< invocation_args > delegates;
     };
 
     struct object_base
@@ -231,6 +232,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::cmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
+    void exec_instr_val(vmir2::struct_complete_new const& scn);
     void exec_instr_val(vmir2::copy_reference const& cpr);
     void exec_instr_val(vmir2::end_lifetime const& elt);
     void exec_instr_val(vmir2::pointer_arith const& par);
@@ -1716,6 +1718,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     slot->alive = true;
     slot->storage_initiated = true;
     slot->dtor_enabled = false;
+    slot->delegates = sdn.fields;
 
     // TODO: May need to implement SDN on arrays?
 
@@ -1738,6 +1741,36 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         slot->struct_members[name] = field_slot;
         field_slot->member_of = slot;
     }
+
+    // throw rpnx::unimplemented();
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_complete_new const& scn)
+{
+    auto& frame = get_current_frame();
+
+    auto& slot = frame.local_values[scn.on_value];
+
+    if (slot == nullptr)
+    {
+        throw compiler_bug("this shouldn't be possible");
+    }
+
+    slot->alive = true;
+    slot->storage_initiated = true;
+    slot->dtor_enabled = true;
+
+    if (!slot->delegates.has_value())
+    {
+        throw compiler_bug("struct_complete_new: delegates not initialized");
+    }
+    // TODO: May need to implement SDN on arrays?
+
+    for (auto & [name, dlg] : slot->delegates.value().named)
+    {
+        frame.local_values.erase(dlg);
+    }
+
+    slot->delegates = std::nullopt;
 
     // throw rpnx::unimplemented();
 }
@@ -1995,7 +2028,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         if (target_block.entry_state.contains(idx) && target_block.entry_state.at(idx).alive && (local == nullptr || local->alive == false))
         {
             auto idxvar = idx;
-            throw compiler_bug("Error in [transition]: slot not alive");
+
+            std::string error_msg = "Error in [transition]: slot " + std::to_string(idxvar) + " is not alive, but should be";
+            throw compiler_bug(error_msg);
         }
     }
 
