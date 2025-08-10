@@ -74,8 +74,9 @@ namespace quxlang
 
         struct pointer_arith;
         struct pointer_diff;
+        struct swap;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64( local_index );
@@ -133,6 +134,16 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(struct_complete_new, on_value);
         };
+
+        struct swap
+        {
+            local_index a;
+            local_index b;
+
+            RPNX_MEMBER_METADATA(swap, a, b);
+        };
+
+
 
         // fence_byte_acquire (FBA) causes values of type BYTE that were written to memory to be visible
         // in a subsequent load of type ".type". If the ".type" is VOID then it acts as a global barrier for all types.

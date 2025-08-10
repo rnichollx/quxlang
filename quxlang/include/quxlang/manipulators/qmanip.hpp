@@ -10,12 +10,14 @@
 
 namespace quxlang
 {
+    struct codegen_invocation_args;
     namespace vmir2
     {
         struct invocation_args;
         struct routine_parameters;
     } // namespace vmir2
     std::string to_string(vmir2::invocation_args const& ref);
+    std::string to_string(codegen_invocation_args const& ref);
     std::string to_string(type_symbol const& ref);
 
     std::string to_string(invotype const& ref);

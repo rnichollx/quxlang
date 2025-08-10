@@ -7,6 +7,7 @@
 #include "quxlang/manipulators/expression_stringifier.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/value.hpp"
+#include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
 
 namespace quxlang
 {
@@ -94,10 +95,7 @@ namespace quxlang
             return "(" + to_string(expr.lhs) + " && " + to_string(expr.rhs) + ")";
         }
 
-        std::string operator()(expression_copy_assign const& expr) const
-        {
-            return "(" + to_string(expr.lhs) + " := " + to_string(expr.rhs) + ")";
-        }
+
 
         std::string operator()(expression_binary const& expr) const
         {
@@ -179,6 +177,29 @@ namespace quxlang
     };
 
     std::string to_string(vmir2::invocation_args const& ref)
+    {
+        std::string result = "[";
+        bool first = true;
+        for (auto const& [name, arg] : ref.named)
+        {
+            if (first)
+                first = false;
+            else
+                result += ", ";
+            result += "@" + name + " " + std::to_string(arg);
+        }
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+                first = false;
+            else
+                result += ", ";
+            result += std::to_string(arg);
+        }
+        result += "]";
+        return result;
+    }
+    std::string to_string(codegen_invocation_args const& ref)
     {
         std::string result = "[";
         bool first = true;

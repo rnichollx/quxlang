@@ -28,8 +28,8 @@ namespace quxlang::parsers
             static std::map< std::string, int > operators_map = {
                 // clang-format off
 
-                // Assignment operators
-                {":=", 0}, {":<", 0},
+                // Base operators
+                {":=", 0}, {":<", 0}, {"<->", 0}, // assignment, move, and swap
 
                 // Logical operators
                 {"&&", 1}, // and

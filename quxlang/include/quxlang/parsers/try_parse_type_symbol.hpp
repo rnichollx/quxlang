@@ -161,7 +161,7 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "TEMP"))
         {
-            if (skip_symbol_if_is(pos, end, "&"))
+            if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");

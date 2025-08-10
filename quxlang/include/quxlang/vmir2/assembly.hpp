@@ -48,6 +48,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::load_const_zero inst);
         std::string to_string_internal(vmir2::load_const_int inst);
         std::string to_string_internal(vmir2::make_pointer_to inst);
+        std::string to_string_internal(vmir2::swap swp);
         std::string to_string_internal(vmir2::load_from_ref inst);
         std::string to_string_internal(vmir2::store_to_ref inst);
         std::string to_string_internal(vmir2::dereference_pointer inst);

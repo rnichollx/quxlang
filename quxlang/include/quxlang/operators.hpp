@@ -15,7 +15,7 @@ namespace quxlang
 
     static std::string const bracket_operator = "[]";
 
-    static std::set< std::string > const assignment_operators = {":=", ":<"};
+    static std::set< std::string > const base_operators = {":=", ":<", "<->"};
     static std::set< std::string > const arithmetic_operators = {"+", "-", "*", "/", "%"};
 
     static std::set< std::string > const pointer_arithmetic_operators = {"+", "-"};

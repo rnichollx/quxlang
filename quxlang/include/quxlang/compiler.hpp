@@ -198,7 +198,6 @@ namespace quxlang
         COMPILER_INDEX(templexoid_user_ensig_set)
         COMPILER_INDEX(templexoid_ensig_set)
         COMPILER_INDEX(variable_type)
-        COMPILER_INDEX(vm_procedure_from_canonical_functanoid)
         COMPILER_INDEX(vm_procedure3)
         COMPILER_INDEX(user_vm_procedure3)
         COMPILER_INDEX(user_default_dtor_exists)
@@ -223,12 +222,7 @@ namespace quxlang
         }
 
       public:
-        vm_procedure get_vm_procedure_from_canonical_functanoid(initialization_reference func_addr)
-        {
-            auto node = lk_vm_procedure_from_canonical_functanoid(func_addr);
-            m_solver.solve(this, node);
-            return node->get();
-        }
+
 
         asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
         {

@@ -186,7 +186,7 @@ namespace quxlang
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
         {
-            // std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             invotype calltype;
             for (auto& arg : args.positional)
@@ -215,7 +215,7 @@ namespace quxlang
 
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype};
 
-            // std::cout << "co_gen_call_functum B(" << quxlang::to_string(functanoid_unnormalized) << ")" << quxlang::to_string(args) << std::endl;
+            std::cout << "co_gen_call_functum selected: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
 
@@ -421,12 +421,12 @@ namespace quxlang
             if (typeis< freebound_identifier >(sym))
             {
                 std::string const& name = as< freebound_identifier >(sym).name;
-                std::cout << "lookup " << name << std::endl;
+                //std::cout << "lookup " << name << std::endl;
                 auto lookup = this->local_value_direct_lookup(idx, name);
                 if (lookup)
                 {
                     auto lookup_type = this->current_type(idx, lookup.value());
-                    std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
+                    //std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
 
                     if (!is_ref(lookup_type))
                     {
@@ -1729,7 +1729,7 @@ namespace quxlang
                     type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
                     auto result_idx = create_local_value(result_ref_type);
                     access.store_index = get_local_index(result_idx);
-                    std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
+                    //std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
                     this->emit(bidx, access);
                     co_return result_idx;

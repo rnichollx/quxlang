@@ -192,7 +192,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< pointer_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
-        bool is_assignment_operator = assignment_operators.contains(operator_name);
+        bool is_assignment_operator = base_operators.contains(operator_name);
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);

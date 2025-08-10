@@ -8,16 +8,7 @@
 
 namespace quxlang
 {
-    struct expression_copy_assign
-    {
-        static constexpr const char* name = "copy_assign";
-        static constexpr const char* symbol = ":=";
-        static constexpr const int priority = 0;
-        expression lhs;
-        expression rhs;
 
-        std::strong_ordering operator<=>(const expression_copy_assign& other) const  = default;
-    };
 
 } // namespace quxlang
 

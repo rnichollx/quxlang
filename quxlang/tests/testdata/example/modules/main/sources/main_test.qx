@@ -134,6 +134,7 @@ MODULE main;
   test_dtor_executes();
   test_arry_pointers();
   test_argument_passing();
+  test_swap();
 
   RETURN 1;
 }
@@ -206,6 +207,20 @@ MODULE main;
         .y-> := .y-> + 1;
     }
   }
+}
+
+::test_swap FUNCTION()
+{
+    VAR a I32;
+    VAR y I32;
+
+    a := 5;
+    y := 10;
+
+    a <-> y;
+
+    ASSERT(a == 10);
+    ASSERT(y == 5);
 }
 
 

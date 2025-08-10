@@ -200,6 +200,13 @@ namespace quxlang::vmir2
         {
             consume(asrt.condition);
         }
+
+        void apply_internal(vmir2::swap const& swp)
+        {
+            consume(swp.a);
+            consume(swp.b);
+        }
+
         void apply_internal(vmir2::increment const& inc)
         {
             consume(inc.value);

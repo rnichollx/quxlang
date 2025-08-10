@@ -67,6 +67,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         auto result = co_await QUX_CO_DEP(builtin_move_ctor_vm_procedure3, (input));
         co_return result;
     }
+    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
+    {
+        auto result = co_await QUX_CO_DEP(builtin_move_ctor_vm_procedure3, (input));
+        co_return result;
+    }
 
 
     throw compiler_bug("not implemented or bug");

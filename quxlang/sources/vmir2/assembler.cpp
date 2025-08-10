@@ -417,6 +417,10 @@ namespace quxlang::vmir2
     {
         return "MPT %" + std::to_string(inst.of_index) + ", %" + std::to_string(inst.pointer_index);
     }
+    std::string assembler::to_string_internal(vmir2::swap swp)
+    {
+        return "SWP %" + std::to_string(swp.a) + ", %" + std::to_string(swp.b);
+    }
     std::string assembler::to_string_internal(vmir2::load_from_ref inst)
     {
         return "LFR %" + std::to_string(inst.from_reference) + ", %" + std::to_string(inst.to_value);
