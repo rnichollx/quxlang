@@ -72,13 +72,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_param_names)
     std::size_t positional_index = 0;
     for (auto const& param : decl.header.call_parameters)
     {
+        if (!param.name.has_value())
+        {
+            continue;
+        }
         if (param.api_name.has_value())
         {
-            result.named[param.api_name.value()] = param.name;
+            result.named[param.api_name.value()] = param.name.value();
         }
         else
         {
-            result.positional[positional_index] = param.name;
+            result.positional[positional_index] = param.name.value();
             positional_index++;
         }
     }

@@ -40,25 +40,39 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected identifier after '@' ");
             }
 
+            if (skip_symbol_if_is(pos, end, ":"))
+            {
+                arg.name = parse_identifier(pos, end);
+            }
+
             if (!skip_whitespace(pos, end))
             {
                 throw std::logic_error("Expected whitespace after external parameter name");
             }
-        }
 
-        if (!skip_symbol_if_is(pos, end, "%"))
+        }
+        else if (skip_symbol_if_is(pos, end, "%"))
         {
-            throw std::logic_error("Expected '%' or ')'");
+            if (!skip_keyword_if_is(pos, end, "IGNORED"))
+            {
+                arg.name = parse_identifier(pos, end);
+                if (arg.name->empty())
+                {
+                    throw std::logic_error("Expected identifier after '%', use '%IGNORED' to accept an argument without a name");
+                }
+            }
+
+
+        }
+        else
+        {
+            throw std::logic_error("Expected positional '%' or named '@' argument");
         }
 
-        std::string& arg_name = arg.name;
+
         type_symbol& arg_type = arg.type;
 
-        arg_name = parse_identifier(pos, end);
-        if (arg_name.empty())
-        {
-            throw std::logic_error("Expected identifier");
-        }
+
 
         skip_whitespace_and_comments(pos, end);
 

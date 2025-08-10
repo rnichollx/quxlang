@@ -15,7 +15,7 @@ using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
 {
-    std::vector< std::string > result;
+    std::vector< std::optional<std::string> > result;
     auto const& func = co_await QUX_CO_DEP(function_declaration, (input_val));
 
     if (!func.has_value())
@@ -33,7 +33,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
             continue;
         }
 
-        if (names.contains(param.name))
+        if (param.name.has_value() && names.contains(*param.name))
         {
             throw std::logic_error("Duplicate parameter name");
         }

@@ -47,6 +47,7 @@ namespace quxlang::parsers
         }
     get_arg:
 
+        skip_whitespace_and_comments(pos, end);
         expression_arg expr = parse_expression_arg(pos, end);
         result.args.push_back(std::move(expr));
 
