@@ -205,6 +205,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::load_const_zero const& lcz);
     void exec_instr_val(vmir2::load_const_bool const& lcb);
     void exec_instr_val(vmir2::access_field const& acf);
+    void exec_instr_val(vmir2::swap const& swp);
     void exec_instr_val(vmir2::to_bool const& lcz);
     void exec_instr_val(vmir2::to_bool_not const& acf);
     void exec_instr_val(vmir2::access_array const& aca);
@@ -712,6 +713,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& field_slot = ref_to_ptr->struct_members.at(acf.field_name);
 
     field->ref = pointer_impl{.pointer_target = field_slot};
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::swap const& swp)
+{
+    auto local_a = load_from_reference(swp.a, true);
+    auto local_b = load_from_reference(swp.b, true);
+
+    auto& frame = get_current_frame();
+
+    std::swap(local_a->data, local_b->data);
+
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
 {
@@ -1765,7 +1776,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     // TODO: May need to implement SDN on arrays?
 
-    for (auto & [name, dlg] : slot->delegates.value().named)
+    for (auto& [name, dlg] : slot->delegates.value().named)
     {
         frame.local_values.erase(dlg);
     }

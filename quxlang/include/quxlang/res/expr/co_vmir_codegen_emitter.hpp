@@ -421,12 +421,12 @@ namespace quxlang
             if (typeis< freebound_identifier >(sym))
             {
                 std::string const& name = as< freebound_identifier >(sym).name;
-                //std::cout << "lookup " << name << std::endl;
+                // std::cout << "lookup " << name << std::endl;
                 auto lookup = this->local_value_direct_lookup(idx, name);
                 if (lookup)
                 {
                     auto lookup_type = this->current_type(idx, lookup.value());
-                    //std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
+                    // std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
 
                     if (!is_ref(lookup_type))
                     {
@@ -945,6 +945,19 @@ namespace quxlang
 
                         return tb;
                     }
+                }
+            }
+
+            if (member->name == "OPERATOR<->")
+            {
+                // defined for built in types without RHS
+
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 2)
+                {
+                    vmir2::swap swp;
+                    swp.a = get_local_index(args.named.at("THIS"));
+                    swp.b = get_local_index(args.named.at("OTHER"));
+                    return swp;
                 }
             }
 
@@ -1729,7 +1742,7 @@ namespace quxlang
                     type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
                     auto result_idx = create_local_value(result_ref_type);
                     access.store_index = get_local_index(result_idx);
-                    //std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
+                    // std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
 
                     this->emit(bidx, access);
                     co_return result_idx;
