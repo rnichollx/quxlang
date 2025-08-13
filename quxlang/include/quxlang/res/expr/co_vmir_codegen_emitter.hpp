@@ -215,23 +215,29 @@ namespace quxlang
 
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype};
 
-            std::cout << "co_gen_call_functum selected: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
+            std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
+
+            auto functum_overloeads = co_await prv.functum_overloads(func);
+
+            for (auto const& overload : functum_overloeads)
+            {
+                std::cout << " - Candidate: " + to_string(overload.interface) << std::endl;
+            }
+
 
             if (!instanciation)
             {
                 std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
 
-                auto functum_overloeads = co_await prv.functum_overloads(func);
 
-                for (auto const& overload : functum_overloeads)
-                {
-                    message += "\n - Candidate: " + to_string(overload.interface);
-                }
 
                 throw std::logic_error(message);
             }
+
+
+            std::cout << "co_gen_call_functum selected instanciation: " << quxlang::to_string(*instanciation) << std::endl;
 
             co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args);
         }
@@ -603,7 +609,7 @@ namespace quxlang
 
         auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args) -> typename CoroutineProvider::template co_type< value_index >
         {
-            //  std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
+              std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
 
             // TODO: Support defaulted parameters.

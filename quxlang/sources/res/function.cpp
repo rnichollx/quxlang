@@ -15,7 +15,7 @@ using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_positional_parameter_names)
 {
-    std::vector< std::optional<std::string> > result;
+    std::vector< std::optional< std::string > > result;
     auto const& func = co_await QUX_CO_DEP(function_declaration, (input_val));
 
     if (!func.has_value())
@@ -84,7 +84,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
     if (should_autogen_constructor)
     {
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
-       // co_return result;
+        // co_return result;
     }
 
     if (should_autogen_copy_constructor)
@@ -192,10 +192,27 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< pointer_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
+        bool is_swap_operator = operator_name == "<->";
         bool is_assignment_operator = base_operators.contains(operator_name);
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
+
+        if (is_swap_operator && (is_int_type || is_bool_type || is_pointer_type))
+        {
+            if (is_rhs)
+            {
+                // no primitive RHS swaps exist.
+                co_return {};
+            }
+            allowed_operations.insert(builtin_function_info{
+                .overload = temploid_ensig{.interface =
+                                               intertype{
+                                                   .named = {{"THIS", argif{make_mref(parent)}}, {"OTHER", argif{make_mref(parent)}}},
+                                               }},
+                .return_type = void_type{},
+            });
+        }
 
         if (is_int_type)
         {
