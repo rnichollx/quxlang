@@ -1,9 +1,19 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/compiler.hpp"
 
 #include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/res/types.hpp"
+#include "quxlang/compiler.hpp"
+
+#include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/res/lookup.hpp"
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)
+{
+    auto typ = co_await QUX_CO_DEP(symbol_type, (input));
+    co_return typ != symbol_kind::noexist;
+}
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 {

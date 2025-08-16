@@ -12,7 +12,6 @@
 #include "quxlang/res/class_field_list_resolver.hpp"
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/res/constructor.hpp"
-#include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/expr_ir2.hpp"
 #include "quxlang/res/file_ast_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
@@ -20,14 +19,16 @@
 #include "quxlang/res/function.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
-#include "quxlang/res/temploid.hpp"
 #include "quxlang/res/pointer.hpp"
+#include "quxlang/res/temploid.hpp"
 #include "quxlang/res/type_placement_info_resolver.hpp"
+#include "quxlang/res/types.hpp"
 #include "quxlang/res/variable.hpp"
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
+#include <quxlang/res/ensig.hpp>
 #include <quxlang/res/extern_linksymbol_resolver.hpp>
 #include <quxlang/res/functum.hpp>
 #include <quxlang/res/instanciation.hpp>
@@ -37,6 +38,7 @@
 #include <quxlang/res/module_source_name_resolver.hpp>
 #include <quxlang/res/module_sources_resolver.hpp>
 #include <quxlang/res/procedure_linksymbol_resolver.hpp>
+#include <quxlang/res/static_test.hpp>
 #include <quxlang/res/symboid_resolver.hpp>
 #include <quxlang/res/symboid_subdeclaroids.hpp>
 #include <quxlang/res/symbol_type.hpp>
@@ -45,8 +47,6 @@
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/templex_select_template.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
-#include <quxlang/res/static_test.hpp>
-#include <quxlang/res/ensig.hpp>
 #include <shared_mutex>
 
 // clang-format off

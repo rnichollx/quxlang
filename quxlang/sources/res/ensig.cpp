@@ -1,12 +1,8 @@
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/macros.hpp"
-//
 #include "quxlang/compiler.hpp"
 #include "quxlang/res/ensig.hpp"
-#include "quxlang/res/resolver.hpp"
 
-// Created by Ryan Nicholl on 6/7/2025.
-//
 
 
 template < typename T >
