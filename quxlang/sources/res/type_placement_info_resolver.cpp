@@ -1,9 +1,9 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
-#include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
+#include "quxlang/res/type_placement_info_resolver.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/compiler.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info_from_canonical_type)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
 {
     type_symbol const& type = input;
     std::string type_str = to_string(type);

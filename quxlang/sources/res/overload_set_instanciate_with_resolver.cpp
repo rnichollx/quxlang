@@ -70,7 +70,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type.type));
+            convertibles_dp.push_back(c->lk_implicitly_convertible_to({arg_type, param_type.type}));
             add_co_dependency(convertibles_dp.back());
         }
     }
@@ -97,7 +97,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to(arg_type, param_type.type));
+            convertibles_dp.push_back(c->lk_implicitly_convertible_to({arg_type, param_type.type}));
 
             add_co_dependency(convertibles_dp.back());
         }

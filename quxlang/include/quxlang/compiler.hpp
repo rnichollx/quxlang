@@ -6,35 +6,23 @@
 #include "data/target_configuration.hpp"
 #include "quxlang/data/class_layout.hpp"
 #include "quxlang/data/machine.hpp"
-#include "quxlang/data/type_symbol.hpp"
-#include "quxlang/data/vm_procedure.hpp"
 #include "quxlang/filelist.hpp"
 #include "quxlang/res/called_functanoids_resolver.hpp"
-#include "quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp"
 #include "quxlang/res/class.hpp"
 #include "quxlang/res/class_field_list_resolver.hpp"
-#include "quxlang/res/class_size_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/res/constructor.hpp"
-#include "quxlang/res/contextualized_reference_resolver.hpp"
-#include "quxlang/res/entity_ast_from_canonical_chain_resolver.hpp"
 #include "quxlang/res/entity_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/expr_ir2.hpp"
 #include "quxlang/res/file_ast_resolver.hpp"
-#include "quxlang/res/file_module_map_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
-#include "quxlang/res/files_in_module_resolver.hpp"
 #include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/function.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
-#include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/res/module_ast_resolver.hpp"
-#include "quxlang/res/overloads.hpp"
-#include "quxlang/res/symbol_canonical_chain_exists_resolver.hpp"
 #include "quxlang/res/temploid.hpp"
 #include "quxlang/res/pointer.hpp"
-#include "quxlang/res/type_placement_info_from_canonical_type_resolver.hpp"
-#include "quxlang/res/type_size_from_canonical_type_resolver.hpp"
+#include "quxlang/res/type_placement_info_resolver.hpp"
 #include "quxlang/res/variable.hpp"
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <mutex>
@@ -56,7 +44,6 @@
 #include <quxlang/res/template_instanciation_ast_resolver.hpp>
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/templex_select_template.hpp>
-#include <quxlang/res/temploid_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 #include <quxlang/res/static_test.hpp>
 #include <quxlang/res/ensig.hpp>
@@ -73,48 +60,12 @@ namespace quxlang
     {
         friend class compiler_binder;
         friend class filelist_resolver;
-        friend class class_list_resolver;
-        friend class file_ast_resolver;
-        friend class class_field_list_resolver;
-        friend class entity_ast_from_chain_resolver;
-        friend class module_ast_precursor1_resolver;
-        friend class class_size_from_canonical_chain_resolver;
-        friend class module_ast_resolver;
-        friend class type_size_from_canonical_type_resolver;
-        friend class class_layout_resolver;
-        friend class class_placement_info_from_cannonical_chain_resolver;
-        friend class type_placement_info_from_canonical_type_resolver;
-        friend class entity_canonical_chain_exists_resolver;
-        friend class llvm_code_generator;
-        friend class implicitly_convertible_to_resolver;
-        friend class overload_set_is_callable_with_resolver;
-        friend class function_overload_selection_resolver;
-        friend class function_qualified_reference_resolver;
-        friend class contextualized_reference_resolver;
-        friend class vm_procedure_from_canonical_functanoid_resolver;
-        friend class function_frame_information_resolver;
-        friend class operator_is_overloaded_with_resolver;
-        friend class symbol_canonical_chain_exists_resolver;
-        friend class functum_exists_and_is_callable_with_resolver;
-        friend class list_functum_overloads_resolver;
-        friend class functanoid_return_type_resolver;
-        friend class called_functanoids_resolver;
-        friend class list_builtin_functum_overloads_resolver;
-        friend class call_params_of_function_ast_resolver;
-        friend class function_ensig_initialize_with_resolver;
-        friend class type_map_resolver;
-        friend class temploid_instanciation_ast_resolver;
-        friend class template_instanciation_parameter_set_resolver;
-        friend class template_instanciation_ast_resolver;
-        friend class temploid_instanciation_parameter_set_resolver;
-        friend class functum_instanciation_parameter_map_resolver;
-        // friend class co_vmir_expression_emitter;
 
         template < typename G >
         friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
         template < typename G >
-        friend auto type_placement_info_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;
+        friend auto type_placement_info_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;
 
         template < typename T >
         using index = rpnx::index< compiler, T >;
@@ -211,62 +162,12 @@ namespace quxlang
         COMPILER_INDEX(builtin_move_ctor_vm_procedure3)
         COMPILER_INDEX(builtin_dtor_vm_procedure3)
         COMPILER_INDEX(functum_user_overloads)
-        COMPILER_INDEX(type_placement_info_from_canonical_type)
+        COMPILER_INDEX(type_placement_info)
         COMPILER_INDEX(uintpointer_type)
-
-        index< called_functanoids_resolver > m_called_functanoids_index;
-
-        out< std::set< type_symbol > > lk_called_functanoids(type_symbol func_addr)
-        {
-            return m_called_functanoids_index.lookup(func_addr);
-        }
-
-      public:
-
-
-        asm_procedure get_asm_procedure_from_canonical_symbol(type_symbol func_addr)
-        {
-            auto node = lk_asm_procedure_from_symbol(func_addr);
-            m_solver.solve(this, node);
-            return node->get();
-        }
-
-      private:
-        index< contextualized_reference_resolver > m_contextualized_reference_index;
-
-        out< type_symbol > lk_contextualized_reference(type_symbol symbol, type_symbol context)
-        {
-            return m_contextualized_reference_index.lookup({symbol, context});
-        }
-
-      public:
-      private:
-        // index< class_list_resolver > m_class_list_index;
-
         COMPILER_INDEX(implicitly_convertible_to);
-
-        auto lk_implicitly_convertible_to(type_symbol from, type_symbol to)
-        {
-            return m_implicitly_convertible_to_index.lookup(implicitly_convertible_to_query{from, to});
-        }
-
-      public:
-      private:
-        index< class_size_from_canonical_chain_resolver > m_class_size_from_canonical_chain_index;
-
-        out< std::size_t > lk_class_size_from_canonical_lookup_chain(type_symbol const& chain)
-        {
-            return m_class_size_from_canonical_chain_index.lookup(chain);
-        }
-
         COMPILER_INDEX(module_sources);
 
-        index< type_size_from_canonical_type_resolver > m_type_size_from_canonical_type_index;
 
-        out< std::size_t > lk_type_size_from_canonical_type(type_symbol const& ref)
-        {
-            return m_type_size_from_canonical_type_index.lookup(ref);
-        }
 
         output_info m_output_info;
         rpnx::single_thread_graph_solver< compiler > m_solver;
@@ -284,35 +185,8 @@ namespace quxlang
 
       public:
         compiler(cow< source_bundle > source_code, std::string target);
-
       private:
         void init_output_info();
-        // The lk_* functions are used by resolvers to solve the graph
-
-        // Get the parsed AST for a file
-
-        // Look up the AST for a given glass given a paritcular cannonical chain
-
-        // get_* functions are used only for debugging and by non-resolver consumers of the class
-        // Each get_* function calls the lk_* function and then solves the graph
-      public:
-        // Gets the content of a named file
-
-        std::size_t get_class_size(type_symbol const& chain)
-        {
-            auto size = lk_class_size_from_canonical_lookup_chain(chain);
-            m_solver.solve(this, size);
-            return size->get();
-        }
-
-        type_placement_info get_class_placement_info(type_symbol const& chain)
-        {
-            auto size = lk_type_placement_info_from_canonical_type(chain);
-            m_solver.solve(this, size);
-            return size->get();
-        }
-
-        // function_ast get_function_ast_of_overload(type_symbol chain);
     };
 
 } // namespace quxlang

@@ -1,7 +1,7 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#ifndef QUXLANG_RES_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
-#define QUXLANG_RES_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_type_placement_info_RESOLVER_HEADER_GUARD
+#define QUXLANG_RES_type_placement_info_RESOLVER_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"
@@ -13,8 +13,8 @@
 
 namespace quxlang
 {
-    QUX_CO_RESOLVER(type_placement_info_from_canonical_type, type_symbol, type_placement_info);
+    QUX_CO_RESOLVER(type_placement_info, type_symbol, type_placement_info);
 
 } // namespace quxlang
 
-#endif // QUXLANG_TYPE_PLACEMENT_INFO_FROM_CANONICAL_TYPE_RESOLVER_HEADER_GUARD
+#endif // QUXLANG_type_placement_info_RESOLVER_HEADER_GUARD

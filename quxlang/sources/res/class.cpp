@@ -38,7 +38,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_layout)
         this_field.name = f.name;
         this_field.type = f.type;
 
-        auto placement_info = co_await QUX_CO_DEP(type_placement_info_from_canonical_type, (this_field.type));
+        auto placement_info = co_await QUX_CO_DEP(type_placement_info, (this_field.type));
 
         advance_to_alignment(output.size, placement_info.alignment);
 

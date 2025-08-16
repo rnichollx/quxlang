@@ -1,13 +1,10 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/compiler.hpp"
-#include "quxlang/manipulators/argmanip.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/variant_utils.hpp"
-#include "rpnx/debug.hpp"
-#include <quxlang/compiler.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/res/function.hpp>
 
