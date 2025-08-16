@@ -39,6 +39,8 @@ What works:
 * CONST&, MUT&, TEMP& etc. references.
 * Constexpr evaluation of expressions that result in bool
 * Pointer arithmetic
+* Array and wildcard pointers
+* Using multiple modules together
 
 What doesn't work:
 
@@ -52,7 +54,7 @@ What doesn't work:
 * Exceptions
 * Polymorphism / virtual functions
 * Named arguments in certain contexts.
-* Array and wildcard pointers
+
  
 ## Note regarding "Qux"
 
