@@ -13,7 +13,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
       co_return symbol_kind::functum;
     }
 
-    if (typeis< module_reference >(input_val))
+    if (typeis< absolute_module_reference >(input_val))
     {
         // TODO: Check if the module exists or not.
         co_return symbol_kind::module;

@@ -226,16 +226,12 @@ namespace quxlang
                 std::cout << " - Candidate: " + to_string(overload.interface) << std::endl;
             }
 
-
             if (!instanciation)
             {
                 std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
 
-
-
                 throw std::logic_error(message);
             }
-
 
             std::cout << "co_gen_call_functum selected instanciation: " << quxlang::to_string(*instanciation) << std::endl;
 
@@ -458,6 +454,7 @@ namespace quxlang
             assert(!qualified_is_contextual(canonical_symbol_opt.value()));
 
             auto canonical_symbol = canonical_symbol_opt.value();
+            std::cout << "co_lookup_symbol(" << symbol_str << ") -> " << quxlang::to_string(canonical_symbol) << std::endl;
 
             auto kind = co_await prv.symbol_type(canonical_symbol);
 
@@ -609,7 +606,7 @@ namespace quxlang
 
         auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args) -> typename CoroutineProvider::template co_type< value_index >
         {
-              std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
+            std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
 
             // TODO: Support defaulted parameters.
@@ -1324,6 +1321,16 @@ namespace quxlang
             if (kw.keyword == "OS_MACOS")
             {
                 co_return this->create_bool_value(bidx, arch.os_type == os::macos);
+            }
+
+            if (kw.keyword == "THIS" || kw.keyword == "OTHER")
+            {
+                auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
+                if (!result.has_value())
+                {
+                    throw std::runtime_error("Expected symbol " + kw.keyword + " to be defined.");
+                }
+                co_return result.value();
             }
 
             throw rpnx::unimplemented();

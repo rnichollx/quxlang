@@ -34,7 +34,7 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, "@"))
         {
-            arg.api_name = parse_identifier(pos, end);
+            arg.api_name = parse_argument_name(pos, end);
             if (arg.api_name->empty())
             {
                 throw std::logic_error("Expected identifier after '@' ");

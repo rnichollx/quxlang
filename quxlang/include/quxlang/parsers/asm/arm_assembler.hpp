@@ -80,18 +80,16 @@ namespace quxlang::parsers
     inline std::optional< ast2_asm_operand > try_parse_arm_asm_operand(It& it, It end)
     {
 
-        QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand" << std::endl;});
+      //  QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand" << std::endl;});
         ast2_asm_operand ret;
         std::size_t bracket_count = 0;
 
     get_part:
 
-        std::cout << "get_part" << std::endl;
         skip_whitespace_and_comments(it, end);
 
         if (skip_symbol_if_is(it, end, "["))
         {
-            std::cout << "bracket_count++" << std::endl;
             bracket_count++;
             ret.components.push_back(std::string("["));
             goto get_part;

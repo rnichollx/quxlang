@@ -264,11 +264,10 @@ namespace quxlang
     struct ast2_file_declaration
     {
         std::string filename;
-        std::string module_name;
         std::map< std::string, std::string > imports;
         std::vector< subdeclaroid > declarations;
 
-        RPNX_MEMBER_METADATA(ast2_file_declaration, filename, module_name, imports, declarations);
+        RPNX_MEMBER_METADATA(ast2_file_declaration, filename, imports, declarations);
     };
 
     struct ast2_module_declaration

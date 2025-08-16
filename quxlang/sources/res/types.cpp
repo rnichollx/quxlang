@@ -20,31 +20,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     type_symbol context = input.context;
     type_symbol const& type = input.type;
 
+
+
     QUXLANG_DEBUG({
         std::cout << "type lookup," << std::endl;
         std::cout << "With Context: " << to_string(context) << std::endl;
         std::cout << "Looking up type: " << to_string(type) << std::endl;
     });
 
-    auto current_module = input.context;
-    while (qualified_parent(current_module).has_value() && !current_module.type_is< module_reference >())
+    auto current_module = get_root_module(context).value_or(void_type{});
+
+    if (type.type_is< absolute_module_reference >())
     {
-        current_module = qualified_parent(current_module).value_or(void_type{});
+        co_return type;
     }
 
-    // TODO: split module references into relative and absolute module references.
-    if (type.type_is< module_reference >())
-    {
-        auto const& mod = as< module_reference >(type);
-        if (!mod.module_name.has_value())
-        {
-            co_return current_module;
-        }
-        else
-        {
-            co_return type;
-        }
-    }
     else if (type.type_is< size_type >())
     {
         co_return int_type{.bits = c->m_output_info.pointer_size_bytes() * 8, .has_sign = false};
@@ -111,12 +101,25 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
             subsymbol sub2{current_context.value(), fb.name};
 
+            if (current_context.value().type_is< absolute_module_reference >())
+            {
+                ast2_module_declaration module_ast = co_await QUX_CO_DEP(module_ast, (as< absolute_module_reference >(current_context.value()).module_name));
+
+                auto import_at = module_ast.imports.find(fb.name);
+
+                if (import_at != module_ast.imports.end())
+                {
+                    co_return absolute_module_reference{import_at->second};
+                }
+            }
+
             auto exists = co_await QUX_CO_DEP(exists, (sub2));
 
             QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
 
             if (exists)
             {
+                std::cout << "Found '" << fb.name << "' in context " << quxlang::to_string(current_context.value()) << std::endl;
                 co_return sub2;
             }
 
@@ -140,7 +143,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             co_return rval;
         }
 
-        auto parent_canonical = *co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}));
+        std::cout << "Parent: " << to_string(parent) << std::endl;
+
+        auto parent_canonical_opt = co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}));
+        if (!parent_canonical_opt.has_value())
+        {
+            std::string str = "Could not find '" + sub.name + "' in context " + quxlang::to_string(context);
+            co_return std::nullopt;
+        }
+
+        auto parent_canonical = parent_canonical_opt.value();
+
+        auto parent_canonical_str = to_string(parent_canonical);
         assert(!qualified_is_contextual(parent_canonical));
         co_return subsymbol{parent_canonical, sub.name};
     }
@@ -230,10 +244,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         co_return type;
     }
     else if (type.template type_is< bool_type >())
-    {
-        co_return type;
-    }
-    else if (type.template type_is< module_reference >())
     {
         co_return type;
     }

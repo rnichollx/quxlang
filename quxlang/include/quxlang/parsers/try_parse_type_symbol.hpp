@@ -35,7 +35,9 @@ namespace quxlang::parsers
         skip_whitespace(pos, end);
         if (skip_keyword_if_is(pos, end, "MODULE"))
         {
-            module_reference m;
+            absolute_module_reference m;
+            // TODO: Only allow this to be parsed from unit tests etc.
+            // or add imported_module_reference or something.
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
@@ -45,7 +47,7 @@ namespace quxlang::parsers
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after MODULE(" + m.module_name.value() + ")");
+                throw std::logic_error("Expected ')' after MODULE(" + m.module_name + ")");
             }
             output = m;
         }

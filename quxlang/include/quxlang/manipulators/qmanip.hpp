@@ -309,13 +309,24 @@ namespace quxlang
         return typeis< numeric_literal_reference >(ref);
     }
 
+    inline std::optional<type_symbol> get_root_module(type_symbol const& ref)
+    {
+        if (ref.type_is< absolute_module_reference >())
+        {
+            return ref;
+        }
+        else if (auto parent = qualified_parent(ref); !parent.has_value())
+        {
+            return std::nullopt;
+        }
+        else
+        {
+            return get_root_module(parent.value());
+        }
+    }
+
     inline bool qualified_is_contextual(type_symbol const& ref)
     {
-        if (ref.type_is< module_reference >() && !ref.get_as< module_reference >().module_name.has_value())
-        {
-            // This is a module reference without a name, which is considered contextual to the current module
-            return true;
-        }
         if (ref.type_is< context_reference >() || ref.type_is< freebound_identifier >())
         {
             return true;

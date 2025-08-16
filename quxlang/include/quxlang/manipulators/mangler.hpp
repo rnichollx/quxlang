@@ -59,10 +59,9 @@ namespace quxlang
 
     inline std::string mangle_internal(type_symbol const& qt)
     {
-        if (qt.type() == typeid(module_reference))
+        if (qt.type() == typeid(absolute_module_reference))
         {
-            assert(qt.get_as< module_reference >().module_name.has_value());
-            return "M" + (as< module_reference >(qt)).module_name.value();
+            return "M" + (as< absolute_module_reference >(qt)).module_name;
         }
         else if (qt.template type_is< subsymbol >())
         {

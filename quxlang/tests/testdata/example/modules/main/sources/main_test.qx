@@ -1,4 +1,4 @@
-MODULE main;
+IMPORT foolib;
 
 ::foo FUNCTION(%a I32, %b I32): I32
 {
@@ -135,6 +135,8 @@ MODULE main;
   test_arry_pointers();
   test_argument_passing();
   test_swap();
+  test_call_function_from_other_file();
+  test_call_imported_function();
 
   RETURN 1;
 }
@@ -200,6 +202,18 @@ MODULE main;
   .x VAR I32;
   .y VAR -> I32;
 
+  .CONSTRUCTOR FUNCTION(@OTHER CONST& bam)
+  {
+    .x := OTHER.x;
+    .y := OTHER.y;
+  }
+
+  .CONSTRUCTOR FUNCTION(@OTHER TEMP& bam)
+  {
+    .x <-> OTHER.x;
+    .y <-> OTHER.y;
+  }
+
   .DESTRUCTOR FUNCTION()
   {
     IF (.y??)
@@ -221,6 +235,25 @@ MODULE main;
 
     ASSERT(a == 10);
     ASSERT(y == 5);
+}
+
+::test_call_function_from_other_file FUNCTION()
+{
+  VAR x I32;
+
+  x := other_file_function();
+
+  ASSERT(x == 42);
+}
+
+
+::test_call_imported_function FUNCTION()
+{
+   VAR x I32;
+
+   x := foolib::imported_function();
+
+   ASSERT(x == 42);
 }
 
 

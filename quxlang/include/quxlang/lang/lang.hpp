@@ -56,6 +56,8 @@ namespace quxlang
 
             // clang-format off
             kw_values = {
+                "OTHER",
+                "THIS",
                 "NULLPTR",
                 "UNSPECIFIED",
                 "POISON",

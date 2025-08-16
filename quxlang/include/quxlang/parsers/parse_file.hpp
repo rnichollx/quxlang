@@ -16,21 +16,11 @@ namespace quxlang::parsers
         ast2_file_declaration output;
         It& pos = begin;
         skip_whitespace_and_comments(pos, end);
-        if (!skip_keyword_if_is(pos, end, "MODULE"))
-        {
-            throw std::logic_error("expected module here");
-        }
+
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string module_name = parse_identifier(pos, end);
 
-        output.module_name = module_name;
-        skip_whitespace_and_comments(pos, end);
-        if (!skip_symbol_if_is(pos, end, ";"))
-        {
-            throw std::logic_error("Expected ; here");
-        }
 
         skip_whitespace_and_comments(pos, end);
 

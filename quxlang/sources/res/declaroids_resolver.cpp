@@ -10,7 +10,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
 
     std::string inputname = to_string(input);
 
-    if (typeis< module_reference >(input))
+    if (typeis< absolute_module_reference >(input))
     {
         throw std::logic_error("Cannot have declarations of a module");
     }

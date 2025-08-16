@@ -1,0 +1,5 @@
+
+::imported_function FUNCTION(): I32
+{
+    RETURN 42;
+}

@@ -13,7 +13,6 @@
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/res/constructor.hpp"
 #include "quxlang/res/expr_ir2.hpp"
-#include "quxlang/res/file_ast_resolver.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/function.hpp"

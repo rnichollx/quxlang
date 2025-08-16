@@ -1,0 +1,4 @@
+::other_file_function FUNCTION() :I32
+{
+  RETURN 42;
+}

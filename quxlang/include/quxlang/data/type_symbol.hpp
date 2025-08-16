@@ -219,11 +219,12 @@ namespace quxlang
     struct bound_type_reference;
     // struct function_type_reference;
 
-    struct module_reference
-    {
-        std::optional<std::string> module_name;
 
-        RPNX_MEMBER_METADATA(module_reference, module_name);
+    struct absolute_module_reference
+    {
+        std::string module_name;
+
+        RPNX_MEMBER_METADATA(absolute_module_reference, module_name);
     };
 
 

@@ -91,7 +91,7 @@ TEST(parsing, parse_class_constructor_delegates)
 
 TEST(parsing, functum_combining)
 {
-    std::string test_string = "MODULE m; ::foo FUNCTION(%a I32) { } ::foo FUNCTION(%a I64) { }";
+    std::string test_string = "::foo FUNCTION(%a I32) { } ::foo FUNCTION(%a I64) { }";
 
     quxlang::ast2_file_declaration file;
     file = quxlang::parsers::parse_file(test_string);
@@ -131,7 +131,7 @@ TEST(parsing, parse_basic_types)
 
 TEST(mangling, name_mangling_new)
 {
-    quxlang::module_reference module{"main"};
+    quxlang::absolute_module_reference module{"main"};
 
     quxlang::subsymbol subentity{module, "foo"};
 
@@ -671,55 +671,12 @@ TEST(VariantTest, Serialization)
 
     EXPECT_EQ(v4, std::string("hello"));
 }
-/*
-TEST(expression_ir, generation)
-{
-    quxlang::expr_test_provider pv;
-    quxlang::source_bundle sources;
-    sources.targets["foo"].target_output_config = quxlang::output_info{
-        .cpu_type = quxlang::cpu::x86_64,
-        .os_type = quxlang::os::linux,
-        .binary_type = quxlang::binary::elf,
-    };
-    quxlang::compiler c(sources, "foo");
-    quxlang::co_vmir_expression_emitter< quxlang::expr_test_provider::co_provider > em(pv.provider());
 
-    // TODO: We could probably make the tester look at named variable slots instead of having a lookup table
-    pv.slots.push_back(quxlang::vmir2::vm_slot{
-        .type = quxlang::parsers::parse_type_symbol("I32"),
-        .name = "a",
-        .kind = quxlang::vmir2::slot_kind::arg,
-    });
-    pv.slots.push_back(quxlang::vmir2::vm_slot{
-        .type = quxlang::parsers::parse_type_symbol("I32"),
-        .name = "b",
-        .kind = quxlang::vmir2::slot_kind::arg,
-    });
-    pv.slot_alive = {true, true, true};
-
-    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("a")] = quxlang::expr_test_provider::loadable_symbol{.type = quxlang::parsers::parse_type_symbol("I32"), .index = 1};
-    pv.loadable_symbols[quxlang::parsers::parse_type_symbol("b")] = quxlang::expr_test_provider::loadable_symbol{.type = quxlang::parsers::parse_type_symbol("I32"), .index = 2};
-
-    quxlang::expression expr = quxlang::parsers::parse_expression("a + b - 4");
-
-    em.generate_expr(expr).await_sync();
-
-    quxlang::vmir2::functanoid_routine r;
-    r.slots = pv.slots;
-    r.instructions = pv.instructions;
-
-    std::string result = quxlang::vmir2::assembler(r).to_string(r);
-
-    std::cout << result << std::endl;
-}
-*/
-
-
-TEST(expression_ir, constexpr_result_bool)
+TEST(quxlang, constexpr_result_bool)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -738,7 +695,7 @@ TEST(builtin_state, user_func_builtin)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::compiler c(sources, "linux-x64");
     auto type = quxlang::parsers::parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
 
@@ -746,11 +703,11 @@ TEST(builtin_state, user_func_builtin)
     GTEST_ASSERT_FALSE(val_builtin);
 }
 
-TEST(expression_ir, constexpr_call_func)
+TEST(quxlang, constexpr_call_func)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -780,11 +737,11 @@ TEST(expression_ir, constexpr_call_func)
 }
 
 
-TEST(expression_ir, constexpr_call_func_arm)
+TEST(quxlang, constexpr_call_func_arm)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -810,11 +767,11 @@ TEST(expression_ir, constexpr_call_func_arm)
 
 }
 
-TEST(expression_ir, constexpr_xip)
+TEST(quxlang, constexpr_test_suites)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     quxlang::compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
@@ -829,14 +786,14 @@ TEST(expression_ir, constexpr_xip)
 
 }
 
-TEST(expression_ir, func_gen)
+TEST(quxlang, func_gen)
 {
 
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
 
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
 
-    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::module_reference{"main"});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
 
     quxlang::compiler c(sources, "linux-x64");
 
