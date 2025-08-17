@@ -269,6 +269,20 @@ IMPORT foolib;
   ASSERT(i == 6);
 }
 
+
+::test_argument_passing2 STATIC_TEST
+{
+  VAR b bam;
+  b.x := 5;
+  VAR i I32;
+  b.y := i<-;
+
+  test_argument_passing_helper(@arg b, @int i);
+
+  ASSERT(i == 6);
+}
+
+
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {
    int := int + arg.x;

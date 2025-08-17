@@ -70,12 +70,18 @@ namespace quxlang::vmir2
             {
                 auto const& what = m_what;
                 codegen_state_engine(this->state, what.local_types, {}).apply(i);
-
-                output += indent + "// state: " + this->to_string(this->state) + "\n";
+                if (print_states)
+                {
+                    output += indent + "// state: " + this->to_string(this->state) + "\n";
+                }
             }
             catch (std::exception const& e)
             {
-                output += indent + "// state: exception: " + e.what() + "\n";
+                if (print_states)
+                {
+                    output += indent + "// state: exception: " + e.what() + "\n";
+                }
+
             }
         }
         if (!inst.terminator.has_value())

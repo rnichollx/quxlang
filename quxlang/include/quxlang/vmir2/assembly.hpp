@@ -11,6 +11,7 @@ namespace quxlang::vmir2
     class assembler
     {
       public:
+        bool print_states = false;
         std::string to_string(vmir2::functanoid_routine3 inst);
         std::string to_string(vmir2::vm_instruction inst);
         std::string to_string(vmir2::vm_terminator inst);
