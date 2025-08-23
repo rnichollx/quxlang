@@ -119,6 +119,17 @@ results from macro-execution prior to aggregate-fusion.
 
 See also: Aggregate-fusion, Temploid, Templexoid, Function, Variable, Class.
 
+## Datatype
+
+A datatype is a type that implements the basic datatype guarantees. Namely, a datatype:
+
+* Implements .SERIALIZE and .DESERIALIZE such that the serialization of an object, if deserialized, produces an object which compares equal to the original object.
+* Implements all comparison operators (==, !=, <, <=, >, >=) in a single strong total ordering.
+* Two objects `a` and `b` compare equal _if and only if_ the serialization of `a` is byte-for-byte identical to the serialization of `b`.
+* An object copy-constructed from another object compares equal to the original object.
+
+Note that it is not permissible within a datatype for `a == b` to be false and `a != b` to also be false. 
+
 ## Declared Parameters
 
 Declared parameters are the parameters of a temploid (function or template) as
