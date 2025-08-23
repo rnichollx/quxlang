@@ -132,7 +132,7 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "&"))
         {
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (skip_keyword_if_is(pos, end, "MUT"))
         {
@@ -141,7 +141,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (skip_keyword_if_is(pos, end, "CONST"))
         {
@@ -150,7 +150,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
         }
         else if (skip_keyword_if_is(pos, end, "WRITE"))
         {
@@ -159,7 +159,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after WRITE");
             }
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
         }
         else if (skip_keyword_if_is(pos, end, "TEMP"))
         {
@@ -168,7 +168,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after MUT");
             }
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {
@@ -195,7 +195,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after DESTROY");
             }
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
         else if (skip_keyword_if_is(pos, end, "SZ"))
         {
@@ -221,11 +221,11 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
         }
         else if (skip_symbol_if_is(pos, end, "=>>"))
         {
-            return pointer_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
         }
         else
         {

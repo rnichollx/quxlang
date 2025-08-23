@@ -674,7 +674,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             std::uint64_t value_number = std::stoull(value_string);
             return llvm::ConstantInt::get(llvm_int_type, value_number, v_int_type.has_sign);
         }
-        if (lit.type.template type_is< pointer_type >())
+        if (lit.type.template type_is< ptrref_type >())
         {
             if (lit.literal == "NULLPTR")
             {

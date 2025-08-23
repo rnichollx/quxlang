@@ -24,7 +24,7 @@
 #include "quxlang/res/types.hpp"
 #include "quxlang/res/variable.hpp"
 #include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
-#include <mutex>
+#include <quxlang/res/serialization.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
 #include <quxlang/res/ensig.hpp>
@@ -46,6 +46,8 @@
 #include <quxlang/res/template_instanciation_parameter_set_resolver.hpp>
 #include <quxlang/res/templex_select_template.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
+
+#include <mutex>
 #include <shared_mutex>
 
 // clang-format off
@@ -165,6 +167,11 @@ namespace quxlang
         COMPILER_INDEX(uintpointer_type)
         COMPILER_INDEX(implicitly_convertible_to);
         COMPILER_INDEX(module_sources);
+        COMPILER_INDEX(user_serialize_exists)
+        COMPILER_INDEX(user_deserialize_exists)
+        COMPILER_INDEX(type_is_implicitly_datatype)
+        COMPILER_INDEX(type_should_autogen_serialize)
+        COMPILER_INDEX(type_should_autogen_deserialize);
 
 
 
@@ -191,3 +198,4 @@ namespace quxlang
 } // namespace quxlang
 
 #endif // QUXLANG_COMPILER_HEADER_GUARD
+

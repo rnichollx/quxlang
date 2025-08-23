@@ -8,7 +8,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
     type_symbol const& type = input;
     std::string type_str = to_string(type);
 
-    if (type.template type_is< pointer_type >())
+    if (type.template type_is< ptrref_type >())
     {
         output_info m = c->m_output_info;
 

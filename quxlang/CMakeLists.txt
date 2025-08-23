@@ -34,7 +34,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/manipulators/qmanip.cpp
         sources/manipulators/qualified_symbol_stringifier.cpp
         include/quxlang/data/vm_expr_load_literal.hpp
-        include/quxlang/res/class_should_autogen_default_constructor_resolver.hpp
         include/quxlang/data/vm_expr_access_field.hpp
         include/quxlang/res/symbol_is_primitive_resolver.hpp
         include/quxlang/res/symbol_is_class_resolver.hpp
@@ -235,6 +234,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/res/ensig.hpp
         sources/res/ensig.cpp
         include/quxlang/data/parser_data.hpp
+        include/quxlang/res/serialization.hpp
 
 )
 
@@ -283,7 +283,6 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         include/quxlang/compiler_fwd.hpp
         sources/res/filelist_resolver.cpp
         include/quxlang/compiler_fwd.hpp
-        include/quxlang/res/file_ast_resolver.hpp
 
 
         include/quxlang/res/filelist_resolver.hpp

@@ -856,7 +856,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< pointer_type >() || of_type.type_is< array_type >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >();
         }
 
         // This implements builtin operators for primitives,
@@ -896,9 +896,9 @@ namespace quxlang
 
             auto is_arry_pointer = [](type_symbol const& type)
             {
-                if (type.type_is< pointer_type >())
+                if (type.type_is< ptrref_type >())
                 {
-                    auto const& ptr = type.as< pointer_type >();
+                    auto const& ptr = type.as< ptrref_type >();
                     return ptr.ptr_class == pointer_class::array;
                 }
                 return false;
@@ -936,7 +936,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR??")
             {
-                if (cls->template type_is< pointer_type >() && cls->as< pointer_type >().ptr_class != pointer_class::ref)
+                if (cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref)
                 {
                     if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
                     {
@@ -1078,7 +1078,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< bool_type >() || cls->template type_is< pointer_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -1101,7 +1101,7 @@ namespace quxlang
             }
             else if (member->name == "OPERATOR->")
             {
-                if (cls->template type_is< pointer_type >())
+                if (cls->template type_is< ptrref_type >())
                 {
                     if (call.named.contains("THIS") && args.size() == 2)
                     {
@@ -1165,7 +1165,7 @@ namespace quxlang
                 }
             }
 
-            if (cls->template type_is< pointer_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
+            if (cls->template type_is< ptrref_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
             {
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
                 {
@@ -1185,7 +1185,7 @@ namespace quxlang
                     return par;
                 }
 
-                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< pointer_type >() && call.size() == 2)
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< ptrref_type >() && call.size() == 2)
                 {
                     vmir2::pointer_diff pdf;
                     pdf.from = get_local_index(args.named.at("THIS"));
@@ -1265,7 +1265,7 @@ namespace quxlang
 
             auto non_ref_type = remove_ref(type);
 
-            auto pointer_storage = create_local_value(pointer_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            auto pointer_storage = create_local_value(ptrref_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
 
             make_pointer.pointer_index = get_local_index(pointer_storage);
 
@@ -1752,7 +1752,7 @@ namespace quxlang
                     vmir2::access_field access;
                     access.base_index = get_local_index(base);
                     access.field_name = field.name;
-                    type_symbol result_ref_type = recast_reference(base_type.template get_as< pointer_type >(), field.type);
+                    type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), field.type);
                     auto result_idx = create_local_value(result_ref_type);
                     access.store_index = get_local_index(result_idx);
                     // std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
@@ -2210,12 +2210,12 @@ namespace quxlang
             type_symbol val_type = this->current_type(current_block, val);
             // This function should convert an mref to tref
 
-            if (!val_type.type_is< pointer_type >())
+            if (!val_type.type_is< ptrref_type >())
             {
                 throw std::logic_error("Expected a reference type");
             }
 
-            auto vptr = val_type.get_as< pointer_type >();
+            auto vptr = val_type.get_as< ptrref_type >();
 
             if (vptr.ptr_class != pointer_class::ref)
             {
@@ -2292,13 +2292,13 @@ namespace quxlang
             type_symbol val_type = this->current_type(current_block, val);
             // This function should convert an mref to tref
 
-            if (!val_type.type_is< pointer_type >())
+            if (!val_type.type_is< ptrref_type >())
             {
                 // No-op if the value is not a reference type
                 co_return val;
             }
 
-            auto vptr = val_type.get_as< pointer_type >();
+            auto vptr = val_type.get_as< ptrref_type >();
 
             if (vptr.ptr_class != pointer_class::ref)
             {

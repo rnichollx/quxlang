@@ -79,42 +79,42 @@ namespace quxlang
 
     inline type_symbol make_mref(type_symbol ref)
     {
-        if (typeis< pointer_type >(ref))
+        if (typeis< ptrref_type >(ref))
         {
-            if (ref.get_as< pointer_type >().ptr_class == pointer_class::ref)
+            if (ref.get_as< ptrref_type >().ptr_class == pointer_class::ref)
             {
-                auto const& pref = ref.get_as< pointer_type >();
+                auto const& pref = ref.get_as< ptrref_type >();
                 if (pref.qual == qualifier::constant)
                 {
                     throw std::logic_error("can't convert from CONST to MUT");
                 }
-                return pointer_type{.target = pref.target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+                return ptrref_type{.target = pref.target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
             }
-            return pointer_type{.target = ref, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = ref, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (typeis< nvalue_slot >(ref))
         {
-            return pointer_type{.target = ref.get_as< nvalue_slot >().target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = ref.get_as< nvalue_slot >().target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else
         {
-            return pointer_type{.target = std::move(ref), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = std::move(ref), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
     }
 
     inline type_symbol make_wref(type_symbol ref)
     {
-        return pointer_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::write};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::write};
     }
 
     inline type_symbol make_tref(type_symbol ref)
     {
-        return pointer_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
     }
 
     inline type_symbol make_cref(type_symbol ref)
     {
-        return pointer_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
+        return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
     }
 
     inline type_symbol create_nslot(type_symbol ref)
@@ -136,13 +136,13 @@ namespace quxlang
         }
 
         // Mutable references can be converted to all other references
-        if (typeis< pointer_type >(from) && from.get_as< pointer_type >().qual == qualifier::mut)
+        if (typeis< ptrref_type >(from) && from.get_as< ptrref_type >().qual == qualifier::mut)
         {
             return true;
         }
 
-        pointer_type const& from_ptr = from.get_as< pointer_type >();
-        pointer_type const& to_ptr = to.get_as< pointer_type >();
+        ptrref_type const& from_ptr = from.get_as< ptrref_type >();
+        ptrref_type const& to_ptr = to.get_as< ptrref_type >();
 
         // Const references are read only, and can be derived from everything except
         // output-only references (wvalue_reference)
@@ -169,12 +169,12 @@ namespace quxlang
 
     inline bool is_ref(type_symbol type)
     {
-        if (!typeis< pointer_type >(type))
+        if (!typeis< ptrref_type >(type))
         {
             return false;
         }
 
-        auto const& ptrv = type.get_as< pointer_type >();
+        auto const& ptrv = type.get_as< ptrref_type >();
 
         if (ptrv.ptr_class != pointer_class::ref)
         {
@@ -186,9 +186,9 @@ namespace quxlang
 
     inline bool is_ptr(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return type.get_as< pointer_type >().ptr_class != pointer_class::ref;
+            return type.get_as< ptrref_type >().ptr_class != pointer_class::ref;
         }
         else
         {
@@ -196,23 +196,23 @@ namespace quxlang
         }
     }
 
-    inline type_symbol recast_reference(pointer_type obj, type_symbol field_type)
+    inline type_symbol recast_reference(ptrref_type obj, type_symbol field_type)
     {
-        if (typeis< pointer_type >(field_type) && field_type.get_as< pointer_type >().ptr_class == pointer_class::ref)
+        if (typeis< ptrref_type >(field_type) && field_type.get_as< ptrref_type >().ptr_class == pointer_class::ref)
         {
             return field_type;
         }
         else
         {
-            return pointer_type{.target = field_type, .ptr_class = pointer_class::ref, .qual = obj.qual};
+            return ptrref_type{.target = field_type, .ptr_class = pointer_class::ref, .qual = obj.qual};
         }
     }
 
     inline type_symbol remove_ptr(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).target;
+            return as< ptrref_type >(type).target;
         }
         else
         {
@@ -222,27 +222,27 @@ namespace quxlang
 
     inline bool is_const_ref(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).qual == qualifier::constant && as< pointer_type >(type).ptr_class == pointer_class::ref;
+            return as< ptrref_type >(type).qual == qualifier::constant && as< ptrref_type >(type).ptr_class == pointer_class::ref;
         }
         return false;
     }
 
     inline bool is_write_ref(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).qual == qualifier::write && as< pointer_type >(type).ptr_class == pointer_class::ref;
+            return as< ptrref_type >(type).qual == qualifier::write && as< ptrref_type >(type).ptr_class == pointer_class::ref;
         }
         return false;
     }
 
     inline bool is_temp_ref(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).qual == qualifier::temp && as< pointer_type >(type).ptr_class == pointer_class::ref;
+            return as< ptrref_type >(type).qual == qualifier::temp && as< ptrref_type >(type).ptr_class == pointer_class::ref;
         }
         return false;
     }
@@ -250,29 +250,29 @@ namespace quxlang
     inline bool is_mut_ref(type_symbol type)
     {
 
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).qual == qualifier::mut && as< pointer_type >(type).ptr_class == pointer_class::ref;
+            return as< ptrref_type >(type).qual == qualifier::mut && as< ptrref_type >(type).ptr_class == pointer_class::ref;
         }
         return false;
     }
 
     inline bool is_auto_ref(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            return as< pointer_type >(type).qual == qualifier::auto_ && as< pointer_type >(type).ptr_class == pointer_class::ref;
+            return as< ptrref_type >(type).qual == qualifier::auto_ && as< ptrref_type >(type).ptr_class == pointer_class::ref;
         }
         return false;
     }
 
     inline type_symbol remove_ref(type_symbol type)
     {
-        if (typeis< pointer_type >(type))
+        if (typeis< ptrref_type >(type))
         {
-            if (as< pointer_type >(type).ptr_class == pointer_class::ref)
+            if (as< ptrref_type >(type).ptr_class == pointer_class::ref)
             {
-                return as< pointer_type >(type).target;
+                return as< ptrref_type >(type).target;
             }
         }
         else if (typeis< nvalue_slot >(type))
@@ -349,7 +349,7 @@ namespace quxlang
 
     inline bool is_primitive(type_symbol sym)
     {
-        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< pointer_type >(sym);
+        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< ptrref_type >(sym);
     }
 
 } // namespace quxlang

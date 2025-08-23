@@ -124,7 +124,7 @@ TEST(parsing, parse_basic_types)
     using namespace quxlang;
 
     ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
-    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(pointer_type{int_type{64, true}}));
+    ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(ptrref_type{int_type{64, true}}));
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
@@ -266,9 +266,9 @@ TEST(quxlang_modules, merge_entities)
 TEST(qual, template_matching)
 {
     quxlang::type_symbol template1 = quxlang::auto_temploidic{"foo"};
-    quxlang::type_symbol template2 = quxlang::pointer_type{.target = quxlang::auto_temploidic{"foo"}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
+    quxlang::type_symbol template2 = quxlang::ptrref_type{.target = quxlang::auto_temploidic{"foo"}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
     quxlang::type_symbol type1 = quxlang::int_type{32, true};
-    quxlang::type_symbol type2 = quxlang::pointer_type{.target = quxlang::int_type{32, true}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
+    quxlang::type_symbol type2 = quxlang::ptrref_type{.target = quxlang::int_type{32, true}, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut};
 
     auto res1 = quxlang::match_template(template1, type1);
 

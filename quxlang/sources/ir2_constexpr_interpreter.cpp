@@ -595,7 +595,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     }
 
     // Pointer data is stored in ref, not data bytes.
-    if (typeis< pointer_type >(type))
+    if (typeis< ptrref_type >(type))
     {
         return 0;
     }
@@ -733,7 +733,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto typ = frame_slot_data_type(tb.from);
 
-    if (typ.type_is< pointer_type >() && !(typ.get_as< pointer_type >().ptr_class == pointer_class::ref))
+    if (typ.type_is< ptrref_type >() && !(typ.get_as< ptrref_type >().ptr_class == pointer_class::ref))
     {
         auto& local = get_current_frame().local_values[tb.from];
 
@@ -779,7 +779,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto typ = frame_slot_data_type(tbn.from);
 
-    if (typ.type_is< pointer_type >() && !(typ.template as< pointer_type >().ptr_class == pointer_class::ref))
+    if (typ.type_is< ptrref_type >() && !(typ.template as< ptrref_type >().ptr_class == pointer_class::ref))
     {
         auto& local = get_current_frame().local_values[tbn.from];
 
@@ -2148,18 +2148,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto const& type = frame_slot_data_type(val);
 
-    if (!typeis< pointer_type >(type))
+    if (!typeis< ptrref_type >(type))
     {
         throw invalid_instruction_error("Expected reference to int or pointer to increment, but got " + to_string(type) + " instead");
     }
 
-    auto type_int_or_pointer_g = type.get_as< pointer_type >().target;
+    auto type_int_or_pointer_g = type.get_as< ptrref_type >().target;
 
     if (typeis< int_type >(type_int_or_pointer_g))
     {
         exec_incdec_int(val, result, increment);
     }
-    else if (typeis< pointer_type >(type_int_or_pointer_g))
+    else if (typeis< ptrref_type >(type_int_or_pointer_g))
     {
         exec_incdec_ptr(val, result, increment);
     }
@@ -2171,7 +2171,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(local_index input_slot, local_index output_slot, bool increment)
 {
     auto const& type = frame_slot_data_type(input_slot);
-    auto type_int_g = type.get_as< pointer_type >().target;
+    auto type_int_g = type.get_as< ptrref_type >().target;
 
     int_type const& type_int = type_int_g.get_as< int_type >();
 
@@ -2201,13 +2201,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto const& pointer_ref_type_v = get_local_type(input_slot);
 
-    if (!typeis< pointer_type >(pointer_ref_type_v) || !as< pointer_type >(pointer_ref_type_v).target.type_is< pointer_type >())
+    if (!typeis< ptrref_type >(pointer_ref_type_v) || !as< ptrref_type >(pointer_ref_type_v).target.type_is< ptrref_type >())
     {
         // TODO: Also double check this is array pointer
         throw invalid_instruction_error("Error in [increment]: slot is not a reference");
     }
 
-    auto const& pointer_type_v = as< pointer_type >(pointer_ref_type_v).target.as< pointer_type >();
+    auto const& pointer_type_v = as< ptrref_type >(pointer_ref_type_v).target.as< ptrref_type >();
 
     if (!ptr.has_value())
     {
@@ -2286,8 +2286,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     assert(ok);
 
-    type_symbol const& pointer_type = get_local_type(par.result);
-    pointer_impl new_ptr = pointer_arith(ptr, offset, pointer_type);
+    type_symbol const& ptrref_type = get_local_type(par.result);
+    pointer_impl new_ptr = pointer_arith(ptr, offset, ptrref_type);
 
     store_as_pointer(par.result, new_ptr);
 }

@@ -12,9 +12,10 @@ namespace quxlang
     struct initialization_reference;
     struct instanciation_reference;
     struct value_expression_reference;
-    struct pointer_type;
+    struct ptrref_type;
     struct int_type;
     struct bool_type;
+    struct readonly_constant;
 
     struct array_type;
     struct size_type;
@@ -32,11 +33,11 @@ namespace quxlang
     struct dvalue_slot;
     struct bound_type_reference;
     struct thistype;
-    struct pointer_type;
+    struct ptrref_type;
     struct type_temploidic;
     struct freebound_identifier;
 
-    using type_symbol = rpnx::variant< void_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, pointer_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type >;
+    using type_symbol = rpnx::variant< void_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant >;
 
     struct expression_multiply;
     struct expression_modulus;

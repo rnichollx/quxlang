@@ -75,11 +75,11 @@ namespace quxlang
 
             return mangle_internal(se.of) + "D" + mangle_internal(se.name);
         }
-        else if (qt.template type_is< pointer_type >())
+        else if (qt.template type_is< ptrref_type >())
         {
             std::string output = "P";
 
-            auto const& ptr = as< pointer_type >(qt);
+            auto const& ptr = as< ptrref_type >(qt);
 
             switch (ptr.ptr_class)
             {

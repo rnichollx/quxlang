@@ -61,7 +61,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
 {
     std::set< builtin_function_info > result;
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< pointer_type >())
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >())
     {
 
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
@@ -123,8 +123,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
     }
 
-    if (name == "OPERATOR??" && (parent.test< pointer_type >(
-                                     [](pointer_type p)
+    if (name == "OPERATOR??" && (parent.test< ptrref_type >(
+                                     [](ptrref_type p)
                                      {
                                          return p.ptr_class != pointer_class::ref;
                                      }) ||
@@ -150,9 +150,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             builtin_function_info br_info;
             br_info.overload = temploid_ensig{.interface = intertype{
                                                   .positional = {argif{.type = uintptr_type}},
-                                                  .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},
+                                                  .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},
                                               }};
-            br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
+            br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
 
             allowed_operations.insert(br_info);
         }
@@ -166,8 +166,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{.positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{pointer_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
-            br_info.return_type = pointer_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
+            br_info.overload = temploid_ensig{.interface = intertype{.positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
+            br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
 
             allowed_operations.insert(br_info);
         }
@@ -188,7 +188,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
         bool is_int_type = typeis< int_type >(parent);
         bool is_bool_type = typeis< bool_type >(parent);
-        bool is_pointer_type = typeis< pointer_type >(parent);
+        bool is_pointer_type = typeis< ptrref_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
         bool is_assignment_operator = base_operators.contains(operator_name);
@@ -275,13 +275,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
             co_return (allowed_operations);
         }
 
-        if (typeis< pointer_type >(parent) && operator_name == rightarrow_operator)
+        if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator)
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
         }
-        if (typeis< pointer_type >(parent))
+        if (typeis< ptrref_type >(parent))
         {
-            pointer_type const& ptr = as< pointer_type >(parent);
+            ptrref_type const& ptr = as< ptrref_type >(parent);
 
             auto uintptr_type = co_await QUX_CO_DEP(uintpointer_type, (std::monostate{}));
 
@@ -697,7 +697,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
             }
             else
             {
-                this_argif.type = pointer_type{.target = class_type.value(), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+                this_argif.type = ptrref_type{.target = class_type.value(), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
             }
 
             formal_ensig.interface.named["THIS"] = this_argif;

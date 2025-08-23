@@ -148,6 +148,7 @@ namespace quxlang
 
     struct qualified_symbol_stringifier
     {
+        std::string operator()(readonly_constant const& ref) const;
         std::string operator()(freebound_identifier const& ref) const;
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
@@ -169,7 +170,7 @@ namespace quxlang
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
-        std::string operator()(pointer_type const&) const;
+        std::string operator()(ptrref_type const&) const;
         std::string operator()(instanciation_reference const&) const;
 
       public:
@@ -234,6 +235,11 @@ namespace quxlang
         {
         }
 
+        bool operator()(readonly_constant const& ref) const
+        {
+            return false;
+        }
+
         bool operator()(subsymbol const& ref) const
         {
             return is_template(ref.of);
@@ -269,7 +275,7 @@ namespace quxlang
             return is_template(ref.element_type);
         }
 
-        bool operator()(pointer_type const& ref) const
+        bool operator()(ptrref_type const& ref) const
         {
             switch (ref.qual)
             {
@@ -389,9 +395,9 @@ namespace quxlang
         {
             return as< subsymbol >(input).of;
         }
-        else if (input.template type_is< pointer_type >())
+        else if (input.template type_is< ptrref_type >())
         {
-            return as< pointer_type >(input).target;
+            return as< ptrref_type >(input).target;
         }
         else if (input.template type_is< initialization_reference >())
         {
@@ -425,10 +431,10 @@ namespace quxlang
         {
             return subsymbol{with_context(as< subsymbol >(ref).of, context), as< subsymbol >(ref).name};
         }
-        else if (ref.template type_is< pointer_type >())
+        else if (ref.template type_is< ptrref_type >())
         {
-            pointer_type copy = as< pointer_type >(ref);
-            copy.target = with_context(as< pointer_type >(ref).target, context);
+            ptrref_type copy = as< ptrref_type >(ref);
+            copy.target = with_context(as< ptrref_type >(ref).target, context);
             return copy;
         }
         else if (ref.template type_is< initialization_reference >())
@@ -464,7 +470,7 @@ namespace quxlang
 
 
 
-    std::string qualified_symbol_stringifier::operator()(pointer_type const& ref) const
+    std::string qualified_symbol_stringifier::operator()(ptrref_type const& ref) const
     {
         std::string output;
 
@@ -582,6 +588,29 @@ namespace quxlang
         return output;
     }
 
+    std::string qualified_symbol_stringifier::operator()(readonly_constant const& ref) const
+    {
+        if (ref.kind == constant_kind::string)
+        {
+            return "STRING_CONSTANT";
+        }
+        else if (ref.kind == constant_kind::cstring)
+        {
+            return "CSTRING_CONSTANT";
+        }
+        else if (ref.kind == constant_kind::numeric)
+        {
+            return "NUMERIC_CONSTANT";
+        }
+        else if (ref.kind == constant_kind::data)
+        {
+            return "DATA_CONSTANT";
+        }
+        else
+        {
+            throw compiler_bug("Unknown constant kind");
+        }
+    }
     std::string qualified_symbol_stringifier::operator()(freebound_identifier const& ref) const
     {
         return ref.name;
@@ -707,7 +736,7 @@ namespace quxlang
         if (is_auto_ref(template_type))
         {
             // Matches any reference type
-            pointer_type const& template_autoref = as< pointer_type >(template_type);
+            ptrref_type const& template_autoref = as< ptrref_type >(template_type);
 
             std::string type_str = to_string(type);
 
@@ -753,16 +782,16 @@ namespace quxlang
 
         // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
 
-        if (typeis< pointer_type >(template_type))
+        if (typeis< ptrref_type >(template_type))
         {
-            auto const& ptr_template = as< pointer_type >(template_type);
+            auto const& ptr_template = as< ptrref_type >(template_type);
 
-            pointer_type matched_type;
-            if (!type.type_is< pointer_type >())
+            ptrref_type matched_type;
+            if (!type.type_is< ptrref_type >())
             {
                 return std::nullopt;
             }
-            auto const& ptr_type = as< pointer_type >(type);
+            auto const& ptr_type = as< ptrref_type >(type);
 
             if (ptr_template.ptr_class != ptr_type.ptr_class)
             {
@@ -865,9 +894,9 @@ namespace quxlang
             auto name = as< auto_temploidic >(template_type).name;
 
             type_symbol const * type_target = nullptr;
-            if (type.type_is< pointer_type >() && type.as< pointer_type >().ptr_class == pointer_class::ref)
+            if (type.type_is< ptrref_type >() && type.as< ptrref_type >().ptr_class == pointer_class::ref)
             {
-                type_target = &as< pointer_type >(type).target;
+                type_target = &as< ptrref_type >(type).target;
             }
             else
             {
@@ -900,7 +929,7 @@ namespace quxlang
         if (is_auto_ref(template_type))
         {
             // Matches any reference type
-            pointer_type const& template_autoref = as< pointer_type >(template_type);
+            ptrref_type const& template_autoref = as< ptrref_type >(template_type);
 
             std::string type_str = to_string(type);
 
@@ -946,16 +975,16 @@ namespace quxlang
 
         // TODO: Add template_arg_matches to the top level to allow builtin implicit conversions
 
-        if (typeis< pointer_type >(template_type))
+        if (typeis< ptrref_type >(template_type))
         {
-            auto const& ptr_template = as< pointer_type >(template_type);
+            auto const& ptr_template = as< ptrref_type >(template_type);
 
-            pointer_type matched_type;
-            if (!type.type_is< pointer_type >())
+            ptrref_type matched_type;
+            if (!type.type_is< ptrref_type >())
             {
                 return std::nullopt;
             }
-            auto const& ptr_type = as< pointer_type >(type);
+            auto const& ptr_type = as< ptrref_type >(type);
 
             if (ptr_template.ptr_class != ptr_type.ptr_class)
             {
@@ -1285,6 +1314,11 @@ namespace quxlang
                 throw compiler_bug("should be unreachable");
             }
 
+            bool check_impl(readonly_constant const& template_val, readonly_constant const& match_val, bool conv)
+            {
+                return template_val.kind == match_val.kind;
+            }
+
             bool check_impl(subsymbol const& template_val, subsymbol const& match_val, bool conv)
             {
                 if (template_val.name != match_val.name)
@@ -1299,7 +1333,7 @@ namespace quxlang
                throw compiler_bug("can't use a freebound identifier as a template parameter");
             }
 
-            bool check_impl(pointer_type const& template_val, pointer_type const& match_val, bool conv)
+            bool check_impl(ptrref_type const& template_val, ptrref_type const& match_val, bool conv)
             {
                 if (template_val.qual != match_val.qual && !conv && qualifier_template_match(template_val.qual, match_val.qual) == std::nullopt)
                 {

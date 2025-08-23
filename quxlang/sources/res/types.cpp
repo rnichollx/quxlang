@@ -39,9 +39,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     {
         co_return int_type{.bits = c->m_output_info.pointer_size_bytes() * 8, .has_sign = false};
     }
-    else if (type.template type_is< pointer_type >())
+    else if (type.template type_is< ptrref_type >())
     {
-        pointer_type const& ptr = as< pointer_type >(type);
+        ptrref_type const& ptr = as< ptrref_type >(type);
 
         type_symbol to_type = ptr.target;
 
@@ -57,7 +57,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             co_return std::nullopt;
         }
 
-        pointer_type canonical_ptr_type;
+        ptrref_type canonical_ptr_type;
         canonical_ptr_type.qual = ptr.qual;
         canonical_ptr_type.ptr_class = ptr.ptr_class;
         canonical_ptr_type.target = canon_ptr_to_type.value();
