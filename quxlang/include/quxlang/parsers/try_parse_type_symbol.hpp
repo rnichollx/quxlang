@@ -55,6 +55,22 @@ namespace quxlang::parsers
         {
             output = numeric_literal_reference{};
         }
+        else if (skip_keyword_if_is(pos, end, "STRING_CONSTANT"))
+        {
+            output = readonly_constant{.kind = constant_kind::string};
+        }
+        else if (skip_keyword_if_is(pos, end, "CSTRING_CONSTANT"))
+        {
+            output = readonly_constant{.kind = constant_kind::cstring};
+        }
+        else if (skip_keyword_if_is(pos, end, "DATA_CONSTANT"))
+        {
+            output = readonly_constant{.kind = constant_kind::data};
+        }
+        else if (skip_keyword_if_is(pos, end, "NUMERIC_CONSTANT"))
+        {
+            output = readonly_constant{.kind = constant_kind::numeric};
+        }
         else if (skip_keyword_if_is(pos, end, "VOID"))
         {
             output = void_type{};

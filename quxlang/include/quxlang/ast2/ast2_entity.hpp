@@ -40,10 +40,6 @@ namespace quxlang
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_map_entity [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_extern, ast2_asm_procedure_declaration >;
-
-    using ast2_node [[deprecated("replace with declaroid/symboid etc")]] = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration >;
-
     using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test >;
 
     using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;

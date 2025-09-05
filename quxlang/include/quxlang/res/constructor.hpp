@@ -26,6 +26,14 @@ namespace quxlang
     // - NO_IMPLICIT_CONSTRUCTORS is not set
     QUX_CO_RESOLVER(class_requires_gen_default_ctor, type_symbol, bool);
 
+
+
+    using class_tags_result_type = std::set< std::string >;
+    QUX_CO_RESOLVER(class_tags, type_symbol, class_tags_result_type);
+
+
+    QUX_CO_RESOLVER(class_requires_gen_assignment, type_symbol, bool);
+
     // Determines if a type requires compiler-generated copy constructor.
     // Returns true if:
     // - The type has no user-defined copy constructor AND
@@ -50,6 +58,8 @@ namespace quxlang
 
     QUX_CO_RESOLVER(user_swap_exists, type_symbol, bool);
 
+    QUX_CO_RESOLVER(user_assignment_exists, type_symbol, bool);
+
     // Determines if a type is trivially destructible.
     // Returns true if destroying an instance requires no code generation
     // (i.e., no cleanup needed for the type and all its members)
@@ -71,7 +81,7 @@ namespace quxlang
     QUX_CO_RESOLVER(have_nontrivial_member_dtor, type_symbol, bool);
     QUX_CO_RESOLVER(have_nontrivial_member_ctor, type_symbol, bool);
 
-    QUX_CO_RESOLVER(list_primitive_constructors, type_symbol, std::set< builtin_function_info >);
+    QUX_CO_RESOLVER(list_builtin_constructors, type_symbol, std::set< builtin_function_info >);
     QUX_CO_RESOLVER(list_primitive_destructors, type_symbol, std::set< builtin_function_info >);
 
 } // namespace quxlang

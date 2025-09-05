@@ -10,6 +10,7 @@
 #include <optional>
 #include <rpnx/metadata.hpp>
 #include <string>
+#include <rpnx/variant.hpp>
 
 namespace quxlang
 {
@@ -55,7 +56,9 @@ namespace quxlang
         // "foolib" -> "foolib1"
         std::map< std::string, std::string > import_mappings;
 
-        RPNX_MEMBER_METADATA(module_configuration, source, import_mappings);
+        std::map< std::string, std::string > option_values;
+
+        RPNX_MEMBER_METADATA(module_configuration, source, import_mappings, option_values);
     };
 
     enum class output_kind

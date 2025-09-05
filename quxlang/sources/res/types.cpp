@@ -34,6 +34,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     {
         co_return type;
     }
+    else if (type.type_is< readonly_constant >())
+    {
+        co_return type;
+    }
 
     else if (type.type_is< size_type >())
     {

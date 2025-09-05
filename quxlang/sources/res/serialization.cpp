@@ -52,3 +52,39 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_is_implicitly_datatype)
     // Default to false for other types
     co_return false;
 }
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_should_autogen_serialize)
+{
+    // If user-defined serialize exists, no need to autogen
+    if (co_await QUX_CO_DEP(user_serialize_exists, (input)))
+    {
+        co_return false;
+    }
+
+    // If the type is not an implicitly datatype, cannot autogen
+    if (!(co_await QUX_CO_DEP(type_is_implicitly_datatype, (input))))
+    {
+        co_return false;
+    }
+
+    // Otherwise, should autogen
+    co_return true;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_should_autogen_deserialize)
+{
+    // If user-defined deserialize exists, no need to autogen
+    if (co_await QUX_CO_DEP(user_deserialize_exists, (input)))
+    {
+        co_return false;
+    }
+
+    // If the type is not an implicitly datatype, cannot autogen
+    if (!(co_await QUX_CO_DEP(type_is_implicitly_datatype, (input))))
+    {
+        co_return false;
+    }
+
+    // Otherwise, should autogen
+    co_return true;
+}

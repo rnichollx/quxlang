@@ -3,7 +3,6 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/operators.hpp"
-#include "quxlang/res/list_builtin_functum_overloads_resolver.hpp"
 #include "quxlang/variant_utils.hpp"
 #include <quxlang/macros.hpp>
 #include <quxlang/res/function.hpp>
@@ -57,11 +56,24 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
     co_return co_await QUX_CO_DEP(function_instanciation, (initialization_reference{.initializee = selection.value(), .parameters = input_val.parameters}));
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 {
     std::set< builtin_function_info > result;
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >())
+    if (typeis< readonly_constant >(input))
+    {
+        auto const& rc = input.get_as< readonly_constant >();
+        if (rc.kind == constant_kind::string)
+        {
+            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = string_literal_reference{}}}}}}, .return_type = void_type{}});
+        }
+        if (rc.kind == constant_kind::numeric)
+        {
+            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
+        }
+    }
+
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
     {
 
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
@@ -98,7 +110,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_primitive_constructors)
     co_return result;
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 {
     auto const& functum = input;
     std::optional< type_symbol > parent_opt;
@@ -120,7 +132,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
 
     if (name == "CONSTRUCTOR")
     {
-        co_return co_await QUX_CO_DEP(list_primitive_constructors, (parent));
+        co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
     }
 
     if (name == "OPERATOR??" && (parent.test< ptrref_type >(
@@ -131,11 +143,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
                                  parent.type_is< int_type >()))
     {
         builtin_function_info bl_info;
-
         bl_info.overload = temploid_ensig{.interface = {.named = {{"THIS", {parent}}}}};
-
         bl_info.return_type = bool_type{};
-
         allowed_operations.insert(bl_info);
     }
 
@@ -153,22 +162,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
                                                   .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},
                                               }};
             br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
-
             allowed_operations.insert(br_info);
         }
     }
 
     if (name == "OPERATOR[&]" && parent.type_is< array_type >())
     {
-
         static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::mut, qualifier::temp, qualifier::write};
-
         for (qualifier qv : quals)
         {
             builtin_function_info br_info;
             br_info.overload = temploid_ensig{.interface = intertype{.positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
             br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
-
             allowed_operations.insert(br_info);
         }
     }
@@ -179,23 +184,20 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
     {
         std::string operator_name = name.substr(8);
         bool is_rhs = false;
-
         if (operator_name.ends_with("RHS"))
         {
             operator_name = operator_name.substr(0, operator_name.size() - 3);
             is_rhs = true;
         }
-
         bool is_int_type = typeis< int_type >(parent);
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
-        bool is_assignment_operator = base_operators.contains(operator_name);
+        bool is_assignment_operator = operator_name == ":=";
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
-
         if (is_swap_operator && (is_int_type || is_bool_type || is_pointer_type))
         {
             if (is_rhs)
@@ -243,10 +245,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
         {
             if (is_rhs)
             {
-                // no primitive RHS assignments exist.
+                // no builtin RHS assignments exist.
                 co_return {};
             }
-            else
+            else if (is_int_type || is_bool_type || is_pointer_type)
             {
                 allowed_operations.insert(builtin_function_info{
                     .overload = temploid_ensig{.interface =
@@ -255,6 +257,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_primitive_overloads)
                                                    }},
                     .return_type = void_type{},
                 });
+            }
+            else
+            {
+                bool should_autogen_assignment = co_await QUX_CO_DEP(class_requires_gen_assignment, (parent));
             }
         }
 
@@ -338,7 +344,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_builtin)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
 {
-    auto primitive_overloads = co_await QUX_CO_DEP(functum_primitive_overloads, (input_val.templexoid));
+    auto primitive_overloads = co_await QUX_CO_DEP(functum_builtins, (input_val.templexoid));
 
     for (auto const& info : primitive_overloads)
     {
@@ -350,7 +356,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
 
     co_return std::nullopt;
 }
-
 
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
@@ -372,9 +377,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
 
     auto val = this;
 
-
-     std::string to = to_string(os.interface);
-     std::string from = to_string(args);
+    std::string to = to_string(os.interface);
+    std::string from = to_string(args);
 
     if (to == "INTERTYPE(MUT& MODULE(main)::buf)")
     {
@@ -393,8 +397,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
 
     std::vector< quxlang::compiler::out< bool > > convertibles_dp;
 
-
-    for (auto const & [name, type] : args.named)
+    for (auto const& [name, type] : args.named)
     {
         auto it = os.interface.named.find(name);
         if (it == os.interface.named.end())
@@ -461,7 +464,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
 
     std::optional< invotype > result_opt;
 
-    for (auto & dp : convertibles_dp)
+    for (auto& dp : convertibles_dp)
     {
         auto is_convertible = co_await *dp;
         if (is_convertible == false)
@@ -470,7 +473,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
         }
     }
 
-    for (auto const & [name, type] : args.named)
+    for (auto const& [name, type] : args.named)
     {
         auto it = os.interface.named.find(name);
         if (it == os.interface.named.end())
@@ -533,11 +536,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
     co_return result_opt;
 }
 
-
-
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 {
-
 
     auto input_str = to_string(input_val);
 
@@ -610,17 +610,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_exists_and_is_callable_with)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtin_overloads)
 {
-    auto const& primitive_overloads = co_await QUX_CO_DEP(functum_primitive_overloads, (input));
-
+    auto const& builtin_infos = co_await QUX_CO_DEP(functum_builtins, (input));
     std::set< temploid_ensig > results;
-
-    for (auto const& info : primitive_overloads)
+    for (auto const& info : builtin_infos)
     {
         results.insert(info.overload);
     }
-
-    // TODO: Add other builtin non-primitive overloads here.
-
     co_return results;
 }
 
@@ -633,7 +628,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
     std::map< temploid_ensig, std::size_t > output;
 
     bool is_member_functum = typeis< submember >(input);
-    std::optional<type_symbol> class_type;
+    std::optional< type_symbol > class_type;
     bool is_ctor = false;
     bool is_dtor = false;
     if (is_member_functum)
@@ -652,7 +647,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
 
     for (std::size_t i = 0; i < decls.size(); i++)
     {
-        auto const &decl = decls.at(i);
+        auto const& decl = decls.at(i);
         temploid_ensig formal_ensig;
         formal_ensig.priority = decl.priority;
         for (auto const& param : decl.interface.named)

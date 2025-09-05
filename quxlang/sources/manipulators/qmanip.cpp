@@ -172,6 +172,7 @@ namespace quxlang
         std::string operator()(dvalue_slot const&) const;
         std::string operator()(ptrref_type const&) const;
         std::string operator()(instanciation_reference const&) const;
+        std::string operator()(string_literal_reference const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -236,6 +237,11 @@ namespace quxlang
         }
 
         bool operator()(readonly_constant const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(string_literal_reference const&) const
         {
             return false;
         }
@@ -656,6 +662,11 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
         return "NUMERIC_LITERAL";
+    }
+
+    std::string qualified_symbol_stringifier::operator()(string_literal_reference const&) const
+    {
+        return "STRING_LITERAL";
     }
 
     std::string qualified_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -1480,6 +1491,11 @@ namespace quxlang
             }
 
             bool check_impl(numeric_literal_reference const& tmpl, numeric_literal_reference const& val, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(string_literal_reference const& tmpl, string_literal_reference const& val, bool conv)
             {
                 return true;
             }

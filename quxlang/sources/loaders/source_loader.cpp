@@ -62,7 +62,7 @@ namespace quxlang
 
                 QUXLANG_DEBUG({ std::cout << "Relpath: " << relpath.string() << std::endl; });
 
-                mod.files[relpath.string()] =  source_file();
+                mod.files[relpath.string()] = source_file();
 
                 std::ifstream file(module_file.path(), std::ios::binary | std::ios::in);
                 std::string file_contents = std::string(std::istreambuf_iterator< char >(file), std::istreambuf_iterator< char >());
@@ -173,7 +173,7 @@ namespace quxlang
 
 
 
-                for (auto const & module_pair: target_node.second["modules"])
+                for (auto const& module_pair : target_node.second["modules"])
                 {
                     module_configuration mod;
                     auto module_name = module_pair.first.as< std::string >();
@@ -191,12 +191,22 @@ namespace quxlang
 
                     target_output.module_configurations[module_name] = mod;
 
+                    if (module_node["options"].IsDefined())
+                    {
+                        for (auto const& option_pair : module_node["options"])
+                        {
+                            auto option_name = option_pair.first;
+                            auto option_value_node = option_pair.second;
+
+                            auto option_name_str = option_name.as< std::string >();
+                            auto option_value_str = option_value_node.as< std::string >();
+
+                            mod.option_values[option_name_str] = option_value_str;
+                        }
+                    }
+
+                    output.targets[target_name] = target_output;
                 }
-
-                output.targets[target_name] = target_output;
-
-
-
             }
             else
             {

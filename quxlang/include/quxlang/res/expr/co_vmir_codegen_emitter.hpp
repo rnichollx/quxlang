@@ -78,7 +78,7 @@ namespace quxlang
     struct codegen_literal
     {
         type_symbol type;
-        std::string value;
+        std::vector< std::byte > value;
 
         RPNX_MEMBER_METADATA(codegen_literal, type, value);
     };
@@ -93,6 +93,7 @@ namespace quxlang
         vmir2::routine_parameters params;
         std::map< type_symbol, type_symbol > non_trivial_dtors;
         std::map< std::string, value_index > codegen_numeric_literals;
+        std::map< std::string, value_index > codegen_string_literals;
         std::map< std::string, value_index > top_level_lookups;
         std::map< std::string, value_index > top_level_lookups_weak;
         type_symbol context;
@@ -588,9 +589,33 @@ namespace quxlang
             }
             codegen_literal lit;
             lit.type = numeric_literal_reference{};
-            lit.value = str;
+            std::vector< std::byte > value_bytes;
+            for (char c : str)
+            {
+                value_bytes.push_back(static_cast< std::byte >(c));
+            }
+            lit.value = value_bytes;
             this->state.genvalues.push_back(lit);
             this->state.codegen_numeric_literals[str] = value_index(this->state.genvalues.size() - 1);
+            return value_index(this->state.genvalues.size() - 1);
+        }
+
+        auto create_string_literal(std::string str)
+        {
+            if (auto it = this->state.codegen_string_literals.find(str); it != this->state.codegen_string_literals.end())
+            {
+                return it->second;
+            }
+            codegen_literal lit;
+            lit.type = string_literal_reference{};
+            std::vector< std::byte > value_bytes;
+            for (char c : str)
+            {
+                value_bytes.push_back(static_cast< std::byte >(c));
+            }
+            lit.value = value_bytes;
+            this->state.genvalues.push_back(lit);
+            this->state.codegen_string_literals[str] = value_index(this->state.genvalues.size() - 1);
             return value_index(this->state.genvalues.size() - 1);
         }
 
@@ -856,7 +881,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< readonly_constant >();
         }
 
         // This implements builtin operators for primitives,
@@ -1039,7 +1064,43 @@ namespace quxlang
                 if (call.named.contains("OTHER"))
                 {
                     auto const& other = call.named.at("OTHER");
-                    if (cls->template type_is< int_type >() && other.type_is< numeric_literal_reference >())
+                    if (cls->template type_is< readonly_constant >())
+                    {
+                        auto const ro = cls->as< readonly_constant >();
+                        // Numeric literal to readonly constant
+                        if (other.type_is< numeric_literal_reference >() && ro.kind == constant_kind::numeric)
+                        {
+
+                            auto other_slot_id = args.named.at("OTHER");
+                            auto const& other_slot = this->state.genvalues.at(other_slot_id);
+
+                            auto const& other_literal = other_slot.template get_as< codegen_literal >();
+                            auto const& other_slot_value = other_literal.value;
+
+                            vmir2::load_const_value lcv_result;
+                            lcv_result.value = other_slot_value;
+                            lcv_result.target = get_local_index(args.named.at("THIS"));
+                            return lcv_result;
+                        }
+
+                        // String literal to readonly constant
+
+                        else if (other.type_is< string_literal_reference >() && ro.kind == constant_kind::string)
+                        {
+                            auto other_slot_id = args.named.at("OTHER");
+
+                            auto const& other_slot = this->state.genvalues.at(other_slot_id);
+
+                            auto const& other_literal = other_slot.template get_as< codegen_literal >();
+                            auto const& other_slot_value = other_literal.value;
+
+                            vmir2::load_const_value lcv_result;
+                            lcv_result.value = other_slot_value;
+                            lcv_result.target = get_local_index(args.named.at("THIS"));
+                            return lcv_result;
+                        }
+                    }
+                    else if (cls->template type_is< int_type >() && other.type_is< numeric_literal_reference >())
                     {
                         auto other_slot_id = args.named.at("OTHER");
 
@@ -1051,7 +1112,10 @@ namespace quxlang
                         auto const& other_slot_value = other_literal.value;
 
                         vmir2::load_const_int result;
-                        result.value = other_slot_value;
+                        for (auto byte : other_slot_value)
+                        {
+                            result.value.push_back(static_cast< char >(byte));
+                        }
                         result.target = get_local_index(args.named.at("THIS"));
 
                         return result;
@@ -1467,6 +1531,15 @@ namespace quxlang
             co_return val;
         }
 
+        auto co_generate(block_index& bidx, expression_string_literal input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto val = this->create_string_literal(input.value);
+            assert(val != 0);
+            auto val_type = this->current_type(bidx, val);
+            std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl;
+            co_return val;
+        }
+
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto val = co_await co_generate_expr(bidx, input.lhs);
@@ -1719,11 +1792,6 @@ namespace quxlang
             }
             auto field = co_await this->co_generate_dot_access(bidx, *value, what.field_name);
             co_return field;
-        }
-
-        auto co_generate(block_index& bidx, expression_string_literal expr) -> typename CoroutineProvider::template co_type< value_index >
-        {
-            throw rpnx::unimplemented();
         }
 
         auto co_generate(block_index& bidx, expression_dotreference what) -> typename CoroutineProvider::template co_type< value_index >

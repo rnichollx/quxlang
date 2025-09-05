@@ -20,7 +20,7 @@ RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrins
 RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
 RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
-RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data,  numeric, string, cstring, );
+RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data,  numeric, string, cstring);
 
 namespace quxlang
 {
@@ -184,6 +184,11 @@ namespace quxlang
         RPNX_EMPTY_METADATA(numeric_literal_reference);
     };
 
+    struct string_literal_reference
+    {
+        RPNX_EMPTY_METADATA(string_literal_reference);
+    };
+
     struct readonly_constant
     {
         constant_kind kind;
@@ -195,8 +200,6 @@ namespace quxlang
     {
         RPNX_EMPTY_METADATA(context_reference);
     };
-
-
 
     struct freebound_identifier
     {
@@ -259,6 +262,11 @@ namespace quxlang
         bool has_sign = false;
 
         RPNX_MEMBER_METADATA(int_type, bits, has_sign);
+    };
+
+    struct byte_type
+    {
+        RPNX_EMPTY_METADATA(byte_type);
     };
 
     struct bool_type

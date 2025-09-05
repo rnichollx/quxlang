@@ -47,7 +47,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/functanoid.cpp
         include/quxlang/to_pretty_string.hpp
         include/quxlang/data/function_delegate.hpp
-        include/quxlang/res/list_builtin_functum_overloads_resolver.hpp
         include/quxlang/res/type_size_from_canonical_type_question.hpp
         include/quxlang/res/vm_procedure_from_canonical_functanoid_question.hpp
         include/quxlang/res/detail/vm_procedure_builder.hpp
@@ -235,6 +234,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/ensig.cpp
         include/quxlang/data/parser_data.hpp
         include/quxlang/res/serialization.hpp
+        include/quxlang/class_keywords.hpp
 
 )
 

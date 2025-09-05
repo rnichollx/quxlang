@@ -37,7 +37,7 @@ namespace quxlang
     struct type_temploidic;
     struct freebound_identifier;
 
-    using type_symbol = rpnx::variant< void_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, bound_type_reference, numeric_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant >;
+    using type_symbol = rpnx::variant< void_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, bound_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant >;
 
     struct expression_multiply;
     struct expression_modulus;

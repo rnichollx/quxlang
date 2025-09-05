@@ -137,6 +137,7 @@ IMPORT foolib;
   test_swap();
   test_call_function_from_other_file();
   test_call_imported_function();
+  test_roman_numeral();
 
   RETURN 1;
 }
@@ -223,6 +224,18 @@ IMPORT foolib;
   }
 }
 
+
+::roman CLASS
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
+  {
+
+  }
+
+}
+
 ::test_swap FUNCTION()
 {
     VAR a I32;
@@ -254,6 +267,12 @@ IMPORT foolib;
    x := foolib::imported_function();
 
    ASSERT(x == 42);
+}
+
+::test_roman_numeral FUNCTION()
+{
+  VAR r roman;
+  r := roman(@OTHER STRING_CONSTANT(@OTHER "II"));
 }
 
 

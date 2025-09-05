@@ -19,17 +19,9 @@ namespace quxlang
     // functanoid parameters.
     QUX_CO_RESOLVER(functum_initialize, initialization_reference, std::optional< instanciation_reference >);
 
-    // functum_primitive_overloads lists the set of "primitive" overloads of a given functum,
-    // primitive functions are a subset of the built-in functions.
-    // A primitive function is one that maps directly to a QXVMIR2 instruction.
-    // For example, I32::.OPERATOR+(@OTHER I32) is a primitive function, because it
-    // maps directly to the IADD instruction.
-    // On the other hand, built-in functions like struct default constructors are not usually primitive
-    // because they involve a fully generated IR routine instead of a single instruction.
-    // Note that this only refers to the QXVMIR2 instruction set, it's possible that some operations
-    // which are single instructions in QXVMIR2 (like atomic add) might be multiple instructions in the
-    // machine language or even a procedure invoke.
-    QUX_CO_RESOLVER(functum_primitive_overloads, type_symbol, std::set< builtin_function_info >);
+    // functum_builtins lists the set of builtin functions, some of which may be primitive (i.e. have
+    // their own instructions) and other which do not.
+    QUX_CO_RESOLVER(functum_builtins, type_symbol, std::set< builtin_function_info >);
 
     // functum_builtin_overloads lists the set of built-in overloads of a given functum.
     // This basically means all functions that are not typed out in the source code,

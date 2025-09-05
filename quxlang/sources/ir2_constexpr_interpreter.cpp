@@ -74,11 +74,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_initiated = false;
         bool dtor_enabled = false;
         std::uint64_t object_id{};
+        bool readonly = false;
         std::optional< pointer_impl > ref;
         std::weak_ptr< local > member_of;
-
         std::optional< dtor_spec > dtor;
-
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
         std::optional< invocation_args > delegates;

@@ -7,6 +7,21 @@
 #include "quxlang/data/expression.hpp"
 #include "rpnx/value.hpp"
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_tags)
+{
+    std::set< std::string > tags;
+
+    ast2_symboid the_class = co_await QUX_CO_DEP(symboid, (input_val));
+
+    if (!typeis< ast2_class_declaration >(the_class))
+    {
+        throw std::logic_error("Cannot get class fields of non-class");
+    }
+    ast2_class_declaration const& class_obj = as< ast2_class_declaration >(the_class);
+
+    co_return class_obj.class_keywords;
+}
+
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_default_dtor_exists)
 {
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
@@ -85,6 +100,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_copy_ctor_exists)
     }
 
     co_return false;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_assignment_exists)
+
+{
+    auto user_assign_en = co_await QUX_CO_DEP(functum_user_overloads, (submember{.of = input, .name = "OPERATOR:="}));
+    co_return !user_assign_en.empty();
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_move_ctor_exists)
@@ -168,6 +190,49 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_copy_ctor)
     if (have_user_copy_ctor)
     {
         co_return false;
+    }
+
+    auto const& tags = co_await QUX_CO_DEP(class_tags, (input));
+
+    static std::set< std::string > const forbidden_tags = {
+        "NOT_COPYABLE",
+        "NO_BUILTIN_COPY",
+        "NO_IMPLICIT_CONSTRUCTORS",
+        "MOVE_ONLY",
+    };
+
+    for (auto const& tag : forbidden_tags)
+    {
+        if (tags.contains(tag))
+        {
+            co_return false;
+        }
+    }
+
+    co_return true; // have_nontrivial_member_ctor;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_assignment)
+{
+    auto have_user_assignment = co_await QUX_CO_DEP(user_assignment_exists, (input));
+    if (have_user_assignment)
+    {
+        co_return false;
+    }
+
+    auto const& tags = co_await QUX_CO_DEP(class_tags, (input));
+
+    static std::set< std::string > const forbidden_tags = {
+        "NO_IMPLICIT_ASSIGNMENT",
+        "NOT_COPYABLE",
+    };
+
+    for (auto const& tag : forbidden_tags)
+    {
+        if (tags.contains(tag))
+        {
+            co_return false;
+        }
     }
 
     // auto have_nontrivial_member_ctor = co_await QUX_CO_DEP(have_nontrivial_member_ctor, (input));
