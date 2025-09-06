@@ -155,6 +155,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     };
 
     std::deque< stack_frame > stack;
+    std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
     void exec();
@@ -184,13 +185,27 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::size_t get_type_size(const type_symbol& type);
 
+    std::shared_ptr< local > output(local_index slot);
+
+    // If the object is a reference, it returns a pointer to the referenced object,
+    // otherwise it returns a pointer to the object itself.
     pointer_impl get_pointer_to(std::size_t frame, local_index slot);
+
+    // make_pointer_to creates pointer to the object.
+    // Unlike get_pointer_to, it does not do any special handling for references,
+    // so can in principle create a pointer to a reference.
+    pointer_impl make_pointer_to(std::shared_ptr< local > object);
 
     void transition(vmir2::block_index block);
     void transition3(quxlang::vmir2::block_index block);
     bool transition_normal_exit();
 
     void exec_instr_val(vmir2::increment const& inc);
+
+    void begin_lifetime(std::shared_ptr< local > object);
+    void end_lifetime(std::shared_ptr< local > object);
+
+    std::shared_ptr< local > constdata(std::vector< std::byte > const& data);
 
     void exec_instr_val_incdec(local_index val, local_index result, bool increment);
 
@@ -239,7 +254,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::pointer_diff const& pdf);
 
     std::shared_ptr< local > create_local_value(vmir2::local_index local_idx, bool set_alive);
-    std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > create_local_value3(vmir2::local_index local_idx, bool set_alive);
+    std::shared_ptr< local > create_object_skeleton(type_symbol type);
+
+    std::shared_ptr< local > create_object(type_symbol type);
 
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
 
@@ -293,7 +310,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
     // Actual execution will happen in subsequent calls to exec/exec_instr
 
-    std::string funcname_str = quxlang::to_string(functype.get());
+    auto type = functype.read();
+
+    std::string funcname_str = quxlang::to_string(type);
 
     stack.emplace_back();
     stack.back().type = functype;
@@ -609,6 +628,28 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
 
     return 0;
 }
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output(local_index slot)
+{
+    auto& frame = get_current_frame();
+
+    if (frame.local_values[slot] == nullptr)
+    {
+        auto const& local_type = get_local_type(slot);
+        frame.local_values[slot] = create_object(local_type);
+    }
+
+    if (frame.local_values[slot]->alive)
+    {
+        throw compiler_bug("Attempt to output to object which is already existing");
+    }
+
+    if (!frame.local_values[slot]->storage_initiated)
+    {
+        throw compiler_bug("Attempt to output to object which is not storage initialized");
+    }
+
+    return frame.local_values[slot];
+}
 
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_pointer_to(std::size_t frame, local_index slot)
 {
@@ -637,6 +678,10 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
         }
         return *ptr;
     }
+}
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::make_pointer_to(std::shared_ptr< local > object)
+{
+    return pointer_impl{.pointer_target = object};
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_zero const& lcz)
@@ -721,7 +766,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& frame = get_current_frame();
 
     std::swap(local_a->data, local_b->data);
-
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
 {
@@ -936,7 +980,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
 {
-    throw rpnx::unimplemented();
+    auto& frame = get_current_frame();
+    auto target_type = get_local_type(lcv.target);
+    auto output_obj = output(lcv.target);
+    auto target_data = constdata(lcv.value);
+    auto start_ptr_impl = make_pointer_to(target_data->array_members.at(0));
+    auto end_ptr_impl = pointer_arith(start_ptr_impl, lcv.value.size(), void_type{});
+    auto start_ptr_object = output_obj->struct_members["__start"];
+    auto end_ptr_object = output_obj->struct_members["__end"];
+    begin_lifetime(start_ptr_object);
+    start_ptr_object->ref = start_ptr_impl;
+    begin_lifetime(end_ptr_object);
+    end_ptr_object->ref = end_ptr_impl;
+    begin_lifetime(output_obj);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_pointer_to const& mpt)
@@ -1382,7 +1438,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::exec(type_symbol func)
 void quxlang::vmir2::ir2_constexpr_interpreter::exec3(type_symbol func)
 {
     this->implementation->exec_mode = 2;
-    this->implementation->call_func(func, {});
+    auto func_cow = cow< type_symbol >(func);
+    this->implementation->call_func(func_cow, {});
     this->implementation->exec3();
 }
 bool quxlang::vmir2::ir2_constexpr_interpreter::get_cr_bool()
@@ -1814,12 +1871,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     local_ptr->alive = false;
     local_ptr = nullptr;
 }
-std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value(vmir2::local_index local_idx, bool set_alive)
-{
-    return create_local_value3(local_idx, set_alive);
-}
 
-std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value3(vmir2::local_index local_idx, bool set_alive)
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value(vmir2::local_index local_idx, bool set_alive)
 {
     auto& frame = get_current_frame();
 
@@ -1827,14 +1880,8 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     if (frame.local_values[local_idx] == nullptr)
     {
-        frame.local_values[local_idx] = std::make_shared< local >();
-        frame.local_values[local_idx]->object_id = next_object_id++;
+        frame.local_values[local_idx] = create_object_skeleton(result_type);
     }
-    auto& r_data = frame.local_values[local_idx]->data;
-    r_data.resize(get_type_size(result_type));
-
-    // Initialize the memory to zero just to have a defined state
-    std::fill(r_data.begin(), r_data.end(), std::byte(0));
 
     frame.local_values[local_idx]->storage_initiated = true;
 
@@ -1845,9 +1892,37 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     return frame.local_values[local_idx];
 }
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_object_skeleton(type_symbol type)
+{
+    auto val = std::make_shared< local >();
+    val->object_id = next_object_id++;
+    auto& r_data = val->data;
+    r_data.resize(get_type_size(type));
+    std::fill(r_data.begin(), r_data.end(), std::byte(0));
+    return val;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_object(type_symbol type)
+{
+    auto obj = create_object_skeleton(type);
+    init_storage(obj, type);
+    return obj;
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::init_storage(std::shared_ptr< local > local_value, type_symbol type)
 {
     local_value->storage_initiated = true;
+
+    type.match< readonly_constant >(
+        [&](readonly_constant const& rc)
+        {
+            local_value->struct_members["__start"] = std::make_shared< local >();
+            local_value->struct_members["__start"]->member_of = local_value;
+            local_value->struct_members["__end"] = std::make_shared< local >();
+            local_value->struct_members["__end"]->member_of = local_value;
+            init_storage(local_value->struct_members["__start"], ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant});
+            init_storage(local_value->struct_members["__end"], ptrref_type{.target = int_type{.bits = 8, .has_sign = false}, .ptr_class = pointer_class::array, .qual = qualifier::constant});
+        });
 
     if (class_layouts.contains(type))
     {
@@ -2142,6 +2217,59 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
     exec_instr_val_incdec(instr.value, instr.result, true);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::begin_lifetime(std::shared_ptr< local > object)
+{
+    assert(object != nullptr);
+
+    for (auto& [name, member] : object->struct_members)
+    {
+        if (member == nullptr)
+        {
+            throw compiler_bug("struct member not initialized");
+        }
+        assert(member->alive);
+    }
+
+    for (std::size_t i = 0; i < object->array_members.size(); i++)
+    {
+        auto& member = object->array_members.at(i);
+        if (member == nullptr)
+        {
+            throw compiler_bug("array member not initialized");
+        }
+        assert(member->alive);
+    }
+
+    object->alive = true;
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::end_lifetime(std::shared_ptr< local > object)
+{
+    object->alive = false;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constdata(std::vector< std::byte > const& data)
+{
+    auto& cell = this->global_constdata[data];
+    if (cell == nullptr)
+    {
+        array_type constdata_type;
+        // TODO: Convert this to byte type instead of U8.
+        constdata_type.element_type = int_type{.bits = 8, .has_sign = false};
+        constdata_type.element_count = expression_numeric_literal{.value = std::to_string(data.size())};
+        cell = create_object(constdata_type);
+        cell->readonly = true;
+        assert(cell->array_members.size() == data.size());
+        for (std::size_t i = 0; i < data.size(); ++i)
+        {
+            auto cell_member = cell->array_members.at(i);
+            local_set_data(cell_member, {data[i]});
+            cell_member->readonly = true;
+        }
+        cell->alive = true;
+    }
+
+    return cell;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val_incdec(local_index val, local_index result, bool increment)
 {

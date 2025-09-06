@@ -213,6 +213,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                 .return_type = void_type{},
             });
         }
+        else if (is_swap_operator)
+        {
+            bool should_autogen_swap = co_await QUX_CO_DEP(class_requires_gen_swap, (parent));
+            std::cout << "Should autogen swap for " << to_string(parent) << ": " << (should_autogen_swap ? "yes" : "no") << "\n";
+            if (should_autogen_swap && !is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{
+                    .overload = temploid_ensig{.interface =
+                                                   intertype{
+                                                       .named = {{"THIS", argif{make_mref(parent)}}, {"OTHER", argif{make_mref(parent)}}},
+                                                   }},
+                    .return_type = void_type{},
+                });
+            }
+        }
 
         if (is_int_type)
         {
@@ -261,6 +276,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             else
             {
                 bool should_autogen_assignment = co_await QUX_CO_DEP(class_requires_gen_assignment, (parent));
+                if (should_autogen_assignment)
+                {
+                    allowed_operations.insert(builtin_function_info{
+                        .overload = temploid_ensig{.interface =
+                                                       intertype{
+                                                           .named = {{"THIS", argif{make_wref(parent)}}, {"OTHER", argif{parent}}},
+                                                       }},
+                        .return_type = void_type{},
+                    });
+                }
             }
         }
 
@@ -566,9 +591,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     std::set< temploid_reference > best_match;
     std::optional< std::int64_t > highest_priority;
 
+
+
+    std::cout << "Select for " << quxlang::to_string(input) << std::endl;
+
     for (auto const& o : overloads)
     {
+        std::cout << "  Considering overload " << quxlang::to_string(temploid_reference{.templexoid=input.initializee, .which=o}) << std::endl;
         auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = o, .params = input.parameters}));
+
         if (candidate)
         {
             std::size_t priority = o.priority.value_or(0);

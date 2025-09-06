@@ -9,13 +9,14 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_tags)
 {
+    std::string name = quxlang::to_string(input);
     std::set< std::string > tags;
 
     ast2_symboid the_class = co_await QUX_CO_DEP(symboid, (input_val));
 
     if (!typeis< ast2_class_declaration >(the_class))
     {
-        throw std::logic_error("Cannot get class fields of non-class");
+       co_return {};
     }
     ast2_class_declaration const& class_obj = as< ast2_class_declaration >(the_class);
 
@@ -101,6 +102,22 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_copy_ctor_exists)
 
     co_return false;
 }
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_swap_exists)
+{
+    auto ctor_symbol = submember{.of = input, .name = "OPERATOR<->"};
+
+    auto input_str = quxlang::to_string(input);
+
+    auto user_defined_ctor = co_await QUX_CO_DEP(functum_user_overloads, (ctor_symbol));
+    if (user_defined_ctor.empty())
+    {
+        co_return false;
+    }
+
+    co_return true;
+}
+
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_assignment_exists)
 
@@ -198,6 +215,32 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_copy_ctor)
         "NOT_COPYABLE",
         "NO_BUILTIN_COPY",
         "NO_IMPLICIT_CONSTRUCTORS",
+        "MOVE_ONLY",
+    };
+
+    for (auto const& tag : forbidden_tags)
+    {
+        if (tags.contains(tag))
+        {
+            co_return false;
+        }
+    }
+
+    co_return true; // have_nontrivial_member_ctor;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_swap)
+{
+    auto have_required_func = co_await QUX_CO_DEP(user_swap_exists, (input));
+    if (have_required_func)
+    {
+        co_return false;
+    }
+
+    auto const& tags = co_await QUX_CO_DEP(class_tags, (input));
+
+    static std::set< std::string > const forbidden_tags = {
+        "NO_BUILTIN_SWAP",
         "MOVE_ONLY",
     };
 

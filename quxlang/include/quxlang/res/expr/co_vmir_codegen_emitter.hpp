@@ -406,6 +406,16 @@ namespace quxlang
             return temp;
         }
 
+        auto cast_reference(block_index bidx, value_index index, type_symbol const& ty)
+        {
+            auto temp = create_local_value(ty);
+            vmir2::cast_reference ref;
+            ref.source_ref_index = get_local_index(index);
+            ref.target_ref_index = get_local_index(temp);
+            this->emit(bidx, ref);
+            return temp;
+        }
+
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< value_index > >
         {
             std::string symbol_str = to_string(sym);
@@ -438,6 +448,15 @@ namespace quxlang
                     else
                     {
                         lookup = copy_refernece_internal(idx, *lookup);
+
+                        lookup_type = this->current_type(idx, *lookup);
+
+                        auto const & lookup_type_ref = as< ptrref_type >(lookup_type);
+
+                        if (lookup_type_ref.qual == qualifier::write || lookup_type_ref.qual == qualifier::constant)
+                        {
+                            lookup = cast_reference(idx, *lookup, make_mref(remove_ref(lookup_type)));
+                        }
                     }
 
                     assert(!qualified_is_contextual(lookup_type));
@@ -1527,7 +1546,7 @@ namespace quxlang
             auto val = this->create_numeric_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl;
+            QUXLANG_DEBUG({std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl;});
             co_return val;
         }
 
@@ -1536,7 +1555,7 @@ namespace quxlang
             auto val = this->create_string_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl;
+            QUXLANG_DEBUG({std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl;});
             co_return val;
         }
 
@@ -1876,6 +1895,23 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
             co_await co_generate_move_ctor_delegates(current_block, func);
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_assignment(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!qualified_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            auto swap_expr = expression_binary{
+                .operator_str = "<->",
+                .lhs = expression_symbol_reference{.symbol = freebound_identifier{"THIS"}},
+                .rhs = expression_symbol_reference{.symbol = freebound_identifier{"OTHER"}},
+            };
+            co_await co_generate(current_block, swap_expr);
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
