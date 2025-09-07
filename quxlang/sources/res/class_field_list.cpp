@@ -6,6 +6,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_declaration_list)
 {
 
     std::string name = quxlang::to_string(input);
+
+    if (input.template type_is< readonly_constant >())
+    {
+        assert(false);
+    }
+
     bool is_builtin_class = co_await QUX_CO_DEP(class_builtin, (input_val));
     if (is_builtin_class)
     {
@@ -59,6 +65,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_declaration_list)
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
 {
 
+    if (input.template type_is< readonly_constant >())
+    {
+        auto const &roc = as< readonly_constant >(input);
+        // TODO: Make this use BYTE instead of U8
+        co_return {class_field{"__start", int_type{.bits = 8, .has_sign = false}}, class_field{"__end", int_type{.bits = 8, .has_sign = false}}};
+    }
     auto declarations = co_await QUX_CO_DEP(class_field_declaration_list, (input_val));
 
     std::string class_name = quxlang::to_string(input);

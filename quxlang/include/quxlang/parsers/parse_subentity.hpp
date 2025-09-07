@@ -6,6 +6,7 @@
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/symbol.hpp>
+#include <quxlang/keywords.hpp>
 #include <set>
 #include <string>
 
@@ -14,7 +15,7 @@ namespace quxlang::parsers
     template < typename It >
     inline std::string parse_subentity(It& begin, It end)
     {
-        static std::set< std::string > subentity_keywords = {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR", "SERIALIZE", "DESERIALIZE"};
+
 
         auto pos = iter_parse_identifier(begin, end);
         if (pos != begin)
@@ -29,7 +30,7 @@ namespace quxlang::parsers
         pos = iter_parse_keyword(begin, end);
         auto kw = std::string(begin, pos);
 
-        if (!subentity_keywords.contains(kw))
+        if (!keywords::subentity_keywords.contains(kw))
         {
             return {};
         }

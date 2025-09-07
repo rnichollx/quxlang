@@ -61,10 +61,18 @@ namespace quxlang::parsers
                 }
             }
         }
+        else if (skip_symbol_if_is(pos, end, ":="))
+        {
+            skip_whitespace_and_comments(pos, end);
+            var_statement.equals_initializer = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+        }
 
         std::string remaining2{pos, end};
 
         skip_whitespace_and_comments(pos, end);
+
+
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {

@@ -234,7 +234,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/ensig.cpp
         include/quxlang/data/parser_data.hpp
         include/quxlang/res/serialization.hpp
-        include/quxlang/class_keywords.hpp
+        include/quxlang/keywords.hpp
 
 )
 

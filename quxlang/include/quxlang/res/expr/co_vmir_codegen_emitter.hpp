@@ -1771,6 +1771,12 @@ namespace quxlang
                 args.positional.push_back(init_idx);
             }
 
+            if (st.equals_initializer.has_value())
+            {
+                auto init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
+                args.named["OTHER"] = init_idx;
+            }
+
             auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
             co_await this->co_gen_call_functum(new_expr_block, ctor, args);
 

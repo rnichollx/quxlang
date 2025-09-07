@@ -5,11 +5,11 @@
 
 #include <optional>
 #include <quxlang/ast2/ast2_type_map.hpp>
+#include <quxlang/keywords.hpp>
 #include <quxlang/parsers/declaration.hpp>
+#include <quxlang/parsers/parse_keyword.hpp>
 #include <quxlang/parsers/try_parse_class_function_declaration.hpp>
 #include <quxlang/parsers/try_parse_class_variable_declaration.hpp>
-#include <quxlang/parsers/parse_keyword.hpp>
-#include <quxlang/class_keywords.hpp>
 
 namespace quxlang::parsers
 {
@@ -36,7 +36,7 @@ namespace quxlang::parsers
                 break;
             }
 
-            if (class_keywords.find(next_kw) != class_keywords.end())
+            if (keywords::class_keywords.find(next_kw) != keywords::class_keywords.end())
             {
                 result.class_keywords.insert(next_kw);
             }

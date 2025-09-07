@@ -16,18 +16,24 @@ namespace quxlang
         const std::string no_implicit_constructors = "NO_IMPLICIT_CONSTRUCTORS";
         const std::string no_implicit_assignment = "NO_IMPLICIT_ASSIGNMENT";
         const std::string no_builtin_copy = "NO_BUILTIN_COPY";
+
+
+        std::set< std::string > const class_keywords = {
+            keywords::move_only,
+            keywords::not_copyable,
+            keywords::no_default_constructor,
+            keywords::no_implicit_constructors,
+            keywords::no_implicit_assignment,
+            keywords::no_builtin_copy,
+        };
+
+        constexpr std::set< std::string > get_subentity_keywords()
+        {
+            return {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR", "SERIALIZE", "DESERIALIZE", "BEGIN", "END"};
+        }
+
+        static const std::set< std::string > subentity_keywords = get_subentity_keywords();
     }
-
-
-
-    std::set< std::string > const class_keywords = {
-        keywords::move_only,
-        keywords::not_copyable,
-        keywords::no_default_constructor,
-        keywords::no_implicit_constructors,
-        keywords::no_implicit_assignment,
-        keywords::no_builtin_copy,
-    };
 }
 
 #endif // CLASS_KEYWORDS_HPP

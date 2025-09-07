@@ -8,7 +8,7 @@
 namespace quxlang::parsers
 {
 
-    template <typename It>
+    template < typename It >
     std::optional< std::string > try_parse_string_literal(It& pos, It end)
     {
         if (pos == end || *pos != '"')
@@ -65,8 +65,72 @@ namespace quxlang::parsers
         pos++;
 
         return result;
-
     }
-}
 
-#endif //STRING_LITERAL_HPP
+    template < typename It >
+    std::optional< uint8_t > try_parse_char_literal(It& pos, It end)
+    {
+        if (pos == end || *pos != '\'')
+            return std::nullopt;
+
+        pos++;
+
+        if (pos == end)
+            throw std::logic_error("Unexpected end of file in char literal");
+
+        uint8_t result;
+
+        if (*pos == '\\')
+        {
+            pos++;
+            if (pos == end)
+            {
+                throw std::logic_error("Unexpected end of file in char literal");
+            }
+            switch (*pos)
+            {
+            case 'n':
+                result = '\n';
+                break;
+            case 't':
+                result = '\t';
+                break;
+            case 'r':
+                result = '\r';
+                break;
+            case '0':
+                result = '\0';
+                break;
+            case '\\':
+                result = '\\';
+                break;
+            case '\'':
+                result = '\'';
+                break;
+            default:
+                throw std::logic_error("Invalid escape sequence in char literal");
+            }
+        }
+        else
+        {
+            result = static_cast< uint8_t >(*pos);
+        }
+
+        pos++;
+
+        if (pos == end)
+        {
+            throw std::logic_error("Unexpected end of file in char literal");
+        }
+        if (*pos != '\'')
+        {
+            throw std::logic_error("Expected '\'' at end of char literal");
+        }
+
+        pos++;
+
+        return result;
+    }
+} // namespace quxlang::parsers
+
+#endif // STRING_LITERAL_HPP

@@ -22,6 +22,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_string_literal, value);
     };
 
+    struct expression_char_literal
+    {
+        std::uint8_t value;
+
+        RPNX_MEMBER_METADATA(expression_char_literal, value);
+    };
+
 } // namespace quxlang
 
 #endif // QUXLANG_NUMERIC_LITERAL_HEADER_GUARD
