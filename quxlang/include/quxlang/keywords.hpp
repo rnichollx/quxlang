@@ -27,7 +27,7 @@ namespace quxlang
             keywords::no_builtin_copy,
         };
 
-        constexpr std::set< std::string > get_subentity_keywords()
+        inline std::set< std::string > get_subentity_keywords()
         {
             return {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR", "SERIALIZE", "DESERIALIZE", "BEGIN", "END"};
         }

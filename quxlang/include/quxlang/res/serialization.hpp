@@ -15,8 +15,6 @@ namespace quxlang
     QUX_CO_RESOLVER(type_is_implicitly_datatype, type_symbol, bool);
     QUX_CO_RESOLVER(type_should_autogen_serialize, type_symbol, bool);
     QUX_CO_RESOLVER(type_should_autogen_deserialize, type_symbol, bool);
-
-
 }
 
 

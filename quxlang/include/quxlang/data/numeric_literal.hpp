@@ -5,6 +5,7 @@
 
 #include <string>
 #include <rpnx/metadata.hpp>
+#include <cinttypes>
 
 namespace quxlang
 {

@@ -68,8 +68,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_field_list)
     if (input.template type_is< readonly_constant >())
     {
         auto const &roc = as< readonly_constant >(input);
-        // TODO: Make this use BYTE instead of U8
-        co_return {class_field{"__start", int_type{.bits = 8, .has_sign = false}}, class_field{"__end", int_type{.bits = 8, .has_sign = false}}};
+        auto field_type = ptrref_type{ .target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant };
+        co_return {class_field{"__start", field_type}, class_field{"__end", field_type}};
     }
     auto declarations = co_await QUX_CO_DEP(class_field_declaration_list, (input_val));
 

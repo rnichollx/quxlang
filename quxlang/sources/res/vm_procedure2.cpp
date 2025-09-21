@@ -79,6 +79,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         co_return result;
     }
 
+    if (typeis< submember >(input.temploid.templexoid))
+    {
+        co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+        auto const & sm = as< submember >(input.temploid.templexoid);
+        if (sm.name == "BEGIN")
+        {
+            co_return co_await gen.co_generate_builtin_access_member(input, "__start");
+        }
+        else if (sm.name == "END")
+        {
+            co_return co_await gen.co_generate_builtin_access_member(input, "__end");
+        }
+
+    }
+
 
     throw compiler_bug("not implemented or bug");
 }

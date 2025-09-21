@@ -38,6 +38,19 @@ namespace quxlang::parsers
     }
 
     template < typename It >
+    inline std::optional<std::string> skip_keyword_if_one_of(It& ipos, It end, std::set<std::string> const& keywords)
+    {
+        for (auto const& kw : keywords)
+        {
+            if (skip_keyword_if_is(ipos, end, kw))
+            {
+                return kw;
+            }
+        }
+        return std::nullopt;
+    }
+
+    template < typename It >
     inline std::string skip_keyword(It& ipos, It end)
     {
         auto pos = iter_parse_keyword(ipos, end);

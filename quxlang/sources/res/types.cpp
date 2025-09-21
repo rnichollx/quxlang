@@ -30,6 +30,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
     auto current_module = get_root_module(context).value_or(void_type{});
 
+    if (type.type_is< byte_type >())
+    {
+        co_return type;
+    }
     if (type.type_is< absolute_module_reference >())
     {
         co_return type;

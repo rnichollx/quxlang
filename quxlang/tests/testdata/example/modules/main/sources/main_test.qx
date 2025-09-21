@@ -143,6 +143,9 @@ IMPORT foolib;
 }
 
 
+
+
+
 ::yak_dtors FUNCTION(%a yak, %b &I32): I32
 {
   a.z := b<-;
@@ -209,6 +212,11 @@ IMPORT foolib;
     .y := OTHER.y;
   }
 
+  ::static_function FUNCTION(): I32
+  {
+    RETURN 3;
+  }
+
   .CONSTRUCTOR FUNCTION(@OTHER TEMP& bam)
   {
     .x <-> OTHER.x;
@@ -231,8 +239,14 @@ IMPORT foolib;
 
   .CONSTRUCTOR FUNCTION(@OTHER STRING_CONSTANT)
   {
-     // VAR it =>> U8 := OTHER.BEGIN();
-     // VAR end =>> U8 := OTHER.END();
+     VAR it CONST=>> BYTE := OTHER.BEGIN();
+     VAR end CONST=>> BYTE := OTHER.END();
+
+    // WHILE (it != end)
+    // {
+    //    .value := .value + 1;
+    //    it++;
+    // }
   }
 
 }
@@ -273,6 +287,8 @@ IMPORT foolib;
 ::test_roman_numeral FUNCTION()
 {
   VAR r roman;
+  VAR i I32 := 4;
+  ASSERT(i == 4);
   r := roman(@OTHER STRING_CONSTANT(@OTHER "II"));
 
 }
@@ -285,7 +301,7 @@ IMPORT foolib;
   VAR i I32;
   b.y := i<-;
 
-  test_argument_passing_helper(@arg b, @int i);
+  test_argument_passing_helper(@int i, @arg b);
 
   ASSERT(i == 6);
 }
@@ -303,6 +319,24 @@ IMPORT foolib;
   ASSERT(i == 6);
 }
 
+
+::test_bitwise_operators FUNCTION()
+{
+   VAR a I32 := 3;
+
+   // a := a #++ 1;
+
+   // ASSERT(a == 6);
+
+   // a := 4;
+   //  a := a #-- 1;
+
+   // ASSERT(a == 2);
+
+   // a := a #++ 2;
+
+   // ASSERT(a == 8);
+}
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {

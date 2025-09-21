@@ -18,6 +18,8 @@
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include "rpnx/uint64_base.hpp"
+
+#include <assert.h>
 #include <quxlang/macros.hpp>
 
 namespace quxlang
@@ -206,11 +208,12 @@ namespace quxlang
                 auto arg_type = current_type(bidx, arg);
                 bool is_alive = value_alive(bidx, arg);
 
-                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << std::endl;
+                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
                 }
+
                 calltype.named[name] = arg_type;
             }
 
@@ -451,7 +454,7 @@ namespace quxlang
 
                         lookup_type = this->current_type(idx, *lookup);
 
-                        auto const & lookup_type_ref = as< ptrref_type >(lookup_type);
+                        auto const& lookup_type_ref = as< ptrref_type >(lookup_type);
 
                         if (lookup_type_ref.qual == qualifier::write || lookup_type_ref.qual == qualifier::constant)
                         {
@@ -900,7 +903,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< readonly_constant >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is<byte_type> () || of_type.type_is< readonly_constant >();
         }
 
         // This implements builtin operators for primitives,
@@ -1149,6 +1152,21 @@ namespace quxlang
                         lfr.to_value = get_local_index(this_slot_id);
 
                         return lfr;
+                    }
+                    else if (cls->type_is< ptrref_type >() && other.type_is< ptrref_type >())
+                    {
+                        auto other_slot_id = args.named.at("OTHER");
+                        auto this_slot_id = args.named.at("THIS");
+
+
+                        auto const & other_ptrref = other.as< ptrref_type >();
+                        auto const & cls_ptrref = cls->as< ptrref_type >();
+
+                        assert(other_ptrref.ptr_class == cls_ptrref.ptr_class);
+                        vmir2::cast_reference crf;
+                        crf.source_ref_index = get_local_index(other_slot_id);
+                        crf.target_ref_index = get_local_index(this_slot_id);
+                        return crf;
                     }
                 }
                 else if (args.size() == 1 && args.named.contains("THIS"))
@@ -1546,7 +1564,7 @@ namespace quxlang
             auto val = this->create_numeric_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            QUXLANG_DEBUG({std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl;});
+            QUXLANG_DEBUG({ std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl; });
             co_return val;
         }
 
@@ -1555,7 +1573,7 @@ namespace quxlang
             auto val = this->create_string_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            QUXLANG_DEBUG({std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl;});
+            QUXLANG_DEBUG({ std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl; });
             co_return val;
         }
 
@@ -1882,6 +1900,24 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!qualified_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            auto thisval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
+
+            auto retval = co_await this->co_generate_dot_access(current_block, thisval, member_name);
+            std::string retval_type_str = quxlang::to_string(this->current_type(current_block, retval));
+
+            co_await this->co_return_value(current_block, retval);
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!qualified_is_contextual(func));
@@ -2013,6 +2049,33 @@ namespace quxlang
             co_return;
         }
 
+        auto co_return_value(block_index& current_block, value_index return_value) -> typename CoroutineProvider::template co_type< void >
+        {
+            auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
+
+            if (!return_arg_opt.has_value())
+            {
+                throw std::logic_error("RETURN parameter not found");
+            }
+
+            auto return_arg = return_arg_opt.value();
+
+            codegen_invocation_args args;
+            args.named["THIS"] = return_arg;
+            args.named["OTHER"] = return_value;
+
+            auto return_type = current_type(current_block, return_arg);
+            if (!typeis< nvalue_slot >(return_type))
+            {
+                throw std::logic_error("RETURN parameter has the wrong type");
+            }
+            return_type = type_symbol(as< nvalue_slot >(return_type).target);
+            auto ctor = submember{.of = return_type, .name = "CONSTRUCTOR"};
+            co_await co_gen_call_functum(current_block, ctor, args);
+            this->generate_return(current_block);
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_return_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
             auto return_arg_opt = this->local_value_direct_lookup(current_block, "RETURN");
@@ -2025,28 +2088,23 @@ namespace quxlang
                 {
                     auto expr_index = co_await co_generate_expr(current_block, st.expr.value());
 
-                    codegen_invocation_args args;
-                    args.named["THIS"] = return_arg;
-                    args.named["OTHER"] = expr_index;
-
-                    auto return_type = current_type(current_block, return_arg);
-                    if (!typeis< nvalue_slot >(return_type))
-                    {
-                        throw std::logic_error("RETURN parameter has the wrong type");
-                    }
-                    return_type = type_symbol(as< nvalue_slot >(return_type).target);
-                    auto ctor = submember{.of = return_type, .name = "CONSTRUCTOR"};
-                    co_await co_gen_call_functum(current_block, ctor, args);
-                    this->generate_return(current_block);
-                    co_return;
+                    co_await co_return_value(current_block, expr_index);
                 }
 
                 co_await co_generate_builtin_return(current_block);
             }
             else
             {
+
                 // The only situation where ctx cannot be an instanciation_reference is the constexpr void evaluation
                 // which will not have any return type.
+                if (!ctx.type_is< instanciation_reference >())
+                {
+                    assert(ctx == void_type{});
+                    this->generate_return(current_block);
+                    co_return;
+                }
+
                 auto return_type = co_await prv.functanoid_return_type(ctx.get_as< instanciation_reference >());
                 assert(typeis< void_type >(return_type));
                 this->generate_return(current_block);

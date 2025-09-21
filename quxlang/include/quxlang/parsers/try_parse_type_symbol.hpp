@@ -79,6 +79,10 @@ namespace quxlang::parsers
         {
             output = bool_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "BYTE"))
+        {
+            output = byte_type{};
+        }
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = *int_kw;
@@ -150,41 +154,49 @@ namespace quxlang::parsers
         {
             return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
-        else if (skip_keyword_if_is(pos, end, "MUT"))
+        else if (auto kw = skip_keyword_if_one_of(pos, end, {"MUT", "CONST", "WRITE", "TEMP"}); kw != std::nullopt)
         {
-            if (!skip_symbol_if_is(pos, end, "&"))
+            ptrref_type pr_result;
+            if (*kw == "MUT")
             {
-                // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after MUT");
+                pr_result.qual = qualifier::mut;
             }
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
-        }
-        else if (skip_keyword_if_is(pos, end, "CONST"))
-        {
-            if (!skip_symbol_if_is(pos, end, "&"))
+            else if (*kw == "CONST")
             {
-                // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after MUT");
+                pr_result.qual = qualifier::constant;
             }
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
-        }
-        else if (skip_keyword_if_is(pos, end, "WRITE"))
-        {
-            if (!skip_symbol_if_is(pos, end, "&"))
+            else if (*kw == "WRITE")
             {
-                // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after WRITE");
+                pr_result.qual = qualifier::write;
             }
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::write};
-        }
-        else if (skip_keyword_if_is(pos, end, "TEMP"))
-        {
-            if (!skip_symbol_if_is(pos, end, "&"))
+            else if (*kw == "TEMP")
             {
-                // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after MUT");
+                pr_result.qual = qualifier::temp;
             }
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::temp};
+            else
+            {
+                throw std::logic_error("unreachable");
+            }
+            skip_whitespace_and_comments(pos, end);
+
+            if (skip_symbol_if_is(pos, end, "&"))
+            {
+                pr_result.ptr_class = pointer_class::ref;
+            }
+            else if (skip_symbol_if_is(pos, end, "->"))
+            {
+                pr_result.ptr_class = pointer_class::instance;
+            }
+            else if (skip_symbol_if_is(pos, end, "=>>"))
+            {
+                pr_result.ptr_class = pointer_class::array;
+            }
+            else
+            {
+                throw std::logic_error("Expected &, ->, or =>> after " + *kw);
+            }
+            pr_result.target = parse_type_symbol(pos, end);
+            return pr_result;
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
         {

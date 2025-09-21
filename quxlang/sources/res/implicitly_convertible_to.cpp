@@ -1,5 +1,6 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/implicitly_convertible_to.hpp"
+#include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
@@ -9,8 +10,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 
     std::string from_str = quxlang::to_string(from);
     std::string to_str = quxlang::to_string(to);
-
-
 
     if (from == to)
     {
@@ -52,6 +51,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
     if (typeis< int_type >(to) && typeis< numeric_literal_reference >(from))
     {
         co_return true;
+    }
+
+    if (typeis< bound_type_reference >(from))
+    {
+        auto from_unbound = as< bound_type_reference >(from).carried_type;
+        co_return co_await QUX_CO_DEP(implicitly_convertible_to, (implicitly_convertible_to_query{.from = from_unbound, .to = to}));
     }
 
     co_return false;

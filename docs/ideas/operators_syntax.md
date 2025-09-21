@@ -26,36 +26,59 @@
 
 * `&&` Logical and.
 * `||` Logical or.
-* `!&` Logical not-and.
-* `!|` Logical not-or.
+* `&!` Logical and-inverse (nand).
+* `|!` Logical or-inverse (nor).
 * `^^` Logical exclusive or.
 * `^->` Logical A implies B,
 * `^<-` Logical B implies A.
-* `!!` Logical negation (suffix)
+* `!!` Logical inverse (suffix)
 
 ## Bitwise operators
 
-* `.&&` bitwise and.
-* `.||` bitwise or.
-* `.!&` bitwise not-and.
-* `.!|` bitwise not-or.
-* `.?>` bitwise a implies b.
-* `.^^` bitwise exclusive or.
-* `.<<` bitwise left shift.
-* `.>>` bitwise right shift
-* `.<|` bitwise left rotate
-* `.|>` bitwise right rotate
-* `.+>` bitwise arithmetic shift
+### Binary bitwise operators
+
+* `#&&` bitwise and.
+* `#||` bitwise or.
+* `#&!` bitwise and-inverse (nand).
+* `#|!` bitwise or-inverse (nor).
+* `#^->` bitwise a implies b.
+* `#^<-` bitwise b implies a.
+* `#^^` bitwise exclusive or.
+* `#^!` bitwise not exclusive-or.
+* `#++` bitwise up-shift ("left shift").
+* `#--` bitwise down-shift ("right shift").
+* `#+%` bitwise up-rotate
+* `#-%` bitwise down-rotate
+
+### Unary bitwise operators
+
+* `#!!` bitwise inverse/complement (suffix)
 
 ## Object and pointer operators
 
 * `.` Field get operator.
 * `->` Pointer access operator.
 * `<-` Get instance-address operator.
-* `<<=` Get array-address operator.
+* `[&]` Get array-address operator.
 * `*<-` Get wildcard-pointer operator.
 * `?-` Get field address if non-null operator
+
+```
+::foo CLASS
+{
+  .b VAR bar;
+}
+
+::func FUNCTION(@f_ptr ->foo): ->bar
+{
+  RETURN f ?-b;
+}
+```
+
 * `?>` Get value-or-default operator
+* `?=` Get value-or evalulate alternative expression operator
+
+
 * `??` Booliate operator
 * `?!` Anti-booliate operator (same as `?? !!`)
 

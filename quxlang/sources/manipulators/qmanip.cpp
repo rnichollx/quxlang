@@ -156,6 +156,8 @@ namespace quxlang
         std::string operator()(absolute_module_reference const& ref) const;
         std::string operator()(bound_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
+
+        std::string operator()(byte_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
         std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
@@ -237,6 +239,11 @@ namespace quxlang
         }
 
         bool operator()(readonly_constant const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(byte_type const& ref) const
         {
             return false;
         }
@@ -636,6 +643,10 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(bool_type const& ref) const
     {
         return "BOOL";
+    }
+    std::string qualified_symbol_stringifier::operator()(byte_type const& ref) const
+    {
+        return "BYTE";
     }
     std::string qualified_symbol_stringifier::operator()(value_expression_reference const& ref) const
     {
@@ -1314,6 +1325,12 @@ namespace quxlang
             bool check(invotype template_ct, invotype match_ct, bool conv);
             bool check(intertype template_ct, intertype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
+
+
+            bool check_impl(byte_type, byte_type, bool conv)
+            {
+                return true;
+            }
 
             bool check_impl(auto_temploidic const& template_val, auto_temploidic const& match_val, bool conv)
             {

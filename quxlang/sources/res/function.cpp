@@ -73,7 +73,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         }
     }
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || typeis< byte_type>(input))
     {
 
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
@@ -82,7 +82,78 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
             result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
         }
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
-        co_return (result);
+    }
+
+    if (typeis< ptrref_type >(input))
+    {
+        auto const& pref = input.get_as< ptrref_type >();
+
+        std::set< pointer_class > allowed_input_classes;
+
+        std::set< qualifier > allowed_qualifiiers;
+
+        if (pref.ptr_class == pointer_class::ref)
+        {
+            allowed_input_classes.insert(pointer_class::ref);
+        }
+
+        if (pref.ptr_class == pointer_class::instance)
+        {
+            allowed_input_classes.insert(pointer_class::instance);
+            allowed_input_classes.insert(pointer_class::array);
+        }
+
+        if (pref.ptr_class == pointer_class::array)
+        {
+            allowed_input_classes.insert(pointer_class::array);
+        }
+
+        // TODO: Decide machine pointer semantics
+
+        if (pref.qual == qualifier::mut)
+        {
+            allowed_qualifiiers.insert(qualifier::mut);
+            allowed_qualifiiers.insert(qualifier::temp);
+        }
+        else if (pref.qual == qualifier::constant)
+        {
+            allowed_qualifiiers.insert(qualifier::constant);
+            allowed_qualifiiers.insert(qualifier::temp);
+            allowed_qualifiiers.insert(qualifier::mut);
+        }
+        else if (pref.qual == qualifier::temp)
+        {
+            allowed_qualifiiers.insert(qualifier::temp);
+        }
+        else if (pref.qual == qualifier::write)
+        {
+            allowed_qualifiiers.insert(qualifier::write);
+            allowed_qualifiiers.insert(qualifier::mut);
+        }
+
+        // input/output/auto are not concrete types so don't have constructors.
+
+        for (qualifier q : allowed_qualifiiers)
+        {
+            for (pointer_class p : allowed_input_classes)
+            {
+                type_symbol type = ptrref_type{.target = pref.target, .ptr_class = p, .qual = q};
+
+                // We don't want to generate a copy constructor here, this is only for conversions.
+                if (type == input)
+                {
+                    continue;
+                }
+
+                result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = type}}}}}, .return_type = void_type{}});
+
+            }
+        }
+    }
+
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
+    {
+        co_return result;
     }
 
     bool should_autogen_constructor = co_await QUX_CO_DEP(class_requires_gen_default_ctor, (input));
@@ -122,6 +193,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
     {
         co_return {};
     }
+
+    ptrref_type byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
 
     submember const& as_submember = as< submember >(functum);
     type_symbol const& parent = as_submember.of;
@@ -178,6 +251,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         }
     }
 
+    if (parent.type_is< readonly_constant >() && (name == "BEGIN" || name == "END"))
+    {
+        builtin_function_info br_info;
+        br_info.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{make_cref(parent)}}}}};
+        br_info.return_type = byte_ptr_type;
+        allowed_operations.insert(br_info);
+        co_return allowed_operations;
+    }
+
     // TODO: Add support for OPERATOR[] and OPERATOR[&] for array pointers
 
     if (name.starts_with("OPERATOR"))
@@ -190,6 +272,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             is_rhs = true;
         }
         bool is_int_type = typeis< int_type >(parent);
+        bool is_byte_type = typeis< byte_type >(parent);
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
@@ -198,7 +281,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
-        if (is_swap_operator && (is_int_type || is_bool_type || is_pointer_type))
+        bool is_regular_primitive_type = is_int_type || is_bool_type || is_pointer_type || is_byte_type;
+        if (is_swap_operator && is_regular_primitive_type)
         {
             if (is_rhs)
             {
@@ -263,7 +347,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                 // no builtin RHS assignments exist.
                 co_return {};
             }
-            else if (is_int_type || is_bool_type || is_pointer_type)
+            else if (is_regular_primitive_type)
             {
                 allowed_operations.insert(builtin_function_info{
                     .overload = temploid_ensig{.interface =
@@ -591,13 +675,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     std::set< temploid_reference > best_match;
     std::optional< std::int64_t > highest_priority;
 
-
-
     std::cout << "Select for " << quxlang::to_string(input) << std::endl;
 
     for (auto const& o : overloads)
     {
-        std::cout << "  Considering overload " << quxlang::to_string(temploid_reference{.templexoid=input.initializee, .which=o}) << std::endl;
+        std::cout << "  Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters) << std::endl;
+
         auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = o, .params = input.parameters}));
 
         if (candidate)

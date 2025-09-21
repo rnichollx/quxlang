@@ -349,7 +349,7 @@ namespace quxlang
 
     inline bool is_primitive(type_symbol sym)
     {
-        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< ptrref_type >(sym);
+        return typeis< int_type >(sym) || typeis< bool_type >(sym) || typeis< ptrref_type >(sym) || typeis< readonly_constant >(sym) || typeis< byte_type >(sym);
     }
 
 } // namespace quxlang
