@@ -398,6 +398,30 @@ namespace quxlang::vmir2
             consume(cmp.b);
             output(cmp.result);
         }
+        void apply_internal(vmir2::pcmp_eq const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::pcmp_ge const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::pcmp_lt const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::pcmp_ne const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
         void apply_internal(vmir2::defer_nontrivial_dtor const& dntd)
         {
             readonly(dntd.on_value);

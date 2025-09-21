@@ -485,6 +485,24 @@ namespace quxlang::vmir2
     {
         return "CGE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
     }
+
+    // Pointer compare instructions
+    std::string assembler::to_string_internal(vmir2::pcmp_eq inst)
+    {
+        return "PCEQ %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::pcmp_ne inst)
+    {
+        return "PCNE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::pcmp_lt inst)
+    {
+        return "PCLT %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::pcmp_ge inst)
+    {
+        return "PCGE %" + std::to_string(inst.a) + ", %" + std::to_string(inst.b) + ", %" + std::to_string(inst.result);
+    }
     std::string assembler::to_string_internal(vmir2::defer_nontrivial_dtor dntd)
     {
         return "DNTD " + quxlang::to_string(dntd.func) + ", %" + std::to_string(dntd.on_value) + ", %" + this->to_string_internal(dntd.args);

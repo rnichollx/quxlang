@@ -68,6 +68,10 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::cmp_ne inst);
         std::string to_string_internal(vmir2::cmp_lt inst);
         std::string to_string_internal(vmir2::cmp_ge inst);
+        std::string to_string_internal(vmir2::pcmp_eq inst);
+        std::string to_string_internal(vmir2::pcmp_ne inst);
+        std::string to_string_internal(vmir2::pcmp_lt inst);
+        std::string to_string_internal(vmir2::pcmp_ge inst);
 
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
@@ -80,4 +84,3 @@ namespace quxlang::vmir2
 }; // namespace quxlang::vmir2
 
 #endif // RPNX_QUXLANG_ASSEMBLY_HEADER
-
