@@ -245,6 +245,14 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::cmp_ne const& cne);
     void exec_instr_val(vmir2::cmp_lt const& clt);
     void exec_instr_val(vmir2::cmp_ge const& cge);
+    void exec_instr_val(vmir2::pcmp_eq const& ceq);
+    void exec_instr_val(vmir2::pcmp_ne const& cne);
+    void exec_instr_val(vmir2::pcmp_lt const& clt);
+    void exec_instr_val(vmir2::pcmp_ge const& cge);
+    void exec_instr_val(vmir2::gcmp_eq const& ceq);
+    void exec_instr_val(vmir2::gcmp_ne const& cne);
+    void exec_instr_val(vmir2::gcmp_lt const& clt);
+    void exec_instr_val(vmir2::gcmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_delegate_new const& sdn);
     void exec_instr_val(vmir2::struct_complete_new const& scn);
@@ -1345,6 +1353,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         set_data(ceq.result, {std::byte(0)});
     }
 }
+
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
 {
     throw rpnx::unimplemented();
@@ -1378,10 +1388,49 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     set_data(clt.result, {std::byte(0)});
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& cge)
 {
     throw rpnx::unimplemented();
 }
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_ge const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_lt const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_ne const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_eq const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_ge const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_lt const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::gcmp_ne const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
+
+
 
 quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter()
 {

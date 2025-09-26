@@ -73,6 +73,13 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::pcmp_lt inst);
         std::string to_string_internal(vmir2::pcmp_ge inst);
 
+        std::string to_string_internal(vmir2::gcmp_eq inst);
+        std::string to_string_internal(vmir2::gcmp_ne inst);
+        std::string to_string_internal(vmir2::gcmp_lt inst);
+        std::string to_string_internal(vmir2::gcmp_ge inst);
+
+
+
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
         std::string to_string_internal(vmir2::ret inst);

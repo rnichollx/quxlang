@@ -34,6 +34,13 @@ namespace quxlang
         RPNX_EMPTY_METADATA(void_type);
     };
 
+    struct intptr
+    {
+        bool has_sign = false;
+
+        RPNX_MEMBER_METADATA(intptr, has_sign);
+    };
+
     struct thistype
     {
         RPNX_EMPTY_METADATA(thistype);
