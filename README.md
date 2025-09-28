@@ -16,7 +16,6 @@ Currently, the compiler is not complete enough to "work" and all development is 
 
 * YAMLCpp
 * GTest
-* Boost (for demangle)
 * LLVM v16.0.6
 
 ## Status
