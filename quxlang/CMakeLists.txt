@@ -234,6 +234,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/data/parser_data.hpp
         include/quxlang/res/serialization.hpp
         include/quxlang/keywords.hpp
+        include/quxlang/fixed_bytemath.hpp
 
 )
 

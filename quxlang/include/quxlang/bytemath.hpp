@@ -10,8 +10,8 @@
 
 namespace quxlang::bytemath
 {
-    struct le_sint;
-    struct le_uint;
+    struct sle_int_unlimited;
+    struct ule_int_unlimited;
 
     namespace detail
     {
@@ -45,14 +45,14 @@ namespace quxlang::bytemath
 
     void le_trim(std::vector< std::byte >& v);
 
-    std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b);
+    std::vector< std::byte > unlimited_int_unsigned_add_le(std::vector< std::byte > a, std::vector< std::byte > b);
 
-    std::vector< std::byte > le_unsigned_sub(std::vector< std::byte > a, std::vector< std::byte > b);
+    std::vector< std::byte > unlimited_int_unsigned_sub_le(std::vector< std::byte > a, std::vector< std::byte > b);
 
 
 
     std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b);
-    inline le_sint le_signed_mult(le_sint a, le_sint b);
+    inline sle_int_unlimited le_signed_mult(sle_int_unlimited a, sle_int_unlimited b);
 
     // helper: divmod via long division by byte-wise trial
     std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b);
@@ -110,11 +110,11 @@ namespace quxlang::bytemath
         return result;
     }
 
-    le_sint le_signed_add(le_sint a, le_sint b);
+    sle_int_unlimited unlimited_int_signed_add_le(sle_int_unlimited a, sle_int_unlimited b);
 
-    le_sint le_signed_sub(le_sint a, le_sint b);
+    sle_int_unlimited unlimited_int_signed_sub_le(sle_int_unlimited a, sle_int_unlimited b);
 
-    le_sint le_signed_div(le_sint a, le_sint b);
+    sle_int_unlimited le_signed_div(sle_int_unlimited a, sle_int_unlimited b);
 
 
 
@@ -124,16 +124,16 @@ namespace quxlang::bytemath
 
     std::vector< std::byte > le_truncate(std::vector< std::byte > data, std::size_t size_in_bits);
 
-    struct le_uint
+    struct ule_int_unlimited
     {
         std::vector< std::byte > data;
 
-        le_uint() : data{std::byte(0)}
+        ule_int_unlimited() : data{std::byte(0)}
         {
         }
 
         template < typename U >
-        le_uint(U value)
+        ule_int_unlimited(U value)
         {
             static_assert(std::is_integral_v< U >, "U must be an integral type");
 
@@ -141,17 +141,17 @@ namespace quxlang::bytemath
         }
     };
 
-    struct le_sint
+    struct sle_int_unlimited
     {
         std::vector< std::byte > data;
         bool is_negative = false;
 
-        le_sint(std::vector< std::byte > data, bool is_negative = false) : data(std::move(data)), is_negative(is_negative)
+        sle_int_unlimited(std::vector< std::byte > data, bool is_negative = false) : data(std::move(data)), is_negative(is_negative)
         {
         }
 
         template < typename I >
-        le_sint(I value)
+        sle_int_unlimited(I value)
         {
             static_assert(std::numeric_limits< I >::radix == 2);
 
@@ -179,7 +179,7 @@ namespace quxlang::bytemath
             if (value < 0)
             {
                 is_negative = true;
-                le_sint extra{-1};
+                sle_int_unlimited extra{-1};
 
                 while (value > 0)
                 {
@@ -187,7 +187,7 @@ namespace quxlang::bytemath
                     // This is well-defined for C++11 onward even for sign-magnitude integers
                     if (value % 2 == -1)
                     {
-                        this->data = le_unsigned_add(std::move(this->data), extra.data);
+                        this->data = unlimited_int_unsigned_add_le(std::move(this->data), extra.data);
                     }
                     extra.data = le_shift_up(extra.data, 1);
 
@@ -196,17 +196,17 @@ namespace quxlang::bytemath
             }
         }
 
-        bool operator==(le_sint const& other) const
+        bool operator==(sle_int_unlimited const& other) const
         {
             return is_negative == other.is_negative && le_comp_eq(data, other.data);
         }
 
-        bool operator!=(le_sint const& other) const
+        bool operator!=(sle_int_unlimited const& other) const
         {
             return !(*this == other);
         }
 
-        bool operator<(le_sint const& other) const
+        bool operator<(sle_int_unlimited const& other) const
         {
             if (is_negative != other.is_negative)
             {
@@ -222,7 +222,7 @@ namespace quxlang::bytemath
             }
         }
 
-        bool operator>(le_sint const& other) const
+        bool operator>(sle_int_unlimited const& other) const
         {
             if (is_negative != other.is_negative)
             {
@@ -238,12 +238,12 @@ namespace quxlang::bytemath
             }
         }
 
-        bool operator<=(le_sint const& other) const
+        bool operator<=(sle_int_unlimited const& other) const
         {
             return !(*this > other);
         }
 
-        bool operator>=(le_sint const& other) const
+        bool operator>=(sle_int_unlimited const& other) const
         {
             return !(*this < other);
         }
@@ -251,9 +251,9 @@ namespace quxlang::bytemath
         template < typename I >
         std::pair< I, bool > to_int() &&
         {
-            static le_sint max_value = le_sint(std::numeric_limits< I >::max());
-            static le_sint min_value = le_sint(std::numeric_limits< I >::min());
-            static le_sint zero = le_sint(0);
+            static sle_int_unlimited max_value = sle_int_unlimited(std::numeric_limits< I >::max());
+            static sle_int_unlimited min_value = sle_int_unlimited(std::numeric_limits< I >::min());
+            static sle_int_unlimited zero = sle_int_unlimited(0);
 
             le_trim(data);
 
@@ -299,7 +299,7 @@ namespace quxlang::bytemath
         template < typename I >
         std::pair< I, bool > to_int() const&
         {
-            le_sint this_copy = *this;
+            sle_int_unlimited this_copy = *this;
             return std::move(this_copy).to_int< I >();
         }
     };

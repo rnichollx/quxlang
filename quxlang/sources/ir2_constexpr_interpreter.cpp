@@ -92,7 +92,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_initiated = false;
     };
 
-    using primitive_value = rpnx::variant< bool, bytemath::le_sint, bytemath::le_uint >;
+    using primitive_value = rpnx::variant< bool, bytemath::sle_int_unlimited, bytemath::ule_int_unlimited >;
 
     struct primitive_object : public object_base
     {
@@ -1388,6 +1388,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     set_data(clt.result, {std::byte(0)});
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
+{
+    throw rpnx::unimplemented();
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& cge)
 {
     throw rpnx::unimplemented();
@@ -2357,11 +2362,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (increment)
     {
-        val = bytemath::le_unsigned_add(std::move(val), {std::byte(1)});
+        val = bytemath::unlimited_int_unsigned_add_le(std::move(val), {std::byte(1)});
     }
     else
     {
-        val = bytemath::le_unsigned_sub(std::move(val), {std::byte(1)});
+        val = bytemath::unlimited_int_unsigned_sub_le(std::move(val), {std::byte(1)});
     }
     val = bytemath::le_truncate(std::move(val), type_int.bits);
 
@@ -2451,12 +2456,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (par.multiplier == -1)
     {
-        auto offset_val_s = bytemath::le_signed_sub(bytemath::le_sint{{std::byte(0)}, false}, bytemath::le_sint{offset_val, false});
+        auto offset_val_s = bytemath::unlimited_int_signed_sub_le(bytemath::sle_int_unlimited{{std::byte(0)}, false}, bytemath::sle_int_unlimited{offset_val, false});
         std::tie(offset, ok) = offset_val_s.to_int< std::int64_t >();
     }
     else
     {
-        std::tie(offset, ok) = bytemath::le_sint{offset_val, false}.to_int< std::int64_t >();
+        std::tie(offset, ok) = bytemath::sle_int_unlimited{offset_val, false}.to_int< std::int64_t >();
     }
     // TODO: Handle !ok
 

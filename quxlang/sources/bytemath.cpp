@@ -34,7 +34,7 @@ namespace quxlang::bytemath
             v.push_back(std::byte{0});
         }
     }
-    std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::vector< std::byte > unlimited_int_unsigned_add_le(std::vector< std::byte > a, std::vector< std::byte > b)
     {
         std::uint8_t carry = 0;
         std::uint8_t result = 0;
@@ -63,7 +63,7 @@ namespace quxlang::bytemath
 
         return std::move(a);
     }
-    std::vector< std::byte > le_unsigned_sub(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::vector< std::byte > unlimited_int_unsigned_sub_le(std::vector< std::byte > a, std::vector< std::byte > b)
     {
         std::uint8_t borrow = 0;
 
@@ -216,7 +216,7 @@ namespace quxlang::bytemath
 
                     std::vector< std::byte > to_sub(shift, std::byte{0});
                     to_sub.insert(to_sub.end(), prod.begin(), prod.end());
-                    a = le_unsigned_sub(std::move(a), std::move(to_sub));
+                    a = unlimited_int_unsigned_sub_le(std::move(a), std::move(to_sub));
                 }
 
                 q_big[t - shift] = best;
@@ -353,7 +353,7 @@ namespace quxlang::bytemath
             auto digit = u_to_le(static_cast< std::uint8_t >(c - '0'));
 
             result = le_unsigned_mult(result, ten);
-            result = le_unsigned_add(result, digit);
+            result = unlimited_int_unsigned_add_le(result, digit);
         }
         if (result.empty())
         {
@@ -390,43 +390,43 @@ namespace quxlang::bytemath
 
         return data;
     }
-    le_sint le_signed_add(le_sint a, le_sint b)
+    sle_int_unlimited unlimited_int_signed_add_le(sle_int_unlimited a, sle_int_unlimited b)
     {
         bool a_negative = a.is_negative;
         bool b_negative = b.is_negative;
 
         if (a_negative == b_negative)
         {
-            auto result = le_unsigned_add(std::move(a.data), std::move(b.data));
+            auto result = unlimited_int_unsigned_add_le(std::move(a.data), std::move(b.data));
             return {std::move(result), a_negative};
         }
         else
         {
             if (le_comp_less(a.data, b.data))
             {
-                auto result = le_unsigned_sub(std::move(b.data), std::move(a.data));
+                auto result = unlimited_int_unsigned_sub_le(std::move(b.data), std::move(a.data));
                 return {std::move(result), !b_negative};
             }
             else
             {
-                auto result = le_unsigned_sub(std::move(a.data), std::move(b.data));
+                auto result = unlimited_int_unsigned_sub_le(std::move(a.data), std::move(b.data));
                 return {std::move(result), a_negative};
             }
         }
     }
-    le_sint le_signed_sub(le_sint a, le_sint b)
+    sle_int_unlimited unlimited_int_signed_sub_le(sle_int_unlimited a, sle_int_unlimited b)
     {
         b.is_negative = !b.is_negative;
-        return le_signed_add(std::move(a), std::move(b));
+        return unlimited_int_signed_add_le(std::move(a), std::move(b));
     }
-    le_sint le_signed_div(le_sint a, le_sint b)
+    sle_int_unlimited le_signed_div(sle_int_unlimited a, sle_int_unlimited b)
     {
         auto result = le_unsigned_div(std::move(a.data), std::move(b.data));
-        return le_sint(std::move(result), a.is_negative != b.is_negative);
+        return sle_int_unlimited(std::move(result), a.is_negative != b.is_negative);
     }
-    le_sint le_signed_mult(le_sint a, le_sint b)
+    sle_int_unlimited le_signed_mult(sle_int_unlimited a, sle_int_unlimited b)
     {
         auto result = le_unsigned_mult(std::move(a.data), std::move(b.data));
-        return le_sint(std::move(result), a.is_negative != b.is_negative);
+        return sle_int_unlimited(std::move(result), a.is_negative != b.is_negative);
     }
 } // namespace quxlang::bytemath

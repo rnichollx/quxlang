@@ -34,57 +34,57 @@ std::string compare_and_format(const std::vector<std::byte>& a, const std::vecto
 TEST(ByteMathAdd, BasicAddition) {
     auto a = bytemath::string_to_le("123");
     auto b = bytemath::string_to_le("456");
-    auto result = bytemath::le_unsigned_add(a, b);
+    auto result = bytemath::unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "579");
 }
 
 TEST(ByteMathAdd, AdditionWithCarry) {
     auto a = string_to_le("99");
     auto b = string_to_le("1");
-    auto result = le_unsigned_add(a, b);
+    auto result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "100");
 }
 
 TEST(ByteMathAdd, AdditionWithMultipleCarries) {
     auto a = string_to_le("999");
     auto b = string_to_le("1");
-    auto result = le_unsigned_add(a, b);
+    auto result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "1000");
 }
 
 TEST(ByteMathAdd, AdditionDifferentSizes) {
     auto a = string_to_le("1");
     auto b = string_to_le("9999");
-    auto result = le_unsigned_add(a, b);
+    auto result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "10000");
 
     a = string_to_le("9999");
     b = string_to_le("1");
-    result = le_unsigned_add(a, b);
+    result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "10000");
 }
 
 TEST(ByteMathAdd, AddZero) {
     auto a = string_to_le("12345");
     auto b = string_to_le("0");
-    auto result = le_unsigned_add(a, b);
+    auto result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "12345");
 
     a = string_to_le("0");
     b = string_to_le("12345");
-    result = le_unsigned_add(a, b);
+    result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "12345");
 
     a = string_to_le("0");
     b = string_to_le("0");
-    result = le_unsigned_add(a, b);
+    result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "0");
 }
 
 TEST(ByteMathAdd, LargeNumbers) {
     auto a = string_to_le("12345678901234567890");
     auto b = string_to_le("98765432109876543210");
-    auto result = le_unsigned_add(a, b);
+    auto result = unlimited_int_unsigned_add_le(a, b);
     EXPECT_EQ(le_to_string(result), "111111111011111111100");
 }
 
@@ -92,49 +92,49 @@ TEST(ByteMathAdd, LargeNumbers) {
 TEST(ByteMathSub, BasicSubtraction) {
     auto a = string_to_le("456");
     auto b = string_to_le("123");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "333");
 }
 
 TEST(ByteMathSub, SubtractionWithBorrow) {
     auto a = string_to_le("100");
     auto b = string_to_le("1");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "99");
 }
 
 TEST(ByteMathSub, SubtractionWithMultipleBorrows) {
     auto a = string_to_le("1000");
     auto b = string_to_le("1");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "999");
 }
 
 TEST(ByteMathSub, SubtractionDifferentSizes) {
     auto a = string_to_le("10000");
     auto b = string_to_le("1");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "9999");
 }
 
 TEST(ByteMathSub, SubtractZero) {
     auto a = string_to_le("12345");
     auto b = string_to_le("0");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "12345");
 }
 
 TEST(ByteMathSub, SubtractToZero) {
     auto a = string_to_le("123");
     auto b = string_to_le("123");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "0");
 }
 
 TEST(ByteMathSub, LargeNumbers) {
     auto a = string_to_le("111111111011111111100");
     auto b = string_to_le("98765432109876543210");
-    auto result = le_unsigned_sub(a, b);
+    auto result = unlimited_int_unsigned_sub_le(a, b);
     EXPECT_EQ(le_to_string(result), "12345678901234567890");
 }
 
