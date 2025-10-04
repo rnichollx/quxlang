@@ -91,7 +91,7 @@ namespace quxlang::bytemath
         le_trim(a);
         return std::move(a);
     }
-    bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
+    bool detail::le_comp_less_raw(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
     {
         std::size_t maxlen = std::max(a.size(), b.size());
 
@@ -152,7 +152,7 @@ namespace quxlang::bytemath
             return {std::vector< std::byte >{std::byte{0}}, std::move(a)};
         }
 
-        if (!le_comp_less(a, b))
+        if (!detail::le_comp_less_raw(a, b))
         {
             std::size_t n = a.size();
             std::size_t m = b.size();
@@ -187,7 +187,7 @@ namespace quxlang::bytemath
                     le_trim(shifted);
 
                     // compare shifted <= a ?
-                    if (!le_comp_less(a, shifted))
+                    if (!detail::le_comp_less_raw(a, shifted))
                     {
                         best = mid;
                         lo = mid + 1;
@@ -320,7 +320,7 @@ namespace quxlang::bytemath
         {
             auto mod_result = le_unsigned_divmod(std::move(number), ten);
             assert(mod_result.second.size() <= 1);
-            assert(le_comp_less(mod_result.second, ten));
+            assert(detail::le_comp_less_raw(mod_result.second, ten));
 
             std::uint8_t mod_val = le_get(mod_result.second, 0);
             assert(mod_val < 10);
@@ -403,7 +403,7 @@ namespace quxlang::bytemath
         }
         else
         {
-            if (le_comp_less(a.data, b.data))
+            if (detail::le_comp_less_raw(a.data, b.data))
             {
                 auto result = unlimited_int_unsigned_sub_le(std::move(b.data), std::move(a.data));
                 return {std::move(result), !b_negative};

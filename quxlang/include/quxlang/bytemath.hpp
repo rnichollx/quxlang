@@ -17,22 +17,22 @@ namespace quxlang::bytemath
     namespace detail
     {
         // Add the two numbers
-        std::vector< std::byte > le_unsigned_add(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_unsigned_add_raw(std::vector< std::byte > a, std::vector< std::byte > b);
         // multiply the two numbers
-        std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_unsigned_mult_raw(std::vector< std::byte > a, std::vector< std::byte > b);
         // divide the two numbers
-        std::vector< std::byte > le_unsigned_div(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_unsigned_div_raw(std::vector< std::byte > a, std::vector< std::byte > b);
 
         // subtract the two numbers, assuming a >= b
-        std::vector< std::byte > le_unsigned_sub(std::vector< std::byte > a, std::vector< std::byte > b);
-    } // namespace detail
+        std::vector< std::byte > le_unsigned_sub_raw(std::vector< std::byte > a, std::vector< std::byte > b);
 
-    // compare two numbers a < b
-    bool le_comp_less(std::vector< std::byte > const& a, std::vector< std::byte > const& b);
+        // compare two numbers a < b
+        bool le_comp_less_raw(std::vector< std::byte > const& a, std::vector< std::byte > const& b);
+    }
 
     inline bool le_comp_eq(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
     {
-        return !le_comp_less(a, b) && !le_comp_less(b, a);
+        return !detail::le_comp_less_raw(a, b) && !detail::le_comp_less_raw(b, a);
     }
 
     // remainder of a / b
@@ -215,11 +215,11 @@ namespace quxlang::bytemath
             }
             if (is_negative)
             {
-                return le_comp_less(other.data, data);
+                return detail::le_comp_less_raw(other.data, data);
             }
             else
             {
-                return le_comp_less(data, other.data);
+                return detail::le_comp_less_raw(data, other.data);
             }
         }
 
@@ -231,11 +231,11 @@ namespace quxlang::bytemath
             }
             if (is_negative)
             {
-                return le_comp_less(data, other.data);
+                return detail::le_comp_less_raw(data, other.data);
             }
             else
             {
-                return le_comp_less(other.data, data);
+                return detail::le_comp_less_raw(other.data, data);
             }
         }
 
