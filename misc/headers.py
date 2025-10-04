@@ -16,7 +16,10 @@ def find_header_guards(directory: str, fix_in_place: bool = False):
         directory (str): The root directory to search for header files.
         fix_in_place (bool): If True, update the header guards in the files.
     """
-    for root, _, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory):
+        # Skip VCS directories like .git
+        if '.git' in dirs:
+            dirs.remove('.git')
         for file in files:
             if file.endswith(('.hpp', '.h', '.hh', '.hxx', '.h++', '.hp')):  # Include other header extensions as needed
                 file_path = os.path.join(root, file)
