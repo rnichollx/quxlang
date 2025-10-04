@@ -60,7 +60,7 @@ namespace quxlang::bytemath
     {
         assert(input.size() == (opt.bits + 7) / 8);
 
-        sle_int_unlimited result;
+        sle_int_unlimited result = 0;
         if (opt.has_sign)
         {
             result.is_negative = get_bit(input, opt.bits - 1);
@@ -212,10 +212,10 @@ namespace quxlang::bytemath
     {
         return unlimited_to_fixed(opt, unlimited_int_signed_sub_le(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
     }
-    inline int_result int_mult_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
-    {
-        return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
-    }
+   // inline int_result int_mult_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+   // {
+   //     return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+   //     //}
 
     inline int_result int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {

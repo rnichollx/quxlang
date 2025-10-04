@@ -69,7 +69,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
     {
-        auto result = co_await QUX_CO_DEP(builtin_move_ctor_vm_procedure3, (input));
+        auto result = co_await QUX_CO_DEP(builtin_swap_vm_procedure3, (input));
         co_return result;
     }
 
@@ -94,8 +94,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
 
     }
 
-
-    throw compiler_bug("not implemented or bug");
+    throw compiler_bug("generation of builtin routine \'" + input_str + "\' not implemented");
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_default_ctor_vm_procedure3)
@@ -129,10 +128,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_assignment_vm_procedure3)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_swap_vm_procedure3)
 {
-    throw compiler_bug("not implemented");
-    //co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+   // throw compiler_bug("not implemented");
+    co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
 
-    //co_return co_await gen.co_generate_builtin_swap(input);
+    co_return co_await gen.co_generate_builtin_swap(input);
 }
 
 

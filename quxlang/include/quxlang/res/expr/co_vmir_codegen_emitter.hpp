@@ -903,7 +903,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is<byte_type> () || of_type.type_is< readonly_constant >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >();
         }
 
         // This implements builtin operators for primitives,
@@ -1009,6 +1009,8 @@ namespace quxlang
                     swp.b = get_local_index(args.named.at("OTHER"));
                     return swp;
                 }
+
+
             }
 
             if (member->name == "OPERATOR++" && has_incdec_operation_with_incdec_ir(*cls))
@@ -1158,9 +1160,8 @@ namespace quxlang
                         auto other_slot_id = args.named.at("OTHER");
                         auto this_slot_id = args.named.at("THIS");
 
-
-                        auto const & other_ptrref = other.as< ptrref_type >();
-                        auto const & cls_ptrref = cls->as< ptrref_type >();
+                        auto const& other_ptrref = other.as< ptrref_type >();
+                        auto const& cls_ptrref = cls->as< ptrref_type >();
 
                         assert(other_ptrref.ptr_class == cls_ptrref.ptr_class);
                         vmir2::cast_reference crf;
@@ -1293,6 +1294,65 @@ namespace quxlang
                     pdf.to = get_local_index(args.named.at("OTHER"));
                     pdf.result = get_local_index(args.named.at("RETURN"));
                     return pdf;
+                }
+            }
+
+            if (cls->template type_is< ptrref_type >())
+            {
+                auto const& ptrref = cls->as< ptrref_type >();
+                auto operator_name = member->name;
+
+                if (operator_name == "OPERATOR==")
+                {
+                    assert(args.named.contains("THIS"));
+                    assert(args.named.contains("OTHER"));
+                    assert(args.named.contains("RETURN"));
+                    assert(args.size() == 3);
+
+                    vmir2::pcmp_eq res;
+                    res.a = get_local_index(args.named.at("THIS"));
+                    res.b = get_local_index(args.named.at("OTHER"));
+                    res.result = get_local_index(args.named.at("RETURN"));
+                    return res;
+                }
+                if (operator_name == "OPERATOR!=")
+                {
+                    assert(args.named.contains("THIS"));
+                    assert(args.named.contains("OTHER"));
+                    assert(args.named.contains("RETURN"));
+                    assert(args.size() == 3);
+
+                    vmir2::pcmp_ne res;
+                    res.a = get_local_index(args.named.at("THIS"));
+                    res.b = get_local_index(args.named.at("OTHER"));
+                    res.result = get_local_index(args.named.at("RETURN"));
+                    return res;
+                }
+                if (operator_name == "OPERATOR<")
+                {
+                    assert(args.named.contains("THIS"));
+                    assert(args.named.contains("OTHER"));
+                    assert(args.named.contains("RETURN"));
+                    assert(args.size() == 3);
+
+                    vmir2::pcmp_lt res;
+                    res.a = get_local_index(args.named.at("THIS"));
+                    res.b = get_local_index(args.named.at("OTHER"));
+                    res.result = get_local_index(args.named.at("RETURN"));
+                    return res;
+                }
+                if (operator_name == "OPERATOR>")
+                {
+                    assert(args.named.contains("THIS"));
+                    assert(args.named.contains("OTHER"));
+                    assert(args.named.contains("RETURN"));
+                    assert(args.size() == 3);
+
+                    vmir2::pcmp_lt res;
+                    res.b = get_local_index(args.named.at("THIS"));
+                    res.a = get_local_index(args.named.at("OTHER"));
+                    res.result = get_local_index(args.named.at("RETURN"));
+                    return res;
                 }
             }
 
@@ -1900,6 +1960,18 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_builtin_swap(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!qualified_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            co_await co_generate_swap_members(current_block, func);
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!qualified_is_contextual(func));
@@ -2455,6 +2527,44 @@ namespace quxlang
             // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
         }
 
+        auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            auto const& fields = co_await prv.class_field_list(cls);
+
+
+            for (class_field const& fld : fields)
+            {
+                auto temp_block = this->generate_subblock(current_block, "swap_member_temp_" + fld.name);
+                auto after_block = this->generate_subblock(current_block, "swap_member_after_" + fld.name);
+                this->generate_jump(current_block, temp_block);
+                current_block = temp_block;
+                auto thisval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
+                auto otherval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
+                auto this_field = co_await this->co_generate_dot_access(current_block, thisval, fld.name);
+                auto other_field = co_await this->co_generate_dot_access(current_block, otherval, fld.name);
+                auto field_type = fld.type;
+                assert(!qualified_is_contextual(field_type));
+                auto field_swap_functum = submember{.of = field_type, .name = "OPERATOR<->"};
+                codegen_invocation_args args;
+                args.named["THIS"] = this_field;
+                args.named["OTHER"] = other_field;
+                co_await this->co_gen_call_functum(current_block, field_swap_functum, args);
+                this->generate_jump(current_block, after_block);
+                current_block = after_block;
+            }
+        }
+
         auto co_generate_move(block_index& current_block, value_index val) -> typename CoroutineProvider::template co_type< value_index >
         {
             type_symbol val_type = this->current_type(current_block, val);
@@ -2610,7 +2720,8 @@ namespace quxlang
             block_index condition_block = this->generate_subblock(current_block, "if_statement_condition");
             this->generate_jump(current_block, condition_block);
             value_index cond = co_await co_generate_bool_expr(condition_block, asrt.condition);
-            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .message = asrt.tagline.value_or("NO_MESSAGE_TAG"), .location = asrt.location};
+            auto assert_string = quxlang::to_string(asrt.condition);
+            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .message =  asrt.tagline.value_or("NO_MESSAGE_TAG") + ": " + assert_string, .location = asrt.location};
             this->emit(condition_block, asrt_instr);
             this->generate_jump(condition_block, after_block);
             current_block = after_block;

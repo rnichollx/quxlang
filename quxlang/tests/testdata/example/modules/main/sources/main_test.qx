@@ -137,7 +137,9 @@ IMPORT foolib;
   test_swap();
   test_call_function_from_other_file();
   test_call_imported_function();
-  test_roman_numeral();
+  test_class_default_copy_works();
+  test_array_arithmetic();
+    test_roman_numeral();
 
   RETURN 1;
 }
@@ -242,11 +244,11 @@ IMPORT foolib;
      VAR it CONST=>> BYTE := OTHER.BEGIN();
      VAR end CONST=>> BYTE := OTHER.END();
 
-    // WHILE (it != end)
-    // {
-    //    .value := .value + 1;
-    //    it++;
-    // }
+     WHILE (it != end)
+     {
+        .value := .value + 1;
+        it++;
+     }
   }
 
 }
@@ -284,6 +286,26 @@ IMPORT foolib;
    ASSERT(x == 42);
 }
 
+::test_array_arithmetic FUNCTION()
+{
+  VAR a [4]I32;
+  VAR ptr1 =>> I32;
+  VAR ptr2 =>> I32;
+
+  ptr1 := a[& 0];
+  ptr2 := a[& 1];
+
+  ASSERT(ptr1 < ptr2);
+
+  ASSERT(ptr2 > ptr1);
+
+  ASSERT(ptr1 != ptr2);
+
+  ptr1++;
+
+  ASSERT(ptr1 == ptr2);
+}
+
 ::test_roman_numeral FUNCTION()
 {
   VAR r roman;
@@ -291,6 +313,25 @@ IMPORT foolib;
   ASSERT(i == 4);
   r := roman(@OTHER STRING_CONSTANT(@OTHER "II"));
 
+  ASSERT(r.value == 2);
+
+}
+
+::class_default_copy_class CLASS
+{
+  .x VAR I32;
+}
+
+::test_class_default_copy_works FUNCTION()
+{
+
+    VAR a class_default_copy_class;
+    a.x := 5;
+
+    VAR b class_default_copy_class; // := a;
+    b := a;
+
+    ASSERT(b.x == 5);
 }
 
 

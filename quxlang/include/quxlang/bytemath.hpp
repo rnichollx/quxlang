@@ -52,7 +52,7 @@ namespace quxlang::bytemath
 
 
     std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b);
-    inline sle_int_unlimited le_signed_mult(sle_int_unlimited a, sle_int_unlimited b);
+
 
     // helper: divmod via long division by byte-wise trial
     std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b);

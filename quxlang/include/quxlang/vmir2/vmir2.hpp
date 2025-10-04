@@ -176,6 +176,7 @@ namespace quxlang
         // args:
         // 1. from: the array pointer to start from
         // 2. multiplier: either 1 or -1, depending on if used for addition or subtraction
+        //   Note: The size of the type is implicit in the type of 'from'
         // 3. offset: the offset of the element relative to the starting pointer
         // 4. result: the result of the pointer offset calculation
         struct pointer_arith

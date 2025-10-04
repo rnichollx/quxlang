@@ -163,12 +163,14 @@ namespace quxlang
         COMPILER_INDEX(builtin_vm_procedure3)
         COMPILER_INDEX(builtin_default_ctor_vm_procedure3)
         COMPILER_INDEX(builtin_copy_ctor_vm_procedure3)
+        COMPILER_INDEX(builtin_swap_vm_procedure3)
         COMPILER_INDEX(builtin_move_ctor_vm_procedure3)
         COMPILER_INDEX(builtin_assignment_vm_procedure3)
         COMPILER_INDEX(builtin_dtor_vm_procedure3)
         COMPILER_INDEX(functum_user_overloads)
         COMPILER_INDEX(type_placement_info)
         COMPILER_INDEX(uintpointer_type)
+        COMPILER_INDEX(sintpointer_type)
         COMPILER_INDEX(implicitly_convertible_to);
         COMPILER_INDEX(module_sources);
         COMPILER_INDEX(user_serialize_exists)

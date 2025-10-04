@@ -222,6 +222,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
     }
 
     auto uintptr_type = co_await QUX_CO_DEP(uintpointer_type, ({}));
+    auto sintptr_type = co_await QUX_CO_DEP(sintpointer_type, ({}));
 
     if (name == "OPERATOR[]" && parent.type_is< array_type >())
     {
@@ -398,21 +399,32 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         {
             ptrref_type const& ptr = as< ptrref_type >(parent);
 
-            auto uintptr_type = co_await QUX_CO_DEP(uintpointer_type, (std::monostate{}));
+            if (ptr.ptr_class != pointer_class::ref && basic_compare_operators.contains(operator_name) && !is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = bool_type{}});
+            }
+
+            if (ptr.ptr_class == pointer_class::array && relative_compare_operators.contains(operator_name) && !is_rhs)
+            {
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = bool_type{}});
+            }
+
 
             if (ptr.ptr_class == pointer_class::array && operator_name == "+" && !is_rhs)
             {
                 // Arithmetic
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{sintptr_type}}}}}, .return_type = parent});
             }
 
             if (ptr.ptr_class == pointer_class::array && operator_name == "-" && !is_rhs)
             {
                 // Arithmetic
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{sintptr_type}}}}}, .return_type = parent});
 
                 // 2 pointer diff
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = uintptr_type});
+                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = sintptr_type});
             }
 
             if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name))
