@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/type_placement_info_resolver.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/compiler.hpp"

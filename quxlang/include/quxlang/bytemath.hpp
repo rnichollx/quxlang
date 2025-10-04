@@ -1,3 +1,4 @@
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef QUXLANG_BYTEMATH_HEADER_GUARD
 #define QUXLANG_BYTEMATH_HEADER_GUARD
 

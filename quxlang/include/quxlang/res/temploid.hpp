@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 1/10/2025.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_TEMPLOID_HEADER_GUARD
 #define QUXLANG_RES_TEMPLOID_HEADER_GUARD

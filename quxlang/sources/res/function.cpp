@@ -478,7 +478,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
     co_return std::nullopt;
 }
 
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/function.hpp"
 

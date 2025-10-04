@@ -1,3 +1,4 @@
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/constexpr.hpp"
 
 #include "quxlang/bytemath.hpp"
@@ -6,9 +7,6 @@
 #include "quxlang/macros.hpp"
 #include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
-//
-// Created by Ryan Nicholl on 12/14/2024.
-//
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
 {
     constexpr_input2 inp;

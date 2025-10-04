@@ -1,3 +1,4 @@
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 #define QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 

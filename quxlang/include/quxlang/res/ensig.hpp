@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 6/6/2025.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_ENSIG_HEADER_GUARD
 #define QUXLANG_RES_ENSIG_HEADER_GUARD

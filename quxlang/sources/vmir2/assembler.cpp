@@ -1,3 +1,4 @@
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
 
 #include <quxlang/manipulators/vmmanip.hpp>

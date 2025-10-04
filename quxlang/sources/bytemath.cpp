@@ -1,3 +1,4 @@
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/bytemath.hpp"
 
 #include <stdexcept>

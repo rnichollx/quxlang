@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 12/15/2024.
-//
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_EXCEPTION_HEADER_GUARD
 #define QUXLANG_EXCEPTION_HEADER_GUARD

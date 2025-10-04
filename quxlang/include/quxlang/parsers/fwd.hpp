@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2025-04-20.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_PARSERS_FWD_HEADER_GUARD
 #define QUXLANG_PARSERS_FWD_HEADER_GUARD

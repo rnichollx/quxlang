@@ -1,4 +1,4 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_SYMBOL_TYPE_HEADER_GUARD
 #define QUXLANG_RES_SYMBOL_TYPE_HEADER_GUARD

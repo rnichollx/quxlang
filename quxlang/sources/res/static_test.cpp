@@ -1,6 +1,4 @@
-//
-// Created by rnicholl on 5/21/25.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/static_test.hpp"
 

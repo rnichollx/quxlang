@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/backends/llvm/llvm_code_generator.hpp"
 #include "quxlang/backends/llvm/vm_llvm_frame.hpp"
 #include "quxlang/compiler.hpp"

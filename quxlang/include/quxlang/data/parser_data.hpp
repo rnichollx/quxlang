@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ryan P. Nicholl <rnicholl@protonmail.com> http://rpnx.net/
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 
 #ifndef QUXLANG_DATA_PARSER_DATA_HEADER_GUARD

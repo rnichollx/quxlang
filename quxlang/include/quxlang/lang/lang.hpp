@@ -1,6 +1,4 @@
-//
-// Created by rpnx on 1/3/25.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_LANG_LANG_HEADER_GUARD
 #define QUXLANG_LANG_LANG_HEADER_GUARD

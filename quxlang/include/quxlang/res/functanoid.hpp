@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2024-12-24.
-//
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_RES_FUNCTANOID_HEADER_GUARD
 #define QUXLANG_RES_FUNCTANOID_HEADER_GUARD

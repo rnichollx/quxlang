@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2024-12-21.
-//
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/res/constructor.hpp"
 #include "quxlang/compiler.hpp"

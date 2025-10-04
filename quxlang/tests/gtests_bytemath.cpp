@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2025-04-19.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "gtest/gtest.h"
 #include "quxlang/bytemath.hpp" // Include the header file with the functions to test
 #include <string>

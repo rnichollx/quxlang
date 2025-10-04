@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2024-12-01.
-//
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <utility>
 
