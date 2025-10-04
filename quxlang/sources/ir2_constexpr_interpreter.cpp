@@ -1883,11 +1883,16 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     result = get_current_frame().local_values[slot];
 
+    // Mark value as consumed (dead)
     result->alive = false;
+    // Align storage validity semantics with state_engine.consume():
+    // storage_valid becomes true only if this slot is a delegate (i.e., member_of has value),
+    // otherwise consuming invalidates the storage.
+    result->storage_initiated = result->member_of.has_value();
 
+    // Remove from frame to reflect consumption
     get_current_frame().local_values[slot] = nullptr;
 
-    // TODO: disable storage if not a delegate?
     return result;
 }
 uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::alloc_object_id()

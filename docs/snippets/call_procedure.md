@@ -15,4 +15,6 @@ The conversion phase begins, with an object storage for each argument which is n
 
 A constructor must return VOID.
 
-For functanoids which return a value, a temporary storage is created for that return type, a pointer to which is passed as the "RETURN" named-argument as an nvalue reference. 
+For functanoids which return a value, a temporary storage is created for that return type, a pointer to which is passed as the "RETURN" named-argument as NEW&& (nvalue_slot).
+
+Note: The RETURN argument is not included in the functanoid instantiation/selection parameter list. This avoids creating distinct functanoids that differ only by return type. RETURN is provided solely as a runtime argument (NEW&&) by the frontend during call lowering and is treated like any other NEW&& slot at the VM level.

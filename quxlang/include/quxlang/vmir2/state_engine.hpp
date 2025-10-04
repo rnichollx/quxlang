@@ -474,6 +474,9 @@ namespace quxlang::vmir2
             {
                 state.erase(index);
             }
+            // TODO: Should we clear the delegate list?
+            // state[scn.on_value].delegates.reset();
+
             state[scn.on_value].alive = true;
             state[scn.on_value].storage_valid = true;
             state[scn.on_value].dtor_enabled = true;
