@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2025-04-30.
 //
 
-#ifndef POINTER_HPP
-#define POINTER_HPP
+#ifndef QUXLANG_RES_POINTER_HEADER_GUARD
+#define QUXLANG_RES_POINTER_HEADER_GUARD
 
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/vmir2/vmir2.hpp>

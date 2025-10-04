@@ -2,8 +2,8 @@
 // Created by rpnx on 1/3/25.
 //
 
-#ifndef LANG_HPP
-#define LANG_HPP
+#ifndef QUXLANG_LANG_LANG_HEADER_GUARD
+#define QUXLANG_LANG_LANG_HEADER_GUARD
 
 #include <map>
 #include <optional>

@@ -1,7 +1,7 @@
 // Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#ifndef QUXLANG_RES_LIST_USER_FUNCTUM_OVERLOADS_RESOLVER_HEADER_GUARD
-#define QUXLANG_RES_LIST_USER_FUNCTUM_OVERLOADS_RESOLVER_HEADER_GUARD
+#ifndef QUXLANG_RES_OVERLOADS_HEADER_GUARD
+#define QUXLANG_RES_OVERLOADS_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/type_symbol.hpp"

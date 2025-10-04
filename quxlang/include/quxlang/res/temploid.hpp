@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 1/10/2025.
 //
 
-#ifndef TEMPLOID_H
-#define TEMPLOID_H
+#ifndef QUXLANG_RES_TEMPLOID_HEADER_GUARD
+#define QUXLANG_RES_TEMPLOID_HEADER_GUARD
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/macros.hpp"
 

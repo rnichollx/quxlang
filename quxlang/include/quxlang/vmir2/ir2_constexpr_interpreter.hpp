@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-12-01.
 //
 
-#ifndef RPNX_QUXLANG_IR2_INTERPRETER_HEADER
-#define RPNX_QUXLANG_IR2_INTERPRETER_HEADER
+#ifndef QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
+#define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
 #include "quxlang/data/class_layout.hpp"
 #include "quxlang/data/type_symbol.hpp"

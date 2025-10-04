@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Ryan P. Nicholl <rnicholl@protonmail.com>
 
-#ifndef CLASS_KEYWORDS_HPP
-#define CLASS_KEYWORDS_HPP
+#ifndef QUXLANG_KEYWORDS_HEADER_GUARD
+#define QUXLANG_KEYWORDS_HEADER_GUARD
 
 #include <set>
 #include <string>

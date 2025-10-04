@@ -1,8 +1,8 @@
 // Copyright (c) 2025 Ryan P. Nicholl <rnicholl@protonmail.com> http://rpnx.net/
 
 
-#ifndef PARSER_DATA_HPP
-#define PARSER_DATA_HPP
+#ifndef QUXLANG_DATA_PARSER_DATA_HEADER_GUARD
+#define QUXLANG_DATA_PARSER_DATA_HEADER_GUARD
 #include <string>
 
 namespace quxlang

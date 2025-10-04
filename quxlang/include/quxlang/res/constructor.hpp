@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-12-21.
 //
 
-#ifndef RPNX_QUXLANG_CONSTRUCTOR_HEADER
-#define RPNX_QUXLANG_CONSTRUCTOR_HEADER
+#ifndef QUXLANG_RES_CONSTRUCTOR_HEADER_GUARD
+#define QUXLANG_RES_CONSTRUCTOR_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
 #include <quxlang/res/resolver.hpp>

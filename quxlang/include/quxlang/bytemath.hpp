@@ -1,5 +1,5 @@
-#ifndef QUXLANG_BYTEMATH_HPP
-#define QUXLANG_BYTEMATH_HPP
+#ifndef QUXLANG_BYTEMATH_HEADER_GUARD
+#define QUXLANG_BYTEMATH_HEADER_GUARD
 
 #include <algorithm>
 #include <cassert>

@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/14/2024.
 //
 
-#ifndef CONSTEXPR_HPP
-#define CONSTEXPR_HPP
+#ifndef QUXLANG_RES_CONSTEXPR_HEADER_GUARD
+#define QUXLANG_RES_CONSTEXPR_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
 #include "quxlang/vmir2/vmir2.hpp"

@@ -2,8 +2,8 @@
 // Created by rnicholl on 5/21/25.
 //
 
-#ifndef QUXLANG_RES_STATIC_TEST_HPP
-#define QUXLANG_RES_STATIC_TEST_HPP
+#ifndef QUXLANG_RES_STATIC_TEST_HEADER_GUARD
+#define QUXLANG_RES_STATIC_TEST_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
 

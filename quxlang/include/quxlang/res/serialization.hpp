@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_RES_SERIALIZATION_HPP
-#define QUXLANG_RES_SERIALIZATION_HPP
+#ifndef QUXLANG_RES_SERIALIZATION_HEADER_GUARD
+#define QUXLANG_RES_SERIALIZATION_HEADER_GUARD
 
 
 #include <quxlang/res/resolver.hpp>

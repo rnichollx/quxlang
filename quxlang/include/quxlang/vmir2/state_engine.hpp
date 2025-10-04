@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-12-21.
 //
 
-#ifndef RPNX_QUXLANG_STATE_ENGINE_HEADER
-#define RPNX_QUXLANG_STATE_ENGINE_HEADER
+#ifndef QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
+#define QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
 
 #include <map>
 #include <quxlang/vmir2/vmir2.hpp>

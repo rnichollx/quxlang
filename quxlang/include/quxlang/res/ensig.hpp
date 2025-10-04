@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 6/6/2025.
 //
 
-#ifndef QUXLANG_RESOLVERS_ENSIG_HPP
-#define QUXLANG_RESOLVERS_ENSIG_HPP
+#ifndef QUXLANG_RES_ENSIG_HEADER_GUARD
+#define QUXLANG_RES_ENSIG_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/res/resolver.hpp"

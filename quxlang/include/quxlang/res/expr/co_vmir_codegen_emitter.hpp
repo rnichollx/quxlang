@@ -1,6 +1,6 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
-#ifndef QUXLANG_RES_EXPR_CODEGEN_VMIR_EXPRESSION_EMITTER_HEADER_GUARD
-#define QUXLANG_RES_EXPR_CODEGEN_VMIR_EXPRESSION_EMITTER_HEADER_GUARD
+#ifndef QUXLANG_RES_EXPR_CO_VMIR_CODEGEN_EMITTER_HEADER_GUARD
+#define QUXLANG_RES_EXPR_CO_VMIR_CODEGEN_EMITTER_HEADER_GUARD
 
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/compiler_fwd.hpp"

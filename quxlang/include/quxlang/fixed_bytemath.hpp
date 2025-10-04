@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_FIXED_BYTEMATH_H
-#define QUXLANG_FIXED_BYTEMATH_H
+#ifndef QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
+#define QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
 #include <vector>
 
 #include <quxlang/bytemath.hpp>

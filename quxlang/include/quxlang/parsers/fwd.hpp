@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2025-04-20.
 //
 
-#ifndef QUXLANG_PARSERS_FWD_HPP
-#define QUXLANG_PARSERS_FWD_HPP
+#ifndef QUXLANG_PARSERS_FWD_HEADER_GUARD
+#define QUXLANG_PARSERS_FWD_HEADER_GUARD
 
 #include <optional>
 

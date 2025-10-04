@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-12-24.
 //
 
-#ifndef RPNX_QUXLANG_FUNCTANOID_HEADER
-#define RPNX_QUXLANG_FUNCTANOID_HEADER
+#ifndef QUXLANG_RES_FUNCTANOID_HEADER_GUARD
+#define QUXLANG_RES_FUNCTANOID_HEADER_GUARD
 
 #include "rpnx/resolver_utilities.hpp"
 #include "quxlang/compiler_fwd.hpp"

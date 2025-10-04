@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 2024-12-24.
 //
 
-#ifndef RPNX_QUXLANG_FUNCTION_HEADER
-#define RPNX_QUXLANG_FUNCTION_HEADER
+#ifndef QUXLANG_RES_FUNCTION_HEADER_GUARD
+#define QUXLANG_RES_FUNCTION_HEADER_GUARD
 
 #include "quxlang/data/builtin_functions.hpp"
 #include <quxlang/res/resolver.hpp>

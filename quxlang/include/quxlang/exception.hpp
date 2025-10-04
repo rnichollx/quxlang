@@ -2,8 +2,8 @@
 // Created by Ryan Nicholl on 12/15/2024.
 //
 
-#ifndef QUXLANG_EXCEPTION_HPP
-#define QUXLANG_EXCEPTION_HPP
+#ifndef QUXLANG_EXCEPTION_HEADER_GUARD
+#define QUXLANG_EXCEPTION_HEADER_GUARD
 
 #include <exception>
 #include <version>

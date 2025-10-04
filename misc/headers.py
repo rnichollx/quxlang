@@ -115,7 +115,7 @@ def generate_expected_guard(file_path: str) -> str:
     # Replace non-alphanumeric characters with underscores and convert to upper case
     guard = re.sub(r'[^a-zA-Z0-9]', '_', guard_part_no_ext).upper()
 
-    return f"{guard}_HEADER"
+    return f"{guard}_HEADER_GUARD"
 
 def update_header_guards(file_path: str, lines: list, ifndef_idx: Optional[int], define_idx: Optional[int], expected_guard: str) -> bool:
     """

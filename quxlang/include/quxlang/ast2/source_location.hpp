@@ -2,8 +2,8 @@
 // Created by rnicholl on 5/21/25.
 //
 
-#ifndef QUXLANG_SOURCE_LOCATION_HPP
-#define QUXLANG_SOURCE_LOCATION_HPP
+#ifndef QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD
+#define QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD
 #include "rpnx/metadata.hpp"
 
 namespace quxlang
