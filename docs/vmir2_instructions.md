@@ -99,12 +99,10 @@ For clarity, this document uses both the long and abbreviated forms (e.g., "Part
 3. `result` (output)
 
 **Validity:**
-- `a` and `b` must be of the same integer type (same width and signedness).
-- `result` must be of the same type as `a` and `b`.
+- `a`, `b`, and `result` must be locals of the same primitive integral type.
 
 **Effect:**
-- Integer remainder of `a` by `b`, producing `result`. Uses the operand type's signedness/width. Arithmetic wraps.
-- Using a negative modulus is undefined behavior.
+The IMOD instruction calculates the integer remainder of `a` modulo `b`, storing the resulting value in `result`. If overflow occurs, arithmetic wraps. Using a negative modulus triggers undefined program behavior.
 
 ### `cmp_eq` (CEQ), `cmp_ne` (CNE), `cmp_lt` (CLT), `cmp_ge` (CGE)
 
