@@ -36,35 +36,67 @@ namespace quxlang::bytemath
     }
 
     // remainder of a / b
-    std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b);
+    namespace detail
+    {
+        std::vector< std::byte > le_unsigned_mod_raw(std::vector< std::byte > a, std::vector< std::byte > b);
 
-    std::uint8_t le_get(std::vector< std::byte > const& data, std::size_t index);
+        // Raw versions for all functions that operate on std::vector<std::byte>
+        std::uint8_t le_get_raw(std::vector< std::byte > const& data, std::size_t index);
+        void le_trim_raw(std::vector< std::byte >& v);
+        std::vector< std::byte > unlimited_int_unsigned_add_le_raw(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > unlimited_int_unsigned_sub_le_raw(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_unsigned_mult_raw(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod_raw(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_unsigned_div_raw(std::vector< std::byte > a, std::vector< std::byte > b);
+        std::vector< std::byte > le_shift_down_raw(std::vector< std::byte > value, std::size_t shift);
+        std::vector< std::byte > le_shift_up_raw(std::vector< std::byte > value, std::size_t shift);
+        std::string le_to_string_raw(std::vector< std::byte > number);
+        std::vector< std::byte > string_to_le_raw(std::string const& str);
+        std::vector< std::byte > le_truncate_raw(std::vector< std::byte > data, std::size_t size_in_bits);
+
+        template < typename UInt >
+        inline std::pair< UInt, bool > le_to_u_raw(std::vector< std::byte > const& data)
+        {
+            static_assert(std::is_integral_v< UInt >, "Int must be an integral type");
+            constexpr UInt maxval = std::numeric_limits< UInt >::max();
+
+            UInt v = 0;
+            for (std::size_t i = data.size(); i-- > 0;)
+            {
+                std::uint8_t b = static_cast< std::uint8_t >(data[i]);
+                if (v > (maxval >> 8))
+                {
+                    return {0, false};
+                }
+                v <<= 8;
+                if (static_cast< UInt >(b) > (maxval - v))
+                {
+                    return {0, false};
+                }
+                v += static_cast< UInt >(b);
+            }
+            return {static_cast< UInt >(v), true};
+        }
+
+        template < typename UInt >
+        inline std::vector< std::byte > u_to_le_raw(UInt value)
+        {
+            static_assert(std::is_integral_v< UInt >, "UInt must be an integral type");
+            static_assert(std::is_unsigned_v< UInt >, "UInt must be an unsigned type");
+            std::vector< std::byte > result;
+
+            while (value != 0)
+            {
+                result.push_back(static_cast< std::byte >(value & 0xFF));
+                value >>= 4;
+                value >>= 4;
+            }
+
+            return result;
+        }
+    }
 
     std::pair< std::uint8_t, std::uint8_t > bytewise_add(std::uint8_t a, std::uint8_t b, std::uint8_t c);
-
-
-
-    void le_trim(std::vector< std::byte >& v);
-
-    std::vector< std::byte > unlimited_int_unsigned_add_le(std::vector< std::byte > a, std::vector< std::byte > b);
-
-    std::vector< std::byte > unlimited_int_unsigned_sub_le(std::vector< std::byte > a, std::vector< std::byte > b);
-
-
-
-    std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b);
-
-
-    // helper: divmod via long division by byte-wise trial
-    std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b);
-
-    std::vector< std::byte > le_unsigned_div(std::vector< std::byte > a, std::vector< std::byte > b);
-
-    std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b);
-
-    std::vector< std::byte > le_shift_down(std::vector< std::byte > value, std::size_t shift);
-
-    std::vector< std::byte > le_shift_up(std::vector< std::byte > value, std::size_t shift);
 
     template < typename UInt >
     inline std::pair< UInt, bool > le_to_u(std::vector< std::byte > const& data)
@@ -119,11 +151,6 @@ namespace quxlang::bytemath
 
 
 
-    std::string le_to_string(std::vector< std::byte > number);
-
-    std::vector< std::byte > string_to_le(std::string const& str);
-
-    std::vector< std::byte > le_truncate(std::vector< std::byte > data, std::size_t size_in_bits);
 
     struct ule_int_unlimited
     {
@@ -138,7 +165,7 @@ namespace quxlang::bytemath
         {
             static_assert(std::is_integral_v< U >, "U must be an integral type");
 
-            data = u_to_le(value);
+            data = detail::u_to_le_raw(value);
         }
     };
 
@@ -188,9 +215,9 @@ namespace quxlang::bytemath
                     // This is well-defined for C++11 onward even for sign-magnitude integers
                     if (value % 2 == -1)
                     {
-                        this->data = unlimited_int_unsigned_add_le(std::move(this->data), extra.data);
+                        this->data = detail::unlimited_int_unsigned_add_le_raw(std::move(this->data), extra.data);
                     }
-                    extra.data = le_shift_up(extra.data, 1);
+                    extra.data = detail::le_shift_up_raw(extra.data, 1);
 
                     value = value / 2;
                 }
@@ -256,7 +283,7 @@ namespace quxlang::bytemath
             static sle_int_unlimited min_value = sle_int_unlimited(std::numeric_limits< I >::min());
             static sle_int_unlimited zero = sle_int_unlimited(0);
 
-            le_trim(data);
+            detail::le_trim_raw(data);
 
             if (*this > max_value)
             {
@@ -281,7 +308,7 @@ namespace quxlang::bytemath
                 result <<= 4;
                 result += I(std::uint8_t(data[data.size()]) & 0xF);
 
-                data = le_shift_down(std::move(data), 8);
+                data = detail::le_shift_down_raw(std::move(data), 8);
             }
 
             while (*this < 0)
@@ -291,7 +318,7 @@ namespace quxlang::bytemath
                 result <<= 4;
                 result -= I(std::uint8_t(data[data.size()]) & 0xF);
 
-                data = le_shift_down(std::move(data), 8);
+                data = detail::le_shift_down_raw(std::move(data), 8);
             }
 
             return {result, true};

@@ -105,15 +105,15 @@ namespace quxlang::bytemath
                 set_bit(abs_val, i, !bit);
             }
             std::vector< std::byte > one{1};
-            le_trim(abs_val);
-            abs_val = unlimited_int_unsigned_add_le(std::move(abs_val), std::move(one));
-            le_trim(abs_val);
+            detail::le_trim_raw(abs_val);
+            abs_val = detail::unlimited_int_unsigned_add_le_raw(std::move(abs_val), std::move(one));
+            detail::le_trim_raw(abs_val);
             result.data = std::move(abs_val);
         }
         else
         {
             auto input_copy = input;
-            le_trim(input_copy);
+            detail::le_trim_raw(input_copy);
             result.data = std::move(input_copy);
         }
         return result;
@@ -136,9 +136,9 @@ namespace quxlang::bytemath
             // Convert to two's complement
 
             std::vector< std::byte > one{1};
-            le_trim(input.data);
+            detail::le_trim_raw(input.data);
 
-            auto unsigned_magnituide = unlimited_int_unsigned_sub_le(input.data, std::move(one));
+            auto unsigned_magnituide = detail::unlimited_int_unsigned_sub_le_raw(input.data, std::move(one));
             if (unsigned_magnituide.size() < (opt.bits + 7) / 8)
             {
                 unsigned_magnituide.resize((opt.bits + 7) / 8);

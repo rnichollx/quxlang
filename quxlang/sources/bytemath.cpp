@@ -14,7 +14,11 @@ namespace quxlang::bytemath
 
         return {result, carry};
     }
-    std::uint8_t le_get(std::vector< std::byte > const& data, std::size_t index)
+    std::vector< std::byte > detail::le_unsigned_div_raw(std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        return detail::le_unsigned_divmod_raw(std::move(a), std::move(b)).first;
+    }
+    std::uint8_t detail::le_get_raw(std::vector< std::byte > const& data, std::size_t index)
     {
         if (index >= data.size())
         {
@@ -23,7 +27,7 @@ namespace quxlang::bytemath
 
         return static_cast< std::uint8_t >(data[index]);
     }
-    void le_trim(std::vector< std::byte >& v)
+    void detail::le_trim_raw(std::vector< std::byte >& v)
     {
         while (v.size() > 1 && v.back() == std::byte{0})
         {
@@ -35,15 +39,15 @@ namespace quxlang::bytemath
             v.push_back(std::byte{0});
         }
     }
-    std::vector< std::byte > unlimited_int_unsigned_add_le(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::vector< std::byte > detail::unlimited_int_unsigned_add_le_raw(std::vector< std::byte > a, std::vector< std::byte > b)
     {
         std::uint8_t carry = 0;
         std::uint8_t result = 0;
 
         for (std::size_t index = 0; index < std::max(a.size(), b.size()); index++)
         {
-            std::uint8_t a_byte = le_get(a, index);
-            std::uint8_t b_byte = le_get(b, index);
+            std::uint8_t a_byte = detail::le_get_raw(a, index);
+            std::uint8_t b_byte = detail::le_get_raw(b, index);
 
             std::tie(result, carry) = bytewise_add(a_byte, b_byte, carry);
 
@@ -64,14 +68,14 @@ namespace quxlang::bytemath
 
         return std::move(a);
     }
-    std::vector< std::byte > unlimited_int_unsigned_sub_le(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::vector< std::byte > detail::unlimited_int_unsigned_sub_le_raw(std::vector< std::byte > a, std::vector< std::byte > b)
     {
         std::uint8_t borrow = 0;
 
         for (std::size_t index = 0; index < a.size(); ++index)
         {
             std::uint16_t ai = static_cast< std::uint8_t >(a[index]);
-            std::uint16_t bi = le_get(b, index);
+            std::uint16_t bi = detail::le_get_raw(b, index);
             std::uint16_t tmp = 0;
 
             if (ai < bi + borrow)
@@ -88,7 +92,7 @@ namespace quxlang::bytemath
             a[index] = static_cast< std::byte >(tmp & 0xFF);
         }
 
-        le_trim(a);
+        detail::le_trim_raw(a);
         return std::move(a);
     }
     bool detail::le_comp_less_raw(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
@@ -97,8 +101,8 @@ namespace quxlang::bytemath
 
         for (std::size_t i = maxlen - 1; true; --i)
         {
-            std::uint8_t ai = le_get(a, i);
-            std::uint8_t bi = le_get(b, i);
+            std::uint8_t ai = detail::le_get_raw(a, i);
+            std::uint8_t bi = detail::le_get_raw(b, i);
 
             if (ai < bi)
             {
@@ -117,19 +121,19 @@ namespace quxlang::bytemath
 
         return false;
     }
-    std::vector< std::byte > le_unsigned_mult(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::vector< std::byte > detail::le_unsigned_mult_raw(std::vector< std::byte > a, std::vector< std::byte > b)
     {
         std::vector< std::byte > result(a.size() + b.size(), std::byte{0});
 
         for (std::size_t i = 0; i < a.size(); ++i)
         {
             std::uint16_t carry = 0;
-            std::uint8_t ai = le_get(a, i);
+            std::uint8_t ai = detail::le_get_raw(a, i);
 
             for (std::size_t j = 0; j < b.size(); ++j)
             {
                 std::size_t k = i + j;
-                std::uint16_t prod = std::uint16_t(ai) * std::uint16_t(le_get(b, j)) + std::uint16_t(static_cast< std::uint8_t >(result[k])) + carry;
+                std::uint16_t prod = std::uint16_t(ai) * std::uint16_t(detail::le_get_raw(b, j)) + std::uint16_t(static_cast< std::uint8_t >(result[k])) + carry;
 
                 result[k] = static_cast< std::byte >(prod & 0xFF);
                 carry = prod >> 8;
@@ -138,13 +142,13 @@ namespace quxlang::bytemath
             result[i + b.size()] = static_cast< std::byte >(carry);
         }
 
-        le_trim(result);
+        detail::le_trim_raw(result);
         return result;
     }
-    std::pair< std::vector< std::byte >, std::vector< std::byte > > le_unsigned_divmod(std::vector< std::byte > a, std::vector< std::byte > b)
+    std::pair< std::vector< std::byte >, std::vector< std::byte > > detail::le_unsigned_divmod_raw(std::vector< std::byte > a, std::vector< std::byte > b)
     {
-        le_trim(a);
-        le_trim(b);
+        detail::le_trim_raw(a);
+        detail::le_trim_raw(b);
 
         // division by zero -> return zero quotient, original a as rem
         if (b.size() == 0 || (b.size() == 1 && b[0] == std::byte{0}))
@@ -174,7 +178,7 @@ namespace quxlang::bytemath
                     std::uint16_t carry = 0;
                     for (std::size_t j = 0; j < m; ++j)
                     {
-                        std::uint16_t v = std::uint16_t(le_get(b, j)) * mid + carry;
+                        std::uint16_t v = std::uint16_t(detail::le_get_raw(b, j)) * mid + carry;
                         prod.push_back(static_cast< std::byte >(v & 0xFF));
                         carry = v >> 8;
                     }
@@ -184,7 +188,7 @@ namespace quxlang::bytemath
                     // shift by 'shift' bytes
                     std::vector< std::byte > shifted(shift, std::byte{0});
                     shifted.insert(shifted.end(), prod.begin(), prod.end());
-                    le_trim(shifted);
+                    detail::le_trim_raw(shifted);
 
                     // compare shifted <= a ?
                     if (!detail::le_comp_less_raw(a, shifted))
@@ -208,7 +212,7 @@ namespace quxlang::bytemath
                     std::uint16_t carry = 0;
                     for (std::size_t j = 0; j < m; ++j)
                     {
-                        std::uint16_t v = std::uint16_t(le_get(b, j)) * best + carry;
+                        std::uint16_t v = std::uint16_t(detail::le_get_raw(b, j)) * best + carry;
                         prod.push_back(static_cast< std::byte >(v & 0xFF));
                         carry = v >> 8;
                     }
@@ -217,7 +221,7 @@ namespace quxlang::bytemath
 
                     std::vector< std::byte > to_sub(shift, std::byte{0});
                     to_sub.insert(to_sub.end(), prod.begin(), prod.end());
-                    a = unlimited_int_unsigned_sub_le(std::move(a), std::move(to_sub));
+                    a = detail::unlimited_int_unsigned_sub_le_raw(std::move(a), std::move(to_sub));
                 }
 
                 q_big[t - shift] = best;
@@ -230,7 +234,7 @@ namespace quxlang::bytemath
             {
                 q_le.push_back(static_cast< std::byte >(q_big[q_big.size() - 1 - i]));
             }
-            le_trim(q_le);
+            detail::le_trim_raw(q_le);
 
             return {std::move(q_le), std::move(a)};
         }
@@ -240,15 +244,13 @@ namespace quxlang::bytemath
             return {std::vector< std::byte >{std::byte{0}}, std::move(a)};
         }
     }
-    std::vector< std::byte > le_unsigned_div(std::vector< std::byte > a, std::vector< std::byte > b)
+
+
+    std::vector< std::byte > detail::le_unsigned_mod_raw(std::vector< std::byte > a, std::vector< std::byte > b)
     {
-        return le_unsigned_divmod(std::move(a), std::move(b)).first;
+        return detail::le_unsigned_divmod_raw(std::move(a), std::move(b)).second;
     }
-    std::vector< std::byte > le_unsigned_mod(std::vector< std::byte > a, std::vector< std::byte > b)
-    {
-        return le_unsigned_divmod(std::move(a), std::move(b)).second;
-    }
-    std::vector< std::byte > le_shift_down(std::vector< std::byte > value, std::size_t shift)
+    std::vector< std::byte > detail::le_shift_down_raw(std::vector< std::byte > value, std::size_t shift)
     {
         std::size_t byte_shift = shift / 8;
         std::size_t bit_shift = shift % 8;
@@ -276,7 +278,7 @@ namespace quxlang::bytemath
 
         return value;
     }
-    std::vector< std::byte > le_shift_up(std::vector< std::byte > value, std::size_t shift)
+    std::vector< std::byte > detail::le_shift_up_raw(std::vector< std::byte > value, std::size_t shift)
     {
         std::size_t byte_shift = shift / 8;
         std::size_t bit_shift = shift % 8;
@@ -311,18 +313,18 @@ namespace quxlang::bytemath
 
         return value;
     }
-    std::string le_to_string(std::vector< std::byte > number)
+    std::string detail::le_to_string_raw(std::vector< std::byte > number)
     {
         std::string result;
         std::vector< std::byte > ten = {std::byte{10}};
 
         while (!le_comp_eq(number, {}))
         {
-            auto mod_result = le_unsigned_divmod(std::move(number), ten);
+            auto mod_result = detail::le_unsigned_divmod_raw(std::move(number), ten);
             assert(mod_result.second.size() <= 1);
             assert(detail::le_comp_less_raw(mod_result.second, ten));
 
-            std::uint8_t mod_val = le_get(mod_result.second, 0);
+            std::uint8_t mod_val = detail::le_get_raw(mod_result.second, 0);
             assert(mod_val < 10);
             char digit = static_cast< char >(mod_val + '0');
             result.push_back(digit);
@@ -335,7 +337,7 @@ namespace quxlang::bytemath
         }
         return result;
     }
-    std::vector< std::byte > string_to_le(std::string const& str)
+    std::vector< std::byte > detail::string_to_le_raw(std::string const& str)
     {
         std::vector< std::byte > result;
         std::vector< std::byte > ten = {std::byte{10}};
@@ -353,8 +355,8 @@ namespace quxlang::bytemath
 
             auto digit = u_to_le(static_cast< std::uint8_t >(c - '0'));
 
-            result = le_unsigned_mult(result, ten);
-            result = unlimited_int_unsigned_add_le(result, digit);
+            result = detail::le_unsigned_mult_raw(result, ten);
+            result = detail::unlimited_int_unsigned_add_le_raw(result, digit);
         }
         if (result.empty())
         {
@@ -363,7 +365,7 @@ namespace quxlang::bytemath
 
         return result;
     }
-    std::vector< std::byte > le_truncate(std::vector< std::byte > data, std::size_t size_in_bits)
+    std::vector< std::byte > detail::le_truncate_raw(std::vector< std::byte > data, std::size_t size_in_bits)
     {
 
         std::size_t total_num_result_bytes = (size_in_bits + 7) / 8;
@@ -398,19 +400,19 @@ namespace quxlang::bytemath
 
         if (a_negative == b_negative)
         {
-            auto result = unlimited_int_unsigned_add_le(std::move(a.data), std::move(b.data));
+            auto result = detail::unlimited_int_unsigned_add_le_raw(std::move(a.data), std::move(b.data));
             return {std::move(result), a_negative};
         }
         else
         {
             if (detail::le_comp_less_raw(a.data, b.data))
             {
-                auto result = unlimited_int_unsigned_sub_le(std::move(b.data), std::move(a.data));
+                auto result = detail::unlimited_int_unsigned_sub_le_raw(std::move(b.data), std::move(a.data));
                 return {std::move(result), !b_negative};
             }
             else
             {
-                auto result = unlimited_int_unsigned_sub_le(std::move(a.data), std::move(b.data));
+                auto result = detail::unlimited_int_unsigned_sub_le_raw(std::move(a.data), std::move(b.data));
                 return {std::move(result), a_negative};
             }
         }
@@ -422,12 +424,22 @@ namespace quxlang::bytemath
     }
     sle_int_unlimited le_signed_div(sle_int_unlimited a, sle_int_unlimited b)
     {
-        auto result = le_unsigned_div(std::move(a.data), std::move(b.data));
+        auto result = detail::le_unsigned_div_raw(std::move(a.data), std::move(b.data));
         return sle_int_unlimited(std::move(result), a.is_negative != b.is_negative);
     }
     sle_int_unlimited le_signed_mult(sle_int_unlimited a, sle_int_unlimited b)
     {
-        auto result = le_unsigned_mult(std::move(a.data), std::move(b.data));
+        auto result = detail::le_unsigned_mult_raw(std::move(a.data), std::move(b.data));
         return sle_int_unlimited(std::move(result), a.is_negative != b.is_negative);
     }
+    // Public wrappers forwarding to detail::_raw implementations
+    std::uint8_t le_get(std::vector< std::byte > const& data, std::size_t index)
+    {
+        return detail::le_get_raw(data, index);
+    }
+    void le_trim(std::vector< std::byte >& v)
+    {
+        return detail::le_trim_raw(v);
+    }
+
 } // namespace quxlang::bytemath

@@ -1403,20 +1403,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto a = slot_consume_data(clt.a);
     auto b = slot_consume_data(clt.b);
 
-    std::cout << "CLT " << bytemath::le_to_string(a) << " " << bytemath::le_to_string(b) << std::endl;
+    std::cout << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b) << std::endl;
 
     for (std::size_t i = a.size() - 1; true; i--)
     {
         if (a[i] < b[i])
         {
             set_data(clt.result, {std::byte(1)});
-            std::cout << "CLT: " << bytemath::le_to_string(a) << " < " << bytemath::le_to_string(b) << std::endl;
+            std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (a[i] > b[i])
         {
             set_data(clt.result, {std::byte(0)});
-            std::cout << "CLT: " << bytemath::le_to_string(a) << " > " << bytemath::le_to_string(b) << std::endl;
+            std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (i == 0)
@@ -2606,13 +2606,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (increment)
     {
-        val = bytemath::unlimited_int_unsigned_add_le(std::move(val), {std::byte(1)});
+        val = bytemath::detail::unlimited_int_unsigned_add_le_raw(std::move(val), {std::byte(1)});
     }
     else
     {
-        val = bytemath::unlimited_int_unsigned_sub_le(std::move(val), {std::byte(1)});
+        val = bytemath::detail::unlimited_int_unsigned_sub_le_raw(std::move(val), {std::byte(1)});
     }
-    val = bytemath::le_truncate(std::move(val), type_int.bits);
+    val = bytemath::detail::le_truncate_raw(std::move(val), type_int.bits);
 
     local_set_data(value_to_increment, std::move(val));
 
