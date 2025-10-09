@@ -25,7 +25,7 @@ namespace quxlang
 
     struct expression_char_literal
     {
-        std::uint8_t value;
+        std::byte value;
 
         RPNX_MEMBER_METADATA(expression_char_literal, value);
     };

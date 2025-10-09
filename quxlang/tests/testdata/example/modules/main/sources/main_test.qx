@@ -244,7 +244,7 @@ IMPORT foolib;
      VAR it CONST=>> BYTE := OTHER.BEGIN();
      VAR end CONST=>> BYTE := OTHER.END();
 
-     WHILE (it != end)
+     WHILE (it < end)
      {
         .value := .value + 1;
         it++;
@@ -311,9 +311,9 @@ IMPORT foolib;
   VAR r roman;
   VAR i I32 := 4;
   ASSERT(i == 4);
-  r := roman(@OTHER STRING_CONSTANT(@OTHER "II"));
+  r := roman(@OTHER STRING_CONSTANT(@OTHER "III"));
 
-  ASSERT(r.value == 2);
+  ASSERT(r.value == 3);
 
 }
 
