@@ -59,18 +59,18 @@ namespace quxlang::parsers
                 // Exponenciation
                 {"^", 6},
 
-                // Bitwise operators, same as logical except begin with a dot.
-                {".&&", 7}, // bitwise and
-                {".!&", 7}, // bitwise nand
-                {".^^", 7}, // bitwise xor
-                {".!|", 7}, // bitwise nor
-                {".||", 7}, // bitwise or
-                {".^>", 7}, // bitwise implies
-                {".^<", 7}, // bitwise implied
-                {".!^", 7}, // bitwise equilvalent
+                // Bitwise operators per docs (prefix with '#')
+                {"#&&", 7}, // bitwise and
+                {"#&!", 7}, // bitwise nand
+                {"#^^", 7}, // bitwise xor
+                {"#|!", 7}, // bitwise nor
+                {"#||", 7}, // bitwise or
+                {"#^->", 7}, // bitwise implies (A implies B)
+                {"#^<-", 7}, // bitwise implied (B implies A)
+                {"#^!", 7}, // bitwise equivalent (nxor)
 
-                // plus some additional shift and rotation operators
-                {".<<", 7}, {".+>>", 7}, {".>>", 7}, {".@<", 7}, {".@>", 7} // clang-format on
+                // Bitwise shift and rotation operators per docs
+                {"#++", 7}, {"#--", 7}, {"#+%", 7}, {"#-%", 7} // clang-format on
             };
 
             std::string sym = peek_symbol(pos, end);
