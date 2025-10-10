@@ -127,6 +127,28 @@ namespace quxlang
             return "SIZEOF(" + to_string(expr.what) + ")";
         }
 
+        std::string operator()(expression_char_literal const& expr) const
+        {
+            auto val = static_cast<char>(expr.value);
+
+            if (val == '\n')
+                return "'\\n'";
+            else if (val == '\t')
+                return "'\\t'";
+            else if (val == '\r')
+                return "'\\r'";
+            else if (val == '\'')
+                return "'\\''";
+            else if (val == '\\')
+                return "'\\\\'";
+            else if (val == '\0')
+                return "'\\0'";
+            else
+            {
+                return std::string("'") + val + "'";
+            }
+        }
+
         std::string operator()(expression_string_literal const& expr) const
         {
             // TODO: Escape
@@ -402,7 +424,7 @@ namespace quxlang
         return rpnx::apply_visitor< bool >(is_template_visitor{}, ref);
     }
 
-    std::optional< type_symbol > qualified_parent(type_symbol input)
+    std::optional< type_symbol > type_parent(type_symbol input)
     {
         if (input.template type_is< subsymbol >())
         {

@@ -16,7 +16,7 @@ void quxlang::entity_canonical_chain_exists_resolver::process(compiler* c)
     //std::cout << this->debug_recursive() << std::endl;
     auto chain = this->m_chain;
     std::string name = to_string(chain);
-    assert(!qualified_is_contextual(chain));
+    assert(!type_is_contextual(chain));
     if (chain.template type_is< module_reference >())
     {
         std::string module_name = as< module_reference >(chain).module_name;

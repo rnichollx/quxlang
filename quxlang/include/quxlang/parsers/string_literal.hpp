@@ -68,7 +68,7 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    std::optional< uint8_t > try_parse_char_literal(It& pos, It end)
+    std::optional< std::byte > try_parse_char_literal(It& pos, It end)
     {
         if (pos == end || *pos != '\'')
             return std::nullopt;
@@ -78,7 +78,7 @@ namespace quxlang::parsers
         if (pos == end)
             throw std::logic_error("Unexpected end of file in char literal");
 
-        uint8_t result;
+        std::byte result{};
 
         if (*pos == '\\')
         {
@@ -90,22 +90,22 @@ namespace quxlang::parsers
             switch (*pos)
             {
             case 'n':
-                result = '\n';
+                result = std::byte('\n');
                 break;
             case 't':
-                result = '\t';
+                result = std::byte('\t');
                 break;
             case 'r':
-                result = '\r';
+                result = std::byte('\r');
                 break;
             case '0':
-                result = '\0';
+                result = std::byte('\0');
                 break;
             case '\\':
-                result = '\\';
+                result = std::byte('\\');
                 break;
             case '\'':
-                result = '\'';
+                result = std::byte('\'');
                 break;
             default:
                 throw std::logic_error("Invalid escape sequence in char literal");
@@ -113,7 +113,7 @@ namespace quxlang::parsers
         }
         else
         {
-            result = static_cast< uint8_t >(*pos);
+            result = static_cast< std::byte >(*pos);
         }
 
         pos++;

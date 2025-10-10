@@ -14,7 +14,7 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(vm_procedure3)
 {
-    assert(!qualified_is_contextual(input));
+    assert(!type_is_contextual(input));
     if (co_await QUX_CO_DEP(function_builtin, (input.temploid)))
     {
         co_return co_await QUX_CO_DEP(builtin_vm_procedure3, (input));

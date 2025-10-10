@@ -43,7 +43,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_user_functum_formal_paratypes)
     bool is_constructor = is_member_func && input.get_as< submember >().name == "CONSTRUCTOR";
     bool is_destructor = is_member_func && input.get_as< submember >().name == "DESTRUCTOR";
 
-    auto thistype_type = qualified_parent(input).value_or(void_type{});
+    auto thistype_type = type_parent(input).value_or(void_type{});
 
     for (auto const& decl : decls)
     {

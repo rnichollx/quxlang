@@ -30,7 +30,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
     }
     else if (typeis< submember >(input_val) || typeis< subsymbol >(input_val))
     {
-        auto parent = qualified_parent(input_val).value();
+        auto parent = type_parent(input_val).value();
 
         auto parent_kind = co_await QUX_CO_DEP(symbol_type, (parent));
 

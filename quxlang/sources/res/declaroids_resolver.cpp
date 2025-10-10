@@ -38,7 +38,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
         co_return {};
     }
 
-    std::optional< type_symbol > parent_addr = qualified_parent(input);
+    std::optional< type_symbol > parent_addr = type_parent(input);
 
     if (!parent_addr)
     {

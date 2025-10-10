@@ -261,7 +261,7 @@ namespace quxlang
             {
                 auto bound_value = slot.template get_as< codegen_binding >().bound_value;
                 auto bound_symbol = slot.template get_as< codegen_binding >().bound_symbol;
-                assert(!qualified_is_contextual(bound_symbol));
+                assert(!type_is_contextual(bound_symbol));
                 auto bound_type = this->current_type(bidx, bound_value);
                 return bound_type_reference{.carried_type = bound_type, .bound_symbol = bound_symbol};
             }
@@ -354,7 +354,7 @@ namespace quxlang
 
         auto create_binding(value_index bindval, type_symbol bind_type)
         {
-            assert(!qualified_is_contextual(bind_type));
+            assert(!type_is_contextual(bind_type));
             codegen_binding binding;
             binding.bound_symbol = bind_type;
             binding.bound_value = bindval;
@@ -462,7 +462,7 @@ namespace quxlang
                         }
                     }
 
-                    assert(!qualified_is_contextual(lookup_type));
+                    assert(!type_is_contextual(lookup_type));
 
                     co_return lookup;
                 }
@@ -474,7 +474,7 @@ namespace quxlang
                 co_return std::nullopt;
             }
 
-            assert(!qualified_is_contextual(canonical_symbol_opt.value()));
+            assert(!type_is_contextual(canonical_symbol_opt.value()));
 
             auto canonical_symbol = canonical_symbol_opt.value();
             std::cout << "co_lookup_symbol(" << symbol_str << ") -> " << quxlang::to_string(canonical_symbol) << std::endl;
@@ -521,6 +521,11 @@ namespace quxlang
                 this->add_nontrivial_default_dtor(new_type, *dtor);
             }
             co_return new_object;
+        }
+
+        auto co_generate(block_index& bidx, expression_char_literal chr) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            throw rpnx::unimplemented();
         }
 
         auto co_generate(block_index& bidx, expression_call call) -> typename CoroutineProvider::template co_type< value_index >
@@ -765,7 +770,7 @@ namespace quxlang
                 invocation_args.positional.push_back(arg_index);
             }
 
-            assert(!qualified_is_contextual(what));
+            assert(!type_is_contextual(what));
             auto return_type = co_await prv.functanoid_return_type(what);
 
             // Index 0 is defined to be the special "void" value.
@@ -1950,7 +1955,7 @@ namespace quxlang
 
         auto co_generate_builtin_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -1962,7 +1967,7 @@ namespace quxlang
 
         auto co_generate_builtin_swap(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -1974,7 +1979,7 @@ namespace quxlang
 
         auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -1992,7 +1997,7 @@ namespace quxlang
 
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -2004,7 +2009,7 @@ namespace quxlang
 
         auto co_generate_builtin_move_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -2016,7 +2021,7 @@ namespace quxlang
 
         auto co_generate_builtin_assignment(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
@@ -2262,7 +2267,7 @@ namespace quxlang
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
             // Precondition: Func is a fully instanciated symbol
 
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             instanciation_reference inst = func;
 
             // This function should be called before generating any blocks.
@@ -2353,7 +2358,7 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_functanoid(instanciation_reference func) -> typename CoroutineProvider::template co_type< vmir2::functanoid_routine3 >
         {
-            assert(!qualified_is_contextual(func));
+            assert(!type_is_contextual(func));
             co_await this->co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block(0);
@@ -2512,7 +2517,7 @@ namespace quxlang
                 auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
                 auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
                 auto field_type = fld.type;
-                assert(!qualified_is_contextual(field_type));
+                assert(!type_is_contextual(field_type));
                 auto field_copy_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
                 codegen_invocation_args args;
                 args.named["THIS"] = fields_args.named.at(fld.name);
@@ -2554,7 +2559,7 @@ namespace quxlang
                 auto this_field = co_await this->co_generate_dot_access(current_block, thisval, fld.name);
                 auto other_field = co_await this->co_generate_dot_access(current_block, otherval, fld.name);
                 auto field_type = fld.type;
-                assert(!qualified_is_contextual(field_type));
+                assert(!type_is_contextual(field_type));
                 auto field_swap_functum = submember{.of = field_type, .name = "OPERATOR<->"};
                 codegen_invocation_args args;
                 args.named["THIS"] = this_field;
@@ -2642,7 +2647,7 @@ namespace quxlang
                 auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
                 auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
                 auto field_type = fld.type;
-                assert(!qualified_is_contextual(field_type));
+                assert(!type_is_contextual(field_type));
                 auto field_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
                 other_field = co_await this->co_generate_move(temporary_block, other_field);
                 codegen_invocation_args args;

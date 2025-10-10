@@ -150,11 +150,10 @@ namespace quxlang::parsers
             have_anything = true;
         }
         else if (auto chr = try_parse_char_literal(pos, end); chr)
-        {
-            throw rpnx::unimplemented();
-            expression_string_literal str_lit;
-            str_lit.value = chr.value();
-            *value_bind_point = str_lit;
+        {;
+            expression_char_literal chr_lit;
+            chr_lit.value = chr.value();
+            *value_bind_point = chr_lit;
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "TARGET"))

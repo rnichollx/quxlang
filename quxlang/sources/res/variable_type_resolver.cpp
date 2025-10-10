@@ -29,7 +29,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(variable_type)
     }
 
     type_symbol var_decl_type = var_decl.value().type;
-    type_symbol parent_type = qualified_parent(input).value_or(void_type{});
+    type_symbol parent_type = type_parent(input).value_or(void_type{});
     contextual_type_reference ctx_type_ref = {.context = parent_type, .type = var_decl_type};
 
     auto var_type = co_await QUX_CO_DEP(lookup, (ctx_type_ref));

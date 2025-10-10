@@ -782,7 +782,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
             declared_type_with_context.type = param.second.type;
 
             // We can't look at the typedefs of the function while we are resolving the function's formal ensig, as this would cause a circular dependency.
-            declared_type_with_context.context = qualified_parent(input).value_or(void_type{});
+            declared_type_with_context.context = type_parent(input).value_or(void_type{});
 
             auto const& formal_type_opt = co_await QUX_CO_DEP(lookup, (declared_type_with_context));
             if (!formal_type_opt.has_value())
@@ -795,7 +795,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
         {
             contextual_type_reference declared_type_with_context;
             declared_type_with_context.type = param.type;
-            declared_type_with_context.context = qualified_parent(input).value_or(void_type{});
+            declared_type_with_context.context = type_parent(input).value_or(void_type{});
             auto const& formal_type_opt = co_await QUX_CO_DEP(lookup, (declared_type_with_context));
             if (!formal_type_opt.has_value())
             {

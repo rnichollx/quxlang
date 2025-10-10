@@ -76,7 +76,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
     {
         std::optional< type_symbol > current_context = context;
         assert(current_context.has_value());
-        assert(!qualified_is_contextual(current_context.value()));
+        assert(!type_is_contextual(current_context.value()));
 
         auto fb = as< freebound_identifier >(type);
 
@@ -131,7 +131,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                 co_return sub2;
             }
 
-            current_context = qualified_parent(current_context.value());
+            current_context = type_parent(current_context.value());
             QUXLANG_DEBUG({ std::cout << "New context: " << quxlang::to_string(current_context.value_or(void_type{})) << std::endl; });
         }
 
@@ -147,7 +147,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         if (parent.template type_is< context_reference >())
         {
             auto rval = co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = subsymbol{current_module, sub.name}}));
-            assert(!qualified_is_contextual(rval.value_or(void_type{})));
+            assert(!type_is_contextual(rval.value_or(void_type{})));
             co_return rval;
         }
 
@@ -163,7 +163,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         auto parent_canonical = parent_canonical_opt.value();
 
         auto parent_canonical_str = to_string(parent_canonical);
-        assert(!qualified_is_contextual(parent_canonical));
+        assert(!type_is_contextual(parent_canonical));
         co_return subsymbol{parent_canonical, sub.name};
     }
     else if (type.template type_is< submember >())
@@ -176,7 +176,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         {
             std::optional< type_symbol > current_context = context;
             assert(current_context.has_value());
-            assert(!qualified_is_contextual(current_context.value()));
+            assert(!type_is_contextual(current_context.value()));
 
             while (current_context.has_value())
             {
@@ -187,7 +187,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                 {
                     break;
                 }
-                current_context = qualified_parent(current_context.value());
+                current_context = type_parent(current_context.value());
             }
 
             if (current_context.has_value())
@@ -210,7 +210,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
         auto parent_canonical = (co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = context, .type = parent}))).value();
 
-        assert(!qualified_is_contextual(parent_canonical));
+        assert(!type_is_contextual(parent_canonical));
         co_return submember{parent_canonical, sub.name};
     }
     else if (type.template type_is< initialization_reference >())
@@ -242,13 +242,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             // TODO: support named parameters
         }
 
-        assert(!qualified_is_contextual(output));
+        assert(!type_is_contextual(output));
 
         co_return output;
     }
     else if (type.template type_is< int_type >())
     {
-        assert(!qualified_is_contextual(type));
+        assert(!type_is_contextual(type));
         co_return type;
     }
     else if (type.template type_is< bool_type >())

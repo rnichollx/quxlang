@@ -286,17 +286,17 @@ namespace quxlang
         return type;
     }
 
-    std::optional< type_symbol > qualified_parent(type_symbol input);
+    std::optional< type_symbol > type_parent(type_symbol input);
 
-    inline bool qualified_is_contextual(type_symbol const& ref);
+    inline bool type_is_contextual(type_symbol const& ref);
     inline bool is_contextual(type_symbol const& ref)
     {
-        return qualified_is_contextual(ref);
+        return type_is_contextual(ref);
     }
 
     inline bool is_canonical(type_symbol const& ref)
     {
-        return !qualified_is_contextual(ref);
+        return !type_is_contextual(ref);
     }
 
     inline bool is_integral(type_symbol const& ref)
@@ -315,7 +315,7 @@ namespace quxlang
         {
             return ref;
         }
-        else if (auto parent = qualified_parent(ref); !parent.has_value())
+        else if (auto parent = type_parent(ref); !parent.has_value())
         {
             return std::nullopt;
         }
@@ -325,25 +325,25 @@ namespace quxlang
         }
     }
 
-    inline bool qualified_is_contextual(type_symbol const& ref)
+    inline bool type_is_contextual(type_symbol const& ref)
     {
         if (ref.type_is< context_reference >() || ref.type_is< freebound_identifier >())
         {
             return true;
         }
-        else if (auto parent = qualified_parent(ref); !parent.has_value())
+        else if (auto parent = type_parent(ref); !parent.has_value())
         {
             return false;
         }
         else
         {
-            auto parent2 = qualified_parent(ref);
+            auto parent2 = type_parent(ref);
             assert(parent2.has_value());
-            return qualified_is_contextual(parent2.value());
+            return type_is_contextual(parent2.value());
         }
     }
 
-    std::optional< type_symbol > qualified_parent(type_symbol input);
+    std::optional< type_symbol > type_parent(type_symbol input);
 
     type_symbol with_context(type_symbol const& ref, type_symbol const& context);
 
