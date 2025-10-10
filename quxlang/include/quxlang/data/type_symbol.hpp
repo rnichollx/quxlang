@@ -352,7 +352,7 @@ namespace quxlang
 
 } // namespace quxlang
 
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 template <>
 struct rpnx::resolver_traits< quxlang::type_symbol >

@@ -19,6 +19,7 @@ namespace quxlang
 }
 RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, named_arg, local, literal, symbol, binding);
 
+
 namespace quxlang
 {
     namespace vmir2
@@ -287,7 +288,6 @@ namespace quxlang
 
         struct load_const_value
         {
-
             local_index target;
             std::vector< std::byte > value;
 

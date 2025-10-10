@@ -12,14 +12,24 @@ namespace quxlang::parsers
     template < typename It >
     function_block parse_function_block(It& pos, It end);
 
-    template < typename It >
-    function_if_statement parse_if_statement(It& pos, It end)
+    template < typename It, bool Try >
+    auto parse_if_statement_ext(It& pos, It end) -> std::conditional_t< Try, std::optional< function_if_statement >, function_if_statement >;
+
+    template < typename It, bool Try >
+    auto parse_if_statement_ext(It& pos, It end) -> std::conditional_t< Try, std::optional< function_if_statement >, function_if_statement >
     {
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "IF"))
         {
-            throw std::logic_error("Expected 'IF'");
+            if constexpr (Try)
+            {
+                return std::nullopt;
+            }
+            else
+            {
+                throw std::logic_error("Expected 'IF'");
+            }
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -45,13 +55,37 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
+        std::string remaining = std::string(pos, end);
+
         if (skip_keyword_if_is(pos, end, "ELSE"))
         {
             skip_whitespace_and_comments(pos, end);
-            if_statement.else_block = parse_function_block(pos, end);
+            auto try_if = parse_if_statement_ext< It, true >(pos, end);
+            if (try_if.has_value())
+            {
+                function_block block;
+                block.statements.push_back(*try_if);
+                if_statement.else_block = std::move(block);
+            }
+            else
+            {
+                if_statement.else_block = parse_function_block(pos, end);
+            }
         }
 
         return if_statement;
+    }
+
+    template <typename It>
+    inline auto parse_if_statement(It & pos, It end) -> function_if_statement
+    {
+        return parse_if_statement_ext< It, false >(pos, end);
+    }
+
+    template < typename It >
+    inline std::optional< function_if_statement > try_parse_if_statement(It& pos, It end)
+    {
+        return parse_if_statement_ext< It, true >(pos, end);
     }
 
     template < typename It >
@@ -78,7 +112,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (skip_symbol_if_is(pos, end , ","))
+        if (skip_symbol_if_is(pos, end, ","))
         {
             skip_whitespace_and_comments(pos, end);
             asrt_statement.tagline = try_parse_string_literal(pos, end).value_or("NO_MESSAGE");
@@ -90,8 +124,6 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected ')'");
         }
-
-
 
         skip_whitespace_and_comments(pos, end);
 

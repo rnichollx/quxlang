@@ -2,11 +2,11 @@
 
 #include "quxlang/compiler.hpp"
 
-#include "quxlang/manipulators/qmanip.hpp"
-#include "quxlang/res/types.hpp"
 #include "quxlang/compiler.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
+#include "quxlang/res/types.hpp"
 
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/res/lookup.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(exists)

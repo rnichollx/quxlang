@@ -4,9 +4,9 @@
 #define QUXLANG_RES_VM_PROCEDURE2_HEADER_GUARD
 
 #include "quxlang/data/vm_procedure.hpp"
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/res/resolver.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
-#include <quxlang/manipulators/qmanip.hpp>
 
 namespace quxlang
 {

@@ -1,7 +1,7 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/compiler.hpp"
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/variant_utils.hpp"
 #include <quxlang/macros.hpp>
@@ -314,7 +314,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             }
         }
 
-        if (is_int_type)
+        if (is_int_type || is_byte_type)
         {
             if (is_arithmetic_operator)
             {
@@ -374,7 +374,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             }
         }
 
-        if (typeis< int_type >(parent) && compare_operators.contains(operator_name))
+        if ((is_int_type || is_byte_type) && compare_operators.contains(operator_name))
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface =
                                                                                            intertype{
@@ -483,7 +483,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
 #include "quxlang/res/function.hpp"
 
 #include "../../../rpnx/include/rpnx/debug.hpp"
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include <vector>
 
 #include "quxlang/compiler.hpp"

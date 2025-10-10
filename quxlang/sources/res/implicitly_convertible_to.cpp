@@ -1,7 +1,7 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/compiler.hpp"
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 {

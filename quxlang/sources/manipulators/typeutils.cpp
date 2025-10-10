@@ -1,13 +1,13 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include "quxlang/manipulators/qmanip.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
+#include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/value.hpp"
-#include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
 
 namespace quxlang
 {

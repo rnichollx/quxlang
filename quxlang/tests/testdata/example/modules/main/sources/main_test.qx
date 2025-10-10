@@ -246,7 +246,15 @@ IMPORT foolib;
 
      WHILE (it < end)
      {
-        .value := .value + 1;
+        // This code is a bit ugly, but I haven't implemented character literals yet
+        IF (it-> == STRING_CONSTANT(@OTHER "I").BEGIN()->)
+        {
+          .value := .value + 1;
+        }
+        ELSE IF (it-> == STRING_CONSTANT(@OTHER "V").BEGIN()->)
+        {
+          .value := .value + 5;
+        }
         it++;
      }
   }
@@ -311,9 +319,9 @@ IMPORT foolib;
   VAR r roman;
   VAR i I32 := 4;
   ASSERT(i == 4);
-  r := roman(@OTHER STRING_CONSTANT(@OTHER "III"));
+  r := roman(@OTHER STRING_CONSTANT(@OTHER "VIII"));
 
-  ASSERT(r.value == 3);
+  ASSERT(r.value == 8);
 
 }
 

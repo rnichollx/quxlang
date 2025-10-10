@@ -1014,8 +1014,6 @@ namespace quxlang
                     swp.b = get_local_index(args.named.at("OTHER"));
                     return swp;
                 }
-
-
             }
 
             if (member->name == "OPERATOR++" && has_incdec_operation_with_incdec_ir(*cls))
@@ -1271,7 +1269,18 @@ namespace quxlang
                     return instr;
                 }
             }
-
+            else if (cls->template type_is< byte_type >())
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                {
+                    return instr;
+                }
+            }
             if (cls->template type_is< ptrref_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
             {
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
@@ -1725,14 +1734,24 @@ namespace quxlang
 
             auto cond = co_await co_generate_bool_expr(condition_block, st.condition);
 
-            this->generate_branch(cond, condition_block, if_block, after_block);
+            if (!st.else_block.has_value())
+            {
+                this->generate_branch(cond, condition_block, if_block, after_block);
 
-            co_await co_generate_function_block(if_block, st.then_block, "if_then");
-            this->generate_jump(if_block, after_block);
-
-            if (st.else_block.has_value())
+                // Then
+                co_await co_generate_function_block(if_block, st.then_block, "if_then");
+                this->generate_jump(if_block, after_block);
+            }
+            else
             {
                 block_index else_block = this->generate_subblock(current_block, "if_statement_else");
+                this->generate_branch(cond, condition_block, if_block, else_block);
+
+                // Then
+                co_await co_generate_function_block(if_block, st.then_block, "if_then");
+                this->generate_jump(if_block, after_block);
+
+                // Else
                 co_await co_generate_function_block(else_block, *st.else_block, "if_else");
                 this->generate_jump(else_block, after_block);
             }
@@ -2547,7 +2566,6 @@ namespace quxlang
 
             auto const& fields = co_await prv.class_field_list(cls);
 
-
             for (class_field const& fld : fields)
             {
                 auto temp_block = this->generate_subblock(current_block, "swap_member_temp_" + fld.name);
@@ -2726,7 +2744,7 @@ namespace quxlang
             this->generate_jump(current_block, condition_block);
             value_index cond = co_await co_generate_bool_expr(condition_block, asrt.condition);
             auto assert_string = quxlang::to_string(asrt.condition);
-            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .message =  asrt.tagline.value_or("NO_MESSAGE_TAG") + ": " + assert_string, .location = asrt.location};
+            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .message = asrt.tagline.value_or("NO_MESSAGE_TAG") + ": " + assert_string, .location = asrt.location};
             this->emit(condition_block, asrt_instr);
             this->generate_jump(condition_block, after_block);
             current_block = after_block;
