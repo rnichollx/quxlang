@@ -1,4 +1,10 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#include "quxlang/res/function.hpp"
+
+#include "../../../rpnx/include/rpnx/debug.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
+#include <vector>
 
 #include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
@@ -478,15 +484,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
     co_return std::nullopt;
 }
 
-// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
-#include "quxlang/res/function.hpp"
-
-#include "../../../rpnx/include/rpnx/debug.hpp"
-#include "quxlang/manipulators/typeutils.hpp"
-#include <vector>
-
-#include "quxlang/compiler.hpp"
 
 using namespace quxlang;
 
@@ -548,7 +546,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to({arg_type, param_type.type}));
+            convertibles_dp.push_back(QUX_CO_DEP_PTR(implicitly_convertible_to, ({arg_type, param_type.type})));
             add_co_dependency(convertibles_dp.back());
         }
     }
@@ -575,8 +573,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
         }
         else
         {
-            convertibles_dp.push_back(c->lk_implicitly_convertible_to({arg_type, param_type.type}));
-
+            convertibles_dp.push_back(QUX_CO_DEP_PTR(implicitly_convertible_to, ({arg_type, param_type.type})));
             add_co_dependency(convertibles_dp.back());
         }
     }

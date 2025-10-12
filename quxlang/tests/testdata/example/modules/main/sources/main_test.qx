@@ -5,6 +5,8 @@ IMPORT foolib;
   RETURN a + b;
 }
 
+::option_num OPTION NUMBER DEFAULT(42);
+
 ::runtime_main INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM LINKNAME("_start")
   CALLABLE(X1 I32, X2 I32)
 {

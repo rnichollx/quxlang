@@ -130,6 +130,8 @@ rpnx::general_coroutine< quxlang::compiler, retT> classNamespace :: className ::
 
 #define QUX_CO_DEP(depname, args) *c->lk_ ## depname args
 
+#define QUX_CO_DEP_PTR(depname, args) c->lk_ ## depname args
+
 #define QUX_CO_ASK(depname, args) (co_await *c->lk_ ## depname args )
 
 #define QUX_CO_GETDEP(retname, depname, args) auto retname = co_await *c->lk_ ## depname args;

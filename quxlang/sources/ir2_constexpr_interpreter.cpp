@@ -567,7 +567,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
 
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        //std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
         // If there is an error here, it usually means there is an instruction which is not implemented
         // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         // should be implemented to throw a derivative of std::logic_error.
@@ -578,8 +578,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto state_diff = this->get_state_diff();
 
-        std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
-        std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
+        // std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
+        // std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
 
         assert(current_statemap == expected_state);
 
@@ -592,7 +592,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             instr);
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
-        std::cout << std::endl;
+        //std::cout << std::endl;
         return;
     }
 
@@ -602,7 +602,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Constexpr execution reached end of block with undefined behavior");
     }
 
-    std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
+    // std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
 
     rpnx::apply_visitor< void >(
         [this](auto const& param)
@@ -727,7 +727,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto local_ptr = create_local_value(lcz.target, true);
     init_storage(local_ptr, type);
 
-    std::cout << "lcz: " << local_ptr->object_id << std::endl;
 
     return;
 }
@@ -1039,7 +1038,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     auto ptrval = create_local_value(mpt.pointer_index, true);
     ptrval->ref = ptr;
-    std::cout << "make_pointer_to: des object id: " << ptrval->object_id << std::endl;
+    // std::cout << "make_pointer_to: des object id: " << ptrval->object_id << std::endl;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::dereference_pointer const& drp)

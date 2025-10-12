@@ -206,7 +206,6 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         sources/res/variable_type_resolver.cpp
         sources/vmir2/vmir2.cpp
         include/quxlang/res/parameters.hpp
-        sources/builtin_classifier.cpp
         sources/res/function.cpp
         include/quxlang/vmir2/ir2_constexpr_interpreter.hpp
         sources/ir2_constexpr_interpreter.cpp
@@ -232,6 +231,7 @@ add_library(quxlang include/quxlang/data/entity_category.hpp include/quxlang/fwd
         include/quxlang/res/serialization.hpp
         include/quxlang/keywords.hpp
         include/quxlang/fixed_bytemath.hpp
+        include/quxlang/parsers/option.hpp
 
 )
 
