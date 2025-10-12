@@ -15,6 +15,7 @@
 #include <quxlang/parsers/try_parse_name.hpp>
 #include <quxlang/parsers/try_parse_variable_declaration.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
+#include <quxlang/parsers/option.hpp>
 
 namespace quxlang::parsers
 {
@@ -107,6 +108,11 @@ namespace quxlang::parsers
             return output;
         }
         output = try_parse_class(pos, end);
+        if (output)
+        {
+            return output;
+        }
+        output = try_parse_option(pos, end);
         if (output)
         {
             return output;

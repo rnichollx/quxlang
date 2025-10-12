@@ -15,6 +15,8 @@
 #include <rpnx/resolver_utilities.hpp>
 #include "quxlang/ast2/source_location.hpp"
 
+RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
+
 namespace quxlang
 {
     struct ast2_namespace_declaration;
@@ -34,9 +36,9 @@ namespace quxlang
     struct ast2_templex;
     struct function;
     struct templex;
+    struct ast2_option;
 
-
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
@@ -57,7 +59,6 @@ namespace quxlang
 
     struct global_subdeclaroid
     {
-
         declaroid decl;
         std::string name;
         std::optional<expression> include_if;
@@ -143,6 +144,14 @@ namespace quxlang
         std::optional< std::size_t > offset;
 
         RPNX_MEMBER_METADATA(ast2_variable_declaration, type, offset);
+    };
+
+    struct ast2_option
+    {
+        option_kind kind;
+        std::optional< expression > default_value;
+
+        RPNX_MEMBER_METADATA(ast2_option, kind, default_value);
     };
 
     struct ast2_class_declaration
