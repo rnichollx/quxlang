@@ -12,6 +12,8 @@ linux-x64:
     barlib:
       source: barlib2_1
     main:
+      options:
+        option_num: 5
       source: main
   platform: linux
   cpu: x64
@@ -44,7 +46,7 @@ linux-x86:
   outputs:
     app:
       type: executable
-      main_module: main
+      # main_module: main
 
 windows:
   modules:

@@ -85,11 +85,26 @@ namespace quxlang
 
             QUXLANG_DEBUG({ std::cout << "Loading Target: " << target_name << std::endl; });
 
-            auto platform = target_node.second["platform"].as< std::string >();
+            auto target_config_node = target_node.second;
+
+            // Validate target-level keys
+            {
+                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "outputs", "modules"};
+                for (auto const& kv : target_config_node)
+                {
+                    auto key = kv.first.as<std::string>();
+                    if (allowed_target_keys.count(key) == 0)
+                    {
+                        throw std::logic_error("Unknown field in target '" + target_name + "': " + key);
+                    }
+                }
+            }
+
+            auto platform = target_config_node["platform"].as< std::string >();
 
             if (platform != "jvm")
             {
-                auto cpu = target_node.second["cpu"].as< std::string >();
+                auto cpu = target_config_node["cpu"].as< std::string >();
 
                 quxlang::output_info info;
 
@@ -141,11 +156,24 @@ namespace quxlang
 
                 output.targets[target_name] = target_output;
 
-                for (auto const& output : target_node.second["outputs"])
+                for (auto const& output : target_config_node["outputs"])
                 {
                     std::string output_name = output.first.as< std::string >();
                     auto output_config_node = output.second;
                     output_config v_output_config;
+
+                    // Validate output-level keys
+                    {
+                        static const std::set<std::string> allowed_output_keys = {"type", "module", "main_functanoid"};
+                        for (auto const& kv : output_config_node)
+                        {
+                            auto key = kv.first.as<std::string>();
+                            if (allowed_output_keys.count(key) == 0)
+                            {
+                                throw std::logic_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
+                            }
+                        }
+                    }
 
                     auto output_type_str = output_config_node["type"].as< std::string >();
                     if (output_type_str == "executable")
@@ -173,12 +201,25 @@ namespace quxlang
 
 
 
-                for (auto const& module_pair : target_node.second["modules"])
+                for (auto const& module_pair : target_config_node["modules"])
                 {
                     module_configuration mod;
                     auto module_name = module_pair.first.as< std::string >();
 
                     auto module_node = module_pair.second;
+
+                    // Validate module-level keys
+                    {
+                        static const std::set<std::string> allowed_module_keys = {"source", "options"};
+                        for (auto const& kv : module_node)
+                        {
+                            auto key = kv.first.as<std::string>();
+                            if (allowed_module_keys.count(key) == 0)
+                            {
+                                throw std::logic_error("Unknown field in target '" + target_name + "' module '" + module_name + "': " + key);
+                            }
+                        }
+                    }
 
                     if (module_node["source"].IsDefined())
                     {
@@ -188,8 +229,6 @@ namespace quxlang
                     {
                         mod.source = module_name;
                     }
-
-                    target_output.module_configurations[module_name] = mod;
 
                     if (module_node["options"].IsDefined())
                     {
@@ -205,7 +244,13 @@ namespace quxlang
                         }
                     }
 
+                    // After fully populating the module configuration (including options),
+                    // store it into the target configuration map.
+                    target_output.module_configurations[module_name] = mod;
+
                     output.targets[target_name] = target_output;
+
+                    
                 }
             }
             else

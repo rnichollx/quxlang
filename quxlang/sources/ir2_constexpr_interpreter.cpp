@@ -1409,13 +1409,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         if (a[i] < b[i])
         {
             set_data(clt.result, {std::byte(1)});
-            std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
+            //std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (a[i] > b[i])
         {
             set_data(clt.result, {std::byte(0)});
-            std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
+            //std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (i == 0)
