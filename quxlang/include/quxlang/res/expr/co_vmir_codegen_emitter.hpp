@@ -525,7 +525,12 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_char_literal chr) -> typename CoroutineProvider::template co_type< value_index >
         {
-            throw rpnx::unimplemented();
+            auto number_string = std::to_string(static_cast< int >(chr.value));
+            auto val = this->create_numeric_literal(number_string);
+            assert(val != 0);
+            auto val_type = this->current_type(bidx, val);
+            QUXLANG_DEBUG({ std::cout << "Generated numeric literal from char " << val << " of type " << to_string(val_type) << std::endl; });
+            co_return val;
         }
 
         auto co_generate(block_index& bidx, expression_call call) -> typename CoroutineProvider::template co_type< value_index >

@@ -170,6 +170,32 @@ For example, the above formal paratype would be `([module]::baz::bar)` and the d
 signature
 would be `([module]::baz::bar): I32` and the declared signature would be `(bar): I32`.
 
+## Discarding Subexpression
+
+A discarding subexpression is a subexpression which upon resolution, discards temporaries created during its evaluation.
+
+There are two types of discarding subexpressions, explicit discarding subexpressions and implicit discarding
+subexpressions.
+
+The explicit discarding subexpression is begun by a `!(` token and ended by a `)` token. For example, in the expression
+`a := !( b + c * d ) - e;`, a temporary object may be constructed as a result of evaluating `c * d`; if `OPERATOR+` 
+takes its parameter by reference and not value or the object is not trivially relocatable, a temporary object may
+survive the call to `OPERATOR+`. However, because the entire expression `!( b + c * d )` is a discarding subexpression,
+any temporaries created during the evaluation of `b + c * d` are destroyed at the end of the evaluation of the discarding
+subexpression, before the subsequent subtraction with `e` is evaluated.
+
+Implicitly discarding subexpressions occur in the evaluation of short-circuiting logical operators like `&&` and `||`.
+Consider for example, an expression like `a(b()) && c(d())`, if the evaluation of a(b()) returns false, then the
+entire expression returns false without evaluating `c(d())`. Any temporaries created during the evaluation of `c(d())`
+would not exist. On the other hand, if `a(b())` returns true, then `c(d())` is evaluated normally and any temporaries
+are created by that expression. This means that the existence or non-existence of temporaries created during the 
+evaluation of the short-circuit path depends on the runtime value of the left-hand side of the logical operation.
+As a result, it would not be possible to converge the short-circuit evaluation and full evaluation control path of the logical 
+expression back to a single control flow block unless the temporaries created during the evaluation of the right-hand
+side are destroyed at the end of the evaluation of the logical expression. Thus, to avoid quadratic code-generation
+complexity the right-hand side of a short-circuiting logical operation is an implicitly discarding subexpression.
+Thus, `a && b` is equivalent to `a && !(b)`.
+
 ## Ensig
 
 A temploid's _ensig_ is a combination of its formal intertype and overload resolution criteria such as the overload

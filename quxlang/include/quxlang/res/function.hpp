@@ -23,6 +23,9 @@ namespace quxlang
     };
 
     QUX_CO_RESOLVER(function_ensig_initialize_with, function_ensig_initialize_with_q, std::optional< invotype >);
+
+    // Conversion intialize is similar to initialize, but is using during a conversion call.
+    QUX_CO_RESOLVER(function_ensig_conversion_initialize_with, function_ensig_initialize_with_q, std::optional< invotype >);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_FUNCTION_HEADER

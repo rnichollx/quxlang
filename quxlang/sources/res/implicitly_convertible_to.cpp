@@ -13,6 +13,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
 
     if (from == to)
     {
+        std::cout << "Convertible: " << from_str << " to " << to_str << " (exact match)" << std::endl;
         co_return true;
     }
 
@@ -23,6 +24,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
         {
             // All value/reference types can be implicitly cast to CONST&
             // except OUT& references
+            std::cout << "Convertible: " << from_str << " to " << to_str << " (ref cast)" << std::endl;
             co_return true;
         }
         else if (!is_ref(from) && (is_temp_ref(to) || is_write_ref(to)))

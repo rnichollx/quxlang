@@ -249,7 +249,7 @@ IMPORT foolib;
      WHILE (it < end)
      {
         // This code is a bit ugly, but I haven't implemented character literals yet
-        IF (it-> == STRING_CONSTANT(@OTHER "I").BEGIN()->)
+        IF (it-> == 'I')
         {
           .value := .value + 1;
         }

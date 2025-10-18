@@ -79,11 +79,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         }
     }
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || typeis< byte_type>(input))
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || typeis< byte_type >(input))
     {
 
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
-        if (input.type_is< int_type >())
+        if (input.type_is< int_type >() || typeis< byte_type >(input))
         {
             result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
         }
@@ -152,7 +152,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
                 }
 
                 result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = type}}}}}, .return_type = void_type{}});
-
             }
         }
     }
@@ -415,7 +414,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = bool_type{}});
             }
 
-
             if (ptr.ptr_class == pointer_class::array && operator_name == "+" && !is_rhs)
             {
                 // Arithmetic
@@ -484,8 +482,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
     co_return std::nullopt;
 }
 
-
-
 using namespace quxlang;
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
@@ -499,13 +495,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
     std::string to = to_string(os.interface);
     std::string from = to_string(args);
 
-    if (to == "INTERTYPE(MUT& MODULE(main)::buf)")
+    if (to == "INTERTYPE(@OTHER BYTE, @THIS BYTE)")
     {
         int debugger = 0;
     }
 
     if (os.interface.positional.size() != args.positional.size())
     {
+        if (to == "INTERTYPE(@OTHER BYTE, @THIS BYTE)")
+        {
+            int debugger = 0;
+        }
+        std::cout << "Positional size mismatch: " << to << " vs " << from << "\n";
         co_return std::nullopt;
     }
 
@@ -579,6 +580,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_initialize_with)
     }
 
     invotype result;
+
+    if (to == "INTERTYPE(@OTHER BYTE, @THIS BYTE)")
+    {
+        int debugger = 0;
+    }
 
     std::optional< invotype > result_opt;
 
@@ -688,7 +694,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     for (auto const& o : overloads)
     {
-        std::cout << "  Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters) << std::endl;
+        std::stringstream ss;
+        ss << "Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters);
+
+        if (ss.str() == "Considering overload BYTE::.OPERATOR==#[@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
+        {
+            int breakpoint = 0;
+        }
+
+        std::cout << "  " << ss.str();
 
         auto candidate = co_await QUX_CO_DEP(function_ensig_initialize_with, ({.ensig = o, .params = input.parameters}));
 
