@@ -521,6 +521,7 @@ namespace quxlang
             output += "WRITE";
             break;
         case qualifier::mut:
+            output += "MUT";
             // the default, so no need to add anything
             break;
         case qualifier::temp:
@@ -549,11 +550,11 @@ namespace quxlang
             output += "&";
         }
 
-        output += "[";
+        output += " #{ ";
 
         output += rpnx::apply_visitor< std::string >(*this, ref.target);
 
-        output += "]";
+        output += " }";
 
         return output;
     }
@@ -721,12 +722,12 @@ namespace quxlang
 
     std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
     {
-        return "NEW& " + to_string(ref.target) + "";
+        return "NEW{ " + to_string(ref.target) + " }";
     }
 
     std::string qualified_symbol_stringifier::operator()(dvalue_slot const& ref) const
     {
-        return "DESTROY& " + to_string(ref.target) + "";
+        return "DESTROY{ " + to_string(ref.target) + "}";
     }
 
     std::string qualified_symbol_stringifier::operator()(temploid_reference const& ref) const

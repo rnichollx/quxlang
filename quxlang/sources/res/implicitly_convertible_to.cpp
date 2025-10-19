@@ -278,12 +278,25 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_argument_construction)
 
     if (remove_ref(to) != remove_ref(from) || is_ref(to) || !is_ref(from))
     {
+        std::cout << " Not bindable by argument construction (type or ref mismatch): " << to_string(from) << " to " << to_string(to) << std::endl;
         co_return false;
     }
 
     auto constructor_functum = submember{.of = to, .name = "CONSTRUCTOR"};
 
-    auto init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}}}, .init_kind = parameter_init_kind::argument_construction}));
+    std::cout << " Checking bindable by argument construction: "<<  to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
+
+    auto init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::argument_construction}));
+
+    if (!init.has_value())
+    {
+        std::cout << "  Not bindable by argument construction (init failed): " << to_string(from) << " to " << to_string(to) << std::endl;
+    }
+
+    else
+    {
+        std::cout << "  X Bindable by argument construction: " << to_string(from) << " to " << to_string(to) << std::endl;
+    }
 
     co_return init.has_value();
 }
@@ -302,7 +315,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(convertible_by_call)
             std::cout << " Dependent: " << dep->question() << std::endl;
         }
 
-        std::terminate();
+        int debugbreakpoint = 0;
     }
 
     auto constructor_functum = submember{.of = to, .name = "CONSTRUCTOR"};

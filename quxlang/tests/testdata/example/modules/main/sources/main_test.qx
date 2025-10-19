@@ -141,7 +141,8 @@ IMPORT foolib;
   test_call_imported_function();
   test_class_default_copy_works();
   test_array_arithmetic();
-    test_roman_numeral();
+  test_roman_numeral();
+  test_implicit_conversions();
 
   RETURN 1;
 }
@@ -393,6 +394,31 @@ IMPORT foolib;
 {
    int := int + arg.x;
 }
+
+
+::implicit_foo CLASS
+{
+    .x VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+        .x := OTHER;
+    }
+}
+
+::test_implicit_conversions FUNCTION()
+{
+    VAR a implicit_foo;
+    a := I32(@OTHER 5);
+
+    ASSERT(a.x == 5);
+
+    VAR b I32 := 8;
+    a := b;
+
+    // a := ;
+}
+
 
 
 

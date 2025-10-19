@@ -632,7 +632,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     std::set< temploid_reference > best_match;
     std::optional< std::int64_t > highest_priority;
 
-    std::cout << "Select for " << quxlang::to_string(input) << std::endl;
+    std::string context_type = "";
+    switch (input.init_kind)
+    {
+        case parameter_init_kind::none:
+            context_type = "none";
+            break;
+    case parameter_init_kind::call:
+                context_type = "call";
+                break;
+    case parameter_init_kind::argument_construction:
+                context_type = "construct";
+                break;
+    case parameter_init_kind::conversion:
+        context_type = "conversion";
+    }
+
+    std::cout << "Select for " << quxlang::to_string(input) << " in " << context_type << std::endl;
 
     for (auto const & o : overloads)
     {
