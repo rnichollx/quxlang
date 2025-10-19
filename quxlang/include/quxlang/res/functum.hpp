@@ -6,8 +6,13 @@
 #include "quxlang/data/type_symbol.hpp"
 #include <quxlang/res/resolver.hpp>
 
+
 namespace quxlang
 {
+
+
+
+
     // functum_select_function does overload resolution and chooses a function from a functum based on the given parameters.
     QUX_CO_RESOLVER(functum_select_function, initialization_reference, std::optional< temploid_reference >);
 

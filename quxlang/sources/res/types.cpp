@@ -218,6 +218,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         initialization_reference const& param_set = as< initialization_reference >(type);
 
         initialization_reference output;
+        output.init_kind = parameter_init_kind::call;
 
         auto callee_canonical = co_await QUX_CO_DEP(lookup, ({
                                                                 .context = context,

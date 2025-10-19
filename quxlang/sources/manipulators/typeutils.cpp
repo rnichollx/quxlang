@@ -176,7 +176,7 @@ namespace quxlang
         std::string operator()(subsymbol const& ref) const;
         std::string operator()(initialization_reference const& ref) const;
         std::string operator()(absolute_module_reference const& ref) const;
-        std::string operator()(bound_type_reference const& ref) const;
+        std::string operator()(attached_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
 
         std::string operator()(byte_type const& ref) const;
@@ -357,9 +357,9 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(bound_type_reference const& ref) const
+        bool operator()(attached_type_reference const& ref) const
         {
-            return is_template(ref.carried_type) || is_template(ref.bound_symbol);
+            return is_template(ref.carrying_type) || is_template(ref.attached_symbol);
         }
 
         bool operator()(int_type const& ref) const
@@ -549,9 +549,11 @@ namespace quxlang
             output += "&";
         }
 
-        output += " ";
+        output += "[";
 
         output += rpnx::apply_visitor< std::string >(*this, ref.target);
+
+        output += "]";
 
         return output;
     }
@@ -654,9 +656,9 @@ namespace quxlang
     {
         return "CONTEXT";
     }
-    std::string qualified_symbol_stringifier::operator()(bound_type_reference const& ref) const
+    std::string qualified_symbol_stringifier::operator()(attached_type_reference const& ref) const
     {
-        return "BINDING(" + to_string(ref.carried_type) + ", " + to_string(ref.bound_symbol) + ")";
+        return "BINDING(" + to_string(ref.carrying_type) + ", " + to_string(ref.attached_symbol) + ")";
     }
     std::string qualified_symbol_stringifier::operator()(int_type const& ref) const
     {
@@ -1228,23 +1230,23 @@ namespace quxlang
         }
         return std::nullopt;
     }
-    std::optional< qualifier > qualifier_template_match(qualifier template_qual, qualifier match_qual)
+    std::optional< qualifier > qualifier_template_match(qualifier to_qual, qualifier from_qual)
     {
 
         // Only non-template qualifiers are allowed as the match type
-        assert(match_qual != qualifier::auto_);
-        assert(match_qual != qualifier::input);
-        assert(match_qual != qualifier::output);
+        assert(from_qual != qualifier::auto_);
+        assert(from_qual != qualifier::input);
+        assert(from_qual != qualifier::output);
 
-        switch (template_qual)
+        switch (to_qual)
         {
         case qualifier::auto_: {
             // AUTO can match all other qualifiers
-            return match_qual;
+            return from_qual;
         }
         case qualifier::constant: {
             // Matches everything except WRITE as CONST
-            if (match_qual == qualifier::write)
+            if (from_qual == qualifier::write)
             {
                 return std::nullopt;
             }
@@ -1252,7 +1254,7 @@ namespace quxlang
         }
         case qualifier::mut: {
             // Matches MUT only
-            if (match_qual == qualifier::mut)
+            if (from_qual == qualifier::mut)
             {
                 return qualifier::mut;
             }
@@ -1260,7 +1262,7 @@ namespace quxlang
         }
         case qualifier::temp: {
             // Matches TEMP only
-            if (match_qual == qualifier::temp)
+            if (from_qual == qualifier::temp)
             {
                 return qualifier::temp;
             }
@@ -1269,30 +1271,30 @@ namespace quxlang
         case qualifier::input: {
             // INPUT is a template that matches as either TEMP or CONST
             // TODO: Consider allowing DESTROY to match as an INPUT?
-            if (match_qual == qualifier::temp)
+            if (from_qual == qualifier::temp)
             {
                 return qualifier::temp;
             }
             else
             {
-                return qualifier_template_match(qualifier::constant, match_qual);
+                return qualifier_template_match(qualifier::constant, from_qual);
             }
         }
         case qualifier::output: {
             // This is a template that matches new and write, but for
             // now NEW isn't implemented on pointers
             // TODO: refactor NEW/DESTROY types to use qualifier
-            return qualifier_template_match(qualifier::write, match_qual);
+            return qualifier_template_match(qualifier::write, from_qual);
         }
         case qualifier::write: {
             // Write matches anything writable, but not constant.
             // Note that we exclude TEMP as well since that is a "discarded value" so writes to a temp
             // may be considered meaningless.
-            if (match_qual == qualifier::temp || match_qual == qualifier::constant)
+            if (from_qual == qualifier::temp || from_qual == qualifier::constant)
             {
                 return std::nullopt;
             }
-            return match_qual;
+            return from_qual;
             break;
         }
         }
@@ -1519,14 +1521,14 @@ namespace quxlang
                 return true;
             }
 
-            bool check_impl(bound_type_reference const& tmpl, bound_type_reference const& val, bool conv)
+            bool check_impl(attached_type_reference const& tmpl, attached_type_reference const& val, bool conv)
             {
-                if (!check(tmpl.bound_symbol, val.bound_symbol, false))
+                if (!check(tmpl.attached_symbol, val.attached_symbol, false))
                 {
                     return false;
                 }
 
-                return check(tmpl.carried_type, val.carried_type, false);
+                return check(tmpl.carrying_type, val.carrying_type, false);
             }
 
             bool check_impl(numeric_literal_reference const& tmpl, numeric_literal_reference const& val, bool conv)

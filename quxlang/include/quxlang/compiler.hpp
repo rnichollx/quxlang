@@ -89,6 +89,7 @@ namespace quxlang
         COMPILER_INDEX(constexpr_u64)
         COMPILER_INDEX(constexpr_eval)
         COMPILER_INDEX(constexpr_routine)
+        COMPILER_INDEX(convertible_by_call)
         COMPILER_INDEX(class_layout)
         COMPILER_INDEX(class_field_list)
         COMPILER_INDEX(class_tags)
@@ -96,6 +97,7 @@ namespace quxlang
         COMPILER_INDEX(declaroids)
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(exists)
+        COMPILER_INDEX(ensig_argument_initialize)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(functum_builtin_overloads)
@@ -133,7 +135,7 @@ namespace quxlang
         COMPILER_INDEX(module_source_name)
         COMPILER_INDEX(class_default_dtor)
         COMPILER_INDEX(class_default_ctor)
-        COMPILER_INDEX(function_ensig_initialize_with)
+        COMPILER_INDEX(function_ensig_init_with)
         COMPILER_INDEX(procedure_linksymbol)
         COMPILER_INDEX(symbol_type)
         COMPILER_INDEX(symboid)
@@ -172,6 +174,10 @@ namespace quxlang
         COMPILER_INDEX(uintpointer_type)
         COMPILER_INDEX(sintpointer_type)
         COMPILER_INDEX(implicitly_convertible_to);
+        COMPILER_INDEX(bindable);
+        COMPILER_INDEX(bindable_by_temporary_materialization);
+        COMPILER_INDEX(bindable_by_argument_construction);
+        COMPILER_INDEX(bindable_by_reference_requalification);
         COMPILER_INDEX(module_sources);
         COMPILER_INDEX(user_serialize_exists)
         COMPILER_INDEX(user_deserialize_exists)

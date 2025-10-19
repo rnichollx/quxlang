@@ -211,6 +211,8 @@ calling RUNTIME::terminate()). However, if the function is declared NOFALLTHROUG
 body of the function without an explicit `RETURN` will always trigger a fallthrough fault, even if the return type is
 void or default constructible.
 
+
+## Operators
 ## Binary Operators
 
 ### Operator `+`
@@ -354,5 +356,7 @@ and destructor unless the object is `RELOCATABLE`. There are 3 categories of rel
 * `RELOCATABLE`: Can be relocated using `.RELOCATE`.
 
 Of these, `TRIVIALLY_RELOCATABLE` and `POSTHOC_RELOCATABLE` allow bypassing pointer indirection in function call ABIs.
+
+
 
 

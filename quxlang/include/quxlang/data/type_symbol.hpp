@@ -21,11 +21,13 @@ RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, 
 RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data,  numeric, string, cstring);
+RPNX_ENUM(quxlang, parameter_init_kind, std::uint8_t, none, call, conversion, argument_construction);
+
 
 namespace quxlang
 {
     std::optional< pointer_class > pointer_class_template_match(pointer_class template_class, pointer_class match_class);
-    std::optional< qualifier > qualifier_template_match(qualifier template_qual, qualifier match_qual);
+    std::optional< qualifier > qualifier_template_match(qualifier to_qual, qualifier from_qual);
 
     std::optional< qualifier > qualifier_template_match_noconv(qualifier template_qual, qualifier match_qual);
 
@@ -235,7 +237,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(type_temploidic, name);
     };
 
-    struct bound_type_reference;
+    struct attached_type_reference;
     // struct function_type_reference;
 
 
@@ -306,9 +308,10 @@ namespace quxlang
     struct initialization_reference
     {
         type_symbol initializee;
-
         invotype parameters;
-        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters);
+        parameter_init_kind init_kind = parameter_init_kind::none;
+
+        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters, init_kind);
     };
 
 
@@ -318,6 +321,15 @@ namespace quxlang
         type_symbol templexoid;
         temploid_ensig which;
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
+    };
+
+    struct ensig_initialization
+    {
+        temploid_ensig ensig;
+        invotype params;
+        parameter_init_kind init_kind = parameter_init_kind::call;
+
+        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, init_kind);
     };
 
     struct instanciation_reference
@@ -339,11 +351,11 @@ namespace quxlang
         RPNX_MEMBER_METADATA(dvalue_slot, target);
     };
 
-    struct bound_type_reference
+    struct attached_type_reference
     {
-        type_symbol carried_type;
-        type_symbol bound_symbol;
-        RPNX_MEMBER_METADATA(bound_type_reference, carried_type, bound_symbol);
+        type_symbol carrying_type;
+        type_symbol attached_symbol;
+        RPNX_MEMBER_METADATA(attached_type_reference, carrying_type, attached_symbol);
     };
 
     std::string to_string(type_symbol const&);

@@ -64,10 +64,10 @@ namespace quxlang
 
     struct codegen_binding
     {
-        type_symbol bound_symbol;
+        type_symbol attached_symbol;
         value_index bound_value;
 
-        RPNX_MEMBER_METADATA(codegen_binding, bound_symbol, bound_value);
+        RPNX_MEMBER_METADATA(codegen_binding, attached_symbol, bound_value);
     };
 
     struct codegen_local
@@ -89,7 +89,7 @@ namespace quxlang
 
     struct codegen_state
     {
-        std::vector< codegen_value > genvalues{codegen_binding{.bound_symbol = void_type(), .bound_value = value_index(0)}};
+        std::vector< codegen_value > genvalues{codegen_binding{.attached_symbol = void_type(), .bound_value = value_index(0)}};
         std::vector< vmir2::local_type > locals{vmir2::local_type{.type = void_type()}};
         std::vector< codegen_block > blocks;
         vmir2::routine_parameters params;
@@ -217,7 +217,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = parameter_init_kind::call};
 
             std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
@@ -260,10 +260,10 @@ namespace quxlang
             if (slot.template type_is< codegen_binding >())
             {
                 auto bound_value = slot.template get_as< codegen_binding >().bound_value;
-                auto bound_symbol = slot.template get_as< codegen_binding >().bound_symbol;
-                assert(!type_is_contextual(bound_symbol));
+                auto attached_symbol = slot.template get_as< codegen_binding >().attached_symbol;
+                assert(!type_is_contextual(attached_symbol));
                 auto bound_type = this->current_type(bidx, bound_value);
-                return bound_type_reference{.carried_type = bound_type, .bound_symbol = bound_symbol};
+                return attached_type_reference{.carrying_type = bound_type, .attached_symbol = attached_symbol};
             }
 
             auto local_idx = get_local_index(idx);
@@ -272,7 +272,7 @@ namespace quxlang
             if (slot.template type_is< codegen_binding >())
             {
                 auto& binding = slot.template get_as< codegen_binding >();
-                return bound_type_reference{.carried_type = current_type(bidx, binding.bound_value), .bound_symbol = binding.bound_symbol};
+                return attached_type_reference{.carrying_type = current_type(bidx, binding.bound_value), .attached_symbol = binding.attached_symbol};
             }
 
             auto type = state.locals.at(slot.template get_as< codegen_local >().local_index).type;
@@ -356,7 +356,7 @@ namespace quxlang
         {
             assert(!type_is_contextual(bind_type));
             codegen_binding binding;
-            binding.bound_symbol = bind_type;
+            binding.attached_symbol = bind_type;
             binding.bound_value = bindval;
             this->state.genvalues.push_back(binding);
             return value_index(this->state.genvalues.size() - 1);
@@ -543,7 +543,7 @@ namespace quxlang
 
             std::string callee_type_string = to_string(callee_type);
 
-            if (!typeis< bound_type_reference >(callee_type))
+            if (!typeis< attached_type_reference >(callee_type))
             {
                 auto value_type = remove_ref(callee_type);
                 auto operator_call = submember{.of = value_type, .name = "OPERATOR()"};
@@ -551,15 +551,15 @@ namespace quxlang
                 callee_type = this->current_type(bidx, callee);
             }
 
-            type_symbol bound_symbol = as< bound_type_reference >(callee_type).bound_symbol;
+            type_symbol attached_symbol = as< attached_type_reference >(callee_type).attached_symbol;
 
-            type_symbol carried_type = as< bound_type_reference >(callee_type).carried_type;
-            symbol_kind bound_symbol_kind = co_await prv.symbol_type(bound_symbol);
+            type_symbol carrying_type = as< attached_type_reference >(callee_type).carrying_type;
+            symbol_kind attached_symbol_kind = co_await prv.symbol_type(attached_symbol);
 
             codegen_invocation_args args;
-            std::string callee_type_string2 = to_string(as< bound_type_reference >(callee_type));
+            std::string callee_type_string2 = to_string(as< attached_type_reference >(callee_type));
 
-            std::cout << "requesting generate call to bindval=" << to_string(carried_type) << " bindsym=" << to_string(bound_symbol) << std::endl;
+            std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
 
             std::string callee_type_string3 = to_string(callee_type);
 
@@ -577,25 +577,25 @@ namespace quxlang
                 }
             }
 
-            if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
+            if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
                 args.named["THIS"] = callee;
             }
 
-            if (bound_symbol_kind == symbol_kind::class_)
+            if (attached_symbol_kind == symbol_kind::class_)
             {
-                if (!typeis< void_type >(as< bound_type_reference >(callee_type).carried_type))
+                if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
                 {
                     throw std::logic_error("this is bug...");
                 }
-                auto object_type = as< bound_type_reference >(callee_type).bound_symbol;
+                auto object_type = as< attached_type_reference >(callee_type).attached_symbol;
 
                 auto val = co_await co_gen_call_ctor(bidx, object_type, args);
 
                 co_return val;
             }
 
-            co_return co_await co_gen_call_functum(bidx, as< bound_type_reference >(callee_type).bound_symbol, args);
+            co_return co_await co_gen_call_functum(bidx, as< attached_type_reference >(callee_type).attached_symbol, args);
         }
 
       public:
@@ -1619,7 +1619,7 @@ namespace quxlang
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info});
+            auto lhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .init_kind = parameter_init_kind::call});
 
             if (lhs_exists_and_callable_with)
             {
@@ -1627,7 +1627,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info});
+            auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, parameter_init_kind::call});
 
             if (rhs_exists_and_callable_with)
             {
