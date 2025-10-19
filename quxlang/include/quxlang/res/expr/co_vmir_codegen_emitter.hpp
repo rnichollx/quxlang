@@ -1132,7 +1132,7 @@ namespace quxlang
                             return lcv_result;
                         }
                     }
-                    else if (cls->template type_is< int_type >() && other.type_is< numeric_literal_reference >())
+                    else if ((cls->template type_is< int_type >()  || cls->template type_is<byte_type>() )&& other.type_is< numeric_literal_reference >())
                     {
                         auto other_slot_id = args.named.at("OTHER");
 

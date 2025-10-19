@@ -92,7 +92,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         }
     }
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || typeis< byte_type >(input))
+
+    if (typeis<ptrref_type>(input) && input.get_as<ptrref_type>().ptr_class != pointer_class::ref)
+    {
+        // Pointer copy/default
+        // We should onlt do this if it's *not* a reference (otherwise every refernece type is constructible from a const ref).
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
+        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
+    }
+
+    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< readonly_constant >() || typeis< byte_type >(input))
     {
 
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
@@ -105,46 +114,46 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 
     if (typeis< ptrref_type >(input))
     {
-        auto const& pref = input.get_as< ptrref_type >();
+        auto const& target_pref = input.get_as< ptrref_type >();
 
         std::set< pointer_class > allowed_input_classes;
 
         std::set< qualifier > allowed_qualifiiers;
 
-        if (pref.ptr_class == pointer_class::ref)
+        if (target_pref.ptr_class == pointer_class::ref)
         {
             allowed_input_classes.insert(pointer_class::ref);
         }
 
-        if (pref.ptr_class == pointer_class::instance)
+        if (target_pref.ptr_class == pointer_class::instance)
         {
             allowed_input_classes.insert(pointer_class::instance);
             allowed_input_classes.insert(pointer_class::array);
         }
 
-        if (pref.ptr_class == pointer_class::array)
+        if (target_pref.ptr_class == pointer_class::array)
         {
             allowed_input_classes.insert(pointer_class::array);
         }
 
         // TODO: Decide machine pointer semantics
 
-        if (pref.qual == qualifier::mut)
+        if (target_pref.qual == qualifier::mut)
         {
             allowed_qualifiiers.insert(qualifier::mut);
             allowed_qualifiiers.insert(qualifier::temp);
         }
-        else if (pref.qual == qualifier::constant)
+        else if (target_pref.qual == qualifier::constant)
         {
             allowed_qualifiiers.insert(qualifier::constant);
             allowed_qualifiiers.insert(qualifier::temp);
             allowed_qualifiiers.insert(qualifier::mut);
         }
-        else if (pref.qual == qualifier::temp)
+        else if (target_pref.qual == qualifier::temp)
         {
             allowed_qualifiiers.insert(qualifier::temp);
         }
-        else if (pref.qual == qualifier::write)
+        else if (target_pref.qual == qualifier::write)
         {
             allowed_qualifiiers.insert(qualifier::write);
             allowed_qualifiiers.insert(qualifier::mut);
@@ -156,7 +165,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         {
             for (pointer_class p : allowed_input_classes)
             {
-                type_symbol type = ptrref_type{.target = pref.target, .ptr_class = p, .qual = q};
+                type_symbol type = ptrref_type{.target = target_pref.target, .ptr_class = p, .qual = q};
 
                 // We don't want to generate a copy constructor here, this is only for conversions.
                 if (type == input)
@@ -561,8 +570,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
             co_return std::nullopt;
         }
         result.named[name] = *argument_type;
-
-
     }
 
     for (std::size_t i = 0; i < os.interface.positional.size(); i++)
@@ -577,6 +584,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
         result.positional.push_back(*argument_type);
     }
 
+    std::cout << "Function ensig init with " << to_string(input.ensig.interface) << " with " << to_string(input.params) << " yields " << to_string(result) << "\n";
+
     co_return result;
 }
 
@@ -584,6 +593,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 {
 
     auto input_str = to_string(input_val);
+
+    auto input_functum_str = quxlang::to_string(input.initializee);
 
     if (input_str=="TEMP& MODULE(main)::bam::.CONSTRUCTOR #(@OTHER & MODULE(main)::bam, @THIS NEW& TEMP& MODULE(main)::bam)")
     {
@@ -623,6 +634,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     std::cout << "Select for " << quxlang::to_string(input) << std::endl;
 
+    for (auto const & o : overloads)
+    {
+        std::cout << "  Found overload: " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << std::endl;
+    }
+
     for (auto const& o : overloads)
     {
         std::stringstream ss;
@@ -636,6 +652,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         std::cout << "  " << ss.str() << std::endl;
 
         std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .init_kind = input.init_kind}));
+
 
         if (candidate)
         {
@@ -654,6 +671,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         }
     }
 
+
+
     if (best_match.size() == 0)
     {
         QUX_WHY("No matching overloads");
@@ -662,9 +681,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     }
     else if (best_match.size() > 1)
     {
-        QUX_WHY("Ambiguous overload");
-        QUX_CO_ANSWER(std::nullopt);
+        std::cout << " Ambiguous overloads for " << to_string(input) << ":" << std::endl;
+        for (auto const& item : best_match)
+        {
+            std::cout << "   Ambiguous candidate: " << to_string(item) << std::endl;
+        }
+        throw std::logic_error("Ambiguous overload resolution");
     }
+    std::cout << " Best match for " << to_string(input) << " is " << to_string(*best_match.begin()) << std::endl;
 
     QUX_CO_ANSWER(*best_match.begin());
 }

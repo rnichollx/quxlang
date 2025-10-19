@@ -631,6 +631,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return (type.get_as< int_type >().bits + 7) / 8;
     }
 
+    if (typeis<byte_type>(type))
+    {
+        return 1;
+    }
+
     if (typeis< bool_type >(type))
     {
         return 1;
@@ -1285,9 +1290,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         int_type_v = copy;
     }
 
-    if (!int_type_v.type_is< int_type >())
+    if (!int_type_v.type_is< int_type >() && !int_type_v.type_is< byte_type >())
     {
-        throw compiler_bug("Expected integer type for load_const_int");
+        throw compiler_bug("Expected INTEGER or BYTE type for load_const_int");
     }
 
     auto& data = get_current_frame().local_values[lci.target]->data;

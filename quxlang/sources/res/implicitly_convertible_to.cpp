@@ -70,6 +70,16 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     type_symbol to = input.to;
     parameter_init_kind init_kind = input.init_kind;
 
+    std::vector<std::byte> init_kind_bytes;
+    rpnx::json_serialize_iter(init_kind, std::back_inserter(init_kind_bytes));
+    std::string init_kind_str;
+    for (auto b : init_kind_bytes)
+    {
+        init_kind_str += static_cast<char>(b);
+    }
+
+    std::cout << "Ensig Argument Initialize: from " << quxlang::to_string(from) << " to " << quxlang::to_string(to) << " (init kind: " << init_kind_str << ")" << std::endl;
+
     std::string from_str = quxlang::to_string(from);
     std::string to_str = quxlang::to_string(to);
     if (to_str.contains("CONSTRUCTOR"))
@@ -100,7 +110,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     if (from == to)
     {
         // Identity initialization
-        std::cout << "   Argument Init: " << from_str << " to " << to_str << " (exact match)" << std::endl;
+        std::cout << "   Ensig Arg OK(" << from_str << " to " << to_str << ") (exact match)" << std::endl;
         co_return to;
     }
 
