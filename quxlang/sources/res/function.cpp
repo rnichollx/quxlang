@@ -189,6 +189,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 
     // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
 
+
     if (should_autogen_constructor)
     {
         result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});

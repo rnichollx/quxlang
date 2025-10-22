@@ -416,7 +416,7 @@ IMPORT foolib;
     VAR b I32 := 8;
     a := b;
 
-    // a := ;
+    ASSERT(a.x == 8);
 }
 
 

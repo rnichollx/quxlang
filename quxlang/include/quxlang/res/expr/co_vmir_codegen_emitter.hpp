@@ -189,7 +189,7 @@ namespace quxlang
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
         {
-            std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            //std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             invotype calltype;
             for (auto& arg : args.positional)
@@ -559,7 +559,7 @@ namespace quxlang
             codegen_invocation_args args;
             std::string callee_type_string2 = to_string(as< attached_type_reference >(callee_type));
 
-            std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
+            //std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
 
             std::string callee_type_string3 = to_string(callee_type);
 
@@ -663,7 +663,7 @@ namespace quxlang
 
         auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args) -> typename CoroutineProvider::template co_type< value_index >
         {
-            std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
+            //std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
 
             // TODO: Support defaulted parameters.
@@ -705,7 +705,7 @@ namespace quxlang
                 }
                 else if (!is_ref(arg_expr_type) && !is_ref(arg_target_type))
                 {
-                    std::cout << "gen_call_functanoid B(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
+                    // std::cout << "gen_call_functanoid B(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
                     if (arg_expr_type == arg_target_type)
                     {
                         co_return arg_expr_index;
@@ -784,7 +784,7 @@ namespace quxlang
             if (!typeis< void_type >(return_type))
             {
                 auto return_slot = create_local_value(return_type);
-                std::cout << "Created return slot " << return_slot << std::endl;
+                // std::cout << "Created return slot " << return_slot << std::endl;
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
                 invocation_args.named["RETURN"] = return_slot;
@@ -861,7 +861,7 @@ namespace quxlang
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type) -> typename CoroutineProvider::template co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
-            std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
+            // std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
 
             if (value_type == target_type)
             {

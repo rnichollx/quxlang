@@ -3,6 +3,7 @@
 #include "quxlang/res/constructor.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/expression.hpp"
+#include "quxlang/keywords.hpp"
 #include "rpnx/value.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_tags)
@@ -192,6 +193,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_requires_gen_default_ctor)
 {
     auto have_user_default_ctor = co_await QUX_CO_DEP(user_default_ctor_exists, (input));
     if (have_user_default_ctor)
+    {
+        co_return false;
+    }
+
+    if (auto const& tags = co_await QUX_CO_DEP(class_tags, (input)); tags.contains(keywords::no_implicit_default_constructor) || tags.contains(keywords::no_implicit_constructors))
     {
         co_return false;
     }

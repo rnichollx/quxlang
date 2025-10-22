@@ -12,19 +12,19 @@ namespace quxlang
     {
         const std::string move_only = "MOVE_ONLY";
         const std::string not_copyable = "NOT_COPYABLE";
-        const std::string no_default_constructor = "NO_DEFAULT_CONSTRUCTOR";
+        const std::string no_implicit_default_constructor = "NO_IMPLICIT_DEFAULT_CONSTRUCTOR";
         const std::string no_implicit_constructors = "NO_IMPLICIT_CONSTRUCTORS";
         const std::string no_implicit_assignment = "NO_IMPLICIT_ASSIGNMENT";
-        const std::string no_builtin_copy = "NO_BUILTIN_COPY";
+        const std::string no_implicit_copy = "NO_IMPLICIT_COPY";
 
 
         std::set< std::string > const class_keywords = {
             keywords::move_only,
             keywords::not_copyable,
-            keywords::no_default_constructor,
+            keywords::no_implicit_default_constructor,
             keywords::no_implicit_constructors,
             keywords::no_implicit_assignment,
-            keywords::no_builtin_copy,
+            keywords::no_implicit_copy,
         };
 
         inline std::set< std::string > get_subentity_keywords()
