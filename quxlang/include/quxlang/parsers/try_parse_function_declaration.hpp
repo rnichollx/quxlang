@@ -11,6 +11,8 @@
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/try_parse_function_delegates.hpp>
 #include <quxlang/parsers/try_parse_function_return_type.hpp>
+#include <quxlang/parsers/parse_expression.hpp>
+#include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 
 namespace quxlang::parsers
 {
@@ -30,7 +32,25 @@ namespace quxlang::parsers
 
         // TODO: Add support for named arguments
         out->header.call_parameters = parse_function_args(pos, end);
-        // TODO: Parse enable if and other attributes
+        
+        // Optional ENABLE_IF(<expr>) before return type
+        skip_whitespace_and_comments(pos, end);
+        if (skip_keyword_if_is(pos, end, "ENABLE_IF"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after ENABLE_IF");
+            }
+            skip_whitespace_and_comments(pos, end);
+            out->header.enable_if = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after ENABLE_IF expression");
+            }
+            skip_whitespace_and_comments(pos, end);
+        }
 
         out->definition.return_type = try_parse_function_return_type(pos, end);
         out->definition.delegates = parse_function_delegates(pos, end);

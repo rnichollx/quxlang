@@ -194,9 +194,9 @@ namespace quxlang
         ast2_source_location location;
         std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
+        std::optional< expression > enable_if;
 
-
-        RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority);
+        RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority, enable_if);
     };
 
     struct parameters

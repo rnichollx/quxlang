@@ -588,6 +588,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
     std::cout << "Function ensig init with " << to_string(input.ensig.interface) << " with " << to_string(input.params) << " yields " << to_string(result) << "\n";
 
 
+
+
     co_return result;
 }
 
@@ -840,6 +842,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_list_user_ensig_declarations)
 
         temploid_ensig ensig;
         ensig.priority = head.priority;
+        ensig.enable_if = head.enable_if;
 
         for (std::size_t y = 0; y < head.call_parameters.size(); y++)
         {
