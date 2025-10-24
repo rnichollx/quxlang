@@ -143,7 +143,7 @@ IMPORT foolib;
 }
 
 
-::xip FUNCTION() :I32
+::constexpr_test_suite FUNCTION() :I32
 {
   VAR x I32;
   x := 8;

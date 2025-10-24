@@ -780,7 +780,7 @@ TEST(quxlang, constexpr_test_suites)
         auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
         return yaynay;
     };
-    auto val1 = get_constexpr_bool("xip() == 1");
+    auto val1 = get_constexpr_bool("constexpr_test_suite() == 1");
     ASSERT_TRUE(val1);
 
 
