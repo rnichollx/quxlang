@@ -9,7 +9,9 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
+#include "quxlang/parsers/parse_expression.hpp"
 #include "quxlang/variant_utils.hpp"
+
 #include <quxlang/macros.hpp>
 #include <quxlang/res/function.hpp>
 #include <quxlang/res/functum.hpp>
@@ -51,9 +53,9 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
 {
     auto input_functum_str = quxlang::to_string(input_val.initializee);
 
-    if ((input_functum_str.contains("TEMP")  && input_functum_str.contains("CONSTRUCTOR#")) || input.init_kind == parameter_init_kind::none)
+    if ((input_functum_str.contains("TEMP") && input_functum_str.contains("CONSTRUCTOR#")) || input.init_kind == parameter_init_kind::none)
     {
-       auto callers =  this->dependents();
+        auto callers = this->dependents();
 
         for (auto const& call : callers)
         {
@@ -92,8 +94,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         }
     }
 
-
-    if (typeis<ptrref_type>(input) && input.get_as<ptrref_type>().ptr_class != pointer_class::ref)
+    if (typeis< ptrref_type >(input) && input.get_as< ptrref_type >().ptr_class != pointer_class::ref)
     {
         // Pointer copy/default
         // We should onlt do this if it's *not* a reference (otherwise every refernece type is constructible from a const ref).
@@ -188,7 +189,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
     bool should_autogen_move_constructor = co_await QUX_CO_DEP(class_requires_gen_move_ctor, (input));
 
     // co_await QUX_CO_DEP(class_should_autogen_default_constructor, (input));
-
 
     if (should_autogen_constructor)
     {
@@ -597,15 +597,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     auto input_functum_str = quxlang::to_string(input.initializee);
 
-    if (input_str=="TEMP& MODULE(main)::bam::.CONSTRUCTOR #(@OTHER & MODULE(main)::bam, @THIS NEW& TEMP& MODULE(main)::bam)")
+    if (input_str == "TEMP& MODULE(main)::bam::.CONSTRUCTOR #(@OTHER & MODULE(main)::bam, @THIS NEW& TEMP& MODULE(main)::bam)")
     {
         for (auto const* dep : this->dependents())
         {
             std::cout << "Dependent: " << dep->question() << "\n";
         }
         int debugger = 0;
-
-
     }
 
     if (typeis< temploid_reference >(input.initializee))
@@ -636,22 +634,22 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     std::string context_type = "";
     switch (input.init_kind)
     {
-        case parameter_init_kind::none:
-            context_type = "none";
-            break;
+    case parameter_init_kind::none:
+        context_type = "none";
+        break;
     case parameter_init_kind::call:
-                context_type = "call";
-                break;
-    case parameter_init_kind::argument_construction:
-                context_type = "construct";
-                break;
-    case parameter_init_kind::conversion:
+        context_type = "call";
+        break;
+    case parameter_init_kind::bind_only:
+        context_type = "construct";
+        break;
+    case parameter_init_kind::implicit_conversion:
         context_type = "conversion";
     }
 
     std::cout << "Select for " << quxlang::to_string(input) << " in " << context_type << std::endl;
 
-    for (auto const & o : overloads)
+    for (auto const& o : overloads)
     {
         std::cout << "  Found overload: " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << std::endl;
     }
@@ -670,7 +668,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
         std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .init_kind = input.init_kind}));
 
-
         if (candidate)
         {
             std::size_t priority = o.priority.value_or(0);
@@ -687,8 +684,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
             }
         }
     }
-
-
 
     if (best_match.size() == 0)
     {

@@ -41,7 +41,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
         type_placement_info result;
         result.size = sz;
         result.alignment = sz;
-        result.alignment = std::min(result.alignment, c->m_output_info.max_int_align());
+        result.alignment = std::min<std::uint64_t>(result.alignment, c->m_output_info.max_int_align());
 
         co_return result;
     }

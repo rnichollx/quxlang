@@ -126,12 +126,28 @@ IMPORT foolib;
   RETURN yip(x);
 }
 
+::test_type_exprs FUNCTION()
+{
+  VAR x I32;
+  x := 4;
+
+  // ASSERT( SIZEOF(I32) == 4  );
+
+  ASSERT( SIZEOF(I32)  == x );
+
+  x := 32;
+
+  ASSERT( BITS(I32) == x );
+
+
+}
+
 
 ::xip FUNCTION() :I32
 {
   VAR x I32;
   x := 8;
-  ASSERT (x == 8);
+  ASSERT( x == 8 );
 
   test_dtor_executes();
   test_arry_pointers();
@@ -143,6 +159,7 @@ IMPORT foolib;
   test_array_arithmetic();
   test_roman_numeral();
   test_implicit_conversions();
+  test_type_exprs();
 
   RETURN 1;
 }

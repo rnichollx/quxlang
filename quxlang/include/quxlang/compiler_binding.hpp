@@ -42,6 +42,7 @@ namespace quxlang
         QUX_BIND(variable_type);
         QUX_BIND(class_default_dtor);
         QUX_BIND(class_default_ctor);
+        QUX_BIND(type_placement_info);
 
 
         auto& implicitly_convertible_to(type_symbol from, type_symbol to)

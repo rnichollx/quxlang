@@ -7,7 +7,7 @@
 
 namespace quxlang
 {
-    inline void advance_to_alignment(std::size_t & offset, std::size_t alignment)
+    inline void advance_to_alignment(std::uint64_t & offset, std::uint64_t alignment)
     {
         if (alignment == 0 || alignment == 1) return;
         offset = (offset + alignment - 1) & ~(alignment - 1);

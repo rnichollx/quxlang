@@ -44,7 +44,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_layout)
 
         this_field.offset = output.size;
         output.size += placement_info.size;
-        output.align = std::max(output.align, placement_info.alignment);
+        output.align = std::max<std::uint64_t>(output.align, placement_info.alignment);
         output.fields.push_back(this_field);
     }
 

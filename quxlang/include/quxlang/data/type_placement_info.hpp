@@ -11,8 +11,8 @@ namespace quxlang
 {
     struct type_placement_info
     {
-        std::size_t size;
-        std::size_t alignment;
+        std::uint64_t size;
+        std::uint64_t alignment;
 
         RPNX_MEMBER_METADATA(type_placement_info, size, alignment);
     };

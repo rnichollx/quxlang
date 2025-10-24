@@ -24,6 +24,42 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_call, callee, args);
     };
 
+    struct expression_bits
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_bits, of_type);
+    };
+
+    struct expression_sizeof
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_sizeof);
+    };
+
+    struct expression_is_integral
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_integral);
+    };
+
+    struct expression_is_signed
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_integral);
+    };
+
+    struct expression_is_same
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_same);
+    };
+
+
     struct delegate
     {
         // The name of the delegate

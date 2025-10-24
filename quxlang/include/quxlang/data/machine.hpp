@@ -4,6 +4,7 @@
 #define QUXLANG_DATA_MACHINE_HEADER_GUARD
 
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 
 #ifdef linux
@@ -50,12 +51,12 @@ namespace quxlang
 
         };
 
-        constexpr size_t max_int_align() const noexcept
+        constexpr std::uint64_t max_int_align() const noexcept
         {
             return 8;
         }
 
-        constexpr size_t pointer_align() const noexcept
+        constexpr std::uint64_t pointer_align() const noexcept
         {
             return pointer_size_bytes();
         }

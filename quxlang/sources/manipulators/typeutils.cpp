@@ -19,6 +19,26 @@ namespace quxlang
         {
         }
 
+        std::string operator()(expression_bits const & bits) const
+        {
+            return "BITS(" + to_string(bits.of_type) + ")";
+        }
+
+        std::string operator()(expression_sizeof const & bits) const
+        {
+            return "SIZEOF(" + to_string(bits.of_type) + ")";
+        }
+
+        std::string operator()(expression_is_signed const & bits) const
+        {
+            return "IS_SIGNED(" + to_string(bits.of_type) + ")";
+        }
+
+        std::string operator()(expression_is_integral const & bits) const
+        {
+            return "IS_INTEGRAL(" + to_string(bits.of_type) + ")";
+        }
+
         std::string operator()(expression_unary_postfix const& be) const
         {
             return "(" + to_string(be.lhs) + " " + be.operator_str + ")";
@@ -122,11 +142,6 @@ namespace quxlang
             return "TARGET" + expr.target;
         }
 
-        std::string operator()(expression_sizeof const& expr) const
-        {
-            return "SIZEOF(" + to_string(expr.what) + ")";
-        }
-
         std::string operator()(expression_char_literal const& expr) const
         {
             auto val = static_cast<char>(expr.value);
@@ -170,6 +185,7 @@ namespace quxlang
 
     struct qualified_symbol_stringifier
     {
+        std::string operator()(storage const& ref) const;
         std::string operator()(readonly_constant const& ref) const;
         std::string operator()(freebound_identifier const& ref) const;
         std::string operator()(context_reference const& ref) const;
@@ -258,6 +274,11 @@ namespace quxlang
       public:
         is_template_visitor()
         {
+        }
+
+        bool operator()(storage const & ref) const
+        {
+            return is_template(ref.storable_type);
         }
 
         bool operator()(readonly_constant const& ref) const
@@ -626,6 +647,10 @@ namespace quxlang
         return output;
     }
 
+    std::string qualified_symbol_stringifier::operator()(storage const& ref) const
+    {
+        return "STORAGE@{ " + to_string(ref.storable_type) + " }";
+    }
     std::string qualified_symbol_stringifier::operator()(readonly_constant const& ref) const
     {
         if (ref.kind == constant_kind::string)
@@ -1360,6 +1385,11 @@ namespace quxlang
             bool check_impl(auto_temploidic const& template_val, auto_temploidic const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(storage const & template_val, storage const& match_val, bool conv)
+            {
+                return check(template_val.storable_type, match_val.storable_type, conv);
             }
 
             bool check_impl(type_temploidic const& template_val, type_temploidic const& match_val, bool conv)

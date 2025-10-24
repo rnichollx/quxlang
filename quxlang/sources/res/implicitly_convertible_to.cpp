@@ -117,7 +117,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     // if a type can be bound by argument conversion, then it's implicitly convertible.
     // We skip this check if we're already in argument construction,
     // otherwise it would produce infinite recursion.
-    if (init_kind != parameter_init_kind::argument_construction)
+    if (init_kind != parameter_init_kind::bind_only)
     {
         std::cout << "  Checking argument conversion: " << from_str << " to " << to_str << std::endl;
         auto bindable_by_arg_construction = co_await QUX_CO_DEP(bindable_by_argument_construction, (implicitly_convertible_to_query{.from = from, .to = to}));
@@ -161,7 +161,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     }
 
     // Otherwise, unless this is a conversion, we can test if the type is convertible by constructor call
-    if (init_kind != parameter_init_kind::conversion && init_kind != parameter_init_kind::argument_construction)
+    if (init_kind != parameter_init_kind::implicit_conversion && init_kind != parameter_init_kind::bind_only)
     {
 
         auto convertible_by_call = co_await QUX_CO_DEP(convertible_by_call, (implicitly_convertible_to_query{.from = from, .to = to}));
@@ -286,7 +286,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_argument_construction)
 
     std::cout << " Checking bindable by argument construction: "<<  to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
 
-    auto init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::argument_construction}));
+    auto init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
 
     if (!init.has_value())
     {
@@ -324,7 +324,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(convertible_by_call)
 
     std::cout << "Ctor name: " << constructor_functum_name << std::endl;
 
-    auto call_param = initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::conversion};
+    auto call_param = initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::implicit_conversion};
 
     auto init = co_await QUX_CO_DEP(functum_initialize, (call_param));
 

@@ -4,6 +4,7 @@
 #define QUXLANG_DATA_FWD_HEADER_GUARD
 
 #include "rpnx/variant.hpp"
+
 namespace quxlang
 {
     struct absolute_module_reference;
@@ -37,8 +38,9 @@ namespace quxlang
     struct type_temploidic;
     struct freebound_identifier;
     struct byte_type;
+    struct storage;
 
-    using type_symbol = rpnx::variant< void_type, byte_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant >;
+    using type_symbol = rpnx::variant< void_type, byte_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage >;
 
     struct expression_multiply;
     struct expression_modulus;
@@ -64,7 +66,12 @@ namespace quxlang
     struct absolute_module_reference;
     struct expression_char_literal;
 
-    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal >;
+    struct expression_sizeof;
+    struct expression_bits;
+    struct expression_is_signed;
+    struct expression_is_integral;
+
+    using expression = rpnx::variant< expression_this_reference, expression_call, expression_symbol_reference, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral >;
 
 }; // namespace quxlang
 

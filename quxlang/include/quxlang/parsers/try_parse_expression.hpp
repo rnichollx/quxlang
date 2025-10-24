@@ -150,10 +150,44 @@ namespace quxlang::parsers
             have_anything = true;
         }
         else if (auto chr = try_parse_char_literal(pos, end); chr)
-        {;
+        {
             expression_char_literal chr_lit;
             chr_lit.value = chr.value();
             *value_bind_point = chr_lit;
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "SIZEOF"))
+        {
+            expression_sizeof sz;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after SIZEOF");
+            }
+            sz.of_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after SIZEOF(<type>");
+            }
+            *value_bind_point = sz;
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "BITS"))
+        {
+            expression_bits bits;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after SIZEOF");
+            }
+            bits.of_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after SIZEOF(<type>");
+            }
+            *value_bind_point = bits;
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "TARGET"))

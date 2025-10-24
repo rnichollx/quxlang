@@ -9,6 +9,7 @@
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/machine.hpp"
+#include "quxlang/data/type_placement_info.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
@@ -187,9 +188,9 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
         {
-            //std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            // std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             invotype calltype;
             for (auto& arg : args.positional)
@@ -217,7 +218,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = parameter_init_kind::call};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
 
             std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
@@ -239,7 +240,7 @@ namespace quxlang
 
             std::cout << "co_gen_call_functum selected instanciation: " << quxlang::to_string(*instanciation) << std::endl;
 
-            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args);
+            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, init_method);
         }
 
       private:
@@ -559,7 +560,7 @@ namespace quxlang
             codegen_invocation_args args;
             std::string callee_type_string2 = to_string(as< attached_type_reference >(callee_type));
 
-            //std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
+            // std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
 
             std::string callee_type_string3 = to_string(callee_type);
 
@@ -661,9 +662,8 @@ namespace quxlang
             return boolv;
         }
 
-        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< value_index >
         {
-            //std::cout << "gen_call_functanoid(" << quxlang::to_string(what) << ")" << quxlang::to_string(expression_args) << std::endl;
             auto const& call_args_types = what.params;
 
             // TODO: Support defaulted parameters.
@@ -695,8 +695,24 @@ namespace quxlang
                     // These both need to be references or the constructor will probably infinite loop.
                     assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
 
+                    parameter_init_kind arg_init_method;
+                    switch (init_method)
+                    {
+                    case parameter_init_kind::call:
+                        arg_init_method = parameter_init_kind::implicit_conversion;
+                        break;
+                    case parameter_init_kind::implicit_conversion:
+                        arg_init_method = parameter_init_kind::bind_only;
+                        break;
+                    case parameter_init_kind::bind_only:
+                        arg_init_method = parameter_init_kind::bind_only;
+                        break;
+                    default:
+                        rpnx::unimplemented();
+                    };
+
                     // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
-                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
+                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args, arg_init_method);
 
                     // When we complete the constructor of the argument, we need to queue the destructor of the argument.
                     // We also need to save the deferral so we can remove it from the deferral list prior to invoking
@@ -1132,7 +1148,7 @@ namespace quxlang
                             return lcv_result;
                         }
                     }
-                    else if ((cls->template type_is< int_type >()  || cls->template type_is<byte_type>() )&& other.type_is< numeric_literal_reference >())
+                    else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && other.type_is< numeric_literal_reference >())
                     {
                         auto other_slot_id = args.named.at("OTHER");
 
@@ -1419,8 +1435,201 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_sizeof szof) -> typename CoroutineProvider::template co_type< value_index >
         {
-            // TODO: implement this.
-            throw rpnx::unimplemented();
+            auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
+            if (!type_opt.has_value())
+            {
+                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+            }
+
+            auto type_val = type_opt.value();
+
+            auto const& genvalue = this->state.genvalues.at(type_val);
+
+            if (genvalue.template type_is< codegen_literal >())
+            {
+                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+            }
+
+            if (genvalue.template type_is< codegen_local >())
+            {
+                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got an object or reference instead.");
+            }
+
+            if (!genvalue.template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got something else instead.");
+            }
+            auto const& binding = genvalue.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+            }
+
+            auto const& attached_type = binding.attached_symbol;
+            assert(!type_is_contextual(attached_type));
+
+            symbol_kind kind = co_await prv.symbol_type(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
+            }
+
+            type_placement_info placement_info = co_await prv.type_placement_info(attached_type);
+
+            auto lit = this->create_numeric_literal(std::to_string(placement_info.size));
+
+            co_return lit;
+        }
+
+        auto co_generate(block_index& bidx, expression_bits szof) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
+            if (!type_opt.has_value())
+            {
+                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+            }
+
+            auto type_val = type_opt.value();
+
+            auto const& genvalue = this->state.genvalues.at(type_val);
+
+            if (genvalue.template type_is< codegen_literal >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+            }
+
+            if (genvalue.template type_is< codegen_local >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
+            }
+
+            if (!genvalue.template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got something else instead.");
+            }
+            auto const& binding = genvalue.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+            }
+
+            type_symbol const& attached_type = binding.attached_symbol;
+            assert(!type_is_contextual(attached_type));
+
+            symbol_kind kind = co_await prv.symbol_type(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
+            }
+
+            if (!attached_type.template type_is< int_type >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
+            }
+
+            int_type const& inttype = attached_type.template as< int_type >();
+            auto lit = this->create_numeric_literal(std::to_string(inttype.bits));
+
+            co_return lit;
+        }
+
+        auto co_generate(block_index& bidx, expression_is_signed szof) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
+            if (!type_opt.has_value())
+            {
+                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+            }
+
+            auto type_val = type_opt.value();
+
+            auto const& genvalue = this->state.genvalues.at(type_val);
+
+            if (genvalue.template type_is< codegen_literal >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+            }
+
+            if (genvalue.template type_is< codegen_local >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
+            }
+
+            if (!genvalue.template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got something else instead.");
+            }
+            auto const& binding = genvalue.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+            }
+
+            type_symbol const& attached_type = binding.attached_symbol;
+            assert(!type_is_contextual(attached_type));
+
+            symbol_kind kind = co_await prv.symbol_type(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
+            }
+
+            if (!attached_type.template type_is< int_type >())
+            {
+                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
+            }
+
+            int_type const& inttype = attached_type.template as< int_type >();
+            co_return this->create_bool_value(bidx, inttype.has_sign);
+        }
+
+        auto co_generate(block_index& bidx, expression_is_integral szof) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
+            if (!type_opt.has_value())
+            {
+                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+            }
+
+            auto type_val = type_opt.value();
+
+            auto const& genvalue = this->state.genvalues.at(type_val);
+
+            if (genvalue.template type_is< codegen_literal >())
+            {
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+            }
+
+            if (genvalue.template type_is< codegen_local >())
+            {
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got an object or reference instead.");
+            }
+
+            if (!genvalue.template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got something else instead.");
+            }
+            auto const& binding = genvalue.template get_as< codegen_binding >();
+            if (binding.bound_value != value_index(0))
+            {
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+            }
+
+            type_symbol const& attached_type = binding.attached_symbol;
+            assert(!type_is_contextual(attached_type));
+
+            symbol_kind kind = co_await prv.symbol_type(attached_type);
+            if (kind != symbol_kind::class_)
+            {
+                co_return this->create_bool_value(bidx, false);
+            }
+
+            if (!attached_type.template type_is< int_type >())
+            {
+                co_return this->create_bool_value(bidx, false);
+            }
+
+            co_return this->create_bool_value(bidx, true);
         }
 
         auto co_generate(block_index& bidx, expression_this_reference expr) -> typename CoroutineProvider::template co_type< value_index >

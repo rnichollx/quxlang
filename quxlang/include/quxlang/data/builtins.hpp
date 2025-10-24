@@ -16,12 +16,6 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_target, target);
     };
 
-    struct expression_sizeof
-    {
-        type_symbol what;
-
-        RPNX_MEMBER_METADATA(expression_sizeof, what);
-    };
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_BUILTINS_HEADER

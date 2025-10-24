@@ -9,15 +9,15 @@
 
 namespace quxlang::questions
 {
-    struct class_placement_info
+    struct class_placement_info_q
     {
     };
 
-    struct type_placement_info
+    struct type_placement_info_q
     {
     };
 
-    struct asm_procedure
+    struct asm_procedure_q
     {
     };
 
@@ -26,21 +26,21 @@ namespace quxlang::questions
 namespace rpnx
 {
     template <>
-    struct question_traits< quxlang::questions::class_placement_info >
+    struct question_traits< quxlang::questions::class_placement_info_q >
     {
         using input_type = quxlang::type_symbol;
-        using output_type = quxlang::questions::class_placement_info;
+        using output_type = quxlang::questions::class_placement_info_q;
     };
 
     template <>
-    struct question_traits< quxlang::questions::type_placement_info >
+    struct question_traits< quxlang::questions::type_placement_info_q >
     {
         using input_type = quxlang::type_symbol;
-        using output_type = quxlang::questions::type_placement_info;
+        using output_type = quxlang::questions::type_placement_info_q;
     };
 
     template <>
-    struct question_traits< quxlang::questions::asm_procedure >
+    struct question_traits< quxlang::questions::asm_procedure_q >
     {
         using input_type = quxlang::type_symbol;
         using output_type = quxlang::asm_procedure;

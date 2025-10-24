@@ -21,7 +21,7 @@ RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, 
 RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data,  numeric, string, cstring);
-RPNX_ENUM(quxlang, parameter_init_kind, std::uint8_t, none, call, conversion, argument_construction);
+RPNX_ENUM(quxlang, parameter_init_kind, std::uint8_t, none, call, implicit_conversion, bind_only);
 
 
 namespace quxlang
@@ -60,6 +60,8 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(invotype, named, positional);
     };
+
+
 
     struct declared_parameter
     {
@@ -149,17 +151,12 @@ namespace quxlang
     {
         intertype interface;
         std::optional< std::int32_t > priority;
+        std::optional< expression > enable_if;
 
-        RPNX_MEMBER_METADATA(temploid_ensig, interface, priority);
+        RPNX_MEMBER_METADATA(temploid_ensig, interface, priority, enable_if);
     };
 
 
-    struct builtin_kw
-    {
-        std::string name;
-
-        RPNX_MEMBER_METADATA(builtin_kw, name);
-    };
 
 
 
@@ -356,6 +353,20 @@ namespace quxlang
         type_symbol carrying_type;
         type_symbol attached_symbol;
         RPNX_MEMBER_METADATA(attached_type_reference, carrying_type, attached_symbol);
+    };
+
+    struct keyword_symbol
+    {
+        std::string name;
+
+        RPNX_MEMBER_METADATA(keyword_symbol, name);
+    };
+
+    struct storage
+    {
+        type_symbol storable_type;
+
+        RPNX_MEMBER_METADATA(storage, storable_type);
     };
 
     std::string to_string(type_symbol const&);
