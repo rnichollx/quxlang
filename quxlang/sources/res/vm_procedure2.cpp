@@ -2,8 +2,6 @@
 
 #include "quxlang/compiler_binding.hpp"
 #include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
-#include "quxlang/res/expr/co_vmir_expression_emitter.hpp"
-#include "quxlang/res/expr/co_vmir_routine_emitter.hpp"
 #include <quxlang/compiler.hpp>
 #include <quxlang/res/vm_procedure2.hpp>
 

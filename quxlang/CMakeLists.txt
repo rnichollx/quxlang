@@ -172,7 +172,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/include_if.hpp
         include/quxlang/parsers/expression/target.hpp
         include/quxlang/data/builtins.hpp
-        include/quxlang/res/expr/co_vmir_expression_emitter.hpp
         sources/co_vmir_emitter.cpp
         include/quxlang/data/function_header.hpp
         include/quxlang/res/functum.hpp

@@ -19,6 +19,7 @@
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"
 #include "rpnx/uint64_base.hpp"
+#include <quxlang/res/constexpr.hpp>
 
 #include <assert.h>
 #include <quxlang/macros.hpp>
@@ -101,6 +102,8 @@ namespace quxlang
         std::map< std::string, value_index > top_level_lookups_weak;
         type_symbol context;
         std::optional< instanciation_reference > functanoid_type;
+
+        std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > scoped_definitions;
     };
 
     struct codegen_invocation_args
@@ -131,6 +134,11 @@ namespace quxlang
       public:
         co_vmir_generator(CoroutineProvider prv, type_symbol ctx) : prv(prv), ctx(ctx)
         {
+        }
+
+        auto set_scoped_definitions(std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > defs) -> void
+        {
+            this->state.scoped_definitions = std::move(defs);
         }
 
         auto co_generate_constexpr_eval(expression expr, type_symbol type) -> typename CoroutineProvider::template co_type< vmir2::functanoid_routine3 >

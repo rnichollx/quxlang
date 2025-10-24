@@ -16,7 +16,7 @@ namespace quxlang
     // e.g. `::foo#(TEMP &I32, CONST & I32)` -> `::foo#[I32, I32](I32, I32)`
     QUX_CO_RESOLVER(instanciation, initialization_reference, std::optional< instanciation_reference >);
 
-    QUX_CO_RESOLVER(instanciation_parameter_map, instanciation_reference, temploid_instanciation_parameter_set);
+    QUX_CO_RESOLVER(instanciation_tempar_map, instanciation_reference, temploid_instanciation_parameter_set);
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_INSTANCIATION_HEADER

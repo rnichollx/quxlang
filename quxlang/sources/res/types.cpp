@@ -90,7 +90,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
                 // Two possibilities, 1 = this is a template, 2 = this is a function
                 instanciation_reference inst = as< instanciation_reference >(*current_context);
 
-                auto param_set = co_await QUX_CO_DEP(instanciation_parameter_map, (inst));
+                auto param_set = co_await QUX_CO_DEP(instanciation_tempar_map, (inst));
 
                 QUXLANG_DEBUG({
                     std::cout << "Param set, name=" << name << std::endl;

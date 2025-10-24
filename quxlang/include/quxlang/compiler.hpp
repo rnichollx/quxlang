@@ -149,7 +149,7 @@ namespace quxlang
         COMPILER_INDEX(class_trivially_destructible)
         COMPILER_INDEX(instanciation)
         COMPILER_INDEX(template_instanciation_parameter_set)
-        COMPILER_INDEX(instanciation_parameter_map)
+        COMPILER_INDEX(instanciation_tempar_map)
         COMPILER_INDEX(templexoid_user_header_list)
         COMPILER_INDEX(templexoid_user_ensig_set)
         COMPILER_INDEX(templexoid_ensig_set)

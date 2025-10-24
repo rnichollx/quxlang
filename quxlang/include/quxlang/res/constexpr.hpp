@@ -8,14 +8,17 @@
 
 #include <quxlang/res/resolver.hpp>
 
+#include <quxlang/data/constexpr.hpp>
+
 namespace quxlang
 {
     struct constexpr_input
     {
         expression expr;
         type_symbol context;
+        std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > scoped_definitions;
 
-        RPNX_MEMBER_METADATA(constexpr_input, expr, context);
+        RPNX_MEMBER_METADATA(constexpr_input, expr, context, scoped_definitions);
     };
 
     struct constexpr_input2
@@ -24,16 +27,12 @@ namespace quxlang
         type_symbol context;
         type_symbol type;
 
-        RPNX_MEMBER_METADATA(constexpr_input2, expr, context, type);
+        std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > scoped_definitions;
+
+        RPNX_MEMBER_METADATA(constexpr_input2, expr, context, type, scoped_definitions);
     };
 
-    struct constexpr_result
-    {
-        cow<type_symbol> type;
-        cow<std::vector<std::byte>> value;
 
-        RPNX_MEMBER_METADATA(constexpr_result, type, value);
-    };
 
     QUX_CO_RESOLVER(constexpr_bool, constexpr_input, bool);
     QUX_CO_RESOLVER(constexpr_u64, constexpr_input, std::uint64_t);

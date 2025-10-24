@@ -38,13 +38,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_u64)
     constexpr_input2 inp;
     inp.context = input_val.context;
     inp.expr = input_val.expr;
-    inp.type = int_type{.bits=64, .has_sign=false}; // We want a boolean result
+    inp.type = int_type{.bits = 64, .has_sign = false}; // We want a boolean result
 
     auto eval = co_await QUX_CO_DEP(constexpr_eval, (inp));
 
     auto data = eval.value.get();
 
-    auto [intval, ok] = bytemath::le_to_u<std::uint64_t>(data);
+    auto [intval, ok] = bytemath::le_to_u< std::uint64_t >(data);
     if (!ok)
     {
         throw compiler_bug("Error in constexpr_u64: result is not a valid u64");
@@ -96,7 +96,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
     interp.exec3(void_type{});
 
     auto val = interp.get_cr_value();
-    val.type = type_symbol( bool_type{});
+    val.type = type_symbol(bool_type{});
     co_return val;
-
 }

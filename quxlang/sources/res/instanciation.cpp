@@ -7,7 +7,7 @@
 #include "quxlang/res/function.hpp"
 #include "quxlang/compiler.hpp"
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation_parameter_map)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation_tempar_map)
 {
     temploid_reference func_name = input.temploid;
 
