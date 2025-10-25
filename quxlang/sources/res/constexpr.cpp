@@ -13,6 +13,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_bool)
     inp.context = input_val.context;
     inp.expr = input_val.expr;
     inp.type = bool_type{}; // We want a boolean result
+    inp.scoped_definitions = input_val.scoped_definitions;
 
     auto eval = co_await QUX_CO_DEP(constexpr_eval, (inp));
 
@@ -59,6 +60,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_routine)
     std::vector< bool > temp;
     quxlang::compiler_binder binder(c);
     co_vmir_generator< quxlang::compiler_binder > emitter(binder, input.context);
+    emitter.set_scoped_definitions(input.scoped_definitions);
     auto result = co_await emitter.co_generate_constexpr_eval(input.expr, input.type);
 
     co_return result;
@@ -68,12 +70,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(constexpr_eval)
 {
     vmir2::ir2_constexpr_interpreter interp;
 
-    auto ir3 = co_await QUX_CO_DEP(constexpr_routine, (constexpr_input2{input.expr, input.context, input.type}));
-
-    constexpr_input2 inp;
-    inp.context = input_val.context;
-    inp.expr = input_val.expr;
-    inp.type = bool_type{}; // We want a boolean result
+    auto ir3 = co_await QUX_CO_DEP(constexpr_routine, (input));
 
     interp.add_functanoid3(void_type{}, ir3);
 

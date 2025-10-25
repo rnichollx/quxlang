@@ -15,6 +15,7 @@
 #include <quxlang/macros.hpp>
 #include <quxlang/res/function.hpp>
 #include <quxlang/res/functum.hpp>
+#include <quxlang/res/instanciation.hpp>
 
 using namespace quxlang;
 
@@ -512,6 +513,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
     auto preargs = input.params;
     // TODO: support default values for arguments
 
+   
+
     auto val = this;
 
     std::string to = to_string(os.interface);
@@ -586,6 +589,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
     }
 
     std::cout << "Function ensig init with " << to_string(input.ensig.interface) << " with " << to_string(input.params) << " yields " << to_string(result) << "\n";
+
+    
 
 
 
@@ -670,6 +675,35 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         std::cout << "  " << ss.str() << std::endl;
 
         std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .init_kind = input.init_kind}));
+
+        // Evaluate ENABLE_IF in the proper context after instantiation
+        if (candidate && o.enable_if)
+        {
+            constexpr_input cx_input;
+            cx_input.expr = *o.enable_if;
+            // Use the parent of the functum symbol as context when available
+            cx_input.context = type_parent(input.initializee).value_or(context_reference{});
+            // Load instantiated named parameters into constexpr scoped definitions
+            for (auto const& [n, t] : candidate->named)
+            {
+                cx_input.scoped_definitions[n] = t;
+            }
+            // Also load ensig template parameters (tempars) mapped during instantiation
+            {
+                temploid_reference tr{.templexoid = input.initializee, .which = o};
+                instanciation_reference inst{.temploid = tr, .params = *candidate};
+                auto tempar_map = co_await QUX_CO_DEP(instanciation_tempar_map, (inst));
+                for (auto const& [name, t] : tempar_map.parameter_map)
+                {
+                    cx_input.scoped_definitions[name] = t;
+                }
+            }
+            bool include = co_await QUX_CO_DEP(constexpr_bool, (cx_input));
+            if (!include)
+            {
+                candidate.reset();
+            }
+        }
 
         if (candidate)
         {
@@ -757,6 +791,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
         auto const& decl = decls.at(i);
         temploid_ensig formal_ensig;
         formal_ensig.priority = decl.priority;
+        formal_ensig.enable_if = decl.enable_if;
         for (auto const& param : decl.interface.named)
         {
             contextual_type_reference declared_type_with_context;

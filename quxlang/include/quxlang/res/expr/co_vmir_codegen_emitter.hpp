@@ -342,6 +342,7 @@ namespace quxlang
 
         auto local_value_direct_lookup(block_index bidx, std::string str) -> std::optional< value_index >
         {
+
             auto it = this->state.blocks.at(bidx).lookup_values.find(str);
             if (it != this->state.blocks.at(bidx).lookup_values.end())
             {
@@ -358,6 +359,8 @@ namespace quxlang
             {
                 return weak_it->second;
             }
+
+
             return std::nullopt;
         }
 
@@ -474,6 +477,42 @@ namespace quxlang
                     assert(!type_is_contextual(lookup_type));
 
                     co_return lookup;
+                }
+                else
+                {
+                    if (name == "t1")
+                    {
+                        int debugbrk = 0;
+                        for (auto& [k, v] : this->state.scoped_definitions)
+                        {
+                            if (v.template type_is<type_symbol>())
+                            {
+                                auto def_type = v.template get_as< type_symbol >();
+                                assert(!type_is_contextual(def_type));
+                                std::cout << " scoped def: " << k << " = " << quxlang::to_string(def_type) << std::endl;
+                            }
+                            else
+                            {
+                                std::cout << " scoped def: " << k << " = CONSTEXPR" << std::endl;
+                            }
+                        }
+                    }
+                    if (this->state.scoped_definitions.contains(name))
+                    {
+                        auto const& def = this->state.scoped_definitions.at(name);
+                        if (def.template type_is< type_symbol >())
+                        {
+                            auto def_type = def.template get_as< type_symbol >();
+                            assert(!type_is_contextual(def_type));
+                            auto binding = this->create_binding(value_index(0), def_type);
+                            co_return binding;
+                        }
+                        else
+                        {
+                            // CONSTEXPR declaration
+                            throw rpnx::unimplemented();
+                        }
+                    }
                 }
             }
             auto canonical_symbol_opt = co_await prv.lookup(contextual_type_reference{.context = ctx, .type = sym});

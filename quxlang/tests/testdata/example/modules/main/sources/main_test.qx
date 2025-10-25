@@ -143,6 +143,51 @@ IMPORT foolib;
 }
 
 
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < I32(@OTHER 32) ): I32
+{
+  RETURN 1;
+}
+
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) == I32(@OTHER 32) ): I32
+{
+  RETURN 2;
+}
+
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) > I32(@OTHER 32) ): I32
+{
+  RETURN 3;
+}
+::test_include_if_overloads FUNCTION()
+{
+    VAR x I32;
+
+    x := include_if_helper( I16(@OTHER 99) );
+    ASSERT( x == 3 );
+    ASSERT( x == 1 );
+
+    VAR b BOOL;
+    b := BITS(I16) < I32(@OTHER 32);
+    ASSERT( b == TRUE );
+
+    x := include_if_helper(I32(@OTHER 0));
+    ASSERT( x == 2 );
+
+    x := include_if_helper(I64(@OTHER 0));
+    ASSERT( x == 3 );
+}
+
+::test_bits FUNCTION()
+{
+   VAR xbits I32;
+
+
+   xbits := BITS(I32);
+
+   ASSERT(xbits == 32);
+
+
+}
+
 ::constexpr_test_suite FUNCTION() :I32
 {
   VAR x I32;
@@ -160,6 +205,8 @@ IMPORT foolib;
   test_roman_numeral();
   test_implicit_conversions();
   test_type_exprs();
+  test_bits();
+  test_include_if_overloads();
 
   RETURN 1;
 }
