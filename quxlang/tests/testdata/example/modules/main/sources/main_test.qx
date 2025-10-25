@@ -162,18 +162,45 @@ IMPORT foolib;
     VAR x I32;
 
     x := include_if_helper( I16(@OTHER 99) );
-    ASSERT( x == 3 );
     ASSERT( x == 1 );
-
-    VAR b BOOL;
-    b := BITS(I16) < I32(@OTHER 32);
-    ASSERT( b == TRUE );
 
     x := include_if_helper(I32(@OTHER 0));
     ASSERT( x == 2 );
 
     x := include_if_helper(I64(@OTHER 0));
     ASSERT( x == 3 );
+}
+
+::test_rhs_comparisons FUNCTION()
+{
+    VAR x I32 := 5;
+
+    ASSERT( x == 5 );
+    ASSERT( 5 == x );
+
+    ASSERT( x != 6 );
+    ASSERT( 6 != x );
+
+    ASSERT( x < 6 );
+    ASSERT( 4 < x );
+
+    ASSERT( x > 4 );
+    ASSERT( 6 > x );
+
+    ASSERT( x >= 5 );
+    ASSERT( 6 >= x );
+
+    ASSERT( x <= 6 );
+    ASSERT( 5 <= x );
+
+
+
+
+
+
+    ASSERT( x >= 4 );
+    ASSERT( 4 <= x );
+
 }
 
 ::test_bits FUNCTION()
@@ -184,6 +211,11 @@ IMPORT foolib;
    xbits := BITS(I32);
 
    ASSERT(xbits == 32);
+
+   VAR b BOOL;
+   b := BITS(I16) < I32(@OTHER 32);
+
+   ASSERT( b == TRUE );
 
 
 }
@@ -205,6 +237,7 @@ IMPORT foolib;
   test_roman_numeral();
   test_implicit_conversions();
   test_type_exprs();
+  test_rhs_comparisons();
   test_bits();
   test_include_if_overloads();
 

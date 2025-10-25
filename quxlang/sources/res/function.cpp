@@ -424,6 +424,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         {
             allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
         }
+
+        // Equality/inequality for bool
+        if (is_bool_type && basic_compare_operators.contains(operator_name))
+        {
+            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
+        }
+
         if (typeis< ptrref_type >(parent))
         {
             ptrref_type const& ptr = as< ptrref_type >(parent);

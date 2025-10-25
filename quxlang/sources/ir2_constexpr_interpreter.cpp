@@ -1400,7 +1400,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
 {
-    throw rpnx::unimplemented();
+    auto a = slot_consume_data(cne.a);
+    auto b = slot_consume_data(cne.b);
+
+    assert(a.size() == b.size());
+
+    if (a != b)
+    {
+        set_data(cne.result, {std::byte(1)});
+    }
+    else
+    {
+        set_data(cne.result, {std::byte(0)});
+    }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_lt const& clt)
 {
@@ -1433,7 +1445,32 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
 {
-    throw rpnx::unimplemented();
+    auto a = slot_consume_data(cge.a);
+    auto b = slot_consume_data(cge.b);
+
+    assert(a.size() == b.size());
+
+    // Compare from most-significant byte to least
+    for (std::size_t i = a.size() - 1; true; i--)
+    {
+        if (a[i] > b[i])
+        {
+            set_data(cge.result, {std::byte(1)});
+            return;
+        }
+        if (a[i] < b[i])
+        {
+            set_data(cge.result, {std::byte(0)});
+            return;
+        }
+        if (i == 0)
+        {
+            break;
+        }
+    }
+
+    // Equal values => a >= b
+    set_data(cge.result, {std::byte(1)});
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& ceq)

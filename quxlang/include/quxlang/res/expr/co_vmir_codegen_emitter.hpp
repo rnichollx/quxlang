@@ -985,7 +985,9 @@ namespace quxlang
         template < typename Inst >
         bool implement_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, bool enable_rhs, submember const& member, invotype const& call, codegen_invocation_args const& args, bool flip = false)
         {
-            if (member.name == "OPERATOR" + operator_str || (member.name == "OPERATOR" + operator_str + "RHS" && enable_rhs))
+            bool is_normal = (member.name == "OPERATOR" + operator_str);
+            bool is_rhs = (member.name == "OPERATOR" + operator_str + "RHS");
+            if (is_normal || (is_rhs && enable_rhs))
             {
 
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 3)
@@ -997,7 +999,10 @@ namespace quxlang
 
                     instr.a = this_slot_id;
                     instr.b = other_slot_id;
-                    if (flip)
+                    // For RHS operator implementations, the operands are logically flipped (OTHER op THIS).
+                    // Apply swap when either explicit flip is requested (for mapping >, >=) or when using RHS.
+                    bool final_flip = flip ^ is_rhs;
+                    if (final_flip)
                     {
                         std::swap(instr.a, instr.b);
                     }
@@ -1338,6 +1343,18 @@ namespace quxlang
                 }
             }
             else if (cls->template type_is< byte_type >())
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                {
+                    return instr;
+                }
+            }
+            else if (cls->template type_is< bool_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
                 if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
