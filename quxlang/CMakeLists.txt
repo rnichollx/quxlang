@@ -30,7 +30,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         sources/res/symbol_canonical_chain_exists_resolver.cpp
         include/quxlang/data/vm_expr_bound_value.hpp
         sources/manipulators/typeutils.cpp
-        sources/manipulators/qualified_symbol_stringifier.cpp
         include/quxlang/data/vm_expr_load_literal.hpp
         include/quxlang/data/vm_expr_access_field.hpp
         include/quxlang/res/symbol_is_primitive_resolver.hpp

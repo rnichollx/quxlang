@@ -59,6 +59,15 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_is_same);
     };
 
+    struct expression_typecast
+    {
+        expression expr;
+        type_symbol to_type;
+        std::optional< std::string > keyword;
+
+        RPNX_MEMBER_METADATA(expression_typecast, expr, to_type, keyword);
+    };
+
 
     struct delegate
     {

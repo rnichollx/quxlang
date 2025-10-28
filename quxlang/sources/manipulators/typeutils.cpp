@@ -19,22 +19,36 @@ namespace quxlang
         {
         }
 
-        std::string operator()(expression_bits const & bits) const
+        std::string operator()(expression_bits const& bits) const
         {
             return "BITS(" + to_string(bits.of_type) + ")";
         }
 
-        std::string operator()(expression_sizeof const & bits) const
+        std::string operator()(expression_typecast const& cast) const
+        {
+            std::string result = "( " + to_string(cast.expr) + " AS ";
+
+            if (cast.keyword)
+            {
+                result += cast.keyword.value() + " ";
+            }
+
+            result += to_string(cast.to_type) + " )";
+
+            return result;
+        }
+
+        std::string operator()(expression_sizeof const& bits) const
         {
             return "SIZEOF(" + to_string(bits.of_type) + ")";
         }
 
-        std::string operator()(expression_is_signed const & bits) const
+        std::string operator()(expression_is_signed const& bits) const
         {
             return "IS_SIGNED(" + to_string(bits.of_type) + ")";
         }
 
-        std::string operator()(expression_is_integral const & bits) const
+        std::string operator()(expression_is_integral const& bits) const
         {
             return "IS_INTEGRAL(" + to_string(bits.of_type) + ")";
         }
@@ -49,12 +63,10 @@ namespace quxlang
             return "(" + be.operator_str + " " + to_string(be.rhs) + ")";
         }
 
-        std::string operator()(expression_value_keyword const & kw) const
+        std::string operator()(expression_value_keyword const& kw) const
         {
             return kw.keyword;
         }
-
-
 
         std::string operator()(expression_multibind const& brkts) const
         {
@@ -115,8 +127,6 @@ namespace quxlang
             return "(" + to_string(expr.lhs) + " && " + to_string(expr.rhs) + ")";
         }
 
-
-
         std::string operator()(expression_binary const& expr) const
         {
             return "(" + to_string(expr.lhs) + " " + expr.operator_str + " " + to_string(expr.rhs) + ")";
@@ -144,7 +154,7 @@ namespace quxlang
 
         std::string operator()(expression_char_literal const& expr) const
         {
-            auto val = static_cast<char>(expr.value);
+            auto val = static_cast< char >(expr.value);
 
             if (val == '\n')
                 return "'\\n'";
@@ -276,7 +286,7 @@ namespace quxlang
         {
         }
 
-        bool operator()(storage const & ref) const
+        bool operator()(storage const& ref) const
         {
             return is_template(ref.storable_type);
         }
@@ -301,7 +311,7 @@ namespace quxlang
             return is_template(ref.of);
         }
 
-        bool operator()(size_type const &)
+        bool operator()(size_type const&)
         {
             return false;
         }
@@ -524,8 +534,6 @@ namespace quxlang
         return "[" + to_string(arr.element_count) + "] " + to_string(arr.element_type);
     }
 
-
-
     std::string qualified_symbol_stringifier::operator()(ptrref_type const& ref) const
     {
         std::string output;
@@ -713,7 +721,7 @@ namespace quxlang
     }
     std::string qualified_symbol_stringifier::operator()(absolute_module_reference const& ref) const
     {
-            return "MODULE(" + ref.module_name + ")";
+        return "MODULE(" + ref.module_name + ")";
     }
     std::string qualified_symbol_stringifier::operator()(submember const& ref) const
     {
@@ -965,7 +973,7 @@ namespace quxlang
             template_match_results output;
             auto name = as< auto_temploidic >(template_type).name;
 
-            type_symbol const * type_target = nullptr;
+            type_symbol const* type_target = nullptr;
             if (type.type_is< ptrref_type >() && type.as< ptrref_type >().ptr_class == pointer_class::ref)
             {
                 type_target = &as< ptrref_type >(type).target;
@@ -1148,8 +1156,6 @@ namespace quxlang
         return std::nullopt;
     }
 
-
-
     std::string to_string(argif const& arg)
     {
         std::string output;
@@ -1210,7 +1216,6 @@ namespace quxlang
         output += ")";
         return output;
     }
-
 
     std::string to_string(vmir2::routine_parameters const& ref)
     {
@@ -1376,7 +1381,6 @@ namespace quxlang
             bool check(intertype template_ct, intertype match_ct, bool conv);
             bool check(type_symbol template_val, type_symbol match_val, bool conv);
 
-
             bool check_impl(byte_type, byte_type, bool conv)
             {
                 return true;
@@ -1387,7 +1391,7 @@ namespace quxlang
                 throw compiler_bug("should be unreachable");
             }
 
-            bool check_impl(storage const & template_val, storage const& match_val, bool conv)
+            bool check_impl(storage const& template_val, storage const& match_val, bool conv)
             {
                 return check(template_val.storable_type, match_val.storable_type, conv);
             }
@@ -1413,7 +1417,7 @@ namespace quxlang
 
             bool check_impl(freebound_identifier const& template_val, freebound_identifier const& match_val, bool conv)
             {
-               throw compiler_bug("can't use a freebound identifier as a template parameter");
+                throw compiler_bug("can't use a freebound identifier as a template parameter");
             }
 
             bool check_impl(ptrref_type const& template_val, ptrref_type const& match_val, bool conv)
@@ -1425,7 +1429,6 @@ namespace quxlang
 
                 return check(template_val.target, match_val.target, true);
             }
-
 
             bool check_impl(size_type const& template_val, size_type const& match_val, bool conv)
             {
@@ -1696,7 +1699,6 @@ namespace quxlang
                     return true;
                 }
             }
-
 
             if (is_auto_ref(template_val))
             {

@@ -196,6 +196,11 @@ namespace quxlang
             co_return result;
         }
 
+        auto co_gen_conversion(block_index & bidx, value_index val, type_symbol target_type, parameter_init_kind conversion_type) -> typename CoroutineProvider::template co_type< value_index >
+        {
+        }
+
+
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
         {
             // std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;

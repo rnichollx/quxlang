@@ -45,32 +45,34 @@ namespace quxlang::parsers
                 {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},
 
                 // Division and modulus
-                {"/", 3}, {"%", 3},
+                {"/", 4}, {"%", 4},
 
                 // Addition and subtraction
-                {"+", 4}, {"-", 4}, // regular
+                {"+", 5}, {"-", 5}, // regular
                 // TODO:
-                //{"+~", 4}, {"-~", 4}, // wrap-around
-                //{"+!", 4}, {"-!", 4}, // undefined overflow
+                //{"+~", 5}, {"-~", 5}, // wrap-around
+                //{"+!", 5}, {"-!", 5}, // undefined overflow
 
                 // Multiplication
-                {"*", 5},
+                {"*", 6},
 
                 // Exponenciation
-                {"^", 6},
+                {"^", 7},
 
                 // Bitwise operators per docs (prefix with '#')
-                {"#&&", 7}, // bitwise and
-                {"#&!", 7}, // bitwise nand
-                {"#^^", 7}, // bitwise xor
-                {"#|!", 7}, // bitwise nor
-                {"#||", 7}, // bitwise or
-                {"#^->", 7}, // bitwise implies (A implies B)
-                {"#^<-", 7}, // bitwise implied (B implies A)
-                {"#^!", 7}, // bitwise equivalent (nxor)
-
-                // Bitwise shift and rotation operators per docs
-                {"#++", 7}, {"#--", 7}, {"#+%", 7}, {"#-%", 7} // clang-format on
+                {"#&&", 8}, // bitwise and
+                {"#&!", 8}, // bitwise nand
+                {"#^^", 8}, // bitwise xor
+                {"#|!", 8}, // bitwise nor
+                {"#||", 8}, // bitwise or
+                {"#^->", 8}, // bitwise implies (A implies B)
+                {"#^<-", 8}, // bitwise implied (B implies A)
+                {"#^!", 8}, // bitwise equivalent (nxor)
+                {"#++", 8}, // bitwise shift up
+                {"#--", 8}, // bitwise shift down
+                {"#+%", 8}, // bitwise up-rotate
+                {"#-%", 8}  // bitwise down-rotate
+                // clang-format on
             };
 
             std::string sym = peek_symbol(pos, end);
@@ -115,7 +117,7 @@ namespace quxlang::parsers
         expression result;
         std::vector< expression* > bindings;
 
-        bindings.resize(9);
+        bindings.resize(10);
 
         for (auto& binding : bindings)
         {
@@ -272,6 +274,41 @@ namespace quxlang::parsers
             expression* binding_point2 = bindings[bindings.size() - 1];
             call.value().callee = std::move(*binding_point2);
             *binding_point2 = quxlang::expression(call.value());
+            goto next_operator;
+        }
+        else if (skip_keyword_if_is(pos, end, "AS"))
+        {
+            // Type cast operator with precedence level 3
+            // Bind like a binary operator at priority 3, but the RHS is a type symbol
+            expression_typecast tc;
+
+            skip_whitespace_and_comments(pos, end);
+            if (auto kw = skip_keyword_if_one_of(pos, end, { "NARROWING", "WRAP", "CHECKED" }); kw)
+            {
+                tc.keyword = *kw;
+                skip_whitespace_and_comments(pos, end);
+            }
+
+            // Parse the destination type
+            auto to_type = try_parse_type_symbol(pos, end);
+            if (!to_type)
+            {
+                throw std::logic_error("Expected type after AS (optional NARROWING/WRAP/CHECKED)");
+            }
+            tc.to_type = *to_type;
+
+            // Insert the node at precedence level 3
+            expression* binding_point2 = bindings[3];
+            tc.expr = std::move(*binding_point2);
+            *binding_point2 = quxlang::expression(std::move(tc));
+
+            // For higher-precedence operators, they should bind to the result of the cast
+            for (int i = 4; i < bindings.size(); ++i)
+            {
+                bindings[i] = binding_point2;
+            }
+
+            // Continue parsing more postfix/operators
             goto next_operator;
         }
         else if (skip_symbol_if_is(pos, end, "."))
