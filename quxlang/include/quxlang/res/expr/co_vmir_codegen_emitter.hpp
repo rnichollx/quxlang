@@ -213,7 +213,6 @@ namespace quxlang
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
-                    // arg_type = nvalue_slot{arg_type};
                 }
                 calltype.positional.push_back(arg_type);
             }
@@ -222,7 +221,7 @@ namespace quxlang
                 auto arg_type = current_type(bidx, arg);
                 bool is_alive = value_alive(bidx, arg);
 
-                std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
+                //std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
@@ -233,7 +232,7 @@ namespace quxlang
 
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
 
-            std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
+            // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
 
@@ -551,13 +550,6 @@ namespace quxlang
             co_return index;
         }
 
-        auto co_gen_idx_conversion(value_index idx, type_symbol to_type) -> typename CoroutineProvider::template co_type< value_index >
-        {
-            codegen_invocation_args args;
-            args.named["OTHER"] = idx;
-            co_return co_await co_gen_call_ctor(to_type, std::move(args));
-        }
-
         auto co_gen_call_ctor(block_index& bidx, type_symbol new_type, codegen_invocation_args args) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
@@ -568,7 +560,6 @@ namespace quxlang
             assert(retval == 0);
 
             auto dtor = co_await prv.class_default_dtor(new_type);
-            std::cout << "gen_call_ctor A(" << quxlang::to_string(new_type) << ") dtor" << (dtor ? "Y" : "N") << std::endl;
             if (dtor)
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
@@ -1932,6 +1923,19 @@ namespace quxlang
             auto val_type = this->current_type(bidx, val);
             QUXLANG_DEBUG({ std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl; });
             co_return val;
+        }
+
+        auto co_generate(block_index& bidx, expression_typecast input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            // Conversions call the destination type's constructor with a named argument.
+            // Default name is "OTHER"; if a keyword is present (e.g., NARROWING/WRAP/CHECKED), use that instead.
+            auto arg_val = co_await co_generate_expr(bidx, input.expr);
+
+            codegen_invocation_args args;
+            auto name = input.keyword.has_value() ? *input.keyword : std::string("OTHER");
+            args.named[name] = arg_val;
+
+            co_return co_await co_gen_call_ctor(bidx, input.to_type, args);
         }
 
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< value_index >

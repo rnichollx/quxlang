@@ -143,17 +143,17 @@ IMPORT foolib;
 }
 
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < I32(@OTHER 32) ): I32
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
 {
   RETURN 1;
 }
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) == I32(@OTHER 32) ): I32
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 AS I64 ): I32
 {
   RETURN 2;
 }
 
-::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) > I32(@OTHER 32) ): I32
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 AS I32 ): I32
 {
   RETURN 3;
 }
@@ -161,13 +161,13 @@ IMPORT foolib;
 {
     VAR x I32;
 
-    x := include_if_helper( I16(@OTHER 99) );
+    x := include_if_helper( 0 AS I16 );
     ASSERT( x == 1 );
 
-    x := include_if_helper(I32(@OTHER 0));
+    x := include_if_helper( 0 AS I32 );
     ASSERT( x == 2 );
 
-    x := include_if_helper(I64(@OTHER 0));
+    x := include_if_helper( 0 AS I64 );
     ASSERT( x == 3 );
 }
 
@@ -213,7 +213,7 @@ IMPORT foolib;
    ASSERT(xbits == 32);
 
    VAR b BOOL;
-   b := BITS(I16) < I32(@OTHER 32);
+   b := BITS(I16) < 32 AS I32;
 
    ASSERT( b == TRUE );
 
@@ -346,12 +346,11 @@ IMPORT foolib;
 
      WHILE (it < end)
      {
-        // This code is a bit ugly, but I haven't implemented character literals yet
         IF (it-> == 'I')
         {
           .value := .value + 1;
         }
-        ELSE IF (it-> == STRING_CONSTANT(@OTHER "V").BEGIN()->)
+        ELSE IF (it-> == ("V" AS STRING_CONSTANT).BEGIN()->)
         {
           .value := .value + 5;
         }
