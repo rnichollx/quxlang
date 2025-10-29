@@ -418,7 +418,7 @@ IMPORT foolib;
   VAR r roman;
   VAR i I32 := 4;
   ASSERT(i == 4);
-  r := roman(@OTHER STRING_CONSTANT(@OTHER "VIII"));
+  r := "VIII" AS STRING_CONSTANT AS roman;
 
   ASSERT(r.value == 8);
 

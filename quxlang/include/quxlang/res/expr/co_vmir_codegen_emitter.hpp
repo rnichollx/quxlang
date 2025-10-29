@@ -435,6 +435,43 @@ namespace quxlang
             return temp;
         }
 
+        // Look up a type/class symbol in the current codegen context.
+        // Uses co_lookup_symbol to respect local tempar type definitions.
+        // Errors if the symbol resolves to a value binding or does not refer to a class.
+        auto co_lookup_typeclass(block_index idx, type_symbol sym) -> typename CoroutineProvider::template co_type< type_symbol >
+        {
+
+
+            auto looked = co_await co_lookup_symbol(idx, sym);
+            if (!looked.has_value())
+            {
+                throw std::logic_error("Type not found: " + to_string(sym));
+            }
+
+            auto val = looked.value();
+            auto vtype = this->current_type(idx, val);
+
+            if (!typeis< attached_type_reference >(vtype))
+            {
+                throw std::logic_error("Lookup did not yield a type symbol: " + to_string(vtype));
+            }
+
+            auto const& att = as< attached_type_reference >(vtype);
+            // If carrying_type is not void, it's a member bound to a value.
+            if (!typeis< void_type >(att.carrying_type))
+            {
+                throw std::logic_error("Type symbol bound to a value: " + to_string(vtype));
+            }
+
+            auto kind = co_await prv.symbol_type(att.attached_symbol);
+            if (kind != symbol_kind::class_)
+            {
+                throw std::logic_error("Symbol is not a class: " + to_string(att.attached_symbol));
+            }
+
+            co_return att.attached_symbol;
+        }
+
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> typename CoroutineProvider::template co_type< std::optional< value_index > >
         {
             std::string symbol_str = to_string(sym);
@@ -1931,11 +1968,14 @@ namespace quxlang
             // Default name is "OTHER"; if a keyword is present (e.g., NARROWING/WRAP/CHECKED), use that instead.
             auto arg_val = co_await co_generate_expr(bidx, input.expr);
 
+            // Resolve the target class/type using local scope-aware lookup that supports tempar types.
+            type_symbol target_class = co_await co_lookup_typeclass(bidx, input.to_type);
+
             codegen_invocation_args args;
             auto name = input.keyword.has_value() ? *input.keyword : std::string("OTHER");
             args.named[name] = arg_val;
 
-            co_return co_await co_gen_call_ctor(bidx, input.to_type, args);
+            co_return co_await co_gen_call_ctor(bidx, target_class, args);
         }
 
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< value_index >
