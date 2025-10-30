@@ -35,6 +35,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::preincrement inst);
         std::string to_string_internal(vmir2::predecrement inst);
         std::string to_string_internal(vmir2::to_bool inst);
+        std::string to_string_internal(vmir2::unimplemented unimpl);
         std::string to_string_internal(vmir2::to_bool_not inst);
 
         std::string to_string_internal(vmir2::access_field inst);

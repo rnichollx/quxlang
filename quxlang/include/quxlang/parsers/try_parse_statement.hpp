@@ -6,6 +6,7 @@
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
+#include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
 #include <quxlang/parsers/fwd.hpp> // added forward declarations
@@ -32,7 +33,25 @@ namespace quxlang::parsers
 
         std::optional< function_expression_statement > exp_st;
 
-        if (next_keyword(pos, end) == "IF")
+        if (skip_keyword_if_is(pos, end, "UNIMPLEMENTED"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::logic_error("Expected ';' after UNIMPLEMENTED statement");
+            }
+            // TODO: Support error message string.
+            return function_unimplemented_statement{};
+        }
+        else if (next_keyword(pos, end) == "PLACE")
+        {
+            return parse_place_statement(pos, end);
+        }
+        else if (next_keyword(pos, end) == "DESTROY")
+        {
+            return parse_destroy_statement(pos, end);
+        }
+        else if (next_keyword(pos, end) == "IF")
         {
             return parse_if_statement(pos, end);
         }

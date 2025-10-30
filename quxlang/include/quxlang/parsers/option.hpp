@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Ryan P. Nicholl <rnicholl@protonmail.com>
 
-#ifndef QUXLANG_OPTION_HPP
-#define QUXLANG_OPTION_HPP
+#ifndef QUXLANG_PARSERS_OPTION_HEADER_GUARD
+#define QUXLANG_PARSERS_OPTION_HEADER_GUARD
 
 #include <optional>
 #include <quxlang/ast2/ast2_entity.hpp>

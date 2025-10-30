@@ -199,6 +199,11 @@ namespace quxlang::vmir2
             consume(asrt.condition);
         }
 
+        void apply_internal(vmir2::unimplemented const&)
+        {
+           // intentionally left empty, this is a no-op
+        }
+
         void apply_internal(vmir2::swap const& swp)
         {
             consume(swp.a);

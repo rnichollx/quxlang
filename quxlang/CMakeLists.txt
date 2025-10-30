@@ -230,6 +230,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/keywords.hpp
         include/quxlang/fixed_bytemath.hpp
         include/quxlang/parsers/option.hpp
+        include/quxlang/data/statements.hpp
 
 )
 

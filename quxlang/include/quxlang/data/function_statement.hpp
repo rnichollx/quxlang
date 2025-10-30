@@ -21,9 +21,10 @@ namespace quxlang
     struct function_while_statement;
     struct function_assert_statement;
     struct function_var_statement;
+    struct function_unimplemented_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement >;
 
 
     struct function_var_statement
@@ -36,6 +37,13 @@ namespace quxlang
         std::optional< expression > equals_initializer;
 
         RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers, equals_initializer);
+    };
+
+    struct function_unimplemented_statement
+    {
+        std::optional< std::string > error_message;
+
+        RPNX_MEMBER_METADATA(function_unimplemented_statement, error_message);
     };
 
     struct function_block

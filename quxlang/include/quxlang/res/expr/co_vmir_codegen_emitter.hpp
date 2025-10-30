@@ -196,10 +196,9 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_gen_conversion(block_index & bidx, value_index val, type_symbol target_type, parameter_init_kind conversion_type) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_conversion(block_index& bidx, value_index val, type_symbol target_type, parameter_init_kind conversion_type) -> typename CoroutineProvider::template co_type< value_index >
         {
         }
-
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
         {
@@ -221,7 +220,7 @@ namespace quxlang
                 auto arg_type = current_type(bidx, arg);
                 bool is_alive = value_alive(bidx, arg);
 
-                //std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
+                // std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
@@ -364,7 +363,6 @@ namespace quxlang
                 return weak_it->second;
             }
 
-
             return std::nullopt;
         }
 
@@ -440,7 +438,6 @@ namespace quxlang
         // Errors if the symbol resolves to a value binding or does not refer to a class.
         auto co_lookup_typeclass(block_index idx, type_symbol sym) -> typename CoroutineProvider::template co_type< type_symbol >
         {
-
 
             auto looked = co_await co_lookup_symbol(idx, sym);
             if (!looked.has_value())
@@ -526,7 +523,7 @@ namespace quxlang
                         int debugbrk = 0;
                         for (auto& [k, v] : this->state.scoped_definitions)
                         {
-                            if (v.template type_is<type_symbol>())
+                            if (v.template type_is< type_symbol >())
                             {
                                 auto def_type = v.template get_as< type_symbol >();
                                 assert(!type_is_contextual(def_type));
@@ -2085,6 +2082,12 @@ namespace quxlang
 
             current_block = after_block;
 
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_unimplemented_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        {
+            this->emit(current_block, vmir2::unimplemented{.message = st.error_message});
             co_return;
         }
 

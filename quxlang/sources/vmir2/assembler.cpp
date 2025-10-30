@@ -260,6 +260,18 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::unimplemented unimpl)
+    {
+        std::string result = "UNIMPLEMENTED";
+        if (unimpl.message.has_value())
+        {
+            result += " // " + unimpl.message.value();
+        }
+        return result;
+    }
+
+
+
     std::string assembler::to_string_internal(vmir2::to_bool_not inst)
     {
         std::string result = "TBN %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
 
-#ifndef QUXLANG_DATA_CONSTEXPR_HPP
-#define QUXLANG_DATA_CONSTEXPR_HPP
+#ifndef QUXLANG_DATA_CONSTEXPR_HEADER_GUARD
+#define QUXLANG_DATA_CONSTEXPR_HEADER_GUARD
 
 #include <cstddef>
 #include <quxlang/cow.hpp>

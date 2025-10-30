@@ -25,7 +25,39 @@ IMPORT foolib;
   RETURN 1;
 }
 
+::string CLASS
+{
+   .data VAR =>> BYTE;
+   .length VAR SZ;
+   .capacity VAR SZ;
 
+
+   .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
+   {
+      VAR len SZ := OTHER.END() - OTHER.BEGIN();
+      .length := len;
+      // RUNTIME CONSTEXPR{
+      //  .data = CONSTEXPR_ALLOC(BYTE, len);
+      // }
+   }
+
+   .push_back FUNCTION( @val BYTE )
+   {
+     IF ( .capacity > .length )
+     {
+        PLACE AT(.data + .length) BYTE := val;
+        .length++;
+     } ELSE {
+       UNIMPLEMENTED;
+     }
+   }
+
+   .pop_back FUNCTION()
+   {
+      DESTROY AT(.data + .length - 1) BYTE;
+      .length--;
+   }
+}
 
 
 
