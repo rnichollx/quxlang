@@ -48,7 +48,7 @@ IMPORT foolib;
         PLACE AT(.data + .length) BYTE := val;
         .length++;
      } ELSE {
-       UNIMPLEMENTED;
+        UNIMPLEMENTED;
      }
    }
 

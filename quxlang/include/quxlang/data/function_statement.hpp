@@ -6,6 +6,7 @@
 #include "quxlang/ast2/source_location.hpp"
 #include "quxlang/data/expression.hpp"
 #include "quxlang/data/function_return_statement.hpp"
+#include "quxlang/data/statements.hpp"
 #include "rpnx/variant.hpp"
 
 #include <tuple>
@@ -22,9 +23,11 @@ namespace quxlang
     struct function_assert_statement;
     struct function_var_statement;
     struct function_unimplemented_statement;
+    struct function_place_statement;
+    struct function_destroy_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement >;
 
 
     struct function_var_statement
