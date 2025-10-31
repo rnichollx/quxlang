@@ -3093,7 +3093,53 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            throw rpnx::unimplemented();
+            // Generate blocks similar to an if-statement, but condition is based on RT_CE
+            block_index after_block = this->generate_subblock(current_block, "runtime_statement_after");
+            block_index condition_block = this->generate_subblock(current_block, "runtime_statement_condition");
+            block_index then_block = this->generate_subblock(current_block, "runtime_then");
+
+            this->generate_jump(current_block, condition_block);
+
+            // Emit RT_CE into a temporary bool
+            auto rt_flag = this->create_local_value(bool_type{});
+            this->emit(condition_block, vmir2::runtime_ce{.target = get_local_index(rt_flag)});
+
+            value_index branch_cond = rt_flag;
+
+            if (st.condition == runtime_condition::NATIVE)
+            {
+                // For NATIVE, we want true when not constexpr -> negate the RT_CE flag
+                auto native_flag = this->create_local_value(bool_type{});
+                this->emit(condition_block, vmir2::to_bool_not{.from = get_local_index(rt_flag), .to = get_local_index(native_flag)});
+                branch_cond = native_flag;
+            }
+            // For CONSTEXPR, branch_cond is the RT_CE flag as-is
+
+            if (!st.else_block.has_value())
+            {
+                this->generate_branch(branch_cond, condition_block, then_block, after_block);
+
+                // Then
+                co_await co_generate_function_block(then_block, st.then_block, "runtime_then");
+                this->generate_jump(then_block, after_block);
+            }
+            else
+            {
+                block_index else_block = this->generate_subblock(current_block, "runtime_else");
+                this->generate_branch(branch_cond, condition_block, then_block, else_block);
+
+                // Then
+                co_await co_generate_function_block(then_block, st.then_block, "runtime_then");
+                this->generate_jump(then_block, after_block);
+
+                // Else
+                co_await co_generate_function_block(else_block, *st.else_block, "runtime_else");
+                this->generate_jump(else_block, after_block);
+            }
+
+            current_block = after_block;
+
+            co_return;
         }
     };
 

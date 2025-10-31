@@ -7,6 +7,7 @@ IMPORT foolib;
   x := 8;
   ASSERT( x == 8 );
 
+  test_runtime_statement();
   test_dtor_executes();
   test_arry_pointers();
   test_argument_passing();
@@ -23,6 +24,29 @@ IMPORT foolib;
   test_include_if_overloads();
 
   RETURN 1;
+}
+
+
+::test_runtime_statement FUNCTION()
+{
+
+   VAR x I32;
+
+   RUNTIME CONSTEXPR {
+      x := 10;
+   } ELSE {
+      x := 20;
+   }
+   ASSERT( x == 10 );
+
+   RUNTIME NATIVE {
+      x := 30;
+   } ELSE {
+      x := 40;
+   }
+
+   ASSERT( x == 40 );
+
 }
 
 ::string CLASS
