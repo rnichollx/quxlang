@@ -502,9 +502,12 @@ namespace quxlang
         // a constexpr context, or FALSE when executed natively.
         struct runtime_ce
         {
+            // TODO: Instead of output a bool, this should be similar to a branch terminator instead,
+            // that would simplify codegen and allow the compiler to skip generating code for both paths.
             local_index target;
             RPNX_MEMBER_METADATA(runtime_ce, target);
         };
+
 
         struct increment
         {
