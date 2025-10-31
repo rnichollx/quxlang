@@ -5,6 +5,7 @@
 
 #include "expression.hpp"
 #include "type_symbol.hpp"
+#include <rpnx/compare.hpp>
 
 namespace quxlang
 {

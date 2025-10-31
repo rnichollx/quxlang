@@ -3090,6 +3090,11 @@ namespace quxlang
         {
             throw rpnx::unimplemented();
         }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> typename CoroutineProvider::template co_type< void >
+        {
+            throw rpnx::unimplemented();
+        }
     };
 
 } // namespace quxlang

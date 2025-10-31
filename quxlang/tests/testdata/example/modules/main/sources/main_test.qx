@@ -36,9 +36,9 @@ IMPORT foolib;
    {
       VAR len SZ := OTHER.END() - OTHER.BEGIN();
       .length := len;
-      // RUNTIME CONSTEXPR{
+      RUNTIME CONSTEXPR {
       //  .data = CONSTEXPR_ALLOC(BYTE, len);
-      // }
+      }
    }
 
    .push_back FUNCTION( @val BYTE )

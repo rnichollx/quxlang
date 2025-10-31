@@ -8,10 +8,14 @@
 #include "quxlang/data/function_return_statement.hpp"
 #include "quxlang/data/statements.hpp"
 #include "rpnx/variant.hpp"
+#include "rpnx/metadata.hpp"
 
 #include <tuple>
 #include <utility>
 #include <variant>
+#include <cstdint>
+
+RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
 
 namespace quxlang
 {
@@ -25,9 +29,10 @@ namespace quxlang
     struct function_unimplemented_statement;
     struct function_place_statement;
     struct function_destroy_statement;
+    struct function_runtime_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement >;
 
 
     struct function_var_statement
@@ -66,6 +71,16 @@ namespace quxlang
         RPNX_MEMBER_METADATA(function_assert_statement, condition, tagline, location);
     };
 
+    // Runtime statement and condition support
+
+    struct function_runtime_statement
+    {
+        runtime_condition condition;
+        function_block then_block;
+        std::optional< function_block > else_block;
+
+        RPNX_MEMBER_METADATA(function_runtime_statement, condition, then_block, else_block);
+    };
 
 } // namespace quxlang
 

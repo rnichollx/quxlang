@@ -10,6 +10,7 @@
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
 #include <quxlang/parsers/fwd.hpp> // added forward declarations
+#include <quxlang/parsers/parse_runtime_statement.hpp>
 
 namespace quxlang::parsers
 {
@@ -50,6 +51,10 @@ namespace quxlang::parsers
         else if (next_keyword(pos, end) == "DESTROY")
         {
             return parse_destroy_statement(pos, end);
+        }
+        else if (next_keyword(pos, end) == "RUNTIME")
+        {
+            return parse_runtime_statement(pos, end);
         }
         else if (next_keyword(pos, end) == "IF")
         {
