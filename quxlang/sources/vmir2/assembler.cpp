@@ -278,6 +278,11 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::runtime_ce inst)
+    {
+        return std::string("RT_CE -> %") + std::to_string(inst.target);
+    }
+
     std::string assembler::to_string_internal(vmir2::access_array inst)
     {
         std::string result;

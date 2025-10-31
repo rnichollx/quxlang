@@ -240,6 +240,10 @@ namespace quxlang::vmir2
             consume(tbn.from);
             output(tbn.to);
         }
+        void apply_internal(vmir2::runtime_ce const& rce)
+        {
+            output(rce.target);
+        }
         void apply_internal(vmir2::load_const_zero const& lcz)
         {
             output(lcz.target);

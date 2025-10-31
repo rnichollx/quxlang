@@ -49,6 +49,7 @@ namespace quxlang
         struct i_to_ptr;
         struct to_bool;
         struct to_bool_not;
+        struct runtime_ce;
         struct increment;
         struct decrement;
         struct preincrement;
@@ -86,7 +87,7 @@ namespace quxlang
         struct swap;
         struct unimplemented;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64(local_index);
@@ -494,6 +495,15 @@ namespace quxlang
             local_index from;
             local_index to;
             RPNX_MEMBER_METADATA(to_bool_not, from, to);
+        };
+
+
+        // The runtime_ce(RT_CE) instruction stores the value TRUE in the target when executed in
+        // a constexpr context, or FALSE when executed natively.
+        struct runtime_ce
+        {
+            local_index target;
+            RPNX_MEMBER_METADATA(runtime_ce, target);
         };
 
         struct increment
