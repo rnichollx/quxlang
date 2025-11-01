@@ -20,9 +20,8 @@ RPNX_ENUM(quxlang, overload_class, std::uint16_t, user_defined, builtin, intrins
 RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, input, output);
 RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
-RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data,  numeric, string, cstring);
+RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring);
 RPNX_ENUM(quxlang, parameter_init_kind, std::uint8_t, none, call, implicit_conversion, bind_only);
-
 
 namespace quxlang
 {
@@ -61,8 +60,6 @@ namespace quxlang
         RPNX_MEMBER_METADATA(invotype, named, positional);
     };
 
-
-
     struct declared_parameter
     {
         std::optional< std::string > api_name;
@@ -96,8 +93,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(parameter_type, type, default_value);
     };
-
-
 
     struct paratype
     {
@@ -141,7 +136,7 @@ namespace quxlang
         std::vector< argif > positional;
 
         // The named arguments of the intertype (e.g. @foo, @bar, @THIS, etc.)
-        std::map<std::string, argif > named;
+        std::map< std::string, argif > named;
 
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
@@ -155,10 +150,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(temploid_ensig, interface, priority, enable_if);
     };
-
-
-
-
 
     struct overload
     {
@@ -237,14 +228,12 @@ namespace quxlang
     struct attached_type_reference;
     // struct function_type_reference;
 
-
     struct absolute_module_reference
     {
         std::string module_name;
 
         RPNX_MEMBER_METADATA(absolute_module_reference, module_name);
     };
-
 
     struct subsymbol
     {
@@ -300,8 +289,6 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
-
-
     struct initialization_reference
     {
         type_symbol initializee;
@@ -310,8 +297,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters, init_kind);
     };
-
-
 
     struct temploid_reference
     {
@@ -353,6 +338,13 @@ namespace quxlang
         type_symbol carrying_type;
         type_symbol attached_symbol;
         RPNX_MEMBER_METADATA(attached_type_reference, carrying_type, attached_symbol);
+    };
+
+    struct array_initializer_type
+    {
+        type_symbol element_type;
+        std::uint64_t count;
+        RPNX_MEMBER_METADATA(array_initializer_type, element_type, count);
     };
 
     struct keyword_symbol

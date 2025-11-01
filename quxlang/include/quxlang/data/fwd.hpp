@@ -39,8 +39,9 @@ namespace quxlang
     struct freebound_identifier;
     struct byte_type;
     struct storage;
+    struct array_initializer_type;
 
-    using type_symbol = rpnx::variant< void_type, byte_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage >;
+    using type_symbol = rpnx::variant< void_type, byte_type, freebound_identifier, context_reference, auto_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage, array_initializer_type >;
 
     struct expression_multiply;
     struct expression_modulus;

@@ -1276,7 +1276,8 @@ namespace quxlang
                         return crf;
                     }
                 }
-                else if (args.size() == 1 && args.named.contains("THIS"))
+                else if (args.size() == 1 && args.named.contains("THIS") && !cls->type_is<array_type>()
+                    && (!cls->type_is<ptrref_type>() || cls->as<ptrref_type>().ptr_class != pointer_class::ref))
                 {
                     vmir2::load_const_zero result{};
                     result.target = get_local_index(args.named.at("THIS"));
@@ -2844,6 +2845,14 @@ namespace quxlang
             {
                 auto fslot = this->create_local_value(fld.type);
                 fields_args.named[fld.name] = fslot;
+            }
+
+            if (cls.template type_is<array_type>())
+            {
+                auto element_type = cls.get_as<array_type>().element_type;
+                auto array_size_exp = cls.get_as<array_type>().element_count;
+
+
             }
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");

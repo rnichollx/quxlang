@@ -347,7 +347,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(have_nontrivial_member_ctor)
     {
         if (typeis< array_type >(input))
         {
-            co_return !co_await QUX_CO_DEP(class_trivially_constructible, (input.get_as< array_type >().element_type));
+            auto element_type = input.get_as< array_type >().element_type;
+
+            std::cout << "Checking nontrivial member ctor for array element type: " << quxlang::to_string(element_type) << std::endl;
+
+            co_return co_await QUX_CO_DEP(have_nontrivial_member_ctor, (element_type));
         }
         co_return false;
     }

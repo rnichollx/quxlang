@@ -10,6 +10,7 @@ IMPORT foolib;
   test_runtime_statement();
   test_dtor_executes();
   test_arry_pointers();
+  test_array_ctor();
   test_argument_passing();
   test_swap();
   test_call_function_from_other_file();
@@ -24,6 +25,27 @@ IMPORT foolib;
   test_include_if_overloads();
 
   RETURN 1;
+}
+
+
+::arrytest_cls CLASS
+{
+  .val VAR I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+     .val := 5;
+  }
+}
+
+::test_array_ctor FUNCTION()
+
+{
+    VAR x [3]arrytest_cls;
+
+    ASSERT( x[0].val == 5 );
+    ASSERT( x[1].val == 5 );
+    ASSERT( x[2].val == 5 );
 }
 
 

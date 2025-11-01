@@ -1,4 +1,5 @@
 // Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+
 #include <quxlang/compiler.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/res/symbol_type.hpp>
@@ -6,6 +7,11 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
 {
     auto type_str = to_string(input_val);
+
+    if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input))
+    {
+        co_return symbol_kind::pseudotype;
+    }
 
     auto functions = co_await QUX_CO_DEP(functum_overloads, (input_val));
     if (functions.size() > 0)

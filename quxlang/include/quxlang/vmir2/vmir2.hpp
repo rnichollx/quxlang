@@ -145,11 +145,52 @@ namespace quxlang
         // Between SDN and SCN, only the field destructors will run.
         // SCN is called immediately before the constructor body executes after delegate
         // initialization completes.
+        // This is only needed if an invocation is inlined in the QXVMIR, the constructor returning implicitly finalizes
+        // the struct.
         struct struct_complete_new
         {
             local_index on_value;
 
             RPNX_MEMBER_METADATA(struct_complete_new, on_value);
+        };
+
+        // The array_delegate_initializer (ADI) instruction is used to mark the beginning of
+        // an array initialization. It constructs an array initializer `__ARRAY_INITIALIZER(N, T)`
+        // for the array located at 'on_value'.
+        // The `__ARRAY_INITIALIZER(N, T)` type has a special interaction with invoke and the lifetime
+        // tracking/unwinding, namely it provides runtime lifetime tracking support for a potentially
+        // unlimited number of array elements.
+        // Calling IVK on an array initializer with a new slot advances the array initialization by one element,
+        // constructing the next element in place.
+        // When unwinding occurs, the array initializer will destruct the subset of the initialized elements.
+        struct array_delegate_initializer
+        {
+            local_index on_value;
+            local_index intializer;
+
+            RPNX_MEMBER_METADATA(array_delegate_initializer, on_value, intializer);
+        };
+
+        // The array_delegate_more (ADM) instruction is used to test whether or not there are
+        // more elements remaining to initialize.
+        // The output can be either a BOOL (true/false) or an INT (count of remaining elements).
+        struct array_delegate_more
+        {
+            local_index initializer;
+            local_index result;
+
+            RPNX_MEMBER_METADATA(array_delegate_more, initializer, result);
+        };
+
+        // The array_complete_new (ARRAY_COMPLETE_NEW) instruction is used to finalize
+        // an array initialization after all elements have been initialized.
+        // This is mostly for cleanup purposes, to mark the initializer slot as no longer needed.
+        // If the array initializer is not at the completed position, the program's behavior is undefined.
+        struct array_complete_new
+        {
+            local_index on_value;
+
+            RPNX_MEMBER_METADATA(array_complete_new, on_value);
         };
 
         struct swap
@@ -497,7 +538,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(to_bool_not, from, to);
         };
 
-
         // The runtime_ce(RT_CE) instruction stores the value TRUE in the target when executed in
         // a constexpr context, or FALSE when executed natively.
         struct runtime_ce
@@ -507,7 +547,6 @@ namespace quxlang
             local_index target;
             RPNX_MEMBER_METADATA(runtime_ce, target);
         };
-
 
         struct increment
         {

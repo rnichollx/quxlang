@@ -13,6 +13,7 @@ RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
     noexist,
     module,
     class_,
+    pseudotype,
     functum, function, funtanoid,
 
     global_variable,
