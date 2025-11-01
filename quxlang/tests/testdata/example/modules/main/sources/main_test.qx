@@ -61,7 +61,11 @@ IMPORT foolib;
       VAR len SZ := OTHER.END() - OTHER.BEGIN();
       .length := len;
       RUNTIME CONSTEXPR {
+      // Need to implement constexpr allocator.
       //  .data = CONSTEXPR_ALLOC(BYTE, len);
+      } ELSE {
+        // Native runtime, need to write standard library allocator first
+        UNIMPLEMENTED;
       }
    }
 

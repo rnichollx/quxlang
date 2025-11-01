@@ -3,7 +3,15 @@
 Example runtime statement:
 
 ```quxlang
-RUNTIME (CONSTEXPR) {
+RUNTIME CONSTEXPR {
+  // implementation using constexpr-safe functions only 
+} ELSE {
+  // fast implementation that runs the calculations on a GPU
+}
+```
+
+```quxlang
+RUNTIME NATIVE {
   // implementation using constexpr-safe functions only 
 } ELSE {
   // fast implementation that runs the calculations on a GPU
@@ -11,23 +19,11 @@ RUNTIME (CONSTEXPR) {
 ```
 
 
-```quxlang
-RUNTIME (X64:SSE4) {
-   ASM X64 {
-     // fast SSE4 implementation
-   }
-} ELSE {
-  // Generic Quxlang implementation
-}
-```
 
 ## Runtime options
 
 * `CONSTEXPR` Path taken when the compiler is in a constexpr execution context.
-* `X64:SSE4` Path taken if the arch is `x64` and SSE4 is enabled on the current cpu.
-
-
-
+* `NATIVE` Path taken when the compiler is in a native execution context.
 
 # For Loop
 
@@ -41,7 +37,40 @@ FOR ... LOOP {
 
 ## Description
 
-### Specifiers
+### General For-loop properties
+
+  * `INIT ( ... )` initialization block, run once before the loop.
+  * `EVAL { ... }` similar to `INIT`, but allows multiple statements to execute.
+  * `TEST(x)`: before each `LOOP` iteration, the condition `x` is checked; if false, the loop exits.
+  * `STEP { ... }` block executed after each iteration of the loop. This executes after the `LOOP` body and any 
+    `TEST` condition.
+  * `POSTTEST(x)`: similar to `TEST`, but the condition is checked after each iteration of the loop body.
+
+Each round of iteration looks like either:
+
+1. Check `TEST` condition; if false, exit loop.
+2. Execute `LOOP` block.
+3. Execute `POSTTEST` condition; if false, exit loop.
+4. Execute `STEP` block if present.
+5. Return to step 1.
+
+
+
+A loop of the form `WHILE(x) { ... }` is equivalent to `FOR PRETEST(x) LOOP { ... };`. Quxlang does not have a
+dedicated "do-while" loop, but the equilvaent is availble using a `POSTTEST` condition in a `FOR` loop e.g.:
+ `FOR POSTTEST(x) LOOP { ... };`.
+  
+
+Example:
+
+```quxlang
+FOR INIT{ VAR i := 0; } TEST(i < 10) STEP{ i++; } LOOP {
+   ...
+};
+```
+
+### Iteration For-Loops
+#### Specifiers
  * `ITER(x)` the iterator in a range
  * `VALUE(x)` the value of the iteratation
  * `INDEX(x)` the index of the iteration where applicable,
@@ -52,8 +81,11 @@ FOR ... LOOP {
  * `END(x)` sets the end iterator of the loop.
  * `LIMIT(x)` like `END`, but uses `<` instead of `!=`. 
  * `WHILE(x)` sets the end condition of the loop. Exclusive with `END`.
+ * `UNTIL(x)` similar to `WHILE`, but with two differences:
+   * the condition is negated, i.e. the loop continues while `x` is false.
+   * the condition is only checked after each iteration, so the loop always runs at least once.
  * `FILTER(x)` skips iterations where `x` is false, without ending the loop.
- * `ADVANCE(x)` the number to add to the iterator during a step. Exclusive with `STEP`.
+ * `BY(x)` the number to add to the iterator during a step. Exclusive with `STEP`.
 
 In C++, some containers store their own indexes, e.g. std::map.
 
@@ -74,10 +106,73 @@ From C++ Examples:
      * `ITEM = int`
      * `VALUE = int`
 
-### Loop Blocks
+Loops have several allowed iteration methods,
 
- * `LOOP { ... }` the body of the loop.
- * `STEP { ... }` sets the step of the loop. The default step is `<iter>++`.
+```
+FOR ITEM(x) IN(iterable) LOOP {
+   ...
+}
+```
+
+This loop iterates over each item which satisfies the "iterable" interface. This could be done with a range (having
+`BEGIN()` and `END()` methods which produce iterators.)
+
+```
+FOR INDEX(i) IN(container) LOOP {
+
+}
+```
+
+This loop is essentially equivalent to:
+```
+FOR ITEM(x) IN(container.INDEXES()) LOOP {
+
+}
+```
+
+Where `container.INDEXES()` produces an iterable of indexes for the container.
+
+Another form is the `VALUE(x)` iterator,
+
+```
+FOR VALUE(v) IN(container) LOOP {
+
+}
+```
+
+This provides a loop over `container.VALUES()`, which produces an iterable of values for the container.
+
+If both INDEX and VALUE are specified, `container.IV_PAIRS()` is used to produce an iterable, of which the iterated 
+values must have `.INDEX()` and `.VALUE()` methods, which return the values for the loop respectively.
+
+It is a compilation error to specify both `ITEM` and also either `INDEX` or `VALUE` simultaneously.
+
+In each of these cases, `ITER` can be specified to get access to the iterator during the loop.
+
+In each of these cases, the _default_ behavior is currently that `IN(c)` is equivalent to `START(c.BEGIN()) END(c.END())`.
+
+Thus for example `FOR VALUE(v) IN(container) LOOP { ... }` is equivalent to:
+
+```quxlang
+FOR ITEM(v) START(container.VALUES().BEGIN()) END(container.VALUES().END()) LOOP {
+   ...
+}
+```
+
+However, if the `BY` or `STEP` clause is used, then `LIMIT` is used instead of `END`.
+ 
+By default, the loop step is equivalent to `++__iter`, but this behavior can be modified with `BY` or `STEP`.
+
+if `BY(n)` is specified, the loop step is equivalent to `__iter += n` instead. If `OPERATOR+=` is not defined for the
+iterator type, it is a compilation error.
+
+
+### Sequence For-Loops
+
+Sequence for loops are similar
+
+### Additional Loop Blocks
+
  * `FIRST` like `LOOP`, but only for the first iteration.
  * `LAST` like `LOOP`, but only for the last iteration.
  * `BETWEEN` like `LOOP`, but only for iterations which are not `FIRST` or `LAST`.
@@ -87,27 +182,12 @@ From C++ Examples:
  * `EMPTY` only runs if the loop is empty.
  * `DO` Similar to `STEP`, but runs the body before each iteration check.
 
-This syntax differs a bit from C++, where the x:y syntax iterates equivalent to `FOR ITEM(x) IN(y)`.
-There are some differences, for example, `INDEX(x)` on a `vector` would give the index of the vector,
-
-```cpp
-for (std::size_t i = 0; i < vec.size(); i++) {
-  ...
-}
-```
-
-```quxlang
-FOR INDEX(i) IN(vec) LOOP {
-  ...
-};
-```
-
 
 
 Instead of using `IN` for selecting the iterator, you can use `START` and `END` to specify the range.
 
 ```quxlang
-FOR START(iter1) END(iter2) VALUE(x) LOOP {
+FOR START(iter1) END(iter2) ITEM(x) LOOP {
 
 };
 ```
@@ -122,10 +202,10 @@ FOR START(iter1) END(iter2) VALUE(x) ITER(it) STEP {
 };
 ```
 
-Instead of `END` you can also use `UNTIL` or `WHILE` to specify the end condition,
+Instead of `END` you can also use `TEST` to specify the end condition,
 
 ```quxlang
-FOR ITER(it) START(iter1) UNTIL(it > iter2) VALUE(x) LOOP {
+FOR ITER(it) START(iter1) TEST(it > iter2) ITEM(x) LOOP {
    ...
 };
 ```
