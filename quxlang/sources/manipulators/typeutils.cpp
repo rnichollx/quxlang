@@ -193,7 +193,7 @@ namespace quxlang
         }
     };
 
-    struct qualified_symbol_stringifier
+    struct type_symbol_stringifier
     {
         std::string operator()(storage const& ref) const;
         std::string operator()(readonly_constant const& ref) const;
@@ -226,7 +226,7 @@ namespace quxlang
         std::string operator()(array_initializer_type const&) const;
 
       public:
-        qualified_symbol_stringifier() = default;
+        type_symbol_stringifier() = default;
     };
 
     std::string to_string(vmir2::invocation_args const& ref)
@@ -526,22 +526,22 @@ namespace quxlang
         }
     }
 
-    std::string qualified_symbol_stringifier::operator()(subsymbol const& ref) const
+    std::string type_symbol_stringifier::operator()(subsymbol const& ref) const
     {
         return to_string(ref.of) + "::" + ref.name;
     }
 
-    std::string qualified_symbol_stringifier::operator()(size_type const& ref) const
+    std::string type_symbol_stringifier::operator()(size_type const& ref) const
     {
         return "SZ";
     }
 
-    std::string qualified_symbol_stringifier::operator()(array_type const& arr) const
+    std::string type_symbol_stringifier::operator()(array_type const& arr) const
     {
         return "[" + to_string(arr.element_count) + "] " + to_string(arr.element_type);
     }
 
-    std::string qualified_symbol_stringifier::operator()(ptrref_type const& ref) const
+    std::string type_symbol_stringifier::operator()(ptrref_type const& ref) const
     {
         std::string output;
 
@@ -594,7 +594,7 @@ namespace quxlang
 
         return output;
     }
-    std::string qualified_symbol_stringifier::operator()(initialization_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(initialization_reference const& ref) const
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.initializee);
         output += " #(";
@@ -619,7 +619,7 @@ namespace quxlang
         return output;
     }
 
-    std::string qualified_symbol_stringifier::operator()(instanciation_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
 
         temploid_reference const& sel = ref.temploid;
@@ -662,11 +662,11 @@ namespace quxlang
         return output;
     }
 
-    std::string qualified_symbol_stringifier::operator()(storage const& ref) const
+    std::string type_symbol_stringifier::operator()(storage const& ref) const
     {
         return "STORAGE@{ " + to_string(ref.storable_type) + " }";
     }
-    std::string qualified_symbol_stringifier::operator()(readonly_constant const& ref) const
+    std::string type_symbol_stringifier::operator()(readonly_constant const& ref) const
     {
         if (ref.kind == constant_kind::string)
         {
@@ -689,93 +689,93 @@ namespace quxlang
             throw compiler_bug("Unknown constant kind");
         }
     }
-    std::string qualified_symbol_stringifier::operator()(freebound_identifier const& ref) const
+    std::string type_symbol_stringifier::operator()(freebound_identifier const& ref) const
     {
         return ref.name;
     }
-    std::string qualified_symbol_stringifier::operator()(context_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(context_reference const& ref) const
     {
         return "CONTEXT";
     }
-    std::string qualified_symbol_stringifier::operator()(attached_type_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(attached_type_reference const& ref) const
     {
         return "BINDING(" + to_string(ref.carrying_type) + ", " + to_string(ref.attached_symbol) + ")";
     }
-    std::string qualified_symbol_stringifier::operator()(int_type const& ref) const
+    std::string type_symbol_stringifier::operator()(int_type const& ref) const
     {
         return (ref.has_sign ? "I" : "U") + std::to_string(ref.bits);
     }
-    std::string qualified_symbol_stringifier::operator()(bool_type const& ref) const
+    std::string type_symbol_stringifier::operator()(bool_type const& ref) const
     {
         return "BOOL";
     }
-    std::string qualified_symbol_stringifier::operator()(byte_type const& ref) const
+    std::string type_symbol_stringifier::operator()(byte_type const& ref) const
     {
         return "BYTE";
     }
-    std::string qualified_symbol_stringifier::operator()(value_expression_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(value_expression_reference const& ref) const
     {
         return "VALUE";
     }
-    std::string qualified_symbol_stringifier::operator()(void_type const&) const
+    std::string type_symbol_stringifier::operator()(void_type const&) const
     {
         return "VOID";
     }
 
-    std::string qualified_symbol_stringifier::operator()(thistype const&) const
+    std::string type_symbol_stringifier::operator()(thistype const&) const
     {
         return "THISTYPE";
     }
-    std::string qualified_symbol_stringifier::operator()(absolute_module_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(absolute_module_reference const& ref) const
     {
         return "MODULE(" + ref.module_name + ")";
     }
-    std::string qualified_symbol_stringifier::operator()(submember const& ref) const
+    std::string type_symbol_stringifier::operator()(submember const& ref) const
     {
         return to_string(ref.of) + "::." + ref.name;
     }
 
-    std::string qualified_symbol_stringifier::operator()(numeric_literal_reference const&) const
+    std::string type_symbol_stringifier::operator()(numeric_literal_reference const&) const
     {
         return "NUMERIC_LITERAL";
     }
 
-    std::string qualified_symbol_stringifier::operator()(string_literal_reference const&) const
+    std::string type_symbol_stringifier::operator()(string_literal_reference const&) const
     {
         return "STRING_LITERAL";
     }
 
-    std::string qualified_symbol_stringifier::operator()(array_initializer_type const& ai) const
+    std::string type_symbol_stringifier::operator()(array_initializer_type const& ai) const
     {
         return "__ARRAY_INITIALIZER( " + to_string(ai.element_type) + ", " + std::to_string(ai.count) + " )";
     }
 
-    std::string qualified_symbol_stringifier::operator()(auto_temploidic const& val) const
+    std::string type_symbol_stringifier::operator()(auto_temploidic const& val) const
     {
         return "AUTO(" + val.name + ")";
     }
-    std::string qualified_symbol_stringifier::operator()(type_temploidic const& val) const
+    std::string type_symbol_stringifier::operator()(type_temploidic const& val) const
     {
         return "TT(" + val.name + ")";
     }
 
-    std::string qualified_symbol_stringifier::operator()(function_arg const& ref) const
+    std::string type_symbol_stringifier::operator()(function_arg const& ref) const
     {
         return "TODO";
         // TODO: implement this
     }
 
-    std::string qualified_symbol_stringifier::operator()(nvalue_slot const& ref) const
+    std::string type_symbol_stringifier::operator()(nvalue_slot const& ref) const
     {
         return "NEW{ " + to_string(ref.target) + " }";
     }
 
-    std::string qualified_symbol_stringifier::operator()(dvalue_slot const& ref) const
+    std::string type_symbol_stringifier::operator()(dvalue_slot const& ref) const
     {
         return "DESTROY{ " + to_string(ref.target) + "}";
     }
 
-    std::string qualified_symbol_stringifier::operator()(temploid_reference const& ref) const
+    std::string type_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
         std::string output = rpnx::apply_visitor< std::string >(*this, ref.templexoid) + "#[";
         bool first = true;
@@ -1773,7 +1773,7 @@ std::optional< quxlang::template_match_results > quxlang::match_template2(type_s
 
 std::string quxlang::to_string(quxlang::type_symbol const& ref)
 {
-    return rpnx::apply_visitor< std::string >(quxlang::qualified_symbol_stringifier{}, ref);
+    return rpnx::apply_visitor< std::string >(quxlang::type_symbol_stringifier{}, ref);
 }
 
 std::string quxlang::to_string(expression const& expr)
