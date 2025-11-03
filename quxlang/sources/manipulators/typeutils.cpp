@@ -223,6 +223,7 @@ namespace quxlang
         std::string operator()(ptrref_type const&) const;
         std::string operator()(instanciation_reference const&) const;
         std::string operator()(string_literal_reference const&) const;
+        std::string operator()(array_initializer_type const&) const;
 
       public:
         qualified_symbol_stringifier() = default;
@@ -290,6 +291,12 @@ namespace quxlang
         {
             return is_template(ref.storable_type);
         }
+
+        bool operator()(array_initializer_type const& ref) const
+        {
+            return false;
+        }
+
 
         bool operator()(readonly_constant const& ref) const
         {
@@ -736,6 +743,11 @@ namespace quxlang
     std::string qualified_symbol_stringifier::operator()(string_literal_reference const&) const
     {
         return "STRING_LITERAL";
+    }
+
+    std::string qualified_symbol_stringifier::operator()(array_initializer_type const& ai) const
+    {
+        return "__ARRAY_INITIALIZER( " + to_string(ai.element_type) + ", " + std::to_string(ai.count) + " )";
     }
 
     std::string qualified_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -1433,6 +1445,11 @@ namespace quxlang
             bool check_impl(size_type const& template_val, size_type const& match_val, bool conv)
             {
                 return true;
+            }
+
+            bool check_impl(array_initializer_type const& template_val, array_initializer_type const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
             }
             bool check_impl(array_type const& template_val, array_type const& match_val, bool conv)
             {
