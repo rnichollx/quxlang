@@ -1,5 +1,4 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
-// Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef RPNX_METADATA_H_HPP
 #define RPNX_METADATA_H_HPP

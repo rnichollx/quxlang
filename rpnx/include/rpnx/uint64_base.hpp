@@ -1,6 +1,4 @@
-//
-// Created by Ryan Nicholl on 2025-06-26.
-//
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef UINT64_BASE_HPP
 #define UINT64_BASE_HPP

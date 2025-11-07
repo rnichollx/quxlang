@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_CONSTEXPR_HEADER_GUARD
 #define QUXLANG_DATA_CONSTEXPR_HEADER_GUARD

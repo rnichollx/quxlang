@@ -1,4 +1,4 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef RESOLVER2_HPP
 #define RESOLVER2_HPP

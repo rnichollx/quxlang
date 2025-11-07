@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ryan P. Nicholl <rnicholl@protonmail.com> http://rpnx.net/
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef RPNX_DEMANGLE_HPP
 #define RPNX_DEMANGLE_HPP
 

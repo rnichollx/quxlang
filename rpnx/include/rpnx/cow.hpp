@@ -1,4 +1,4 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef RPNX_COW_HEADER_GUARD
 #define RPNX_COW_HEADER_GUARD
