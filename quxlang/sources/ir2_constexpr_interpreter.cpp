@@ -272,6 +272,11 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::pointer_arith const& par);
     void exec_instr_val(vmir2::pointer_diff const& pdf);
 
+    void exec_instr_val(vmir2::array_init_start const& ais);
+    void exec_instr_val(vmir2::array_init_element const & aie);
+    void exec_instr_val(vmir2::array_init_remaining const & air);
+    void exec_instr_val(vmir2::array_init_finish const & aif);
+
     std::shared_ptr< local > create_local_value(vmir2::local_index local_idx, bool set_alive);
     std::shared_ptr< local > create_object_skeleton(type_symbol type);
 

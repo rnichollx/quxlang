@@ -283,6 +283,28 @@ namespace quxlang::vmir2
         return std::string("RT_CE -> %") + std::to_string(inst.target);
     }
 
+    std::string assembler::to_string_internal(vmir2::array_init_start ani)
+    {
+        return std::string("ARRAY_INIT_START %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.on_value);
+    }
+
+    std::string assembler::to_string_internal(vmir2::array_init_remaining ani)
+    {
+        return std::string("ARRAY_INIT_REMAINING %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::array_init_element ani)
+    {
+        return std::string("ARRAY_INIT_ELEMENT %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.target);
+    }
+
+    std::string assembler::to_string_internal(vmir2::array_init_finish ani)
+    {
+        return std::string("ARRAY_INIT_FINISH %") + std::to_string(ani.initializer);
+    }
+
+
+
     std::string assembler::to_string_internal(vmir2::access_array inst)
     {
         std::string result;

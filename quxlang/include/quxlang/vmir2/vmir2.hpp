@@ -87,7 +87,12 @@ namespace quxlang
         struct swap;
         struct unimplemented;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented >;
+        struct array_init_start;
+        struct array_init_remaining;
+        struct array_init_element;
+        struct array_init_finish;
+
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_remaining, array_init_element, array_init_finish >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64(local_index);
@@ -154,7 +159,7 @@ namespace quxlang
             RPNX_MEMBER_METADATA(struct_complete_new, on_value);
         };
 
-        // The array_delegate_initializer (ADI) instruction is used to mark the beginning of
+        // The array_init_start (ARRAY_INIT_START) instruction is used to mark the beginning of
         // an array initialization. It constructs an array initializer `__ARRAY_INITIALIZER(N, T)`
         // for the array located at 'on_value'.
         // The `__ARRAY_INITIALIZER(N, T)` type has a special interaction with invoke and the lifetime
@@ -163,34 +168,45 @@ namespace quxlang
         // Calling IVK on an array initializer with a new slot advances the array initialization by one element,
         // constructing the next element in place.
         // When unwinding occurs, the array initializer will destruct the subset of the initialized elements.
-        struct array_delegate_initializer
+        struct array_init_start
         {
             local_index on_value;
-            local_index intializer;
+            local_index initializer;
 
-            RPNX_MEMBER_METADATA(array_delegate_initializer, on_value, intializer);
+            RPNX_MEMBER_METADATA(array_init_start, on_value, initializer);
         };
 
-        // The array_delegate_more (ADM) instruction is used to test whether or not there are
+        // The array_init_element (ARRAY_INIT_ELEMENT) instruction is used to assign a
+        // array element that is not yet constructed to a slot.
+        struct array_init_element
+        {
+            local_index initializer;
+            local_index target;
+
+            RPNX_MEMBER_METADATA(array_init_element, initializer, target);
+        };
+
+
+        // The array_init_remaining (ARRAY_INIT_REMAINING) instruction is used to test whether or not there are
         // more elements remaining to initialize.
         // The output can be either a BOOL (true/false) or an INT (count of remaining elements).
-        struct array_delegate_more
+        struct array_init_remaining
         {
             local_index initializer;
             local_index result;
 
-            RPNX_MEMBER_METADATA(array_delegate_more, initializer, result);
+            RPNX_MEMBER_METADATA(array_init_remaining, initializer, result);
         };
 
-        // The array_complete_new (ARRAY_COMPLETE_NEW) instruction is used to finalize
+        // The array_init_finish (ARRAY_INIT_FINISH) instruction is used to finalize
         // an array initialization after all elements have been initialized.
         // This is mostly for cleanup purposes, to mark the initializer slot as no longer needed.
         // If the array initializer is not at the completed position, the program's behavior is undefined.
-        struct array_complete_new
+        struct array_init_finish
         {
-            local_index on_value;
+            local_index initializer;
 
-            RPNX_MEMBER_METADATA(array_complete_new, on_value);
+            RPNX_MEMBER_METADATA(array_init_finish, initializer);
         };
 
         struct swap
@@ -653,6 +669,7 @@ namespace quxlang
             std::optional< dtor_spec > nontrivial_dtor;
             std::optional< invocation_args > delegates;
             std::optional< local_index > delegate_of;
+            std::optional< local_index > array_delegate_of_initializer;
 
             bool valid() const
             {
@@ -675,7 +692,7 @@ namespace quxlang
                 return true;
             }
 
-            RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of);
+            RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of, array_delegate_of_initializer);
         };
 
         struct slot_states

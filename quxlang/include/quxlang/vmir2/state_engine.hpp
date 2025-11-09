@@ -509,17 +509,81 @@ namespace quxlang::vmir2
             consume(pdf.to);
             output(pdf.result);
         }
+        void apply_internal(vmir2::array_init_start const& ain)
+        {
+            // Array enters partial state; its delegate is the initializer
+            // Record the initializer as the sole delegate of the array value
+            vmir2::invocation_args args;
+            args.named["INIT"] = ain.initializer;
+            state[ain.on_value].delegates = args;
+            // Set initializer as a delegate of the array
+            state[ain.initializer].delegate_of = ain.on_value;
+            // Initializer itself is alive and valid during initialization
+            state[ain.initializer].alive = true;
+            state[ain.initializer].storage_valid = true;
+            state[ain.initializer].dtor_enabled = false;
+            // Array storage is valid and considered alive but not yet dtor-enabled (partial)
+            state[ain.on_value].storage_valid = true;
+            state[ain.on_value].dtor_enabled = false;
+            state[ain.on_value].alive = true;
+        }
+        void apply_internal(vmir2::array_init_remaining const& aim)
+        {
+            // Query initializer; does not consume it; produce result
+            readonly(aim.initializer);
+            output(aim.result);
+        }
+        void apply_internal(vmir2::array_init_element const& aiv)
+        {
+            // Assign the next array element (not yet constructed) to a target slot.
+            // Mark target as an array delegate of the initializer; not alive yet, but storage is valid.
+            readonly(aiv.initializer);
+            state[aiv.target].array_delegate_of_initializer = aiv.initializer;
+            state[aiv.target].storage_valid = true;
+            state[aiv.target].dtor_enabled = false;
+            state[aiv.target].alive = false;
+        }
+        void apply_internal(vmir2::array_init_finish const& aic)
+        {
+            // Discard any array element delegate slots recorded under the initializer
+            auto const it = state.find(aic.initializer);
+            if (it != state.end())
+            {
+                auto delegates = it->second.delegates.value_or(vmir2::invocation_args{});
+                for (auto idx : delegates.positional)
+                {
+                    state.erase(idx);
+                }
+                for (auto const& [n, idx] : delegates.named)
+                {
+                    state.erase(idx);
+                }
+                // Finalize the array value that owns this initializer
+                auto const& s = it->second;
+                if (s.delegate_of.has_value())
+                {
+                    auto arr_idx = *s.delegate_of;
+                    state[arr_idx].alive = true;
+                    state[arr_idx].storage_valid = true;
+                    state[arr_idx].dtor_enabled = true;
+                    // Clear delegates on the array to remove the initializer reference
+                    state[arr_idx].delegates.reset();
+                }
+                // Mark initializer slot as no longer needed
+                state.erase(aic.initializer);
+            }
+        }
 
         void readonly(local_index idx)
         {
-            if (!state[idx].alive || !state[idx].storage_valid)
+            if (!state[idx].alive || !state[idx].storage_valid) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("readonly input not alive state");
             }
         }
         void consume(local_index idx)
         {
-            if (!state[idx].alive || !state[idx].storage_valid)
+            if (!state[idx].alive || !state[idx].storage_valid) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("consume input not alive state");
             }
@@ -528,12 +592,12 @@ namespace quxlang::vmir2
         }
         void output(local_index idx)
         {
-            if (state[idx].alive)
+            if (state[idx].alive) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output already set");
             }
             state[idx].alive = true;
-            if (!state[idx].storage_valid && state[idx].delegate_of.has_value())
+            if (!state[idx].storage_valid && state[idx].delegate_of.has_value()) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output not valid");
             }
