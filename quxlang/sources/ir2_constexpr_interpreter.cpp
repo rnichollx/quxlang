@@ -86,10 +86,12 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool readonly = false;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
+        std::optional< std::weak_ptr< local > > array_init_member_of;
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
         std::optional< invocation_args > delegates;
+        std::uint64_t init_count = 0;
     };
 
     struct object_base
@@ -187,6 +189,11 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         return stack.back();
     }
 
+    std::shared_ptr< local >& current_local(local_index slot)
+    {
+        return get_current_frame().local_values[slot];
+    }
+
     std::size_t current_frame_index()
     {
         return stack.size() - 1;
@@ -273,9 +280,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::pointer_diff const& pdf);
 
     void exec_instr_val(vmir2::array_init_start const& ais);
-    void exec_instr_val(vmir2::array_init_element const & aie);
-    void exec_instr_val(vmir2::array_init_remaining const & air);
-    void exec_instr_val(vmir2::array_init_finish const & aif);
+    void exec_instr_val(vmir2::array_init_element const& aie);
+    void exec_instr_val(vmir2::array_init_remaining const& air);
+    void exec_instr_val(vmir2::array_init_finish const& aif);
 
     std::shared_ptr< local > create_local_value(vmir2::local_index local_idx, bool set_alive);
     std::shared_ptr< local > create_object_skeleton(type_symbol type);
@@ -574,10 +581,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
 
-        //std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
-        // If there is an error here, it usually means there is an instruction which is not implemented
-        // on the constexpr virtual machine. Instructions which are illegal in a constexpr context
-        // should be implemented to throw a derivative of std::logic_error.
+        // std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        //  If there is an error here, it usually means there is an instruction which is not implemented
+        //  on the constexpr virtual machine. Instructions which are illegal in a constexpr context
+        //  should be implemented to throw a derivative of std::logic_error.
 
         auto expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
         auto start_frame_id = current_frame_index();
@@ -599,7 +606,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             instr);
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
-        //std::cout << std::endl;
+        // std::cout << std::endl;
         return;
     }
 
@@ -638,7 +645,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return (type.get_as< int_type >().bits + 7) / 8;
     }
 
-    if (typeis<byte_type>(type))
+    if (typeis< byte_type >(type))
     {
         return 1;
     }
@@ -739,7 +746,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto local_ptr = create_local_value(lcz.target, true);
     init_storage(local_ptr, type);
 
-
     return;
 }
 
@@ -747,7 +753,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     throw constexpr_logic_execution_error("Unimplemented instruction executed in constexpr interpreter");
 }
-
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_bool const& lcb)
 {
@@ -951,14 +956,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("trying to load a field into existing slot");
     }
 
-    create_local_value(aca.store_index, true);
+    create_local_value(aca.store_index, false);
 
     auto arry_index = consume_u64(aca.index_index);
 
     auto& field_slot = ref_to_ptr->array_members.at(arry_index);
 
     field->ref = pointer_impl{.pointer_target = field_slot};
-    field->alive = true;
+    begin_lifetime(field);
 
     parent_ref_slot = nullptr;
 }
@@ -1256,8 +1261,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("error executing IADD: undefined behavior");
     }
 
-    assert(r_data.size() == res.result.size());
-    r_data = res.result;
+    assert(r_data.size() == res.data_bytes.size());
+    r_data = res.data_bytes;
 
     return;
 }
@@ -1462,13 +1467,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         if (a[i] < b[i])
         {
             set_data(clt.result, {std::byte(1)});
-            //std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
+            // std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " < " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (a[i] > b[i])
         {
             set_data(clt.result, {std::byte(0)});
-            //std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
+            // std::cout << "CLT: " << bytemath::detail::le_to_string_raw(a) << " > " << bytemath::detail::le_to_string_raw(b) << std::endl;
             return;
         }
         if (i == 0)
@@ -1526,7 +1531,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             set_data(ceq.result, {std::byte(0)});
         }
     }
-    catch (constexpr_logic_execution_error const & er)
+    catch (constexpr_logic_execution_error const& er)
     {
         throw constexpr_logic_execution_error("Error executing <pcmp_eq>: " + std::string(er.what()));
     }
@@ -1574,7 +1579,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             set_data(cne.result, {std::byte(1)});
         }
     }
-    catch (constexpr_logic_execution_error const & er)
+    catch (constexpr_logic_execution_error const& er)
     {
         throw constexpr_logic_execution_error("Error executing <pcmp_ne>: " + std::string(er.what()));
     }
@@ -2617,10 +2622,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     object->alive = true;
+
+    if (object->array_init_member_of.has_value())
+    {
+        auto array_init = object->array_init_member_of.value().lock();
+
+        array_init->init_count++;
+    }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::end_lifetime(std::shared_ptr< local > object)
 {
     object->alive = false;
+    object->dtor_enabled = false;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constdata(std::vector< std::byte > const& data)
@@ -2633,7 +2646,6 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
         constdata_type.element_type = int_type{.bits = 8, .has_sign = false};
         constdata_type.element_count = expression_numeric_literal{.value = std::to_string(data.size())};
         cell = create_object(constdata_type);
-        cell->readonly = true;
         assert(cell->array_members.size() == data.size());
         for (std::size_t i = 0; i < data.size(); ++i)
         {
@@ -2641,7 +2653,8 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
             local_set_data(cell_member, {data[i]});
             cell_member->readonly = true;
         }
-        cell->alive = true;
+        cell->readonly = true;
+        begin_lifetime(cell);
     }
 
     return cell;
@@ -2824,4 +2837,164 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     // Stub implementation for pointer_diff
     throw rpnx::unimplemented();
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_start const& ais)
+{
+    auto& frame = get_current_frame();
+
+    auto array = frame.local_values[ais.on_value];
+
+    auto& initializer = frame.local_values[ais.initializer];
+
+    auto initializer_type = get_local_type(ais.initializer);
+
+    if (!initializer_type.template type_is< array_initializer_type >()) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_start expects __ARRAY_INITAILIZER");
+    }
+
+    if (initializer != nullptr) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("initializer already exists");
+    }
+
+    create_local_value(ais.initializer, true);
+    initializer->member_of = array;
+    array->delegates = {};
+    array->delegates->named["INIT"] = ais.initializer;
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_element const& aie)
+{
+    auto initializer = get_current_frame().local_values[aie.initializer];
+
+    if (initializer == nullptr) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_element: initializer not found");
+    }
+
+    auto array = initializer->member_of.value().lock();
+    if (array == nullptr || !array->alive) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("initializer refers to out of scope array");
+    }
+
+    std::size_t element_id = initializer->init_count;
+
+    if (element_id >= array->array_members.size()) [[unlikely]]
+    {
+        throw constexpr_logic_execution_error("initializing element out of bounds of array");
+    }
+
+    auto element_cell = array->array_members.at(element_id);
+
+    element_cell->array_init_member_of = initializer;
+    current_local(aie.target) = element_cell;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_remaining const& air)
+{
+    auto initializer = current_local(air.initializer);
+
+    if (initializer == nullptr) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_remaining: initializer not found");
+    }
+
+    auto initializer_type = frame_slot_data_type(air.initializer);
+
+    if (!initializer_type.template type_is< array_initializer_type >()) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_remaining expects __ARRAY_INITAILIZER");
+    }
+
+    auto const& initializer_type_t = initializer_type.get_as< array_initializer_type >();
+
+    auto count = initializer_type_t.count;
+
+    auto remaining = count - initializer->init_count;
+
+    auto & result = current_local(air.result);
+
+    auto result_type = frame_slot_data_type(air.result);
+
+    if (result_type.template type_is< bool_type >())
+    {
+        if (remaining > 0)
+        {
+            local_set_data(result, {std::byte{1}});
+        }
+        else
+        {
+            local_set_data(result, {std::byte{0}});
+        }
+    }
+    else if (result_type.template type_is< int_type >())
+    {
+        auto const& int_type_v = result_type.get_as< int_type >();
+
+        auto remaining_bytes = bytemath::u_to_le<std::uint64_t>(remaining);
+
+        bytemath::fixed_int_options opts{};
+
+        opts.has_sign = int_type_v.has_sign;
+        opts.bits = int_type_v.bits;
+        opts.overflow_undefined = true;
+
+        auto byte_result = bytemath::unlimited_to_fixed(opts, remaining_bytes);
+
+        if (byte_result.result_is_undefined)
+        {
+            throw constexpr_logic_execution_error("overflow in array_init_remaining");
+        }
+        local_set_data(result, std::move(byte_result.data_bytes));
+    }
+    else
+    {
+        throw invalid_instruction_transition_error("array_init_remaining: result type must be bool or int");
+    }
+
+
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_finish const& aif)
+{
+    auto &initializer = current_local(aif.initializer);
+
+    if (initializer == nullptr) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_finish: initializer not found");
+    }
+
+    auto initializer_type = frame_slot_data_type(aif.initializer);
+
+    if (!initializer_type.template type_is< array_initializer_type >()) [[unlikely]]
+    {
+        throw invalid_instruction_transition_error("array_init_finish expects __ARRAY_INITAILIZER");
+    }
+
+    auto const& initializer_type_t = initializer_type.get_as< array_initializer_type >();
+
+    auto count = initializer_type_t.count;
+
+    auto remaining = count - initializer->init_count;
+    if (remaining != 0)
+    {
+        throw constexpr_logic_execution_error("array_init_finish: not all elements initialized");
+    }
+
+    auto array = initializer->member_of.value().lock();
+
+    array->delegates = {};
+
+    for (auto & [idx, local] : get_current_frame().local_values)
+    {
+        if (local && local->array_init_member_of.has_value() && local->array_init_member_of.value().lock() == initializer)
+        {
+            local->array_init_member_of.reset();
+            assert(local->member_of.value().lock() == array);
+            local = nullptr;
+        }
+    }
+    begin_lifetime(array);
+
+
 }

@@ -19,7 +19,7 @@ namespace quxlang::bytemath
 
     struct int_result
     {
-        std::vector< std::byte > result;
+        std::vector< std::byte > data_bytes;
         bool result_is_undefined;
     };
 
