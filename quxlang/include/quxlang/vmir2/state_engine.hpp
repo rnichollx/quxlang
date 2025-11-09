@@ -457,7 +457,7 @@ namespace quxlang::vmir2
         {
             readonly(dntd.on_value);
         }
-        void apply_internal(vmir2::struct_delegate_new const& dlg)
+        void apply_internal(vmir2::struct_init_start const& dlg)
         {
             state[dlg.on_value].delegates = dlg.fields;
             for (auto const& [name, index] : dlg.fields.named)
@@ -473,7 +473,7 @@ namespace quxlang::vmir2
             state[dlg.on_value].alive = true;
         }
 
-        void apply_internal(vmir2::struct_complete_new const& scn)
+        void apply_internal(vmir2::struct_init_finish const& scn)
         {
             auto delegates = state[scn.on_value].delegates.value();
 

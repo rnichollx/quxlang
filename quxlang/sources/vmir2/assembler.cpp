@@ -565,13 +565,13 @@ namespace quxlang::vmir2
     {
         return "DEFER_DTOR " + quxlang::to_string(dntd.func) + ", %" + std::to_string(dntd.on_value) + ", %" + this->to_string_internal(dntd.args);
     }
-    std::string assembler::to_string_internal(vmir2::struct_delegate_new sdn)
+    std::string assembler::to_string_internal(vmir2::struct_init_start sdn)
     {
-        return "STRUCT_DELG_NEW %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
+        return "STRUCT_INIT_START %" + std::to_string(sdn.on_value) + ", " + this->to_string_internal(sdn.fields);
     }
-    std::string assembler::to_string_internal(vmir2::struct_complete_new scn)
+    std::string assembler::to_string_internal(vmir2::struct_init_finish scn)
     {
-        return "STRUCT_CMPLT_NEW %" + std::to_string(scn.on_value);
+        return "STRUCT_INIT_FINISH %" + std::to_string(scn.on_value);
     }
     std::string assembler::to_string_internal(vmir2::end_lifetime elt)
     {

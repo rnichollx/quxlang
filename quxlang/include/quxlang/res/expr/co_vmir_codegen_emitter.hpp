@@ -2865,7 +2865,7 @@ namespace quxlang
             QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
             auto otheridx_value = otheridx.value();
 
-            this->emit(current_block, vmir2::struct_delegate_new{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
 
             for (class_field const& fld : fields)
             {
@@ -3049,7 +3049,7 @@ namespace quxlang
 
             auto thisidx_value = thisidx.value();
 
-            this->emit(current_block, vmir2::struct_delegate_new{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(thisidx_value), .fields = get_invocation_args(fields_args)});
 
             std::set< std::string > found_delegate_names;
             for (delegate const& dlg : delegates)

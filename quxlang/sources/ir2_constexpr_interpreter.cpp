@@ -265,8 +265,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::gcmp_lt const& clt);
     void exec_instr_val(vmir2::gcmp_ge const& cge);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
-    void exec_instr_val(vmir2::struct_delegate_new const& sdn);
-    void exec_instr_val(vmir2::struct_complete_new const& scn);
+    void exec_instr_val(vmir2::struct_init_start const& sdn);
+    void exec_instr_val(vmir2::struct_init_finish const& scn);
     void exec_instr_val(vmir2::copy_reference const& cpr);
     void exec_instr_val(vmir2::end_lifetime const& elt);
     void exec_instr_val(vmir2::pointer_arith const& par);
@@ -2146,7 +2146,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     slot->dtor = dtor_spec{.func = dntd.func, .args = dntd.args};
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_delegate_new const& sdn)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_init_start const& sdn)
 {
     auto& frame = get_current_frame();
 
@@ -2186,7 +2186,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     // throw rpnx::unimplemented();
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_complete_new const& scn)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::struct_init_finish const& scn)
 {
     auto& frame = get_current_frame();
 

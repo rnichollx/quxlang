@@ -74,8 +74,8 @@ namespace quxlang
         struct gcmp_eq;
         struct gcmp_ne;
 
-        struct struct_delegate_new;
-        struct struct_complete_new;
+        struct struct_init_start;
+        struct struct_init_finish;
         struct fence_byte_release;
         struct fence_byte_acquire;
         struct load_const_bool;
@@ -92,7 +92,7 @@ namespace quxlang
         struct array_init_element;
         struct array_init_finish;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_delegate_new, struct_complete_new, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_remaining, array_init_element, array_init_finish >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_remaining, array_init_element, array_init_finish >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64(local_index);
@@ -130,33 +130,33 @@ namespace quxlang
             RPNX_MEMBER_METADATA(invocation_args, named, positional);
         };
 
-        // The struct_delegate_new (SDN) instruction is used in constructor and destructor delegation to member fields.
+        // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.
         // It doesn't do anything per se but affects how the stack unwinds and value lifetimes are managed.
         // Given a value like "x" of struct type, the delegates can be e.g. x.y, x.z, x.w, etc.
-        // Thus the delegate instruction allows assignment of struct fields to slots, so that those fields are
+        // Thus the struct_init_start instruction allows assignment of struct fields to slots, so that those fields are
         // considered part of the unwind process. The delegate instruction is the only way to begin the lifetime of
         // a struct type. I.e. it transitions a struct into the "partially constructed" state.
         // The slot type of the delegates should be of the same type as the fields, omitting NEW&.
-        struct struct_delegate_new
+        struct struct_init_start
         {
             local_index on_value;
             invocation_args fields;
 
-            RPNX_MEMBER_METADATA(struct_delegate_new, on_value, fields);
+            RPNX_MEMBER_METADATA(struct_init_start, on_value, fields);
         };
 
-        // struct_complete_new is used in conjunction with struct_delegate_new to finalize an object.
-        // A struct's destructor becomes primed for activation after SCN.
-        // Between SDN and SCN, only the field destructors will run.
-        // SCN is called immediately before the constructor body executes after delegate
+        // struct_init_finish is used in conjunction with struct_init_start to finalize an object.
+        // A struct's destructor becomes primed for activation after SIF.
+        // Between SIS and SIF, only the field destructors will run.
+        // SIF is called immediately before the constructor body executes after delegate
         // initialization completes.
-        // This is only needed if an invocation is inlined in the QXVMIR, the constructor returning implicitly finalizes
+        // This is only needed if an invocation is inlined in the QXVMIR, a constructor returning implicitly finalizes
         // the struct.
-        struct struct_complete_new
+        struct struct_init_finish
         {
             local_index on_value;
 
-            RPNX_MEMBER_METADATA(struct_complete_new, on_value);
+            RPNX_MEMBER_METADATA(struct_init_finish, on_value);
         };
 
         // The array_init_start (ARRAY_INIT_START) instruction is used to mark the beginning of
