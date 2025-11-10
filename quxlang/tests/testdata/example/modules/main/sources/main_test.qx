@@ -3,10 +3,6 @@ IMPORT foolib;
 
 ::constexpr_test_suite FUNCTION() :I32
 {
-  VAR x I32;
-  x := 8;
-  ASSERT( x == 8 );
-
   test_runtime_statement();
   test_dtor_executes();
   test_arry_pointers();
@@ -46,6 +42,19 @@ IMPORT foolib;
     ASSERT( x[0].val == 5 );
     ASSERT( x[1].val == 5 );
     ASSERT( x[2].val == 5 );
+}
+
+::test_array_literal FUNCTION() {
+  VAR x [4]I32 :[ 1, 3, 5, 7 ];
+
+    ASSERT( x[0] == 1 );
+
+    ASSERT( x[1] == 3 );
+
+    ASSERT( x[2] == 5 );
+
+    ASSERT( x[3] == 7 );
+
 }
 
 

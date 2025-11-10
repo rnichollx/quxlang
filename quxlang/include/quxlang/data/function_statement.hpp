@@ -42,6 +42,7 @@ namespace quxlang
         // TODO: support named initializers
         std::vector< expression > initializers;
 
+        //std::vector< expression > array_initializers;
         std::optional< expression > equals_initializer;
 
         RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers, equals_initializer);

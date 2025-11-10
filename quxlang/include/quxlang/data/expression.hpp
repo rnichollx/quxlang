@@ -35,6 +35,8 @@ namespace quxlang
     struct expression_implies;
     struct expression_implied;
 
+
+
     struct expression_this_reference
     {
         RPNX_EMPTY_METADATA(expression_this_reference);
@@ -136,9 +138,101 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_value_keyword, keyword);
     };
 
+    struct expression_arg
+    {
+        std::optional< std::string > name;
+        expression value;
+
+        RPNX_MEMBER_METADATA(expression_arg, name, value);
+    };
+
+    struct call_initializer
+    {
+        std::vector< expression_arg > args;
+        RPNX_MEMBER_METADATA(call_initializer, args);
+    };
+
+    // An expression like ` :[ a, b, c ] ` for array initialization
+    // or ` :[ a, b, c, ... ]` for array initialization with default value
+    struct array_initializer
+    {
+        std::vector< expression > args;
+        std::optional< expression > default_initalization;
+        RPNX_MEMBER_METADATA(array_initializer, args, default_initalization);
+    };
+
+    struct assignment_initializer
+    {
+        expression expr;
+        RPNX_MEMBER_METADATA(assignment_initializer, expr);
+    };
 
 
 
+    struct expression_call
+    {
+        expression callee;
+        std::vector< expression_arg > args;
+
+        RPNX_MEMBER_METADATA(expression_call, callee, args);
+    };
+
+    struct expression_bits
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_bits, of_type);
+    };
+
+    struct expression_sizeof
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_sizeof);
+    };
+
+    struct expression_is_integral
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_integral);
+    };
+
+    struct expression_is_signed
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_integral);
+    };
+
+    struct expression_is_same
+    {
+        type_symbol of_type;
+
+        RPNX_MEMBER_METADATA(expression_is_same);
+    };
+
+    struct expression_typecast
+    {
+        expression expr;
+        type_symbol to_type;
+        std::optional< std::string > keyword;
+
+        RPNX_MEMBER_METADATA(expression_typecast, expr, to_type, keyword);
+    };
+
+    struct delegate
+    {
+        // The name of the delegate
+        std::string name;
+
+        // TODO: Delegates should be able to refer to members by complex symbols
+
+        // Expression arguments in a delegate call
+        std::vector< expression_arg > args;
+
+        RPNX_MEMBER_METADATA(delegate, name, args);
+    };
 
 
 

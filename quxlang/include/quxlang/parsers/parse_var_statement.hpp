@@ -61,6 +61,37 @@ namespace quxlang::parsers
                 }
             }
         }
+        if (skip_symbol_if_is(pos, end, ":["))
+        {
+
+            while (true)
+            {
+
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, ")"))
+                {
+                    break;
+                }
+
+                remaining = std::string(pos, end);
+
+                expression expr = parse_expression(pos, end);
+                var_statement.array_initializers.push_back(std::move(expr));
+
+                if (skip_symbol_if_is(pos, end, ","))
+                {
+                    continue;
+                }
+                else if (skip_symbol_if_is(pos, end, "]"))
+                {
+                    break;
+                }
+                else
+                {
+                    throw std::logic_error("Expected ',' or ')'");
+                }
+            }
+        }
         else if (skip_symbol_if_is(pos, end, ":="))
         {
             skip_whitespace_and_comments(pos, end);
@@ -71,8 +102,6 @@ namespace quxlang::parsers
         std::string remaining2{pos, end};
 
         skip_whitespace_and_comments(pos, end);
-
-
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
