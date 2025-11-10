@@ -48,12 +48,12 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
                 }
                 else
                 {
-                    state[param_slot_index].alive = true;
+                    state[param_slot_index].stage = slot_stage::full;
                     state[param_slot_index].storage_valid = true;
                 }
             }
@@ -64,12 +64,12 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
                 }
                 else
                 {
-                    state[param_slot_index].alive = true;
+                    state[param_slot_index].stage = slot_stage::full;
                     state[param_slot_index].storage_valid = true;
                 }
             }
@@ -90,20 +90,24 @@ namespace quxlang::vmir2
                 if (param.type.template type_is< nvalue_slot >())
                 {
                     // NEW&& values are set to alive
-                    state[param_slot_index].alive = true;
+                    state[param_slot_index].stage = slot_stage::full;
+                    state[param_slot_index].delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
                 {
                     // DESTROY&& values are destroyed, but their storage remains valid upon exit
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
+                    state[param_slot_index].delegates = std::nullopt;
                 }
                 else
                 {
                     // other values no longer exist after the function returns
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
+
+                    state[param_slot_index].delegates = std::nullopt;
                 }
             }
             for (auto const& [name, param] : routine_params.named)
@@ -113,20 +117,24 @@ namespace quxlang::vmir2
                 if (param.type.template type_is< nvalue_slot >())
                 {
                     // NEW&& values are set to alive
-                    state[param_slot_index].alive = true;
+                    state[param_slot_index].stage = slot_stage::full;
+                    state[param_slot_index].delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
                 {
                     // DESTROY& values are destroyed, but their storage remains valid upon exit
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
+
+                    state[param_slot_index].delegates = std::nullopt;
                 }
                 else
                 {
                     // other values are destroyed
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
+                    state[param_slot_index].delegates = std::nullopt;
                 }
             }
             check_state_valid();
@@ -142,20 +150,21 @@ namespace quxlang::vmir2
 
                 if (param.type.template type_is< nvalue_slot >())
                 {
-                    // NEW&& values are set to alive
-                    state[param_slot_index].alive = true;
+                    // NEW&& values are not set to alive
+                    state[param_slot_index].stage = slot_stage::dead;
+
+                    state[param_slot_index].delegates = std::nullopt;
                     state[param_slot_index].storage_valid = true;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
                 {
                     // DESTROY& values are destroyed, but their storage remains valid upon exit
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
                 }
                 else
                 {
-                    // DESTROY& values are destroyed
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
                 }
             }
@@ -167,18 +176,22 @@ namespace quxlang::vmir2
                 {
                     // NEW&& values are *not* initialized when an exception is thrown,
                     // but their storage remains valid
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
+
+                    state[param_slot_index].delegates = std::nullopt;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
                 {
                     // DESTROY&& values are destroyed, but their storage remains valid upon exit
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
+
+                    state[param_slot_index].delegates = std::nullopt;
                 }
                 else
                 {
-                    state[param_slot_index].alive = false;
+                    state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
                 }
             }
@@ -464,13 +477,11 @@ namespace quxlang::vmir2
             {
                 state[index].delegate_of = dlg.on_value;
                 state[index].storage_valid = true;
-                state[index].dtor_enabled = false;
-                state[index].alive = false;
+                state[index].stage = slot_stage::dead;
             }
 
             state[dlg.on_value].storage_valid = true;
-            state[dlg.on_value].dtor_enabled = false;
-            state[dlg.on_value].alive = true;
+            state[dlg.on_value].stage = slot_stage::partial;
         }
 
         void apply_internal(vmir2::struct_init_finish const& scn)
@@ -484,9 +495,8 @@ namespace quxlang::vmir2
             // TODO: Should we clear the delegate list?
             // state[scn.on_value].delegates.reset();
 
-            state[scn.on_value].alive = true;
+            state[scn.on_value].stage = slot_stage::full;
             state[scn.on_value].storage_valid = true;
-            state[scn.on_value].dtor_enabled = true;
         }
         void apply_internal(vmir2::copy_reference const& cpr)
         {
@@ -519,15 +529,20 @@ namespace quxlang::vmir2
             // Set initializer as a delegate of the array
             state[ain.initializer].delegate_of = ain.on_value;
             // Initializer itself is alive and valid during initialization
-            state[ain.initializer].alive = true;
+            state[ain.initializer].stage = slot_stage::full;
             state[ain.initializer].storage_valid = true;
-            state[ain.initializer].dtor_enabled = false;
             // Array storage is valid and considered alive but not yet dtor-enabled (partial)
             state[ain.on_value].storage_valid = true;
-            state[ain.on_value].dtor_enabled = false;
-            state[ain.on_value].alive = true;
+            state[ain.on_value].stage = slot_stage::partial;
         }
-        void apply_internal(vmir2::array_init_remaining const& aim)
+        void apply_internal(vmir2::array_init_index const& aim)
+        {
+            // Query initializer; does not consume it; produce result
+            readonly(aim.initializer);
+            output(aim.result);
+        }
+
+        void apply_internal(vmir2::array_init_more const& aim)
         {
             // Query initializer; does not consume it; produce result
             readonly(aim.initializer);
@@ -540,9 +555,10 @@ namespace quxlang::vmir2
             readonly(aiv.initializer);
             state[aiv.target].array_delegate_of_initializer = aiv.initializer;
             state[aiv.target].storage_valid = true;
-            state[aiv.target].dtor_enabled = false;
-            state[aiv.target].alive = false;
+            state[aiv.target].stage = slot_stage::dead;
         }
+
+
         void apply_internal(vmir2::array_init_finish const& aic)
         {
             // Discard any array element delegate slots recorded under the initializer
@@ -563,9 +579,8 @@ namespace quxlang::vmir2
                 if (s.delegate_of.has_value())
                 {
                     auto arr_idx = *s.delegate_of;
-                    state[arr_idx].alive = true;
-                    state[arr_idx].storage_valid = true;
-                    state[arr_idx].dtor_enabled = true;
+                    state[arr_idx].stage = slot_stage::full;
+                    assert(state[arr_idx].storage_valid == true);
                     // Clear delegates on the array to remove the initializer reference
                     state[arr_idx].delegates.reset();
                 }
@@ -576,27 +591,31 @@ namespace quxlang::vmir2
 
         void readonly(local_index idx)
         {
-            if (!state[idx].alive || !state[idx].storage_valid) [[unlikely]]
+            if (state[idx].stage == slot_stage::dead || !state[idx].storage_valid) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("readonly input not alive state");
             }
         }
         void consume(local_index idx)
         {
-            if (!state[idx].alive || !state[idx].storage_valid) [[unlikely]]
+            if (state[idx].delegate_of.has_value())
+            {
+                throw invalid_instruction_transition_error("delegates are not consumable");
+            }
+            if (state[idx].stage != slot_stage::full || !state[idx].storage_valid) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("consume input not alive state");
             }
-            state[idx].alive = false;
+            state[idx].stage = slot_stage::dead;
             state[idx].storage_valid = state[idx].delegate_of.has_value();
         }
         void output(local_index idx)
         {
-            if (state[idx].alive) [[unlikely]]
+            if (state[idx].alive()) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output already set");
             }
-            state[idx].alive = true;
+            state[idx].stage = slot_stage::full;
             if (!state[idx].storage_valid && state[idx].delegate_of.has_value()) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output not valid");

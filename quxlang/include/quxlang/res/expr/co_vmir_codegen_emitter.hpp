@@ -3,6 +3,7 @@
 #define QUXLANG_RES_EXPR_CO_VMIR_CODEGEN_EMITTER_HEADER_GUARD
 
 #include "quxlang/ast2/ast2_entity.hpp"
+#include "quxlang/bytemath.hpp"
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/class_field_declaration.hpp"
 #include "quxlang/data/class_layout.hpp"
@@ -11,6 +12,7 @@
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_placement_info.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
@@ -168,7 +170,7 @@ namespace quxlang
             auto& block = this->state.blocks.at(bidx);
             if (block.current_state.contains(idx))
             {
-                return block.current_state.at(idx).alive;
+                return block.current_state.at(idx).alive();
             }
             return false;
         }
@@ -293,7 +295,7 @@ namespace quxlang
             // are never nvalue or dvalue slots.
             assert(!type.template type_is< nvalue_slot >() && !type.template type_is< dvalue_slot >());
 
-            if (!slot_state.alive)
+            if (!slot_state.alive())
             {
                 type = create_nslot(type);
             }
@@ -1276,8 +1278,7 @@ namespace quxlang
                         return crf;
                     }
                 }
-                else if (args.size() == 1 && args.named.contains("THIS") && !cls->type_is<array_type>()
-                    && (!cls->type_is<ptrref_type>() || cls->as<ptrref_type>().ptr_class != pointer_class::ref))
+                else if (args.size() == 1 && args.named.contains("THIS") && !cls->type_is< array_type >() && (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))
                 {
                     vmir2::load_const_zero result{};
                     result.target = get_local_index(args.named.at("THIS"));
@@ -2309,7 +2310,16 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
-            co_await co_generate_ctor_delegates(current_block, func, {});
+            bool type_is_array;
+            auto cls = func.temploid.templexoid.get_as< submember >().of;
+            if (cls.template type_is< array_type >())
+            {
+                co_await co_generate_array_ctor_delegates(current_block, func, {});
+            }
+            else
+            {
+                co_await co_generate_struct_ctor_delegates(current_block, func, {});
+            }
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -2716,7 +2726,15 @@ namespace quxlang
             {
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
-                    co_await co_generate_ctor_delegates(current_block, func);
+                    auto cls = func.temploid.templexoid.get_as< submember >().of;
+                    if (cls.template type_is< array_type >())
+                    {
+                        co_await co_generate_array_ctor_delegates(current_block, func, {});
+                    }
+                    else
+                    {
+                        co_await co_generate_struct_ctor_delegates(current_block, func);
+                    }
                 }
 
                 co_await co_generate_body(current_block, func);
@@ -2748,7 +2766,7 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_ctor_delegates(block_index& bidx, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto co_generate_struct_ctor_delegates(block_index& bidx, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
         {
             temploid_reference const& function = func.temploid;
 
@@ -2781,7 +2799,7 @@ namespace quxlang
                 delegates.push_back(dlg2);
             }
 
-            co_await co_generate_ctor_delegates(bidx, func, delegates);
+            co_await co_generate_struct_ctor_delegates(bidx, func, delegates);
 
             co_return;
         }
@@ -2847,12 +2865,10 @@ namespace quxlang
                 fields_args.named[fld.name] = fslot;
             }
 
-            if (cls.template type_is<array_type>())
+            if (cls.template type_is< array_type >())
             {
-                auto element_type = cls.get_as<array_type>().element_type;
-                auto array_size_exp = cls.get_as<array_type>().element_count;
-
-
+                auto element_type = cls.get_as< array_type >().element_type;
+                auto array_size_exp = cls.get_as< array_type >().element_count;
             }
 
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
@@ -2887,7 +2903,96 @@ namespace quxlang
             }
 
             // TODO: Include SCN in delegate constructors?
-            // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
+            //this->emit(current_block, vmir2::struct_init_finish{.on_value = get_local_index(thisidx_value)});
+        }
+
+        auto co_generate_array_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
+        {
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            QUXLANG_COMPILER_BUG_IF(!cls.template type_is< array_type >(), "Expected array type in array copy constructor");
+
+            auto element_type = cls.get_as< array_type >().element_type;
+            auto array_size_exp = cls.get_as< array_type >().element_count;
+
+            assert(array_size_exp.type_is< expression_numeric_literal >());
+            auto array_size = as< expression_numeric_literal >(array_size_exp).value;
+
+            std::uint64_t array_size_uint = 0;
+
+            auto ule = bytemath::detail::string_to_le_raw(array_size);
+
+            bytemath::fixed_int_options opts;
+            opts.bits = 64;
+            opts.has_sign = false;
+            opts.overflow_undefined = true;
+            auto [res, ok] = bytemath::unlimited_to_int< std::uint64_t >(opts, ule);
+
+            if (!ok)
+            {
+                throw std::logic_error("Array size is too large");
+            }
+
+            array_initializer_type init_type;
+            init_type.count = res;
+            init_type.element_type = element_type;
+
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+            QUXLANG_COMPILER_BUG_IF(!otheridx.has_value(), "Expected OTHER to be defined");
+            auto otheridx_value = otheridx.value();
+
+            auto initiailizer = create_local_value(init_type);
+
+            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
+
+
+            auto init_loop_condition_block = this->generate_subblock(current_block, "array_copy_condition_ctor_loop");
+            auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
+            auto init_loop_done = this->generate_subblock(current_block, "array_copy_ctor_loop_done");
+
+            type_symbol uintptr_type = co_await prv.uintpointer_type({});
+
+            auto remaining_result_bool = this->create_local_value(bool_type{});
+            auto element_index = this->create_local_value(uintptr_type);
+            auto element = this->create_local_value(element_type);
+
+            this->emit(init_loop_condition_block, vmir2::array_init_more{.initializer = get_local_index(initiailizer), .result = get_local_index(remaining_result_bool)});
+            this->generate_branch(init_loop_condition_block, init_loop_block, init_loop_done);
+            current_block = init_loop_block;
+
+            this->emit(init_loop_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
+
+            auto otherval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
+
+            this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result_index = get_local_index(element_index)});
+            auto other_element_ref = this->create_local_value(make_cref(element_type));
+            this->emit(init_loop_block, vmir2::access_array{.base_index = otherval, .index_index = get_local_index(element_index), .store_index = get_local_index(other_element_ref)});
+
+            auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            codegen_invocation_args args;
+            args.named["THIS"] = element;
+            args.named["OTHER"] = other_element_ref;
+            co_await this->co_gen_call_functum(init_loop_block, constructor, args);
+
+            this->generate_jump(init_loop_block, init_loop_condition_block);
+
+            current_block = init_loop_done;
+            this->emit(init_loop_done, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
         }
 
         auto co_generate_swap_members(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
@@ -3017,7 +3122,7 @@ namespace quxlang
             }
         }
 
-        [[nodiscard]] auto co_generate_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
+        [[nodiscard]] auto co_generate_struct_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
         {
 
             instanciation_reference const& inst = func;
@@ -3074,6 +3179,93 @@ namespace quxlang
             // this->emit(current_block, vmir2::struct_complete_new{.on_value = get_local_index(thisidx_value)});
 
             // frame.block(current_block).emit(vmir2::struct_complete_new{.on_value = thisidx_value});
+        }
+
+        [[nodiscard]] auto co_generate_array_ctor_delegates(block_index& current_block, instanciation_reference const& func, std::vector< delegate > delegates) -> typename CoroutineProvider::template co_type< void >
+        {
+            if (!delegates.empty())
+            {
+                throw rpnx::unimplemented();
+            }
+            instanciation_reference const& inst = func;
+            auto const& sel = inst.temploid;
+
+            auto functum = sel.templexoid;
+
+            type_symbol cls;
+
+            QUXLANG_COMPILER_BUG_IF(!typeis< submember >(functum), "Expected constructor to be submember");
+
+            cls = as< submember >(functum).of;
+
+            QUXLANG_COMPILER_BUG_IF(!cls.template type_is< array_type >(), "Expected array type in array copy constructor");
+
+            auto element_type = cls.get_as< array_type >().element_type;
+            auto array_size_exp = cls.get_as< array_type >().element_count;
+
+            assert(array_size_exp.type_is< expression_numeric_literal >());
+            auto array_size = as< expression_numeric_literal >(array_size_exp).value;
+
+            std::uint64_t array_size_uint = 0;
+
+            auto ule = bytemath::detail::string_to_le_raw(array_size);
+
+            bytemath::fixed_int_options opts;
+            opts.bits = 64;
+            opts.has_sign = false;
+            opts.overflow_undefined = true;
+            auto [res, ok] = bytemath::unlimited_to_int< std::uint64_t >(opts, ule);
+
+            if (!ok)
+            {
+                throw std::logic_error("Array size is too large");
+            }
+
+            array_initializer_type init_type;
+            init_type.count = res;
+            init_type.element_type = element_type;
+
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+
+            QUXLANG_COMPILER_BUG_IF(!thisidx.has_value(), "Expected THIS to be defined");
+
+            auto thisidx_value = thisidx.value();
+
+            auto initiailizer = create_local_value(init_type);
+
+            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
+
+            auto init_loop_condition_block = this->generate_subblock(current_block, "array_copy_condition_ctor_loop");
+            auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
+            auto init_loop_done = this->generate_subblock(current_block, "array_copy_ctor_loop_done");
+
+            this->generate_jump(current_block, init_loop_condition_block);
+
+            type_symbol uintptr_type = co_await prv.uintpointer_type({});
+
+            auto remaining_result_bool = this->create_local_value(bool_type{});
+            auto element_index = this->create_local_value(uintptr_type);
+            auto element = this->create_local_value(element_type);
+
+            this->emit(init_loop_condition_block, vmir2::array_init_more{.initializer = get_local_index(initiailizer), .result = get_local_index(remaining_result_bool)});
+            this->generate_branch(remaining_result_bool, init_loop_condition_block, init_loop_block, init_loop_done);
+            current_block = init_loop_block;
+
+            this->emit(init_loop_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
+
+            this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result = get_local_index(element_index)});
+
+
+
+            auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            codegen_invocation_args args;
+            args.named["THIS"] = element;
+            co_await this->co_gen_call_functum(init_loop_block, constructor, args);
+
+            this->generate_jump(init_loop_block, init_loop_condition_block);
+
+            current_block = init_loop_done;
+            this->emit(init_loop_done, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_assert_statement const& asrt) -> typename CoroutineProvider::template co_type< void >

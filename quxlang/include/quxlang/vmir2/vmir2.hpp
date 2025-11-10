@@ -19,6 +19,8 @@ namespace quxlang
 }
 RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, named_arg, local, literal, symbol, binding);
 
+RPNX_ENUM(quxlang::vmir2, slot_stage, std::uint16_t, dead, partial, full);
+
 namespace quxlang
 {
     namespace vmir2
@@ -88,11 +90,12 @@ namespace quxlang
         struct unimplemented;
 
         struct array_init_start;
-        struct array_init_remaining;
+        struct array_init_index;
         struct array_init_element;
         struct array_init_finish;
+        struct array_init_more;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_remaining, array_init_element, array_init_finish >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64(local_index);
@@ -187,15 +190,24 @@ namespace quxlang
         };
 
 
-        // The array_init_remaining (ARRAY_INIT_REMAINING) instruction is used to test whether or not there are
-        // more elements remaining to initialize.
-        // The output can be either a BOOL (true/false) or an INT (count of remaining elements).
-        struct array_init_remaining
+        // The array_init_index (ARRAY_INIT_INDEX) instruction returns the index of the element being initialized,
+        // or the size of the array if completed.
+        struct array_init_index
         {
             local_index initializer;
             local_index result;
 
-            RPNX_MEMBER_METADATA(array_init_remaining, initializer, result);
+            RPNX_MEMBER_METADATA(array_init_index, initializer, result);
+        };
+
+        // The array_init_remaining (ARRAY_INIT_REMAINING) instruction is used to test whether or not there are
+        // more elements remaining to initialize.
+        struct array_init_more
+        {
+            local_index initializer;
+            local_index result;
+
+            RPNX_MEMBER_METADATA(array_init_more, initializer, result);
         };
 
         // The array_init_finish (ARRAY_INIT_FINISH) instruction is used to finalize
@@ -663,21 +675,28 @@ namespace quxlang
 
         struct slot_state
         {
-            bool alive = false;
+            slot_stage stage = slot_stage::dead;
             bool storage_valid = false;
-            bool dtor_enabled = false;
             std::optional< dtor_spec > nontrivial_dtor;
             std::optional< invocation_args > delegates;
             std::optional< local_index > delegate_of;
             std::optional< local_index > array_delegate_of_initializer;
 
+            bool alive() const
+            {
+                return stage != slot_stage::dead;
+            }
+            bool dtor_enabled() const
+            {
+                return stage == slot_stage::full;
+            }
             bool valid() const
             {
-                if (alive && !storage_valid)
+                if (alive() && !storage_valid)
                 {
                     return false;
                 }
-                if (!alive && (delegates.has_value() || dtor_enabled))
+                if (stage == slot_stage::dead && (delegates.has_value() || dtor_enabled()))
                 {
                     return false;
                 }
@@ -685,14 +704,14 @@ namespace quxlang
                 {
                     return false;
                 }
-                if (nontrivial_dtor.has_value() && !dtor_enabled)
+                if (nontrivial_dtor.has_value() && !dtor_enabled())
                 {
                     return false;
                 }
                 return true;
             }
 
-            RPNX_MEMBER_METADATA(slot_state, alive, storage_valid, dtor_enabled, nontrivial_dtor, delegates, delegate_of, array_delegate_of_initializer);
+            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, array_delegate_of_initializer);
         };
 
         struct slot_states

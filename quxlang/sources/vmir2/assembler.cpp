@@ -100,49 +100,65 @@ namespace quxlang::vmir2
         bool first = true;
         for (auto& [k, v] : state)
         {
-            if (v.alive || v.storage_valid)
-            {
-                if (first)
-                {
-                    first = false;
-                }
-                else
-                {
-                    output += ", ";
-                }
-                output += "%" + std::to_string(k);
-
-                if (v.alive)
-                {
-                    output += "[A]";
-                }
-                else if (v.storage_valid)
-                {
-                    output += "[S]";
-                }
-
-                if (v.delegate_of)
-                {
-                    output += "[D <- %" + std::to_string(*v.delegate_of) + "]";
-                }
-                if (v.delegates.has_value())
-                {
-                    auto const& d = v.delegates.value();
-                    for (auto const& [name, idx] : d.named)
-                    {
-                        output += "[D @" + name + " -> %" + std::to_string(idx) + "]";
-                    }
-                    std::size_t i = 0;
-                    for (auto const& idx : d.positional)
-                    {
-
-                        output += "[D %["+std::to_string(i++) + "] -> %" + std::to_string(idx) + "]";
-                    }
-                }
-            }
+            output += this->to_string(k, v);
         }
 
         output += " >]";
+        return output;
+    }
+    std::string assembler::to_string(std::size_t index, vmir2::slot_state const& v)
+    {
+        std::string output;
+        bool first = true;
+        if (v.alive() || v.storage_valid)
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                output += ", ";
+            }
+            output += "%" + std::to_string(index);
+
+            if (v.stage == slot_stage::full)
+            {
+                output += "[A]";
+            }
+            else if (v.stage == slot_stage::partial)
+            {
+                output += "[P]";
+            }
+            else if (v.storage_valid)
+            {
+                output += "[S]";
+            }
+
+            if (v.delegate_of)
+            {
+                output += "[D <- %" + std::to_string(*v.delegate_of) + "]";
+            }
+
+            if (v.array_delegate_of_initializer)
+            {
+                output += "[D <== %" + std::to_string(*v.array_delegate_of_initializer) + "]";
+            }
+            if (v.delegates.has_value())
+            {
+                auto const& d = v.delegates.value();
+                for (auto const& [name, idx] : d.named)
+                {
+                    output += "[D @" + name + " -> %" + std::to_string(idx) + "]";
+                }
+                std::size_t i = 0;
+                for (auto const& idx : d.positional)
+                {
+
+                    output += "[D %["+std::to_string(i++) + "] -> %" + std::to_string(idx) + "]";
+                }
+            }
+        }
         return output;
     }
     std::string assembler::to_string(vmir2::vm_instruction inst)
@@ -288,9 +304,15 @@ namespace quxlang::vmir2
         return std::string("ARRAY_INIT_START %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.on_value);
     }
 
-    std::string assembler::to_string_internal(vmir2::array_init_remaining ani)
+    std::string assembler::to_string_internal(vmir2::array_init_index ani)
     {
-        return std::string("ARRAY_INIT_REMAINING %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
+        return std::string("ARRAY_INIT_INDEX %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
+    }
+
+
+    std::string assembler::to_string_internal(vmir2::array_init_more ani)
+    {
+        return std::string("ARRAY_INIT_MORE %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.result);
     }
 
     std::string assembler::to_string_internal(vmir2::array_init_element ani)

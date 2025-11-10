@@ -43,6 +43,7 @@ namespace quxlang
         QUX_BIND(class_default_dtor);
         QUX_BIND(class_default_ctor);
         QUX_BIND(type_placement_info);
+        QUX_BIND(uintpointer_type);
 
 
         auto& implicitly_convertible_to(type_symbol from, type_symbol to)

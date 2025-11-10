@@ -20,6 +20,7 @@ namespace quxlang::vmir2
         std::string to_string(vmir2::vm_slot slt);
         std::string to_string(vmir2::executable_block const &block);
         std::string to_string(vmir2::state_map const & state);
+        std::string to_string(std::size_t index, vmir2::slot_state const& v);
 
 
         assembler(vmir2::functanoid_routine3 what) : m_what(what) {}
@@ -40,7 +41,8 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::runtime_ce inst);
         std::string to_string_internal(vmir2::array_init_start);
         std::string to_string_internal(vmir2::array_init_element);
-        std::string to_string_internal(vmir2::array_init_remaining);
+        std::string to_string_internal(vmir2::array_init_index);
+        std::string to_string_internal(vmir2::array_init_more);
         std::string to_string_internal(vmir2::array_init_finish);
 
 

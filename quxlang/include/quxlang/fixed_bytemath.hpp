@@ -29,7 +29,7 @@ namespace quxlang::bytemath
         bool result_is_undefined;
     };
 
-    auto get_bit(std::vector< std::byte > const& v, std::size_t bit) -> bool
+    inline auto get_bit(std::vector< std::byte > const& v, std::size_t bit) -> bool
     {
         std::size_t byte_index = bit / 8;
         std::size_t bit_index = bit % 8;
@@ -39,7 +39,7 @@ namespace quxlang::bytemath
         }
         return (std::to_integer< std::uint8_t >(v[byte_index]) >> bit_index) & 1;
     }
-    auto set_bit(std::vector< std::byte >& v, std::size_t bit, bool value) -> void
+    inline auto set_bit(std::vector< std::byte >& v, std::size_t bit, bool value) -> void
     {
         std::size_t byte_index = bit / 8;
         std::size_t bit_index = bit % 8;
@@ -221,6 +221,25 @@ namespace quxlang::bytemath
     inline int_result int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
         return unlimited_to_fixed(opt, le_signed_div(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+    }
+
+    template <typename I>
+    std::pair< I, bool > unlimited_to_int(fixed_int_options opts, sle_int_unlimited input)
+    {
+        auto res = unlimited_to_fixed(opts, input);;
+        if (res.result_is_undefined)
+        {
+            return {{}, false};
+        }
+
+        I result = 0;
+        for (std::size_t i = 0; i < res.data_bytes.size(); ++i)
+        {
+            auto byte = std::to_integer< I >(std::byte(res.data_bytes[i]));
+            result |= (byte << (i * 8));
+        }
+
+        return {result, true};
     }
 
 

@@ -384,7 +384,7 @@ IMPORT foolib;
 {
   VAR x I32;
 
- // AUTO z := ~
+ // AUTO z := -<
  // {
  //   x++;
  // };
