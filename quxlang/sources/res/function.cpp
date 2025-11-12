@@ -368,6 +368,34 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             {
                 allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{make_mref(parent)}}}}}, .return_type = make_mref(parent)});
             }
+            else
+            {
+                // Bitwise operators support per docs/operators_syntax.md
+                static const std::set<std::string> bitwise_binary_operators = {"#&&", "#||", "#&!", "#|!", "#^->", "#^<-", "#^^", "#^!"};
+                static const std::set<std::string> bitwise_shift_operators = {"#++", "#-"};
+                static const std::set<std::string> bitwise_rotate_operators = {"#+%", "#-%"};
+
+                if (bitwise_binary_operators.contains(operator_name))
+                {
+                    // (THIS parent, OTHER parent): parent
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = parent});
+                }
+                else if (bitwise_shift_operators.contains(operator_name))
+                {
+                    // Shifts: (THIS parent, OTHER uintptr): parent
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                }
+                else if (bitwise_rotate_operators.contains(operator_name))
+                {
+                    // Rotate: (THIS parent, OTHER uintptr): parent
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                }
+                else if (operator_name == "#!!" && !is_rhs)
+                {
+                    // Unary bitwise inverse/complement (suffix): (THIS parent) -> parent
+                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}}}}, .return_type = parent});
+                }
+            }
         }
 
         if (is_assignment_operator)
