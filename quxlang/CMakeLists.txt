@@ -231,6 +231,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/fixed_bytemath.hpp
         include/quxlang/parsers/option.hpp
         include/quxlang/data/statements.hpp
+        sources/res/serialization.cpp
 
 )
 

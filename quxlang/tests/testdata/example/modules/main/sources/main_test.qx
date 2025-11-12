@@ -9,6 +9,7 @@ IMPORT foolib;
   test_array_ctor();
   test_argument_passing();
   test_swap();
+  test_serialize();
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();
@@ -21,6 +22,15 @@ IMPORT foolib;
   test_include_if_overloads();
 
   RETURN 1;
+}
+
+::test_serialize FUNCTION()
+{
+   VAR output [4]BYTE;
+
+   VAR x I32 := 255;
+
+   x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
 }
 
 
@@ -45,15 +55,14 @@ IMPORT foolib;
 }
 
 ::test_array_literal FUNCTION() {
-  VAR x [4]I32 :[ 1, 3, 5, 7 ];
+   UNIMPLEMENTED;
 
-    ASSERT( x[0] == 1 );
+   // VAR x [4]I32 :[ 1, 3, 5, 7 ];
 
-    ASSERT( x[1] == 3 );
-
-    ASSERT( x[2] == 5 );
-
-    ASSERT( x[3] == 7 );
+   ASSERT( x[0] == 1 );
+   ASSERT( x[1] == 3 );
+   ASSERT( x[2] == 5 );
+   ASSERT( x[3] == 7 );
 
 }
 

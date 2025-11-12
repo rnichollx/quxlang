@@ -480,6 +480,24 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         co_return (allowed_operations);
     }
 
+    if (name == "SERIALIZE" && co_await QUX_CO_DEP(type_should_autogen_serialize, (parent)))
+    {
+        intertype interface_type;
+
+        argif this_type_interface = {.type = make_cref(parent)};
+        interface_type.named["THIS"] = this_type_interface;
+
+
+        argif output_iterator_type_interface;
+        output_iterator_type_interface.type = make_mref(auto_temploidic{.name = "__out_iter"});
+        interface_type.named["OUTPUT_ITERATOR"] = output_iterator_type_interface;
+
+        builtin_function_info serialize_info;
+
+        // TODO: This part
+
+    }
+
     co_return allowed_operations;
 }
 

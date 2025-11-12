@@ -13,7 +13,7 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end)
     {
-        static std::set< std::string > argument_keywords = {"THIS", "RETURN", "OTHER"};
+        static std::set< std::string > argument_keywords = {"THIS", "RETURN", "OTHER", "OUTPUT_ITERATOR", "INPUT_ITER"};
 
         auto identifier = parse_identifier(pos, end);
         if (identifier.empty())

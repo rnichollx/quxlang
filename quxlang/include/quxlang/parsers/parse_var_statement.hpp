@@ -76,7 +76,8 @@ namespace quxlang::parsers
                 remaining = std::string(pos, end);
 
                 expression expr = parse_expression(pos, end);
-                var_statement.array_initializers.push_back(std::move(expr));
+                throw rpnx::unimplemented();
+                //var_statement.array_initializers.push_back(std::move(expr));
 
                 if (skip_symbol_if_is(pos, end, ","))
                 {
