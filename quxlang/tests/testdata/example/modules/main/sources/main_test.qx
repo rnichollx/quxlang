@@ -577,29 +577,65 @@ IMPORT foolib;
 
 ::test_bitwise_operators FUNCTION()
 {
+   // Shifts for I32 (uintptr shift amount)
    VAR a I32 := 3;
-
    a := a #++ 1;
-
    ASSERT(a == 6);
 
    a := 4;
    a := a #-- 1;
-
    ASSERT(a == 2);
 
    a := a #++ 2;
-
    ASSERT(a == 8);
 
    a := 128;
-
    a := a #++ 1;
-
    ASSERT(a == 256);
-
    a := a #++ 1;
    ASSERT(a == 512);
+
+   // Binary bitwise ops for I32
+   VAR x I32 := 6; // 110b
+   VAR y I32 := 3; // 011b
+   ASSERT((x #&& y) == 2);
+   ASSERT((x #|| y) == 7);
+   ASSERT((x #^^ y) == 5);
+
+   // Rotate for I32
+   VAR r I32 := 1;
+   r := r #+% 3; // rotate up by 3 -> 8
+   ASSERT(r == 8);
+   r := r #-% 3; // rotate back by 3 -> 1
+   ASSERT(r == 1);
+
+   // Byte tests (8-bit expectations)
+   VAR b1 BYTE := 6; // 0000 0110
+   VAR b2 BYTE := 3; // 0000 0011
+   VAR b BYTE;
+
+   // Binary bitwise on BYTE
+   b := b1 #&& b2; ASSERT(b == BYTE(@OTHER 2));  // 0000 0010
+   b := b1 #|| b2; ASSERT(b == BYTE(@OTHER 7));  // 0000 0111
+   b := b1 #^^ b2; ASSERT(b == BYTE(@OTHER 5));  // 0000 0101
+   b := b1 #&! b2; ASSERT(b == BYTE(@OTHER 253)); // ~(6&3)=~2=253
+   b := b1 #|! b2; ASSERT(b == BYTE(@OTHER 248)); // ~(6|3)=~7=248
+   b := b1 #^! b2; ASSERT(b == BYTE(@OTHER 250)); // ~(6^3)=~5=250
+
+   // Unary bitwise inverse for BYTE
+   VAR bu BYTE := 170; // 1010 1010
+   // bu := bu #!!;       // -> 0101 0101 = 85
+   // ASSERT(bu == BYTE(@OTHER 85));
+
+   // Shifts for BYTE
+   VAR bs BYTE := 1;
+   bs := bs #++ 3; ASSERT(bs == BYTE(@OTHER 8));
+   bs := bs #-- 1; ASSERT(bs == BYTE(@OTHER 4));
+
+   // Rotates for BYTE
+   VAR br BYTE := 129;           // 1000 0001
+   br := br #+% 1; ASSERT(br == BYTE(@OTHER 3));   // 0000 0011
+   br := br #-% 1; ASSERT(br == BYTE(@OTHER 129)); // back to 1000 0001
 }
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)
