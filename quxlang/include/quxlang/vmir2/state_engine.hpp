@@ -385,6 +385,72 @@ namespace quxlang::vmir2
             consume(mod.b);
             output(mod.result);
         }
+        // Bitwise operations state transitions
+        void apply_internal(vmir2::bitwise_and const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_or const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_xor const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_nand const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_nor const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_nxor const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_shift_up const& op)
+        {
+            consume(op.value);
+            consume(op.amount);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_shift_down const& op)
+        {
+            consume(op.value);
+            consume(op.amount);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_rotate_up const& op)
+        {
+            consume(op.value);
+            consume(op.amount);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_rotate_down const& op)
+        {
+            consume(op.value);
+            consume(op.amount);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_inverse const& op)
+        {
+            consume(op.value);
+            output(op.result);
+        }
         void apply_internal(vmir2::store_to_ref const& str)
         {
             consume(str.from_value);

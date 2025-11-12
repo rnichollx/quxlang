@@ -16,7 +16,7 @@
 #include "quxlang/operators.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
-#include "quxlang/vmir2/assembly.hpp"
+#include "quxlang/vmir2/assembler.hpp"
 #include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/simple_coroutine.hpp"

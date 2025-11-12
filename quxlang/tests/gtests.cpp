@@ -17,7 +17,7 @@
 
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
-#include <quxlang/vmir2/assembly.hpp>
+#include <quxlang/vmir2/assembler.hpp>
 
 #include "rpnx/serializer.hpp"
 

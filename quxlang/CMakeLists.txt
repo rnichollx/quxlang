@@ -195,7 +195,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/res/vm_procedure2.hpp
         sources/res/vm_procedure2.cpp
         sources/res/template_instanciation_resolver.cpp
-        include/quxlang/vmir2/assembly.hpp
+        include/quxlang/vmir2/assembler.hpp
         sources/vmir2/assembler.cpp
         ../rpnx/include/rpnx/simple_coroutine.hpp
         include/quxlang/compiler_binding.hpp

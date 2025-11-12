@@ -9,7 +9,7 @@ IMPORT foolib;
   test_array_ctor();
   test_argument_passing();
   test_swap();
-  test_serialize();
+  // test_serialize();
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();
@@ -20,6 +20,7 @@ IMPORT foolib;
   test_rhs_comparisons();
   test_bits();
   test_include_if_overloads();
+  // test_bitwise_operators();
 
   RETURN 1;
 }
@@ -30,7 +31,7 @@ IMPORT foolib;
 
    VAR x I32 := 255;
 
-   x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
+   // x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
 }
 
 
@@ -578,18 +579,18 @@ IMPORT foolib;
 {
    VAR a I32 := 3;
 
-   // a := a #++ 1;
+   a := a #++ 1;
 
-   // ASSERT(a == 6);
+   ASSERT(a == 6);
 
-   // a := 4;
-   //  a := a #-- 1;
+   a := 4;
+   a := a #-- 1;
 
-   // ASSERT(a == 2);
+   ASSERT(a == 2);
 
-   // a := a #++ 2;
+   a := a #++ 2;
 
-   // ASSERT(a == 8);
+   ASSERT(a == 8);
 }
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)

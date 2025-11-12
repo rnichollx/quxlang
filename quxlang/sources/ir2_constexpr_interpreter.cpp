@@ -10,7 +10,7 @@
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/parsers/parse_int.hpp"
-#include "quxlang/vmir2/assembly.hpp"
+#include "quxlang/vmir2/assembler.hpp"
 #include "rpnx/value.hpp"
 
 #include <deque>

@@ -1,6 +1,6 @@
 // Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
-#include <quxlang/vmir2/assembly.hpp>
+#include <quxlang/vmir2/assembler.hpp>
 
 namespace quxlang::vmir2
 {
@@ -525,6 +525,53 @@ namespace quxlang::vmir2
     {
         return "IMOD %" + std::to_string(mod.a) + ", %" + std::to_string(mod.b) + ", %" + std::to_string(mod.result);
     }
+
+    // Bitwise operations
+    std::string assembler::to_string_internal(vmir2::bitwise_and op)
+    {
+        return "BITWISE_AND %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_or op)
+    {
+        return "BITWISE_OR %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_xor op)
+    {
+        return "BITWISE_XOR %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_nand op)
+    {
+        return "BITWISE_NAND %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_nor op)
+    {
+        return "BITWISE_NOR %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_nxor op)
+    {
+        return "BITWISE_NXOR %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_shift_up op)
+    {
+        return "BITWISE_SHIFT_UP %" + std::to_string(op.value) + ", %" + std::to_string(op.amount) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_shift_down op)
+    {
+        return "BITWISE_SHIFT_DOWN %" + std::to_string(op.value) + ", %" + std::to_string(op.amount) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_rotate_up op)
+    {
+        return "BITWISE_ROTATE_UP %" + std::to_string(op.value) + ", %" + std::to_string(op.amount) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_rotate_down op)
+    {
+        return "BITWISE_ROTATE_DOWN %" + std::to_string(op.value) + ", %" + std::to_string(op.amount) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_inverse op)
+    {
+        return "BITWISE_INVERSE %" + std::to_string(op.value) + ", %" + std::to_string(op.result);
+    }
+
     std::string assembler::to_string_internal(vmir2::load_const_zero inst)
     {
         return "INIT_ZERO %" + std::to_string(inst.target);

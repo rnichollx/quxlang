@@ -76,6 +76,18 @@ namespace quxlang
         struct gcmp_eq;
         struct gcmp_ne;
 
+        struct bitwise_and;
+        struct bitwise_or;
+        struct bitwise_xor;
+        struct bitwise_nand;
+        struct bitwise_nor;
+        struct bitwise_nxor;
+        struct bitwise_shift_up;
+        struct bitwise_shift_down;
+        struct bitwise_rotate_up;
+        struct bitwise_rotate_down;
+        struct bitwise_inverse;
+
         struct struct_init_start;
         struct struct_init_finish;
         struct fence_byte_release;
@@ -95,7 +107,7 @@ namespace quxlang
         struct array_init_finish;
         struct array_init_more;
 
-        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
+        using vm_instruction = rpnx::variant< access_field, invoke, make_reference, cast_reference, constexpr_set_result, load_const_int, load_const_value, make_pointer_to, load_from_ref, load_const_zero, load_const_bool, dereference_pointer, store_to_ref, int_add, int_mul, int_div, int_mod, int_sub, bitwise_and, bitwise_or, bitwise_xor, bitwise_nand, bitwise_nor, bitwise_nxor, bitwise_shift_up, bitwise_shift_down, bitwise_rotate_up, bitwise_rotate_down, bitwise_inverse, cmp_lt, cmp_ge, cmp_eq, cmp_ne, pcmp_lt, pcmp_ge, pcmp_eq, pcmp_ne, gcmp_lt, gcmp_ge, gcmp_eq, gcmp_ne, defer_nontrivial_dtor, struct_init_start, struct_init_finish, copy_reference, end_lifetime, access_array, to_bool, to_bool_not, runtime_ce, increment, decrement, preincrement, predecrement, pointer_arith, pointer_diff, assert_instr, swap, unimplemented, array_init_start, array_init_index, array_init_element, array_init_finish, array_init_more >;
         using vm_terminator = rpnx::variant< jump, branch, ret >;
 
         RPNX_UNIQUE_U64(local_index);
@@ -453,6 +465,84 @@ namespace quxlang
             local_index b;
             local_index result;
             RPNX_MEMBER_METADATA(int_mod, a, b, result);
+        };
+
+        // Bitwise operations
+        struct bitwise_and
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_and, a, b, result);
+        };
+        struct bitwise_or
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_or, a, b, result);
+        };
+        struct bitwise_xor
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_xor, a, b, result);
+        };
+        struct bitwise_nand
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_nand, a, b, result);
+        };
+        struct bitwise_nor
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_nor, a, b, result);
+        };
+        struct bitwise_nxor
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_nxor, a, b, result);
+        };
+        struct bitwise_shift_up
+        {
+            local_index value;
+            local_index amount;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_shift_up, value, amount, result);
+        };
+        struct bitwise_shift_down
+        {
+            local_index value;
+            local_index amount;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_shift_down, value, amount, result);
+        };
+        struct bitwise_rotate_up
+        {
+            local_index value;
+            local_index amount;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_rotate_up, value, amount, result);
+        };
+        struct bitwise_rotate_down
+        {
+            local_index value;
+            local_index amount;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_rotate_down, value, amount, result);
+        };
+        struct bitwise_inverse
+        {
+            local_index value;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_inverse, value, result);
         };
 
         struct cmp_eq
