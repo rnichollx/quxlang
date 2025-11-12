@@ -20,7 +20,7 @@ IMPORT foolib;
   test_rhs_comparisons();
   test_bits();
   test_include_if_overloads();
-  // test_bitwise_operators();
+  test_bitwise_operators();
 
   RETURN 1;
 }
@@ -591,6 +591,15 @@ IMPORT foolib;
    a := a #++ 2;
 
    ASSERT(a == 8);
+
+   a := 128;
+
+   a := a #++ 1;
+
+   ASSERT(a == 256);
+
+   a := a #++ 1;
+   ASSERT(a == 512);
 }
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)

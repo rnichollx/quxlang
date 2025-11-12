@@ -281,6 +281,20 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::gcmp_ne const& cne);
     void exec_instr_val(vmir2::gcmp_lt const& clt);
     void exec_instr_val(vmir2::gcmp_ge const& cge);
+
+    // Bitwise operations
+    void exec_instr_val(vmir2::bitwise_and const& op);
+    void exec_instr_val(vmir2::bitwise_or const& op);
+    void exec_instr_val(vmir2::bitwise_xor const& op);
+    void exec_instr_val(vmir2::bitwise_nand const& op);
+    void exec_instr_val(vmir2::bitwise_nor const& op);
+    void exec_instr_val(vmir2::bitwise_nxor const& op);
+    void exec_instr_val(vmir2::bitwise_shift_up const& op);
+    void exec_instr_val(vmir2::bitwise_shift_down const& op);
+    void exec_instr_val(vmir2::bitwise_rotate_up const& op);
+    void exec_instr_val(vmir2::bitwise_rotate_down const& op);
+    void exec_instr_val(vmir2::bitwise_inverse const& op);
+
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_init_start const& sdn);
     void exec_instr_val(vmir2::struct_init_finish const& scn);
@@ -1510,8 +1524,269 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
     }
 
-    // Equal values => a >= b
     set_data(cge.result, {std::byte(1)});
+}
+
+// ===== Bitwise operations handlers =====
+
+static std::size_t get_bit_width_for_type(const quxlang::type_symbol &ty)
+{
+    if (typeis< quxlang::int_type >(ty))
+        return ty.get_as< quxlang::int_type >().bits;
+    if (typeis< quxlang::byte_type >(ty))
+        return 8;
+    // Fallback: use full byte width of storage
+    return 8 * ((typeis< quxlang::ptrref_type >(ty)) ? 0 : 0);
+}
+
+static std::size_t bytes_for_bits(std::size_t bits)
+{
+    return (bits + 7) / 8;
+}
+
+static void bitwise_byte_op(std::vector<std::byte> &out, std::vector<std::byte> const& a, std::vector<std::byte> const& b, auto fn)
+{
+    out.resize(std::max(a.size(), b.size()));
+    for (std::size_t i = 0; i < out.size(); ++i)
+    {
+        std::uint8_t av = (i < a.size()) ? static_cast<std::uint8_t>(a[i]) : 0;
+        std::uint8_t bv = (i < b.size()) ? static_cast<std::uint8_t>(b[i]) : 0;
+        out[i] = static_cast<std::byte>(fn(av, bv) & 0xFF);
+    }
+}
+
+static void bitwise_not_inplace(std::vector<std::byte> &v)
+{
+    for (auto &by : v)
+    {
+        by = static_cast<std::byte>(~static_cast<std::uint8_t>(by));
+    }
+}
+
+static std::vector<std::byte> truncate_to_bits(std::vector<std::byte> data, std::size_t bits)
+{
+    if (bits == 0) return {};
+    auto truncated = quxlang::bytemath::detail::le_truncate_raw(std::move(data), bits);
+    // Ensure vector has exact byte size for given bits
+    truncated.resize((bits + 7) / 8, std::byte{0});
+    if (bits % 8 != 0)
+    {
+        std::uint8_t mask = (1u << (bits % 8)) - 1u;
+        std::uint8_t top = static_cast<std::uint8_t>(truncated.back());
+        truncated.back() = static_cast<std::byte>(top & mask);
+    }
+    return truncated;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_and const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av & bv); });
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_or const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av | bv); });
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_xor const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av ^ bv); });
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nand const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av & bv); });
+    bitwise_not_inplace(out);
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nor const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av | bv); });
+    bitwise_not_inplace(out);
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nxor const& op)
+{
+    auto a = slot_consume_data(op.a);
+    auto b = slot_consume_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector<std::byte> out;
+    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av ^ bv); });
+    bitwise_not_inplace(out);
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+static std::uint64_t bytes_to_u64(const std::vector<std::byte>& data)
+{
+    auto [v, ok] = quxlang::bytemath::le_to_u<std::uint64_t>(data);
+    if (!ok) throw std::overflow_error("shift amount too large");
+    return v;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_shift_up const& op)
+{
+    auto value = slot_consume_data(op.value);
+    auto amount_bytes = slot_consume_data(op.amount);
+    auto result_type = get_local_type(op.result);
+
+    std::size_t bits = get_bit_width_for_type(result_type);
+    if (bits == 0) { set_data(op.result, {}); return; }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (bits != 0) amt = amt % bits;
+
+    auto shifted = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(amt));
+    shifted = truncate_to_bits(std::move(shifted), bits);
+    // Ensure at least correct byte-size
+    shifted.resize(bytes_for_bits(bits), std::byte{0});
+    set_data(op.result, std::move(shifted));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_shift_down const& op)
+{
+    auto value = slot_consume_data(op.value);
+    auto amount_bytes = slot_consume_data(op.amount);
+    auto result_type = get_local_type(op.result);
+
+    std::size_t bits = get_bit_width_for_type(result_type);
+    if (bits == 0) { set_data(op.result, {}); return; }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (bits != 0) amt = amt % bits;
+
+    auto shifted = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(amt));
+    shifted = truncate_to_bits(std::move(shifted), bits);
+    shifted.resize(bytes_for_bits(bits), std::byte{0});
+    set_data(op.result, std::move(shifted));
+}
+
+static std::vector<std::byte> bit_or_vec(std::vector<std::byte> a, std::vector<std::byte> const& b)
+{
+    if (b.size() > a.size()) a.resize(b.size(), std::byte{0});
+    for (std::size_t i = 0; i < b.size(); ++i)
+    {
+        std::uint8_t av = (i < a.size()) ? static_cast<std::uint8_t>(a[i]) : 0;
+        std::uint8_t bv = static_cast<std::uint8_t>(b[i]);
+        a[i] = static_cast<std::byte>(av | bv);
+    }
+    return a;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_rotate_up const& op)
+{
+    auto value = slot_consume_data(op.value);
+    auto amount_bytes = slot_consume_data(op.amount);
+    auto result_type = get_local_type(op.result);
+
+    std::size_t bits = get_bit_width_for_type(result_type);
+    if (bits == 0) { set_data(op.result, {}); return; }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (bits != 0) amt = amt % bits;
+    if (amt == 0)
+    {
+        auto out = truncate_to_bits(std::move(value), bits);
+        out.resize(bytes_for_bits(bits), std::byte{0});
+        set_data(op.result, std::move(out));
+        return;
+    }
+
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(amt));
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(bits - amt));
+
+    up = truncate_to_bits(std::move(up), bits);
+    down = truncate_to_bits(std::move(down), bits);
+
+    auto combined = bit_or_vec(std::move(up), down);
+    combined = truncate_to_bits(std::move(combined), bits);
+    combined.resize(bytes_for_bits(bits), std::byte{0});
+    set_data(op.result, std::move(combined));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_rotate_down const& op)
+{
+    auto value = slot_consume_data(op.value);
+    auto amount_bytes = slot_consume_data(op.amount);
+    auto result_type = get_local_type(op.result);
+
+    std::size_t bits = get_bit_width_for_type(result_type);
+    if (bits == 0) { set_data(op.result, {}); return; }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    if (bits != 0) amt = amt % bits;
+    if (amt == 0)
+    {
+        auto out = truncate_to_bits(std::move(value), bits);
+        out.resize(bytes_for_bits(bits), std::byte{0});
+        set_data(op.result, std::move(out));
+        return;
+    }
+
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(amt));
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(bits - amt));
+
+    down = truncate_to_bits(std::move(down), bits);
+    up = truncate_to_bits(std::move(up), bits);
+
+    auto combined = bit_or_vec(std::move(down), up);
+    combined = truncate_to_bits(std::move(combined), bits);
+    combined.resize(bytes_for_bits(bits), std::byte{0});
+    set_data(op.result, std::move(combined));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_inverse const& op)
+{
+    auto value = slot_consume_data(op.value);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    bitwise_not_inplace(value);
+    value = truncate_to_bits(std::move(value), bits);
+    value.resize(bytes_for_bits(bits), std::byte{0});
+    set_data(op.result, std::move(value));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& ceq)

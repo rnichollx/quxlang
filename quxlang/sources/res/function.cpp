@@ -372,7 +372,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             {
                 // Bitwise operators support per docs/operators_syntax.md
                 static const std::set<std::string> bitwise_binary_operators = {"#&&", "#||", "#&!", "#|!", "#^->", "#^<-", "#^^", "#^!"};
-                static const std::set<std::string> bitwise_shift_operators = {"#++", "#-"};
+                static const std::set<std::string> bitwise_shift_operators = {"#++", "#--"};
                 static const std::set<std::string> bitwise_rotate_operators = {"#+%", "#-%"};
 
                 if (bitwise_binary_operators.contains(operator_name))
