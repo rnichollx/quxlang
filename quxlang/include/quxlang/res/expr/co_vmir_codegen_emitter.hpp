@@ -1373,6 +1373,75 @@ namespace quxlang
                 {
                     return instr;
                 }
+                // Bitwise binary operators for integers
+                if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_or >(instr, "#||", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_xor >(instr, "#^^", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                // Note: bitwise implies operators (#^->, #^<-) have no dedicated VMIR instruction; leave as non-intrinsic.
+
+                // Bitwise shifts and rotates for integers (amount is uintptr)
+                if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_shift_up bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#--" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_shift_down bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#+%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_rotate_up bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#-%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_rotate_down bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+
+                // Unary bitwise inverse for integers (suffix, non-RHS)
+                if (member->name == "OPERATOR#!!" && call.named.contains("THIS") && call.size() == 1)
+                {
+                    vmir2::bitwise_inverse inv{};
+                    inv.value = get_local_index(args.named.at("THIS"));
+                    inv.result = get_local_index(args.named.at("RETURN"));
+                    return inv;
+                }
             }
             else if (cls->template type_is< byte_type >())
             {
@@ -1384,6 +1453,72 @@ namespace quxlang
                 else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
                 {
                     return instr;
+                }
+                // Bitwise binary operators for bytes
+                if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_or >(instr, "#||", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_xor >(instr, "#^^", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, *member, call, args))
+                {
+                    return instr;
+                }
+                // Shifts and rotates for bytes
+                if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_shift_up bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#--" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_shift_down bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#+%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_rotate_up bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                if (member->name == "OPERATOR#-%" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
+                {
+                    vmir2::bitwise_rotate_down bi{};
+                    bi.value = get_local_index(args.named.at("THIS"));
+                    bi.amount = get_local_index(args.named.at("OTHER"));
+                    bi.result = get_local_index(args.named.at("RETURN"));
+                    return bi;
+                }
+                // Unary bitwise inverse for bytes
+                if (member->name == "OPERATOR#!!" && call.named.contains("THIS") && call.size() == 1)
+                {
+                    vmir2::bitwise_inverse inv{};
+                    inv.value = get_local_index(args.named.at("THIS"));
+                    inv.result = get_local_index(args.named.at("RETURN"));
+                    return inv;
                 }
             }
             else if (cls->template type_is< bool_type >())
