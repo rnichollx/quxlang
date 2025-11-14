@@ -283,7 +283,7 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, { "NARROWING", "WRAP", "CHECKED" }); kw)
+            if (auto kw = skip_keyword_if_one_of(pos, end, { "PARTIAL", "ASSUME", "CHECKED" }); kw)
             {
                 tc.keyword = *kw;
                 skip_whitespace_and_comments(pos, end);
@@ -293,7 +293,7 @@ namespace quxlang::parsers
             auto to_type = try_parse_type_symbol(pos, end);
             if (!to_type)
             {
-                throw std::logic_error("Expected type after AS (optional NARROWING/WRAP/CHECKED)");
+                throw std::logic_error("Expected type after AS (optional PARTIAL/ASSUME/CHECKED)");
             }
             tc.to_type = *to_type;
 

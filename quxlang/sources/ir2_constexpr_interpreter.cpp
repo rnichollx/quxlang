@@ -1676,7 +1676,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (bits == 0) { set_data(op.result, {}); return; }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0) amt = amt % bits;
+    if (amt >= bits)
+    {
+        throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
+    }
 
     auto shifted = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(amt));
     shifted = truncate_to_bits(std::move(shifted), bits);
@@ -1695,7 +1698,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (bits == 0) { set_data(op.result, {}); return; }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0) amt = amt % bits;
+    if (amt >= bits)
+    {
+        throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
+    }
 
     auto shifted = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(amt));
     shifted = truncate_to_bits(std::move(shifted), bits);

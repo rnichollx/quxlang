@@ -643,11 +643,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
 
     std::cout << "Function ensig init with " << to_string(input.ensig.interface) << " with " << to_string(input.params) << " yields " << to_string(result) << "\n";
 
-    
-
-
-
-
     co_return result;
 }
 
