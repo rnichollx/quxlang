@@ -1,16 +1,15 @@
 # Quxlang
 
-Quxlang is a systems programming language. It's intended as an improvement over C++ for certain uses.
+## Progress update:
 
-It is still in active development and is not "usable" yet.
+Latest progress update: https://www.youtube.com/watch?v=pjHL4K-AuKo
 
-I am compiling with something like:
+## Overview
 
-```
--D LLVM_ROOT=/Users/rnicholl/Dev/llvm-root -D CMAKE_CXX_STANDARD=20 -D Boost_ROOT=/Users/rnicholl/Dev/boost_1_81_0 -D CMAKE_OSX_SYSROOT=/Users/rnicholl/Dev/MacOSX13.1.sdk -DGTest_DIR=/Users/rnicholl/Dev/googletest/gtest-export/lib/cmake/GTest -DCMAKE_CXX_FLAGS="-Wfatal-errors"
-```
-
-Currently, the compiler is not complete enough to "work" and all development is done with unit tests.
+Quxlang is a systems programming language. It's intended as an improvement over C++ for certain uses.  It is still in
+active development but is not yet ready for people to use or try out. Please wait until a later date when there is 
+a standard library and more codegen. For now, you can compile the quxlang_gtests and modify the main_test.qx file if
+you want to experiment.
 
 ## Dependencies:
 
