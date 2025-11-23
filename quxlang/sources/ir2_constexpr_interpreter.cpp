@@ -947,7 +947,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     else
     {
         auto data = slot_consume_data(tbn.from);
-
         bool result = false;
 
         for (auto const& byte : data)
@@ -1053,9 +1052,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         throw constexpr_logic_execution_error("Error executing <cast_reference>: accessing dealived storage");
     }
-
-
-
 
     local_ptr_result->ref = local_ptr_base->ref;
 

@@ -9,7 +9,7 @@ IMPORT foolib;
   test_array_ctor();
   test_argument_passing();
   test_swap();
-  // test_serialize();
+  test_serialize();
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();
@@ -31,7 +31,7 @@ IMPORT foolib;
 
    VAR x I32 := 255;
 
-   // x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
+   x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
 }
 
 
@@ -43,6 +43,7 @@ IMPORT foolib;
   {
      .val := 5;
   }
+
 }
 
 ::test_array_ctor FUNCTION()
@@ -370,6 +371,7 @@ IMPORT foolib;
     y.f_count := 3;
   }
 
+
   ASSERT (x[0] == 2);
   ASSERT (x[1] == 3);
   ASSERT (x[2] == 4);
@@ -379,6 +381,7 @@ IMPORT foolib;
 
 ::test_lambda FUNCTION()
 {
+  UNIMPLEMENTED;
   VAR x I32;
 
  // AUTO z := -<
@@ -556,15 +559,15 @@ IMPORT foolib;
 ::test_bitwise_operators FUNCTION()
 {
    // Shifts for I32 (uintptr shift amount)
-   VAR a I32 := 3;
+   VAR a I32 := 5; // = 2^0 + 2^2 ->  2^1 + 2^3
    a := a #++ 1;
-   ASSERT(a == 6);
+   ASSERT(a == 10);
 
    a := 4;
    a := a #-- 1;
    ASSERT(a == 2);
 
-   a := a #++ 2;
+   a := a #++ 2; // 2^1 -> 2^3
    ASSERT(a == 8);
 
    a := 128;

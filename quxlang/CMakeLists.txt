@@ -23,7 +23,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/vm_if.hpp
         include/quxlang/data/expression_equals.hpp
         include/quxlang/data/numeric_literal.hpp
-        sources/example_file.cpp
         include/quxlang/res/operator_is_overloaded_with_resolver.hpp
         include/quxlang/data/lookup_type.hpp
         include/quxlang/res/symbol_canonical_chain_exists_resolver.hpp
@@ -162,7 +161,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/res/module_source_name_resolver.hpp
         sources/res/module_source_name_resolver.cpp
         include/quxlang/data/interp_value.hpp
-        sources/interpreter.cpp
         include/quxlang/res/interpret_value_resolver.hpp
         include/quxlang/res/interpret_bool_resolver.hpp
         sources/res/interpret_bool_resolver.cpp
@@ -171,7 +169,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/include_if.hpp
         include/quxlang/parsers/expression/target.hpp
         include/quxlang/data/builtins.hpp
-        sources/co_vmir_emitter.cpp
         include/quxlang/data/function_header.hpp
         include/quxlang/res/functum.hpp
         include/quxlang/data/fwd.hpp

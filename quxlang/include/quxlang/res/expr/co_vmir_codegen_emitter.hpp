@@ -235,7 +235,34 @@ namespace quxlang
 
             // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
+
+
+            auto kind = (co_await prv.symbol_type(func));
+            if (kind != symbol_kind::functum)
+            {
+                auto func_str = to_string(func);
+
+                if (kind == symbol_kind::noexist)
+                {
+                    throw std::logic_error("Error calling non-existent functum " + func_str);
+                }
+                else if (kind == symbol_kind::local_variable)
+                {
+                    throw std::logic_error("Error: cannot call local variable " + func_str + " as a functum");
+                }
+                else if (kind == symbol_kind::class_)
+                {
+                    throw std::logic_error("Error: cannot call class type " + func_str + " as a functum");
+                }
+                else
+                {
+                    throw std::logic_error("Error: symbol " + func_str + " is not a functum");
+                }
+
+            }
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
+
+
 
             auto functum_overloeads = co_await prv.functum_overloads(func);
 
