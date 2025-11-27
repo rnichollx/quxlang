@@ -2,7 +2,7 @@
 
 #include "quxlang/res/function.hpp"
 
-#include "../../../rpnx/include/rpnx/debug.hpp"
+#include "rpnx/debug.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include <vector>
 
