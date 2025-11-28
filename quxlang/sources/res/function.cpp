@@ -2,8 +2,8 @@
 
 #include "quxlang/res/function.hpp"
 
-#include "rpnx/debug.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
+#include "rpnx/debug.hpp"
 #include <vector>
 
 #include "quxlang/compiler.hpp"
@@ -232,22 +232,22 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
     std::set< builtin_function_info > allowed_operations;
 
-    auto make_overload = [&]( std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
     {
         builtin_function_info bl_info;
-        for (auto & type : positionals)
+        for (auto& type : positionals)
         {
             bl_info.overload.interface.positional.push_back(argif{.type = type});
         }
-        for (auto & [name, type] : named)
+        for (auto& [name, type] : named)
         {
-            bl_info.overload.interface.named[name] = type;
+            bl_info.overload.interface.named[name] = argif{.type = type};
         }
         bl_info.return_type = return_type;
         return bl_info;
     };
 
-    auto add_overload = [&]( std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
     {
         allowed_operations.insert(make_overload(positionals, named, return_type));
     };
@@ -264,10 +264,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                                      }) ||
                                  parent.type_is< int_type >()))
     {
-        builtin_function_info bl_info;
-        bl_info.overload = temploid_ensig{.interface = {.named = {{"THIS", {parent}}}}};
-        bl_info.return_type = bool_type{};
-        allowed_operations.insert(bl_info);
+        add_overload({}, {{"THIS", parent}}, bool_type{});
     }
 
     auto uintptr_type = co_await QUX_CO_DEP(uintpointer_type, ({}));
@@ -279,13 +276,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
         for (qualifier qv : quals)
         {
-            builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{
-                                                  .positional = {argif{.type = uintptr_type}},
-                                                  .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}},
-                                              }};
-            br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv};
-            allowed_operations.insert(br_info);
+            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv});
         }
     }
 
@@ -294,19 +285,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::mut, qualifier::temp, qualifier::write};
         for (qualifier qv : quals)
         {
-            builtin_function_info br_info;
-            br_info.overload = temploid_ensig{.interface = intertype{.positional = {argif{.type = uintptr_type}}, .named = {{"THIS", argif{ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}}}};
-            br_info.return_type = ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv};
-            allowed_operations.insert(br_info);
+            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv});
         }
     }
 
     if (parent.type_is< readonly_constant >() && (name == "BEGIN" || name == "END"))
     {
-        builtin_function_info br_info;
-        br_info.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{make_cref(parent)}}}}};
-        br_info.return_type = byte_ptr_type;
-        allowed_operations.insert(br_info);
+        add_overload({}, {{"THIS", make_cref(parent)}}, byte_ptr_type);
         co_return allowed_operations;
     }
 
@@ -339,13 +324,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                 // no primitive RHS swaps exist.
                 co_return {};
             }
-            allowed_operations.insert(builtin_function_info{
-                .overload = temploid_ensig{.interface =
-                                               intertype{
-                                                   .named = {{"THIS", argif{make_mref(parent)}}, {"OTHER", argif{make_mref(parent)}}},
-                                               }},
-                .return_type = void_type{},
-            });
+            add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", make_mref(parent)}}, void_type{});
         }
         else if (is_swap_operator)
         {
@@ -353,13 +332,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             std::cout << "Should autogen swap for " << to_string(parent) << ": " << (should_autogen_swap ? "yes" : "no") << "\n";
             if (should_autogen_swap && !is_rhs)
             {
-                allowed_operations.insert(builtin_function_info{
-                    .overload = temploid_ensig{.interface =
-                                                   intertype{
-                                                       .named = {{"THIS", argif{make_mref(parent)}}, {"OTHER", argif{make_mref(parent)}}},
-                                                   }},
-                    .return_type = void_type{},
-                });
+                add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", make_mref(parent)}}, void_type{});
             }
         }
 
@@ -367,53 +340,46 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         {
             if (is_arithmetic_operator)
             {
-                allowed_operations.insert(builtin_function_info{.overload =
-                                                                    temploid_ensig{
-                                                                        .interface =
-                                                                            intertype{
-                                                                                .named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}},
-                                                                            },
-                                                                    },
-                                                                .return_type = parent});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
             }
             else if (is_compare_operator)
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
             }
             else if (is_incdec_operator && !is_rhs)
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{make_mref(parent)}}}}}, .return_type = parent});
+                add_overload({}, {{"THIS", make_mref(parent)}}, parent);
             }
             else if (is_incdec_operator && is_rhs)
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{make_mref(parent)}}}}}, .return_type = make_mref(parent)});
+                add_overload({}, {{"THIS", make_mref(parent)}}, make_mref(parent));
             }
             else
             {
                 // Bitwise operators support per docs/operators_syntax.md
-                static const std::set<std::string> bitwise_binary_operators = {"#&&", "#||", "#&!", "#|!", "#^->", "#^<-", "#^^", "#^!"};
-                static const std::set<std::string> bitwise_shift_operators = {"#++", "#--"};
-                static const std::set<std::string> bitwise_rotate_operators = {"#+%", "#-%"};
+                static const std::set< std::string > bitwise_binary_operators = {"#&&", "#||", "#&!", "#|!", "#^->", "#^<-", "#^^", "#^!"};
+                static const std::set< std::string > bitwise_shift_operators = {"#++", "#--"};
+                static const std::set< std::string > bitwise_rotate_operators = {"#+%", "#-%"};
 
                 if (bitwise_binary_operators.contains(operator_name))
                 {
                     // (THIS parent, OTHER parent): parent
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = parent});
+                    add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
                 }
                 else if (bitwise_shift_operators.contains(operator_name))
                 {
                     // Shifts: (THIS parent, OTHER uintptr): parent
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                    add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, parent);
                 }
                 else if (bitwise_rotate_operators.contains(operator_name))
                 {
                     // Rotate: (THIS parent, OTHER uintptr): parent
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
+                    add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, parent);
                 }
                 else if (operator_name == "#!!" && !is_rhs)
                 {
                     // Unary bitwise inverse/complement (suffix): (THIS parent) -> parent
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{parent}}}}}, .return_type = parent});
+                    add_overload({}, {{"THIS", parent}}, parent);
                 }
             }
         }
@@ -427,56 +393,37 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             }
             else if (is_regular_primitive_type)
             {
-                allowed_operations.insert(builtin_function_info{
-                    .overload = temploid_ensig{.interface =
-                                                   intertype{
-                                                       .named = {{"THIS", argif{make_wref(parent)}}, {"OTHER", argif{parent}}},
-                                                   }},
-                    .return_type = void_type{},
-                });
+                add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{});
             }
             else
             {
                 bool should_autogen_assignment = co_await QUX_CO_DEP(class_requires_gen_assignment, (parent));
                 if (should_autogen_assignment)
                 {
-                    allowed_operations.insert(builtin_function_info{
-                        .overload = temploid_ensig{.interface =
-                                                       intertype{
-                                                           .named = {{"THIS", argif{make_wref(parent)}}, {"OTHER", argif{parent}}},
-                                                       }},
-                        .return_type = void_type{},
-                    });
+                    add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{});
                 }
             }
         }
 
         if ((is_int_type || is_byte_type) && compare_operators.contains(operator_name))
         {
-            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface =
-                                                                                           intertype{
-                                                                                               .named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}},
-                                                                                           }},
-                                                            .return_type = bool_type{}});
+            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
         }
 
         if (typeis< numeric_literal_reference >(parent) && arithmetic_operators.contains(operator_name))
         {
-            std::set< builtin_function_info > allowed_operations;
-
-            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{numeric_literal_reference{}}}, {"OTHER", argif{numeric_literal_reference{}}}}}}, .return_type = numeric_literal_reference{}});
-            co_return (allowed_operations);
+            add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, numeric_literal_reference{});
         }
 
         if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator)
         {
-            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}}}}, .return_type = make_mref(remove_ptr(parent))});
+            add_overload({}, {{"THIS", parent}}, make_mref(remove_ptr(parent)));
         }
 
         // Equality/inequality for bool
         if (is_bool_type && basic_compare_operators.contains(operator_name))
         {
-            allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{parent}}, {"OTHER", argif{parent}}}}}, .return_type = bool_type{}});
+            add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
         }
 
         if (typeis< ptrref_type >(parent))
@@ -485,29 +432,29 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
             if (ptr.ptr_class != pointer_class::ref && basic_compare_operators.contains(operator_name) && !is_rhs)
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = bool_type{}});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
             }
 
             if (ptr.ptr_class == pointer_class::array && relative_compare_operators.contains(operator_name) && !is_rhs)
             {
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = bool_type{}});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
             }
 
             if (ptr.ptr_class == pointer_class::array && operator_name == "+" && !is_rhs)
             {
                 // Arithmetic
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{sintptr_type}}}}}, .return_type = parent});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", uintptr_type}}, parent);
+                add_overload({}, {{"THIS", ptr}, {"OTHER", sintptr_type}}, parent);
             }
 
             if (ptr.ptr_class == pointer_class::array && operator_name == "-" && !is_rhs)
             {
                 // Arithmetic
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{uintptr_type}}}}}, .return_type = parent});
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{sintptr_type}}}}}, .return_type = parent});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", uintptr_type}}, parent);
+                add_overload({}, {{"THIS", ptr}, {"OTHER", sintptr_type}}, parent);
 
                 // 2 pointer diff
-                allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{ptr}}, {"OTHER", argif{ptr}}}}}, .return_type = sintptr_type});
+                add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, sintptr_type);
             }
 
             if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name))
@@ -515,12 +462,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
                 if (!is_rhs)
                 {
                     // Postfix
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(ptr)}}}}}, .return_type = parent});
+                    add_overload({}, {{"THIS", make_mref(ptr)}}, parent);
                 }
                 else
                 {
                     // prefix operator
-                    allowed_operations.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{make_mref(ptr)}}}}}, .return_type = make_mref(parent)});
+                    add_overload({}, {{"THIS", make_mref(ptr)}}, make_mref(parent));
                 }
             }
         }
@@ -530,20 +477,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
     if (name == "SERIALIZE" && co_await QUX_CO_DEP(type_should_autogen_serialize, (parent)))
     {
-        intertype interface_type;
-
-        argif this_type_interface = {.type = make_cref(parent)};
-        interface_type.named["THIS"] = this_type_interface;
-
-
-        argif output_iterator_type_interface;
-        output_iterator_type_interface.type = make_mref(auto_temploidic{.name = "__out_iter"});
-        interface_type.named["OUTPUT_ITERATOR"] = output_iterator_type_interface;
-
-        builtin_function_info serialize_info;
-
-        // TODO: This part
-
+        add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", make_mref(auto_temploidic{.name = "__out_iter"}) }}, void_type{});
     }
 
     co_return allowed_operations;
@@ -579,14 +513,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_primitive)
     co_return std::nullopt;
 }
 
-
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
 {
     auto os = input.ensig;
     auto preargs = input.params;
     // TODO: support default values for arguments
-
-   
 
     auto val = this;
 

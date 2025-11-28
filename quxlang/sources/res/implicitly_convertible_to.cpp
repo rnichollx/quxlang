@@ -99,10 +99,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
         auto match = match_template(to, from);
         if (match.has_value())
         {
+            std::cout << "   Convertible: " << from_str << " to " << to_str << std::endl;
             co_return match.value().type;
         }
         else
         {
+            std::cout << "   Not convertible: " << from_str << " to " << to_str << std::endl;
             co_return std::nullopt;
         }
     }
