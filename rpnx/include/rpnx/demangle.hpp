@@ -15,7 +15,8 @@ namespace rpnx
 
         if (status != 0)
         {
-            throw std::runtime_error("Failed to demangle name: " + std::string(name));
+            //throw std::runtime_error("Failed to demangle name: " + std::string(name));
+            return name;
         }
         std::string result = demangled;
         free(demangled);

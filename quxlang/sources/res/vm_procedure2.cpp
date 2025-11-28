@@ -89,8 +89,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         {
             co_return co_await gen.co_generate_builtin_access_member(input, "__end");
         }
+        else if (sm.name == "SERIALIZE")
+        {
+            co_return co_await gen.co_generate_builtin_serialize(input);
+        }
 
     }
+
 
     throw compiler_bug("generation of builtin routine \'" + input_str + "\' not implemented");
 }

@@ -248,6 +248,11 @@ namespace quxlang::vmir2
             consume(tb.from);
             output(tb.to);
         }
+        void apply_internal(vmir2::iconv const& icv)
+        {
+            consume(icv.from);
+            output(icv.to);
+        }
         void apply_internal(vmir2::to_bool_not const& tbn)
         {
             consume(tbn.from);

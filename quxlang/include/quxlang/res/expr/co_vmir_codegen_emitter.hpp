@@ -847,7 +847,7 @@ namespace quxlang
                 }
                 else if (is_ref(arg_target_type))
                 {
-                    std::cout << "gen_call_functanoid C(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
+                    std::cout << "gen_call_functanoid C(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << " -> " << quxlang::to_string(arg_target_type) << std::endl;
                     if (arg_expr_type == arg_target_type)
                     {
                         co_return arg_expr_index;
@@ -2515,6 +2515,36 @@ namespace quxlang
 
             co_await co_generate_dtor_references();
             co_return get_result();
+        }
+
+        auto co_generate_builtin_serialize(instanciation_reference const & func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+
+
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+
+            if (class_type.type_is<int_type>())
+            {
+                co_return co_await this->co_generate_builtin_serialize_int(func);
+            }
+
+            throw rpnx::unimplemented();
+        }
+
+        auto co_generate_builtin_serialize_int(instanciation_reference const &func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+
+            assert(class_type.type_is<int_type>());
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            //
+
+
         }
 
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >

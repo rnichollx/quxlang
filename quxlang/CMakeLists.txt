@@ -21,6 +21,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/vm_frame_variable.hpp
         include/quxlang/data/vm_expr_store.hpp
         include/quxlang/data/vm_if.hpp
+        include/quxlang/vmir2/vmir2.hpp
         include/quxlang/data/expression_equals.hpp
         include/quxlang/data/numeric_literal.hpp
         include/quxlang/res/operator_is_overloaded_with_resolver.hpp
@@ -210,7 +211,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/res/constructor.hpp
         sources/res/constructor.cpp
         include/quxlang/vmir2/state_engine.hpp
-        sources/vmir2/state_engine.cpp
         include/quxlang/res/functanoid.hpp
         include/quxlang/lang/lang.hpp
         include/quxlang/res/temploid.hpp

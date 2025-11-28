@@ -477,7 +477,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
     if (name == "SERIALIZE" && co_await QUX_CO_DEP(type_should_autogen_serialize, (parent)))
     {
-        add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", make_mref(auto_temploidic{.name = "__out_iter"}) }}, void_type{});
+        add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
     }
 
     co_return allowed_operations;

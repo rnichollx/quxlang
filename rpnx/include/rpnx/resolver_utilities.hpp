@@ -11,6 +11,10 @@
 #include <set>
 #include <string>
 #include <type_traits>
+#include <filesystem>
+#include <iostream>
+#include <fstream>
+
 
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
@@ -571,6 +575,15 @@ namespace rpnx
         std::set< node_base< Graph >* > const& met_dependencies() const
         {
             return m_met_dependencies;
+        }
+
+        std::set< node_base< Graph >* > dependencies() const
+        {
+            std::set< node_base< Graph >* > result;
+            result.insert(m_error_dependencies.begin(), m_error_dependencies.end());
+            result.insert(m_met_dependencies.begin(), m_met_dependencies.end());
+            result.insert(m_unmet_dependencies.begin(), m_unmet_dependencies.end());
+            return result;
         }
 
         void coroutine_callback_suspend_until_ready(coroutine_callback< Graph > handle)
@@ -1840,6 +1853,11 @@ namespace rpnx
     class single_thread_graph_solver
     {
 
+
+        std::set< node_base< Graph >* > m_all_nodes;
+
+        std::set< node_base< Graph >* > nodes_to_process;
+
       public:
         inline void solve(Graph* graph, std::shared_ptr< node_base< Graph > > node)
         {
@@ -1866,9 +1884,6 @@ namespace rpnx
 
         void solve(Graph* graph, node_base< Graph >* node)
         {
-            std::set< node_base< Graph >* > m_all_nodes;
-
-            std::set< node_base< Graph >* > nodes_to_process;
 
             std::vector< coroutine_callback< Graph > > coroutines_to_process;
             nodes_to_process.insert(node);
@@ -2033,6 +2048,28 @@ namespace rpnx
             {
                 QUXLANG_DEBUG({ std::cout << "missing:" << node->question() << std::endl; });
                 throw std::runtime_error("Could not resolve node, probably recursive dependency (1)");
+            }
+        }
+
+        void write_deps(std::filesystem::path to_file)
+        {
+            std::ofstream ofs(to_file);
+            for (auto& dep : m_all_nodes)
+            {
+                ofs << dep->question() << ":" << std::endl;
+                auto deps = dep->dependencies();
+
+                for (auto& dep : dep->dependencies())
+                {
+                    ofs << std::string("    ") << dep->question();
+
+                    if (dep->resolved())
+                    {
+                        /// ofs << " -> " << dep->answer();
+                    }
+                    ofs << std::endl;
+                }
+
             }
         }
     };

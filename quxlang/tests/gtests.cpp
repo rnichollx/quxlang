@@ -21,6 +21,8 @@
 
 #include "rpnx/serializer.hpp"
 
+#include <random>
+
 struct foo
 {
     int a;
@@ -34,6 +36,21 @@ class collector_tester : public ::testing::Test
 {
 };
  */
+
+std::filesystem::path temp_output_file()
+{
+    auto tempdir = std::filesystem::temp_directory_path();
+
+    auto fname = std::string();
+    std::random_device r;
+    std::uniform_int_distribution<int> rint(0, 10);
+    for (int i = 0; i < 10; i++)
+    {
+        fname += ('a' + rint(r));
+    }
+    fname += ".txt";
+    return tempdir / fname;
+}
 
 TEST(parsing, parse_empty_class)
 {
@@ -616,7 +633,17 @@ TEST(quxlang, constexpr_result_bool)
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
+        auto tempfile = temp_output_file();
+        bool yaynay;
+        try
+        {
+            yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
+        } catch (...)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+            throw;
+        }
+        std::cout << "tempfile: " << tempfile << std::endl;
         return yaynay;
     };
     auto val1 = get_constexpr_bool("2 + I32(@OTHER 8) - 4 < 5");
@@ -633,7 +660,7 @@ TEST(builtin_state, user_func_builtin)
     quxlang::compiler c(sources, "linux-x64");
     auto type = quxlang::parsers::parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
 
-    auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>());
+    auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
     GTEST_ASSERT_FALSE(val_builtin);
 }
 
@@ -647,7 +674,17 @@ TEST(quxlang, constexpr_call_func)
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
+        auto tempfile = temp_output_file();
+        bool yaynay;
+        try
+        {
+            yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
+        } catch (...)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+            throw;
+        }
+        std::cout << "tempfile: " << tempfile << std::endl;
         return yaynay;
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
@@ -681,7 +718,17 @@ TEST(quxlang, constexpr_call_func_arm)
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
+        auto tempfile = temp_output_file();
+        bool yaynay;
+        try
+        {
+            yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
+        } catch (...)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+            throw;
+        }
+        std::cout << "tempfile: " << tempfile << std::endl;
         return yaynay;
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
@@ -711,7 +758,17 @@ TEST(quxlang, constexpr_test_suites)
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
         quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
-        auto yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule});
+        auto tempfile = temp_output_file();
+        bool yaynay;
+        try
+        {
+            yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
+        } catch (...)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+            throw;
+        }
+        std::cout << "tempfile: " << tempfile << std::endl;
         return yaynay;
     };
     auto val1 = get_constexpr_bool("constexpr_test_suite() == 1");
@@ -739,7 +796,8 @@ TEST(quxlang, func_gen)
 
     quxlang::instanciation_reference func_name_real = func_name.template get_as<quxlang::instanciation_reference>();
 
-    auto func = c.get_vm_procedure3(func_name_real);
+    auto tempname = temp_output_file();
+    auto func = c.get_vm_procedure3(func_name_real, tempname);
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 

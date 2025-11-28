@@ -13,7 +13,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functanoid_return_type)
 
     if (primitive)
     {
-        co_return primitive.value().return_type;
+        auto ret_type = primitive.value().return_type;
+        if (is_contextual(ret_type))
+        {
+            // this can happen if the return type is based on e.g. the paramters
+            auto lookup_input = contextual_type_reference{.type = ret_type, .context = input};
+            auto lookup_result = co_await QUX_CO_DEP(lookup, (lookup_input));
+            if (lookup_result)
+            {
+                co_return lookup_result.value();
+            }
+            else
+            {
+                throw quxlang::compiler_bug("Shouldn't be possible");
+            }
+        }
+        co_return ret_type;
+
     }
 
     auto decl = co_await QUX_CO_DEP(function_declaration, (selected_function));
