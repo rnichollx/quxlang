@@ -276,6 +276,17 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::iconv inst)
+    {
+        std::string result = "ICONV %" + std::to_string(inst.from) + ", %" + std::to_string(inst.to);
+        result += ", ";
+        result += rpnx::enum_traits<conversion_class>::to_string(inst.convtype);
+        // Helpful comment with types
+        result += " // from=" + quxlang::to_string(m_what.local_types.at(inst.from).type);
+        result += " to=" + quxlang::to_string(m_what.local_types.at(inst.to).type);
+        return result;
+    }
+
     std::string assembler::to_string_internal(vmir2::unimplemented unimpl)
     {
         std::string result = "UNIMPLEMENTED";

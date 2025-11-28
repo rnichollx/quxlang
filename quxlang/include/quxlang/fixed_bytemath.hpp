@@ -12,9 +12,9 @@ namespace quxlang::bytemath
 
     struct fixed_int_options
     {
-        bool has_sign;
-        bool overflow_undefined;
-        std::size_t bits;
+        bool has_sign = false;
+        bool overflow_undefined = false;
+        std::size_t bits = 0;
     };
 
     struct int_result
@@ -221,6 +221,17 @@ namespace quxlang::bytemath
     inline int_result int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
         return unlimited_to_fixed(opt, le_signed_div(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+    }
+
+    // Convert a fixed-width integer value from one set of options to another.
+    // The input is interpreted using from_opt and the result is encoded using to_opt.
+    // If the value cannot be represented under to_opt and overflow is undefined for to_opt,
+    // result_is_undefined will be true.
+    inline int_result fixed_int_convert(fixed_int_options from_opt, fixed_int_options to_opt, std::vector< std::byte > const& input)
+    {
+        assert(input.size() == (from_opt.bits + 7) / 8);
+        sle_int_unlimited unlimited = le_int_fixed_to_unlimited(from_opt, input);
+        return unlimited_to_fixed(to_opt, std::move(unlimited));
     }
 
     template <typename I>

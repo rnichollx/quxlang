@@ -173,6 +173,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr();
     void exec_instr3();
 
+
+    void raise_fault(std::string const & fault_name);
+
     type_symbol get_local_type(local_index slot);
     type_symbol get_local_type(std::size_t frame, local_index slot);
 
@@ -263,6 +266,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::load_from_ref const& lfr);
     void exec_instr_val(vmir2::ret const& ret);
     void exec_instr_val(vmir2::int_add const& add);
+    void exec_instr_val(vmir2::iconv const& icv);
     void exec_instr_val(vmir2::int_sub const& sub);
     void exec_instr_val(vmir2::int_mul const& mul);
     void exec_instr_val(vmir2::int_div const& div);
@@ -659,6 +663,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         },
         *terminator_instruction);
     return;
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::raise_fault(std::string const& fault_name)
+{
+    // Currently, faults are not permitted during constexpr execution.
+    // Centalizing fault handling in one place in-case we extend the runtime to allow them during conste
+    throw constexpr_logic_execution_error
 }
 quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(local_index slot)
 {
@@ -1276,6 +1286,79 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     return;
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::iconv const& icv)
+{
+    auto& frame = get_current_frame();
+
+    std::shared_ptr< local > from_local = consume_local(icv.from);
+    std::shared_ptr< local > to_local = output_local(icv.to);
+
+    // Retrieve data references
+    auto& from_data = from_local->data;
+    auto& to_data = to_local->data;
+
+
+
+    type_symbol from_type = get_local_type(icv.from);
+    type_symbol to_type = get_local_type(icv.to);
+
+    bytemath::fixed_int_options from_opt{};
+    bytemath::fixed_int_options to_opt{};
+
+
+    if (to_type.type_is<byte_type>())
+    {
+        to_opt.bits = 8;
+        to_opt.has_sign = false;
+    } else
+    {
+        assert(to_type.type_is<int_type>());
+        int_type const& int_type_info = to_type.get_as< int_type >();
+        to_opt.bits = int_type_info.bits;
+        to_opt.has_sign = int_type_info.has_sign;
+    }
+
+    if (from_type.type_is<byte_type>())
+    {
+        from_opt.bits = 8;
+        from_opt.has_sign = false;
+    } else
+    {
+        assert(from_type.type_is<int_type>());
+        int_type const& int_type_info = from_type.get_as< int_type >();
+        from_opt.bits = int_type_info.bits;
+        from_opt.has_sign = int_type_info.has_sign;
+    }
+
+    if (icv.convtype == conversion_class::partial)
+    {
+        to_opt.overflow_undefined = false;
+    }
+    else
+    {
+        // conversion class checked triggers a fault, but the result is the same for constexpr
+        to_opt.overflow_undefined = true;
+    }
+
+    bytemath::int_result res = bytemath::fixed_int_convert(from_opt, to_opt, from_data);
+    // Perform two's complement addition in little-endian order
+
+    if (res.result_is_undefined)
+    {
+        if (icv.convtype == conversion_class::checked)
+        {
+            throw constexpr_logic_execution_error("During constexpr execution: CHECKED_CONVERSION_FAULT");
+        }
+        else
+        {
+            throw constexpr_logic_execution_error("error executing IADD: undefined behavior");
+        }
+    }
+
+    to_data = res.data_bytes;
+
+    return;
+}
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_mul const& mul)
 {
@@ -1525,7 +1608,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 // ===== Bitwise operations handlers =====
 
-static std::size_t get_bit_width_for_type(const quxlang::type_symbol &ty)
+static std::size_t get_bit_width_for_type(const quxlang::type_symbol& ty)
 {
     if (typeis< quxlang::int_type >(ty))
         return ty.get_as< quxlang::int_type >().bits;
@@ -1540,36 +1623,37 @@ static std::size_t bytes_for_bits(std::size_t bits)
     return (bits + 7) / 8;
 }
 
-static void bitwise_byte_op(std::vector<std::byte> &out, std::vector<std::byte> const& a, std::vector<std::byte> const& b, auto fn)
+static void bitwise_byte_op(std::vector< std::byte >& out, std::vector< std::byte > const& a, std::vector< std::byte > const& b, auto fn)
 {
     out.resize(std::max(a.size(), b.size()));
     for (std::size_t i = 0; i < out.size(); ++i)
     {
-        std::uint8_t av = (i < a.size()) ? static_cast<std::uint8_t>(a[i]) : 0;
-        std::uint8_t bv = (i < b.size()) ? static_cast<std::uint8_t>(b[i]) : 0;
-        out[i] = static_cast<std::byte>(fn(av, bv) & 0xFF);
+        std::uint8_t av = (i < a.size()) ? static_cast< std::uint8_t >(a[i]) : 0;
+        std::uint8_t bv = (i < b.size()) ? static_cast< std::uint8_t >(b[i]) : 0;
+        out[i] = static_cast< std::byte >(fn(av, bv) & 0xFF);
     }
 }
 
-static void bitwise_not_inplace(std::vector<std::byte> &v)
+static void bitwise_not_inplace(std::vector< std::byte >& v)
 {
-    for (auto &by : v)
+    for (auto& by : v)
     {
-        by = static_cast<std::byte>(~static_cast<std::uint8_t>(by));
+        by = static_cast< std::byte >(~static_cast< std::uint8_t >(by));
     }
 }
 
-static std::vector<std::byte> truncate_to_bits(std::vector<std::byte> data, std::size_t bits)
+static std::vector< std::byte > truncate_to_bits(std::vector< std::byte > data, std::size_t bits)
 {
-    if (bits == 0) return {};
+    if (bits == 0)
+        return {};
     auto truncated = quxlang::bytemath::detail::le_truncate_raw(std::move(data), bits);
     // Ensure vector has exact byte size for given bits
     truncated.resize((bits + 7) / 8, std::byte{0});
     if (bits % 8 != 0)
     {
         std::uint8_t mask = (1u << (bits % 8)) - 1u;
-        std::uint8_t top = static_cast<std::uint8_t>(truncated.back());
-        truncated.back() = static_cast<std::byte>(top & mask);
+        std::uint8_t top = static_cast< std::uint8_t >(truncated.back());
+        truncated.back() = static_cast< std::byte >(top & mask);
     }
     return truncated;
 }
@@ -1581,8 +1665,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av & bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av & bv);
+                    });
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
 }
@@ -1594,8 +1682,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av | bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av | bv);
+                    });
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
 }
@@ -1607,8 +1699,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av ^ bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av ^ bv);
+                    });
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
 }
@@ -1620,8 +1716,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av & bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av & bv);
+                    });
     bitwise_not_inplace(out);
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
@@ -1634,8 +1734,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av | bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av | bv);
+                    });
     bitwise_not_inplace(out);
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
@@ -1648,17 +1752,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
-    std::vector<std::byte> out;
-    bitwise_byte_op(out, a, b, [](std::uint8_t av, std::uint8_t bv){ return static_cast<std::uint8_t>(av ^ bv); });
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av ^ bv);
+                    });
     bitwise_not_inplace(out);
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
 }
 
-static std::uint64_t bytes_to_u64(const std::vector<std::byte>& data)
+static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
 {
-    auto [v, ok] = quxlang::bytemath::le_to_u<std::uint64_t>(data);
-    if (!ok) throw std::overflow_error("shift amount too large");
+    auto [v, ok] = quxlang::bytemath::le_to_u< std::uint64_t >(data);
+    if (!ok)
+        throw std::overflow_error("shift amount too large");
     return v;
 }
 
@@ -1669,7 +1778,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
-    if (bits == 0) { set_data(op.result, {}); return; }
+    if (bits == 0)
+    {
+        set_data(op.result, {});
+        return;
+    }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
     if (amt >= bits)
@@ -1677,7 +1790,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
     }
 
-    auto shifted = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(amt));
+    auto shifted = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(amt));
     shifted = truncate_to_bits(std::move(shifted), bits);
     // Ensure at least correct byte-size
     shifted.resize(bytes_for_bits(bits), std::byte{0});
@@ -1691,7 +1804,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
-    if (bits == 0) { set_data(op.result, {}); return; }
+    if (bits == 0)
+    {
+        set_data(op.result, {});
+        return;
+    }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
     if (amt >= bits)
@@ -1699,20 +1816,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
     }
 
-    auto shifted = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(amt));
+    auto shifted = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(amt));
     shifted = truncate_to_bits(std::move(shifted), bits);
     shifted.resize(bytes_for_bits(bits), std::byte{0});
     set_data(op.result, std::move(shifted));
 }
 
-static std::vector<std::byte> bit_or_vec(std::vector<std::byte> a, std::vector<std::byte> const& b)
+static std::vector< std::byte > bit_or_vec(std::vector< std::byte > a, std::vector< std::byte > const& b)
 {
-    if (b.size() > a.size()) a.resize(b.size(), std::byte{0});
+    if (b.size() > a.size())
+        a.resize(b.size(), std::byte{0});
     for (std::size_t i = 0; i < b.size(); ++i)
     {
-        std::uint8_t av = (i < a.size()) ? static_cast<std::uint8_t>(a[i]) : 0;
-        std::uint8_t bv = static_cast<std::uint8_t>(b[i]);
-        a[i] = static_cast<std::byte>(av | bv);
+        std::uint8_t av = (i < a.size()) ? static_cast< std::uint8_t >(a[i]) : 0;
+        std::uint8_t bv = static_cast< std::uint8_t >(b[i]);
+        a[i] = static_cast< std::byte >(av | bv);
     }
     return a;
 }
@@ -1724,10 +1842,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
-    if (bits == 0) { set_data(op.result, {}); return; }
+    if (bits == 0)
+    {
+        set_data(op.result, {});
+        return;
+    }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0) amt = amt % bits;
+    if (bits != 0)
+        amt = amt % bits;
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(value), bits);
@@ -1736,8 +1859,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(amt));
-    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(bits - amt));
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(amt));
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(bits - amt));
 
     up = truncate_to_bits(std::move(up), bits);
     down = truncate_to_bits(std::move(down), bits);
@@ -1755,10 +1878,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
-    if (bits == 0) { set_data(op.result, {}); return; }
+    if (bits == 0)
+    {
+        set_data(op.result, {});
+        return;
+    }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (bits != 0) amt = amt % bits;
+    if (bits != 0)
+        amt = amt % bits;
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(value), bits);
@@ -1767,8 +1895,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast<std::size_t>(amt));
-    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast<std::size_t>(bits - amt));
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(amt));
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(bits - amt));
 
     down = truncate_to_bits(std::move(down), bits);
     up = truncate_to_bits(std::move(up), bits);
@@ -3205,8 +3333,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         throw invalid_instruction_transition_error("array_init_start expects __ARRAY_INITAILIZER");
     }
-
-
 
     initializer->initializer_of = array;
     assert(array != nullptr);
