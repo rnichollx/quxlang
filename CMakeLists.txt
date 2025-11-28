@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
 project(quxlang)
+
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
+
+
+find_package(RPNXCow REQUIRED)
 
 add_subdirectory(rpnx)
 

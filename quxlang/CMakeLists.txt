@@ -285,7 +285,7 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         ../rpnx/include/rpnx/value.hpp include/quxlang/ex/unexpected_eof.hpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)
-target_link_libraries(quxlang PUBLIC graphlib)
+target_link_libraries(quxlang PUBLIC graphlib RPNX::cow)
 
 if (QUXLANG_MAIN_DEV)
   add_executable(quxlang_main sources/main.cpp)
