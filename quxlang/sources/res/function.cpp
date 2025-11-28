@@ -232,6 +232,26 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
     std::set< builtin_function_info > allowed_operations;
 
+    auto make_overload = [&]( std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    {
+        builtin_function_info bl_info;
+        for (auto & type : positionals)
+        {
+            bl_info.overload.interface.positional.push_back(argif{.type = type});
+        }
+        for (auto & [name, type] : named)
+        {
+            bl_info.overload.interface.named[name] = type;
+        }
+        bl_info.return_type = return_type;
+        return bl_info;
+    };
+
+    auto add_overload = [&]( std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    {
+        allowed_operations.insert(make_overload(positionals, named, return_type));
+    };
+
     if (name == "CONSTRUCTOR")
     {
         co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));
