@@ -667,8 +667,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::raise_fault(std::string const& fault_name)
 {
     // Currently, faults are not permitted during constexpr execution.
-    // Centalizing fault handling in one place in-case we extend the runtime to allow them during conste
-    throw constexpr_logic_execution_error
+    // Centalizing fault handling in one place in-case we extend the runtime to allow them during constexpr.
+    throw constexpr_logic_execution_error("During constexpr execution: Runtime fault: " + fault_name);
 }
 quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_local_type(local_index slot)
 {
@@ -1347,7 +1347,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         if (icv.convtype == conversion_class::checked)
         {
-            throw constexpr_logic_execution_error("During constexpr execution: CHECKED_CONVERSION_FAULT");
+            raise_fault("CHECKED_CONVERSION_FAULT");
+            return;
         }
         else
         {

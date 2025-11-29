@@ -80,18 +80,39 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 {
+
     std::set< builtin_function_info > result;
+    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    {
+        builtin_function_info bl_info;
+        for (auto& type : positionals)
+        {
+            bl_info.overload.interface.positional.push_back(argif{.type = type});
+        }
+        for (auto& [name, type] : named)
+        {
+            bl_info.overload.interface.named[name] = argif{.type = type};
+        }
+        bl_info.return_type = return_type;
+        return bl_info;
+    };
+
+    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    {
+        result.insert(make_overload(positionals, named, return_type));
+    };
+
 
     if (typeis< readonly_constant >(input))
     {
         auto const& rc = input.get_as< readonly_constant >();
         if (rc.kind == constant_kind::string)
         {
-            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = string_literal_reference{}}}}}}, .return_type = void_type{}});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", string_literal_reference{}}}, void_type{});
         }
         if (rc.kind == constant_kind::numeric)
         {
-            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
         }
     }
 
@@ -99,19 +120,49 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
     {
         // Pointer copy/default
         // We should onlt do this if it's *not* a reference (otherwise every refernece type is constructible from a const ref).
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
     }
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< readonly_constant >() || typeis< byte_type >(input))
+    if (typeis_oneof< int_type, bool_type, readonly_constant, byte_type >(input))
     {
-
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
-        if (input.type_is< int_type >() || typeis< byte_type >(input))
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
+        if (typeis_oneof< int_type, byte_type >(input))
         {
-            result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = numeric_literal_reference{}}}}}}, .return_type = void_type{}});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+
+
+            bool input_signed;
+            if (input.type_is<byte_type>())
+            {
+                input_signed = false;
+            }
+            else
+            {
+                input_signed = input.as<int_type>().has_sign;
+            }
+
+            std::size_t bits;
+            if (input.type_is<byte_type>())
+            {
+                bits = 8;
+            }
+            else
+            {
+                bits = input.as<int_type>().bits;
+            }
+
+            auto conv_ol = make_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", auto_temploidic{"__int"}}}, void_type{});
+
+            if (input_signed)
+            {
+                // I(X)::.CONSTRUCTOR(@THIS NEW{ I(X) }, @OTHER AUTO(__int)) ENABLE_IF(STATIC_CHOOSE(IS_INTEGRAL(__int), BITS(__int) > BITS(CLASSTYPE), false))
+            }
+
+
+
         }
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = {.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
+        add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
     }
 
     if (typeis< ptrref_type >(input))
@@ -175,7 +226,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
                     continue;
                 }
 
-                result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = type}}}}}, .return_type = void_type{}});
+                add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", type}}, void_type{});
             }
         }
     }
@@ -193,18 +244,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 
     if (should_autogen_constructor)
     {
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}}}}, .return_type = void_type{}});
+        add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
         // co_return result;
     }
 
     if (should_autogen_copy_constructor)
     {
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_cref(input)}}}}}, .return_type = void_type{}});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
     }
 
     if (should_autogen_move_constructor)
     {
-        result.insert(builtin_function_info{.overload = temploid_ensig{.interface = intertype{.named = {{"THIS", argif{.type = create_nslot(input)}}, {"OTHER", argif{.type = make_tref(input)}}}}}, .return_type = void_type{}});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_tref(input)}}, void_type{});
     }
 
     co_return result;

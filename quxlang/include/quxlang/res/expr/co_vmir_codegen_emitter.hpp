@@ -236,7 +236,6 @@ namespace quxlang
             // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
 
-
             auto kind = (co_await prv.symbol_type(func));
             if (kind != symbol_kind::functum)
             {
@@ -258,11 +257,8 @@ namespace quxlang
                 {
                     throw std::logic_error("Error: symbol " + func_str + " is not a functum");
                 }
-
             }
             auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
-
-
 
             auto functum_overloeads = co_await prv.functum_overloads(func);
 
@@ -1832,6 +1828,11 @@ namespace quxlang
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
             }
 
+            if (attached_type.template type_is< byte_type> ())
+            {
+                co_return this->create_bool_value(bidx, false);
+            }
+
             if (!attached_type.template type_is< int_type >())
             {
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
@@ -1855,22 +1856,22 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_literal >())
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+                co_return this->create_bool_value(bidx, false);
             }
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got an object or reference instead.");
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got something else instead.");
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             type_symbol const& attached_type = binding.attached_symbol;
@@ -1882,7 +1883,7 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, false);
             }
 
-            if (!attached_type.template type_is< int_type >())
+            if (!typeis_oneof<int_type, byte_type>(attached_type))
             {
                 co_return this->create_bool_value(bidx, false);
             }
@@ -1981,6 +1982,28 @@ namespace quxlang
             }
 
             throw rpnx::unimplemented();
+        }
+
+        auto co_generate(block_index& bidx, expression_static_choose const& sc) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            bool res = co_await co_constexpr_bool(bidx, sc.condition);
+            if (res)
+            {
+                co_return co_await co_generate_expr(bidx, sc.true_expr);
+            }
+            else
+            {
+                co_return co_await co_generate_expr(bidx, sc.false_expr);
+            }
+        }
+
+        auto co_constexpr_bool(block_index&, expression const& expr) -> typename CoroutineProvider::template co_type< bool >
+        {
+            // TODO: Add carried context support
+            auto ce_input = constexpr_input{.context = ctx, .expr = expr};
+            // TODO: ce_input.scoped_definitions = ...;
+            auto ce_result = co_await prv.constexpr_bool(ce_input);
+            co_return ce_result;
         }
 
         auto co_generate(block_index& bidx, expression_rightarrow expr) -> typename CoroutineProvider::template co_type< value_index >
@@ -2517,14 +2540,13 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_builtin_serialize(instanciation_reference const & func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        auto co_generate_builtin_serialize(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
 
-
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
 
-            if (class_type.type_is<int_type>())
+            if (class_type.type_is< int_type >())
             {
                 co_return co_await this->co_generate_builtin_serialize_int(func);
             }
@@ -2532,19 +2554,17 @@ namespace quxlang
             throw rpnx::unimplemented();
         }
 
-        auto co_generate_builtin_serialize_int(instanciation_reference const &func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        auto co_generate_builtin_serialize_int(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
 
-            assert(class_type.type_is<int_type>());
+            assert(class_type.type_is< int_type >());
 
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
 
             //
-
-
         }
 
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
@@ -3095,7 +3115,7 @@ namespace quxlang
             }
 
             // TODO: Include SCN in delegate constructors?
-            //this->emit(current_block, vmir2::struct_init_finish{.on_value = get_local_index(thisidx_value)});
+            // this->emit(current_block, vmir2::struct_init_finish{.on_value = get_local_index(thisidx_value)});
         }
 
         auto co_generate_array_copy_ctor_delegates(block_index& current_block, instanciation_reference const& func) -> typename CoroutineProvider::template co_type< void >
@@ -3151,7 +3171,6 @@ namespace quxlang
             auto initiailizer = create_local_value(init_type);
 
             this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
-
 
             auto init_loop_condition_block = this->generate_subblock(current_block, "array_copy_condition_ctor_loop");
             auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
@@ -3446,8 +3465,6 @@ namespace quxlang
             this->emit(init_loop_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
 
             this->emit(init_loop_block, vmir2::array_init_index{.initializer = get_local_index(initiailizer), .result = get_local_index(element_index)});
-
-
 
             auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
             codegen_invocation_args args;

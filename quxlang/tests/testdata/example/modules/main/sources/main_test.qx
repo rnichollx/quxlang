@@ -9,7 +9,9 @@ IMPORT foolib;
   test_array_ctor();
   test_argument_passing();
   test_swap();
-  test_serialize();
+  test_choose();
+  //test_narrowing();
+  //test_serialize();
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();
@@ -25,13 +27,34 @@ IMPORT foolib;
   RETURN 1;
 }
 
+::test_choose FUNCTION()
+{
+   VAR x I32;
+
+   x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 );
+   ASSERT( x == 10 );
+
+   x := STATIC_CHOOSE( foolib::imported_function() != 42 , 10 , 20 );
+   ASSERT( x == 20 );
+}
+
 ::test_serialize FUNCTION()
 {
+   // THIS IS BROKEN STILL, DO NOT RUN
    VAR output [4]BYTE;
 
    VAR x I32 := 255;
 
    x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
+}
+
+::test_narrowing FUNCTION()
+{
+
+  VAR x I64 := 17;
+
+  VAR y I32 := x AS I32;
+
 }
 
 

@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
+
 namespace quxlang
 {
 
@@ -34,6 +36,7 @@ namespace quxlang
     struct expression_nor;
     struct expression_implies;
     struct expression_implied;
+    struct expression_static_choose;
 
 
 
@@ -194,23 +197,18 @@ namespace quxlang
     struct expression_is_integral
     {
         type_symbol of_type;
+        integral_qualifier qualifier = integral_qualifier::none;
 
-        RPNX_MEMBER_METADATA(expression_is_integral);
+        RPNX_MEMBER_METADATA(expression_is_integral, of_type, qualifier);
     };
 
     struct expression_is_signed
     {
         type_symbol of_type;
 
-        RPNX_MEMBER_METADATA(expression_is_integral);
+        RPNX_MEMBER_METADATA(expression_is_signed, of_type);
     };
 
-    struct expression_is_same
-    {
-        type_symbol of_type;
-
-        RPNX_MEMBER_METADATA(expression_is_same);
-    };
 
     struct expression_typecast
     {
@@ -219,6 +217,15 @@ namespace quxlang
         std::optional< std::string > keyword;
 
         RPNX_MEMBER_METADATA(expression_typecast, expr, to_type, keyword);
+    };
+
+    struct expression_static_choose
+    {
+        expression condition;
+        expression true_expr;
+        expression false_expr;
+
+        RPNX_MEMBER_METADATA(expression_static_choose, condition, true_expr, false_expr);
     };
 
     struct delegate

@@ -16,6 +16,14 @@ namespace quxlang
     }
 
 
+    // Returns true if the variant currently holds any of the specified types
+    template < typename... Us, typename... Ts >
+    bool typeis_oneof(rpnx::variant< Ts... > const& v)
+    {
+        return (v.template type_is< Us >() || ...);
+    }
+
+
 
     template < typename T, typename... Ts >
     T& as(rpnx::variant< Ts... >& v)

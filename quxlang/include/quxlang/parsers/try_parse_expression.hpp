@@ -158,6 +158,71 @@ namespace quxlang::parsers
             *value_bind_point = chr_lit;
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "IS_SIGNED"))
+        {
+            expression_is_signed expr_is_integral;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after IS_SIGNED");
+            }
+            expr_is_integral.of_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after IS_SIGNED(<type>");
+            }
+            *value_bind_point = expr_is_integral;
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "IS_INTEGRAL"))
+        {
+            expression_is_integral expr_is_integral;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after IS_INTEGRAL");
+            }
+            expr_is_integral.of_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after IS_INTEGRAL(<type>");
+            }
+            *value_bind_point = expr_is_integral;
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "STATIC_CHOOSE"))
+        {
+            expression_static_choose expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after STATIC_CHOOSE");
+            }
+            expr.condition = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after STATIC_CHOOSE condition");
+            }
+            expr.true_expr = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after STATIC_CHOOSE true expression");
+            }
+            expr.false_expr = parse_expression(pos, end);
+
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after STATIC_CHOOSE(<cond>, <true>, <false>");
+            }
+            *value_bind_point = expr;
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
         {
             expression_sizeof sz;
@@ -283,7 +348,7 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, { "PARTIAL", "ASSUME", "CHECKED" }); kw)
+            if (auto kw = skip_keyword_if_one_of(pos, end, {"PARTIAL", "ASSUME", "CHECKED"}); kw)
             {
                 tc.keyword = *kw;
                 skip_whitespace_and_comments(pos, end);

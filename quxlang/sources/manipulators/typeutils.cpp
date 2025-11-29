@@ -68,6 +68,11 @@ namespace quxlang
             return kw.keyword;
         }
 
+        std::string operator()(expression_static_choose const& expr) const
+        {
+            return "STATIC_CHOOSE( " + to_string(expr.condition) + " , " + to_string(expr.true_expr) + " , " + to_string(expr.false_expr) + " )";
+        }
+
         std::string operator()(expression_multibind const& brkts) const
         {
             std::string result;
