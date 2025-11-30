@@ -11,7 +11,7 @@ IMPORT foolib;
   test_swap();
   test_choose();
   //test_narrowing();
-  //test_serialize();
+  test_serialize();
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();

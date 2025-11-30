@@ -696,6 +696,21 @@ namespace rpnx
         }
 
         template < typename T >
+        T& unwrap()
+        {
+            assert(valid());
+            // static_assert(has_cvref_removed_identical_type<T>(), "Must be in type list");
+            //  Check if the variant is currently holding a value of type T
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                // If it is not, throw an exception
+                throw std::bad_variant_access();
+            }
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T* >(m_data);
+        }
+
+        template < typename T >
         T const& get_as() const
         {
             assert(valid());
@@ -715,6 +730,23 @@ namespace rpnx
 
         template < typename T >
         T const& as() const
+        {
+            assert(valid());
+            static_assert(has_cvref_removed_identical_type< T >(), "Must be in type list");
+
+            // Check if the variant is currently holding a value of type T
+            if (m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value)
+            {
+                // If it is not, throw an exception
+                throw std::bad_variant_access();
+            }
+            assert(valid());
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T const* >(m_data);
+        }
+
+        template < typename T >
+        T const& unwrap() const
         {
             assert(valid());
             static_assert(has_cvref_removed_identical_type< T >(), "Must be in type list");

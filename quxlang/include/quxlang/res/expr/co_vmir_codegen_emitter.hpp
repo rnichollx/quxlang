@@ -204,7 +204,7 @@ namespace quxlang
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
         {
-            // std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
             invotype calltype;
             for (auto& arg : args.positional)
@@ -221,6 +221,9 @@ namespace quxlang
             {
                 auto arg_type = current_type(bidx, arg);
                 bool is_alive = value_alive(bidx, arg);
+
+                std::string name_copy = name;
+                std::string arg_type_str = to_string(arg_type);
 
                 // std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
                 if (!is_alive)
@@ -411,7 +414,7 @@ namespace quxlang
             state.blocks.at(bidx).instructions.push_back(val);
         }
 
-        auto create_reference_internal(block_index& bidx, value_index index, type_symbol const& new_type)
+        auto create_reference(block_index& bidx, value_index index, type_symbol const& new_type)
         {
             // This function is used to handle the case where we have an index and need to force it into a
             // reference type.
@@ -521,7 +524,7 @@ namespace quxlang
 
                     if (!is_ref(lookup_type))
                     {
-                        lookup = create_reference_internal(idx, *lookup, make_mref(lookup_type));
+                        lookup = create_reference(idx, *lookup, make_mref(lookup_type));
                     }
                     else
                     {
@@ -995,7 +998,7 @@ namespace quxlang
                 }
                 else
                 {
-                    auto temp_index = create_reference_internal(bidx, vidx, make_tref(value_type));
+                    auto temp_index = create_reference(bidx, vidx, make_tref(value_type));
                     co_return co_await co_gen_reference_conversion(bidx, temp_index, target_type);
                 }
             }
@@ -1828,7 +1831,7 @@ namespace quxlang
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
             }
 
-            if (attached_type.template type_is< byte_type> ())
+            if (attached_type.template type_is< byte_type >())
             {
                 co_return this->create_bool_value(bidx, false);
             }
@@ -1883,7 +1886,7 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, false);
             }
 
-            if (!typeis_oneof<int_type, byte_type>(attached_type))
+            if (!typeis_oneof< int_type, byte_type >(attached_type))
             {
                 co_return this->create_bool_value(bidx, false);
             }
@@ -2081,31 +2084,16 @@ namespace quxlang
             co_return result_bool;
         }
 
-        auto co_generate(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_generate_binary(block_index& bidx, std::string operator_str, value_index lhs, value_index rhs) -> typename CoroutineProvider::template co_type< value_index >
         {
-            if (logic_operators.contains(input.operator_str))
-            {
-                if (input.operator_str == "&&")
-                {
-                    co_return co_await co_generate_logic_and(bidx, input);
-                }
-
-                if (input.operator_str == "!&")
-                {
-                    co_return co_await co_generate_logic_nand(bidx, input);
-                }
-            }
-            auto lhs = co_await co_generate_expr(bidx, input.lhs);
-            auto rhs = co_await co_generate_expr(bidx, input.rhs);
-
             type_symbol lhs_type = this->current_type(bidx, lhs);
             type_symbol rhs_type = this->current_type(bidx, rhs);
 
             type_symbol lhs_underlying_type = remove_ref(lhs_type);
             type_symbol rhs_underlying_type = remove_ref(rhs_type);
 
-            type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + input.operator_str};
-            type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + input.operator_str + "RHS"};
+            type_symbol lhs_function = submember{lhs_underlying_type, "OPERATOR" + operator_str};
+            type_symbol rhs_function = submember{rhs_underlying_type, "OPERATOR" + operator_str + "RHS"};
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
@@ -2126,6 +2114,26 @@ namespace quxlang
             }
 
             throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
+        }
+
+        auto co_generate(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            if (logic_operators.contains(input.operator_str))
+            {
+                if (input.operator_str == "&&")
+                {
+                    co_return co_await co_generate_logic_and(bidx, input);
+                }
+
+                if (input.operator_str == "!&")
+                {
+                    co_return co_await co_generate_logic_nand(bidx, input);
+                }
+            }
+            auto lhs = co_await co_generate_expr(bidx, input.lhs);
+            auto rhs = co_await co_generate_expr(bidx, input.rhs);
+
+            co_return co_await co_generate_binary(bidx, input.operator_str, lhs, rhs);
         }
 
         auto co_generate(block_index& bidx, expression_numeric_literal input) -> typename CoroutineProvider::template co_type< value_index >
@@ -2165,7 +2173,12 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto val = co_await co_generate_expr(bidx, input.lhs);
-            auto oper = this->get_class_member(bidx, val, "OPERATOR" + input.operator_str);
+            co_return co_await co_generate_unary_postfix(bidx, input.operator_str, val);
+        }
+
+        auto co_generate_unary_postfix(block_index& bidx, std::string operator_str, value_index val) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto oper = this->get_class_member(bidx, val, "OPERATOR" + operator_str);
             co_return co_await co_gen_call_functum(bidx, oper, codegen_invocation_args{.named = {{"THIS", val}}});
         }
 
@@ -2546,7 +2559,7 @@ namespace quxlang
 
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
 
-            if (class_type.type_is< int_type >())
+            if (class_type.type_is< int_type >() || class_type.type_is< byte_type >())
             {
                 co_return co_await this->co_generate_builtin_serialize_int(func);
             }
@@ -2559,12 +2572,97 @@ namespace quxlang
             assert(!type_is_contextual(func));
             type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
 
-            assert(class_type.type_is< int_type >());
-
+            assert(class_type.type_is< int_type >() || class_type.type_is< byte_type >());
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
 
-            //
+            auto current_block = block_index(0);
+            std::size_t bits = 8;
+            bool signed_bits = false;
+            if (class_type.type_is< int_type >())
+            {
+                int_type const& class_type_int = class_type.unwrap< int_type >();
+
+                bits = class_type_int.bits;
+                signed_bits = class_type_int.has_sign;
+            }
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+
+            auto copy_val = this->create_local_value(class_type);
+
+            auto val_ctor = submember{.of = class_type, .name = "CONSTRUCTOR"};
+
+            co_await co_gen_call_functum(current_block, val_ctor, codegen_invocation_args{.named = {{"OTHER", this_ref.value()}, {"THIS", copy_val}}}, parameter_init_kind::implicit_conversion);
+
+            auto class_mreftype = make_mref(class_type);
+
+            for (std::size_t i = 0; i < bits; i += 8)
+            {
+                // Load current state of copyval into a local, duplicating the original value
+                auto copymutref = this->create_reference(current_block, copy_val, class_mreftype);
+                auto copy_val_copy = this->create_local_value(class_type);
+                {
+                    vmir2::load_from_ref lfr;
+                    lfr.from_reference = get_local_index(copymutref);
+                    lfr.to_value = get_local_index(copy_val_copy);
+                    this->emit(current_block, lfr);
+                }
+
+                // iter++
+                auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+                if (!outit_ref.has_value())
+                {
+                    throw std::logic_error("Cannot find __out_iter in serialize");
+                }
+                auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_ref.value());
+
+                // (iter++)->
+                auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+
+                value_index byteval;
+
+                if (class_type != byte_type{})
+                {
+                    byteval = create_local_value(byte_type{});
+                    vmir2::iconv icv;
+                    icv.convtype = vmir2::conversion_class::partial;
+                    icv.from = get_local_index(copy_val_copy);
+                    icv.to = get_local_index(byteval);
+                    emit(current_block, icv);
+                }
+                else
+                {
+                    byteval = copy_val_copy;
+                }
+
+                // (iter++)-> := copy_val_copy;
+                co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
+
+                copymutref = this->create_reference(current_block, copy_val, class_mreftype);
+                copy_val_copy = this->create_local_value(class_type);
+                {
+                    vmir2::load_from_ref lfr;
+                    lfr.from_reference = get_local_index(copymutref);
+                    lfr.to_value = get_local_index(copy_val_copy);
+                    this->emit(current_block, lfr);
+                }
+
+                // (val #-- 8)
+                auto eight = create_numeric_literal("8");
+                auto shifted_val = co_await co_generate_binary(current_block, "#--", copy_val_copy, eight);
+
+                // copyval := copyval #-- 8
+                copymutref = this->create_reference(current_block, copy_val, class_mreftype);
+                co_await co_generate_binary(current_block, ":=", copymutref, shifted_val);
+            }
+            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Shouldn't be possible");
+            }
+            co_await co_return_value(current_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
         }
 
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
