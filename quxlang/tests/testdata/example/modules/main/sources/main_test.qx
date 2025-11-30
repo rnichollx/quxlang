@@ -12,6 +12,7 @@ IMPORT foolib;
   test_choose();
   test_load_store();
   //test_narrowing();
+  test_pinc_2();
 
   test_call_function_from_other_file();
   test_call_imported_function();
@@ -27,6 +28,23 @@ IMPORT foolib;
   test_serialize();
 
   RETURN 1;
+}
+
+::test_pinc_2 FUNCTION()
+{
+
+  VAR x [3]I32;
+
+  VAR y =>> I32;
+  y := x[& 0];
+
+  (y++)-> := 10;
+  (y++)-> := 20;
+  (y++)-> := 30;
+
+  ASSERT( x[0] == 10 );
+  ASSERT( x[1] == 20 );
+  ASSERT( x[2] == 30 );
 }
 
 ::test_load_store FUNCTION()

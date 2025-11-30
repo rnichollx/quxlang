@@ -235,10 +235,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::shared_ptr< local > constdata(std::vector< std::byte > const& data);
 
-    void exec_instr_val_incdec(local_index val, local_index result, bool increment);
+    void exec_instr_val_incdec(local_index val, local_index result, bool increment, bool postfix);
 
-    void exec_incdec_int(local_index input_slot, local_index output_slot, bool increment);
-    void exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment);
+    void exec_incdec_int(local_index input_slot, local_index output_slot, bool increment, bool postfix);
+    void exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment, bool postfix);
 
     void exec_instr_val(vmir2::assert_instr const& asrt);
     void exec_instr_val(vmir2::decrement const& dec);
@@ -3077,7 +3077,7 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::increment const& instr)
 {
-    exec_instr_val_incdec(instr.value, instr.result, true);
+    exec_instr_val_incdec(instr.value, instr.result, true, true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::begin_lifetime(std::shared_ptr< local > object)
 {
@@ -3167,7 +3167,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     return cell;
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val_incdec(local_index val, local_index result, bool increment)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val_incdec(local_index val, local_index result, bool increment, bool postfix)
 {
     auto const& type = frame_slot_data_type(val);
 
@@ -3180,18 +3180,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (typeis< int_type >(type_int_or_pointer_g))
     {
-        exec_incdec_int(val, result, increment);
+        exec_incdec_int(val, result, increment, postfix);
     }
     else if (typeis< ptrref_type >(type_int_or_pointer_g))
     {
-        exec_incdec_ptr(val, result, increment);
+        exec_incdec_ptr(val, result, increment, postfix);
     }
     else
     {
         throw invalid_instruction_error("Error in [increment]: slot is not an int or pointer");
     }
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(local_index input_slot, local_index output_slot, bool increment)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_int(local_index input_slot, local_index output_slot, bool increment, bool postfix)
 {
     auto const& type = frame_slot_data_type(input_slot);
     auto type_int_g = type.get_as< ptrref_type >().target;
@@ -3201,6 +3201,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto value_to_increment = load_from_reference(input_slot, true);
 
     auto val = local_consume_data(value_to_increment);
+    auto original_val = val;
 
     if (increment)
     {
@@ -3214,9 +3215,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     local_set_data(value_to_increment, std::move(val));
 
-    store_as_reference(output_slot, value_to_increment);
+    if (postfix)
+    {
+
+        auto result_local = output_local(output_slot);
+        local_set_data(result_local, std::move(original_val));
+    }
+    else
+    {
+        store_as_reference(output_slot, value_to_increment);
+    }
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment, bool postfix)
 {
     auto value_to_increase = load_from_reference(input_slot, true);
 
@@ -3237,10 +3247,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         ptr = pointer_impl{};
     }
 
+    auto original_ptr = ptr;
+
     // TODO: include type?
     ptr = pointer_arith(ptr.value(), increment ? 1 : -1, void_type{});
 
-    this->store_as_reference(output_slot, value_to_increase);
+    if (postfix)
+    {
+        auto result_local = output_local(output_slot);
+        result_local->ref = original_ptr;
+    }
+    else
+    {
+        this->store_as_reference(output_slot, value_to_increase);
+    }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::assert_instr const& asrt)
 {
@@ -3256,17 +3276,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::decrement const& instr)
 {
-    exec_instr_val_incdec(instr.value, instr.result, false);
+    exec_instr_val_incdec(instr.value, instr.result, false, true);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::preincrement const& instr)
 {
-    throw rpnx::unimplemented();
+    exec_instr_val_incdec(instr.target, instr.target2, true, false);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::predecrement const& instr)
 {
-    throw rpnx::unimplemented();
+    exec_instr_val_incdec(instr.target, instr.target2, false, false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_arith const& par)
 {
