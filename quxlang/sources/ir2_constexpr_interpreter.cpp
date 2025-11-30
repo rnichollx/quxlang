@@ -328,7 +328,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::vector< std::byte > use_data(local_index slot);
 
-    std::vector< std::byte > slot_consume_data(vmir2::local_index slot);
+    std::vector< std::byte > consume_local_as_data(vmir2::local_index slot);
     std::vector< std::byte > copy_data(vmir2::local_index slot);
 
     std::vector< std::byte > local_consume_data(std::shared_ptr< local > local_value);
@@ -909,7 +909,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     else
     {
-        auto data = slot_consume_data(tb.from);
+        auto data = consume_local_as_data(tb.from);
 
         bool result = false;
 
@@ -955,7 +955,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     else
     {
-        auto data = slot_consume_data(tbn.from);
+        auto data = consume_local_as_data(tbn.from);
         bool result = false;
 
         for (auto const& byte : data)
@@ -1036,7 +1036,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto reg = brn.condition;
 
-    auto data = slot_consume_data(reg);
+    auto data = consume_local_as_data(reg);
 
     if (data == std::vector< std::byte >{std::byte{0}})
     {
@@ -1070,7 +1070,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result const& csr)
 {
-    this->constexpr_result_v = slot_consume_data(csr.target);
+    this->constexpr_result_v = consume_local_as_data(csr.target);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -1544,8 +1544,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_eq const& ceq)
 {
-    auto a = slot_consume_data(ceq.a);
-    auto b = slot_consume_data(ceq.b);
+    auto a = consume_local_as_data(ceq.a);
+    auto b = consume_local_as_data(ceq.b);
 
     assert(a.size() == b.size());
 
@@ -1561,8 +1561,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
 {
-    auto a = slot_consume_data(cne.a);
-    auto b = slot_consume_data(cne.b);
+    auto a = consume_local_as_data(cne.a);
+    auto b = consume_local_as_data(cne.b);
 
     assert(a.size() == b.size());
 
@@ -1577,8 +1577,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_lt const& clt)
 {
-    auto a = slot_consume_data(clt.a);
-    auto b = slot_consume_data(clt.b);
+    auto a = consume_local_as_data(clt.a);
+    auto b = consume_local_as_data(clt.b);
 
     std::cout << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b) << std::endl;
 
@@ -1606,8 +1606,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
 {
-    auto a = slot_consume_data(cge.a);
-    auto b = slot_consume_data(cge.b);
+    auto a = consume_local_as_data(cge.a);
+    auto b = consume_local_as_data(cge.b);
 
     assert(a.size() == b.size());
 
@@ -1687,8 +1687,8 @@ static std::vector< std::byte > truncate_to_bits(std::vector< std::byte > data, 
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_and const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1704,8 +1704,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_or const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1721,8 +1721,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_xor const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1738,8 +1738,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nand const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1756,8 +1756,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nor const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1774,8 +1774,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_nxor const& op)
 {
-    auto a = slot_consume_data(op.a);
-    auto b = slot_consume_data(op.b);
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -1800,8 +1800,8 @@ static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_shift_up const& op)
 {
-    auto value = slot_consume_data(op.value);
-    auto amount_bytes = slot_consume_data(op.amount);
+    auto value = consume_local_as_data(op.value);
+    auto amount_bytes = consume_local_as_data(op.amount);
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
@@ -1826,8 +1826,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_shift_down const& op)
 {
-    auto value = slot_consume_data(op.value);
-    auto amount_bytes = slot_consume_data(op.amount);
+    auto value = consume_local_as_data(op.value);
+    auto amount_bytes = consume_local_as_data(op.amount);
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
@@ -1864,8 +1864,8 @@ static std::vector< std::byte > bit_or_vec(std::vector< std::byte > a, std::vect
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_rotate_up const& op)
 {
-    auto value = slot_consume_data(op.value);
-    auto amount_bytes = slot_consume_data(op.amount);
+    auto value = consume_local_as_data(op.value);
+    auto amount_bytes = consume_local_as_data(op.amount);
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
@@ -1900,8 +1900,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_rotate_down const& op)
 {
-    auto value = slot_consume_data(op.value);
-    auto amount_bytes = slot_consume_data(op.amount);
+    auto value = consume_local_as_data(op.value);
+    auto amount_bytes = consume_local_as_data(op.amount);
     auto result_type = get_local_type(op.result);
 
     std::size_t bits = get_bit_width_for_type(result_type);
@@ -1936,7 +1936,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_inverse const& op)
 {
-    auto value = slot_consume_data(op.value);
+    auto value = consume_local_as_data(op.value);
     auto result_type = get_local_type(op.result);
     std::size_t bits = get_bit_width_for_type(result_type);
 
@@ -2124,7 +2124,7 @@ std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interprete
     return this->implementation->missing_functanoids_val;
 }
 
-std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::slot_consume_data(vmir2::local_index slot)
+std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_local_as_data(vmir2::local_index slot)
 {
     auto& frame = get_current_frame();
 
@@ -2376,7 +2376,7 @@ std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_i
 
 std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_u64(local_index slot)
 {
-    auto data = slot_consume_data(slot);
+    auto data = consume_local_as_data(slot);
     if (data.size() != 8)
     {
         throw std::logic_error("expected uint64");
@@ -3264,7 +3264,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto reg = asrt.condition;
 
-    auto data = slot_consume_data(reg);
+    auto data = consume_local_as_data(reg);
 
     if (data == std::vector< std::byte >{std::byte{0}})
     {
@@ -3293,7 +3293,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     // quxlang::bytemath::le_sint multiplier;
 
-    auto val = slot_consume_data(par.offset);
+    auto val = consume_local_as_data(par.offset);
 
     auto const& offset_type = get_local_type(par.offset);
 
@@ -3309,7 +3309,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         throw rpnx::unimplemented();
     }
-    auto offset_val = slot_consume_data(par.offset);
+    auto offset_val = consume_local_as_data(par.offset);
 
     std::int64_t offset = 0;
     bool ok = false;
