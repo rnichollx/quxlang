@@ -803,3 +803,93 @@ TEST(quxlang, func_gen)
 
     std::cout << result << std::endl;
 }
+
+#include <quxlang/fixed_bytemath.hpp>
+
+TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
+  using namespace quxlang::bytemath;
+
+  // Case 1: No overflow
+  {
+    fixed_int_options opt;
+    opt.bits = 8;
+    opt.has_sign = false;
+    opt.overflow_undefined = true;
+
+    sle_int_unlimited input;
+    input.is_negative = false;
+    input.data = {std::byte(10)};
+
+    auto res = unlimited_to_fixed(opt, input);
+    ASSERT_FALSE(res.result_is_undefined);
+    ASSERT_EQ(res.data_bytes.size(), 1);
+    ASSERT_EQ(res.data_bytes[0], std::byte(10));
+  }
+
+  // Case 2a: 255 to 8 bits unsigned
+  {
+    fixed_int_options opt;
+    opt.bits = 8;
+    opt.has_sign = false;
+    opt.overflow_undefined = true;
+
+    sle_int_unlimited input;
+    input.is_negative = false;
+    input.data = {std::byte(255)}; // 255
+
+    auto res = unlimited_to_fixed(opt, input);
+    ASSERT_FALSE(res.result_is_undefined);
+    ASSERT_EQ(res.data_bytes.size(), 1);
+    ASSERT_EQ(res.data_bytes[0], std::byte(255));
+  }
+
+  // Case 2: Overflow with overflow_undefined = true
+  {
+    fixed_int_options opt;
+    opt.bits = 8;
+    opt.has_sign = false;
+    opt.overflow_undefined = true;
+
+    sle_int_unlimited input;
+    input.is_negative = false;
+    input.data = {std::byte(0), std::byte(1)}; // 256, fits in 9 bits, not 8
+
+    auto res = unlimited_to_fixed(opt, input);
+    ASSERT_TRUE(res.result_is_undefined);
+  }
+
+  // Case 3: Overflow with overflow_undefined = false (Truncation)
+  {
+    fixed_int_options opt;
+    opt.bits = 8;
+    opt.has_sign = false;
+    opt.overflow_undefined = false;
+
+    sle_int_unlimited input;
+    input.is_negative = false;
+    input.data = {std::byte(10), std::byte(1)}; // 266 = 256 + 10
+
+    auto res = unlimited_to_fixed(opt, input);
+    ASSERT_FALSE(res.result_is_undefined);
+    ASSERT_EQ(res.data_bytes.size(), 1);
+    ASSERT_EQ(res.data_bytes[0], std::byte(10)); // Truncated to 10
+  }
+
+  // Case 4: Signed extension
+  {
+    fixed_int_options opt;
+    opt.bits = 16;
+    opt.has_sign = true;
+    opt.overflow_undefined = false;
+
+    sle_int_unlimited input;
+    input.is_negative = true;
+    input.data = {std::byte(1)}; // -1
+
+    auto res = unlimited_to_fixed(opt, input);
+    ASSERT_FALSE(res.result_is_undefined);
+    ASSERT_EQ(res.data_bytes.size(), 2);
+    ASSERT_EQ(res.data_bytes[0], std::byte(0xFF));
+    ASSERT_EQ(res.data_bytes[1], std::byte(0xFF));
+  }
+}

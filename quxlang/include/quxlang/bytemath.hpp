@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
-#include <numeric>
 
 namespace quxlang::bytemath
 {
@@ -29,7 +29,7 @@ namespace quxlang::bytemath
 
         // compare two numbers a < b
         bool le_comp_less_raw(std::vector< std::byte > const& a, std::vector< std::byte > const& b);
-    }
+    } // namespace detail
 
     inline bool le_comp_eq(std::vector< std::byte > const& a, std::vector< std::byte > const& b)
     {
@@ -95,7 +95,7 @@ namespace quxlang::bytemath
 
             return result;
         }
-    }
+    } // namespace detail
 
     std::pair< std::uint8_t, std::uint8_t > bytewise_add(std::uint8_t a, std::uint8_t b, std::uint8_t c);
 
@@ -150,9 +150,6 @@ namespace quxlang::bytemath
 
     sle_int_unlimited le_signed_div(sle_int_unlimited a, sle_int_unlimited b);
 
-
-
-
     struct ule_int_unlimited
     {
         std::vector< std::byte > data;
@@ -174,6 +171,10 @@ namespace quxlang::bytemath
     {
         std::vector< std::byte > data;
         bool is_negative = false;
+
+        sle_int_unlimited() : data{std::byte(0)}
+        {
+        }
 
         sle_int_unlimited(std::vector< std::byte > data, bool is_negative = false) : data(std::move(data)), is_negative(is_negative)
         {
@@ -208,21 +209,24 @@ namespace quxlang::bytemath
             if (value < 0)
             {
                 is_negative = true;
-                sle_int_unlimited extra{-1};
-
-                while (value > 0)
+                using U = std::make_unsigned_t< I >;
+                U abs_val;
+                // Handle potential overflow for min value
+                if (value == std::numeric_limits< I >::min())
                 {
-                    // Cannot use bitwise operations for non-two's complement integers
-                    // This is well-defined for C++11 onward even for sign-magnitude integers
-                    if (value % 2 == -1)
-                    {
-                        this->data = detail::unlimited_int_unsigned_add_le_raw(std::move(this->data), extra.data);
-                    }
-                    extra.data = detail::le_shift_up_raw(extra.data, 1);
-
-                    value = value / 2;
+                    // In two's complement, casting min to unsigned gives the correct absolute value magnitude
+                    abs_val = static_cast< U >(value);
                 }
+                else
+                {
+                    abs_val = static_cast< U >(-value);
+                }
+                data = detail::u_to_le_raw(abs_val);
+                return;
             }
+
+            // Positive values > 2
+            data = detail::u_to_le_raw(static_cast< std::make_unsigned_t< I > >(value));
         }
 
         bool operator==(sle_int_unlimited const& other) const
@@ -332,7 +336,6 @@ namespace quxlang::bytemath
             return std::move(this_copy).to_int< I >();
         }
     };
-
 
 } // namespace quxlang::bytemath
 

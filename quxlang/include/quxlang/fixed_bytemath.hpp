@@ -131,43 +131,63 @@ namespace quxlang::bytemath
                 // cannot represent negative number in unsigned type
                 return {{}, true};
             }
-            set_bit(output, opt.bits - 1, true);
 
-            // Convert to two's complement
+            // For negative numbers, we want to compute the 2's complement representation.
+            // The value is -|input|.
+            // In N-bit 2's complement, -x is represented as 2^N - x.
+            // However, we are truncating to opt.bits.
+            // So we effectively want (-|input|) mod 2^opt.bits.
+            // Which is equivalent to (2^opt.bits - (|input| mod 2^opt.bits)) mod 2^opt.bits.
 
-            std::vector< std::byte > one{1};
+            // A simpler way to think about it for implementation:
+            // 1. Get absolute value (magnitude).
+            // 2. Subtract 1 from magnitude.
+            // 3. Invert bits of (magnitude - 1) to get the 2's complement form.
+
+            std::vector< std::byte > one{std::byte{1}};
             detail::le_trim_raw(input.data);
 
-            auto unsigned_magnituide = detail::unlimited_int_unsigned_sub_le_raw(input.data, std::move(one));
-            if (unsigned_magnituide.size() < (opt.bits + 7) / 8)
-            {
-                unsigned_magnituide.resize((opt.bits + 7) / 8);
-            }
-            for (std::size_t i = 0; i < opt.bits - 1; i++)
-            {
-                auto bit = get_bit(unsigned_magnituide, i);
-                set_bit(output, i, !bit);
-                // Clear bits from unsigned magnituide as we go
-                set_bit(unsigned_magnituide, i, false);
-            }
-            // Because we clear bits from the unsigned magnitude as we put them back into the two's complement version,
-            // any remaining bits indicates overflow!
+            // We need to work with at least opt.bits precision to check for overflow if requested,
+            // or just enough to capture the value.
+
+            auto magnitude_minus_one = detail::unlimited_int_unsigned_sub_le_raw(input.data, std::move(one));
+
+            // Check overflow if required
             if (opt.overflow_undefined)
             {
-                for (std::byte b : unsigned_magnituide)
+                // For signed N-bit integer, range is [-2^(N-1), 2^(N-1)-1].
+                // Magnitude must be <= 2^(N-1).
+                // So magnitude_minus_one must be < 2^(N-1).
+                // i.e. bit (N-1) and above must be 0.
+
+                // For unsigned N-bit integer, negative values are not representable (handled above).
+
+                for (std::size_t i = opt.bits - 1; i < magnitude_minus_one.size() * 8; ++i)
                 {
-                    if (b != std::byte(0))
+                    if (get_bit(magnitude_minus_one, i))
                     {
                         return {{}, true};
                     }
                 }
             }
 
+            // Generate output bits
+            // The bits of the result are the inverse of the bits of (magnitude - 1)
+            for (std::size_t i = 0; i < opt.bits; ++i)
+            {
+                bool bit_val = false;
+                if (i < magnitude_minus_one.size() * 8)
+                {
+                    bit_val = get_bit(magnitude_minus_one, i);
+                }
+                // Invert bit
+                set_bit(output, i, !bit_val);
+            }
+
             return {std::move(output), false};
         }
         else // positive/zero result
         {
-            // encode non-negative in two's complement, ensure it fits in width-1
             if (opt.overflow_undefined)
             {
                 std::size_t bit_limit;
@@ -187,11 +207,18 @@ namespace quxlang::bytemath
                     }
                 }
             }
-            for (std::size_t i = 0; i < std::min< std::size_t >(opt.bits - 1, input.data.size() * 8); ++i)
+
+            // Copy bits
+            for (std::size_t i = 0; i < opt.bits; ++i)
             {
-                set_bit(output, i, get_bit(input.data, i));
+                bool bit_val = false;
+                if (i < input.data.size() * 8)
+                {
+                    bit_val = get_bit(input.data, i);
+                }
+                set_bit(output, i, bit_val);
             }
-            set_bit(output, opt.bits - 1, false);
+
             return {std::move(output), false};
         }
     }
@@ -213,10 +240,10 @@ namespace quxlang::bytemath
     {
         return unlimited_to_fixed(opt, unlimited_int_signed_sub_le(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
     }
-   // inline int_result int_mult_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
-   // {
-   //     return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
-   //     //}
+    // inline int_result int_mult_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    // {
+    //     return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+    //     //}
 
     inline int_result int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
@@ -234,10 +261,11 @@ namespace quxlang::bytemath
         return unlimited_to_fixed(to_opt, std::move(unlimited));
     }
 
-    template <typename I>
+    template < typename I >
     std::pair< I, bool > unlimited_to_int(fixed_int_options opts, sle_int_unlimited input)
     {
-        auto res = unlimited_to_fixed(opts, input);;
+        auto res = unlimited_to_fixed(opts, input);
+        ;
         if (res.result_is_undefined)
         {
             return {{}, false};
@@ -252,7 +280,6 @@ namespace quxlang::bytemath
 
         return {result, true};
     }
-
 
 } // namespace quxlang::bytemath
 

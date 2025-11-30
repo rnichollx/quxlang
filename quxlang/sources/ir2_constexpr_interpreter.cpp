@@ -173,8 +173,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr();
     void exec_instr3();
 
-
-    void raise_fault(std::string const & fault_name);
+    void raise_fault(std::string const& fault_name);
 
     type_symbol get_local_type(local_index slot);
     type_symbol get_local_type(std::size_t frame, local_index slot);
@@ -1297,34 +1296,33 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& from_data = from_local->data;
     auto& to_data = to_local->data;
 
-
-
     type_symbol from_type = get_local_type(icv.from);
     type_symbol to_type = get_local_type(icv.to);
 
     bytemath::fixed_int_options from_opt{};
     bytemath::fixed_int_options to_opt{};
 
-
-    if (to_type.type_is<byte_type>())
+    if (to_type.type_is< byte_type >())
     {
         to_opt.bits = 8;
         to_opt.has_sign = false;
-    } else
+    }
+    else
     {
-        assert(to_type.type_is<int_type>());
+        assert(to_type.type_is< int_type >());
         int_type const& int_type_info = to_type.get_as< int_type >();
         to_opt.bits = int_type_info.bits;
         to_opt.has_sign = int_type_info.has_sign;
     }
 
-    if (from_type.type_is<byte_type>())
+    if (from_type.type_is< byte_type >())
     {
         from_opt.bits = 8;
         from_opt.has_sign = false;
-    } else
+    }
+    else
     {
-        assert(from_type.type_is<int_type>());
+        assert(from_type.type_is< int_type >());
         int_type const& int_type_info = from_type.get_as< int_type >();
         from_opt.bits = int_type_info.bits;
         from_opt.has_sign = int_type_info.has_sign;
@@ -1376,10 +1374,38 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::store_to_ref const& str)
 {
-    auto from_ptr = get_pointer_to(current_frame_index(), str.from_value);
-    auto to_ptr = get_pointer_to(current_frame_index(), str.to_reference);
+    auto from_type = get_local_type(str.from_value);
+    auto to_type = get_local_type(str.to_reference);
 
-    // Both values should be alive(?)
+    auto from_local = consume_local(str.from_value);
+    auto to_local = consume_local(str.to_reference);
+
+    pointer_impl from_ptr;
+    pointer_impl to_ptr;
+
+    if (is_ref(from_type))
+    {
+        if (!from_local->ref.has_value())
+        {
+            throw compiler_bug("Reference local missing ref value");
+        }
+        from_ptr = *from_local->ref;
+    }
+    else
+    {
+        from_ptr.pointer_target = from_local;
+    }
+
+    if (!is_ref(to_type))
+    {
+        throw compiler_bug("store_to_ref target must be reference type");
+    }
+
+    if (!to_local->ref.has_value())
+    {
+        throw compiler_bug("Reference local missing ref value");
+    }
+    to_ptr = *to_local->ref;
 
     if (from_ptr.pointer_target.value().expired())
     {
@@ -3172,7 +3198,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     int_type const& type_int = type_int_g.get_as< int_type >();
 
-    auto value_to_increment = load_from_reference(input_slot, false);
+    auto value_to_increment = load_from_reference(input_slot, true);
 
     auto val = local_consume_data(value_to_increment);
 
@@ -3192,7 +3218,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_incdec_ptr(local_index input_slot, local_index output_slot, bool increment)
 {
-    auto value_to_increase = load_from_reference(input_slot, false);
+    auto value_to_increase = load_from_reference(input_slot, true);
 
     auto& ptr = value_to_increase->ref;
 

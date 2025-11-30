@@ -10,8 +10,9 @@ IMPORT foolib;
   test_argument_passing();
   test_swap();
   test_choose();
+  test_load_store();
   //test_narrowing();
-  test_serialize();
+
   test_call_function_from_other_file();
   test_call_imported_function();
   test_class_default_copy_works();
@@ -23,9 +24,31 @@ IMPORT foolib;
   test_bits();
   test_include_if_overloads();
   test_bitwise_operators();
+  test_serialize();
 
   RETURN 1;
 }
+
+::test_load_store FUNCTION()
+{
+  VAR x [4]BYTE;
+
+  VAR z =>> BYTE;
+
+  z := x[& 0];
+
+  VAR z2 =>> BYTE;
+  z2 := z;
+
+  z-> := 42;
+
+  ASSERT( x[0] == 42 );
+
+  z2-> := 84;
+
+  ASSERT( x[0] == 84 );
+}
+
 
 ::test_choose FUNCTION()
 {
@@ -40,12 +63,16 @@ IMPORT foolib;
 
 ::test_serialize FUNCTION()
 {
-   // THIS IS BROKEN STILL, DO NOT RUN
    VAR output [4]BYTE;
 
    VAR x I32 := 255;
 
    x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
+
+   ASSERT( output[0] ==  255 );
+   ASSERT( output[1] ==  0 );
+   ASSERT( output[2] ==  0 );
+   ASSERT( output[3] ==  0 );
 }
 
 ::test_narrowing FUNCTION()
