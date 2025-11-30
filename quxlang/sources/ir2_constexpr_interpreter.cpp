@@ -3150,8 +3150,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (cell == nullptr)
     {
         array_type constdata_type;
-        // TODO: Convert this to byte type instead of U8.
-        constdata_type.element_type = int_type{.bits = 8, .has_sign = false};
+        constdata_type.element_type = byte_type{};
         constdata_type.element_count = expression_numeric_literal{.value = std::to_string(data.size())};
         cell = create_object(constdata_type);
         assert(cell->array_members.size() == data.size());
@@ -3217,7 +3216,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (postfix)
     {
-
         auto result_local = output_local(output_slot);
         local_set_data(result_local, std::move(original_val));
     }
