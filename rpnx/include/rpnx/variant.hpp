@@ -230,12 +230,12 @@ namespace rpnx
         {
             if constexpr (std::is_same_v< R, void >)
             {
-                func(variant.template get_n< N >());
+                func(variant.template get_n_unchecked< N >());
                 return;
             }
             else
             {
-                return func(variant.template get_n< N >());
+                return func(variant.template get_n_unchecked< N >());
             }
         }
         else if constexpr (C == call_type::except_on_missing)
@@ -244,12 +244,12 @@ namespace rpnx
             {
                 if constexpr (std::is_same_v< R, void >)
                 {
-                    func(variant.template get_n< N >());
+                    func(variant.template get_n_unchecked< N >());
                     return;
                 }
                 else
                 {
-                    return func(variant.template get_n< N >());
+                    return func(variant.template get_n_unchecked< N >());
                 }
             }
             else
@@ -263,12 +263,12 @@ namespace rpnx
             {
                 if constexpr (std::is_same_v< R, void >)
                 {
-                    func(variant.template get_n< N >());
+                    func(variant.template get_n_unchecked< N >());
                     return;
                 }
                 else
                 {
-                    return func(variant.template get_n< N >());
+                    return func(variant.template get_n_unchecked< N >());
                 }
             }
             else if constexpr (!std::is_same< R, void >::value)
@@ -318,6 +318,9 @@ namespace rpnx
 
     template < typename V, std::size_t N >
     using variant_nth_member_t = typename variant_nth_member< V, N >::type;
+
+    template < std::size_t N, typename F, typename R, typename V, call_type C >
+    constexpr void update_variant_invoke_table2(std::array< variant_invoke_executor< V, F, R >, variant_size_v< std::remove_cvref_t< V > > >& table);
 
     template < typename F, typename R, typename V, call_type C >
     auto constexpr variant_invoke_table_gen2()
@@ -415,6 +418,11 @@ namespace rpnx
         {
             // If T2 is the same as any of the types in Ts..., return true
             return (std::is_same_v< std::remove_cvref_t< T2 >, Ts > || ...);
+        }
+
+        bool valueless() const
+        {
+            return m_data == nullptr;
         }
 
         bool valid() const
@@ -711,6 +719,28 @@ namespace rpnx
         }
 
         template < typename T >
+        T& unwrap_unchecked()
+        {
+            assert(valid());
+            // static_assert(has_cvref_removed_identical_type<T>(), "Must be in type list");
+            //  Check if the variant is currently holding a value of type T
+            assert(!(m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value));
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T* >(m_data);
+        }
+
+        template < typename T >
+        T const& unwrap_unchecked() const
+        {
+            assert(valid());
+            // static_assert(has_cvref_removed_identical_type<T>(), "Must be in type list");
+            //  Check if the variant is currently holding a value of type T
+            assert(!(m_vinf == nullptr || m_vinf->m_index != index_of< T, Ts... >::value));
+            // If it is, return a reference to the value, casted to T
+            return *static_cast< T const* >(m_data);
+        }
+
+        template < typename T >
         T const& get_as() const
         {
             assert(valid());
@@ -776,6 +806,15 @@ namespace rpnx
 
             // If it is, return a reference to the value, casted to T
             assert(valid());
+            return *static_cast< typename std::tuple_element <N, std::tuple<Ts...> >::type const* >(m_data);
+        }
+
+        template < std::size_t N >
+        auto const& get_n_unchecked() const
+        {
+            assert(valid());
+
+
             return *static_cast< typename std::tuple_element <N, std::tuple<Ts...> >::type const* >(m_data);
         }
 
@@ -945,6 +984,15 @@ namespace rpnx
             {
                 throw std::bad_variant_access();
             }
+
+            return *static_cast< std::tuple_element_t< N, std::tuple< Ts... > >* >(m_data);
+        }
+
+        template < std::size_t N >
+        auto& get_n_unchecked()
+        {
+            assert(valid());
+
 
             return *static_cast< std::tuple_element_t< N, std::tuple< Ts... > >* >(m_data);
         }
