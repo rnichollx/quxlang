@@ -15,7 +15,7 @@ Guiding principles:
   * _The compiler should be a deterministic and reproducible cross-compiler_. This means that the compiler should produce the same output given the same input, regardless of the environment in which it is run.
   * _Quxlang should try to reproduce the entire feature set of C++_. Some things might take a different form, but the goal is to be a better C++, not a simpler or limited subset of C++. It isn't necessary for every library feature to be implemented, the core language should have every useful feature of C++. There may be instances where things are not quite 1:1, for example how Quxlang has "TEMP & T" and "CONST &" instead of "T&&" and "T const&", as well as no equivalent to "T const&&". But it should preserve the useful spirit of C++.
   * _Quxlang should push innovation in performance_. This means trying new things like letting the compiler optimize structure layouts for cache coherency and generating multiple procedures for the same routine with different sub-architecture levels and optimization tunings.
-  * _Quxlang should be the one ~~ring~~ language to rule them all_. It should be possible to write code in Quxlang that runs on CPU, GPU, TPU etc. without the need of particularly specialized tools. Likewise, Quxlang should be suitable not only for userspace programming, but also for kernel, embedded, and firmware development.
+  * _Quxlang should be general purpose_. It should be possible to write code in Quxlang that runs on CPU, GPU, TPU etc. without the need of particularly specialized tools. Likewise, Quxlang should be suitable not only for userspace programming, but also for kernel, embedded, and firmware development.
   * Convention can be ignored in favor of clarity and expressiveness. Familiar constructs are preferred where possible, but not if the concepts are unclear to new programmers.
 
 # Operators
@@ -34,7 +34,7 @@ Another major change from C++ is the set of bitwise operations. In general, bitw
 
 One surprising element of Quxlang however, may be the choice of bitwise "shift" operations. Quxlang does not have a "shift right" or "shift left" operator. Instead Quxlang has "shift up" and "shfit down" operators. Shift up is `#++` and shift down is `#--`. The C++ "left shift" `<<` is replaced with "up shift" `#++`, and the C++ "right shift" `>>` is replaced with "down shift" `#--`.
 
- The decision to use "up" and "down" instead of "left" and "right" has been made for several reasons. The first is that for people without prior programming exposure, left and right shifts are conceptually confusing and non-intuitive. The terminology of up and down shifts, on the other hand, are more intuitive due to their immediate similarity to "round up" and "round down" conceptually.
+ The decision to use "up" and "down" instead of "left" and "right" has been made for several reasons. The first is that for people without prior programming exposure, left and right shifts are conceptually confusing and non-intuitive. The terminology of up and down shifts, on the other hand, are more intuitive due to their immediate similarity to "round up" and "round down" mathematical concepts.
  
 The next reason is that when doing arithmetic in computer systems, it's often much more convenient to use the so called "little endian" representation in computer memory, where the least sigificant portions are stored in lower order positions. Our decimal notation we use is in the so-called "big endian" format. For example, two hundred and thirty four is written as "234", which is a big endian representation. In little endian, it would be written as "432" instead.
 
@@ -46,4 +46,16 @@ Suppose we then "left shift" this number by 1, the result is `B_00001000 B_00000
 
  While this may seem like a very specific problem, anyone that has worked on compression and/or huffman coding may find this a welcome change.
  
-The conventional use of `0b` to represent binary literals in C++ has been replaced with `B_` prefix in Quxlang for big endian binary literals, and `B` suffix for representing binary literals in little endian. For example, the number two can be represented as `B_10` or `10_B`. This the `B` is "attached" to the least significant digit. Likewise, `X_FA` and `FA_X` represent the same number in hexadecimal.
+The conventional use of `0b` to represent binary literals in C++ has been replaced with `B_` prefix in Quxlang for big endian binary literals, and `_B` suffix for representing binary literals in little endian. For example, the number two can be represented as `B_10` or `10_B`. This the `B` is "attached" to the most significant digit. Likewise, `X_FA` and `FA_X` represent the same number in hexadecimal.
+
+
+
+## Control Flow
+
+Control flow in Quxlang prioritizes implicit control flow over explicit control flow. This decision diverges from other modern languages like Rust and Zig. The rationale behind this decision is that forgetting to release a resource is a more common cause of mistakes than an operator performing an unintended side effect.
+
+We of course, expect operators to behave reasonably, and we place some responsibility on the programmer to make them behave reasonably.  However, this is not a unique problem to RAII or operator overloading. Just as one can make an OPERATOR+ that surprisingly adds a widget to a GUI, one can also write a function named "has_widget" that instead makes the widget appear on the screen or deletes it. When one reads any code, regardless of whether or not it is an explicit function call or an implicit operator, one must expect the code to behave reasonably.
+
+There are situations where operator overloading is merited, and situations where it is not. A good example of overloading is creating  one's own matrix, and overloading the `*` operator to perform matrix multiplication. A bad example is making the `+` operator add a widget to a GUI. The former is a reasonable expectation, while the latter doesn't comport with our understanding of addition. (Of course, adding a widget with the `+` operator might be acceptable if it looked something like `gui += widget;`, but certainly not the infamous `gui + widget;` statement.)
+
+We place these responsibilities on the programmer, not the language. Lack of implicit control flow is a burden to skilled programmers, and a crutch for unskilled programmers. We prioritize empowering skilled developers over hand-holding unskilled developers.
