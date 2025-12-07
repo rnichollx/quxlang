@@ -13,15 +13,14 @@
 namespace quxlang
 {
 #ifdef __cpp_lib_source_location
-    using source_location = std::source_location;
-
+    using cxx_source_location = std::source_location;
 #else
-    class source_location
+    class cxx_source_location
     {
       public:
-        static source_location current()
+        static cxx_source_location current()
         {
-            return source_location();
+            return cxx_source_location();
         }
 
         std::string file_name() const
@@ -53,7 +52,7 @@ namespace quxlang
     class assert_failure : public compiler_bug
     {
       public:
-        assert_failure(std::string what_arg, source_location loc = source_location::current()) : compiler_bug(std::string() + "Assert failure in " + loc.function_name() + " at " + loc.file_name() + ": " + what_arg)
+        assert_failure(std::string what_arg, cxx_source_location loc = cxx_source_location::current()) : compiler_bug(std::string() + "Assert failure in " + loc.function_name() + " at " + loc.file_name() + ": " + what_arg)
         {
         }
     };
@@ -66,30 +65,6 @@ namespace quxlang
         }
     };
 
-    class syntax_error : public invalid_input_error
-    {
-      public:
-        syntax_error(std::string what_arg) : invalid_input_error(what_arg)
-        {
-        }
-    };
-
-    class semantic_error : public invalid_input_error
-    {
-      public:
-        semantic_error(std::string what_arg) : invalid_input_error(what_arg)
-        {
-        }
-    };
-
-    class recursion_error : public semantic_error
-    {
-      public:
-        recursion_error(std::string what_arg) : semantic_error(what_arg)
-        {
-        }
-    };
-
     class constexpr_logic_execution_error : public std::logic_error
     {
       public:
@@ -97,7 +72,6 @@ namespace quxlang
         {
         }
     };
-
 
     class constexpr_assert_failure : public constexpr_logic_execution_error
     {

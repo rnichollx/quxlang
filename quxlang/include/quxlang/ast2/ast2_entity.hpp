@@ -180,7 +180,7 @@ namespace quxlang
 
     struct ast2_function_parameter
     {
-        ast2_source_location location;
+        source_location location;
         std::optional<std::string> name;
         std::optional< std::string > api_name;
         type_symbol type;
@@ -191,7 +191,7 @@ namespace quxlang
 
     struct ast2_function_header
     {
-        ast2_source_location location;
+        source_location location;
         std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
         std::optional< expression > enable_if;
@@ -209,7 +209,7 @@ namespace quxlang
 
     struct ast2_function_definition
     {
-        ast2_source_location location;
+        source_location location;
         std::optional< type_symbol > return_type;
         std::vector< ast2_function_delegate > delegates;
         function_block body;
@@ -225,7 +225,7 @@ namespace quxlang
 
     struct ast2_function_declaration
     {
-        ast2_source_location location;
+        source_location location;
         ast2_function_header header;
         ast2_function_definition definition;
 
@@ -234,7 +234,7 @@ namespace quxlang
 
     struct ast2_static_test
     {
-        ast2_source_location location;
+        source_location location;
         ast2_function_definition definition;
 
         RPNX_MEMBER_METADATA(ast2_static_test, definition);
@@ -309,7 +309,7 @@ namespace quxlang
         std::string symbol;
         std::vector< ast2_function_parameter > args;
 
-        QUX_AST_METADATA_NOCONV(extern, lang, symbol, args);
+        QUX_AST_METADATA(ast2_extern, lang, symbol, args);
     };
 
     std::string to_string(ast2_function_declaration const& ref);

@@ -229,6 +229,8 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/option.hpp
         include/quxlang/data/statements.hpp
         sources/res/serialization.cpp
+        include/quxlang/data/compilation_result.hpp
+        include/quxlang/parsers/context.hpp
 
 )
 
@@ -291,6 +293,11 @@ if (QUXLANG_MAIN_DEV)
   add_executable(quxlang_main sources/main.cpp)
   target_link_libraries(quxlang_main PUBLIC quxlang)
 endif()
+
+
+add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
+
+target_link_libraries(quxlang-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main quxlang)
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)

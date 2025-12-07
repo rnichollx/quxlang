@@ -9,12 +9,7 @@
 
 namespace quxlang
 {
-    struct function_expression_statement
-    {
-        expression expr;
 
-        RPNX_MEMBER_METADATA(function_expression_statement, expr);
-    };
 } // namespace quxlang
 
 #endif // QUXLANG_FUNCTION_EXPRESSION_STATEMENT_HEADER_GUARD

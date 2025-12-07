@@ -15,7 +15,7 @@
 
 namespace quxlang
 {
-    struct ast2_source_location;
+    struct source_location;
 }
 RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, named_arg, local, literal, symbol, binding);
 
@@ -363,7 +363,7 @@ namespace quxlang
         {
             local_index condition;
             std::string message;
-            std::optional< ast2_source_location > location;
+            std::optional< source_location > location;
 
             RPNX_MEMBER_METADATA(assert_instr, condition, message, location);
         };

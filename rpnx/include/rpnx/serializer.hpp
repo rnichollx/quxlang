@@ -13,6 +13,8 @@
 #include <variant>
 #include <utility>
 
+#include <rpnx/variant.hpp>
+
 namespace rpnx
 {
 
@@ -36,8 +38,6 @@ namespace rpnx
     template < typename E >
     struct enum_traits;
 
-    template < typename R, typename V, typename F >
-    inline R apply_visitor(F&& func, V&& variant);
 
     template < typename T, typename It >
     class default_serialization_traits;
@@ -1453,8 +1453,9 @@ namespace rpnx
         return cxx_serialization_traits< T, OutputIt >::serialize_iter(value, output);
     }
 } // namespace rpnx
-#endif // RPNX_SERIALIZER_HPP
 
 #ifdef RPNX_VARIANT_HPP
 #include "rpnx/compat/variant_serializer.hpp"
 #endif
+#endif // RPNX_SERIALIZER_HPP
+

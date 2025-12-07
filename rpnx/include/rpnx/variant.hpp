@@ -223,6 +223,38 @@ namespace rpnx
 
     enum class call_type { required, optional, except_on_missing };
 
+    enum class dispatch_type { automatic, branching, indirect };
+
+    template < typename V, typename F, typename R, std::size_t N, call_type C >
+    inline R apply_nth_visitor(V&& variant, F&& func);
+
+    // Branched version might inline better
+    template < std::size_t NBegin, std::size_t NEnd, typename V, typename F, typename R, call_type C >
+    inline R apply_nth_visitor_branched(std::size_t index, V&& variant, F&& func)
+    {
+        if constexpr (NBegin == NEnd - 1)
+        {
+            return apply_nth_visitor< V&&, F&&, R, NBegin, C >(std::forward<V&&>(variant), std::forward< F &&>(func));
+        }
+        else
+        {
+            static constexpr std::size_t Range = (NEnd - NBegin);
+            static_assert(Range >= 2, "Range should be at least 2");
+
+            static constexpr std::size_t Mid = NBegin + (Range / 2);
+            static_assert(NBegin < Mid && Mid < NEnd, "Mid should be between NBegin and NEnd");
+
+            if (index < Mid)
+            {
+                return apply_nth_visitor_branched< NBegin, Mid, V&&, F&&, R, C >(index, std::forward< V&& >(variant), std::forward< F&& >(func));
+            }
+            else
+            {
+                return apply_nth_visitor_branched< Mid, NEnd, V, F, R, C >(index, std::forward< V&& >(variant), std::forward< F&& >(func));
+            }
+        }
+    }
+
     template < typename V, typename F, typename R, std::size_t N, call_type C >
     inline R apply_nth_visitor(V&& variant, F&& func)
     {
@@ -349,11 +381,19 @@ namespace rpnx
     template < typename F, typename R, typename V, call_type C >
     inline constexpr auto variant_invoke_table2 = variant_invoke_table_gen2< F, R, V, C >();
 
-    template < typename R, typename V, typename F >
+    template < typename R, dispatch_type D = dispatch_type::automatic, typename V, typename F >
     inline R apply_visitor(F&& func, V&& variant)
     {
         auto index = variant.index();
-        return variant_invoke_table2< F, R, V&&, call_type::required >[index](std::forward< V >(variant), std::forward< F >(func));
+        if constexpr (D == dispatch_type::branching || (D == dispatch_type::automatic && variant_size_v< std::remove_cvref_t<V> > <= 8))
+        {
+            return apply_nth_visitor_branched<0, variant_size_v< std::remove_cvref_t<V> >, V&&, F&&, R, call_type::required>(index, std::forward<V&&>(variant), std::forward<F&&>(func));
+        }
+        else
+        {
+            return variant_invoke_table2< F, R, V&&, call_type::required >[index](std::forward< V >(variant), std::forward< F >(func));
+        }
+        //
     }
 
     template < typename R, typename V, typename F >
@@ -636,7 +676,6 @@ namespace rpnx
             return *this;
         }
 
-
         basic_variant< Allocator, Ts... >& operator=(basic_variant< Allocator, Ts... > other)
         {
             assert(valid());
@@ -653,25 +692,25 @@ namespace rpnx
             return *this;
         }
 
-        template <typename T>
-        T & static_cast_as()
+        template < typename T >
+        T& static_cast_as()
         {
-            return apply_visitor< T& >([]( auto & arg ) -> T&
-            {
-                return static_cast< T& >(arg);
-            });
+            return apply_visitor< T& >(
+                [](auto& arg) -> T&
+                {
+                    return static_cast< T& >(arg);
+                });
         }
 
-        template <typename T>
-        T const & static_cast_as() const
+        template < typename T >
+        T const& static_cast_as() const
         {
-            return apply_visitor< T const& >([]( auto & arg ) -> T const&
-            {
-                return static_cast< T const& >(arg);
-            });
+            return apply_visitor< T const& >(
+                [](auto& arg) -> T const&
+                {
+                    return static_cast< T const& >(arg);
+                });
         }
-
-
 
         template < typename T >
         T& get_as()
@@ -757,7 +796,6 @@ namespace rpnx
             return *static_cast< T const* >(m_data);
         }
 
-
         template < typename T >
         T const& as() const
         {
@@ -806,7 +844,7 @@ namespace rpnx
 
             // If it is, return a reference to the value, casted to T
             assert(valid());
-            return *static_cast< typename std::tuple_element <N, std::tuple<Ts...> >::type const* >(m_data);
+            return *static_cast< typename std::tuple_element< N, std::tuple< Ts... > >::type const* >(m_data);
         }
 
         template < std::size_t N >
@@ -814,8 +852,7 @@ namespace rpnx
         {
             assert(valid());
 
-
-            return *static_cast< typename std::tuple_element <N, std::tuple<Ts...> >::type const* >(m_data);
+            return *static_cast< typename std::tuple_element< N, std::tuple< Ts... > >::type const* >(m_data);
         }
 
         bool operator==(basic_variant< Allocator, Ts... > const& other) const
@@ -879,7 +916,7 @@ namespace rpnx
             return m_vinf != nullptr && m_vinf->m_index == index_of< T, Ts... >::value;
         }
 
-        template <typename ... Ts2>
+        template < typename... Ts2 >
         bool type_any_of() const
         {
             assert(valid());
@@ -887,56 +924,52 @@ namespace rpnx
             {
                 return false;
             }
-            return (type_is<Ts2>() || ...);
+            return (type_is< Ts2 >() || ...);
         }
 
-        template <typename T, typename F>
-        bool match(F && func)
+        template < typename T, typename F >
+        bool match(F&& func)
         {
-            if (type_is<T>())
+            if (type_is< T >())
             {
-                func(get_as<T>());
+                func(get_as< T >());
                 return true;
             }
 
             return false;
         }
-        template <typename T, typename F>
-        bool test(F && func)
+        template < typename T, typename F >
+        bool test(F&& func)
         {
-            if (type_is<T>())
+            if (type_is< T >())
             {
-                return func(get_as<T>());
+                return func(get_as< T >());
             }
             return false;
         }
 
-        template <typename T, typename F>
-        bool match(F && func) const
+        template < typename T, typename F >
+        bool match(F&& func) const
         {
-            if (type_is<T>())
+            if (type_is< T >())
             {
-                func(get_as<T>());
+                func(get_as< T >());
                 return true;
             }
 
             return false;
         }
 
-
-        template <typename T, typename F>
-        bool test(F && func) const
+        template < typename T, typename F >
+        bool test(F&& func) const
         {
-            if (type_is<T>())
+            if (type_is< T >())
             {
-                return func(get_as<T>());
+                return func(get_as< T >());
             }
 
             return false;
         }
-
-
-
 
         template < typename T >
         T* cast_ptr()
@@ -993,14 +1026,13 @@ namespace rpnx
         {
             assert(valid());
 
-
             return *static_cast< std::tuple_element_t< N, std::tuple< Ts... > >* >(m_data);
         }
 
         std::size_t index() const
         {
             assert(valid());
-            if (m_vinf == nullptr)
+            if (m_vinf == nullptr) [[unlikely]]
             {
                 throw std::bad_variant_access();
             }
@@ -1061,12 +1093,8 @@ namespace rpnx
         }
     };
 
-}// namespace rpnx
+} // namespace rpnx
 
-#include <rpnx/demangle.hpp>
+//#include <rpnx/demangle.hpp>
 
 #endif // QUXLANG_VARIANT_HPP
-
-#ifdef RPNX_SERIALIZER_HPP
-#include "rpnx/compat/variant_serializer.hpp"
-#endif

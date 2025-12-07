@@ -7,6 +7,7 @@
 #include "quxlang/compiler_fwd.hpp"
 #include "quxlang/data/class_field_declaration.hpp"
 #include "quxlang/data/class_layout.hpp"
+#include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/machine.hpp"
@@ -246,7 +247,10 @@ namespace quxlang
 
                 if (kind == symbol_kind::noexist)
                 {
-                    throw std::logic_error("Error calling non-existent functum " + func_str);
+                    compilation_error c;
+                    c.structured_error = semantic_error{func_str + " does not exist"};
+
+                    throw c;
                 }
                 else if (kind == symbol_kind::local_variable)
                 {
@@ -2862,12 +2866,19 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_fblock_statement(block_index& current_block, function_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< void > >(
-                [&](auto st) -> typename CoroutineProvider::template co_type< void >
-                {
-                    co_return co_await this->co_generate_statement_ovl(current_block, st);
-                },
-                st);
+            try
+            {
+                co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< void > >(
+                    [&](auto st) -> typename CoroutineProvider::template co_type< void >
+                    {
+                        co_return co_await this->co_generate_statement_ovl(current_block, st);
+                    },
+                    st);
+            }
+            catch (compilation_error& err)
+            {
+                get_location(st);
+            }
             co_return;
         }
 

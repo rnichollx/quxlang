@@ -10,6 +10,8 @@
 #include "rpnx/variant.hpp"
 #include "rpnx/metadata.hpp"
 
+#include <quxlang/ast2/source_location.hpp>
+
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -30,6 +32,7 @@ namespace quxlang
     struct function_place_statement;
     struct function_destroy_statement;
     struct function_runtime_statement;
+    struct function_return_statement;
 
 
     using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement >;
@@ -42,17 +45,16 @@ namespace quxlang
         // TODO: support named initializers
         std::vector< expression > initializers;
 
-        //std::vector< expression > array_initializers;
         std::optional< expression > equals_initializer;
 
-        RPNX_MEMBER_METADATA(function_var_statement, name, type, initializers, equals_initializer);
+        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer);
     };
 
     struct function_unimplemented_statement
     {
         std::optional< std::string > error_message;
 
-        RPNX_MEMBER_METADATA(function_unimplemented_statement, error_message);
+        QUX_AST_METADATA(function_unimplemented_statement, error_message);
     };
 
     struct function_block
@@ -60,16 +62,15 @@ namespace quxlang
         std::vector< function_statement > statements;
         std::string block_dbg_string;
 
-        RPNX_MEMBER_METADATA(function_block, statements, block_dbg_string);
+        QUX_AST_METADATA(function_block, statements, block_dbg_string);
     };
 
     struct function_assert_statement
     {
         expression condition;
         std::optional< std::string > tagline;
-        ast2_source_location location;
 
-        RPNX_MEMBER_METADATA(function_assert_statement, condition, tagline, location);
+        QUX_AST_METADATA(function_assert_statement, condition, tagline);
     };
 
     // Runtime statement and condition support
@@ -80,13 +81,81 @@ namespace quxlang
         function_block then_block;
         std::optional< function_block > else_block;
 
-        RPNX_MEMBER_METADATA(function_runtime_statement, condition, then_block, else_block);
+        QUX_AST_METADATA(function_runtime_statement, condition, then_block, else_block);
     };
 
+    struct function_expression_statement
+    {
+        expression expr;
+
+        QUX_AST_METADATA(function_expression_statement, expr);
+    };
+
+    struct function_if_statement
+    {
+        expression condition;
+        function_block then_block;
+        std::optional< function_block > else_block;
+
+        QUX_AST_METADATA(function_if_statement, condition, then_block, else_block);
+    };
+
+
+    struct function_while_statement
+    {
+        expression condition;
+        function_block loop_block;
+
+        QUX_AST_METADATA(function_while_statement, condition, loop_block);
+    };
+
+    struct function_return_statement
+    {
+        std::optional<expression> expr;
+
+        QUX_AST_METADATA(function_return_statement, expr);
+    };
+
+    struct function_place_statement
+    {
+        // The expression which yields a pointer to the location to place the object.
+        expression at;
+
+        // Type to place.
+        type_symbol type;
+
+        // Optional assignment initializer,
+        // If present, args must be empty.
+        // e.g. PLACE AT(loc) type := assign_init_expr;
+        std::optional<expression> assign_init;
+
+        // Optional constructor args,
+        // e.g. PLACE AT(loc) type :(args...);
+        std::vector<expression_arg> args;
+
+        QUX_AST_METADATA(function_place_statement, at, type, assign_init, args);
+    };
+
+    struct function_destroy_statement
+    {
+        // The expression which yields a pointer to the location to destroy the object.
+        expression at;
+        // Type to destroy
+        type_symbol type;
+
+        QUX_AST_METADATA(function_destroy_statement, at, type);
+    };
 } // namespace quxlang
 
-#include "quxlang/data/function_expression_statement.hpp"
-#include "quxlang/data/function_if_statement.hpp"
 #include "quxlang/data/function_while_statement.hpp"
+
+namespace quxlang
+{
+    source_location get_location(function_statement const& st);
+    inline source_location get_location(function_statement const& st)
+    {
+        return rpnx::apply_visitor<source_location>([](auto const& s) { return s.location; }, st);
+    }
+} // namespace quxlang
 
 #endif // QUXLANG_FUNCTION_STATEMENT_HEADER_GUARD

@@ -51,7 +51,7 @@
 #include <shared_mutex>
 
 // clang-format off
-#define COMPILER_INDEX(x) friend class x ## _resolver; private: index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type const & input ) { return this->m_ ## x ## _index.lookup(input); } public: auto get_ ## x ( x ## _resolver::input_type const & input, std::optional<std::filesystem::path> outfile ) { auto node = lk_ ## x (input); try { m_solver.solve(this, node); return node->get(); } catch (...) { if(outfile) { m_solver.write_deps(*outfile); } throw; } }
+#define COMPILER_INDEX(x) friend class x ## _resolver; private: index < x ## _resolver > m_ ## x ## _index; x ## _resolver::outptr_type lk_ ## x ( x ## _resolver::input_type const & input ) { return this->m_ ## x ## _index.lookup(input); } public: auto get_ ## x ( x ## _resolver::input_type const & input, std::optional<std::filesystem::path> outfile ) { auto node = lk_ ## x (input); try { m_solver.solve(this, node); return node->get(); } catch (...) { if(false && outfile) { m_solver.write_deps(*outfile); } throw; } }
 // clang-format on
 
 namespace quxlang

@@ -18,6 +18,9 @@ namespace quxlang::parsers
         begin = pos;
         return true;
     }
+
+
+    bool skip_comment2(parsing_context & ctx);
 } // namespace quxlang
 
 #endif // SKIP_COMMENT_HPP

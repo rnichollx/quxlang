@@ -9,14 +9,7 @@
 
 namespace quxlang
 {
-    struct function_if_statement
-    {
-        expression condition;
-        function_block then_block;
-        std::optional< function_block > else_block;
 
-        RPNX_MEMBER_METADATA(function_if_statement, condition, then_block, else_block);
-    };
 
 } // namespace quxlang
 

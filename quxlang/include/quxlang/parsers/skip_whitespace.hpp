@@ -2,6 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_SKIP_WHITESPACE_HEADER_GUARD
 #define QUXLANG_PARSERS_SKIP_WHITESPACE_HEADER_GUARD
+#include "context.hpp"
 
 namespace quxlang::parsers
 {
@@ -12,6 +13,18 @@ namespace quxlang::parsers
         while (pos != end && (*pos == ' ' || *pos == '\t' || *pos == '\n' || *pos == '\r'))
         {
             ++pos;
+            skipped_anything = true;
+        }
+
+        return skipped_anything;
+    }
+
+    inline constexpr bool skip_whitespace2(parsing_context & ctx)
+    {
+        bool skipped_anything = false;
+        while (ctx.iter_pos != ctx.iter_end && (*ctx.iter_pos == ' ' || *ctx.iter_pos == '\t' || *ctx.iter_pos == '\n' || *ctx.iter_pos == '\r'))
+        {
+            ++ctx.iter_pos;
             skipped_anything = true;
         }
 

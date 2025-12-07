@@ -3,10 +3,11 @@
 #ifndef QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
 
+#include <quxlang/parsers/context.hpp>
 #include "declaration.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>
-#include <quxlang/parsers/try_parse_function_declaration.hpp>
 #include <quxlang/parsers/declaration.hpp>
+#include <quxlang/parsers/try_parse_function_declaration.hpp>
 
 namespace quxlang::parsers
 {
@@ -64,6 +65,8 @@ namespace quxlang::parsers
 
         return output;
     }
+
+    ast2_file_declaration parse_file2(parsing_context ctx);
 
     inline ast2_file_declaration parse_file(std::string const& input)
     {

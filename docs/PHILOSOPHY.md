@@ -6,6 +6,17 @@ Quxlang is intended as a systems programming language with flexibility and perfo
 
 Guiding principles:
 
+  * _Prioritize developer velocity_. The language should prioritize features that empower skilled programmers to write code quickly. This means an absense of unnecessary guardrails like default-immutability or mandatory error handling, as well as providing useful features like exception handling, constructors/destructors, and operator overloading.
+  * _The development environment should be reproducible and deterministic_. The compiler should produce the same output given the same input, regardless of the environment in which it is run.
+  * _Value semantics are the superior programming model_. Value semantics make it possible to reason about code more easily, and prevent most types of memory safety issues.
+  * _Performance is critical, but premature optimization is the root of all evil_. 
+
+
+##  Performance is critical, but premature optimization is the root of all evil.
+
+Quxlang leans deeply into zero-cost abstractions, but correctness is more important than nano-optimizations. We don't want to hide the unchecked operations deep behind unsafe keywords or scare tactics, but undefined behavior that provides a 0.5% performance improvement should be opt-in rather than opt-out. This means for example, that operator `+` wraps for signed integers, rather than invoking undefined behavior on overflow. In the rare case where optimization is needed, operator `+!` can be used to indicate that the programmer wants to invoke undefined behavior on overflow.
+
+
   * _Simplicity is a bonus, not a goal_. Problems ought to be solved, not ignored in the name of simplicity.
   * _Complexity for the sake of complexity is bad_, if a problem can be solved in a simple way without downsides, the simple way should be preferred.
   * _The language should prioritize a design that makes it easy to write bug-free code_, even if it means that the language is more complex.

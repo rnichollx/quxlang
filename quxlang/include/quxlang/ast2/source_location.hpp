@@ -7,11 +7,11 @@
 namespace quxlang
 {
 
-    struct ast2_source_location
+    struct source_location
     {
         std::size_t file_id = {};
         std::size_t begin_index = {};
-        std::size_t end_index = {};
+        std::optional<std::size_t> end_index = {};
 
         template < typename It >
         void set(It begin, It end)
@@ -19,7 +19,7 @@ namespace quxlang
             // TODO: Do something here later maybe
         }
 
-        RPNX_MEMBER_METADATA(ast2_source_location, file_id, begin_index, end_index);
+        RPNX_MEMBER_METADATA(source_location, file_id, begin_index, end_index);
     };
 }
 

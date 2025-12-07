@@ -24,41 +24,14 @@
 #endif
 
 
+
+
 // QUX_AST_METADATA is a macro that allows ast2_ X to be converted to X,
 // and provides tie functions for comparison, assignment, etc.
-#define QUX_AST_METADATA(ty, ...) \
-    ast2_source_location location; \
-\
-    auto tie() const { return std::tie(location, __VA_ARGS__); } \
-        auto tie() { return std::tie(location, __VA_ARGS__); }   \
-        auto tie_ast() const { return std::tie(__VA_ARGS__); } \
-        auto tie_ast() { return std::tie(__VA_ARGS__); } \
-        auto serialize_interface() const { return tie(); } \
-        auto deserialize_interface() { return tie(); } \
-        auto operator<=>(ast2_ ## ty  const& other) const { return rpnx::compare(tie(), other.tie()); } \
-        bool operator==(ast2_ ## ty const& other) const { return tie() == other.tie(); } \
-        bool operator!=(ast2_ ## ty const& other) const { return tie() != other.tie(); } \
-        static auto constexpr strings()  { std::string str = "location," #__VA_ARGS__; std::string s; std::vector<std::string> result{ }; \
-        for (char c: str) { if (c == ',') { if (!s.empty()) { result.push_back(std::move(s)); } s.clear(); } else if (c != ' ') { s.push_back(c); } } if (!s.empty()) result.push_back(std::move(s)); return result; } \
-        operator ty () const { \
-          ty result; \
-          result.tie() = this->tie_ast(); \
-          return result; }
 
-#define QUX_AST_METADATA_NOCONV(ty, ...) \
-    ast2_source_location location; \
-\
-    auto tie() const { return std::tie(location, __VA_ARGS__); } \
-        auto tie() { return std::tie(location, __VA_ARGS__); }   \
-        auto tie_ast() const { return std::tie(__VA_ARGS__); } \
-        auto tie_ast() { return std::tie(__VA_ARGS__); } \
-auto serialize_interface() const { return tie(); } \
-auto deserialize_interface() { return tie(); } \
-        auto operator<=>(ast2_ ## ty  const& other) const { return rpnx::compare(tie(), other.tie()); } \
-        bool operator==(ast2_ ## ty const& other) const { return tie() == other.tie(); } \
-        bool operator!=(ast2_ ## ty const& other) const { return tie() != other.tie(); } \
-        static auto constexpr strings()  { std::string str = "location," #__VA_ARGS__; std::string s; std::vector<std::string> result{ }; \
-        for (char c: str) { if (c == ',') { if (!s.empty()) { result.push_back(std::move(s)); } s.clear(); } else if (c != ' ') { s.push_back(c); } } if (!s.empty()) result.push_back(std::move(s)); return result; }
+#define QUX_AST_METADATA(ty, ...) \
+    quxlang::source_location location; \
+    RPNX_MEMBER_METADATA(ty, location, __VA_ARGS__)
 
 
 

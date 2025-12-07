@@ -11,13 +11,7 @@
 
 namespace quxlang
 {
-    struct function_while_statement
-    {
-        expression condition;
-        function_block loop_block;
 
-        RPNX_MEMBER_METADATA(function_while_statement, condition, loop_block);
-    };
 
 } // namespace quxlang
 
