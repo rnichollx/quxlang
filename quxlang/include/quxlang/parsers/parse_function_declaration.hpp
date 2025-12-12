@@ -5,6 +5,6 @@
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
 
-#include <..\ast2\ast2_function_delegate.hpp>
+#include <quxlang/ast2/ast2_function_delegate.hpp>
 
 #endif //PARSE_FUNCTION_DECLARATION_HPP

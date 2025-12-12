@@ -73,6 +73,11 @@ namespace quxlang
             return "STATIC_CHOOSE( " + to_string(expr.condition) + " , " + to_string(expr.true_expr) + " , " + to_string(expr.false_expr) + " )";
         }
 
+        std::string operator()(expression_choose const& expr) const
+        {
+            return "CHOOSE( " + to_string(expr.condition) + " , " + to_string(expr.true_expr) + " , " + to_string(expr.false_expr) + " )";
+        }
+
         std::string operator()(expression_multibind const& brkts) const
         {
             std::string result;

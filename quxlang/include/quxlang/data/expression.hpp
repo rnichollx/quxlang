@@ -228,6 +228,15 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_static_choose, condition, true_expr, false_expr);
     };
 
+    struct expression_choose
+    {
+        expression condition;
+        expression true_expr;
+        expression false_expr;
+
+        RPNX_MEMBER_METADATA(expression_choose, condition, true_expr, false_expr);
+    };
+
     struct delegate
     {
         // The name of the delegate

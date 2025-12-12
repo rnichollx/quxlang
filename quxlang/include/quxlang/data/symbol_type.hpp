@@ -10,7 +10,7 @@ namespace quxlang
         functum_type,
         function_type,
         funtanoid_type,
-        variable_type,
+        variable,
         member_variable_type,
         member_functum_type,
         member_function_type,
@@ -18,6 +18,8 @@ namespace quxlang
         pseudo_type,
         primitive_type,
         invalid_symbol_reference,
+
+        static_value,
     };
 }
 
