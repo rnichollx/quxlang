@@ -1788,7 +1788,7 @@ std::string quxlang::to_string(quxlang::type_symbol const& ref)
 
 std::string quxlang::to_string(expression const& expr)
 {
-    auto str = rpnx::apply_visitor< std::string >(expression_stringifier{}, expr);
+    auto str = rpnx::apply_visitor< std::string, rpnx::dispatch_type::indirect >(expression_stringifier{}, expr);
 
     // TODO: replace all "  " with " "
     return str;

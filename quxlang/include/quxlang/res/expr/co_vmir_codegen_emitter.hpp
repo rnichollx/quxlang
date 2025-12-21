@@ -983,7 +983,7 @@ namespace quxlang
             co_return new_value_index;
         }
 
-        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional<value_index> constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
             // std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
@@ -2004,6 +2004,40 @@ namespace quxlang
             }
         }
 
+        // Runtime CHOOSE(cond, true_expr, false_expr): evaluate condition at runtime and pick a value
+        auto co_generate(block_index& bidx, expression_choose const& ch) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            // Create control-flow blocks
+            auto after_block = this->generate_subblock(bidx, "choose_after");
+            auto condition_block = this->generate_subblock(bidx, "choose_condition");
+            auto true_block = this->generate_subblock(bidx, "choose_true");
+            auto false_block = this->generate_subblock(bidx, "choose_false");
+
+            auto true_block_init = true_block;
+            auto false_block_init = false_block;
+
+            // Jump into condition evaluation
+            this->generate_jump(bidx, condition_block);
+
+            auto cond = co_await co_generate_bool_expr(condition_block, ch.condition);
+
+            this->generate_branch(cond, condition_block, true_block, false_block);
+            // Generate condition as bool and branch
+
+            auto val1 = co_await this->co_generate_expr(true_block, ch.true_expr);
+            auto val2 = co_await this->co_generate_expr(false_block, ch.false_expr);
+
+            co_await this->co_converge_values(after_block, true_block_init, val1, false_block_init, val2);
+        }
+
+        // co_converge_values causes two distinct values on different blocks to converge into one value
+        // in the output block.
+
+        auto co_converge_values(block_index& output_block, block_index& bidx1, value_index val1, block_index& bidx2, value_index val2) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            throw rpnx::unimplemented();
+        }
+
         auto co_constexpr_bool(block_index&, expression const& expr) -> typename CoroutineProvider::template co_type< bool >
         {
             // TODO: Add carried context support
@@ -2364,12 +2398,47 @@ namespace quxlang
             return idx;
         }
 
+        auto generate_survivor_local_chain(block_index from, block_index it, block_index end, local_index survivor) -> void
+        {
+            this->block(it).entry_state[survivor] = this->block(from).current_state[survivor];
+            this->block(it).current_state[survivor] = this->block(from).current_state[survivor];
+
+            if (it == end)
+            {
+                return;
+            }
+
+            rpnx::apply_visitor< void >(
+                [&](auto const& term)
+                {
+                    using T = std::remove_cvref_t< decltype(term) >;
+                    if constexpr (std::is_same_v< T, vmir2::branch >)
+                    {
+                        generate_survivor_local_chain(it, term.target_true, end, survivor);
+                        generate_survivor_local_chain(it, term.target_false, end, survivor);
+                    }
+                    else if constexpr (std::is_same_v< T, vmir2::jump >)
+                    {
+                        generate_survivor_local_chain(it, term.target, end, survivor);
+                    }
+                },
+                this->block(it).terminator.value());
+        }
+
         auto generate_survivor_local(block_index from, block_index to, local_index survivor) -> void
         {
             this->block(to).entry_state[survivor] = this->block(from).current_state[survivor];
             this->block(to).current_state[survivor] = this->block(from).current_state[survivor];
-
             assert(this->block(to).instructions.empty());
+        }
+
+        // Helper: allow marking a local as surviving into a block even after that block has instructions
+        // This is useful when a local is created in one branch and needs to be visible in another branch post-generation.
+        auto generate_survivor_local_post(block_index from, block_index to, local_index survivor) -> void
+        {
+            this->block(to).entry_state[survivor] = this->block(from).current_state[survivor];
+            this->block(to).current_state[survivor] = this->block(from).current_state[survivor];
+            // Intentionally no assert on to.instructions emptiness
         }
 
         auto generate_survivor_lookup(block_index from, block_index to, std::string name) -> void
@@ -2926,8 +2995,32 @@ namespace quxlang
             co_return;
         }
 
+        // Follow chains of jump terminators to find the effective open block
+        // where further code can be emitted. If a block ends with a jump to
+        // another block, walk the chain until a block without a terminator or
+        // with a non-jump terminator is reached.
+        block_index resolve_open_block(block_index blk)
+        {
+            // Guard against degenerate long chains; rely on vector bounds.
+            while (this->state.blocks.at(blk).terminator.has_value())
+            {
+                auto const& term = *this->state.blocks.at(blk).terminator;
+                if (term.template type_is< vmir2::jump >())
+                {
+                    blk = term.template get_as< vmir2::jump >().target;
+                    continue;
+                }
+                break; // Non-jump terminator; cannot append further.
+            }
+            return blk;
+        }
+
         void generate_jump(block_index& from, block_index& to)
         {
+            // If 'from' currently ends in a chain of jumps, append from its open tail.
+            from = resolve_open_block(from);
+            to = resolve_open_block(to);
+
             auto& from_block = this->state.blocks.at(from);
             if (from_block.terminator.has_value())
             {
