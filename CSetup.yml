@@ -1,0 +1,6 @@
+depenencies: ["rpnxcow"]
+suggested_dep_sources:
+  rpnxcow:
+    url: "https://gitlab.com/rpnx/cow.git"
+    type: "git"
+
