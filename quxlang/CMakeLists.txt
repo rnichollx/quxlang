@@ -3,12 +3,8 @@ if (CMAKE_IS_TOP_LEVEL_PROJECT)
 endif ()
 
 find_package(GTest REQUIRED)
-
-#find_package(lld REQUIRED)
+include(GoogleTest)
 find_package(yaml-cpp REQUIRED)
-#target_link_libraries(quxlang PRIVATE yaml-cpp::yaml-cpp)
-
-
 
 option(QUXLANG_MAIN_DEV "Build quxlang_main" OFF)
 option(QUXLANG_QXC_DEV "Build qxc" OFF)
