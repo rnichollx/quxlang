@@ -1,9 +1,13 @@
-depenencies: ["rpnxcow", "benchmark", "googletest", "yaml-cpp"]
+default_configuration:
+  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp"]
 suggested_dep_sources:
   rpnxcow:
-    url: "https://gitlab.com/rpnx/cow.git"
-    type: "git"
+    git:
+      repository: "https://gitlab.com/rpnx/cow.git"
+  benchmark:
+    git:
+        repository: "https://github.com/rnichollx/google-benchmark.git"
   googletest:
-    url: "https://github.com/google/googletest.git"
-    type: "git"
+    git:
+        repository: "https://github.com/rnichollx/googletest.git"
 
