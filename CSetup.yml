@@ -10,4 +10,6 @@ suggested_dep_sources:
   googletest:
     git:
         repository: "https://github.com/rnichollx/googletest.git"
-
+  yaml-cpp:
+    git:
+      repository: "https://github.com/rnichollx/yaml-cpp.git"
