@@ -15,7 +15,41 @@ you want to experiment.
 
 * YAMLCpp
 * GTest
-* LLVM v16.0.6
+~~* LLVM v16.0.6~~
+
+## Setup
+
+Install Go, libc++, and clang.
+
+Then run the following commands to install CBuild/CSetup:
+
+```
+go install gitlab.com/rpnx/cbuild-go/cmd/cbuild@latest && \
+go install gitlab.com/rpnx/cbuild-go/cmd/csetup@latest
+```
+
+After that is done, run the following commands to setup a workspace and build the dependencies:
+
+```bash
+csetup init ./quxlang-workspace && \
+cd ./quxlang-workspace && \
+csetup detect-toolchains && \
+csetup git-clone https://gitlab.com/rpnx/quxlang.git --download-deps && \
+csetup set-cxx-version 23 && \
+cbuild build-deps quxlang --toolchain system-clang-libcxx
+```
+
+Then run the following command to get arguments for the IDE of your choice:
+
+```
+csetup get-args  quxlang --config Debug --toolchain system-clang-libcxx 
+```
+
+Or just build it:
+
+```
+cbuild build quxlang
+```
 
 ## Status
 
