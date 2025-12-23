@@ -1,6 +1,9 @@
-depenencies: ["rpnxcow"]
+depenencies: ["rpnxcow", "benchmark", "googletest", "yaml-cpp"]
 suggested_dep_sources:
   rpnxcow:
     url: "https://gitlab.com/rpnx/cow.git"
+    type: "git"
+  googletest:
+    url: "https://github.com/google/googletest.git"
     type: "git"
 
