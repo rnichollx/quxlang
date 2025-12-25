@@ -1,8 +1,13 @@
 # Quxlang
 
-## Progress update:
+## Progress status:
 
-Latest progress update: https://www.youtube.com/watch?v=pjHL4K-AuKo
+You cannot compile _anything_ yet. The compiler _only_ runs things in a _constexpr virtual machine_ at the moment. QXVMIRv2 does not have an LLVM translator at the moment (unlike v1).
+
+It may seem strange to focus on constexpr VM first, but this is where all the _difficult_ parts of the compiler are tested. It also really helps me to avoid debugging middle-end issues when working on the front-end to have a working constexpr VM.
+
+
+Latest video: https://www.youtube.com/watch?v=pjHL4K-AuKo
 
 ## Overview
 
