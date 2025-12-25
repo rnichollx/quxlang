@@ -11,13 +11,37 @@ active development but is not yet ready for people to use or try out. Please wai
 a standard library and more codegen. For now, you can compile the quxlang_gtests and modify the main_test.qx file if
 you want to experiment.
 
+The compiler is mainly developed using clang and libc++. Compatibility with GCC tends to vary between commits. I try to make sure it compiles with GCC as well, but there can be a long stretch of commits before GCC compatibility is restored if I break it during development accidentally.
+
 ## Dependencies:
 
-* YAMLCpp
-* GTest
-~~* LLVM v16.0.6~~ (will return later, currently the machine code generator was removed for IRv1 and and IRv2 will reimplement it)
+Compilers:
 
-## Quick Setup
+* Clang
+* GCC (Sometimes works)
+* MSVC (Best effort, sometimes works)
+
+Stdlib:
+
+* libc++ (Recommended)
+* libstdc++ (Sometimes works, I usually fix it every few weeks)
+
+Build system:
+
+* CMake (required)
+* Ninja (recommended)
+
+Other libraries
+
+* YAMLCpp (Suggest using my fork at https://github.com/rnichollx/yaml-cpp, it can be made to compile with the official one but some CMake / CBuild integration doesn't work)
+* GTest (For tests)
+* Benchmark (For benchmarks; using my fork https://github.com/rnichollx/google-benchmark is suggested, although this mostly only matters if you want to use CBuild/CSetup)
+* ~~LLVM v16.0.6~~ (will return later, currently the machine code generator was removed for IRv1 and and IRv2 will reimplement it)
+
+If you follow quick setup guide below, CBuild/CSetup are also required, but it's just a wrapper around CMake, so you don't need it.
+
+
+## Quick Setup Guide
 
 Install Go, libc++, and clang.
 
