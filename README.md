@@ -17,7 +17,7 @@ you want to experiment.
 * GTest
 ~~* LLVM v16.0.6~~ (will return later, currently the machine code generator was removed for IRv1 and and IRv2 will reimplement it)
 
-## Setup
+## Quick Setup
 
 Install Go, libc++, and clang.
 
