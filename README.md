@@ -15,7 +15,7 @@ you want to experiment.
 
 * YAMLCpp
 * GTest
-~~* LLVM v16.0.6~~
+~~* LLVM v16.0.6~~ (will return later, currently the machine code generator was removed for IRv1 and and IRv2 will reimplement it)
 
 ## Setup
 
