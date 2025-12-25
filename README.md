@@ -108,13 +108,10 @@ What doesn't work:
 * Compound assignments (e.g. `+=`, `-=`, etc.)
 * For loops
 * Non-constexpr codegen / linking
-* Linking with C code
 * Floating point
-* Strings
 * Global objects
 * Exceptions
 * Polymorphism / virtual functions
-* Named arguments in certain contexts.
 
  
 ## Note regarding "Qux"
