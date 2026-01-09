@@ -29,13 +29,6 @@ namespace quxlang
     struct expression_parenthesis;
     struct expression_multibind;
 
-    struct expression_and;
-    struct expression_or;
-    struct expression_xor;
-    struct expression_nand;
-    struct expression_nor;
-    struct expression_implies;
-    struct expression_implied;
     struct expression_static_choose;
 
 
@@ -61,12 +54,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_quarrow, field_name);
     };
 
-    struct expression_lvalue_reference
-    {
-        std::string identifier;
 
-        RPNX_MEMBER_METADATA(expression_lvalue_reference, identifier);
-    };
 
     struct expression_symbol_reference
     {
@@ -74,6 +62,7 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(expression_symbol_reference, symbol);
     };
+
 
     struct expression_binary
     {
