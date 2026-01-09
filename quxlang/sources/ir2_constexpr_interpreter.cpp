@@ -998,6 +998,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto arry_index = consume_u64(aca.index_index);
 
+    if (arry_index >= ref_to_ptr->array_members.size())
+    {
+        throw constexpr_logic_execution_error("Array index out of bounds in constexpr execution");
+    }
+
     auto& field_slot = ref_to_ptr->array_members.at(arry_index);
 
     field->ref = pointer_impl{.pointer_target = field_slot};
@@ -1125,7 +1130,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (!pointer_target)
     {
-        throw std::logic_error("invalid 2");
+        throw constexpr_logic_execution_error("dereference pointer to invalid storage location");
     }
 
     pointer_impl pointer_to_target = pointer_impl{.pointer_target = pointer_target};

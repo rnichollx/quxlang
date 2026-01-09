@@ -983,7 +983,7 @@ namespace quxlang
             co_return new_value_index;
         }
 
-        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional<value_index> constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
             // std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
@@ -2028,6 +2028,8 @@ namespace quxlang
             auto val2 = co_await this->co_generate_expr(false_block, ch.false_expr);
 
             co_await this->co_converge_values(after_block, true_block_init, val1, false_block_init, val2);
+
+            throw rpnx::unimplemented();
         }
 
         // co_converge_values causes two distinct values on different blocks to converge into one value
