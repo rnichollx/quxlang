@@ -7,6 +7,7 @@ out
 !.clang-format
 **.zip
 .aider*
+doxygen
 CMakeSettings.json
 /venv/
 build/
