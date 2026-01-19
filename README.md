@@ -53,8 +53,8 @@ Install Go, libc++, and clang.
 Then run the following commands to install CBuild/CSetup:
 
 ```
-go install gitlab.com/rpnx/cbuild-go/cmd/cbuild@latest && \
-go install gitlab.com/rpnx/cbuild-go/cmd/csetup@latest
+go install gitlab.com/rpnx/cbuild-go/cmd/cbuild@preview && \
+go install gitlab.com/rpnx/cbuild-go/cmd/csetup@preview
 ```
 
 After that is done, run the following commands to setup a workspace and build the dependencies:
