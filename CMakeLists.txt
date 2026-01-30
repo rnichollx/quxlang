@@ -4,7 +4,7 @@ project(quxlang)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
-
+include(CTest)
 
 find_package(RPNXCow REQUIRED)
 find_package(benchmark REQUIRED)
