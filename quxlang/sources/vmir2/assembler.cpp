@@ -164,21 +164,21 @@ namespace quxlang::vmir2
     std::string assembler::to_string(vmir2::vm_instruction inst)
     {
         return rpnx::apply_visitor< std::string >(
+            inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
-            },
-            inst);
+            });
     }
 
     std::string assembler::to_string(vmir2::vm_terminator inst)
     {
         return rpnx::apply_visitor< std::string >(
+            inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
-            },
-            inst);
+            });
     }
 
     std::string assembler::to_string(vmir2::local_type lct)

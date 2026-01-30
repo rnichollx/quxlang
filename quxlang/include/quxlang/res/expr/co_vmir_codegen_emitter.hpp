@@ -189,11 +189,11 @@ namespace quxlang
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result = co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< value_index > >(
+                expr,
                 [&](auto&& val)
                 {
                     return co_generate(bidx, std::forward< decltype(val) >(val));
-                },
-                expr);
+                });
             std::string expr_str = to_string(expr);
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             co_return result;
@@ -2411,6 +2411,7 @@ namespace quxlang
             }
 
             rpnx::apply_visitor< void >(
+                this->block(it).terminator.value(),
                 [&](auto const& term)
                 {
                     using T = std::remove_cvref_t< decltype(term) >;
@@ -2423,8 +2424,7 @@ namespace quxlang
                     {
                         generate_survivor_local_chain(it, term.target, end, survivor);
                     }
-                },
-                this->block(it).terminator.value());
+                });
         }
 
         auto generate_survivor_local(block_index from, block_index to, local_index survivor) -> void
@@ -2940,11 +2940,11 @@ namespace quxlang
             try
             {
                 co_await rpnx::apply_visitor< typename CoroutineProvider::template co_type< void > >(
+                    st,
                     [&](auto st) -> typename CoroutineProvider::template co_type< void >
                     {
                         co_return co_await this->co_generate_statement_ovl(current_block, st);
-                    },
-                    st);
+                    });
             }
             catch (compilation_error& err)
             {

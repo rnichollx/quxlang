@@ -102,7 +102,7 @@ namespace quxlang
 
     std::set< std::string > get_symbol_tempars(type_symbol const& value)
     {
-        return rpnx::try_apply_visitor< std::set< std::string > >(tempar_extractor(), value);
+        return rpnx::try_apply_visitor< std::set< std::string > >(value, tempar_extractor());
     }
 
 } // namespace quxlang

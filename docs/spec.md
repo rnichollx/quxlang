@@ -103,6 +103,33 @@ included in the source bundle.
 
 The compiler MAY produce non-deterministic output to stderr, such as progress messages, thread IDs or timestamps.
 
+## Basic
+
+### Basic.Lifetime
+
+#### 1.1 Automatic Storage Duration
+
+An object has automatic storage duration if it is created as a local variable within a function or block scope. Such
+objects and all subobjects begin in the storage initialized state immeidately before the constructor is entered. At the entry of the constructor, the object becomes in the partially constructed state, and any delegates are executed such that the subobjects are constructed. Upon transitioning from delegate construction to the body of the constructor, all subobjects are in the fully constructed state. When the constructor returns, the object is in the fully constructed state. If a delegate initializer throws an exception, any already constructed delegate submembers are destroyed in the reverse order of their construction during unwinding. Upon entering the constructor body but before returning normally from it, if an exception is thrown which escapes the constructor body, delegates are automatically destroyed in submember destruction order, regardless of the order in which the delegates were initialized. When an exception leaves a constructor, the object is transitioned into a destroyed state. If an exception propagates to unwind a VAR statement, and the constructor completed, the destructor is executed. Regardless of whether the destructor executes, the storage is deallocated upon unwinding the VAR statement and pointers to it are invalidated.
+
+Once the constructor associated with an automatic storage node has completed, the behavior of the program is undefined if the object is destroyed by any method other than by unwinding the VAR statement in which it was created.
+
+If an object exists at a given memory location, and another object is constructed at any overlapping memory location, the program's behavior is undefined unless the original object is destroyed before the new object is constructed.
+
+If a subobject of a structure is destroyed other than by the destructor of the enclosing object, the behavior of the program is undefined, this restriction does not apply to the stored subobject of any object of storage-type (e.g. `STORAGE@footype`).
+
+If a storage object is destroyed while a stored subobject is still alive, the behavior of the program is undefined _unless_ the stored subobject is trivially-destructible, in which case it is destroyed implicitly.
+
+When an object is destroyed, including an object of trivial type like I32, BYTE or BOOL, its memory representation is also destroyed and its storage region is _poisoned_.
+
+Contrast: In C++, trivial type destructors are no-ops and do not poison the memory representation. In Quxlang, all objects, including trivial types, poison their memory representation upon destruction.
+
+Remark: This provision allows the compiler to avoid writing short-lived temporary objects to memory. When the compiler can observe the entire lifetime of an object, it may optimize away the associated memory store operations of the object entirely, holding it entirely in registers, even if the storage region is re-used by other parts of the program and the compiler cannot prove that they do not read subsequently from the storage region.
+
+If the content of an object is read through a pointer or reference of a type that does not match its actual type the program's behavior is undefined.
+
+Contrast: In C++, some types are compatible, such as `int` and `unsigned int`. In Quxlang, no such compatibility exists; the types must match exactly with much more limited exceptions.
+
 ## §1 Classes
 
 Classes are declared using `CLASS` keyword.

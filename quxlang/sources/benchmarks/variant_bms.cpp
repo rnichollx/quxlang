@@ -10,14 +10,16 @@ struct foo
     int x;
     int y;
 
+
     RPNX_MEMBER_METADATA(foo, x, y);
 };
 
 struct bar
 {
+    int x;
     char a;
     char b;
-    int x;
+
 
     RPNX_MEMBER_METADATA(bar, a, b, x);
 };
@@ -46,7 +48,7 @@ static void BM_VariantIndirect(benchmark::State& state)
         int q = 0;
         for (auto& item : v)
         {
-            q = rpnx::apply_visitor<int, rpnx::dispatch_type::indirect>([](auto const & val) { return val.x; }, item);
+            q = rpnx::apply_visitor<int, rpnx::dispatch_type::indirect>(item, [](auto const & val) { return val.x; });
             benchmark::DoNotOptimize(q);
         }
     }
@@ -66,7 +68,7 @@ static void BM_VariantBranching(benchmark::State& state)
         int q = 0;
         for (auto& item : v)
         {
-            q = rpnx::apply_visitor<int, rpnx::dispatch_type::branching>([](auto const & val) { return val.x; }, item);
+            q = rpnx::apply_visitor<int, rpnx::dispatch_type::branching>(item, [](auto const & val) { return val.x; });
             benchmark::DoNotOptimize(q);
         }
     }

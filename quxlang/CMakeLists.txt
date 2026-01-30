@@ -5,6 +5,7 @@ endif ()
 find_package(GTest REQUIRED)
 include(GoogleTest)
 find_package(yaml-cpp REQUIRED)
+find_package(RPNXDataStructures REQUIRED)
 
 option(QUXLANG_MAIN_DEV "Build quxlang_main" OFF)
 option(QUXLANG_QXC_DEV "Build qxc" OFF)
@@ -51,8 +52,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         ../rpnx/include/rpnx/debug.hpp
         include/quxlang/res/overload_set_instanciate_with_resolver.hpp
         sources/res/overload_set_instanciate_with_resolver.cpp
-
-
         include/quxlang/ast2/ast2_entity.hpp
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_class_body.hpp
@@ -283,7 +282,7 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         ../rpnx/include/rpnx/value.hpp include/quxlang/ex/unexpected_eof.hpp
         include/quxlang/ex/unexpected_eof.hpp include/quxlang/data/class_list.hpp
         include/quxlang/data/target_configuration.hpp)
-target_link_libraries(quxlang PUBLIC graphlib RPNX::cow)
+target_link_libraries(quxlang PUBLIC graphlib RPNX::cow RPNX::datastructures)
 
 if (QUXLANG_MAIN_DEV)
   add_executable(quxlang_main sources/main.cpp)

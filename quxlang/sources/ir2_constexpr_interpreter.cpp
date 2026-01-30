@@ -636,11 +636,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         std::size_t stack_size1 = stack.size();
         rpnx::apply_visitor< void >(
+            instr,
             [this](auto const& param)
             {
                 return this->exec_instr_val(param);
-            },
-            instr);
+            });
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
         std::cout << std::endl;
@@ -656,11 +656,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
 
     rpnx::apply_visitor< void >(
+        *terminator_instruction,
         [this](auto const& param)
         {
             return this->exec_instr_val(param);
-        },
-        *terminator_instruction);
+        });
     return;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::raise_fault(std::string const& fault_name)

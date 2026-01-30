@@ -1276,11 +1276,11 @@ namespace rpnx
             output = rpnx::json_serialize_iter(value_str, output);
             *output++ = std::byte(':');
             rpnx::apply_visitor< void >(
+                value,
                 [&](auto const& v)
                 {
                     output = rpnx::json_serialize_iter(v, output);
-                },
-                value);
+                });
 
             *output++ = std::byte('}');
             return output;
@@ -1299,11 +1299,12 @@ namespace rpnx
             // output = rpnx::cxx_serialize_iter(type_name, output);
             *output++ = std::byte('{');
             rpnx::apply_visitor< void >(
+            value,
                 [&](auto const& v)
                 {
                     output = rpnx::cxx_serialize_iter(v, output);
-                },
-                value);
+                }
+                );
             *output++ = std::byte('}');
             return output;
         }

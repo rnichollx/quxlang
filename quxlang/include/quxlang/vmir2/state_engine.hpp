@@ -29,13 +29,13 @@ namespace quxlang::vmir2
         void apply(vmir2::vm_instruction const& inst)
         {
             rpnx::apply_visitor< void >(
+                inst,
                 [&](auto const& x)
                 {
                     check_state_valid();
                     apply_internal(x);
                     check_state_valid();
-                },
-                inst);
+                });
         }
 
         void apply_entry()

@@ -1,5 +1,5 @@
 default_configuration:
-  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp"]
+  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp", "datastructures"]
 suggested_dep_sources:
   rpnxcow:
     git:
@@ -13,3 +13,6 @@ suggested_dep_sources:
   yaml-cpp:
     git:
       repository: "https://github.com/rnichollx/yaml-cpp.git"
+  datastructures:
+    git:
+      repository: "https://gitlab.com/rpnx/datastructures.git"

@@ -4,7 +4,6 @@ if (CMAKE_IS_TOP_LEVEL_PROJECT)
 endif ()
 
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp include/rpnx/value.hpp
-        include/rpnx/variant.hpp
         include/rpnx/string.hpp
         include/rpnx/compare.hpp
         include/rpnx/serializer.hpp

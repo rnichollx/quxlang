@@ -455,7 +455,7 @@ namespace quxlang
 
     bool is_template(type_symbol const& ref)
     {
-        return rpnx::apply_visitor< bool >(is_template_visitor{}, ref);
+        return rpnx::apply_visitor< bool >(ref, is_template_visitor{});
     }
 
     std::optional< type_symbol > type_parent(type_symbol input)
@@ -584,7 +584,7 @@ namespace quxlang
 
         output += " #{ ";
 
-        output += rpnx::apply_visitor< std::string >(*this, ref.target);
+        output += rpnx::apply_visitor< std::string >(ref.target, *this);
 
         output += " }";
 
@@ -592,7 +592,7 @@ namespace quxlang
     }
     std::string type_symbol_stringifier::operator()(initialization_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.initializee);
+        std::string output = rpnx::apply_visitor< std::string >(ref.initializee, *this);
         output += " #(";
         bool first = true;
         for (auto const& [name, type] : ref.parameters.named)
@@ -609,7 +609,7 @@ namespace quxlang
                 first = false;
             else
                 output += ", ";
-            output += rpnx::apply_visitor< std::string >(*this, p);
+            output += rpnx::apply_visitor< std::string >(p, *this);
         }
         output += ")";
         return output;
@@ -619,7 +619,7 @@ namespace quxlang
     {
 
         temploid_reference const& sel = ref.temploid;
-        std::string output = rpnx::apply_visitor< std::string >(*this, sel.templexoid);
+        std::string output = rpnx::apply_visitor< std::string >(sel.templexoid, *this);
 
         output += " #{";
 
@@ -773,7 +773,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(*this, ref.templexoid) + "#[";
+        std::string output = rpnx::apply_visitor< std::string >(ref.templexoid, *this) + "#[";
         bool first = true;
         if (false) // ref.which.builtin)
         {
@@ -1727,6 +1727,7 @@ namespace quxlang
             }
 
             return rpnx::apply_visitor< bool >(
+                template_val,
                 [&](auto const& template_unwrapped)
                 {
                     using val_type = std::decay_t< decltype(template_unwrapped) >;
@@ -1740,8 +1741,7 @@ namespace quxlang
                     }
 
                     return result;
-                },
-                template_val);
+                });
         }
     } // namespace
 
@@ -1769,12 +1769,12 @@ std::optional< quxlang::template_match_results > quxlang::match_template2(type_s
 
 std::string quxlang::to_string(quxlang::type_symbol const& ref)
 {
-    return rpnx::apply_visitor< std::string >(quxlang::type_symbol_stringifier{}, ref);
+    return rpnx::apply_visitor< std::string >(ref, quxlang::type_symbol_stringifier{});
 }
 
 std::string quxlang::to_string(expression const& expr)
 {
-    auto str = rpnx::apply_visitor< std::string, rpnx::dispatch_type::indirect >(expression_stringifier{}, expr);
+    auto str = rpnx::apply_visitor< std::string, rpnx::dispatch_type::branching >(expr, expression_stringifier{});
 
     // TODO: replace all "  " with " "
     return str;

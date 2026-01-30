@@ -13,22 +13,22 @@ namespace rpnx
         static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output, It end) -> It
         {
             output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output, end);
-            rpnx::apply_visitor< It >([&output, end](auto const& v)
+            rpnx::apply_visitor< It >(value, [&output, end](auto const& v)
                                       {
                                           output = rpnx::serialize_iter(v, output, end);
                                           return output;
-                                      }, value);
+                                      });
             return output;
         }
 
         static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output) -> It
         {
             output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output);
-            rpnx::apply_visitor< It >([&output](auto const& v)
+            rpnx::apply_visitor< It >(value, [&output](auto const& v)
                                       {
                                           output = rpnx::serialize_iter(v, output);
                                           return output;
-                                      }, value);
+                                      });
             return output;
         }
     };

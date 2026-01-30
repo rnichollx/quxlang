@@ -154,7 +154,7 @@ namespace quxlang
     source_location get_location(function_statement const& st);
     inline source_location get_location(function_statement const& st)
     {
-        return rpnx::apply_visitor<source_location>([](auto const& s) { return s.location; }, st);
+        return rpnx::apply_visitor<source_location>(st, [](auto const& s) { return s.location; });
     }
 } // namespace quxlang
 
