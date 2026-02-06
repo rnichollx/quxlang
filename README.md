@@ -57,28 +57,34 @@ go install gitlab.com/rpnx/cbuild-go/cmd/cbuild@preview && \
 go install gitlab.com/rpnx/cbuild-go/cmd/csetup@preview
 ```
 
-After that is done, run the following commands to setup a workspace and build the dependencies:
+After that is done, run the following commands inside this project to setup a workspace and build the project:
 
 ```bash
-csetup init ./quxlang-workspace && \
-cd ./quxlang-workspace && \
-csetup detect-toolchains && \
-csetup git-clone https://gitlab.com/rpnx/quxlang.git --download-deps && \
-csetup set-cxx-version 23 && \
-cbuild build-deps quxlang --toolchain system-clang-libcxx
+csetup dev-init && cd ./dev-workspace && cbuild
 ```
 
-Then run the following command to get arguments for the IDE of your choice:
+And/or run the following command to get arguments for the IDE of your choice:
 
 ```
 csetup get-args  quxlang --config Debug --toolchain system-clang-libcxx 
 ```
 
-Or just build it:
+(if you are on MacOS, replace `system-clang-libcxx` with `system-clang`)
 
+(also toolchain detection doesn't work on windows yet, so you may have to provide your own toolchain file...)
+
+
+```bash
+cbuild test
 ```
-cbuild build quxlang
+
+Will build all targets and run tests.
+
+```bash
+cbuild build # or just `cbuild`
 ```
+
+Will just build all targets.
 
 ## Status
 

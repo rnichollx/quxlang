@@ -18,3 +18,4 @@ cmake-*
 *~
 .DS_Store
 *-out
+dev-workspace/

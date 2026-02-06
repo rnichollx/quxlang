@@ -16,3 +16,11 @@ suggested_dep_sources:
   datastructures:
     git:
       repository: "https://gitlab.com/rpnx/datastructures.git"
+project_default_configuration:
+  cxx_version: 23
+  default_build_configurations:
+    - Debug
+    - Release
+    - DebugASAN
+    - DebugTSAN
+
