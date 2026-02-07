@@ -4,96 +4,89 @@
 #ifndef VARIANT_SERIALIZER_HPP
 #define VARIANT_SERIALIZER_HPP
 
-namespace rpnx
+#include <array>
+#include <rpnx/serialization4.hpp>
+#include <rpnx/variant.hpp>
+
+namespace rpnx::serial4
 {
-    template <typename Allocator, typename... Ts, typename It>
-    class default_serialization_traits< rpnx::basic_variant< Allocator, Ts... >, It >
+    template < typename Allocator, typename... Ts >
+    class binary_serial_traits< rpnx::basic_variant< Allocator, Ts... > >
     {
-      public:
-        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output, It end) -> It
+        using variant_type = rpnx::basic_variant< Allocator, Ts... >;
+
+        template < typename T, typename It >
+        static auto deserialize_one(variant_type& value, It input) -> It
         {
-            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output, end);
-            rpnx::apply_visitor< It >(value, [&output, end](auto const& v)
-                                      {
-                                          output = rpnx::serialize_iter(v, output, end);
-                                          return output;
-                                      });
+            T temp{};
+            input = rpnx::serial4::deserialize_iter(temp, input);
+            value = std::move(temp);
+            return input;
+        }
+
+        template < typename T, typename It >
+        static auto deserialize_one_with_end(variant_type& value, It input, It end) -> It
+        {
+            T temp{};
+            input = rpnx::serial4::deserialize_iter(temp, input, end);
+            value = std::move(temp);
+            return input;
+        }
+
+      public:
+        template < typename It >
+        static auto constexpr serialize_iter(variant_type const& value, It output, It end) -> It
+        {
+            output = rpnx::serial4::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output, end);
+            rpnx::apply_visitor< void >(value,
+                                        [&](auto const& v)
+                                        {
+                                            output = rpnx::serial4::serialize_iter(v, output, end);
+                                        });
             return output;
         }
 
-        static auto constexpr serialize_iter(rpnx::basic_variant< Allocator, Ts... > const& value, It output) -> It
+        template < typename It >
+        static auto constexpr serialize_iter(variant_type const& value, It output) -> It
         {
-            output = rpnx::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output);
-            rpnx::apply_visitor< It >(value, [&output](auto const& v)
-                                      {
-                                          output = rpnx::serialize_iter(v, output);
-                                          return output;
-                                      });
+            output = rpnx::serial4::uintany_serialization_traits< std::size_t, It >::serialize_iter(value.index(), output);
+            rpnx::apply_visitor< void >(value,
+                                        [&](auto const& v)
+                                        {
+                                            output = rpnx::serial4::serialize_iter(v, output);
+                                        });
             return output;
         }
-    };
 
-    template <typename Allocator, typename... Ts, typename It>
-    class default_deserialization_traits< rpnx::basic_variant< Allocator, Ts... >, It >
-    {
-      private:
-        struct vtable
-        {
-            void (*deserialize1)(rpnx::basic_variant< Allocator, Ts... >&, It&);
-            void (*deserialize2)(rpnx::basic_variant< Allocator, Ts... >&, It&, It);
-        };
-
-        template <typename T>
-        static constexpr void deserialize1_fn(rpnx::basic_variant< Allocator, Ts... >& value, It& input)
-        {
-            T temp;
-            input = rpnx::deserialize_iter(temp, input);
-            value = std::move(temp);
-        }
-
-        template <typename T>
-        static constexpr void deserialize2_fn(rpnx::basic_variant< Allocator, Ts... >& value, It& input, It end)
-        {
-            T temp;
-            input = rpnx::deserialize_iter(temp, input, end);
-            value = std::move(temp);
-        }
-
-        template <typename T>
-        static constexpr inline vtable vtable_for_index = vtable{
-            .deserialize1 = &deserialize1_fn< T >,
-            .deserialize2 = &deserialize2_fn< T >
-        };
-
-        static constexpr vtable const* vtable_for_deserialize[sizeof...(Ts)] = {
-            &vtable_for_index< Ts >...
-        };
-
-      public:
-        static auto constexpr deserialize_iter(rpnx::basic_variant< Allocator, Ts... >& value, It input, It end) -> It
+        template < typename It >
+        static auto constexpr deserialize_iter(variant_type& value, It input, It end) -> It
         {
             std::size_t index{};
-            input = rpnx::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input, end);
+            input = rpnx::serial4::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input, end);
             if (index >= sizeof...(Ts))
             {
                 throw std::runtime_error("Invalid variant index");
             }
-            vtable_for_deserialize[index]->deserialize2(value, input, end);
-            return input;
+            using deserialize_fn = It (*)(variant_type&, It, It);
+            static constexpr std::array< deserialize_fn, sizeof...(Ts) > table{&deserialize_one_with_end< Ts, It >...};
+            return table[index](value, input, end);
         }
 
-        static auto constexpr deserialize_iter(rpnx::basic_variant< Allocator, Ts... >& value, It input) -> It
+        template < typename It >
+        static auto constexpr deserialize_iter(variant_type& value, It input) -> It
         {
             std::size_t index{};
-            input = rpnx::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input);
+            input = rpnx::serial4::uintany_deserialization_traits< std::size_t, It >::deserialize_iter(index, input);
             if (index >= sizeof...(Ts))
             {
                 throw std::runtime_error("Invalid variant index");
             }
-            vtable_for_deserialize[index]->deserialize1(value, input);
-            return input;
+            using deserialize_fn = It (*)(variant_type&, It);
+            static constexpr std::array< deserialize_fn, sizeof...(Ts) > table{&deserialize_one< Ts, It >...};
+            return table[index](value, input);
         }
     };
-}
 
-#endif //VARIANT_SERIALIZER_HPP
+} // namespace rpnx::serial4
+
+#endif // VARIANT_SERIALIZER_HPP

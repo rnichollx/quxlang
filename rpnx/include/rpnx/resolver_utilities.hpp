@@ -14,11 +14,11 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include "rpnx/serialization4.hpp"
 
 
 #include "debug.hpp"
 #include "rpnx/error_explainer.hpp"
-#include "serializer.hpp"
 #include <concepts>
 #include <memory>
 #include <rpnx/demangle.hpp>
@@ -986,7 +986,7 @@ namespace rpnx
             {
                 std::string result_str;
                 std::vector< std::byte > data;
-                rpnx::cxx_serialize_iter(this->get(), std::back_inserter(data));
+                rpnx::serial4::cxx_serialize_iter(this->get(), std::back_inserter(data));
 
                 for (std::byte b : data)
                 {
@@ -1035,7 +1035,7 @@ namespace rpnx
             }
             else
             {
-                rpnx::cxx_serialize_iter(input_val, std::back_inserter(data));
+                rpnx::serial4::cxx_serialize_iter(input_val, std::back_inserter(data));
 
                 for (std::byte b : data)
                 {

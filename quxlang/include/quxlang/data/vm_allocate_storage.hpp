@@ -7,8 +7,8 @@
 #include <compare>
 #include <cstddef>
 
-#include <rpnx/serializer.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/serialization4.hpp>
+#include <rpnx/macros.hpp>
 
 RPNX_ENUM(quxlang, storage_type, std::int16_t, return_value, argument, local, temporary);
 

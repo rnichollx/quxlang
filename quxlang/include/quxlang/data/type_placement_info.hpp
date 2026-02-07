@@ -5,7 +5,7 @@
 
 #include <cstddef>
 
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 
 namespace quxlang
 {

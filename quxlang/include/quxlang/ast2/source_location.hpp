@@ -2,7 +2,7 @@
 
 #ifndef QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD
 #define QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD
-#include "rpnx/metadata.hpp"
+#include <rpnx/macros.hpp>
 
 namespace quxlang
 {

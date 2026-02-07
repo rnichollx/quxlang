@@ -8,7 +8,7 @@
 #include <cstddef>
 
 #include <rpnx/compare.hpp>
-#include <rpnx/serializer.hpp>
+#include <rpnx/serialization4.hpp>
 
 namespace quxlang
 {

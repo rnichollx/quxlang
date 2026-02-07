@@ -3,7 +3,8 @@
 #ifndef RESOLVER2_HPP
 #define RESOLVER2_HPP
 
-#include <rpnx/serializer.hpp>
+#include <rpnx/serialization4.hpp>
+#include <rpnx/compat/variant_serializer.hpp>
 #include <shared_mutex>
 #include <set>
 #include <vector>
@@ -252,14 +253,14 @@ namespace rpnx
         virtual std::string output_string() override
         {
             std::vector< std::byte > json_bytes;
-            rpnx::json_serialize_iter(m_result.get(), std::back_inserter(json_bytes));
+            rpnx::serial4::json_serialize_iter(m_result.get(), std::back_inserter(json_bytes));
             return std::string(json_bytes.begin(), json_bytes.end());
         }
 
         virtual std::vector< std::byte > output_binary() override
         {
             std::vector< std::byte > bytes;
-            rpnx::serialize_iter(m_result.get(), std::back_inserter(bytes));
+            rpnx::serial4::serialize_iter(m_result.get(), std::back_inserter(bytes));
             return bytes;
         }
 
@@ -377,7 +378,7 @@ namespace rpnx
     auto ask(graph_resolver & q, typename question_traits<Q>::input_type input)
     {
         std::vector<std::byte> input_bytes;
-        rpnx::serialize_iter(input, std::back_inserter(input_bytes));
+        rpnx::serial4::serialize_iter(input, std::back_inserter(input_bytes));
 
         node_name name;
         name.resolver_name = question_traits<Q>::name;
@@ -424,7 +425,7 @@ namespace rpnx
         graph_fragment_any ask(std::vector< std::byte > input)
         {
             question_traits< Q >::input_type in;
-            rpnx::deserialize_iter(in, input.begin(), input.end());
+            rpnx::serial4::deserialize_iter(in, input.begin(), input.end());
                 auto it = m_answers.find(in);
             if (it == m_answers.end())
             {

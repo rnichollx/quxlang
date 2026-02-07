@@ -5,7 +5,7 @@
 
 #include "quxlang/data/type_symbol.hpp"
 #include <quxlang/res/resolver.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 
 
 // clang-format off

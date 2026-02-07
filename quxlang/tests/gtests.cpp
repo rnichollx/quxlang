@@ -19,7 +19,8 @@
 #include <quxlang/parsers/try_parse_class.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 
-#include "rpnx/serializer.hpp"
+#include "rpnx/serialization4.hpp"
+#include "rpnx/compat/variant_serializer.hpp"
 
 #include <random>
 
@@ -450,16 +451,16 @@ TEST(SerializationTest, IntegralTypes)
     std::uint32_t uint32_value = 0x12345678;
     std::int64_t int64_value = -0x1234567890ABCDEF;
 
-    rpnx::serialize_iter(uint32_value, std::back_inserter(buffer));
-    rpnx::serialize_iter(int64_value, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(uint32_value, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(int64_value, std::back_inserter(buffer));
 
     // Deserialize integral types
     auto it = buffer.begin();
     std::uint32_t deserialized_uint32;
     std::int64_t deserialized_int64;
 
-    it = rpnx::deserialize_iter(deserialized_uint32, it);
-    it = rpnx::deserialize_iter(deserialized_int64, it);
+    it = rpnx::serial4::deserialize_iter(deserialized_uint32, it);
+    it = rpnx::serial4::deserialize_iter(deserialized_int64, it);
 
     EXPECT_EQ(uint32_value, deserialized_uint32);
     EXPECT_EQ(int64_value, deserialized_int64);
@@ -472,13 +473,13 @@ TEST(SerializationTest, Map)
     // Serialize map
     std::map< std::uint32_t, std::string > map = {{1, "one"}, {2, "two"}, {3, "three"}};
 
-    rpnx::serialize_iter(map, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(map, std::back_inserter(buffer));
 
     // Deserialize map
     std::map< std::uint32_t, std::string > deserialized_map;
     auto it = buffer.begin();
 
-    it = rpnx::deserialize_iter(deserialized_map, it);
+    it = rpnx::serial4::deserialize_iter(deserialized_map, it);
 
     EXPECT_EQ(map, deserialized_map);
 }
@@ -490,13 +491,13 @@ TEST(SerializationTest, Vector)
     // Serialize vector
     std::vector< std::uint32_t > vector = {1, 2, 3, 4, 5};
 
-    rpnx::serialize_iter(vector, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(vector, std::back_inserter(buffer));
 
     // Deserialize vector
     std::vector< std::uint32_t > deserialized_vector;
     auto it = buffer.begin();
 
-    it = rpnx::deserialize_iter(deserialized_vector, it);
+    it = rpnx::serial4::deserialize_iter(deserialized_vector, it);
 
     EXPECT_EQ(vector, deserialized_vector);
 }
@@ -508,13 +509,13 @@ TEST(SerializationTest, Set)
     // Serialize set
     std::set< std::string > set = {"one", "two", "three"};
 
-    rpnx::serialize_iter(set, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(set, std::back_inserter(buffer));
 
     // Deserialize set
     std::set< std::string > deserialized_set;
     auto it = buffer.begin();
 
-    it = rpnx::deserialize_iter(deserialized_set, it);
+    it = rpnx::serial4::deserialize_iter(deserialized_set, it);
 
     EXPECT_EQ(set, deserialized_set);
 }
@@ -525,11 +526,11 @@ TEST(SerializerTest, TupleSerializationDeserialization)
 
     // Serialization
     std::vector< std::byte > bytes;
-    rpnx::serialize_iter(original, std::back_inserter(bytes));
+    rpnx::serial4::serialize_iter(original, std::back_inserter(bytes));
 
     // Deserialization
     std::tuple< int, std::string, int > deserialized;
-    auto it = rpnx::deserialize_iter(deserialized, bytes.begin(), bytes.end());
+    auto it = rpnx::serial4::deserialize_iter(deserialized, bytes.begin(), bytes.end());
     EXPECT_EQ(it, bytes.end());
 
     // Check equality of original and deserialized tuples
@@ -544,13 +545,13 @@ TEST(SerializerTest, TieSerializationDeserialization)
 
     // Serialization
     std::vector< std::byte > bytes;
-    rpnx::serialize_iter(std::tie(a, b, c), std::back_inserter(bytes));
+    rpnx::serial4::serialize_iter(std::tie(a, b, c), std::back_inserter(bytes));
 
     // Deserialization
     int a_deserialized;
     std::string b_deserialized;
     int c_deserialized;
-    auto it = rpnx::deserialize_iter(std::tie(a_deserialized, b_deserialized, c_deserialized), bytes.begin(), bytes.end());
+    auto it = rpnx::serial4::deserialize_iter(std::tie(a_deserialized, b_deserialized, c_deserialized), bytes.begin(), bytes.end());
     EXPECT_EQ(it, bytes.end());
 
     // Check equality of original and deserialized values
@@ -565,11 +566,11 @@ TEST(SerializerTest, EmptyTuple)
 
     // Serialization
     std::vector< std::byte > bytes;
-    rpnx::serialize_iter(original, std::back_inserter(bytes));
+    rpnx::serial4::serialize_iter(original, std::back_inserter(bytes));
 
     // Deserialization
     std::tuple<> deserialized;
-    auto it = rpnx::deserialize_iter(deserialized, bytes.begin(), bytes.end());
+    auto it = rpnx::serial4::deserialize_iter(deserialized, bytes.begin(), bytes.end());
     EXPECT_EQ(it, bytes.end());
 
     // Check equality of original and deserialized tuples
@@ -583,13 +584,13 @@ TEST(VariantTest, Serialization)
 
     std::vector< std::byte > buffer;
     std::vector< std::byte > buffer2;
-    rpnx::serialize_iter(v1, std::back_inserter(buffer));
-    rpnx::serialize_iter(v2, std::back_inserter(buffer2));
+    rpnx::serial4::serialize_iter(v1, std::back_inserter(buffer));
+    rpnx::serial4::serialize_iter(v2, std::back_inserter(buffer2));
 
     rpnx::variant< int, std::string > v3;
     rpnx::variant< int, std::string > v4;
-    rpnx::deserialize_iter(v3, buffer.cbegin(), buffer.cend());
-    rpnx::deserialize_iter(v4, buffer2.cbegin(), buffer2.cend());
+    rpnx::serial4::deserialize_iter(v3, buffer.cbegin(), buffer.cend());
+    rpnx::serial4::deserialize_iter(v4, buffer2.cbegin(), buffer2.cend());
 
     EXPECT_EQ(v1, v3);
     EXPECT_EQ(v2, v4);

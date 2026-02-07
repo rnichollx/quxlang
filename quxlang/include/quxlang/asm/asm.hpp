@@ -8,7 +8,7 @@
 
 #include <rpnx/compare.hpp>
 #include <rpnx/variant.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 
 namespace quxlang
 {

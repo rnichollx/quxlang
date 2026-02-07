@@ -5,7 +5,7 @@
 
 #include "type_symbol.hpp"
 
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 namespace quxlang
 {
 

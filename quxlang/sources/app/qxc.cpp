@@ -8,7 +8,8 @@
 #include "quxlang/manipulators/mangler.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include "quxlang/source_loader.hpp"
-#include "rpnx/serializer.hpp"
+#include "rpnx/serialization4.hpp"
+#include "rpnx/compat/variant_serializer.hpp"
 #include "rpnx/value.hpp"
 
 #include <filesystem>
@@ -86,8 +87,8 @@ int main(int argc, char** argv)
                     std::vector< std::byte > proc_llvm_bc;
                     std::vector< std::byte > proc_elf;
 
-                    rpnx::serialize_iter(proc, std::back_inserter(proc_data));
-                    rpnx::json_serialize_iter(proc, std::back_inserter(proc_json));
+                    rpnx::serial4::serialize_iter(proc, std::back_inserter(proc_data));
+                    rpnx::serial4::json_serialize_iter(proc, std::back_inserter(proc_json));
 
                     proc_llvm_bc = cg.qxbc_to_llvm_bc(proc);
                     proc_elf = cg.compile_llvm_ir_to_elf(proc_llvm_bc);

@@ -6,7 +6,7 @@
 
 
 #include "quxlang/data/type_symbol.hpp"
-#include "rpnx/metadata.hpp"
+#include <rpnx/macros.hpp>
 #include "vm_allocate_storage.hpp"
 #include "vm_block.hpp"
 #include "vm_expression.hpp"

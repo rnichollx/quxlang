@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/data/vm_expression.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 #include <rpnx/variant.hpp>
 #include <string>
 #include <vector>

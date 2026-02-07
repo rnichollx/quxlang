@@ -6,7 +6,7 @@
 #include <compare>
 
 #include "quxlang/compiler_fwd.hpp"
-#include "rpnx/metadata.hpp"
+#include <rpnx/macros.hpp>
 #include "rpnx/resolver_utilities.hpp"
 #include <string>
 

@@ -71,7 +71,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     parameter_init_kind init_kind = input.init_kind;
 
     std::vector<std::byte> init_kind_bytes;
-    rpnx::json_serialize_iter(init_kind, std::back_inserter(init_kind_bytes));
+    rpnx::serial4::json_serialize_iter(init_kind, std::back_inserter(init_kind_bytes));
     std::string init_kind_str;
     for (auto b : init_kind_bytes)
     {

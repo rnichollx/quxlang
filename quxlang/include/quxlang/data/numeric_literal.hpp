@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_NUMERIC_LITERAL_HEADER_GUARD
 
 #include <string>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 #include <cinttypes>
 
 namespace quxlang

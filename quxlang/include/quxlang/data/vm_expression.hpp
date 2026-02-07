@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_VM_EXPRESSION_HEADER_GUARD
 
 #include <rpnx/variant.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 
 #include <map>
 

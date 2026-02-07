@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <quxlang/cow.hpp>
 #include <quxlang/data/type_symbol.hpp>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 #include <vector>
 
 namespace quxlang

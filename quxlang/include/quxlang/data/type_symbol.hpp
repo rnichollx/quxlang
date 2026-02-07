@@ -4,12 +4,11 @@
 #define QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 
 #include "numeric_literal.hpp"
-#include "rpnx/metadata.hpp"
+#include <rpnx/macros.hpp>
 #include "rpnx/variant.hpp"
 #include <compare>
 #include <map>
 #include <rpnx/compare.hpp>
-#include <rpnx/metadata.hpp>
 #include <rpnx/resolver_utilities.hpp>
 #include <vector>
 

@@ -8,7 +8,7 @@
 #include "quxlang/data/function_return_statement.hpp"
 #include "quxlang/data/statements.hpp"
 #include "rpnx/variant.hpp"
-#include "rpnx/metadata.hpp"
+#include <rpnx/macros.hpp>
 
 #include <quxlang/ast2/source_location.hpp>
 

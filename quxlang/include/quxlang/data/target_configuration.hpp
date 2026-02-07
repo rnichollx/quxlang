@@ -8,7 +8,7 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <rpnx/metadata.hpp>
+#include <rpnx/macros.hpp>
 #include <string>
 #include <rpnx/variant.hpp>
 
