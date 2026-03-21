@@ -299,9 +299,76 @@ calling RUNTIME::terminate()). However, if the function is declared NOFALLTHROUG
 body of the function without an explicit `RETURN` will always trigger a fallthrough fault, even if the return type is
 void or default constructible.
 
+## Expressions
+
+### Type Query Expressions
+
+The following expressions query properties of a type and produce ordinary values:
+
+* `SIZEOF(T)` produces the size of `T` in bytes.
+* `BITS(T)` produces the bit width of an integral type `T`.
+* `IS_SIGNED(T)` produces a `BOOL` indicating whether `T` is a signed integral type.
+* `IS_INTEGRAL(T)` produces a `BOOL` indicating whether `T` is an integral type.
+
+For these expressions, `T` is required to denote a type and not an object value.
+
+### Static Choice Expression
+
+`STATIC_CHOOSE(cond, true_expr, false_expr)` evaluates `cond` during compilation as a constexpr boolean and yields the
+selected branch expression. Only the selected branch is required to participate in the resulting expression.
+
+## Statements
+
+### Assert Statement
+
+An assert statement has the form:
+
+```quxlang
+ASSERT(condition);
+ASSERT(condition, "tag");
+```
+
+The statement evaluates `condition` as a boolean. If the condition is false, execution triggers an assertion failure.
+The optional string argument supplies an implementation-defined diagnostic tag.
+
+### Runtime Statement
+
+A runtime statement has one of the following forms:
+
+```quxlang
+RUNTIME CONSTEXPR {
+    ...
+}
+```
+
+```quxlang
+RUNTIME CONSTEXPR {
+    ...
+} ELSE {
+    ...
+}
+```
+
+```quxlang
+RUNTIME NATIVE {
+    ...
+}
+```
+
+```quxlang
+RUNTIME NATIVE {
+    ...
+} ELSE {
+    ...
+}
+```
+
+`RUNTIME CONSTEXPR` selects the first block when execution is occurring in a constexpr execution context. `RUNTIME NATIVE`
+selects the first block when execution is occurring in a native execution context. If an `ELSE` block is present, it is
+selected when the primary condition is false.
 
 ## Operators
-## Binary Operators
+## Arithmetic Operators
 
 ### Operator `+`
 
@@ -319,19 +386,91 @@ Multiply two numbers.
 
 Divine LHS by RHS.
 
-## Prefix operators
+### Operator `%`
 
-### Operator `.~`
+Computes the remainder of division.
 
-Bitwise inversion.
+## Comparison Operators
 
-### Operator `.&&`
+### Operator `==`
+
+Checks whether two values compare equal.
+
+### Operator `!=`
+
+Checks whether two values compare unequal.
+
+### Operator `<`
+
+Checks whether the left operand compares less than the right operand.
+
+### Operator `>`
+
+Checks whether the left operand compares greater than the right operand.
+
+### Operator `<=`
+
+Checks whether the left operand compares less-than-or-equal to the right operand.
+
+### Operator `>=`
+
+Checks whether the left operand compares greater-than-or-equal to the right operand.
+
+## Assignment And Swap Operators
+
+### Operator `:=`
+
+Assigns the value of the right operand into the object designated by the left operand.
+
+### Operator `<->`
+
+Swaps the values of the two operands.
+
+## Bitwise Operators
+
+### Operator `#&&`
 
 Bitwise and.
 
-### Operator `.||`
+### Operator `#||`
 
 Bitwise or.
+
+### Operator `#^^`
+
+Bitwise xor.
+
+### Operator `#&!`
+
+Bitwise nand.
+
+### Operator `#|!`
+
+Bitwise nor.
+
+### Operator `#^!`
+
+Bitwise nxor.
+
+### Operator `#++`
+
+Bitwise shift-up.
+
+### Operator `#--`
+
+Bitwise shift-down.
+
+### Operator `#+%`
+
+Bitwise rotate-up.
+
+### Operator `#-%`
+
+Bitwise rotate-down.
+
+### Operator `#!!`
+
+Bitwise inversion.
 
 ## Logical Operators
 
@@ -367,7 +506,48 @@ Logical implication.
 
 Logical reverse implication.
 
-## Operator Sythesis
+### Operator `??`
+
+Converts a value to `BOOL`.
+
+For built-in integer and pointer-like types, the result is false when the operand is zero or null respectively, and
+true otherwise.
+
+## Access Operators
+
+### Operator `->`
+
+Dereferences a pointer-like value and yields a reference to the pointed-to object.
+
+### Operator `<-`
+
+Produces a pointer to the designated object.
+
+### Operator `[]`
+
+Indexes into an array-like object and yields a reference to the indexed element.
+
+### Operator `[&]`
+
+Indexes into an array-like object and yields a pointer to the indexed element.
+
+## Increment And Decrement Operators
+
+### Operator `++`
+
+Increments the operand.
+
+### Operator `--`
+
+Decrements the operand.
+
+## Builtin Operator Coverage
+
+The abstract machine may provide built-in overloads for primitive integers, bytes, booleans, pointers, references, and
+arrays. In particular, built-in implementations are permitted for arithmetic, comparison, assignment, swapping,
+array-indexing, booliation, pointer dereference, pointer arithmetic, and the bitwise operators described above.
+
+## Operator Synthesis
 
 Operators may be synthesized.
 

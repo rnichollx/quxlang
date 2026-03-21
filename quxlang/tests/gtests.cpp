@@ -210,6 +210,20 @@ TEST(collector_tester, function_call)
     ASSERT_EQ(it, it_end);
 };
 
+TEST(parsing, parse_bitwise_inverse_postfix)
+{
+    std::string test_string = "bu #!!";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_unary_postfix >());
+    ASSERT_EQ(quxlang::as< quxlang::expression_unary_postfix >(expr).operator_str, "#!!");
+    ASSERT_EQ(it, it_end);
+}
+
 TEST(quxlang_modules, merge_entities)
 {
     // TODO: Needs rewrite with the replaced merger

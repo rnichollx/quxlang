@@ -674,8 +674,8 @@ IMPORT foolib;
    // Unary bitwise inverse for BYTE
    VAR bu BYTE := 170; // 1010 1010
    // UNIMPLEMENTED
-   // bu := bu #!!;       // -> 0101 0101 = 85
-   // ASSERT(bu == BYTE(@OTHER 85));
+   bu := bu #!!;       // -> 0101 0101 = 85
+   ASSERT(bu == BYTE(@OTHER 85));
 
    // Shifts for BYTE
    VAR bs BYTE := 1;
