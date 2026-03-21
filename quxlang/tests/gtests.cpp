@@ -740,6 +740,12 @@ TEST(quxlang, constexpr_call_func)
     auto val7 = get_constexpr_bool("yip() == 8");
     ASSERT_TRUE(val7);
 
+    auto val8 = get_constexpr_bool("storage_buz_test() == 10");
+    ASSERT_TRUE(val8);
+
+    auto val9 = get_constexpr_bool("aligned_storage_buz_test() == 9");
+    ASSERT_TRUE(val9);
+
 
 }
 
@@ -780,6 +786,12 @@ TEST(quxlang, constexpr_call_func_arm)
 
     auto val6 = get_constexpr_bool("arch_int() == 1");
     ASSERT_TRUE(val6);
+
+    auto val7 = get_constexpr_bool("storage_buz_test() == 10");
+    ASSERT_TRUE(val7);
+
+    auto val8 = get_constexpr_bool("aligned_storage_buz_test() == 9");
+    ASSERT_TRUE(val8);
 
 
 }

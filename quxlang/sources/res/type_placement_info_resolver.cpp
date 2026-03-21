@@ -1,7 +1,7 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/res/type_placement_info_resolver.hpp"
-#include "quxlang/data/machine.hpp"
 #include "quxlang/compiler.hpp"
+#include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
@@ -51,7 +51,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
         type_placement_info result;
         result.size = sz;
         result.alignment = sz;
-        result.alignment = std::min<std::uint64_t>(result.alignment, c->m_output_info.max_int_align());
+        result.alignment = std::min< std::uint64_t >(result.alignment, c->m_output_info.max_int_align());
 
         co_return result;
     }
@@ -65,16 +65,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
         for (auto const& stored_type : as< storage >(type).storable_types)
         {
             auto child = co_await QUX_CO_DEP(type_placement_info, (stored_type));
-            result.size = std::max<std::uint64_t>(result.size, child.size);
-            result.alignment = std::max<std::uint64_t>(result.alignment, child.alignment);
+            result.size = std::max< std::uint64_t >(result.size, child.size);
+            result.alignment = std::max< std::uint64_t >(result.alignment, child.alignment);
         }
         co_return result;
     }
     else if (type.template type_is< aligned_storage >())
     {
-        co_return type_placement_info{
-            .size = expr_u64(as< aligned_storage >(type).size),
-            .alignment = expr_u64(as< aligned_storage >(type).align)};
+        co_return type_placement_info{.size = expr_u64(as< aligned_storage >(type).size), .alignment = expr_u64(as< aligned_storage >(type).align)};
     }
     else
     {

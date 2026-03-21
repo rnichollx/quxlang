@@ -1080,7 +1080,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
         }
 
-        output_bool(tb.to, local->ref.has_value());
+        bool result = local->ref.has_value();
+        consume_local(tb.from);
+        output_bool(tb.to, result);
     }
     else
     {
@@ -1126,7 +1128,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             throw constexpr_logic_execution_error("Error executing <to_bool>: accessing deallocated object");
         }
 
-        output_bool(tbn.to, !local->ref.has_value());
+        bool result = !local->ref.has_value();
+        consume_local(tbn.from);
+        output_bool(tbn.to, result);
     }
     else
     {
@@ -2386,6 +2390,24 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
             if (typeis< vmir2::invoke >(instr))
             {
                 auto const& inv = instr.get_as< vmir2::invoke >();
+                auto called_func = inv.what;
+                if (!this->implementation->functanoids3.contains(called_func))
+                {
+                    this->implementation->missing_functanoids_val.insert(called_func);
+                }
+            }
+            else if (typeis< vmir2::storage_constructor_invoke >(instr))
+            {
+                auto const& inv = instr.get_as< vmir2::storage_constructor_invoke >();
+                auto called_func = inv.what;
+                if (!this->implementation->functanoids3.contains(called_func))
+                {
+                    this->implementation->missing_functanoids_val.insert(called_func);
+                }
+            }
+            else if (typeis< vmir2::storage_destructor_invoke >(instr))
+            {
+                auto const& inv = instr.get_as< vmir2::storage_destructor_invoke >();
                 auto called_func = inv.what;
                 if (!this->implementation->functanoids3.contains(called_func))
                 {

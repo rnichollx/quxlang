@@ -2625,18 +2625,17 @@ namespace quxlang
             {
                 auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
-            }
-
-            auto class_default_dtor = co_await prv.class_default_dtor(var_type);
-            if (class_default_dtor)
-            {
-                if (!state.non_trivial_dtors.contains(var_type))
+                auto class_default_dtor = co_await prv.class_default_dtor(var_type);
+                if (class_default_dtor)
                 {
-                    state.non_trivial_dtors[var_type] = class_default_dtor.value();
-                }
+                    if (!state.non_trivial_dtors.contains(var_type))
+                    {
+                        state.non_trivial_dtors[var_type] = class_default_dtor.value();
+                    }
 
-                // TODO: Consider re-adding this for non-default dtors later.
-                // co_await emitter.gen_defer_dtor(idx, dtor.value(), codegen_invocation_args{.named = {{"THIS", idx}}});
+                    // TODO: Consider re-adding this for non-default dtors later.
+                    // co_await emitter.gen_defer_dtor(idx, dtor.value(), codegen_invocation_args{.named = {{"THIS", idx}}});
+                }
             }
 
             vmir2::slot_state new_state = state.blocks.at(new_expr_block).current_state[get_local_index(idx)];
@@ -3000,6 +2999,10 @@ namespace quxlang
                     continue;
                 }
                 auto& slot = state.locals.at(genvalue.template get_as< codegen_local >().local_index);
+                if (typeis< storage >(slot.type) || typeis< aligned_storage >(slot.type))
+                {
+                    continue;
+                }
                 auto dtor = co_await prv.class_default_dtor(slot.type);
                 if (dtor)
                 {
@@ -3311,6 +3314,10 @@ namespace quxlang
             // dtor references to non_trivial_dtors if they do.
             for (auto const& slot : this->state.locals)
             {
+                if (typeis< storage >(slot.type) || typeis< aligned_storage >(slot.type))
+                {
+                    continue;
+                }
                 auto dtor = co_await prv.class_default_dtor(slot.type);
                 if (dtor.has_value())
                 {

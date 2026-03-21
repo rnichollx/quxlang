@@ -26,6 +26,7 @@ IMPORT foolib;
   test_include_if_overloads();
   test_bitwise_operators();
   test_serialize();
+  storage_buz_test();
 
   RETURN 1;
 }
@@ -233,6 +234,38 @@ IMPORT foolib;
   {
     .x := .x + 1;
   }
+}
+
+::storage_buz_test FUNCTION(): I32
+{
+  VAR slot STORAGE(buz);
+  VAR p ->buz := PLACE AT(slot) buz;
+  ASSERT(p??);
+  ASSERT(buz_x(PUN slot AS buz) == 9);
+  buz_inc(PUN slot AS buz);
+  ASSERT(buz_x(PUN slot AS buz) == 10);
+  DESTROY AT(slot) buz;
+  RETURN 10;
+}
+
+::aligned_storage_buz_test FUNCTION(): I32
+{
+  VAR slot ALIGNED_STORAGE(4, 4);
+  VAR p ->buz := PLACE AT(slot) buz;
+  ASSERT(p??);
+  ASSERT(buz_x(PUN slot AS buz) == 9);
+  DESTROY AT(slot) buz;
+  RETURN 9;
+}
+
+::buz_x FUNCTION(%b CONST& buz): I32
+{
+  RETURN b.x;
+}
+
+::buz_inc FUNCTION(%b MUT& buz)
+{
+  b.foo();
 }
 
 ::arch_int INCLUDE_IF(ARCH_X64 && OS_LINUX ) FUNCTION(): I32
@@ -794,5 +827,3 @@ IMPORT foolib;
   VAR bz yak;
   RETURN 4;
 }
-
-
