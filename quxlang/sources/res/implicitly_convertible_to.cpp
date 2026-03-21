@@ -82,7 +82,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
         co_return 1;
     }
 
-    auto nonbinding_rank = [&]() -> std::size_t {
+    auto nonbinding_rank = [&]() -> std::size_t
+    {
         return is_ref(from) ? 11 : 8;
     };
 
@@ -138,18 +139,37 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
 
         if (!is_ref(to) && remove_ref(to) == unbound_from)
         {
-            auto ref_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = to}));
-            if (ref_objectization)
+            auto constructor_functum = submember{.of = to, .name = "CONSTRUCTOR"};
+            auto exact_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
+
+            if (exact_init.has_value())
             {
                 if (is_temp_ref(from))
                 {
-                    co_return 4;
+                    co_return 6;
                 }
                 if (is_const_ref(from))
                 {
-                    co_return 6;
+                    co_return 8;
                 }
-                co_return 7;
+                co_return 4;
+            }
+
+            auto target_const_ref = make_cref(to);
+            auto const_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_const_ref}));
+            if (const_requalifiable)
+            {
+                auto const_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", target_const_ref}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
+
+                if (const_init.has_value())
+                {
+                    // Direct CONST& objectization is handled by the exact-source probe above.
+                    if (is_const_ref(from))
+                    {
+                        co_return 8;
+                    }
+                    co_return 9;
+                }
             }
         }
 
@@ -158,18 +178,38 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
             auto objectized_match = match_template(to, unbound_from);
             if (objectized_match.has_value() && !is_ref(objectized_match->type))
             {
-                auto ref_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = objectized_match->type}));
-                if (ref_objectization)
+                auto matched_type = objectized_match->type;
+                auto constructor_functum = submember{.of = matched_type, .name = "CONSTRUCTOR"};
+                auto exact_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = matched_type}}}}, .init_kind = parameter_init_kind::bind_only}));
+
+                if (exact_init.has_value())
                 {
                     if (is_temp_ref(from))
                     {
-                        co_return 5;
+                        co_return 7;
                     }
                     if (is_const_ref(from))
                     {
-                        co_return 8;
+                        co_return 10;
                     }
-                    co_return 9;
+                    co_return 5;
+                }
+
+                auto target_const_ref = make_cref(matched_type);
+                auto const_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_const_ref}));
+                if (const_requalifiable)
+                {
+                    auto const_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", target_const_ref}, {"THIS", nvalue_slot{.target = matched_type}}}}, .init_kind = parameter_init_kind::bind_only}));
+
+                    if (const_init.has_value())
+                    {
+                        // Direct CONST& objectization is handled by the exact-source probe above.
+                        if (is_const_ref(from))
+                        {
+                            co_return 10;
+                        }
+                        co_return 11;
+                    }
                 }
             }
         }
@@ -193,10 +233,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_is_better_fit)
 {
     auto better_rank = co_await QUX_CO_DEP(argument_adaptation_rank, (argument_init_query{
-        .from = input.from,
-        .to = input.better_to,
-        .init_kind = input.init_kind,
-    }));
+                                                                         .from = input.from,
+                                                                         .to = input.better_to,
+                                                                         .init_kind = input.init_kind,
+                                                                     }));
 
     if (!better_rank.has_value())
     {
@@ -204,10 +244,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_is_better_fit)
     }
 
     auto worse_rank = co_await QUX_CO_DEP(argument_adaptation_rank, (argument_init_query{
-        .from = input.from,
-        .to = input.worse_to,
-        .init_kind = input.init_kind,
-    }));
+                                                                        .from = input.from,
+                                                                        .to = input.worse_to,
+                                                                        .init_kind = input.init_kind,
+                                                                    }));
 
     if (!worse_rank.has_value())
     {
@@ -223,12 +263,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     type_symbol to = input.to;
     parameter_init_kind init_kind = input.init_kind;
 
-    std::vector<std::byte> init_kind_bytes;
+    std::vector< std::byte > init_kind_bytes;
     rpnx::serial4::json_serialize_iter(init_kind, std::back_inserter(init_kind_bytes));
     std::string init_kind_str;
     for (auto b : init_kind_bytes)
     {
-        init_kind_str += static_cast<char>(b);
+        init_kind_str += static_cast< char >(b);
     }
 
     std::cout << "Ensig Argument Initialize: from " << quxlang::to_string(from) << " to " << quxlang::to_string(to) << " (init kind: " << init_kind_str << ")" << std::endl;
@@ -464,43 +504,31 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_reference_objectization)
     }
 
     auto constructor_functum = submember{.of = to, .name = "CONSTRUCTOR"};
-    auto target_temp_ref = make_tref(to);
     auto target_const_ref = make_cref(to);
 
-    std::cout << " Checking bindable by reference objectization: "<<  to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
+    std::cout << " Checking bindable by reference objectization: " << to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
 
-    bool temp_bindable = false;
-    auto temp_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_temp_ref}));
-    if (temp_requalifiable)
-    {
-        auto temp_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{
-            .initializee = constructor_functum,
-            .parameters = {.named = {{"OTHER", target_temp_ref}, {"THIS", nvalue_slot{.target = to}}}},
-            .init_kind = parameter_init_kind::bind_only}));
-        temp_bindable = temp_init.has_value();
-    }
+    auto exact_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
+    bool exact_bindable = exact_init.has_value();
 
     bool const_bindable = false;
     auto const_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_const_ref}));
-    if (const_requalifiable)
+    if (!exact_bindable && const_requalifiable)
     {
-        auto const_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{
-            .initializee = constructor_functum,
-            .parameters = {.named = {{"OTHER", target_const_ref}, {"THIS", nvalue_slot{.target = to}}}},
-            .init_kind = parameter_init_kind::bind_only}));
+        auto const_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", target_const_ref}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
         const_bindable = const_init.has_value();
     }
 
-    if (!temp_bindable && !const_bindable)
+    if (!exact_bindable && !const_bindable)
     {
-        std::cout << "  Not bindable by reference objectization (no TEMP&/CONST& path): " << to_string(from) << " to " << to_string(to) << std::endl;
+        std::cout << "  Not bindable by reference objectization (no exact/CONST& path): " << to_string(from) << " to " << to_string(to) << std::endl;
     }
     else
     {
         std::cout << "  X Bindable by reference objectization: " << to_string(from) << " to " << to_string(to) << std::endl;
     }
 
-    co_return temp_bindable || const_bindable;
+    co_return exact_bindable || const_bindable;
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(convertible_by_call)

@@ -199,9 +199,17 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_gen_conversion(block_index& bidx, value_index val, type_symbol target_type, parameter_init_kind conversion_type) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, parameter_init_kind adaptation_kind) -> typename CoroutineProvider::template co_type< value_index >
         {
-            throw rpnx::unimplemented();
+            auto value_type = this->current_type(bidx, val);
+
+            if (value_type == target_type)
+            {
+                assert(val != value_index(0));
+                co_return val;
+            }
+
+            co_return co_await co_gen_construct_with_target_type(bidx, val, target_type, adaptation_kind);
         }
 
         auto nested_constructor_init_kind(parameter_init_kind init_method) -> parameter_init_kind
@@ -824,7 +832,7 @@ namespace quxlang
                     co_return arg_expr_index;
                 }
 
-                co_return co_await co_gen_construct_with_target_type(bidx, arg_expr_index, arg_target_type, init_method);
+                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, init_method);
             };
 
             for (auto const& [name, arg_accepted_type] : call_args_types.named)
@@ -920,7 +928,7 @@ namespace quxlang
             type_symbol value_type = this->current_type(bidx, vidx);
             std::cout << "co_gen_value_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
-            co_return co_await co_gen_construct_with_target_type(bidx, vidx, target_value_type, parameter_init_kind::call);
+            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_value_type, parameter_init_kind::call);
         }
 
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
@@ -934,7 +942,7 @@ namespace quxlang
                 co_return vidx;
             }
 
-            co_return co_await co_gen_construct_with_target_type(bidx, vidx, target_type, parameter_init_kind::call);
+            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_type, parameter_init_kind::call);
         }
 
         auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> typename CoroutineProvider::template co_type< void >

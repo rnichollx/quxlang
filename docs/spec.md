@@ -258,19 +258,28 @@ From reference:
 1. Identity (no conversion): `QUAL& t -> QUAL& t`
 2. Direct templating match: `QUAL& t -> [template match]`
 3. Allowed reference requalification: `QUAL1& t -> QUAL2& t`, if `QUAL1` is qualification-convertible to `QUAL2`
-4. Direct reference objectization from `TEMP&`: `TEMP& t -> t`
-5. Direct reference objectization from `TEMP&` to template: `TEMP& t -> t -> [template match]`
-6. Direct reference objectization from `CONST&`: `CONST& t -> t`
-7. Indirect reference objectization from `CONST&`: `QUAL& t -> CONST& t -> t`
-8. Direct reference objectization from `CONST&` to template: `CONST& t -> t -> [template match]`
-9. Indirect reference objectization from `CONST&` to template: `QUAL& t -> CONST& t -> t -> [template match]`
-10. User-declared binding conversions, if supported
-11. Implicit non-binding conversions
+4. Direct reference objectization from the exact source reference type: `QUAL& t -> t`
+5. Direct reference objectization from the exact source reference type to template: `QUAL& t -> t -> [template match]`
+6. Direct reference objectization from `TEMP&`: `TEMP& t -> t`
+7. Direct reference objectization from `TEMP&` to template: `TEMP& t -> t -> [template match]`
+8. Direct reference objectization from `CONST&`: `CONST& t -> t`
+9. Indirect reference objectization from `CONST&`: `QUAL& t -> CONST& t -> t`
+10. Direct reference objectization from `CONST&` to template: `CONST& t -> t -> [template match]`
+11. Indirect reference objectization from `CONST&` to template: `QUAL& t -> CONST& t -> t -> [template match]`
+12. User-declared binding conversions, if supported
+13. Implicit non-binding conversions
 
-Reference objectization is defined to use either `TEMP& t` or `CONST& t` as the effective source reference type.
-Other reference types participate only if they are implicitly reference-requalifiable to one of those effective source
-reference types. Under the current implicit reference-requalification rules, there is no indirect conversion path to
-`TEMP& t`, so the only indirect reference-objectization path is through `CONST& t`.
+Reference objectization from `QUAL& t` to `t` is permitted if `t::.CONSTRUCTOR` is invokable with `@OTHER` of type
+`QUAL& t`, or with `@OTHER` of an effective source reference type derived from `QUAL& t`.
+
+The effective source reference types are `TEMP& t` and `CONST& t`. A source reference type `QUAL& t` may use one of
+those effective source reference types only if `QUAL& t` is implicitly reference-requalifiable to it.
+
+If a direct reference-objectization constructor exists for the exact source reference type, that direct path is
+better-ranked than any indirect reference-objectization path through an effective source reference type.
+
+Under the current implicit reference-requalification rules, there is no indirect conversion path to `TEMP& t`, so the
+only indirect reference-objectization path is through `CONST& t`.
 
 #### 2.2.3 Function Selection
 
@@ -435,4 +444,3 @@ and destructor unless the object is `RELOCATABLE`. There are 3 categories of rel
 * `RELOCATABLE`: Can be relocated using `.RELOCATE`.
 
 Of these, `TRIVIALLY_RELOCATABLE` and `POSTHOC_RELOCATABLE` allow bypassing pointer indirection in function call ABIs.
-
