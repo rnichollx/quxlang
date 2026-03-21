@@ -286,6 +286,40 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
         result_type.element_type = lookup_element_type.value();
         co_return result_type;
     }
+    else if (typeis< storage >(type))
+    {
+        storage result_type;
+        for (auto const& stored_type : as< storage >(type).storable_types)
+        {
+            auto lookup_stored_type = co_await QUX_CO_DEP(lookup, ({.type = stored_type, .context = context}));
+            if (!lookup_stored_type.has_value())
+            {
+                co_return std::nullopt;
+            }
+            result_type.storable_types.insert(lookup_stored_type.value());
+        }
+        co_return result_type;
+    }
+    else if (typeis< aligned_storage >(type))
+    {
+        auto const& storage_type = as< aligned_storage >(type);
+        constexpr_input size_input{
+            .context = context,
+            .expr = storage_type.size,
+        };
+        constexpr_input align_input{
+            .context = context,
+            .expr = storage_type.align,
+        };
+
+        auto size_value = co_await QUX_CO_DEP(constexpr_u64, (size_input));
+        auto align_value = co_await QUX_CO_DEP(constexpr_u64, (align_input));
+
+        co_return aligned_storage{
+            .size = expression_numeric_literal{std::to_string(size_value)},
+            .align = expression_numeric_literal{std::to_string(align_value)},
+        };
+    }
     else
     {
         std::string str = std::string() + "unimplemented: " + type.type().name();

@@ -138,12 +138,14 @@ namespace quxlang
 
     struct function_destroy_statement
     {
-        // The expression which yields a pointer to the location to destroy the object.
+        // The expression which yields the storage location to destroy the object within.
         expression at;
         // Type to destroy
         type_symbol type;
+        // Optional destructor args.
+        std::vector< expression_arg > args;
 
-        QUX_AST_METADATA(function_destroy_statement, at, type);
+        QUX_AST_METADATA(function_destroy_statement, at, type, args);
     };
 } // namespace quxlang
 

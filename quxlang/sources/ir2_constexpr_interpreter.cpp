@@ -85,12 +85,17 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool readonly = false;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
+        std::optional< std::weak_ptr< local > > storage_owner;
         std::optional< std::weak_ptr< local > > initializer_of;
         std::optional< std::weak_ptr< local > > array_init_member_of;
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
         std::optional< invocation_args > delegates;
+        std::shared_ptr< local > stored_object;
+        std::optional< type_symbol > storage_active_type;
+        std::optional< type_symbol > storage_projection_type;
+        std::uint64_t storage_alignment = 1;
         std::uint64_t init_count = 0;
 
         bool alive() const
@@ -166,6 +171,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
+    void call_storage_func(cow< type_symbol > functype, vmir2::invocation_args args, std::shared_ptr< local > this_object);
     void exec();
     void exec3();
 
@@ -199,6 +205,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     }
 
     std::size_t get_type_size(const type_symbol& type);
+    std::size_t get_type_alignment(type_symbol type);
 
     std::shared_ptr< local > output(local_index slot);
 
@@ -261,6 +268,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::load_const_value const& lcv);
     void exec_instr_val(vmir2::make_pointer_to const& mpt);
+    void exec_instr_val(vmir2::storage_init const& sin);
+    void exec_instr_val(vmir2::storage_constructor_invoke const& sci);
+    void exec_instr_val(vmir2::storage_destructor_invoke const& sdi);
+    void exec_instr_val(vmir2::storage_pun const& spn);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
     void exec_instr_val(vmir2::ret const& ret);
@@ -543,6 +554,103 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     assert(arg_count == args.size());
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::call_storage_func(cow< type_symbol > functype, vmir2::invocation_args args, std::shared_ptr< local > this_object)
+{
+    auto type = functype.read();
+
+    stack.emplace_back();
+    stack.back().type = functype;
+    stack.back().ir3 = functanoids3.at(functype);
+    stack.back().address = {functype, block_index(0), 0};
+
+    if (functype == void_type{})
+    {
+        assert(args.size() == 0);
+        return;
+    }
+
+    auto& current_frame = stack.back();
+    auto& previous_frame = stack[stack.size() - 2];
+    auto previous_frame_idx = stack.size() - 2;
+    auto const& current_func_ir = current_frame.ir3.read();
+
+    auto handle_arg = [&](vmir2::local_index previous_arg_index, vmir2::local_index new_arg_index, rpnx::variant< std::size_t, std::string > param_index)
+    {
+        type_symbol param_type;
+        if (param_index.template type_is< std::size_t >())
+        {
+            param_type = current_func_ir.parameters.positional.at(param_index.get_as< std::size_t >()).type;
+        }
+        else
+        {
+            param_type = current_func_ir.parameters.named.at(param_index.get_as< std::string >()).type;
+        }
+
+        if (!typeis< nvalue_slot >(param_type))
+        {
+            if (!(previous_frame.local_values[previous_arg_index] && previous_frame.local_values[previous_arg_index]->alive()))
+            {
+                throw constexpr_logic_execution_error("Error in argument passing: argument is not alive");
+            }
+        }
+
+        if (typeis< nvalue_slot >(param_type) || typeis< dvalue_slot >(param_type))
+        {
+            if (typeis< nvalue_slot >(param_type))
+            {
+                if (!previous_frame.slot_has_storage(previous_arg_index))
+                {
+                    init_local_storage(previous_frame_idx, previous_arg_index);
+                }
+            }
+
+            current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+
+            if (typeis< dvalue_slot >(param_type))
+            {
+                previous_frame.local_values[previous_arg_index] = nullptr;
+            }
+        }
+        else
+        {
+            current_frame.local_values[new_arg_index] = previous_frame.local_values[previous_arg_index];
+            previous_frame.local_values[previous_arg_index] = nullptr;
+        }
+    };
+
+    std::size_t positional_arg_id = 0;
+    for (std::size_t param_index = 0; param_index < current_func_ir.parameters.positional.size(); param_index++)
+    {
+        auto const& positional_param = current_func_ir.parameters.positional[param_index];
+        auto new_arg_index = positional_param.local_index;
+
+        if (positional_arg_id >= args.positional.size())
+        {
+            throw compiler_bug("Missing positional argument");
+        }
+
+        handle_arg(args.positional.at(positional_arg_id++), new_arg_index, param_index);
+    }
+
+    for (auto const& [name, named_param] : current_func_ir.parameters.named)
+    {
+        auto new_arg_index = named_param.local_index;
+
+        if (name == "THIS")
+        {
+            current_frame.local_values[new_arg_index] = this_object;
+            continue;
+        }
+
+        if (!args.named.contains(name))
+        {
+            throw compiler_bug("Missing named argument: " + name);
+        }
+
+        handle_arg(args.named.at(name), new_arg_index, name);
+    }
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec()
 {
     // print all functanoids
@@ -680,6 +788,14 @@ quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_in
 
 std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_type_size(const type_symbol& type)
 {
+    auto expr_u64 = [](expression const& expr) -> std::uint64_t
+    {
+        if (!expr.type_is< expression_numeric_literal >())
+        {
+            throw std::logic_error("Expected numeric literal in storage type");
+        }
+        return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
+    };
 
     std::string type_str = quxlang::to_string(type);
 
@@ -698,6 +814,21 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 1;
     }
 
+    if (typeis< storage >(type))
+    {
+        std::size_t max_size = 0;
+        for (auto const& stored_type : as< storage >(type).storable_types)
+        {
+            max_size = std::max(max_size, get_type_size(stored_type));
+        }
+        return max_size;
+    }
+
+    if (typeis< aligned_storage >(type))
+    {
+        return expr_u64(as< aligned_storage >(type).size);
+    }
+
     // Pointer data is stored in ref, not data bytes.
     if (typeis< ptrref_type >(type))
     {
@@ -713,6 +844,50 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     // TODO: Consider if structs should have "size" during constexpr evaluation
 
     return 0;
+}
+
+std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_type_alignment(type_symbol type)
+{
+    auto expr_u64 = [](expression const& expr) -> std::uint64_t
+    {
+        if (!expr.type_is< expression_numeric_literal >())
+        {
+            throw std::logic_error("Expected numeric literal in storage type");
+        }
+        return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
+    };
+
+    if (typeis< int_type >(type))
+    {
+        auto sz = get_type_size(type);
+        return std::min<std::size_t>(sz, 8);
+    }
+    if (typeis< byte_type >(type) || typeis< bool_type >(type))
+    {
+        return 1;
+    }
+    if (typeis< ptrref_type >(type))
+    {
+        return 1;
+    }
+    if (class_layouts.contains(type))
+    {
+        return class_layouts.at(type).align;
+    }
+    if (typeis< storage >(type))
+    {
+        std::size_t max_align = 1;
+        for (auto const& stored_type : as< storage >(type).storable_types)
+        {
+            max_align = std::max(max_align, get_type_alignment(stored_type));
+        }
+        return max_align;
+    }
+    if (typeis< aligned_storage >(type))
+    {
+        return expr_u64(as< aligned_storage >(type).align);
+    }
+    return 1;
 }
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output(local_index slot)
 {
@@ -1014,6 +1189,140 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
 {
     call_func(inv.what, inv.args);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_init const& sin)
+{
+    auto slot_type = get_local_type(sin.storage);
+    if (!typeis< storage >(slot_type) && !typeis< aligned_storage >(slot_type))
+    {
+        throw compiler_bug("storage_init expects a storage-typed slot");
+    }
+
+    auto storage_local = output_local(sin.storage);
+    storage_local->stored_object = nullptr;
+    storage_local->storage_active_type = std::nullopt;
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_constructor_invoke const& sci)
+{
+    auto& storage_ref_slot = get_current_frame().local_values.at(sci.on_storage);
+    if (!storage_ref_slot || !storage_ref_slot->alive() || !storage_ref_slot->ref.has_value())
+    {
+        throw constexpr_logic_execution_error("storage constructor invoke expects a live storage reference");
+    }
+
+    auto storage_local = storage_ref_slot->ref.value().pointer_target.value().lock();
+    storage_ref_slot = nullptr;
+    if (!storage_local || !storage_local->alive())
+    {
+        throw constexpr_logic_execution_error("storage constructor invoke on invalid storage");
+    }
+
+    if (storage_local->storage_active_type.has_value() || storage_local->stored_object != nullptr)
+    {
+        throw constexpr_logic_execution_error("storage constructor invoke on non-empty storage");
+    }
+
+    auto slot_storage_type = remove_ref(get_local_type(sci.on_storage));
+    auto inst = sci.what.get_as< instanciation_reference >();
+    auto functum = inst.temploid.templexoid.get_as< submember >();
+    if (functum.name != "CONSTRUCTOR")
+    {
+        throw compiler_bug("storage_constructor_invoke expects a constructor functum");
+    }
+    auto object_type = functum.of;
+
+    bool fits = false;
+    if (typeis< storage >(slot_storage_type))
+    {
+        for (auto const& allowed_type : as< storage >(slot_storage_type).storable_types)
+        {
+            if (allowed_type == object_type)
+            {
+                fits = true;
+                break;
+            }
+        }
+    }
+    else if (typeis< aligned_storage >(slot_storage_type))
+    {
+        fits = get_type_size(object_type) <= storage_local->data.size() && get_type_alignment(object_type) <= storage_local->storage_alignment;
+    }
+
+    if (!fits)
+    {
+        throw constexpr_logic_execution_error("object type is not permitted in target storage");
+    }
+
+    auto object_local = create_object(object_type);
+    object_local->storage_owner = storage_local;
+    object_local->storage_projection_type = object_type;
+    storage_local->stored_object = object_local;
+
+    auto ptrval = output_local(sci.result_pointer);
+    ptrval->ref = pointer_impl{.pointer_target = object_local};
+
+    call_storage_func(sci.what, sci.args, object_local);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_destructor_invoke const& sdi)
+{
+    auto& storage_ref_slot = get_current_frame().local_values.at(sdi.on_storage);
+    if (!storage_ref_slot || !storage_ref_slot->alive() || !storage_ref_slot->ref.has_value())
+    {
+        throw constexpr_logic_execution_error("storage destructor invoke expects a live storage reference");
+    }
+
+    auto storage_local = storage_ref_slot->ref.value().pointer_target.value().lock();
+    storage_ref_slot = nullptr;
+    if (!storage_local || !storage_local->alive())
+    {
+        throw constexpr_logic_execution_error("storage destructor invoke on invalid storage");
+    }
+
+    auto inst = sdi.what.get_as< instanciation_reference >();
+    auto functum = inst.temploid.templexoid.get_as< submember >();
+    if (functum.name != "DESTRUCTOR")
+    {
+        throw compiler_bug("storage_destructor_invoke expects a destructor functum");
+    }
+    auto object_type = functum.of;
+
+    if (!storage_local->storage_active_type.has_value() || storage_local->storage_active_type.value() != object_type)
+    {
+        throw constexpr_logic_execution_error("storage destructor invoke type does not match active object");
+    }
+    if (storage_local->stored_object == nullptr || !storage_local->stored_object->alive())
+    {
+        throw constexpr_logic_execution_error("storage destructor invoke on empty storage");
+    }
+
+    call_storage_func(sdi.what, sdi.args, storage_local->stored_object);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_pun const& spn)
+{
+    auto& storage_ref_slot = get_current_frame().local_values.at(spn.from_storage);
+    if (!storage_ref_slot || !storage_ref_slot->alive() || !storage_ref_slot->ref.has_value())
+    {
+        throw constexpr_logic_execution_error("storage_pun expects a live storage reference");
+    }
+
+    auto storage_local = storage_ref_slot->ref.value().pointer_target.value().lock();
+    storage_ref_slot = nullptr;
+    if (!storage_local || !storage_local->alive())
+    {
+        throw constexpr_logic_execution_error("storage_pun on invalid storage");
+    }
+
+    if (!storage_local->storage_active_type.has_value() || storage_local->storage_active_type.value() != spn.as_type)
+    {
+        throw constexpr_logic_execution_error("storage_pun on storage containing a different type");
+    }
+    if (storage_local->stored_object == nullptr || !storage_local->stored_object->alive())
+    {
+        throw constexpr_logic_execution_error("storage_pun on empty storage");
+    }
+
+    auto out_ref = output_local(spn.to_reference);
+    out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_reference const& mrf)
 {
@@ -2403,9 +2712,9 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     // Mark value as consumed (dead)
     end_lifetime(result);
     // Align storage validity semantics with state_engine.consume():
-    // storage_valid becomes true only if this slot is a delegate (i.e., member_of has value),
+    // storage_valid becomes true only if this slot is a delegate or storage-backed,
     // otherwise consuming invalidates the storage.
-    result->storage_initiated = result->member_of.has_value();
+    result->storage_initiated = result->member_of.has_value() || result->storage_owner.has_value();
 
     // Remove from frame to reflect consumption
     get_current_frame().local_values[slot] = nullptr;
@@ -2719,6 +3028,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& frame = get_current_frame();
 
     auto& local_ptr = frame.local_values.at(elt.of);
+    auto slot_type = get_local_type(elt.of);
+    if (local_ptr != nullptr && (typeis< storage >(slot_type) || typeis< aligned_storage >(slot_type)) && local_ptr->storage_active_type.has_value())
+    {
+        throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
+    }
     end_lifetime(local_ptr);
     local_ptr = nullptr;
 }
@@ -2767,6 +3081,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     local_value->storage_initiated = true;
     local_value->stage = slot_stage::dead;
+    local_value->storage_alignment = get_type_alignment(type);
+    local_value->stored_object = nullptr;
+    local_value->storage_active_type = std::nullopt;
+    local_value->storage_projection_type = std::nullopt;
 
     type.match< readonly_constant >(
         [&](readonly_constant const& rc)
@@ -3039,6 +3357,16 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 // However, this does not eliminate the underlying storage.
                 local->stage = slot_stage::dead;
                 local->delegates = std::nullopt;
+                if (local->storage_owner.has_value())
+                {
+                    auto owner = local->storage_owner.value().lock();
+                    if (owner != nullptr)
+                    {
+                        owner->storage_active_type = std::nullopt;
+                        owner->stored_object = nullptr;
+                    }
+                    local->storage_owner = std::nullopt;
+                }
             }
             else if (new_values.contains(idx))
             {
@@ -3047,10 +3375,23 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                 assert(local->stage != slot_stage::dead);
                 // Note: array initializers will already construct the object, that's okay.
                 begin_lifetime(local);
+                if (local->storage_owner.has_value())
+                {
+                    auto owner = local->storage_owner.value().lock();
+                    if (owner != nullptr)
+                    {
+                        owner->storage_active_type = local->storage_projection_type;
+                        owner->stored_object = local;
+                    }
+                }
             }
             else if (local->alive() && !value_should_be_alive(idx))
             {
                 auto slot_type = current_func_ir->local_types.at(idx).type;
+                if ((typeis< storage >(slot_type) || typeis< aligned_storage >(slot_type)) && local->storage_active_type.has_value())
+                {
+                    throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
+                }
                 bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
                 if (local_has_nontrivial_dtor)
                 {
@@ -3127,7 +3468,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::end_lifetime(std::shared_ptr< local > object)
 {
     object->stage = slot_stage::dead;
-    if (!object->member_of.has_value())
+    if (!object->member_of.has_value() && !object->storage_owner.has_value())
     {
         object->storage_initiated = false;
     }

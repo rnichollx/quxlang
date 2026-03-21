@@ -42,6 +42,10 @@ namespace quxlang
         struct move_value;
         struct load_from_ref;
         struct store_to_ref;
+        struct storage_init;
+        struct storage_constructor_invoke;
+        struct storage_destructor_invoke;
+        struct storage_pun;
         struct dereference_pointer;
         struct load_const_zero;
         struct defer_nontrivial_dtor;
@@ -120,6 +124,10 @@ namespace quxlang
             load_const_value,
             make_pointer_to,
             load_from_ref,
+            storage_init,
+            storage_constructor_invoke,
+            storage_destructor_invoke,
+            storage_pun,
             load_const_zero,
             load_const_bool,
             dereference_pointer,
@@ -213,6 +221,41 @@ namespace quxlang
             }
 
             RPNX_MEMBER_METADATA(invocation_args, named, positional);
+        };
+
+        struct storage_init
+        {
+            local_index storage;
+
+            RPNX_MEMBER_METADATA(storage_init, storage);
+        };
+
+        struct storage_constructor_invoke
+        {
+            local_index on_storage;
+            type_symbol what;
+            invocation_args args;
+            local_index result_pointer;
+
+            RPNX_MEMBER_METADATA(storage_constructor_invoke, on_storage, what, args, result_pointer);
+        };
+
+        struct storage_destructor_invoke
+        {
+            local_index on_storage;
+            type_symbol what;
+            invocation_args args;
+
+            RPNX_MEMBER_METADATA(storage_destructor_invoke, on_storage, what, args);
+        };
+
+        struct storage_pun
+        {
+            local_index from_storage;
+            type_symbol as_type;
+            local_index to_reference;
+
+            RPNX_MEMBER_METADATA(storage_pun, from_storage, as_type, to_reference);
         };
 
         // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.

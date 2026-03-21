@@ -38,6 +38,35 @@ namespace quxlang
             return result;
         }
 
+        std::string operator()(expression_pun const& expr) const
+        {
+            return "( PUN " + to_string(expr.value) + " AS " + to_string(expr.as_type) + " )";
+        }
+
+        std::string operator()(expression_place const& expr) const
+        {
+            std::string result = "( PLACE AT(" + to_string(expr.at) + ") " + to_string(expr.type);
+            if (expr.assign_init)
+            {
+                result += " := " + to_string(*expr.assign_init);
+            }
+            else if (!expr.args.empty())
+            {
+                result += ":(";
+                for (std::size_t i = 0; i < expr.args.size(); i++)
+                {
+                    if (i != 0)
+                    {
+                        result += ", ";
+                    }
+                    result += to_string(expr.args[i].value);
+                }
+                result += ")";
+            }
+            result += " )";
+            return result;
+        }
+
         std::string operator()(expression_sizeof const& bits) const
         {
             return "SIZEOF(" + to_string(bits.of_type) + ")";
@@ -192,6 +221,7 @@ namespace quxlang
     struct type_symbol_stringifier
     {
         std::string operator()(storage const& ref) const;
+        std::string operator()(aligned_storage const& ref) const;
         std::string operator()(readonly_constant const& ref) const;
         std::string operator()(freebound_identifier const& ref) const;
         std::string operator()(context_reference const& ref) const;
@@ -285,7 +315,19 @@ namespace quxlang
 
         bool operator()(storage const& ref) const
         {
-            return is_template(ref.storable_type);
+            for (auto const& storable_type : ref.storable_types)
+            {
+                if (is_template(storable_type))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool operator()(aligned_storage const& ref) const
+        {
+            return false;
         }
 
         bool operator()(array_initializer_type const& ref) const
@@ -496,6 +538,15 @@ namespace quxlang
         {
             return context;
         }
+        else if (ref.template type_is< storage >())
+        {
+            storage output;
+            for (auto const& stored_type : as< storage >(ref).storable_types)
+            {
+                output.storable_types.insert(with_context(stored_type, context));
+            }
+            return output;
+        }
         else if (ref.template type_is< subsymbol >())
         {
             return subsymbol{with_context(as< subsymbol >(ref).of, context), as< subsymbol >(ref).name};
@@ -660,7 +711,27 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(storage const& ref) const
     {
-        return "STORAGE@{ " + to_string(ref.storable_type) + " }";
+        std::string result = "STORAGE(";
+        bool first = true;
+        for (auto const& stored_type : ref.storable_types)
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                result += ", ";
+            }
+            result += to_string(stored_type);
+        }
+        result += ")";
+        return result;
+    }
+
+    std::string type_symbol_stringifier::operator()(aligned_storage const& ref) const
+    {
+        return "ALIGNED_STORAGE(" + to_string(ref.size) + ", " + to_string(ref.align) + ")";
     }
     std::string type_symbol_stringifier::operator()(readonly_constant const& ref) const
     {
@@ -1401,7 +1472,25 @@ namespace quxlang
 
             bool check_impl(storage const& template_val, storage const& match_val, bool conv)
             {
-                return check(template_val.storable_type, match_val.storable_type, conv);
+                if (template_val.storable_types.size() != match_val.storable_types.size())
+                {
+                    return false;
+                }
+                auto template_it = template_val.storable_types.begin();
+                auto match_it = match_val.storable_types.begin();
+                for (; template_it != template_val.storable_types.end() && match_it != match_val.storable_types.end(); ++template_it, ++match_it)
+                {
+                    if (!check(*template_it, *match_it, conv))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            bool check_impl(aligned_storage const& template_val, aligned_storage const& match_val, bool conv)
+            {
+                return template_val.size == match_val.size && template_val.align == match_val.align;
             }
 
             bool check_impl(type_temploidic const& template_val, type_temploidic const& match_val, bool conv)

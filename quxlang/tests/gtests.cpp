@@ -12,6 +12,7 @@
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_symbol.hpp>
+#include <quxlang/parsers/statements.hpp>
 #include <quxlang/parsers/parse_whitespace.hpp>
 #include <quxlang/parsers/try_parse_expression.hpp>
 
@@ -143,6 +144,9 @@ TEST(parsing, parse_basic_types)
 
     ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
     ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(ptrref_type{int_type{64, true}}));
+    ASSERT_TRUE(parse_type_symbol("STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
+    ASSERT_TRUE(parse_type_symbol("STORAGE(I64, I32)") == parse_type_symbol("STORAGE(I32, I64)"));
+    ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
@@ -221,6 +225,49 @@ TEST(parsing, parse_bitwise_inverse_postfix)
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_unary_postfix >());
     ASSERT_EQ(quxlang::as< quxlang::expression_unary_postfix >(expr).operator_str, "#!!");
+    ASSERT_EQ(it, it_end);
+}
+
+TEST(parsing, parse_pun_expression)
+{
+    std::string test_string = "PUN x AS I32";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_pun >());
+    ASSERT_EQ(quxlang::to_string(quxlang::as< quxlang::expression_pun >(expr).as_type), "I32");
+    ASSERT_EQ(it, it_end);
+}
+
+TEST(parsing, parse_place_expression)
+{
+    std::string test_string = "PLACE AT(x) I32:(y)";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_place >());
+    ASSERT_EQ(quxlang::to_string(quxlang::as< quxlang::expression_place >(expr).type), "I32");
+    ASSERT_EQ(quxlang::as< quxlang::expression_place >(expr).args.size(), 1);
+    ASSERT_EQ(it, it_end);
+}
+
+TEST(parsing, parse_destroy_statement_with_args)
+{
+    std::string test_string = "DESTROY AT(x) I32:(y);";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    auto st = quxlang::parsers::parse_destroy_statement(it, it_end);
+
+    ASSERT_EQ(quxlang::to_string(st.type), "I32");
+    ASSERT_EQ(st.args.size(), 1);
     ASSERT_EQ(it, it_end);
 }
 
@@ -791,6 +838,23 @@ TEST(quxlang, func_gen)
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 
     std::cout << result << std::endl;
+}
+
+TEST(quxlang, storage_type_lookup)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto resolved = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = quxlang::parsers::parse_type_symbol("STORAGE(buz, yak)"),
+    }, std::nullopt);
+
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_EQ(quxlang::to_string(*resolved), "STORAGE(MODULE(main)::buz, MODULE(main)::yak)");
 }
 
 #include <quxlang/fixed_bytemath.hpp>

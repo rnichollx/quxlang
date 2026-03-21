@@ -152,6 +152,32 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         result.type = parse_type_symbol(pos, end);
         skip_whitespace_and_comments(pos, end);
+        if (skip_symbol_if_is(pos, end, ":("))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                while (true)
+                {
+                    skip_whitespace_and_comments(pos, end);
+                    result.args.push_back(parse_expression_arg(pos, end));
+                    skip_whitespace_and_comments(pos, end);
+                    if (skip_symbol_if_is(pos, end, ","))
+                    {
+                        continue;
+                    }
+                    else if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        throw std::logic_error("Expected ',' or ')' in DESTROY args");
+                    }
+                }
+            }
+            skip_whitespace_and_comments(pos, end);
+        }
         if (!skip_symbol_if_is(pos, end, ";"))
         {
             throw std::logic_error("Expected ';' after DESTROY statement");

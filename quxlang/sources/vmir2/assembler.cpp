@@ -229,6 +229,26 @@ namespace quxlang::vmir2
         return output;
     }
 
+    std::string assembler::to_string_internal(vmir2::storage_init inst)
+    {
+        return "STORAGE_INIT %" + std::to_string(inst.storage);
+    }
+
+    std::string assembler::to_string_internal(vmir2::storage_constructor_invoke inst)
+    {
+        return "STORAGE_CTOR_INVOKE %" + std::to_string(inst.on_storage) + " " + quxlang::to_string(inst.what) + " " + to_string_internal(inst.args) + " -> %" + std::to_string(inst.result_pointer);
+    }
+
+    std::string assembler::to_string_internal(vmir2::storage_destructor_invoke inst)
+    {
+        return "STORAGE_DTOR_INVOKE %" + std::to_string(inst.on_storage) + " " + quxlang::to_string(inst.what) + " " + to_string_internal(inst.args);
+    }
+
+    std::string assembler::to_string_internal(vmir2::storage_pun inst)
+    {
+        return "STORAGE_PUN %" + std::to_string(inst.from_storage) + " AS " + quxlang::to_string(inst.as_type) + " -> %" + std::to_string(inst.to_reference);
+    }
+
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
         std::string result = "ACCESS_FIELD %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;

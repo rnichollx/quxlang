@@ -208,6 +208,24 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_typecast, expr, to_type, keyword);
     };
 
+    struct expression_pun
+    {
+        expression value;
+        type_symbol as_type;
+
+        RPNX_MEMBER_METADATA(expression_pun, value, as_type);
+    };
+
+    struct expression_place
+    {
+        expression at;
+        type_symbol type;
+        std::optional< expression > assign_init;
+        std::vector< expression_arg > args;
+
+        RPNX_MEMBER_METADATA(expression_place, at, type, assign_init, args);
+    };
+
     struct expression_static_choose
     {
         expression condition;

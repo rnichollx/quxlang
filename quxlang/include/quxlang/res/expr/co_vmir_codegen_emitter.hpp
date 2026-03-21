@@ -25,6 +25,7 @@
 #include <quxlang/res/constexpr.hpp>
 
 #include <assert.h>
+#include <set>
 #include <quxlang/macros.hpp>
 
 namespace quxlang
@@ -408,6 +409,109 @@ namespace quxlang
             storage.local_index = local_index(this->state.locals.size() - 1);
             this->state.genvalues.push_back(storage);
             return value_index(this->state.genvalues.size() - 1);
+        }
+
+        auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< instanciation_reference >
+        {
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
+
+            auto kind = (co_await prv.symbol_type(func));
+            if (kind != symbol_kind::functum)
+            {
+                throw std::logic_error("Expected functum symbol " + to_string(func));
+            }
+
+            auto instanciation = co_await prv.instanciation(functanoid_unnormalized);
+            if (!instanciation)
+            {
+                throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
+            }
+
+            co_return *instanciation;
+        }
+
+        auto adapt_args_for_instanciation(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, std::set< std::string > skip_named = {}) -> typename CoroutineProvider::template co_type< codegen_invocation_args >
+        {
+            codegen_invocation_args invocation_args;
+
+            auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> typename CoroutineProvider::template co_type< value_index >
+            {
+                auto arg_expr_type = this->current_type(bidx, arg_expr_index);
+                bool arg_alive = this->value_alive(bidx, arg_expr_index);
+
+                if (arg_expr_type == arg_target_type)
+                {
+                    co_return arg_expr_index;
+                }
+
+                if (!arg_alive)
+                {
+                    assert(typeis< nvalue_slot >(arg_expr_type));
+                }
+
+                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, parameter_init_kind::call);
+            };
+
+            for (auto const& [name, arg_accepted_type] : what.params.named)
+            {
+                if (skip_named.contains(name))
+                {
+                    continue;
+                }
+
+                auto arg_expr_index = expression_args.named.at(name);
+                invocation_args.named[name] = co_await create_arg_value(arg_expr_index, arg_accepted_type);
+            }
+
+            std::size_t positional_write = 0;
+            for (std::size_t i = 0; i < what.params.positional.size(); i++)
+            {
+                auto arg_accepted_type = what.params.positional.at(i);
+                auto arg_expr_index = expression_args.positional.at(positional_write++);
+                invocation_args.positional.push_back(co_await create_arg_value(arg_expr_index, arg_accepted_type));
+            }
+
+            co_return invocation_args;
+        }
+
+        auto expect_storage_reference(block_index bidx, value_index storage_ref, bool require_mut, std::optional< type_symbol > projected_type = std::nullopt) -> ptrref_type
+        {
+            auto storage_ref_type = this->current_type(bidx, storage_ref);
+            if (!is_ref(storage_ref_type))
+            {
+                throw std::logic_error("Expected a storage reference");
+            }
+
+            auto ref_type = as< ptrref_type >(storage_ref_type);
+            if (require_mut && ref_type.qual != qualifier::mut)
+            {
+                throw std::logic_error("Expected MUT& STORAGE for storage mutation");
+            }
+
+            auto storage_type = remove_ref(storage_ref_type);
+            if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type))
+            {
+                throw std::logic_error("Expected a storage-typed reference");
+            }
+
+            if (projected_type.has_value() && typeis< storage >(storage_type))
+            {
+                bool allowed = false;
+                for (auto const& allowed_type : as< storage >(storage_type).storable_types)
+                {
+                    if (allowed_type == *projected_type)
+                    {
+                        allowed = true;
+                        break;
+                    }
+                }
+                if (!allowed)
+                {
+                    throw std::logic_error("Projected type is not permitted by storage type");
+                }
+            }
+
+            return ref_type;
         }
 
         auto local_value_direct_lookup(block_index bidx, std::string str) -> std::optional< value_index >
@@ -2151,6 +2255,59 @@ namespace quxlang
             co_return val;
         }
 
+        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            expect_storage_reference(bidx, storage_ref, true, target_type);
+
+            auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
+
+            codegen_invocation_args ctor_args;
+            invotype calltype;
+            calltype.named["THIS"] = nvalue_slot{target_type};
+
+            if (assign_init.has_value())
+            {
+                auto init_val = co_await co_generate_expr(bidx, *assign_init);
+                ctor_args.named["OTHER"] = init_val;
+                calltype.named["OTHER"] = this->current_type(bidx, init_val);
+            }
+            else
+            {
+                for (auto const& arg : args_in)
+                {
+                    auto arg_val = co_await co_generate_expr(bidx, arg.value);
+                    if (arg.name.has_value())
+                    {
+                        ctor_args.named[*arg.name] = arg_val;
+                        calltype.named[*arg.name] = this->current_type(bidx, arg_val);
+                    }
+                    else
+                    {
+                        ctor_args.positional.push_back(arg_val);
+                        calltype.positional.push_back(this->current_type(bidx, arg_val));
+                    }
+                }
+            }
+
+            auto inst = co_await resolve_functum_instanciation(bidx, constructor, calltype, parameter_init_kind::call);
+            auto adapted_args = co_await adapt_args_for_instanciation(bidx, inst, ctor_args, {"THIS"});
+
+            auto result_pointer = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            this->emit(bidx, vmir2::storage_constructor_invoke{
+                                  .on_storage = get_local_index(storage_ref),
+                                  .what = inst,
+                                  .args = get_invocation_args(adapted_args),
+                                  .result_pointer = get_local_index(result_pointer)});
+            co_return result_pointer;
+        }
+
+        auto co_generate_place_expression(block_index& bidx, expression const& at_expr, type_symbol const& parsed_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto target_type = co_await co_lookup_typeclass(bidx, parsed_type);
+            auto storage_ref = co_await co_generate_expr(bidx, at_expr);
+            co_return co_await co_generate_place_expression_impl(bidx, storage_ref, target_type, assign_init, args_in);
+        }
+
         auto co_generate(block_index& bidx, expression_typecast input) -> typename CoroutineProvider::template co_type< value_index >
         {
             // Conversions call the destination type's constructor with a named argument.
@@ -2165,6 +2322,21 @@ namespace quxlang
             args.named[name] = arg_val;
 
             co_return co_await co_gen_call_ctor(bidx, target_class, args);
+        }
+
+        auto co_generate(block_index& bidx, expression_pun input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto storage_ref = co_await co_generate_expr(bidx, input.value);
+            auto target_type = co_await co_lookup_typeclass(bidx, input.as_type);
+            auto storage_ref_type = expect_storage_reference(bidx, storage_ref, false, target_type);
+            auto result_ref = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
+            this->emit(bidx, vmir2::storage_pun{.from_storage = get_local_index(storage_ref), .as_type = target_type, .to_reference = get_local_index(result_ref)});
+            co_return result_ref;
+        }
+
+        auto co_generate(block_index& bidx, expression_place input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            co_return co_await co_generate_place_expression(bidx, input.at, input.type, input.assign_init, input.args);
         }
 
         auto co_generate(block_index& bidx, expression_unary_postfix input) -> typename CoroutineProvider::template co_type< value_index >
@@ -2441,8 +2613,19 @@ namespace quxlang
                 args.named["OTHER"] = init_idx;
             }
 
-            auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
-            co_await this->co_gen_call_functum(new_expr_block, ctor, args);
+            if (typeis< storage >(var_type) || typeis< aligned_storage >(var_type))
+            {
+                if (!st.initializers.empty() || st.equals_initializer.has_value())
+                {
+                    throw std::logic_error("STORAGE variables do not support direct initializers");
+                }
+                this->emit(new_expr_block, vmir2::storage_init{.storage = get_local_index(idx)});
+            }
+            else
+            {
+                auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
+                co_await this->co_gen_call_functum(new_expr_block, ctor, args);
+            }
 
             auto class_default_dtor = co_await prv.class_default_dtor(var_type);
             if (class_default_dtor)
@@ -3654,12 +3837,65 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_place_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            throw rpnx::unimplemented();
+            auto storage_ref = co_await co_generate_expr(current_block, st.at);
+            auto storage_ref_type = this->current_type(current_block, storage_ref);
+            auto storage_type = remove_ref(storage_ref_type);
+
+            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
+            {
+                this->emit(current_block, vmir2::unimplemented{.message = "PLACE AT on non-storage locations"});
+                co_return;
+            }
+
+            auto target_type = co_await co_lookup_typeclass(current_block, st.type);
+            auto ignored = co_await co_generate_place_expression_impl(current_block, storage_ref, target_type, st.assign_init, st.args);
+            (void)ignored;
+            co_return;
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_destroy_statement const& st) -> typename CoroutineProvider::template co_type< void >
         {
-            throw rpnx::unimplemented();
+            auto storage_ref = co_await co_generate_expr(current_block, st.at);
+            auto storage_ref_type = this->current_type(current_block, storage_ref);
+            auto storage_type = remove_ref(storage_ref_type);
+
+            if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
+            {
+                this->emit(current_block, vmir2::unimplemented{.message = "DESTROY AT on non-storage locations"});
+                co_return;
+            }
+
+            auto target_type = co_await co_lookup_typeclass(current_block, st.type);
+            expect_storage_reference(current_block, storage_ref, true, target_type);
+
+            auto destructor = submember{.of = target_type, .name = "DESTRUCTOR"};
+
+            codegen_invocation_args dtor_args;
+            invotype calltype;
+            calltype.named["THIS"] = dvalue_slot{target_type};
+
+            for (auto const& arg : st.args)
+            {
+                auto arg_val = co_await co_generate_expr(current_block, arg.value);
+                if (arg.name.has_value())
+                {
+                    dtor_args.named[*arg.name] = arg_val;
+                    calltype.named[*arg.name] = this->current_type(current_block, arg_val);
+                }
+                else
+                {
+                    dtor_args.positional.push_back(arg_val);
+                    calltype.positional.push_back(this->current_type(current_block, arg_val));
+                }
+            }
+
+            auto inst = co_await resolve_functum_instanciation(current_block, destructor, calltype, parameter_init_kind::call);
+            auto adapted_args = co_await adapt_args_for_instanciation(current_block, inst, dtor_args, {"THIS"});
+            this->emit(current_block, vmir2::storage_destructor_invoke{
+                                   .on_storage = get_local_index(storage_ref),
+                                   .what = inst,
+                                   .args = get_invocation_args(adapted_args)});
+            co_return;
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> typename CoroutineProvider::template co_type< void >

@@ -83,6 +83,70 @@ namespace quxlang::parsers
         {
             output = byte_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "STORAGE"))
+        {
+            storage result;
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after STORAGE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                while (true)
+                {
+                    result.storable_types.insert(parse_type_symbol(pos, end));
+                    skip_whitespace_and_comments(pos, end);
+                    if (skip_symbol_if_is(pos, end, ","))
+                    {
+                        skip_whitespace_and_comments(pos, end);
+                        continue;
+                    }
+                    if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+                    throw std::logic_error("Expected ',' or ')' after STORAGE type list");
+                }
+            }
+
+            if (result.storable_types.empty())
+            {
+                throw std::logic_error("STORAGE requires at least one type");
+            }
+
+            output = result;
+        }
+        else if (skip_keyword_if_is(pos, end, "ALIGNED_STORAGE"))
+        {
+            aligned_storage result;
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after ALIGNED_STORAGE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.size = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after ALIGNED_STORAGE size");
+            }
+            skip_whitespace_and_comments(pos, end);
+            result.align = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after ALIGNED_STORAGE(size, align)");
+            }
+
+            output = result;
+        }
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = *int_kw;

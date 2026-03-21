@@ -324,6 +324,93 @@ namespace quxlang::vmir2
             }
             check_state_valid();
         }
+        void apply_internal(vmir2::storage_init const& sin)
+        {
+            output(sin.storage);
+        }
+        void apply_internal(vmir2::storage_constructor_invoke const& inv)
+        {
+            consume(inv.on_storage);
+
+            auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
+
+            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            {
+                auto const arg_idx = inv.args.positional[index];
+                auto const& arg_inst_type = ivk_func_inst.params.positional.at(index);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(arg_idx);
+                }
+                else
+                {
+                    consume(arg_idx);
+                }
+            }
+
+            for (auto const& [name, index] : inv.args.named)
+            {
+                if (name == "THIS")
+                {
+                    continue;
+                }
+
+                auto const& arg_inst_type = ivk_func_inst.params.named.at(name);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(index);
+                }
+                else
+                {
+                    consume(index);
+                }
+            }
+
+            output(inv.result_pointer);
+        }
+        void apply_internal(vmir2::storage_destructor_invoke const& inv)
+        {
+            consume(inv.on_storage);
+
+            auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
+
+            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            {
+                auto const arg_idx = inv.args.positional[index];
+                auto const& arg_inst_type = ivk_func_inst.params.positional.at(index);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(arg_idx);
+                }
+                else
+                {
+                    consume(arg_idx);
+                }
+            }
+
+            for (auto const& [name, index] : inv.args.named)
+            {
+                if (name == "THIS")
+                {
+                    continue;
+                }
+
+                auto const& arg_inst_type = ivk_func_inst.params.named.at(name);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(index);
+                }
+                else
+                {
+                    consume(index);
+                }
+            }
+        }
+        void apply_internal(vmir2::storage_pun const& spn)
+        {
+            consume(spn.from_storage);
+            output(spn.to_reference);
+        }
         void apply_internal(vmir2::make_reference const& mrf)
         {
             readonly(mrf.value_index);

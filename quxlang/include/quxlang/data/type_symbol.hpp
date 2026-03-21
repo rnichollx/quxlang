@@ -4,13 +4,13 @@
 #define QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 
 #include "numeric_literal.hpp"
-#include <rpnx/macros.hpp>
 #include "rpnx/variant.hpp"
 #include <compare>
 #include <map>
+#include <set>
 #include <rpnx/compare.hpp>
+#include <rpnx/macros.hpp>
 #include <rpnx/resolver_utilities.hpp>
-#include <vector>
 
 #include <quxlang/data/fwd.hpp>
 
@@ -355,9 +355,17 @@ namespace quxlang
 
     struct storage
     {
-        type_symbol storable_type;
+        std::set< type_symbol > storable_types;
 
-        RPNX_MEMBER_METADATA(storage, storable_type);
+        RPNX_MEMBER_METADATA(storage, storable_types);
+    };
+
+    struct aligned_storage
+    {
+        expression size;
+        expression align;
+
+        RPNX_MEMBER_METADATA(aligned_storage, size, align);
     };
 
     std::string to_string(type_symbol const&);

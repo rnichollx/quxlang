@@ -315,6 +315,17 @@ namespace quxlang
         {
             return ref;
         }
+        else if (ref.type_is< storage >())
+        {
+            for (auto const& stored_type : as< storage >(ref).storable_types)
+            {
+                if (auto root = get_root_module(stored_type); root.has_value())
+                {
+                    return root;
+                }
+            }
+            return std::nullopt;
+        }
         else if (auto parent = type_parent(ref); !parent.has_value())
         {
             return std::nullopt;
@@ -330,6 +341,17 @@ namespace quxlang
         if (ref.type_is< context_reference >() || ref.type_is< freebound_identifier >())
         {
             return true;
+        }
+        else if (ref.type_is< storage >())
+        {
+            for (auto const& stored_type : as< storage >(ref).storable_types)
+            {
+                if (type_is_contextual(stored_type))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
         else if (auto parent = type_parent(ref); !parent.has_value())
         {

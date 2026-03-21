@@ -272,6 +272,89 @@ namespace quxlang::parsers
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
         }
+        else if (skip_keyword_if_is(pos, end, "PUN"))
+        {
+            expression_pun pun_expr;
+            skip_whitespace_and_comments(pos, end);
+            auto parsed_value = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "AS"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                auto as_type = try_parse_type_symbol(pos, end);
+                if (!as_type)
+                {
+                    throw std::logic_error("Expected type after PUN ... AS");
+                }
+                pun_expr.value = std::move(parsed_value);
+                pun_expr.as_type = *as_type;
+            }
+            else if (parsed_value.template type_is< expression_typecast >() && !parsed_value.template get_as< expression_typecast >().keyword.has_value())
+            {
+                auto cast_expr = parsed_value.template get_as< expression_typecast >();
+                pun_expr.value = std::move(cast_expr.expr);
+                pun_expr.as_type = std::move(cast_expr.to_type);
+            }
+            else
+            {
+                throw std::logic_error("Expected 'AS <type>' after PUN expression");
+            }
+            *value_bind_point = std::move(pun_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "PLACE"))
+        {
+            expression_place place_expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "AT"))
+            {
+                throw std::logic_error("Expected 'AT' after 'PLACE'");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after PLACE AT");
+            }
+            skip_whitespace_and_comments(pos, end);
+            place_expr.at = parse_expression(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after PLACE AT(location expression)");
+            }
+            skip_whitespace_and_comments(pos, end);
+            place_expr.type = parse_type_symbol(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, ":("))
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    while (true)
+                    {
+                        skip_whitespace_and_comments(pos, end);
+                        place_expr.args.push_back(parse_expression_arg(pos, end));
+                        skip_whitespace_and_comments(pos, end);
+                        if (skip_symbol_if_is(pos, end, ","))
+                        {
+                            continue;
+                        }
+                        if (skip_symbol_if_is(pos, end, ")"))
+                        {
+                            break;
+                        }
+                        throw std::logic_error("Expected ',' or ')' in PLACE args");
+                    }
+                }
+            }
+            else if (skip_symbol_if_is(pos, end, ":="))
+            {
+                skip_whitespace_and_comments(pos, end);
+                place_expr.assign_init = parse_expression(pos, end);
+            }
+            *value_bind_point = std::move(place_expr);
+            have_anything = true;
+        }
         else if (auto num_str = parse_int(pos, end); !num_str.empty())
         {
             expression_numeric_literal num;
