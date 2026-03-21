@@ -474,7 +474,7 @@ namespace quxlang
             co_return invocation_args;
         }
 
-        auto expect_storage_reference(block_index bidx, value_index storage_ref, bool require_mut, std::optional< type_symbol > projected_type = std::nullopt) -> ptrref_type
+        auto co_expect_storage_reference(block_index bidx, value_index storage_ref, bool require_mut, std::optional< type_symbol > projected_type = std::nullopt) -> typename CoroutineProvider::template co_type< ptrref_type >
         {
             auto storage_ref_type = this->current_type(bidx, storage_ref);
             if (!is_ref(storage_ref_type))
@@ -510,8 +510,17 @@ namespace quxlang
                     throw std::logic_error("Projected type is not permitted by storage type");
                 }
             }
+            else if (projected_type.has_value() && typeis< aligned_storage >(storage_type))
+            {
+                auto projected_placement = co_await prv.type_placement_info(*projected_type);
+                auto storage_placement = co_await prv.type_placement_info(storage_type);
+                if (projected_placement.size > storage_placement.size || projected_placement.alignment > storage_placement.alignment)
+                {
+                    throw std::logic_error("Projected type does not fit in aligned storage");
+                }
+            }
 
-            return ref_type;
+            co_return ref_type;
         }
 
         auto local_value_direct_lookup(block_index bidx, std::string str) -> std::optional< value_index >
@@ -2257,7 +2266,7 @@ namespace quxlang
 
         auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> typename CoroutineProvider::template co_type< value_index >
         {
-            expect_storage_reference(bidx, storage_ref, true, target_type);
+            co_await co_expect_storage_reference(bidx, storage_ref, true, target_type);
 
             auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
 
@@ -2328,7 +2337,7 @@ namespace quxlang
         {
             auto storage_ref = co_await co_generate_expr(bidx, input.value);
             auto target_type = co_await co_lookup_typeclass(bidx, input.as_type);
-            auto storage_ref_type = expect_storage_reference(bidx, storage_ref, false, target_type);
+            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, false, target_type);
             auto result_ref = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
             this->emit(bidx, vmir2::storage_pun{.from_storage = get_local_index(storage_ref), .as_type = target_type, .to_reference = get_local_index(result_ref)});
             co_return result_ref;
@@ -3873,7 +3882,7 @@ namespace quxlang
             }
 
             auto target_type = co_await co_lookup_typeclass(current_block, st.type);
-            expect_storage_reference(current_block, storage_ref, true, target_type);
+            co_await co_expect_storage_reference(current_block, storage_ref, true, target_type);
 
             auto destructor = submember{.of = target_type, .name = "DESTRUCTOR"};
 

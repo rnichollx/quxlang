@@ -258,6 +258,18 @@ IMPORT foolib;
   RETURN 9;
 }
 
+::aligned_storage_baz FUNCTION()
+{
+      VAR slot ALIGNED_STORAGE(4, 4);
+      VAR a -> ->I32 := PLACE AT(slot) ->I32;
+}
+
+::storage_wrong_type_baz FUNCTION()
+{
+      VAR slot STORAGE(buz);
+      VAR a ->yak := PLACE AT(slot) yak;
+}
+
 ::buz_x FUNCTION(%b CONST& buz): I32
 {
   RETURN b.x;

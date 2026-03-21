@@ -869,6 +869,26 @@ TEST(quxlang, storage_type_lookup)
     ASSERT_EQ(quxlang::to_string(*resolved), "STORAGE(MODULE(main)::buz, MODULE(main)::yak)");
 }
 
+TEST(quxlang, storage_type_validation)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto expect_compile_failure = [&](std::string const& function_name)
+    {
+        auto func_name = quxlang::parsers::parse_type_symbol("MODULE(main)::" + function_name + " #{}");
+        func_name = quxlang::with_context(func_name, mainmodule);
+        auto tempname = temp_output_file();
+        EXPECT_THROW(c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), tempname), std::logic_error);
+    };
+
+    expect_compile_failure("aligned_storage_baz");
+    expect_compile_failure("storage_wrong_type_baz");
+}
+
 #include <quxlang/fixed_bytemath.hpp>
 
 TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
