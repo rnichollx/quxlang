@@ -192,6 +192,12 @@ functums and are not aggregated together.
 
 #### 2.2.2 Call Procedure
 
+A functum call is the full procedure of evaluating prearguments, selecting a function, performing any argument
+adaptations required by the selected parameter types, and then invoking the selected functanoid. An invocation is the
+exact-passing step of that procedure: it passes the arguments as-is, and therefore requires the argument types to
+already match the parameter types exactly, except that a `->T` argument may be passed directly to a `NEW&& T` or
+`DESTROY&& T` parameter to designate the storage governed by that slot.
+
 A functum call contains the following steps:
 
 1. Evaluation of each *preargument expression*, in the order they appear from left to right, to construct the  
@@ -224,10 +230,56 @@ A functum call contains the following steps:
     deterministically from the whole program source, such as a cryptographic hash of the source code. It is not
     permitted for internal concurrency of the compiler to affect the selection of PICKANY functions.
 
+##### 2.2.2.1 Better-Fit Ordering
+
+For overloads of the same numerical priority, a candidate function `F` is a better-fit than a candidate function `G`
+if at least one corresponding argument adaptation of `F` is better-ranked than the corresponding argument adaptation of
+`G`, and no corresponding argument adaptation of `F` is worse-ranked than the corresponding argument adaptation of `G`.
+Here, a lesser rank number is better-ranked and a greater rank number is worse-ranked.
+
+Explicit conversions are not permitted during argument adaptation and are therefore not considered in better-fit
+ordering.
+
+The conversion ranks are as follows:
+
+From value:
+
+1. Identity (no conversion): `t -> t`
+2. Temporary materialization: `t -> TEMP& t`
+3. Direct templating match: `t -> [template match]`
+4. Temporary-materialization templating match: `t -> TEMP& T -> [template match]`
+5. Const materialization: `t -> CONST& t`
+6. Const-materialization templating match: `t -> CONST& t -> [template match]`
+7. User-declared binding conversions, if supported
+8. Implicit non-binding conversions
+
+From reference:
+
+1. Identity (no conversion): `QUAL& t -> QUAL& t`
+2. Direct templating match: `QUAL& t -> [template match]`
+3. Allowed reference requalification: `QUAL1& t -> QUAL2& t`, if `QUAL1` is qualification-convertible to `QUAL2`
+4. Direct reference objectization from `TEMP&`: `TEMP& t -> t`
+5. Direct reference objectization from `TEMP&` to template: `TEMP& t -> t -> [template match]`
+6. Direct reference objectization from `CONST&`: `CONST& t -> t`
+7. Indirect reference objectization from `CONST&`: `QUAL& t -> CONST& t -> t`
+8. Direct reference objectization from `CONST&` to template: `CONST& t -> t -> [template match]`
+9. Indirect reference objectization from `CONST&` to template: `QUAL& t -> CONST& t -> t -> [template match]`
+10. User-declared binding conversions, if supported
+11. Implicit non-binding conversions
+
+Reference objectization is defined to use either `TEMP& t` or `CONST& t` as the effective source reference type.
+Other reference types participate only if they are implicitly reference-requalifiable to one of those effective source
+reference types. Under the current implicit reference-requalification rules, there is no indirect conversion path to
+`TEMP& t`, so the only indirect reference-objectization path is through `CONST& t`.
+
 #### 2.2.3 Function Selection
 
 When a functum is called, the abstract machine selects the function to invoke based on the types of the prearguments of
-the call.
+the call. After selection, the call procedure performs any required argument adaptations before the selected function is
+invoked. If no argument adaptations are required, then the call's invocation passes the arguments as-is. The only
+sanctioned invocation-time type mismatch is the slot-pointer rule for `NEW&& T` and `DESTROY&& T`, where an argument of
+type `->T` may be passed directly to the slot parameter without conversion. This is the only case in which the runtime
+argument type supplied to a functanoid invocation may differ from the functanoid's parameter type.
 
 ### Function Return
 
@@ -383,7 +435,4 @@ and destructor unless the object is `RELOCATABLE`. There are 3 categories of rel
 * `RELOCATABLE`: Can be relocated using `.RELOCATE`.
 
 Of these, `TRIVIALLY_RELOCATABLE` and `POSTHOC_RELOCATABLE` allow bypassing pointer indirection in function call ABIs.
-
-
-
 

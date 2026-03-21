@@ -24,6 +24,7 @@ NEW&& and DESTROY&& are slot types, not reference types. They describe how argum
 - A function may declare parameters of slot type. At runtime, the slot governs a callee-local ordinary local (of the parameter's target type), but there is no distinct "reference object" created to model the transfer.
 - Slots behave reference-like in that control of the lifetime/initialization of a callee-local is transferred from the caller to the callee without materializing a separate reference value.
 - Slots compose with references. For example, `NEW&& &I32` is a valid parameter type and means the callee receives a slot governing a reference-to-I32 local.
+- During invocation, a `NEW&& T` or `DESTROY&& T` parameter may be supplied by a raw placement pointer argument of type `->T`. This is the slot-parameter exception to exact invocation and is used for placement-style constructor and destructor entry points such as `THIS`.
 
 Semantics at function entry/exit (normal):
 - NEW&& T: At entry, the callee has storage for a local of type `T` in S-state. On normal return, that local must be fully constructed (A-state). On exception exit, storage remains valid (S-state) but the value need not be constructed.
@@ -64,7 +65,6 @@ The `SCN` instruction completes delegated construction. It supports two cases:
 - DP -> DA: when the target local is itself a delegate (delegate_of is set) and has delegates, SCN transitions the target from DP-state to DA-state.
 
 In both cases, each bound delegate of the target is transitioned to discarded (no destructors are invoked during SCN), and the target’s delegate list is cleared. It is invalid to execute `SCN` when the target does not have initialized delegates or when any of its delegates are not in DA-state.
-
 
 
 

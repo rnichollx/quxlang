@@ -98,6 +98,8 @@ namespace quxlang
         COMPILER_INDEX(extern_linksymbol)
         COMPILER_INDEX(exists)
         COMPILER_INDEX(ensig_argument_initialize)
+        COMPILER_INDEX(argument_adaptation_rank)
+        COMPILER_INDEX(argument_adaptation_is_better_fit)
         COMPILER_INDEX(functanoid_parameter_map)
         COMPILER_INDEX(functanoid_return_type)
         COMPILER_INDEX(functum_builtin_overloads)
@@ -176,7 +178,7 @@ namespace quxlang
         COMPILER_INDEX(implicitly_convertible_to);
         COMPILER_INDEX(bindable);
         COMPILER_INDEX(bindable_by_temporary_materialization);
-        COMPILER_INDEX(bindable_by_argument_construction);
+        COMPILER_INDEX(bindable_by_reference_objectization);
         COMPILER_INDEX(bindable_by_reference_requalification);
         COMPILER_INDEX(module_sources);
         COMPILER_INDEX(user_serialize_exists)
@@ -210,4 +212,3 @@ namespace quxlang
 } // namespace quxlang
 
 #endif // QUXLANG_COMPILER_HEADER_GUARD
-

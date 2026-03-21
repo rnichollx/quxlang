@@ -64,6 +64,159 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(implicitly_convertible_to)
     co_return false;
 }
 
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
+{
+    auto from = input.from;
+    auto to = input.to;
+    auto init_kind = input.init_kind;
+
+    assert(init_kind != parameter_init_kind::none);
+
+    if (typeis< attached_type_reference >(from))
+    {
+        from = as< attached_type_reference >(from).carrying_type;
+    }
+
+    if (from == to)
+    {
+        co_return 1;
+    }
+
+    auto nonbinding_rank = [&]() -> std::size_t {
+        return is_ref(from) ? 11 : 8;
+    };
+
+    if (!is_ref(from))
+    {
+        if (is_temp_ref(to) && remove_ref(to) == from)
+        {
+            co_return 2;
+        }
+
+        if (is_template(to) && match_template(to, from).has_value())
+        {
+            co_return 3;
+        }
+
+        auto temp_match = make_tref(from);
+        if (is_template(to) && match_template(to, temp_match).has_value())
+        {
+            co_return 4;
+        }
+
+        if (is_const_ref(to) && remove_ref(to) == from)
+        {
+            co_return 5;
+        }
+
+        auto const_match = make_cref(from);
+        if (is_template(to) && match_template(to, const_match).has_value())
+        {
+            co_return 6;
+        }
+
+        auto builtin_binding = co_await QUX_CO_DEP(bindable, (implicitly_convertible_to_query{.from = from, .to = to}));
+        if (builtin_binding)
+        {
+            co_return 7;
+        }
+    }
+    else
+    {
+        if (is_template(to) && match_template(to, from).has_value())
+        {
+            co_return 2;
+        }
+
+        auto ref_requal = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = to}));
+        if (ref_requal)
+        {
+            co_return 3;
+        }
+
+        auto unbound_from = remove_ref(from);
+
+        if (!is_ref(to) && remove_ref(to) == unbound_from)
+        {
+            auto ref_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = to}));
+            if (ref_objectization)
+            {
+                if (is_temp_ref(from))
+                {
+                    co_return 4;
+                }
+                if (is_const_ref(from))
+                {
+                    co_return 6;
+                }
+                co_return 7;
+            }
+        }
+
+        if (is_template(to))
+        {
+            auto objectized_match = match_template(to, unbound_from);
+            if (objectized_match.has_value() && !is_ref(objectized_match->type))
+            {
+                auto ref_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = objectized_match->type}));
+                if (ref_objectization)
+                {
+                    if (is_temp_ref(from))
+                    {
+                        co_return 5;
+                    }
+                    if (is_const_ref(from))
+                    {
+                        co_return 8;
+                    }
+                    co_return 9;
+                }
+            }
+        }
+
+        auto builtin_binding = co_await QUX_CO_DEP(bindable, (implicitly_convertible_to_query{.from = from, .to = to}));
+        if (builtin_binding)
+        {
+            co_return 10;
+        }
+    }
+
+    auto adapted = co_await QUX_CO_DEP(ensig_argument_initialize, (argument_init_query{.from = from, .to = to, .init_kind = init_kind}));
+    if (adapted.has_value())
+    {
+        co_return nonbinding_rank();
+    }
+
+    co_return std::nullopt;
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_is_better_fit)
+{
+    auto better_rank = co_await QUX_CO_DEP(argument_adaptation_rank, (argument_init_query{
+        .from = input.from,
+        .to = input.better_to,
+        .init_kind = input.init_kind,
+    }));
+
+    if (!better_rank.has_value())
+    {
+        co_return false;
+    }
+
+    auto worse_rank = co_await QUX_CO_DEP(argument_adaptation_rank, (argument_init_query{
+        .from = input.from,
+        .to = input.worse_to,
+        .init_kind = input.init_kind,
+    }));
+
+    if (!worse_rank.has_value())
+    {
+        co_return false;
+    }
+
+    co_return *better_rank < *worse_rank;
+}
+
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
 {
     type_symbol from = input.from;
@@ -94,6 +247,13 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
 
     assert(input.init_kind != parameter_init_kind::none);
 
+    if (from == to)
+    {
+        // Identity initialization
+        std::cout << "   Ensig Arg OK(" << from_str << " to " << to_str << ") (exact match)" << std::endl;
+        co_return to;
+    }
+
     if (is_template(to))
     {
         auto match = match_template(to, from);
@@ -102,43 +262,31 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
             std::cout << "   Convertible: " << from_str << " to " << to_str << std::endl;
             co_return match.value().type;
         }
-        else
-        {
-            std::cout << "   Not convertible: " << from_str << " to " << to_str << std::endl;
-            co_return std::nullopt;
-        }
     }
 
-    if (from == to)
-    {
-        // Identity initialization
-        std::cout << "   Ensig Arg OK(" << from_str << " to " << to_str << ") (exact match)" << std::endl;
-        co_return to;
-    }
-
-    // if a type can be bound by argument conversion, then it's implicitly convertible.
-    // We skip this check if we're already in argument construction,
+    // if a type can be bound by reference objectization, then it's implicitly convertible.
+    // We skip this check if we're already in reference objectization,
     // otherwise it would produce infinite recursion.
     if (init_kind != parameter_init_kind::bind_only)
     {
         std::cout << "  Checking argument conversion: " << from_str << " to " << to_str << std::endl;
-        auto bindable_by_arg_construction = co_await QUX_CO_DEP(bindable_by_argument_construction, (implicitly_convertible_to_query{.from = from, .to = to}));
-        if (bindable_by_arg_construction)
+        auto bindable_by_ref_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = to}));
+        if (bindable_by_ref_objectization)
         {
-            std::cout << "Found bindable by argument construction: " << from_str << " to " << to_str << std::endl;
+            std::cout << "Found bindable by reference objectization: " << from_str << " to " << to_str << std::endl;
             co_return to;
         }
         else
         {
-            std::cout << "Not bindable by argument construction: " << from_str << " to " << to_str << std::endl;
+            std::cout << "Not bindable by reference objectization: " << from_str << " to " << to_str << std::endl;
         }
     }
     else
     {
-        std::cout << "Not checking argument conversion during argument construction: " << from_str << " to " << to_str << std::endl;
+        std::cout << "Not checking argument conversion during reference objectization: " << from_str << " to " << to_str << std::endl;
     }
 
-    // even during argument construction, we can rebind reference qualifiers
+    // even during reference objectization, we can rebind reference qualifiers
     auto bindable_by_ref_qual = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = to}));
     if (bindable_by_ref_qual)
     {
@@ -162,6 +310,37 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
         std::cout << "Not bindable by temporary materialization: " << from_str << " to " << to_str << std::endl;
     }
 
+    if (is_template(to) && !is_ref(from))
+    {
+        auto temp_materialized_match = match_template(to, make_tref(from));
+        if (temp_materialized_match.has_value())
+        {
+            std::cout << "Found bindable by temporary materialization via template: " << from_str << " to " << to_str << std::endl;
+            co_return temp_materialized_match->type;
+        }
+
+        auto const_materialized_match = match_template(to, make_cref(from));
+        if (const_materialized_match.has_value())
+        {
+            std::cout << "Found bindable by const materialization via template: " << from_str << " to " << to_str << std::endl;
+            co_return const_materialized_match->type;
+        }
+    }
+
+    if (is_template(to) && is_ref(from))
+    {
+        auto objectized_match = match_template(to, remove_ref(from));
+        if (objectized_match.has_value() && !is_ref(objectized_match->type))
+        {
+            auto bindable_by_objectization = co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = objectized_match->type}));
+            if (bindable_by_objectization)
+            {
+                std::cout << "Found bindable by reference objectization via template: " << from_str << " to " << to_str << std::endl;
+                co_return objectized_match->type;
+            }
+        }
+    }
+
     // Otherwise, unless this is a conversion, we can test if the type is convertible by constructor call
     if (init_kind != parameter_init_kind::implicit_conversion && init_kind != parameter_init_kind::bind_only)
     {
@@ -179,7 +358,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
     }
     else
     {
-        std::cout << "Not checking convertible by call during conversion/argument construction: " << from_str << " to " << to_str << std::endl;
+        std::cout << "Not checking convertible by call during conversion/reference objectization: " << from_str << " to " << to_str << std::endl;
     }
 
     if (typeis< attached_type_reference >(from))
@@ -231,8 +410,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable)
 
     if (is_ref(from) && !is_ref(to))
     {
-        // Arugument construction binding
-        co_return co_await QUX_CO_DEP(bindable_by_argument_construction, (implicitly_convertible_to_query{.from = from, .to = to}));
+        // Reference objectization binding
+        co_return co_await QUX_CO_DEP(bindable_by_reference_objectization, (implicitly_convertible_to_query{.from = from, .to = to}));
     }
 
     co_return false;
@@ -273,34 +452,55 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_temporary_materialization)
     co_return okay.has_value();
 }
 
-QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_argument_construction)
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(bindable_by_reference_objectization)
 {
     auto const& from = input.from;
     auto const& to = input.to;
 
     if (remove_ref(to) != remove_ref(from) || is_ref(to) || !is_ref(from))
     {
-        std::cout << " Not bindable by argument construction (type or ref mismatch): " << to_string(from) << " to " << to_string(to) << std::endl;
+        std::cout << " Not bindable by reference objectization (type or ref mismatch): " << to_string(from) << " to " << to_string(to) << std::endl;
         co_return false;
     }
 
     auto constructor_functum = submember{.of = to, .name = "CONSTRUCTOR"};
+    auto target_temp_ref = make_tref(to);
+    auto target_const_ref = make_cref(to);
 
-    std::cout << " Checking bindable by argument construction: "<<  to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
+    std::cout << " Checking bindable by reference objectization: "<<  to_string(from) << " to " << to_string(to) << " via " << to_string(constructor_functum) << std::endl;
 
-    auto init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{.initializee = constructor_functum, .parameters = {.named = {{"OTHER", from}, {"THIS", nvalue_slot{.target = to}}}}, .init_kind = parameter_init_kind::bind_only}));
-
-    if (!init.has_value())
+    bool temp_bindable = false;
+    auto temp_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_temp_ref}));
+    if (temp_requalifiable)
     {
-        std::cout << "  Not bindable by argument construction (init failed): " << to_string(from) << " to " << to_string(to) << std::endl;
+        auto temp_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{
+            .initializee = constructor_functum,
+            .parameters = {.named = {{"OTHER", target_temp_ref}, {"THIS", nvalue_slot{.target = to}}}},
+            .init_kind = parameter_init_kind::bind_only}));
+        temp_bindable = temp_init.has_value();
     }
 
+    bool const_bindable = false;
+    auto const_requalifiable = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = target_const_ref}));
+    if (const_requalifiable)
+    {
+        auto const_init = co_await QUX_CO_DEP(functum_initialize, (initialization_reference{
+            .initializee = constructor_functum,
+            .parameters = {.named = {{"OTHER", target_const_ref}, {"THIS", nvalue_slot{.target = to}}}},
+            .init_kind = parameter_init_kind::bind_only}));
+        const_bindable = const_init.has_value();
+    }
+
+    if (!temp_bindable && !const_bindable)
+    {
+        std::cout << "  Not bindable by reference objectization (no TEMP&/CONST& path): " << to_string(from) << " to " << to_string(to) << std::endl;
+    }
     else
     {
-        std::cout << "  X Bindable by argument construction: " << to_string(from) << " to " << to_string(to) << std::endl;
+        std::cout << "  X Bindable by reference objectization: " << to_string(from) << " to " << to_string(to) << std::endl;
     }
 
-    co_return init.has_value();
+    co_return temp_bindable || const_bindable;
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(convertible_by_call)

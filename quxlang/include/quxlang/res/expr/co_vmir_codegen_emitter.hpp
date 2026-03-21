@@ -201,6 +201,33 @@ namespace quxlang
 
         auto co_gen_conversion(block_index& bidx, value_index val, type_symbol target_type, parameter_init_kind conversion_type) -> typename CoroutineProvider::template co_type< value_index >
         {
+            throw rpnx::unimplemented();
+        }
+
+        auto nested_constructor_init_kind(parameter_init_kind init_method) -> parameter_init_kind
+        {
+            switch (init_method)
+            {
+            case parameter_init_kind::call:
+                return parameter_init_kind::implicit_conversion;
+            case parameter_init_kind::implicit_conversion:
+            case parameter_init_kind::bind_only:
+                return parameter_init_kind::bind_only;
+            default:
+                throw std::logic_error("Invalid constructor init kind");
+            }
+        }
+
+        auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto target_index = create_local_value(target_type);
+            auto constructor_functum = submember{target_type, "CONSTRUCTOR"};
+            auto constructor_init_kind = nested_constructor_init_kind(init_method);
+
+            codegen_invocation_args ctor_args = {.named = {{"THIS", target_index}, {"OTHER", source}}};
+            co_await co_gen_call_functum(bidx, constructor_functum, ctor_args, constructor_init_kind);
+
+            co_return target_index;
         }
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
@@ -689,7 +716,8 @@ namespace quxlang
 
             if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
-                args.named["THIS"] = callee;
+                auto const& callee_binding = this->state.genvalues.at(callee).template get_as< codegen_binding >();
+                args.named["THIS"] = callee_binding.bound_value;
             }
 
             if (attached_symbol_kind == symbol_kind::class_)
@@ -791,93 +819,12 @@ namespace quxlang
                     // arg_expr_type = nvalue_slot{arg_expr_type};
                 }
 
-                if (is_ref(arg_expr_type) && !is_ref(arg_target_type))
+                if (arg_expr_type == arg_target_type)
                 {
-                    //  std::cout << "gen_call_functanoid A(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << quxlang::to_string(expression_args) << std::endl;
-                    auto index = create_local_value(arg_target_type);
-
-                    std::cout << "Created argument slot " << index << std::endl;
-                    // Alive is false
-                    auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
-
-                    codegen_invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
-                    // These both need to be references or the constructor will probably infinite loop.
-                    assert(is_ref(arg_expr_type) && is_ref(make_mref(arg_target_type)));
-
-                    parameter_init_kind arg_init_method;
-                    switch (init_method)
-                    {
-                    case parameter_init_kind::call:
-                        arg_init_method = parameter_init_kind::implicit_conversion;
-                        break;
-                    case parameter_init_kind::implicit_conversion:
-                        arg_init_method = parameter_init_kind::bind_only;
-                        break;
-                    case parameter_init_kind::bind_only:
-                        arg_init_method = parameter_init_kind::bind_only;
-                        break;
-                    default:
-                        rpnx::unimplemented();
-                    };
-
-                    // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
-                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args, arg_init_method);
-
-                    // When we complete the constructor of the argument, we need to queue the destructor of the argument.
-                    // We also need to save the deferral so we can remove it from the deferral list prior to invoking
-                    // the target procedure (since ownership of the argument is transferred to the target procedure).
-                    co_return index;
+                    co_return arg_expr_index;
                 }
-                else if (!is_ref(arg_expr_type) && !is_ref(arg_target_type))
-                {
-                    // std::cout << "gen_call_functanoid B(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << "->" << quxlang::to_string(arg_target_type) << std::endl;
-                    if (arg_expr_type == arg_target_type)
-                    {
-                        co_return arg_expr_index;
-                    }
 
-                    auto index = create_local_value(arg_target_type);
-                    std::cout << "Created argument slot " << index << std::endl;
-                    // Alive is false
-                    auto arg_final_ctor_func = submember{arg_target_type, "CONSTRUCTOR"};
-
-                    codegen_invocation_args ctor_args = {.named = {{"THIS", index}, {"OTHER", arg_expr_index}}};
-
-                    // TODO: instead of directly calling the constructor, call a special conversion function perhaps?
-                    co_await co_gen_call_functum(bidx, arg_final_ctor_func, ctor_args);
-
-                    co_return index;
-                }
-                else if (is_ref(arg_target_type))
-                {
-                    std::cout << "gen_call_functanoid C(" << quxlang::to_string(what) << ")" << quxlang::to_string(arg_expr_type) << " -> " << quxlang::to_string(arg_target_type) << std::endl;
-                    if (arg_expr_type == arg_target_type)
-                    {
-                        co_return arg_expr_index;
-                    }
-
-                    auto query = quxlang::implicitly_convertible_to_query();
-
-                    query.from = arg_expr_type;
-                    query.to = arg_target_type;
-
-                    bool convertible = co_await prv.implicitly_convertible_to(query.from, query.to);
-
-                    if (!convertible)
-                    {
-                        throw std::runtime_error("Cannot convert " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
-                    }
-                    // assert(is_ref_implicitly_convertible_by_syntax(arg_expr_type, arg_target_type));
-                    //  We need to hook into the provider because we might encounter a situation where
-                    //   we need knowledge of base/derived classes etc. to do a cast.
-                    auto new_index = co_await co_gen_implicit_conversion(bidx, arg_expr_index, arg_target_type);
-
-                    co_return new_index;
-                }
-                else
-                {
-                    throw rpnx::unimplemented();
-                }
+                co_return co_await co_gen_construct_with_target_type(bidx, arg_expr_index, arg_target_type, init_method);
             };
 
             for (auto const& [name, arg_accepted_type] : call_args_types.named)
@@ -973,14 +920,7 @@ namespace quxlang
             type_symbol value_type = this->current_type(bidx, vidx);
             std::cout << "co_gen_value_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
-            auto new_value_index = create_local_value(target_value_type);
-
-            auto conversion_functum = submember{target_value_type, "CONSTRUCTOR"};
-
-            codegen_invocation_args args = {.named = {{"THIS", new_value_index}, {"OTHER", vidx}}};
-
-            co_await co_gen_call_functum(bidx, conversion_functum, args);
-            co_return new_value_index;
+            co_return co_await co_gen_construct_with_target_type(bidx, vidx, target_value_type, parameter_init_kind::call);
         }
 
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
@@ -994,22 +934,7 @@ namespace quxlang
                 co_return vidx;
             }
 
-            if (is_ref(target_type))
-            {
-                if (is_ref(value_type))
-                {
-                    co_return co_await co_gen_reference_conversion(bidx, vidx, target_type);
-                }
-                else
-                {
-                    auto temp_index = create_reference(bidx, vidx, make_tref(value_type));
-                    co_return co_await co_gen_reference_conversion(bidx, temp_index, target_type);
-                }
-            }
-            else
-            {
-                co_return co_await co_gen_value_conversion(bidx, vidx, target_type);
-            }
+            co_return co_await co_gen_construct_with_target_type(bidx, vidx, target_type, parameter_init_kind::call);
         }
 
         auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
@@ -1293,7 +1218,10 @@ namespace quxlang
 
                         return lfr;
                     }
-                    else if (cls->type_is< ptrref_type >() && other.type_is< ptrref_type >())
+                    else if (cls->type_is< ptrref_type >() &&
+                             other.type_is< ptrref_type >() &&
+                             cls->as< ptrref_type >().ptr_class == pointer_class::ref &&
+                             other.as< ptrref_type >().ptr_class == pointer_class::ref)
                     {
                         auto other_slot_id = args.named.at("OTHER");
                         auto this_slot_id = args.named.at("THIS");
@@ -1306,6 +1234,27 @@ namespace quxlang
                         crf.source_ref_index = get_local_index(other_slot_id);
                         crf.target_ref_index = get_local_index(this_slot_id);
                         return crf;
+                    }
+                    else if (cls->type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class == pointer_class::ref)
+                    {
+                        auto materialized_type = remove_ref(*cls);
+                        if (typeis< nvalue_slot >(materialized_type))
+                        {
+                            materialized_type = as< nvalue_slot >(materialized_type).target;
+                        }
+                        bool matches_materialized_value = (other == materialized_type);
+
+                        if (matches_materialized_value)
+                        {
+                            auto other_slot_id = args.named.at("OTHER");
+                            auto this_slot_id = args.named.at("THIS");
+
+                            vmir2::make_reference mrf{};
+                            mrf.value_index = get_local_index(other_slot_id);
+                            mrf.reference_index = get_local_index(this_slot_id);
+
+                            return mrf;
+                        }
                     }
                 }
                 else if (args.size() == 1 && args.named.contains("THIS") && !cls->type_is< array_type >() && (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))

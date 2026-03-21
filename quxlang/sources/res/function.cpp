@@ -229,6 +229,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
                 add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", type}}, void_type{});
             }
         }
+
+        if (target_pref.ptr_class == pointer_class::ref && qualifier_template_match(target_pref.qual, qualifier::temp).has_value())
+        {
+            // Reference materialization from a value follows the same constructor-based path
+            // as other builtin conversions during codegen lowering.
+            auto materialized_target = target_pref.target;
+            if (typeis< nvalue_slot >(materialized_target))
+            {
+                materialized_target = as< nvalue_slot >(materialized_target).target;
+            }
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", materialized_target}}, void_type{});
+        }
     }
 
     if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
@@ -327,7 +339,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
         for (qualifier qv : quals)
         {
-            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv});
+            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qv}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::ref, .qual = qv});
         }
     }
 
@@ -336,7 +348,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         static std::vector< qualifier > quals{qualifier::mut, qualifier::constant, qualifier::mut, qualifier::temp, qualifier::write};
         for (qualifier qv : quals)
         {
-            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qualifier::constant}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv});
+            add_overload({uintptr_type}, {{"THIS", ptrref_type{.target = parent, .ptr_class = pointer_class::ref, .qual = qv}}}, ptrref_type{.target = parent.get_as< array_type >().element_type, .ptr_class = pointer_class::array, .qual = qv});
         }
     }
 
@@ -686,7 +698,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     auto overloads = co_await QUX_CO_DEP(functum_overloads, (input.initializee));
 
-    std::set< temploid_reference > best_match;
+    std::vector< temploid_ensig > best_match;
     std::optional< std::int64_t > highest_priority;
 
     std::string context_type = "";
@@ -763,11 +775,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
             {
                 highest_priority = priority;
                 best_match.clear();
-                best_match.insert({.templexoid = input.initializee, .which = o});
+                best_match.push_back(o);
             }
             else if (priority == *highest_priority)
             {
-                best_match.insert({.templexoid = input.initializee, .which = o});
+                best_match.push_back(o);
             }
         }
     }
@@ -780,16 +792,98 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     }
     else if (best_match.size() > 1)
     {
+        std::vector< temploid_ensig > undominated;
+
+        for (auto const& candidate : best_match)
+        {
+            bool dominated = false;
+
+            for (auto const& other : best_match)
+            {
+                if (candidate == other)
+                {
+                    continue;
+                }
+
+                bool other_better = false;
+                bool candidate_better = false;
+
+                for (auto const& [name, arg_type] : input.parameters.named)
+                {
+                    auto const& candidate_param = candidate.interface.named.at(name).type;
+                    auto const& other_param = other.interface.named.at(name).type;
+
+                    auto other_beats_candidate = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
+                        .from = arg_type,
+                        .better_to = other_param,
+                        .worse_to = candidate_param,
+                        .init_kind = input.init_kind,
+                    }));
+
+                    auto candidate_beats_other = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
+                        .from = arg_type,
+                        .better_to = candidate_param,
+                        .worse_to = other_param,
+                        .init_kind = input.init_kind,
+                    }));
+
+                    other_better = other_better || other_beats_candidate;
+                    candidate_better = candidate_better || candidate_beats_other;
+                }
+
+                for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
+                {
+                    auto const& arg_type = input.parameters.positional.at(i);
+                    auto const& candidate_param = candidate.interface.positional.at(i).type;
+                    auto const& other_param = other.interface.positional.at(i).type;
+
+                    auto other_beats_candidate = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
+                        .from = arg_type,
+                        .better_to = other_param,
+                        .worse_to = candidate_param,
+                        .init_kind = input.init_kind,
+                    }));
+
+                    auto candidate_beats_other = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
+                        .from = arg_type,
+                        .better_to = candidate_param,
+                        .worse_to = other_param,
+                        .init_kind = input.init_kind,
+                    }));
+
+                    other_better = other_better || other_beats_candidate;
+                    candidate_better = candidate_better || candidate_beats_other;
+                }
+
+                if (other_better && !candidate_better)
+                {
+                    dominated = true;
+                    break;
+                }
+            }
+
+            if (!dominated)
+            {
+                undominated.push_back(candidate);
+            }
+        }
+
+        best_match = std::move(undominated);
+    }
+
+    if (best_match.size() > 1)
+    {
         std::cout << " Ambiguous overloads for " << to_string(input) << ":" << std::endl;
         for (auto const& item : best_match)
         {
-            std::cout << "   Ambiguous candidate: " << to_string(item) << std::endl;
+            std::cout << "   Ambiguous candidate: " << to_string(temploid_reference{.templexoid = input.initializee, .which = item}) << std::endl;
         }
         throw std::logic_error("Ambiguous overload resolution");
     }
-    std::cout << " Best match for " << to_string(input) << " is " << to_string(*best_match.begin()) << std::endl;
+    auto best_ref = temploid_reference{.templexoid = input.initializee, .which = best_match.front()};
+    std::cout << " Best match for " << to_string(input) << " is " << to_string(best_ref) << std::endl;
 
-    QUX_CO_ANSWER(*best_match.begin());
+    QUX_CO_ANSWER(best_ref);
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_exists_and_is_callable_with)

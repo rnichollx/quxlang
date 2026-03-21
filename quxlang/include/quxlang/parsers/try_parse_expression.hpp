@@ -59,7 +59,7 @@ namespace quxlang::parsers
                 // Exponenciation
                 {"^", 7},
 
-                // Bitwise operators per docs (prefix with '#')
+                // Bitwise operators (prefix with '#')
                 {"#&&", 8}, // bitwise and
                 {"#&!", 8}, // bitwise nand
                 {"#^^", 8}, // bitwise xor
@@ -79,19 +79,16 @@ namespace quxlang::parsers
             auto it = operators_map.find(sym);
             if (it == operators_map.end())
                 return false;
-
             skip_symbol_if_is(pos, end, sym);
-
             skip_whitespace_and_comments(pos, end);
 
             int priority = it->second;
-
             expression_binary new_expression;
             new_expression.operator_str = sym;
 
             expression* binding_point2 = operator_bindings[priority];
             new_expression.lhs = std::move(*binding_point2);
-            *binding_point2 = quxlang::expression(new_expression);
+            *binding_point2 = std::move(new_expression);
             expression* binding_pointer = &as< expression_binary >(*binding_point2).rhs;
             for (int i = priority + 1; i < operator_bindings.size(); i++)
             {
