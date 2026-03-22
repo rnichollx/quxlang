@@ -3,9 +3,9 @@
 #ifndef QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 #define QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 
+#include "expression.hpp"
 #include "type_symbol.hpp"
 #include <rpnx/variant.hpp>
-#include <quxlang/data/vm_executable_unit.hpp>
 
 namespace quxlang
 {
@@ -33,15 +33,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(expr_interp_input, context, expr);
     };
-
-    struct interp_input
-    {
-        type_symbol context;
-        vm_execute_expression expression;
-
-        RPNX_MEMBER_METADATA(interp_input, context, expression);
-    };
-
 } // namespace quxlang
 
 #endif // RPNX_QUXLANG_INTERP_VALUE_HEADER

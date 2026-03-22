@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <quxlang/data/type_symbol.hpp>
-#include <quxlang/data/vm_expression.hpp>
 #include <rpnx/macros.hpp>
 #include <rpnx/variant.hpp>
 #include <string>
@@ -870,11 +869,6 @@ namespace quxlang
             std::map< std::string, routine_parameter > named;
 
             RPNX_MEMBER_METADATA(routine_parameters, positional, named);
-        };
-
-        struct vm_context
-        {
-            std::vector< vm_slot > slots;
         };
 
         struct dtor_spec

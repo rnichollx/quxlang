@@ -6,7 +6,6 @@
 // input: contextual_type_reference
 // output: canonical_type_reference
 
-#include "quxlang/data/canonical_type_reference.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
 
 #include "quxlang/res/resolver.hpp"

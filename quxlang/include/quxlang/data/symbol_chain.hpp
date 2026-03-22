@@ -1,6 +1,0 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
-
-#ifndef QUXLANG_DATA_SYMBOL_CHAIN_HEADER_GUARD
-#define QUXLANG_DATA_SYMBOL_CHAIN_HEADER_GUARD
-
-#endif // QUXLANG_SYMBOL_CHAIN_HEADER_GUARD

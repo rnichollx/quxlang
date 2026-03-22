@@ -3,7 +3,6 @@
 #ifndef QUXLANG_CONVERTERS_QUAL_CONVERTERS_HEADER_GUARD
 #define QUXLANG_CONVERTERS_QUAL_CONVERTERS_HEADER_GUARD
 
-#include "quxlang/data/canonical_type_reference.hpp"
 #include "quxlang/data/type_symbol.hpp"
 
 namespace quxlang

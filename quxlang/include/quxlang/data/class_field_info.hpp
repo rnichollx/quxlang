@@ -3,7 +3,6 @@
 #ifndef QUXLANG_DATA_CLASS_FIELD_INFO_HEADER_GUARD
 #define QUXLANG_DATA_CLASS_FIELD_INFO_HEADER_GUARD
 
-#include "canonical_type_reference.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include <vector>
 

@@ -4,7 +4,6 @@
 #define QUXLANG_RES_CALLED_FUNCTANOIDS_RESOLVER_HEADER_GUARD
 
 #include "quxlang/data/type_symbol.hpp"
-#include "quxlang/data/vm_procedure.hpp"
 #include "rpnx/resolver_utilities.hpp"
 
 #include <set>

@@ -4,7 +4,6 @@
 #define QUXLANG_DATA_VM_EXPR_DEREFERENCE_HEADER_GUARD
 
 #include "vm_expression.hpp"
-#include "vm_type.hpp"
 
 namespace quxlang
 {

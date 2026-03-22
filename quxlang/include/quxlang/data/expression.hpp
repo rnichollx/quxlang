@@ -262,7 +262,6 @@ namespace quxlang
 } // namespace quxlang
 
 #include "quxlang/data/expression_add.hpp"
-#include "quxlang/data/expression_bool.hpp"
 #include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/expression_copy_assign.hpp"
 #include "quxlang/data/expression_dotreference.hpp"

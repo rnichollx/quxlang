@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_VM_PROCEDURE_HEADER_GUARD
 #define QUXLANG_DATA_VM_PROCEDURE_HEADER_GUARD
 
-#include "vm_block.hpp"
+#include "vm_executable_unit.hpp"
 #include "vm_procedure_interface.hpp"
 #include <cstddef>
 

@@ -4,7 +4,6 @@
 #define QUXLANG_RES_IMPLICITLY_CONVERTIBLE_TO_HEADER_GUARD
 
 #include "quxlang/compiler_fwd.hpp"
-#include "quxlang/data/canonical_type_reference.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/res/resolver.hpp"
 #include "rpnx/resolver_utilities.hpp"

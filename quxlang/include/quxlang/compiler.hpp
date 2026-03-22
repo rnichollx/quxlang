@@ -12,7 +12,6 @@
 #include "quxlang/res/class_field_list_resolver.hpp"
 #include "quxlang/res/constexpr.hpp"
 #include "quxlang/res/constructor.hpp"
-#include "quxlang/res/expr_ir2.hpp"
 #include "quxlang/res/filelist_resolver.hpp"
 #include "quxlang/res/functanoid.hpp"
 #include "quxlang/res/function.hpp"
@@ -23,7 +22,6 @@
 #include "quxlang/res/type_placement_info_resolver.hpp"
 #include "quxlang/res/types.hpp"
 #include "quxlang/res/variable.hpp"
-#include "quxlang/res/vm_procedure_from_canonical_functanoid_resolver.hpp"
 #include <quxlang/res/serialization.hpp>
 #include <quxlang/res/asm_procedure_from_symbol_resolver.hpp>
 #include <quxlang/res/declaroids_resolver.hpp>
@@ -61,9 +59,6 @@ namespace quxlang
     {
         friend class compiler_binder;
         friend class filelist_resolver;
-
-        template < typename G >
-        friend auto type_size_from_canonical_type_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, std::size_t >;
 
         template < typename G >
         friend auto type_placement_info_question_f(G* g, type_symbol type) -> rpnx::resolver_coroutine< G, type_placement_info >;

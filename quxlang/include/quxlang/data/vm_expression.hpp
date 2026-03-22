@@ -8,8 +8,6 @@
 
 #include <map>
 
-#include "vm_type.hpp"
-
 namespace quxlang
 {
     struct vm_expr_load_reference;
@@ -26,16 +24,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(void_value);
     };
 
-    struct vm_expr_bound_value;
-    // struct vm_expr_call;
-
     struct vm_expr_access_field;
 
     struct vm_expr_reinterpret;
 
     struct vm_expr_poison;
 
-    using vm_value = rpnx::variant< void_value, vm_expr_primitive_binary_op, vm_expr_primitive_unary_op, vm_expr_load_reference, vm_expr_dereference, vm_expr_store, vm_expr_load_literal, vm_expr_access_field, vm_expr_literal, vm_expr_bound_value, vm_expr_reinterpret, vm_expr_poison >;
+    using vm_value = rpnx::variant< void_value, vm_expr_primitive_binary_op, vm_expr_primitive_unary_op, vm_expr_load_reference, vm_expr_dereference, vm_expr_store, vm_expr_load_literal, vm_expr_access_field, vm_expr_literal, vm_expr_reinterpret, vm_expr_poison >;
 
     struct vm_callargs
     {
@@ -57,7 +52,6 @@ namespace quxlang
 } // namespace quxlang
 
 #include "vm_expr_access_field.hpp"
-#include "vm_expr_bound_value.hpp"
 #include "vm_expr_dereference.hpp"
 #include "vm_expr_load_literal.hpp"
 #include "vm_expr_load_reference.hpp"
@@ -65,7 +59,6 @@ namespace quxlang
 #include "vm_expr_primitive_op.hpp"
 #include "vm_expr_reinterpret.hpp"
 #include "vm_expr_store.hpp"
-#include "vm_expr_undef.hpp"
 #include "vm_invoke.hpp"
 
 #endif // QUXLANG_VM_EXPRESSION_HEADER_GUARD

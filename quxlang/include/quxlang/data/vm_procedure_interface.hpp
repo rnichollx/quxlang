@@ -3,7 +3,6 @@
 #ifndef QUXLANG_DATA_VM_PROCEDURE_INTERFACE_HEADER_GUARD
 #define QUXLANG_DATA_VM_PROCEDURE_INTERFACE_HEADER_GUARD
 
-#include "vm_type.hpp"
 #include <optional>
 #include <vector>
 

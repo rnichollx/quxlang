@@ -46,8 +46,6 @@ namespace quxlang
 
     using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
 
-    using ast2_templexoid = rpnx::variant< std::monostate, functum, ast2_templex >;
-
     struct member_subdeclaroid
     {
         declaroid decl;
