@@ -704,6 +704,19 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
     if (typeis< temploid_reference >(input.initializee))
     {
+        auto const& selected = as< temploid_reference >(input.initializee);
+        auto selected_kind = co_await QUX_CO_DEP(symbol_type, (selected));
+
+        if (selected_kind == symbol_kind::template_)
+        {
+            throw std::logic_error("functum_select_function received a template selection. Function templates are not directly callable; set the template arguments manually before resolving a callable function.");
+        }
+
+        if (selected_kind != symbol_kind::function)
+        {
+            throw std::logic_error("functum_select_function received a temploid selection that is not a function.");
+        }
+
         // TODO: We should identify a real match and error if this isn't a valid selection.
         // E.g. if there are type aliases, we should return the "real" type here instead of the type alias.
         // There should also be a selection error when this selection doesn't exist.
@@ -712,7 +725,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
         // Would result in the following selection:
         // calle=foo#[::myint] params=(...) -> foo#[I32]
 
-        QUX_CO_ANSWER(as< temploid_reference >(input.initializee));
+        QUX_CO_ANSWER(selected);
     }
 
     auto sym_kind = co_await QUX_CO_DEP(symbol_type, (input.initializee));

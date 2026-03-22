@@ -72,6 +72,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
     }
 
     temploid_reference const& sel_ref = as< temploid_reference >(input_val.initializee);
+    auto selected_kind = co_await QUX_CO_DEP(symbol_type, (sel_ref));
+
+    if (selected_kind == symbol_kind::template_)
+    {
+        throw std::logic_error("function_instanciation received a template selection. Function templates are not directly callable; set template arguments manually before performing function instanciation.");
+    }
+
+    if (selected_kind != symbol_kind::function)
+    {
+        throw std::logic_error("Internal Compiler Error(this is a compiler bug): function_instanciation received a temploid selection that is not a function");
+    }
 
 
     // Get the overload?
@@ -85,6 +96,18 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_instanciation)
 
     auto result = instanciation_reference{.temploid = sel_ref, .params=call_set.value()};
     QUX_CO_ANSWER(result);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(templex_initialize)
+{
+    auto initializee_kind = co_await QUX_CO_DEP(symbol_type, (input_val.initializee));
+
+    if (initializee_kind != symbol_kind::templex && initializee_kind != symbol_kind::template_)
+    {
+        throw std::logic_error("templex_initialize called on a non-templexoid template input");
+    }
+
+    co_return co_await QUX_CO_DEP(template_instanciation, (input_val));
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
@@ -119,8 +142,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(instanciation)
     }
     else if (kind == symbol_kind::templex)
     {
-       throw rpnx::unimplemented();
-       // co_return co_await QUX_CO_DEP(templex_instanciation, (input_val));
+        co_return co_await QUX_CO_DEP(templex_initialize, (input_val));
     }
     else
     {

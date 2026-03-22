@@ -5,10 +5,15 @@
 
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_class.hpp>
+#include <quxlang/parsers/try_parse_function_declaration.hpp>
+#include <quxlang/parsers/try_parse_variable_declaration.hpp>
 
 
 namespace quxlang::parsers
 {
+    template < typename It >
+    declaroid parse_declaroid(It& pos, It end);
+
     template < typename It >
     std::optional< quxlang::ast2_template_declaration > try_parse_template(It& pos, It end)
     {
@@ -41,11 +46,7 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ")"))
         {
             skip_whitespace_and_comments(pos, end);
-            // TODO: Also allow template functions.
-
-            ast2_class_declaration class_body = parse_class(pos, end);
-
-            ct->m_class = class_body;
+            ct->m_declaroid = parse_declaroid(pos, end);
             return ct;
         }
         else

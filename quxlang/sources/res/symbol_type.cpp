@@ -103,13 +103,38 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
     }
     else if (typeis< instanciation_reference >(input_val))
     {
-       temploid_reference const & temploid = as<instanciation_reference>(input).temploid;
+       auto const& selected_ast = co_await QUX_CO_DEP(symboid, (input_val));
 
-       auto temploid_type = co_await QUX_CO_DEP(symbol_type, (temploid));
-
-       if (temploid_type == symbol_kind::function)
+       if (typeis< ast2_class_declaration >(selected_ast))
+       {
+          co_return symbol_kind::class_;
+       }
+       else if (typeis< functum >(selected_ast))
+       {
+          co_return symbol_kind::functum;
+       }
+       else if (typeis< ast2_function_declaration >(selected_ast))
        {
           co_return symbol_kind::funtanoid;
+       }
+       else if (typeis< ast2_variable_declaration >(selected_ast))
+       {
+          if (typeis< subsymbol >(as< instanciation_reference >(input_val).temploid.templexoid))
+          {
+             co_return symbol_kind::global_variable;
+          }
+          else if (typeis< submember >(as< instanciation_reference >(input_val).temploid.templexoid))
+          {
+             co_return symbol_kind::member_variable;
+          }
+          else
+          {
+             throw compiler_bug("templated variable symbol must be a subsymbol or submember");
+          }
+       }
+       else if (typeis< std::monostate >(selected_ast))
+       {
+          co_return symbol_kind::noexist;
        }
        else
        {

@@ -5,7 +5,6 @@
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
 {
-
     std::vector< declaroid > output;
 
     std::string inputname = to_string(input);
@@ -17,8 +16,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(declaroids)
 
     if (typeis< initialization_reference >(input))
     {
-        // TODO: Maybe we allow this for templates?
-        throw std::logic_error("Instancations are not declarables");
+        throw std::logic_error("Non-canonical symbol passed to declaroids resolver: initialization_reference. Canonicalize with lookup/instanciation before calling declaroids.");
     }
 
     bool is_member = false;

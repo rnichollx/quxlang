@@ -243,6 +243,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             // TODO: support named parameters
         }
 
+        auto initializee_kind = co_await QUX_CO_DEP(symbol_type, (output.initializee));
+        if (initializee_kind == symbol_kind::templex || initializee_kind == symbol_kind::template_)
+        {
+            auto inst = co_await QUX_CO_DEP(instanciation, (output));
+            if (!inst.has_value())
+            {
+                co_return std::nullopt;
+            }
+            co_return *inst;
+        }
+
         assert(!type_is_contextual(output));
 
         co_return output;

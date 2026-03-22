@@ -1094,7 +1094,7 @@ namespace quxlang
         if (typeis< type_temploidic >(template_type))
         {
             template_match_results output;
-            auto name = as< auto_temploidic >(template_type).name;
+            auto name = as< type_temploidic >(template_type).name;
 
             if (!name.empty())
             {

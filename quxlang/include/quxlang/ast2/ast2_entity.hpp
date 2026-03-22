@@ -44,7 +44,7 @@ namespace quxlang
 
     using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test >;
 
-    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
     struct member_subdeclaroid
     {
@@ -166,10 +166,10 @@ namespace quxlang
     struct ast2_template_declaration
     {
         std::vector< type_symbol > m_template_args;
-        ast2_class_declaration m_class;
+        declaroid m_declaroid;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(ast2_template_declaration, m_template_args, m_class, priority);
+        RPNX_MEMBER_METADATA(ast2_template_declaration, m_template_args, m_declaroid, priority);
     };
 
     struct ast2_templex

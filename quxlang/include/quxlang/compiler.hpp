@@ -107,6 +107,7 @@ namespace quxlang
         COMPILER_INDEX(functum_select_function)
         COMPILER_INDEX(function_declaration)
         COMPILER_INDEX(function_instanciation)
+        COMPILER_INDEX(templex_initialize)
         COMPILER_INDEX(have_nontrivial_member_ctor)
         COMPILER_INDEX(have_nontrivial_member_dtor)
         COMPILER_INDEX(class_field_declaration_list)

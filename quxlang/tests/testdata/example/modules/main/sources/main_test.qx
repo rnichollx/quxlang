@@ -56,6 +56,10 @@ IMPORT foolib;
   holder.value := 5;
   ASSERT(holder.value == 5);
 
+  holder.value := 9;
+
+  ASSERT(holder.value == 9);
+
   RETURN;
 }
 
