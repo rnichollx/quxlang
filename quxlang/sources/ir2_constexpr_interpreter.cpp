@@ -43,6 +43,13 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::uint64_t next_object_id = 1;
 
+    enum class initguard_state : std::uint8_t
+    {
+        uninitialized = 0,
+        initializing = 1,
+        initialized = 2,
+    };
+
     struct local;
     struct primitive_object;
     struct array_object;
@@ -169,6 +176,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::deque< stack_frame > stack;
     std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
+    std::map< type_symbol, std::shared_ptr< local > > global_initguards;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
     void call_storage_func(cow< type_symbol > functype, vmir2::invocation_args args, std::shared_ptr< local > this_object);
@@ -228,6 +236,24 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void end_lifetime(std::shared_ptr< local > object);
 
     std::shared_ptr< local > output_local(local_index at);
+    /** Returns the unique constexpr initguard object associated with a symbol, creating it on first use. */
+    std::shared_ptr< local > get_or_create_initguard(type_symbol symbol);
+    /** Decodes the current initguard state from the guard object's data payload. */
+    initguard_state get_initguard_state(std::shared_ptr< local > const& guard);
+    /** Stores the requested initguard state into the guard object's one-byte payload. */
+    void set_initguard_state(std::shared_ptr< local > const& guard, initguard_state state);
+    /** Initializes a lock token so it refers to the supplied guard during an active acquisition. */
+    void set_initguard_lock(std::shared_ptr< local > const& lock, std::shared_ptr< local > const& guard);
+    /** Aborts an in-flight acquisition when a live initguard lock unwinds out of scope. */
+    void abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock);
+    /** Materializes a reference to the unique constexpr initguard backing the requested symbol. */
+    void do_initguard_global_get_ref(type_symbol symbol, local_index target_ref);
+    /** Commits a successful initguard acquisition, transitioning the referenced guard to initialized. */
+    void do_initguard_release(local_index lock_slot);
+    /** Aborts an active initguard acquisition, returning the referenced guard to the uninitialized state. */
+    void do_initguard_abort(local_index lock_slot);
+    /** Attempts to acquire a symbol's initguard and branches based on whether initialization is required. */
+    void do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized);
 
     void init_local_storage(std::size_t frame_idx, local_index index)
     {
@@ -984,19 +1010,82 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     throw constexpr_logic_execution_error("Unimplemented instruction executed in constexpr interpreter");
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_global_get_ref const&)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_global_get_ref const& igr)
 {
-    throw constexpr_logic_execution_error("INITGUARD_GLOBAL_GET_REF is not implemented in constexpr interpreter");
+    do_initguard_global_get_ref(igr.symbol, igr.target_ref);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_release const&)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_global_get_ref(type_symbol symbol, local_index target_ref)
 {
-    throw constexpr_logic_execution_error("INITGUARD_RELEASE is not implemented in constexpr interpreter");
+    auto guard = get_or_create_initguard(symbol);
+    auto guard_ref = output_local(target_ref);
+    guard_ref->ref = pointer_impl{.pointer_target = guard};
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_abort const&)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_release const& igr)
 {
-    throw constexpr_logic_execution_error("INITGUARD_ABORT is not implemented in constexpr interpreter");
+    do_initguard_release(igr.lock);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_release(local_index lock_slot)
+{
+    auto lock = consume_local(lock_slot);
+    if (!lock)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_RELEASE on invalid lock");
+    }
+
+    if (!lock->ref.has_value() || !lock->ref->pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("INITGUARD_RELEASE on non-lock value");
+    }
+
+    auto guard = lock->ref->pointer_target->lock();
+    lock->ref = std::nullopt;
+    if (!guard)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_RELEASE on expired guard");
+    }
+
+    if (get_initguard_state(guard) != initguard_state::initializing)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_RELEASE on guard that is not initializing");
+    }
+
+    set_initguard_state(guard, initguard_state::initialized);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_abort const& iga)
+{
+    do_initguard_abort(iga.lock);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_abort(local_index lock_slot)
+{
+    auto lock = consume_local(lock_slot);
+    if (!lock)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_ABORT on invalid lock");
+    }
+
+    if (!lock->ref.has_value() || !lock->ref->pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("INITGUARD_ABORT on non-lock value");
+    }
+
+    auto guard = lock->ref->pointer_target->lock();
+    lock->ref = std::nullopt;
+    if (!guard)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_ABORT on expired guard");
+    }
+
+    if (get_initguard_state(guard) != initguard_state::initializing)
+    {
+        throw constexpr_logic_execution_error("INITGUARD_ABORT on guard that is not initializing");
+    }
+
+    set_initguard_state(guard, initguard_state::uninitialized);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_bool const& lcb)
@@ -1394,9 +1483,33 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const&)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const& ita)
 {
-    throw constexpr_logic_execution_error("INITGUARD_TRY_ACQUIRE is not implemented in constexpr interpreter");
+    do_initguard_try_acquire(ita.symbol, ita.target_lock, ita.target_acquired, ita.target_already_initialized);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized)
+{
+    auto guard = get_or_create_initguard(symbol);
+
+    switch (get_initguard_state(guard))
+    {
+      case initguard_state::initialized:
+        transition(target_already_initialized);
+        return;
+      case initguard_state::uninitialized:
+      {
+          auto lock = output_local(target_lock);
+          set_initguard_lock(lock, guard);
+          set_initguard_state(guard, initguard_state::initializing);
+          transition(target_acquired);
+          return;
+      }
+      case initguard_state::initializing:
+        throw constexpr_logic_execution_error("INITGUARD_TRY_ACQUIRE recursion detected for " + quxlang::to_string(symbol));
+    }
+
+    throw compiler_bug("unknown initguard state");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_reference const& cst)
@@ -3310,14 +3423,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     for (auto& [idx, local] : current_frame.local_values)
     {
-        if (local != nullptr)
-        {
-            if (local->alive() && !target_block.entry_state.contains(idx))
+            if (local != nullptr)
             {
-                auto slot_type = current_func_ir->local_types.at(idx).type;
-                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                if (local_has_nontrivial_dtor)
+                if (local->alive() && !target_block.entry_state.contains(idx))
                 {
+                    auto slot_type = current_func_ir->local_types.at(idx).type;
+                    abort_initguard_lock_if_needed(slot_type, local);
+                    bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
+                    if (local_has_nontrivial_dtor)
+                    {
                     auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
                     call_func(dtor, {.named = {{"THIS", idx}}});
                     // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
@@ -3444,6 +3558,7 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             else if (local->alive() && !value_should_be_alive(idx))
             {
                 auto slot_type = current_func_ir->local_types.at(idx).type;
+                abort_initguard_lock_if_needed(slot_type, local);
                 if ((typeis< storage >(slot_type) || typeis< aligned_storage >(slot_type)) && local->storage_active_type.has_value())
                 {
                     throw constexpr_logic_execution_error("storage lifetime ended while containing an active object");
@@ -3544,6 +3659,89 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     begin_lifetime(slot_ptr);
 
     return slot_ptr;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_initguard(type_symbol symbol)
+{
+    auto& guard = global_initguards[symbol];
+    if (guard == nullptr)
+    {
+        guard = create_object(initguard_type{});
+        set_initguard_state(guard, initguard_state::uninitialized);
+    }
+
+    return guard;
+}
+
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::initguard_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_initguard_state(std::shared_ptr< local > const& guard)
+{
+    if (!guard)
+    {
+        throw compiler_bug("null initguard");
+    }
+
+    if (guard->data.empty())
+    {
+        return initguard_state::uninitialized;
+    }
+
+    switch (static_cast< std::uint8_t >(guard->data[0]))
+    {
+      case 0:
+        return initguard_state::uninitialized;
+      case 1:
+        return initguard_state::initializing;
+      case 2:
+        return initguard_state::initialized;
+      default:
+        throw constexpr_logic_execution_error("invalid initguard state byte");
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_initguard_state(std::shared_ptr< local > const& guard, initguard_state state)
+{
+    if (!guard)
+    {
+        throw compiler_bug("null initguard");
+    }
+
+    guard->storage_initiated = true;
+    guard->stage = slot_stage::full;
+    guard->data.assign(1, std::byte{0});
+    guard->data[0] = std::byte(static_cast< std::uint8_t >(state));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_initguard_lock(std::shared_ptr< local > const& lock, std::shared_ptr< local > const& guard)
+{
+    if (!lock || !guard)
+    {
+        throw compiler_bug("invalid initguard lock setup");
+    }
+
+    lock->storage_initiated = true;
+    lock->stage = slot_stage::full;
+    lock->data.assign(1, std::byte{1});
+    lock->ref = pointer_impl{.pointer_target = guard};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock)
+{
+    if (!typeis< initguard_lock_type >(slot_type) || !lock || !lock->alive() || !lock->ref.has_value() || !lock->ref->pointer_target.has_value())
+    {
+        return;
+    }
+
+    auto guard = lock->ref->pointer_target->lock();
+    lock->ref = std::nullopt;
+    if (!guard)
+    {
+        return;
+    }
+
+    if (get_initguard_state(guard) == initguard_state::initializing)
+    {
+        set_initguard_state(guard, initguard_state::uninitialized);
+    }
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constdata(std::vector< std::byte > const& data)

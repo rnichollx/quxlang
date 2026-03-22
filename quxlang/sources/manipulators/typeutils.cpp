@@ -1485,6 +1485,16 @@ namespace quxlang
                 return true;
             }
 
+            bool check_impl(initguard_type const&, initguard_type const&, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(initguard_lock_type const&, initguard_lock_type const&, bool conv)
+            {
+                return true;
+            }
+
             bool check_impl(auto_temploidic const& template_val, auto_temploidic const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");

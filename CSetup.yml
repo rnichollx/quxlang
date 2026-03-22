@@ -1,5 +1,5 @@
 default_configuration:
-  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp", "datastructures", "rpnxserialization"]
+  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp", "datastructures", "rpnxmetalib", "rpnxserialization"]
 suggested_dep_sources:
   rpnxcow:
     git:
@@ -16,6 +16,9 @@ suggested_dep_sources:
   datastructures:
     git:
       repository: "https://gitlab.com/rpnx/datastructures.git"
+  rpnxmetalib:
+    git:
+      repository: "https://gitlab.com/rpnx/metalib.git"
   rpnxserialization:
     git:
       repository: "https://gitlab.com/rpnx/serialization.git"
@@ -26,4 +29,3 @@ project_default_configuration:
     - Release
     - DebugASAN
     - DebugTSAN
-
