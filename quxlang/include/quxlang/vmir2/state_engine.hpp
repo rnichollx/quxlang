@@ -729,7 +729,7 @@ namespace quxlang::vmir2
                 throw invalid_instruction_transition_error("consume input not alive state");
             }
             state[idx].stage = slot_stage::dead;
-            state[idx].storage_valid = state[idx].delegate_of.has_value() || state[idx].destroy_delegate;
+            state[idx].storage_valid = false;
             state[idx].destroy_delegate = false;
         }
         void output(local_index idx)

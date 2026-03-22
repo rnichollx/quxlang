@@ -336,15 +336,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         }
     }
 
-    if (name == "DESTRUCTOR")
-    {
-        if (has_lifetime_only_builtin_dtor(parent))
-        {
-            add_overload({}, {{"THIS", dvalue_slot{.target = parent}}}, void_type{});
-        }
-        co_return allowed_operations;
-    }
-
     if (name == "CONSTRUCTOR")
     {
         co_return co_await QUX_CO_DEP(list_builtin_constructors, (parent));

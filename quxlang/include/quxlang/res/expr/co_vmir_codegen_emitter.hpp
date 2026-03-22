@@ -1271,16 +1271,6 @@ namespace quxlang
                 }
             }
 
-            if (member->name == "DESTRUCTOR")
-            {
-                if (has_lifetime_only_builtin_dtor(*cls) && call.named.contains("THIS") && call.size() == 1 && args.size() == 1)
-                {
-                    vmir2::end_lifetime elt{};
-                    elt.of = get_local_index(args.named.at("THIS"));
-                    return elt;
-                }
-            }
-
             if (member->name == "CONSTRUCTOR")
             {
                 if (call.named.contains("OTHER"))

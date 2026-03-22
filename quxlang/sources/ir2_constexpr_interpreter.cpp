@@ -531,18 +531,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 // DESTROY[T] consumes the caller-side object immediately.
                 //
-                // Most locals can simply disappear from the caller frame, but storage-backed destroy
-                // delegates need a dead storage skeleton to remain in place so later state checks still
-                // see "storage exists, object lifetime has ended" rather than "slot vanished entirely".
-                auto caller_local = previous_frame.local_values[previous_arg_index];
-                if (caller_local != nullptr && caller_local->storage_owner.has_value())
-                {
-                    previous_frame.local_values[previous_arg_index] = create_object(previous_frame.ir3->local_types.at(previous_arg_index).type);
-                }
-                else
-                {
-                    previous_frame.local_values[previous_arg_index] = nullptr;
-                }
+                // The owning STORAGE(...) slot retains the storage metadata; the destroy delegate
+                // itself is just a temporary alias and can disappear completely from the caller frame.
+                previous_frame.local_values[previous_arg_index] = nullptr;
             }
 
             // The caller should have already initialized the local, not here.
@@ -3139,16 +3130,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    bool preserve_storage = local_ptr->storage_owner.has_value() || local_ptr->storage_destroy_delegate;
     end_lifetime(local_ptr);
-    if (preserve_storage)
-    {
-        local_ptr = create_object(slot_type);
-    }
-    else
-    {
-        local_ptr = nullptr;
-    }
+    local_ptr = nullptr;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::end_lifetime const& elt)
 {
