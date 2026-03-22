@@ -249,6 +249,21 @@ namespace quxlang::vmir2
         return "STORAGE_PUN %" + std::to_string(inst.from_storage) + " AS " + quxlang::to_string(inst.as_type) + " -> %" + std::to_string(inst.to_reference);
     }
 
+    std::string assembler::to_string_internal(vmir2::initguard_global_get_ref inst)
+    {
+        return "INITGUARD_GLOBAL_GET_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+    }
+
+    std::string assembler::to_string_internal(vmir2::initguard_release inst)
+    {
+        return "INITGUARD_RELEASE %" + std::to_string(inst.lock);
+    }
+
+    std::string assembler::to_string_internal(vmir2::initguard_abort inst)
+    {
+        return "INITGUARD_ABORT %" + std::to_string(inst.lock);
+    }
+
     std::string assembler::to_string_internal(vmir2::access_field inst)
     {
         std::string result = "ACCESS_FIELD %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;
@@ -417,6 +432,13 @@ namespace quxlang::vmir2
     {
         std::string result;
         result += "BRANCH %" + std::to_string(inst.condition) + ", !" + std::to_string(inst.target_true) + ", !" + std::to_string(inst.target_false);
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::initguard_try_acquire inst)
+    {
+        std::string result;
+        result += "INITGUARD_TRY_ACQUIRE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_lock) + ", !" + std::to_string(inst.target_acquired) + ", !" + std::to_string(inst.target_already_initialized);
         return result;
     }
 

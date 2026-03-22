@@ -411,6 +411,18 @@ namespace quxlang::vmir2
             consume(spn.from_storage);
             output(spn.to_reference);
         }
+        void apply_internal(vmir2::initguard_global_get_ref const& igr)
+        {
+            output(igr.target_ref);
+        }
+        void apply_internal(vmir2::initguard_release const& igr)
+        {
+            consume(igr.lock);
+        }
+        void apply_internal(vmir2::initguard_abort const& iga)
+        {
+            consume(iga.lock);
+        }
         void apply_internal(vmir2::make_reference const& mrf)
         {
             readonly(mrf.value_index);

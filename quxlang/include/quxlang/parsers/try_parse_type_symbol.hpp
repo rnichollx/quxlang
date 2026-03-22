@@ -83,6 +83,14 @@ namespace quxlang::parsers
         {
             output = byte_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "INITGUARD"))
+        {
+            output = initguard_type{};
+        }
+        else if (skip_keyword_if_is(pos, end, "INITGUARD_LOCK"))
+        {
+            output = initguard_lock_type{};
+        }
         else if (skip_keyword_if_is(pos, end, "STORAGE"))
         {
             storage result;

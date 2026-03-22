@@ -232,6 +232,8 @@ namespace quxlang
         std::string operator()(int_type const& ref) const;
 
         std::string operator()(byte_type const& ref) const;
+        std::string operator()(initguard_type const& ref) const;
+        std::string operator()(initguard_lock_type const& ref) const;
         std::string operator()(bool_type const& ref) const;
         std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
@@ -342,6 +344,16 @@ namespace quxlang
         }
 
         bool operator()(byte_type const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(initguard_type const&) const
+        {
+            return false;
+        }
+
+        bool operator()(initguard_lock_type const&) const
         {
             return false;
         }
@@ -779,6 +791,14 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(byte_type const& ref) const
     {
         return "BYTE";
+    }
+    std::string type_symbol_stringifier::operator()(initguard_type const& ref) const
+    {
+        return "INITGUARD";
+    }
+    std::string type_symbol_stringifier::operator()(initguard_lock_type const& ref) const
+    {
+        return "INITGUARD_LOCK";
     }
     std::string type_symbol_stringifier::operator()(value_expression_reference const& ref) const
     {

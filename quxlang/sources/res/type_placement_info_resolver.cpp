@@ -59,6 +59,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_placement_info)
     {
         co_return type_placement_info{.size = 1, .alignment = 1};
     }
+    else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
+    {
+        co_return type_placement_info{.size = 8, .alignment = 8};
+    }
     else if (type.template type_is< storage >())
     {
         type_placement_info result{.size = 0, .alignment = 1};

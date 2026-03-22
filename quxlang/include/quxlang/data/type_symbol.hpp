@@ -34,6 +34,16 @@ namespace quxlang
         RPNX_EMPTY_METADATA(void_type);
     };
 
+    struct initguard_type
+    {
+        RPNX_EMPTY_METADATA(initguard_type);
+    };
+
+    struct initguard_lock_type
+    {
+        RPNX_EMPTY_METADATA(initguard_lock_type);
+    };
+
     struct intptr
     {
         bool has_sign = false;

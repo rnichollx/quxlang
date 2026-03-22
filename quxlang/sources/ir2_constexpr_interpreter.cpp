@@ -264,6 +264,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
+    void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::cast_reference const& cst);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::load_const_value const& lcv);
@@ -272,6 +273,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_constructor_invoke const& sci);
     void exec_instr_val(vmir2::storage_destructor_invoke const& sdi);
     void exec_instr_val(vmir2::storage_pun const& spn);
+    void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
+    void exec_instr_val(vmir2::initguard_release const& igr);
+    void exec_instr_val(vmir2::initguard_abort const& iga);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
     void exec_instr_val(vmir2::ret const& ret);
@@ -809,6 +813,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 1;
     }
 
+    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
+    {
+        return 8;
+    }
+
     if (typeis< bool_type >(type))
     {
         return 1;
@@ -861,6 +870,10 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         auto sz = get_type_size(type);
         return std::min<std::size_t>(sz, 8);
+    }
+    if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
+    {
+        return 8;
     }
     if (typeis< byte_type >(type) || typeis< bool_type >(type))
     {
@@ -969,6 +982,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::unimplemented const&)
 {
     throw constexpr_logic_execution_error("Unimplemented instruction executed in constexpr interpreter");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_global_get_ref const&)
+{
+    throw constexpr_logic_execution_error("INITGUARD_GLOBAL_GET_REF is not implemented in constexpr interpreter");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_release const&)
+{
+    throw constexpr_logic_execution_error("INITGUARD_RELEASE is not implemented in constexpr interpreter");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_abort const&)
+{
+    throw constexpr_logic_execution_error("INITGUARD_ABORT is not implemented in constexpr interpreter");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_bool const& lcb)
@@ -1365,6 +1393,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         transition(brn.target_true);
     }
 }
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const&)
+{
+    throw constexpr_logic_execution_error("INITGUARD_TRY_ACQUIRE is not implemented in constexpr interpreter");
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_reference const& cst)
 {
     auto& local_ptr_base = get_current_frame().local_values.at(cst.source_ref_index);

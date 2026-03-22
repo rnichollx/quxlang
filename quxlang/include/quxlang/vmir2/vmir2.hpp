@@ -45,10 +45,14 @@ namespace quxlang
         struct storage_constructor_invoke;
         struct storage_destructor_invoke;
         struct storage_pun;
+        struct initguard_global_get_ref;
+        struct initguard_release;
+        struct initguard_abort;
         struct dereference_pointer;
         struct load_const_zero;
         struct defer_nontrivial_dtor;
         struct end_lifetime;
+        struct initguard_try_acquire;
         struct ptr_offset;
         struct ptr_comp;
         struct ptr_to_i;
@@ -127,6 +131,9 @@ namespace quxlang
             storage_constructor_invoke,
             storage_destructor_invoke,
             storage_pun,
+            initguard_global_get_ref,
+            initguard_release,
+            initguard_abort,
             load_const_zero,
             load_const_bool,
             dereference_pointer,
@@ -185,7 +192,7 @@ namespace quxlang
             array_init_more
         >;
         // clang-format: on
-        using vm_terminator = rpnx::variant< jump, branch, ret >;
+        using vm_terminator = rpnx::variant< jump, branch, initguard_try_acquire, ret >;
 
         RPNX_UNIQUE_U64(local_index);
 
@@ -255,6 +262,28 @@ namespace quxlang
             local_index to_reference;
 
             RPNX_MEMBER_METADATA(storage_pun, from_storage, as_type, to_reference);
+        };
+
+        struct initguard_global_get_ref
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            RPNX_MEMBER_METADATA(initguard_global_get_ref, symbol, target_ref);
+        };
+
+        struct initguard_release
+        {
+            local_index lock;
+
+            RPNX_MEMBER_METADATA(initguard_release, lock);
+        };
+
+        struct initguard_abort
+        {
+            local_index lock;
+
+            RPNX_MEMBER_METADATA(initguard_abort, lock);
         };
 
         // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.
@@ -834,6 +863,16 @@ namespace quxlang
             block_index target_false;
 
             RPNX_MEMBER_METADATA(branch, condition, target_true, target_false);
+        };
+
+        struct initguard_try_acquire
+        {
+            type_symbol symbol;
+            local_index target_lock;
+            block_index target_acquired;
+            block_index target_already_initialized;
+
+            RPNX_MEMBER_METADATA(initguard_try_acquire, symbol, target_lock, target_acquired, target_already_initialized);
         };
 
         struct vm_slot
