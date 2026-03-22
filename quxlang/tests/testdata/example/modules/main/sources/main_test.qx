@@ -28,7 +28,7 @@ IMPORT foolib;
   test_serialize();
   storage_buz_test();
 
- // test_global();
+  test_global();
 
   RETURN 1;
 }

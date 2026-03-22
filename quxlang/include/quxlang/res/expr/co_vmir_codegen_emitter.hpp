@@ -3013,21 +3013,9 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
 
-            if (typeis_oneof< int_type, bool_type, byte_type, readonly_constant, ptrref_type >(class_type))
-            {
-                auto this_value = this->local_value_direct_lookup(current_block, "THIS");
-                auto other_value = this->local_value_direct_lookup(current_block, "OTHER");
 
-                QUXLANG_COMPILER_BUG_IF(!this_value.has_value(), "Expected THIS to be defined");
-                QUXLANG_COMPILER_BUG_IF(!other_value.has_value(), "Expected OTHER to be defined");
-
-                auto ctor = submember{.of = class_type, .name = "CONSTRUCTOR"};
-                co_await this->co_gen_call_functum(current_block, ctor, codegen_invocation_args{.named = {{"THIS", *this_value}, {"OTHER", *other_value}}});
-            }
-            else
-            {
             co_await co_generate_copy_ctor_delegates(current_block, func);
-            }
+
 
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();

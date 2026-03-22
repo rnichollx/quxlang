@@ -214,6 +214,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 
         // input/output/auto are not concrete types so don't have constructors.
 
+        if (target_pref.ptr_class == pointer_class::ref)
+        {
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", input}}, void_type{});
+        }
+
         for (qualifier q : allowed_qualifiiers)
         {
             for (pointer_class p : allowed_input_classes)
