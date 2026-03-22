@@ -176,6 +176,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::deque< stack_frame > stack;
     std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
+    std::map< type_symbol, std::shared_ptr< local > > global_storages;
     std::map< type_symbol, std::shared_ptr< local > > global_initguards;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
@@ -236,16 +237,22 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void end_lifetime(std::shared_ptr< local > object);
 
     std::shared_ptr< local > output_local(local_index at);
+    /** Returns the unique constexpr storage object associated with a global symbol, creating it from the target slot type on first use. */
+    std::shared_ptr< local > get_or_create_global_storage(type_symbol symbol, type_symbol storage_type);
     /** Returns the unique constexpr initguard object associated with a symbol, creating it on first use. */
     std::shared_ptr< local > get_or_create_initguard(type_symbol symbol);
     /** Decodes the current initguard state from the guard object's data payload. */
     initguard_state get_initguard_state(std::shared_ptr< local > const& guard);
+
+
     /** Stores the requested initguard state into the guard object's one-byte payload. */
     void set_initguard_state(std::shared_ptr< local > const& guard, initguard_state state);
     /** Initializes a lock token so it refers to the supplied guard during an active acquisition. */
     void set_initguard_lock(std::shared_ptr< local > const& lock, std::shared_ptr< local > const& guard);
     /** Aborts an in-flight acquisition when a live initguard lock unwinds out of scope. */
     void abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock);
+    /** Materializes a reference to the unique constexpr storage backing the requested global symbol. */
+    void do_get_global_storage(type_symbol symbol, local_index target_ref);
     /** Materializes a reference to the unique constexpr initguard backing the requested symbol. */
     void do_initguard_global_get_ref(type_symbol symbol, local_index target_ref);
     /** Commits a successful initguard acquisition, transitioning the referenced guard to initialized. */
@@ -299,6 +306,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_constructor_invoke const& sci);
     void exec_instr_val(vmir2::storage_destructor_invoke const& sdi);
     void exec_instr_val(vmir2::storage_pun const& spn);
+    void exec_instr_val(vmir2::get_global_storage const& ggs);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_release const& igr);
     void exec_instr_val(vmir2::initguard_abort const& iga);
@@ -1445,6 +1453,30 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto out_ref = output_local(spn.to_reference);
     out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_storage const& ggs)
+{
+    do_get_global_storage(ggs.symbol, ggs.target_ref);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_global_storage(type_symbol symbol, local_index target_ref)
+{
+    auto const target_type = get_local_type(target_ref);
+    if (!is_ref(target_type))
+    {
+        throw compiler_bug("GET_GLOBAL_STORAGE requires a reference-typed destination");
+    }
+
+    auto const storage_type = remove_ref(target_type);
+    if (!typeis< storage >(storage_type))
+    {
+        throw compiler_bug("GET_GLOBAL_STORAGE requires a destination of type QUAL& STORAGE(T)");
+    }
+
+    auto storage_local = get_or_create_global_storage(symbol, storage_type);
+    auto out_ref = output_local(target_ref);
+    out_ref->ref = pointer_impl{.pointer_target = storage_local};
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_reference const& mrf)
 {
     auto ptr = get_pointer_to(current_frame_index(), mrf.value_index);
@@ -3659,6 +3691,23 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     begin_lifetime(slot_ptr);
 
     return slot_ptr;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_global_storage(type_symbol symbol, type_symbol storage_type)
+{
+    if (!typeis< storage >(storage_type))
+    {
+        throw compiler_bug("global storage must be created with STORAGE(T)");
+    }
+
+    auto& storage_local = global_storages[symbol];
+    if (storage_local == nullptr)
+    {
+        storage_local = create_object(storage_type);
+        begin_lifetime(storage_local);
+    }
+
+    return storage_local;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_initguard(type_symbol symbol)

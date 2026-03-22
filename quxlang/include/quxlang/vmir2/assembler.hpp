@@ -65,6 +65,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::storage_constructor_invoke inst);
         std::string to_string_internal(vmir2::storage_destructor_invoke inst);
         std::string to_string_internal(vmir2::storage_pun inst);
+        std::string to_string_internal(vmir2::get_global_storage inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
         std::string to_string_internal(vmir2::initguard_release inst);
         std::string to_string_internal(vmir2::initguard_abort inst);

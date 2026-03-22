@@ -45,6 +45,7 @@ namespace quxlang
         struct storage_constructor_invoke;
         struct storage_destructor_invoke;
         struct storage_pun;
+        struct get_global_storage;
         struct initguard_global_get_ref;
         struct initguard_release;
         struct initguard_abort;
@@ -131,6 +132,7 @@ namespace quxlang
             storage_constructor_invoke,
             storage_destructor_invoke,
             storage_pun,
+            get_global_storage,
             initguard_global_get_ref,
             initguard_release,
             initguard_abort,
@@ -262,6 +264,14 @@ namespace quxlang
             local_index to_reference;
 
             RPNX_MEMBER_METADATA(storage_pun, from_storage, as_type, to_reference);
+        };
+
+        struct get_global_storage
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            RPNX_MEMBER_METADATA(get_global_storage, symbol, target_ref);
         };
 
         struct initguard_global_get_ref

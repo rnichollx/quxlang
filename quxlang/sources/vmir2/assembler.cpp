@@ -249,6 +249,11 @@ namespace quxlang::vmir2
         return "STORAGE_PUN %" + std::to_string(inst.from_storage) + " AS " + quxlang::to_string(inst.as_type) + " -> %" + std::to_string(inst.to_reference);
     }
 
+    std::string assembler::to_string_internal(vmir2::get_global_storage inst)
+    {
+        return "GET_GLOBAL_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+    }
+
     std::string assembler::to_string_internal(vmir2::initguard_global_get_ref inst)
     {
         return "INITGUARD_GLOBAL_GET_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);

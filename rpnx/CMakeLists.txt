@@ -8,7 +8,6 @@ find_package(RPNXSerialization REQUIRED)
 
 add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp include/rpnx/value.hpp
         include/rpnx/string.hpp
-        include/rpnx/compare.hpp
         include/rpnx/range.hpp
         include/rpnx/resolver2.hpp
         include/rpnx/inttypes.h
