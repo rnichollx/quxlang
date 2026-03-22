@@ -61,6 +61,21 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
         {
             co_return symbol_kind::functum;
         }
+        else if (typeis< ast2_variable_declaration >(s))
+        {
+            if (typeis< subsymbol >(input_val))
+            {
+                co_return symbol_kind::global_variable;
+            }
+            else if (typeis< submember >(input_val))
+            {
+                co_return symbol_kind::member_variable;
+            }
+            else
+            {
+                throw compiler_bug("variable symbol must be a subsymbol or submember");
+            }
+        }
         else if (typeis< ast2_class_declaration >(s))
         {
             co_return symbol_kind::class_;

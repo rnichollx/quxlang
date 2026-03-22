@@ -293,6 +293,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
     std::string const& name = as_submember.name;
 
+    auto parent_kind = co_await QUX_CO_DEP(symbol_type, (parent));
+
     std::set< builtin_function_info > allowed_operations;
 
     auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
@@ -314,6 +316,34 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
     {
         allowed_operations.insert(make_overload(positionals, named, return_type));
     };
+
+    if (parent_kind == symbol_kind::global_variable)
+    {
+        auto variable_type = co_await QUX_CO_DEP(variable_type, (parent));
+        storage global_storage_type;
+        global_storage_type.storable_types.insert(variable_type);
+
+        if (name == "GET_REFERENCE")
+        {
+            add_overload({}, {}, make_mref(variable_type));
+            co_return allowed_operations;
+        }
+
+        if (name == "INIT")
+        {
+            add_overload({}, {{"STORAGE", make_mref(global_storage_type)}}, void_type{});
+            co_return allowed_operations;
+        }
+    }
+
+    if (name == "DESTRUCTOR")
+    {
+        if (has_lifetime_only_builtin_dtor(parent))
+        {
+            add_overload({}, {{"THIS", dvalue_slot{.target = parent}}}, void_type{});
+        }
+        co_return allowed_operations;
+    }
 
     if (name == "CONSTRUCTOR")
     {

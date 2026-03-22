@@ -139,9 +139,12 @@ namespace quxlang
     struct ast2_variable_declaration
     {
         type_symbol type;
+        std::set< std::string > keyword_tags;
+        std::optional< expression > init_expr;
+        std::vector< expression_arg > init_args;
         std::optional< std::size_t > offset;
 
-        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, offset);
+        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, keyword_tags, init_expr, init_args, offset);
     };
 
     struct ast2_option

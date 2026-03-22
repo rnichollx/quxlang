@@ -123,6 +123,15 @@ namespace quxlang
         return nvalue_slot{ref};
     }
 
+    inline bool has_lifetime_only_builtin_dtor(type_symbol const& type)
+    {
+        return typeis< int_type >(type) ||
+               typeis< bool_type >(type) ||
+               typeis< byte_type >(type) ||
+               typeis< ptrref_type >(type) ||
+               typeis< readonly_constant >(type);
+    }
+
     bool is_ref(type_symbol type);
 
     inline bool is_ref_implicitly_convertible_by_syntax(type_symbol from, type_symbol to)

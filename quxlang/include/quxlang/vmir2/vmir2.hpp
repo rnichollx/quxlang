@@ -42,8 +42,8 @@ namespace quxlang
         struct load_from_ref;
         struct store_to_ref;
         struct storage_init;
-        struct storage_constructor_invoke;
-        struct storage_destructor_invoke;
+        struct storage_init_start;
+        struct storage_deinit_start;
         struct storage_pun;
         struct get_global_storage;
         struct initguard_global_get_ref;
@@ -52,6 +52,7 @@ namespace quxlang
         struct dereference_pointer;
         struct load_const_zero;
         struct defer_nontrivial_dtor;
+        struct destroy;
         struct end_lifetime;
         struct initguard_try_acquire;
         struct ptr_offset;
@@ -129,8 +130,8 @@ namespace quxlang
             make_pointer_to,
             load_from_ref,
             storage_init,
-            storage_constructor_invoke,
-            storage_destructor_invoke,
+            storage_init_start,
+            storage_deinit_start,
             storage_pun,
             get_global_storage,
             initguard_global_get_ref,
@@ -173,6 +174,7 @@ namespace quxlang
             struct_init_start,
             struct_init_finish,
             copy_reference,
+            destroy,
             end_lifetime,
             access_array,
             to_bool,
@@ -207,6 +209,13 @@ namespace quxlang
             RPNX_MEMBER_METADATA(end_lifetime, of);
         };
 
+        struct destroy
+        {
+            local_index of;
+
+            RPNX_MEMBER_METADATA(destroy, of);
+        };
+
         struct unimplemented
         {
             std::optional< std::string > message;
@@ -238,23 +247,20 @@ namespace quxlang
             RPNX_MEMBER_METADATA(storage_init, storage);
         };
 
-        struct storage_constructor_invoke
+        struct storage_init_start
         {
             local_index on_storage;
-            type_symbol what;
-            invocation_args args;
-            local_index result_pointer;
+            local_index target_value;
 
-            RPNX_MEMBER_METADATA(storage_constructor_invoke, on_storage, what, args, result_pointer);
+            RPNX_MEMBER_METADATA(storage_init_start, on_storage, target_value);
         };
 
-        struct storage_destructor_invoke
+        struct storage_deinit_start
         {
             local_index on_storage;
-            type_symbol what;
-            invocation_args args;
+            local_index target_value;
 
-            RPNX_MEMBER_METADATA(storage_destructor_invoke, on_storage, what, args);
+            RPNX_MEMBER_METADATA(storage_deinit_start, on_storage, target_value);
         };
 
         struct storage_pun
@@ -935,6 +941,7 @@ namespace quxlang
             std::optional< dtor_spec > nontrivial_dtor;
             std::optional< invocation_args > delegates;
             std::optional< local_index > delegate_of;
+            bool destroy_delegate = false;
             std::optional< local_index > array_delegate_of_initializer;
 
             bool alive() const
@@ -963,10 +970,14 @@ namespace quxlang
                 {
                     return false;
                 }
+                if (destroy_delegate && !alive())
+                {
+                    return false;
+                }
                 return true;
             }
 
-            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, array_delegate_of_initializer);
+            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, destroy_delegate, array_delegate_of_initializer);
         };
 
         struct slot_states

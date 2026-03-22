@@ -328,83 +328,27 @@ namespace quxlang::vmir2
         {
             output(sin.storage);
         }
-        void apply_internal(vmir2::storage_constructor_invoke const& inv)
+        void apply_internal(vmir2::storage_init_start const& sis)
         {
-            consume(inv.on_storage);
-
-            auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
-
-            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            readonly(sis.on_storage);
+            if (state[sis.target_value].alive()) [[unlikely]]
             {
-                auto const arg_idx = inv.args.positional[index];
-                auto const& arg_inst_type = ivk_func_inst.params.positional.at(index);
-                if (arg_inst_type.template type_is< nvalue_slot >())
-                {
-                    output(arg_idx);
-                }
-                else
-                {
-                    consume(arg_idx);
-                }
+                throw invalid_instruction_transition_error("storage init delegate already alive");
             }
-
-            for (auto const& [name, index] : inv.args.named)
-            {
-                if (name == "THIS")
-                {
-                    continue;
-                }
-
-                auto const& arg_inst_type = ivk_func_inst.params.named.at(name);
-                if (arg_inst_type.template type_is< nvalue_slot >())
-                {
-                    output(index);
-                }
-                else
-                {
-                    consume(index);
-                }
-            }
-
-            output(inv.result_pointer);
+            state[sis.target_value].destroy_delegate = false;
+            state[sis.target_value].storage_valid = true;
+            state[sis.target_value].stage = slot_stage::dead;
         }
-        void apply_internal(vmir2::storage_destructor_invoke const& inv)
+        void apply_internal(vmir2::storage_deinit_start const& sds)
         {
-            consume(inv.on_storage);
-
-            auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
-
-            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            readonly(sds.on_storage);
+            if (state[sds.target_value].alive()) [[unlikely]]
             {
-                auto const arg_idx = inv.args.positional[index];
-                auto const& arg_inst_type = ivk_func_inst.params.positional.at(index);
-                if (arg_inst_type.template type_is< nvalue_slot >())
-                {
-                    output(arg_idx);
-                }
-                else
-                {
-                    consume(arg_idx);
-                }
+                throw invalid_instruction_transition_error("storage deinit delegate already alive");
             }
-
-            for (auto const& [name, index] : inv.args.named)
-            {
-                if (name == "THIS")
-                {
-                    continue;
-                }
-
-                auto const& arg_inst_type = ivk_func_inst.params.named.at(name);
-                if (arg_inst_type.template type_is< nvalue_slot >())
-                {
-                    output(index);
-                }
-                else
-                {
-                    consume(index);
-                }
-            }
+            state[sds.target_value].destroy_delegate = true;
+            state[sds.target_value].storage_valid = true;
+            state[sds.target_value].stage = slot_stage::full;
         }
         void apply_internal(vmir2::storage_pun const& spn)
         {
@@ -677,6 +621,10 @@ namespace quxlang::vmir2
             readonly(cpr.from_index);
             output(cpr.to_index);
         }
+        void apply_internal(vmir2::destroy const& dst)
+        {
+            consume(dst.of);
+        }
         void apply_internal(vmir2::end_lifetime const& elt)
         {
             consume(elt.of);
@@ -781,7 +729,8 @@ namespace quxlang::vmir2
                 throw invalid_instruction_transition_error("consume input not alive state");
             }
             state[idx].stage = slot_stage::dead;
-            state[idx].storage_valid = state[idx].delegate_of.has_value();
+            state[idx].storage_valid = state[idx].delegate_of.has_value() || state[idx].destroy_delegate;
+            state[idx].destroy_delegate = false;
         }
         void output(local_index idx)
         {

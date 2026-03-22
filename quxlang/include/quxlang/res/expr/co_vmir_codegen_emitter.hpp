@@ -361,7 +361,11 @@ namespace quxlang
             // are never nvalue or dvalue slots.
             assert(!type.template type_is< nvalue_slot >() && !type.template type_is< dvalue_slot >());
 
-            if (!slot_state.alive())
+            if (slot_state.destroy_delegate)
+            {
+                type = dvalue_slot{.target = type};
+            }
+            else if (!slot_state.alive())
             {
                 type = create_nslot(type);
             }
@@ -753,8 +757,8 @@ namespace quxlang
 
             if (kind == quxlang::symbol_kind::global_variable)
             {
-                auto variable_type = co_await prv.variable_type(canonical_symbol);
-                throw rpnx::unimplemented();
+                auto global_get_reference = submember{.of = canonical_symbol, .name = "GET_REFERENCE"};
+                index = co_await this->co_gen_call_functum(idx, global_get_reference, {});
             }
             else
             {
@@ -1264,6 +1268,16 @@ namespace quxlang
 
                         return aca;
                     }
+                }
+            }
+
+            if (member->name == "DESTRUCTOR")
+            {
+                if (has_lifetime_only_builtin_dtor(*cls) && call.named.contains("THIS") && call.size() == 1 && args.size() == 1)
+                {
+                    vmir2::end_lifetime elt{};
+                    elt.of = get_local_index(args.named.at("THIS"));
+                    return elt;
                 }
             }
 
@@ -2264,21 +2278,39 @@ namespace quxlang
             co_return val;
         }
 
-        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_begin_storage_delegate(block_index& bidx, value_index storage_ref, type_symbol target_type, bool destroy_delegate) -> typename CoroutineProvider::template co_type< value_index >
         {
             co_await co_expect_storage_reference(bidx, storage_ref, true, target_type);
 
-            auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
+            auto delegate_value = this->create_local_value(target_type);
+            if (destroy_delegate)
+            {
+                this->emit(bidx, vmir2::storage_deinit_start{
+                                     .on_storage = get_local_index(storage_ref),
+                                     .target_value = get_local_index(delegate_value)});
+            }
+            else
+            {
+                this->emit(bidx, vmir2::storage_init_start{
+                                     .on_storage = get_local_index(storage_ref),
+                                     .target_value = get_local_index(delegate_value)});
+            }
 
+            co_return delegate_value;
+        }
+
+        auto co_generate_place_expression_impl(block_index& bidx, value_index storage_ref, type_symbol target_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, true, target_type);
+            auto constructor = submember{.of = target_type, .name = "CONSTRUCTOR"};
             codegen_invocation_args ctor_args;
-            invotype calltype;
-            calltype.named["THIS"] = nvalue_slot{target_type};
+            auto storage_delegate = co_await co_begin_storage_delegate(bidx, storage_ref, target_type, false);
+            ctor_args.named["THIS"] = storage_delegate;
 
             if (assign_init.has_value())
             {
                 auto init_val = co_await co_generate_expr(bidx, *assign_init);
                 ctor_args.named["OTHER"] = init_val;
-                calltype.named["OTHER"] = this->current_type(bidx, init_val);
             }
             else
             {
@@ -2288,25 +2320,26 @@ namespace quxlang
                     if (arg.name.has_value())
                     {
                         ctor_args.named[*arg.name] = arg_val;
-                        calltype.named[*arg.name] = this->current_type(bidx, arg_val);
                     }
                     else
                     {
                         ctor_args.positional.push_back(arg_val);
-                        calltype.positional.push_back(this->current_type(bidx, arg_val));
                     }
                 }
             }
 
-            auto inst = co_await resolve_functum_instanciation(bidx, constructor, calltype, parameter_init_kind::call);
-            auto adapted_args = co_await adapt_args_for_instanciation(bidx, inst, ctor_args, {"THIS"});
+            co_await this->co_gen_call_functum(bidx, constructor, ctor_args);
 
-            auto result_pointer = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
-            this->emit(bidx, vmir2::storage_constructor_invoke{
-                                  .on_storage = get_local_index(storage_ref),
-                                  .what = inst,
-                                  .args = get_invocation_args(adapted_args),
-                                  .result_pointer = get_local_index(result_pointer)});
+            auto typed_ref = this->create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
+            this->emit(bidx, vmir2::storage_pun{
+                                 .from_storage = get_local_index(storage_ref),
+                                 .as_type = target_type,
+                                 .to_reference = get_local_index(typed_ref)});
+
+            auto result_pointer = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::instance, .qual = storage_ref_type.qual});
+            this->emit(bidx, vmir2::make_pointer_to{
+                                 .of_index = get_local_index(typed_ref),
+                                 .pointer_index = get_local_index(result_pointer)});
             co_return result_pointer;
         }
 
@@ -2758,6 +2791,100 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_builtin_global_init(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            auto global_symbol = func.temploid.templexoid.get_as< submember >().of;
+            auto global_type = co_await prv.variable_type(global_symbol);
+            auto decl = co_await prv.symboid(global_symbol);
+            if (!typeis< ast2_variable_declaration >(decl))
+            {
+                throw compiler_bug("Global variable declaration not found");
+            }
+
+            auto const& variable_decl = as< ast2_variable_declaration >(decl);
+            auto storage_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"STORAGE"})).value();
+            auto ignored = co_await co_generate_place_expression_impl(current_block, storage_ref, global_type, variable_decl.init_expr, variable_decl.init_args);
+            (void)ignored;
+
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_global_get_reference(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto entry_block = block_index(0);
+            auto global_symbol = func.temploid.templexoid.get_as< submember >().of;
+            auto global_type = co_await prv.variable_type(global_symbol);
+
+            storage global_storage_type;
+            global_storage_type.storable_types.insert(global_type);
+
+            auto lock_value = create_local_value(initguard_lock_type{});
+            auto initialized_block = this->generate_subblock(entry_block, "global_already_initialized");
+            auto acquire_block = this->generate_subblock(entry_block, "global_acquired");
+
+            if (this->state.blocks.at(entry_block).terminator.has_value())
+            {
+                throw compiler_bug("Expected no terminator in global GET_REFERENCE entry block");
+            }
+
+            this->state.blocks.at(entry_block).terminator = vmir2::initguard_try_acquire{
+                .symbol = global_symbol,
+                .target_lock = get_local_index(lock_value),
+                .target_acquired = acquire_block,
+                .target_already_initialized = initialized_block,
+            };
+
+            vmir2::slot_state lock_state;
+            lock_state.stage = vmir2::slot_stage::full;
+            lock_state.storage_valid = true;
+            this->block(acquire_block).entry_state[get_local_index(lock_value)] = lock_state;
+            this->block(acquire_block).current_state[get_local_index(lock_value)] = lock_state;
+
+            auto emit_return_from_storage = [&](block_index& current_block) -> typename CoroutineProvider::template co_type< void >
+            {
+                auto storage_ref = this->create_local_value(make_mref(global_storage_type));
+                this->emit(current_block, vmir2::get_global_storage{
+                    .symbol = global_symbol,
+                    .target_ref = get_local_index(storage_ref),
+                });
+
+                auto result_ref = this->create_local_value(make_mref(global_type));
+                this->emit(current_block, vmir2::storage_pun{
+                    .from_storage = get_local_index(storage_ref),
+                    .as_type = global_type,
+                    .to_reference = get_local_index(result_ref),
+                });
+
+                co_await this->co_return_value(current_block, result_ref);
+            };
+
+            auto init_functum = submember{.of = global_symbol, .name = "INIT"};
+            auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));
+            this->emit(acquire_block, vmir2::get_global_storage{
+                .symbol = global_symbol,
+                .target_ref = get_local_index(init_storage_ref),
+            });
+            co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
+            this->emit(acquire_block, vmir2::initguard_release{.lock = get_local_index(lock_value)});
+            co_await emit_return_from_storage(acquire_block);
+
+            co_await emit_return_from_storage(initialized_block);
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -2891,10 +3018,27 @@ namespace quxlang
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            if (typeis_oneof< int_type, bool_type, byte_type, readonly_constant, ptrref_type >(class_type))
+            {
+                auto this_value = this->local_value_direct_lookup(current_block, "THIS");
+                auto other_value = this->local_value_direct_lookup(current_block, "OTHER");
+
+                QUXLANG_COMPILER_BUG_IF(!this_value.has_value(), "Expected THIS to be defined");
+                QUXLANG_COMPILER_BUG_IF(!other_value.has_value(), "Expected OTHER to be defined");
+
+                auto ctor = submember{.of = class_type, .name = "CONSTRUCTOR"};
+                co_await this->co_gen_call_functum(current_block, ctor, codegen_invocation_args{.named = {{"THIS", *this_value}, {"OTHER", *other_value}}});
+            }
+            else
+            {
             co_await co_generate_copy_ctor_delegates(current_block, func);
+            }
+
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -3882,35 +4026,33 @@ namespace quxlang
             }
 
             auto target_type = co_await co_lookup_typeclass(current_block, st.type);
-            co_await co_expect_storage_reference(current_block, storage_ref, true, target_type);
+            auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, target_type, true);
 
-            auto destructor = submember{.of = target_type, .name = "DESTRUCTOR"};
-
-            codegen_invocation_args dtor_args;
-            invotype calltype;
-            calltype.named["THIS"] = dvalue_slot{target_type};
-
-            for (auto const& arg : st.args)
+            if (st.args.empty())
             {
-                auto arg_val = co_await co_generate_expr(current_block, arg.value);
-                if (arg.name.has_value())
-                {
-                    dtor_args.named[*arg.name] = arg_val;
-                    calltype.named[*arg.name] = this->current_type(current_block, arg_val);
-                }
-                else
-                {
-                    dtor_args.positional.push_back(arg_val);
-                    calltype.positional.push_back(this->current_type(current_block, arg_val));
-                }
+                this->emit(current_block, vmir2::destroy{.of = get_local_index(storage_delegate)});
             }
+            else
+            {
+                auto destructor = submember{.of = target_type, .name = "DESTRUCTOR"};
+                codegen_invocation_args dtor_args;
+                dtor_args.named["THIS"] = storage_delegate;
 
-            auto inst = co_await resolve_functum_instanciation(current_block, destructor, calltype, parameter_init_kind::call);
-            auto adapted_args = co_await adapt_args_for_instanciation(current_block, inst, dtor_args, {"THIS"});
-            this->emit(current_block, vmir2::storage_destructor_invoke{
-                                   .on_storage = get_local_index(storage_ref),
-                                   .what = inst,
-                                   .args = get_invocation_args(adapted_args)});
+                for (auto const& arg : st.args)
+                {
+                    auto arg_val = co_await co_generate_expr(current_block, arg.value);
+                    if (arg.name.has_value())
+                    {
+                        dtor_args.named[*arg.name] = arg_val;
+                    }
+                    else
+                    {
+                        dtor_args.positional.push_back(arg_val);
+                    }
+                }
+
+                co_await co_gen_call_functum(current_block, destructor, dtor_args);
+            }
             co_return;
         }
 

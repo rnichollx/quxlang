@@ -62,8 +62,8 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::load_const_int inst);
         std::string to_string_internal(vmir2::make_pointer_to inst);
         std::string to_string_internal(vmir2::storage_init inst);
-        std::string to_string_internal(vmir2::storage_constructor_invoke inst);
-        std::string to_string_internal(vmir2::storage_destructor_invoke inst);
+        std::string to_string_internal(vmir2::storage_init_start inst);
+        std::string to_string_internal(vmir2::storage_deinit_start inst);
         std::string to_string_internal(vmir2::storage_pun inst);
         std::string to_string_internal(vmir2::get_global_storage inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
@@ -76,6 +76,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::defer_nontrivial_dtor dntd);
         std::string to_string_internal(vmir2::struct_init_start sdn);
         std::string to_string_internal(vmir2::struct_init_finish scn);
+        std::string to_string_internal(vmir2::destroy dst);
         std::string to_string_internal(vmir2::end_lifetime elt);
 
         std::string to_string_internal(vmir2::int_add add);

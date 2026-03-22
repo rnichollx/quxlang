@@ -234,14 +234,14 @@ namespace quxlang::vmir2
         return "STORAGE_INIT %" + std::to_string(inst.storage);
     }
 
-    std::string assembler::to_string_internal(vmir2::storage_constructor_invoke inst)
+    std::string assembler::to_string_internal(vmir2::storage_init_start inst)
     {
-        return "STORAGE_CTOR_INVOKE %" + std::to_string(inst.on_storage) + " " + quxlang::to_string(inst.what) + " " + to_string_internal(inst.args) + " -> %" + std::to_string(inst.result_pointer);
+        return "STORAGE_INIT_START %" + std::to_string(inst.on_storage) + " -> %" + std::to_string(inst.target_value);
     }
 
-    std::string assembler::to_string_internal(vmir2::storage_destructor_invoke inst)
+    std::string assembler::to_string_internal(vmir2::storage_deinit_start inst)
     {
-        return "STORAGE_DTOR_INVOKE %" + std::to_string(inst.on_storage) + " " + quxlang::to_string(inst.what) + " " + to_string_internal(inst.args);
+        return "STORAGE_DEINIT_START %" + std::to_string(inst.on_storage) + " -> %" + std::to_string(inst.target_value);
     }
 
     std::string assembler::to_string_internal(vmir2::storage_pun inst)
@@ -703,6 +703,11 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::end_lifetime elt)
     {
         return "END_LIFETIME %" + std::to_string(elt.of);
+    }
+
+    std::string assembler::to_string_internal(vmir2::destroy dst)
+    {
+        return "DESTROY %" + std::to_string(dst.of);
     }
     std::string assembler::to_string_internal(vmir2::pointer_arith inst)
     {

@@ -4,6 +4,7 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/value.hpp"
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_tags)
@@ -153,6 +154,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(user_move_ctor_exists)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_default_dtor)
 {
+    if (has_lifetime_only_builtin_dtor(input))
+    {
+        co_return std::nullopt;
+    }
+
     auto dtor_symbol = submember{.of = input, .name = "DESTRUCTOR"};
 
     initialization_reference init;

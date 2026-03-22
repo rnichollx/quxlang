@@ -151,6 +151,28 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
 
+TEST(parsing, parse_global_constexpr_variable_declaration)
+{
+    std::string test_string = "::foobar VAR CONSTEXPR_READABLE I32 := 4;";
+
+    quxlang::ast2_file_declaration file = quxlang::parsers::parse_file(test_string);
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    ASSERT_EQ(decl.name, "foobar");
+    ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
+
+    auto const& variable_decl = quxlang::as< quxlang::ast2_variable_declaration >(decl.decl);
+    ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
+    ASSERT_TRUE(variable_decl.keyword_tags.contains("CONSTEXPR_READABLE"));
+    ASSERT_FALSE(variable_decl.keyword_tags.contains("CONSTEXPR_READWRITE"));
+    ASSERT_TRUE(variable_decl.init_expr.has_value());
+    ASSERT_EQ(quxlang::to_string(*variable_decl.init_expr), "4");
+    ASSERT_TRUE(variable_decl.init_args.empty());
+}
+
 TEST(mangling, name_mangling_new)
 {
     quxlang::absolute_module_reference module{"main"};

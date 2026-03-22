@@ -28,7 +28,18 @@ IMPORT foolib;
   test_serialize();
   storage_buz_test();
 
+ // test_global();
+
   RETURN 1;
+}
+
+::global VAR I32 := 8;
+
+::test_global FUNCTION()
+{
+  ASSERT(global == 8);
+  global := global + 2;
+  ASSERT(global == 10);
 }
 
 ::test_pinc_2 FUNCTION()
@@ -245,6 +256,12 @@ IMPORT foolib;
   buz_inc(PUN slot AS buz);
   ASSERT(buz_x(PUN slot AS buz) == 10);
   DESTROY AT(slot) buz;
+
+  VAR slot2 STORAGE(I32);
+  VAR iptr ->I32 := PLACE AT(slot2) I32 := 9;
+  ASSERT(iptr??);
+  ASSERT((PUN slot2 AS I32) == 9);
+  DESTROY AT(slot2) I32;
   RETURN 10;
 }
 
