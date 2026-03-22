@@ -88,6 +88,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symbol_type)
         {
             co_return symbol_kind::noexist;
         }
+        else if (typeis< ast2_templex >(s))
+        {
+            co_return symbol_kind::templex;
+        }
         else
         {
             throw rpnx::unimplemented();

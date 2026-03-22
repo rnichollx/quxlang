@@ -30,6 +30,8 @@ IMPORT foolib;
 
   test_global();
 
+  template_test();
+
   RETURN 1;
 }
 
@@ -40,6 +42,21 @@ IMPORT foolib;
   ASSERT(global == 8);
   global := global + 2;
   ASSERT(global == 10);
+}
+
+
+::templated_holder TEMPLATE(AUTO(t)) CLASS
+{
+  .value VAR t;
+}
+
+::template_test FUNCTION()
+{
+  VAR holder templated_holder#( I32 );
+  holder.value := 5;
+  ASSERT(holder.value == 5);
+
+  RETURN;
 }
 
 ::test_pinc_2 FUNCTION()
