@@ -92,12 +92,13 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::bitwise_nand op);
         std::string to_string_internal(vmir2::bitwise_nor op);
         std::string to_string_internal(vmir2::bitwise_nxor op);
+        std::string to_string_internal(vmir2::bitwise_implies op);
+        std::string to_string_internal(vmir2::bitwise_implied op);
         std::string to_string_internal(vmir2::bitwise_shift_up op);
         std::string to_string_internal(vmir2::bitwise_shift_down op);
         std::string to_string_internal(vmir2::bitwise_rotate_up op);
         std::string to_string_internal(vmir2::bitwise_rotate_down op);
         std::string to_string_internal(vmir2::bitwise_inverse op);
-
         std::string to_string_internal(vmir2::cmp_eq inst);
         std::string to_string_internal(vmir2::cmp_ne inst);
         std::string to_string_internal(vmir2::cmp_lt inst);

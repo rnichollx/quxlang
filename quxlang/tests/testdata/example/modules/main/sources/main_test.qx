@@ -23,6 +23,7 @@ IMPORT foolib;
   test_type_exprs();
   test_rhs_comparisons();
   test_bits();
+  test_logic_operators();
   test_include_if_overloads();
   test_bitwise_operators();
   test_serialize();
@@ -733,6 +734,8 @@ IMPORT foolib;
    ASSERT((x #&& y) == 2);
    ASSERT((x #|| y) == 7);
    ASSERT((x #^^ y) == 5);
+   ASSERT((x #^-> y) == 4294967291);
+   ASSERT((x #^<- y) == 4294967294);
 
    // Rotate for I32
    VAR r I32 := 1;
@@ -753,6 +756,8 @@ IMPORT foolib;
    b := b1 #&! b2; ASSERT(b == BYTE(@OTHER 253)); // ~(6&3)=~2=253
    b := b1 #|! b2; ASSERT(b == BYTE(@OTHER 248)); // ~(6|3)=~7=248
    b := b1 #^! b2; ASSERT(b == BYTE(@OTHER 250)); // ~(6^3)=~5=250
+   b := b1 #^-> b2; ASSERT(b == BYTE(@OTHER 251));
+   b := b1 #^<- b2; ASSERT(b == BYTE(@OTHER 254));
 
    // Unary bitwise inverse for BYTE
    VAR bu BYTE := 170; // 1010 1010
@@ -769,6 +774,60 @@ IMPORT foolib;
    VAR br BYTE := 129;                             // 1000 0001
    br := br #+% 1; ASSERT(br == BYTE(@OTHER 3));   // 0000 0011
    br := br #-% 1; ASSERT(br == BYTE(@OTHER 129)); // back to 1000 0001
+}
+
+::bool_probe FUNCTION(@counter & I32, @value BOOL): BOOL
+{
+   counter := counter + 1;
+   RETURN value;
+}
+
+::test_logic_operators FUNCTION()
+{
+   ASSERT((TRUE && TRUE) == TRUE);
+   ASSERT((TRUE && FALSE) == FALSE);
+   ASSERT((FALSE || TRUE) == TRUE);
+   ASSERT((FALSE || FALSE) == FALSE);
+   ASSERT((TRUE ^^ FALSE) == TRUE);
+   ASSERT((TRUE ^^ TRUE) == FALSE);
+   ASSERT((TRUE !^ TRUE) == TRUE);
+   ASSERT((TRUE !^ FALSE) == FALSE);
+   ASSERT((TRUE !& TRUE) == FALSE);
+   ASSERT((FALSE !& TRUE) == TRUE);
+   ASSERT((TRUE !| FALSE) == FALSE);
+   ASSERT((FALSE !| FALSE) == TRUE);
+   ASSERT((TRUE ^> FALSE) == FALSE);
+   ASSERT((FALSE ^> FALSE) == TRUE);
+   ASSERT((FALSE ^< TRUE) == FALSE);
+   ASSERT((TRUE ^< FALSE) == TRUE);
+   ASSERT((TRUE !!) == FALSE);
+   ASSERT((FALSE !!) == TRUE);
+
+   VAR counter I32 := 0;
+
+   ASSERT((FALSE && bool_probe(@counter counter, @value TRUE)) == FALSE);
+   ASSERT(counter == 0);
+
+   ASSERT((TRUE || bool_probe(@counter counter, @value FALSE)) == TRUE);
+   ASSERT(counter == 0);
+
+   ASSERT((FALSE ^> bool_probe(@counter counter, @value FALSE)) == TRUE);
+   ASSERT(counter == 0);
+
+   ASSERT((TRUE ^< bool_probe(@counter counter, @value FALSE)) == TRUE);
+   ASSERT(counter == 0);
+
+   ASSERT((TRUE && bool_probe(@counter counter, @value TRUE)) == TRUE);
+   ASSERT(counter == 1);
+
+   ASSERT((FALSE || bool_probe(@counter counter, @value TRUE)) == TRUE);
+   ASSERT(counter == 2);
+
+   ASSERT((TRUE ^> bool_probe(@counter counter, @value FALSE)) == FALSE);
+   ASSERT(counter == 3);
+
+   ASSERT((FALSE ^< bool_probe(@counter counter, @value TRUE)) == FALSE);
+   ASSERT(counter == 4);
 }
 
 ::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)

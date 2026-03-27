@@ -359,12 +359,13 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::bitwise_nand const& op);
     void exec_instr_val(vmir2::bitwise_nor const& op);
     void exec_instr_val(vmir2::bitwise_nxor const& op);
+    void exec_instr_val(vmir2::bitwise_implies const& op);
+    void exec_instr_val(vmir2::bitwise_implied const& op);
     void exec_instr_val(vmir2::bitwise_shift_up const& op);
     void exec_instr_val(vmir2::bitwise_shift_down const& op);
     void exec_instr_val(vmir2::bitwise_rotate_up const& op);
     void exec_instr_val(vmir2::bitwise_rotate_down const& op);
     void exec_instr_val(vmir2::bitwise_inverse const& op);
-
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_init_start const& sdn);
     void exec_instr_val(vmir2::struct_init_finish const& scn);
@@ -2197,6 +2198,40 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                         return static_cast< std::uint8_t >(av ^ bv);
                     });
     bitwise_not_inplace(out);
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_implies const& op)
+{
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >((~av) | bv);
+                    });
+    out = truncate_to_bits(std::move(out), bits);
+    set_data(op.result, std::move(out));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_implied const& op)
+{
+    auto a = consume_local_as_data(op.a);
+    auto b = consume_local_as_data(op.b);
+    auto result_type = get_local_type(op.result);
+    std::size_t bits = get_bit_width_for_type(result_type);
+
+    std::vector< std::byte > out;
+    bitwise_byte_op(out, a, b,
+                    [](std::uint8_t av, std::uint8_t bv)
+                    {
+                        return static_cast< std::uint8_t >(av | (~bv));
+                    });
     out = truncate_to_bits(std::move(out), bits);
     set_data(op.result, std::move(out));
 }

@@ -474,6 +474,18 @@ namespace quxlang::vmir2
             consume(op.b);
             output(op.result);
         }
+        void apply_internal(vmir2::bitwise_implies const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
+        void apply_internal(vmir2::bitwise_implied const& op)
+        {
+            consume(op.a);
+            consume(op.b);
+            output(op.result);
+        }
         void apply_internal(vmir2::bitwise_shift_up const& op)
         {
             consume(op.value);

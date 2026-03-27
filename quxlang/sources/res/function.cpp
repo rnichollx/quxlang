@@ -509,10 +509,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             add_overload({}, {{"THIS", parent}}, make_mref(remove_ptr(parent)));
         }
 
-        // Equality/inequality for bool
+        // Equality/inequality and logical operators for bool
         if (is_bool_type && basic_compare_operators.contains(operator_name))
         {
             add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+        }
+        else if (is_bool_type)
+        {
+            static const std::set< std::string > bool_binary_logic_operators = {"&&", "||", "^^", "!^", "!&", "!|", "^>", "^<"};
+
+            if (bool_binary_logic_operators.contains(operator_name))
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+            }
+            else if (operator_name == "!!" && !is_rhs)
+            {
+                add_overload({}, {{"THIS", parent}}, bool_type{});
+            }
         }
 
         if (typeis< ptrref_type >(parent))

@@ -609,6 +609,14 @@ namespace quxlang::vmir2
     {
         return "BITWISE_NXOR %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
     }
+    std::string assembler::to_string_internal(vmir2::bitwise_implies op)
+    {
+        return "BITWISE_IMPLIES %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::bitwise_implied op)
+    {
+        return "BITWISE_IMPLIED %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
     std::string assembler::to_string_internal(vmir2::bitwise_shift_up op)
     {
         return "BITWISE_SHIFT_UP %" + std::to_string(op.value) + ", %" + std::to_string(op.amount) + ", %" + std::to_string(op.result);
@@ -629,7 +637,6 @@ namespace quxlang::vmir2
     {
         return "BITWISE_INVERSE %" + std::to_string(op.value) + ", %" + std::to_string(op.result);
     }
-
     std::string assembler::to_string_internal(vmir2::load_const_zero inst)
     {
         return "INIT_ZERO %" + std::to_string(inst.target);

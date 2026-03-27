@@ -1502,7 +1502,14 @@ namespace quxlang
                 {
                     return instr;
                 }
-                // Note: bitwise implies operators (#^->, #^<-) have no dedicated VMIR instruction; leave as non-intrinsic.
+                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^->", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<-", true, *member, call, args))
+                {
+                    return instr;
+                }
 
                 // Bitwise shifts and rotates for integers (amount is uintptr)
                 if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
@@ -1583,6 +1590,14 @@ namespace quxlang
                 {
                     return instr;
                 }
+                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^->", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<-", true, *member, call, args))
+                {
+                    return instr;
+                }
                 // Shifts and rotates for bytes
                 if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
                 {
@@ -1635,6 +1650,13 @@ namespace quxlang
                 else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
                 {
                     return instr;
+                }
+                else if (member->name == "OPERATOR!!" && call.named.contains("THIS") && call.size() == 1)
+                {
+                    vmir2::to_bool_not tbn{};
+                    tbn.from = get_local_index(args.named.at("THIS"));
+                    tbn.to = get_local_index(args.named.at("RETURN"));
+                    return tbn;
                 }
             }
             if (cls->template type_is< ptrref_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
@@ -2198,6 +2220,144 @@ namespace quxlang
             co_return result_bool;
         }
 
+        auto co_generate_logic_or(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_or_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_or_false");
+            auto true_block = this->generate_subblock(bidx, "logic_or_true");
+            auto after_block = this->generate_subblock(bidx, "logic_or_after");
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_or_rhs");
+            this->generate_branch(lhs, lhs_block, true_block, rhs_block);
+            this->kill_entry_value(rhs_block, lhs);
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+            this->generate_branch(rhs, rhs_block, true_block, false_block);
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+
+        auto co_generate_logic_nor(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_nor_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_nor_false");
+            auto true_block = this->generate_subblock(bidx, "logic_nor_true");
+            auto after_block = this->generate_subblock(bidx, "logic_nor_after");
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_nor_rhs");
+            this->generate_branch(lhs, lhs_block, false_block, rhs_block);
+            this->kill_entry_value(rhs_block, lhs);
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+            this->generate_branch(rhs, rhs_block, false_block, true_block);
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+
+        auto co_generate_logic_xor(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto lhs = co_await co_generate_bool_expr(bidx, input.lhs);
+            auto rhs = co_await co_generate_bool_expr(bidx, input.rhs);
+            co_return co_await co_generate_binary(bidx, "!=", lhs, rhs);
+        }
+
+        auto co_generate_logic_nxor(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto lhs = co_await co_generate_bool_expr(bidx, input.lhs);
+            auto rhs = co_await co_generate_bool_expr(bidx, input.rhs);
+            co_return co_await co_generate_binary(bidx, "==", lhs, rhs);
+        }
+
+        auto co_generate_logic_implies(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_implies_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_implies_false");
+            auto true_block = this->generate_subblock(bidx, "logic_implies_true");
+            auto after_block = this->generate_subblock(bidx, "logic_implies_after");
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_implies_rhs");
+            this->generate_branch(lhs, lhs_block, rhs_block, true_block);
+            this->kill_entry_value(rhs_block, lhs);
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+            this->generate_branch(rhs, rhs_block, true_block, false_block);
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+
+        auto co_generate_logic_implied(block_index& bidx, expression_binary input) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            auto result_bool = this->create_local_value(bool_type{});
+            auto lhs_block = this->generate_subblock(bidx, "logic_implied_lhs");
+            this->generate_jump(bidx, lhs_block);
+            auto false_block = this->generate_subblock(bidx, "logic_implied_false");
+            auto true_block = this->generate_subblock(bidx, "logic_implied_true");
+            auto after_block = this->generate_subblock(bidx, "logic_implied_after");
+            auto lhs = co_await co_generate_bool_expr(lhs_block, input.lhs);
+            auto rhs_block = this->generate_subblock(lhs_block, "logic_implied_rhs");
+            this->generate_branch(lhs, lhs_block, true_block, rhs_block);
+            this->kill_entry_value(rhs_block, lhs);
+            auto rhs = co_await co_generate_bool_expr(rhs_block, input.rhs);
+            this->generate_branch(rhs, rhs_block, false_block, true_block);
+            vmir2::load_const_bool set_false;
+            set_false.value = false;
+            set_false.target = get_local_index(result_bool);
+            this->emit(false_block, set_false);
+            vmir2::load_const_bool set_true;
+            set_true.value = true;
+            set_true.target = get_local_index(result_bool);
+            this->emit(true_block, set_true);
+            this->generate_jump(false_block, after_block);
+            this->generate_jump(true_block, after_block);
+            this->generate_survivor_local(false_block, after_block, get_local_index(result_bool));
+            bidx = after_block;
+            assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            co_return result_bool;
+        }
+
         auto co_generate_binary(block_index& bidx, std::string operator_str, value_index lhs, value_index rhs) -> typename CoroutineProvider::template co_type< value_index >
         {
             type_symbol lhs_type = this->current_type(bidx, lhs);
@@ -2242,6 +2402,36 @@ namespace quxlang
                 if (input.operator_str == "!&")
                 {
                     co_return co_await co_generate_logic_nand(bidx, input);
+                }
+
+                if (input.operator_str == "||")
+                {
+                    co_return co_await co_generate_logic_or(bidx, input);
+                }
+
+                if (input.operator_str == "!|")
+                {
+                    co_return co_await co_generate_logic_nor(bidx, input);
+                }
+
+                if (input.operator_str == "^^")
+                {
+                    co_return co_await co_generate_logic_xor(bidx, input);
+                }
+
+                if (input.operator_str == "!^")
+                {
+                    co_return co_await co_generate_logic_nxor(bidx, input);
+                }
+
+                if (input.operator_str == "^>")
+                {
+                    co_return co_await co_generate_logic_implies(bidx, input);
+                }
+
+                if (input.operator_str == "^<")
+                {
+                    co_return co_await co_generate_logic_implied(bidx, input);
                 }
             }
             auto lhs = co_await co_generate_expr(bidx, input.lhs);

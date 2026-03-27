@@ -93,6 +93,8 @@ namespace quxlang
         struct bitwise_nand;
         struct bitwise_nor;
         struct bitwise_nxor;
+        struct bitwise_implies;
+        struct bitwise_implied;
         struct bitwise_shift_up;
         struct bitwise_shift_down;
         struct bitwise_rotate_up;
@@ -153,6 +155,8 @@ namespace quxlang
             bitwise_nand,
             bitwise_nor,
             bitwise_nxor,
+            bitwise_implies,
+            bitwise_implied,
             bitwise_shift_up,
             bitwise_shift_down,
             bitwise_rotate_up,
@@ -675,6 +679,20 @@ namespace quxlang
             local_index b;
             local_index result;
             RPNX_MEMBER_METADATA(bitwise_nxor, a, b, result);
+        };
+        struct bitwise_implies
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_implies, a, b, result);
+        };
+        struct bitwise_implied
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            RPNX_MEMBER_METADATA(bitwise_implied, a, b, result);
         };
         struct bitwise_shift_up
         {

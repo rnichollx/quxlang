@@ -250,6 +250,34 @@ TEST(parsing, parse_bitwise_inverse_postfix)
     ASSERT_EQ(it, it_end);
 }
 
+TEST(parsing, parse_logical_inverse_postfix)
+{
+    std::string test_string = "bu !!";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+
+    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_unary_postfix >());
+    ASSERT_EQ(quxlang::as< quxlang::expression_unary_postfix >(expr).operator_str, "!!");
+    ASSERT_EQ(it, it_end);
+}
+
+TEST(parsing, parse_extended_logical_operators)
+{
+    for (std::string const& test_string : {"a !| b", "a !^ b", "a ^> b", "a ^< b"})
+    {
+        std::string::const_iterator it = test_string.begin();
+        std::string::const_iterator it_end = test_string.end();
+
+        quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+
+        ASSERT_TRUE(expr.template type_is< quxlang::expression_binary >());
+        ASSERT_EQ(it, it_end);
+    }
+}
+
 TEST(parsing, parse_pun_expression)
 {
     std::string test_string = "PUN x AS I32";
@@ -708,6 +736,15 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_FALSE(val1);
     auto val2 = get_constexpr_bool("2 + I32(@OTHER 3) - 4 < 5");
     ASSERT_TRUE(val2);
+    ASSERT_TRUE(get_constexpr_bool("TRUE || FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE !| FALSE) == FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE !^ TRUE) == TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE ^> FALSE) == FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(FALSE ^> FALSE) == TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("(FALSE ^< TRUE) == FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(FALSE !!) == TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^-> BYTE(@OTHER 3)) == BYTE(@OTHER 251)"));
+    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^<- BYTE(@OTHER 3)) == BYTE(@OTHER 254)"));
 }
 
 TEST(builtin_state, user_func_builtin)
