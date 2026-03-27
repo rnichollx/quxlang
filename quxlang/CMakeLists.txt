@@ -41,7 +41,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_class_body.hpp
         include/quxlang/parsers/try_parse_class.hpp
-        include/quxlang/parsers/try_parse_class_template.hpp
+        include/quxlang/parsers/try_parse_template_declaration.hpp
         include/quxlang/parsers/skip_whitespace.hpp
         include/quxlang/parsers/keyword.hpp
         include/quxlang/parsers/iter_parse_symbol.hpp

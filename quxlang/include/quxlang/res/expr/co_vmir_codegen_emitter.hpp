@@ -1651,6 +1651,22 @@ namespace quxlang
                 {
                     return instr;
                 }
+                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                {
+                    return instr;
+                }
                 else if (member->name == "OPERATOR!!" && call.named.contains("THIS") && call.size() == 1)
                 {
                     vmir2::to_bool_not tbn{};

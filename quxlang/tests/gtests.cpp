@@ -743,6 +743,13 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_TRUE(get_constexpr_bool("(FALSE ^> FALSE) == TRUE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE ^< TRUE) == FALSE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE !!) == TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("FALSE < TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("TRUE > FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("FALSE <= TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("TRUE >= FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("FALSE <= FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("TRUE >= TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("(FALSE < TRUE) == (TRUE > FALSE)"));
     ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^-> BYTE(@OTHER 3)) == BYTE(@OTHER 251)"));
     ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^<- BYTE(@OTHER 3)) == BYTE(@OTHER 254)"));
 }

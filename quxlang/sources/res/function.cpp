@@ -509,8 +509,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             add_overload({}, {{"THIS", parent}}, make_mref(remove_ptr(parent)));
         }
 
-        // Equality/inequality and logical operators for bool
-        if (is_bool_type && basic_compare_operators.contains(operator_name))
+        // Bools use the regular 0/1 ordering so FALSE < TRUE.
+        if (is_bool_type && compare_operators.contains(operator_name))
         {
             add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
         }
