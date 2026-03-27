@@ -250,14 +250,6 @@ IMPORT foolib;
 
 ::option_num OPTION NUMBER DEFAULT(42);
 
-::runtime_main INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM LINKNAME("_start")
-  CALLABLE(X1 I32, X2 I32)
-{
-  MOV X7, 1; // Comment
-  ADD X3, X4, X5;
-  LDR X1, PROCEDURE_REF("stdcall", main#());
-  SVC 0;
-}
 
 ::buz CLASS
 {
