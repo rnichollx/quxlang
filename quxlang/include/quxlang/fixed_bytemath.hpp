@@ -3,6 +3,7 @@
 
 #ifndef QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
 #define QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
+#include <stdexcept>
 #include <vector>
 
 #include <quxlang/bytemath.hpp>
@@ -99,12 +100,12 @@ namespace quxlang::bytemath
             // https://en.wikipedia.org/wiki/Two%27s_complement
 
             // Step one, add the inverse of each bit to the relevant bit-position
-            for (std::size_t i = 0; i < opt.bits - 1; i++)
+            for (std::size_t i = 0; i < opt.bits; i++)
             {
                 auto bit = get_bit(input, i);
                 set_bit(abs_val, i, !bit);
             }
-            std::vector< std::byte > one{1};
+            std::vector< std::byte > one{std::byte{1}};
             detail::le_trim_raw(abs_val);
             abs_val = detail::unlimited_int_unsigned_add_le_raw(std::move(abs_val), std::move(one));
             detail::le_trim_raw(abs_val);
@@ -236,18 +237,102 @@ namespace quxlang::bytemath
         return unlimited_to_fixed(opt, std::move(signed_result));
     }
 
-    inline int_result int_sub_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    inline bool le_is_zero(std::vector< std::byte > const& value)
+    {
+        return std::all_of(value.begin(), value.end(),
+                           [](std::byte byte)
+                           {
+                               return byte == std::byte{0};
+                           });
+    }
+
+    inline int_result fixed_int_sub_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
         return unlimited_to_fixed(opt, unlimited_int_signed_sub_le(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
     }
-    // inline int_result int_mult_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
-    // {
-    //     return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
-    //     //}
+
+    inline int_result fixed_int_mul_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        return unlimited_to_fixed(opt, le_signed_mult(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+    }
+
+    inline int_result fixed_int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        if (le_is_zero(b))
+        {
+            return {{}, true};
+        }
+
+        return unlimited_to_fixed(opt, le_signed_div(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+    }
+
+    inline int_result fixed_int_mod_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        if (le_is_zero(b))
+        {
+            return {{}, true};
+        }
+
+        auto dividend = le_int_fixed_to_unlimited(opt, a);
+        auto divisor = le_int_fixed_to_unlimited(opt, b);
+
+        if (divisor.is_negative)
+        {
+            return {{}, true};
+        }
+
+        auto quotient = le_signed_div(dividend, divisor);
+        auto product = le_signed_mult(divisor, quotient);
+        auto remainder = unlimited_int_signed_sub_le(std::move(dividend), std::move(product));
+        return unlimited_to_fixed(opt, std::move(remainder));
+    }
+
+    inline int_result fixed_int_shift_up_le(fixed_int_options opt, std::vector< std::byte > value, std::uint64_t amount)
+    {
+        std::size_t result_size = (opt.bits + 7) / 8;
+
+        if (amount >= opt.bits)
+        {
+            if (opt.overflow_undefined)
+            {
+                return {{}, true};
+            }
+            return {std::vector< std::byte >(result_size, std::byte{0}), false};
+        }
+
+        auto shifted = detail::le_shift_up_raw(std::move(value), static_cast< std::size_t >(amount));
+        shifted = detail::le_truncate_raw(std::move(shifted), opt.bits);
+        shifted.resize(result_size, std::byte{0});
+        return {std::move(shifted), false};
+    }
+
+    inline int_result fixed_int_shift_down_le(fixed_int_options opt, std::vector< std::byte > value, std::uint64_t amount)
+    {
+        std::size_t result_size = (opt.bits + 7) / 8;
+
+        if (amount >= opt.bits)
+        {
+            if (opt.overflow_undefined)
+            {
+                return {{}, true};
+            }
+            return {std::vector< std::byte >(result_size, std::byte{0}), false};
+        }
+
+        auto shifted = detail::le_shift_down_raw(std::move(value), static_cast< std::size_t >(amount));
+        shifted = detail::le_truncate_raw(std::move(shifted), opt.bits);
+        shifted.resize(result_size, std::byte{0});
+        return {std::move(shifted), false};
+    }
+
+    inline int_result int_sub_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
+    {
+        return fixed_int_sub_le(opt, std::move(a), std::move(b));
+    }
 
     inline int_result int_div_le(fixed_int_options opt, std::vector< std::byte > a, std::vector< std::byte > b)
     {
-        return unlimited_to_fixed(opt, le_signed_div(le_int_fixed_to_unlimited(opt, a), le_int_fixed_to_unlimited(opt, b)));
+        return fixed_int_div_le(opt, std::move(a), std::move(b));
     }
 
     // Convert a fixed-width integer value from one set of options to another.

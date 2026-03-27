@@ -1000,3 +1000,234 @@ TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
     ASSERT_EQ(res.data_bytes[1], std::byte(0xFF));
   }
 }
+
+TEST(fixed_bytemath, fixed_int_sub_wraps_signed_values) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_sub_le(opt, {std::byte{0x80}}, {std::byte{0x01}});
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x7F}}));
+}
+
+TEST(fixed_bytemath, fixed_int_add_wraps_signed_values) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_add_le(opt, {std::byte{0x7F}}, {std::byte{0x01}});
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x80}}));
+}
+
+TEST(fixed_bytemath, fixed_int_add_wraps_unsigned_values) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_add_le(opt, {std::byte{0xFF}}, {std::byte{0x01}});
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
+}
+
+TEST(fixed_bytemath, fixed_int_mul_wraps_signed_values) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_mul_le(opt, {std::byte{0x40}}, {std::byte{0x04}});
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
+}
+
+TEST(fixed_bytemath, fixed_int_div_signed_truncates_toward_zero) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_div_le(opt, {std::byte{0xF9}}, {std::byte{0x02}}); // -7 / 2
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFD}})); // -3
+}
+
+TEST(fixed_bytemath, fixed_int_div_zero_is_undefined) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_div_le(opt, {std::byte{0x0A}}, {std::byte{0x00}});
+  ASSERT_TRUE(res.result_is_undefined);
+}
+
+TEST(fixed_bytemath, fixed_int_mod_negative_modulus_is_undefined) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_mod_le(opt, {std::byte{0x07}}, {std::byte{0xFF}});
+  ASSERT_TRUE(res.result_is_undefined);
+}
+
+TEST(fixed_bytemath, fixed_int_shift_left_detects_overflow) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = true;
+
+  auto res = fixed_int_shift_up_le(opt, {std::byte{0x01}}, 8);
+  ASSERT_TRUE(res.result_is_undefined);
+}
+
+TEST(fixed_bytemath, fixed_int_shift_right_detects_overflow) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = true;
+
+  auto res = fixed_int_shift_down_le(opt, {std::byte{0x80}}, 8);
+  ASSERT_TRUE(res.result_is_undefined);
+}
+
+TEST(fixed_bytemath, fixed_int_shift_left_can_define_overflow_as_zero) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_shift_up_le(opt, {std::byte{0x01}}, 8);
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
+}
+
+TEST(fixed_bytemath, fixed_int_shift_right_can_define_overflow_as_zero) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_shift_down_le(opt, {std::byte{0x80}}, 8);
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x00}}));
+}
+
+TEST(fixed_bytemath, fixed_int_shift_left_truncates_when_in_range) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = true;
+
+  auto res = fixed_int_shift_up_le(opt, {std::byte{0x81}}, 1);
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x02}}));
+}
+
+TEST(fixed_bytemath, fixed_int_shift_right_preserves_in_range_result) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = false;
+  opt.overflow_undefined = true;
+
+  auto res = fixed_int_shift_down_le(opt, {std::byte{0x81}}, 1);
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0x40}}));
+}
+
+TEST(fixed_bytemath, fixed_int_mod_signed_remainder_matches_dividend_sign) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto res = fixed_int_mod_le(opt, {std::byte{0xF9}}, {std::byte{0x02}}); // -7 % 2
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFF}})); // -1
+}
+
+TEST(fixed_bytemath, fixed_int_convert_sign_extends_negative_values) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options from_opt;
+  from_opt.bits = 8;
+  from_opt.has_sign = true;
+  from_opt.overflow_undefined = false;
+
+  fixed_int_options to_opt;
+  to_opt.bits = 16;
+  to_opt.has_sign = true;
+  to_opt.overflow_undefined = false;
+
+  auto res = fixed_int_convert(from_opt, to_opt, {std::byte{0xFF}});
+  ASSERT_FALSE(res.result_is_undefined);
+  ASSERT_EQ(res.data_bytes, std::vector< std::byte >({std::byte{0xFF}, std::byte{0xFF}}));
+}
+
+TEST(fixed_bytemath, fixed_int_convert_non_byte_width_round_trip) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options from_opt;
+  from_opt.bits = 5;
+  from_opt.has_sign = true;
+  from_opt.overflow_undefined = false;
+
+  fixed_int_options to_opt;
+  to_opt.bits = 9;
+  to_opt.has_sign = true;
+  to_opt.overflow_undefined = false;
+
+  auto widened = fixed_int_convert(from_opt, to_opt, {std::byte{0x1F}}); // -1 in 5 bits
+  ASSERT_FALSE(widened.result_is_undefined);
+  ASSERT_EQ(widened.data_bytes, std::vector< std::byte >({std::byte{0xFF}, std::byte{0x01}}));
+
+  auto narrowed = fixed_int_convert(to_opt, from_opt, widened.data_bytes);
+  ASSERT_FALSE(narrowed.result_is_undefined);
+  ASSERT_EQ(narrowed.data_bytes, std::vector< std::byte >({std::byte{0x1F}}));
+}
+
+TEST(fixed_bytemath, le_int_fixed_to_unlimited_handles_signed_minimum) {
+  using namespace quxlang::bytemath;
+
+  fixed_int_options opt;
+  opt.bits = 8;
+  opt.has_sign = true;
+  opt.overflow_undefined = false;
+
+  auto value = le_int_fixed_to_unlimited(opt, {std::byte{0x80}});
+  ASSERT_TRUE(value.is_negative);
+  ASSERT_EQ(value.data, std::vector< std::byte >({std::byte{0x80}}));
+}

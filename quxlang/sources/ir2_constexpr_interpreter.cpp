@@ -213,8 +213,22 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         return stack.size() - 1;
     }
 
+    enum class fixed_int_instruction : std::uint8_t
+    {
+        add,
+        sub,
+        mul,
+        div,
+        mod,
+    };
+
+    using fixed_int_binary_op = bytemath::int_result (*)(bytemath::fixed_int_options, std::vector< std::byte >, std::vector< std::byte >);
+
     std::size_t get_type_size(const type_symbol& type);
     std::size_t get_type_alignment(type_symbol type);
+    bytemath::fixed_int_options get_fixed_int_options(type_symbol const& type) const;
+    char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
+    void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
 
     std::shared_ptr< local > output(local_index slot);
 
@@ -851,6 +865,109 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     }
     return 1;
 }
+
+quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_fixed_int_options(type_symbol const& type) const
+{
+    bytemath::fixed_int_options opts{};
+
+    if (type.type_is< byte_type >())
+    {
+        opts.bits = 8;
+        opts.has_sign = false;
+        opts.overflow_undefined = false;
+        return opts;
+    }
+
+    if (!type.type_is< int_type >())
+    {
+        throw std::runtime_error("expected primitive integer type");
+    }
+
+    int_type const& int_type_info = type.get_as< int_type >();
+    opts.bits = int_type_info.bits;
+    opts.has_sign = int_type_info.has_sign;
+    opts.overflow_undefined = false;
+    return opts;
+}
+
+char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fixed_int_instruction_name(fixed_int_instruction instruction) const
+{
+    switch (instruction)
+    {
+        case fixed_int_instruction::add:
+            return "IADD";
+        case fixed_int_instruction::sub:
+            return "ISUB";
+        case fixed_int_instruction::mul:
+            return "IMUL";
+        case fixed_int_instruction::div:
+            return "IDIV";
+        case fixed_int_instruction::mod:
+            return "IMOD";
+    }
+
+    throw compiler_bug("unknown fixed integer instruction");
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(
+    fixed_int_instruction instruction,
+    local_index a_slot,
+    local_index b_slot,
+    local_index result_slot,
+    fixed_int_binary_op op)
+{
+    char const* instruction_name = fixed_int_instruction_name(instruction);
+
+    require_valid_input_precondition(a_slot);
+    require_valid_input_precondition(b_slot);
+    require_valid_output_precondition(result_slot);
+
+    std::shared_ptr< local > a_local = consume_local(a_slot);
+    std::shared_ptr< local > b_local = consume_local(b_slot);
+    std::shared_ptr< local > result_local = output_local(result_slot);
+
+    auto& a_data = a_local->data;
+    auto& b_data = b_local->data;
+    auto& result_data = result_local->data;
+
+    if (a_data.size() != b_data.size())
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+    }
+
+    type_symbol a_type = get_local_type(a_slot);
+    type_symbol b_type = get_local_type(b_slot);
+    type_symbol result_type = get_local_type(result_slot);
+
+    if (a_type != b_type || a_type != result_type)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+    }
+
+    bytemath::fixed_int_options opts = get_fixed_int_options(a_type);
+    std::size_t expected_size = (opts.bits + 7) / 8;
+
+    if (a_data.size() != expected_size)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+    }
+
+    result_data.resize(expected_size, std::byte{0});
+
+    bytemath::int_result res = op(opts, a_data, b_data);
+    if (res.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
+    }
+
+    if (res.data_bytes.size() != expected_size)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": bytemath returned unexpected result size");
+    }
+
+    result_data = std::move(res.data_bytes);
+}
+
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output(local_index slot)
 {
     auto& frame = get_current_frame();
@@ -1573,120 +1690,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_sub const& sub)
 {
-    require_valid_input_precondition(sub.a);
-    require_valid_input_precondition(sub.b);
-    require_valid_output_precondition(sub.result);
-
-    auto a = consume_local(sub.a);
-    auto b = consume_local(sub.b);
-    auto r = output_local(sub.result);
-
-    // Retrieve data references
-    auto& a_data = a->data;
-    auto& b_data = b->data;
-    auto& r_data = r->data;
-
-    // Ensure sizes match
-    if (a_data.size() != b_data.size())
-        throw std::runtime_error("int_sub: 'a' and 'b' have different sizes");
-    if (r_data.size() != a_data.size())
-        r_data.resize(a_data.size());
-
-    // We'll create a temporary buffer for -b
-    std::vector< std::byte > neg_b = b_data;
-
-    // Compute ~b (bitwise NOT)
-    for (auto& byte : neg_b)
-    {
-        byte = static_cast< std::byte >(~static_cast< std::uint8_t >(byte));
-    }
-
-    // Add 1 to ~b to complete two's complement negation
-    std::uint16_t carry = 1;
-    for (std::size_t i = 0; i < neg_b.size() && carry; i++)
-    {
-        std::uint16_t val = static_cast< std::uint8_t >(neg_b[i]) + carry;
-        neg_b[i] = static_cast< std::byte >(static_cast< std::uint8_t >(val & 0xFF));
-        carry = (val > 0xFF) ? 1 : 0;
-    }
-
-    // Now perform a + neg_b (which is a - b)
-    carry = 0;
-    for (std::size_t i = 0; i < r_data.size(); ++i)
-    {
-        std::uint16_t av = static_cast< std::uint8_t >(a_data[i]);
-        std::uint16_t bv = static_cast< std::uint8_t >(neg_b[i]);
-
-        std::uint16_t sum = av + bv + carry;
-        r_data[i] = static_cast< std::byte >(static_cast< std::uint8_t >(sum & 0xFF));
-        carry = (sum > 0xFF) ? 1 : 0;
-    }
-
-    // Overflow (carry after the last byte) simply wraps in two's complement
-
-    return;
+    exec_fixed_int_binary_op(fixed_int_instruction::sub, sub.a, sub.b, sub.result, &bytemath::fixed_int_sub_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_add const& add)
 {
-    // Retrieve the current frame to access local values
-    auto& frame = get_current_frame();
-
-    std::shared_ptr< local > a_local = consume_local(add.a);
-    std::shared_ptr< local > b_local = consume_local(add.b);
-    std::shared_ptr< local > r_local = output_local(add.result);
-
-    // Retrieve data references
-    auto& a_data = a_local->data;
-    auto& b_data = b_local->data;
-    auto& r_data = r_local->data;
-
-    // Ensure operands and result have the same size
-    // Typically, the IR would ensure the same type/size for these operands,
-    // but we'll check anyway.
-    if (a_data.size() != b_data.size())
-    {
-        throw std::runtime_error("int_add: 'a' and 'b' have different sizes");
-    }
-    if (r_data.size() != a_data.size())
-    {
-        // If there's a mismatch, we can resize result to match
-        // but ideally, all should be consistent via IR definitions.
-        r_data.resize(a_data.size());
-    }
-
-    type_symbol a_type = get_local_type(add.a);
-    type_symbol b_type = get_local_type(add.b);
-    type_symbol r_type = get_local_type(add.result);
-
-    if (a_type != b_type || a_type != r_type)
-    {
-        throw std::runtime_error("int_add: type mismatch among operands");
-    }
-
-    if (!typeis< int_type >(a_type))
-    {
-        throw std::runtime_error("int_add: operands are not of integer type");
-    }
-
-    int_type const& int_type_info = a_type.get_as< int_type >();
-
-    bytemath::fixed_int_options opts;
-    opts.bits = int_type_info.bits;
-    opts.has_sign = int_type_info.has_sign;
-    opts.overflow_undefined = opts.has_sign;
-
-    bytemath::int_result res = bytemath::fixed_int_add_le(opts, a_data, b_data);
-    // Perform two's complement addition in little-endian order
-
-    if (res.result_is_undefined)
-    {
-        throw constexpr_logic_execution_error("error executing IADD: undefined behavior");
-    }
-
-    assert(r_data.size() == res.data_bytes.size());
-    r_data = res.data_bytes;
-
-    return;
+    exec_fixed_int_binary_op(fixed_int_instruction::add, add.a, add.b, add.result, &bytemath::fixed_int_add_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::iconv const& icv)
 {
@@ -1764,15 +1772,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_mul const& mul)
 {
-    throw rpnx::unimplemented();
+    exec_fixed_int_binary_op(fixed_int_instruction::mul, mul.a, mul.b, mul.result, &bytemath::fixed_int_mul_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_div const& div)
 {
-    throw rpnx::unimplemented();
+    exec_fixed_int_binary_op(fixed_int_instruction::div, div.a, div.b, div.result, &bytemath::fixed_int_div_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::int_mod const& mod)
 {
-    throw rpnx::unimplemented();
+    exec_fixed_int_binary_op(fixed_int_instruction::mod, mod.a, mod.b, mod.result, &bytemath::fixed_int_mod_le);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::store_to_ref const& str)
@@ -2215,16 +2223,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (amt >= bits)
+    bytemath::fixed_int_options opts{};
+    opts.bits = bits;
+    opts.overflow_undefined = true;
+
+    auto shifted = bytemath::fixed_int_shift_up_le(opts, std::move(value), amt);
+    if (shifted.result_is_undefined)
     {
         throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
     }
-
-    auto shifted = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(amt));
-    shifted = truncate_to_bits(std::move(shifted), bits);
-    // Ensure at least correct byte-size
-    shifted.resize(bytes_for_bits(bits), std::byte{0});
-    set_data(op.result, std::move(shifted));
+    set_data(op.result, std::move(shifted.data_bytes));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::bitwise_shift_down const& op)
@@ -2241,15 +2249,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
-    if (amt >= bits)
+    bytemath::fixed_int_options opts{};
+    opts.bits = bits;
+    opts.overflow_undefined = true;
+
+    auto shifted = bytemath::fixed_int_shift_down_le(opts, std::move(value), amt);
+    if (shifted.result_is_undefined)
     {
         throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
     }
-
-    auto shifted = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(amt));
-    shifted = truncate_to_bits(std::move(shifted), bits);
-    shifted.resize(bytes_for_bits(bits), std::byte{0});
-    set_data(op.result, std::move(shifted));
+    set_data(op.result, std::move(shifted.data_bytes));
 }
 
 static std::vector< std::byte > bit_or_vec(std::vector< std::byte > a, std::vector< std::byte > const& b)

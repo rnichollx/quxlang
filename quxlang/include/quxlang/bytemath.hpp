@@ -148,6 +148,8 @@ namespace quxlang::bytemath
 
     sle_int_unlimited unlimited_int_signed_sub_le(sle_int_unlimited a, sle_int_unlimited b);
 
+    sle_int_unlimited le_signed_mult(sle_int_unlimited a, sle_int_unlimited b);
+
     sle_int_unlimited le_signed_div(sle_int_unlimited a, sle_int_unlimited b);
 
     struct ule_int_unlimited

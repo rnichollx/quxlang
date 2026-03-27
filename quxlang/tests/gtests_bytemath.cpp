@@ -275,6 +275,20 @@ TEST(ByteMathDiv, LargeNumbers)
     EXPECT_EQ(le_to_string_raw(result), "1000000000"); // 10^9
 }
 
+TEST(ByteMathDiv, DivmodConsistency)
+{
+    auto a = string_to_le_raw("9876543210123456789");
+    auto b = string_to_le_raw("123456789");
+    auto [quotient, remainder] = le_unsigned_divmod_raw(a, b);
+
+    auto recombined = unlimited_int_unsigned_add_le_raw(
+        le_unsigned_mult_raw(quotient, b),
+        remainder);
+
+    EXPECT_EQ(le_to_string_raw(recombined), "9876543210123456789");
+    EXPECT_TRUE(le_comp_less_raw(remainder, b));
+}
+
 // Test le_unsigned_mod_raw
 TEST(bytemath, BasicModulo)
 {
@@ -393,6 +407,32 @@ TEST(bytemath, ZeroComparison)
     EXPECT_TRUE(detail::le_comp_less_raw(a, b)) << compare_and_format(a, b);
     EXPECT_FALSE(detail::le_comp_less_raw(b, a)) << compare_and_format(b, a);
     EXPECT_TRUE(le_comp_eq(a, c)) << compare_and_format(a, c);
+}
+
+TEST(bytemath, ShiftUpAcrossByteBoundary)
+{
+    std::vector< std::byte > value{std::byte{0xFF}};
+    auto shifted = le_shift_up_raw(value, 4);
+    ASSERT_EQ(shifted.size(), 2);
+    EXPECT_EQ(shifted[0], std::byte{0xF0});
+    EXPECT_EQ(shifted[1], std::byte{0x0F});
+}
+
+TEST(bytemath, ShiftDownAcrossByteBoundary)
+{
+    std::vector< std::byte > value{std::byte{0x00}, std::byte{0x01}};
+    auto shifted = le_shift_down_raw(value, 4);
+    ASSERT_EQ(shifted.size(), 2);
+    EXPECT_EQ(shifted[0], std::byte{0x10});
+    EXPECT_EQ(shifted[1], std::byte{0x00});
+}
+
+TEST(bytemath, ShiftDownPastWidthYieldsZero)
+{
+    std::vector< std::byte > value{std::byte{0x34}, std::byte{0x12}};
+    auto shifted = le_shift_down_raw(value, 32);
+    ASSERT_EQ(shifted.size(), 1);
+    EXPECT_EQ(shifted[0], std::byte{0x00});
 }
 
 // Test string_to_le_raw and le_to_string_raw conversions
