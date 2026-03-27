@@ -240,7 +240,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
             }
 
             output.parameters.positional.push_back(param_canonical.value());
-            // TODO: support named parameters
+        }
+
+        for (auto const& [name, p] : param_set.parameters.named)
+        {
+            auto param_canonical = co_await QUX_CO_DEP(lookup, ({.context = context, .type = p}));
+            if (!param_canonical.has_value())
+            {
+                co_return std::nullopt;
+            }
+
+            output.parameters.named[name] = param_canonical.value();
         }
 
         auto initializee_kind = co_await QUX_CO_DEP(symbol_type, (output.initializee));

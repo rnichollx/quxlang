@@ -6,6 +6,40 @@
 
 namespace
 {
+    auto template_parameter_name(quxlang::type_symbol const& param) -> std::optional< std::string >
+    {
+        using namespace quxlang;
+
+        if (typeis< auto_temploidic >(param))
+        {
+            auto const& name = as< auto_temploidic >(param).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+        else if (typeis< type_temploidic >(param))
+        {
+            auto const& name = as< type_temploidic >(param).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    auto template_parameter_name(quxlang::declared_parameter const& param) -> std::optional< std::string >
+    {
+        if (param.api_name.has_value())
+        {
+            return param.api_name;
+        }
+
+        return template_parameter_name(param.type);
+    }
+
     auto selected_template_decl_to_symboid(quxlang::declaroid const& decl) -> quxlang::ast2_symboid
     {
         using namespace quxlang;
@@ -82,11 +116,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symboid)
                 ensig.priority = tmpl.priority;
 
                 bool valid = true;
-                for (auto const& arg : tmpl.m_template_args)
+                for (auto const& arg : tmpl.m_template_args.positional)
                 {
                     auto canonical_arg = co_await QUX_CO_DEP(lookup, (contextual_type_reference{
                         .context = template_context,
-                        .type = arg,
+                        .type = arg.type,
                     }));
 
                     if (!canonical_arg.has_value())
@@ -96,6 +130,23 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(symboid)
                     }
 
                     ensig.interface.positional.push_back(argif{.type = *canonical_arg});
+                }
+
+                for (auto const& [name, arg] : tmpl.m_template_args.named)
+                {
+                    auto canonical_arg = co_await QUX_CO_DEP(lookup, (contextual_type_reference{
+                        .context = template_context,
+                        .type = arg.type,
+                    }));
+
+                    if (!canonical_arg.has_value())
+                    {
+                        valid = false;
+                        break;
+                    }
+
+                    auto declared_name = template_parameter_name(arg).value_or(name);
+                    ensig.interface.named[declared_name] = argif{.type = *canonical_arg};
                 }
 
                 if (valid && ensig == inst.temploid.which)

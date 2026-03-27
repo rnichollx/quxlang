@@ -38,11 +38,21 @@ IMPORT foolib;
 
 ::global VAR I32 := 8;
 
+::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
+
+
+
 ::test_global FUNCTION()
 {
   ASSERT(global == 8);
   global := global + 2;
   ASSERT(global == 10);
+
+  ASSERT(global_tmpl#(@foo I32) == 1);
+  global_tmpl#(@foo I32) := 5;
+  ASSERT(global_tmpl#(@foo I32) == 5);
+  ASSERT(global_tmpl#(@foo I64) == 1);
+
 }
 
 

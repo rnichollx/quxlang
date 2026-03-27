@@ -4,6 +4,43 @@
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/res/template_instanciation.hpp>
 
+namespace
+{
+    auto template_parameter_name(quxlang::type_symbol const& param) -> std::optional< std::string >
+    {
+        using namespace quxlang;
+
+        if (typeis< auto_temploidic >(param))
+        {
+            auto const& name = as< auto_temploidic >(param).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+        else if (typeis< type_temploidic >(param))
+        {
+            auto const& name = as< type_temploidic >(param).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    auto template_parameter_name(quxlang::declared_parameter const& param) -> std::optional< std::string >
+    {
+        if (param.api_name.has_value())
+        {
+            return param.api_name;
+        }
+
+        return template_parameter_name(param.type);
+    }
+}
+
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
 {
     type_symbol initializee = input_val.initializee;
@@ -44,12 +81,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
 
     for (auto const& tmpl : templex.templates)
     {
-        if (!input_val.parameters.named.empty())
-        {
-            continue;
-        }
-
-        if (tmpl.m_template_args.size() != input_val.parameters.positional.size())
+        if (tmpl.m_template_args.positional.size() + tmpl.m_template_args.named.size() != input_val.parameters.positional.size() + input_val.parameters.named.size())
         {
             continue;
         }
@@ -59,11 +91,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
         candidate.which.priority = tmpl.priority;
 
         bool matched = true;
-        for (std::size_t i = 0; i < tmpl.m_template_args.size(); i++)
+        for (std::size_t i = 0; i < tmpl.m_template_args.positional.size(); i++)
         {
             auto arg_pattern_opt = co_await QUX_CO_DEP(lookup, (contextual_type_reference{
                 .context = template_context,
-                .type = tmpl.m_template_args.at(i),
+                .type = tmpl.m_template_args.positional.at(i).type,
             }));
 
             if (!arg_pattern_opt.has_value())
@@ -73,6 +105,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
             }
 
             auto const& arg_pattern = *arg_pattern_opt;
+            if (i >= input_val.parameters.positional.size())
+            {
+                matched = false;
+                break;
+            }
+
             if (!match_template(arg_pattern, input_val.parameters.positional.at(i)).has_value())
             {
                 matched = false;
@@ -82,7 +120,43 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(template_instanciation)
             candidate.which.interface.positional.push_back(argif{.type = arg_pattern});
         }
 
-        if (!matched)
+        if (!matched || input_val.parameters.positional.size() != tmpl.m_template_args.positional.size())
+        {
+            continue;
+        }
+
+        for (auto const& [name, declared_param] : tmpl.m_template_args.named)
+        {
+            auto named_it = input_val.parameters.named.find(name);
+            if (named_it == input_val.parameters.named.end())
+            {
+                matched = false;
+                break;
+            }
+
+            auto arg_pattern_opt = co_await QUX_CO_DEP(lookup, (contextual_type_reference{
+                .context = template_context,
+                .type = declared_param.type,
+            }));
+
+            if (!arg_pattern_opt.has_value())
+            {
+                matched = false;
+                break;
+            }
+
+            auto const& arg_pattern = *arg_pattern_opt;
+            if (!match_template(arg_pattern, named_it->second).has_value())
+            {
+                matched = false;
+                break;
+            }
+
+            auto canonical_name = template_parameter_name(declared_param).value_or(name);
+            candidate.which.interface.named[canonical_name] = argif{.type = arg_pattern};
+        }
+
+        if (!matched || input_val.parameters.named.size() != tmpl.m_template_args.named.size())
         {
             continue;
         }

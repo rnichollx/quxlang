@@ -165,7 +165,7 @@ namespace quxlang
 
     struct ast2_template_declaration
     {
-        std::vector< type_symbol > m_template_args;
+        declared_parameters m_template_args;
         declaroid m_declaroid;
         std::optional< std::int64_t > priority;
 

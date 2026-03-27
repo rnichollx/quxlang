@@ -10,7 +10,7 @@
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
-#include <quxlang/parsers/try_parse_class_template.hpp>
+#include <quxlang/parsers/try_parse_template_declaration.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
 #include <quxlang/parsers/try_parse_name.hpp>
 #include <quxlang/parsers/try_parse_variable_declaration.hpp>
