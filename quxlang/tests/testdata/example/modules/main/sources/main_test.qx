@@ -11,7 +11,7 @@ IMPORT foolib;
   test_swap();
   test_choose();
   test_load_store();
-  //test_narrowing();
+  test_narrowing();
   test_pinc_2();
 
   test_call_function_from_other_file();
@@ -226,7 +226,15 @@ IMPORT foolib;
 
   VAR x I64 := 17;
 
-  VAR y I32 := x AS I32;
+  VAR y I32 := x AS CHECKED I32;
+
+  ASSERT(y == 17);
+
+  VAR chopped U32 := 257;
+  VAR narrowed U8 := chopped AS PARTIAL U8;
+  VAR b BYTE := narrowed AS BYTE;
+
+  ASSERT(b == BYTE(@OTHER 1));
 
 }
 
@@ -932,6 +940,16 @@ IMPORT foolib;
     }
 }
 
+::explicit_cast_only CLASS
+{
+    .x VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@EXPLICIT I32)
+    {
+        .x := EXPLICIT;
+    }
+}
+
 ::test_implicit_conversions FUNCTION()
 {
     VAR a implicit_foo;
@@ -943,6 +961,9 @@ IMPORT foolib;
     a := b;
 
     ASSERT(a.x == 8);
+
+    VAR c explicit_cast_only := b AS explicit_cast_only;
+    ASSERT(c.x == 8);
 }
 
 

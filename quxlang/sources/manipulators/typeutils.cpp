@@ -82,6 +82,11 @@ namespace quxlang
             return "IS_INTEGRAL(" + to_string(bits.of_type) + ")";
         }
 
+        std::string operator()(expression_same_types const& types) const
+        {
+            return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
+        }
+
         std::string operator()(expression_unary_postfix const& be) const
         {
             return "(" + to_string(be.lhs) + " " + be.operator_str + ")";

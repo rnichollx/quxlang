@@ -55,6 +55,10 @@ namespace quxlang
             // clang-format off
             kw_values = {
                 "OTHER",
+                "EXPLICIT",
+                "CHECKED",
+                "ASSUME",
+                "PARTIAL",
                 "THIS",
                 "NULLPTR",
                 "UNSPECIFIED",

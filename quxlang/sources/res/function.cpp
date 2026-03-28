@@ -9,7 +9,6 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
-#include "quxlang/parsers/parse_expression.hpp"
 #include "quxlang/variant_utils.hpp"
 
 #include <quxlang/macros.hpp>
@@ -80,9 +79,8 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
 {
-
     std::set< builtin_function_info > result;
-    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< expression > enable_if = std::nullopt, std::optional< std::int32_t > priority = std::nullopt)
     {
         builtin_function_info bl_info;
         for (auto& type : positionals)
@@ -93,13 +91,60 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         {
             bl_info.overload.interface.named[name] = argif{.type = type};
         }
+        bl_info.overload.enable_if = enable_if.has_value() ? std::move(enable_if) : std::optional< expression >{expression_value_keyword{.keyword = "TRUE"}};
+        bl_info.overload.priority = priority.has_value() ? priority : std::optional< std::int32_t >{0};
         bl_info.return_type = return_type;
         return bl_info;
     };
 
-    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
+    auto add_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< expression > enable_if = std::nullopt, std::optional< std::int32_t > priority = std::nullopt)
     {
-        result.insert(make_overload(positionals, named, return_type));
+        result.insert(make_overload(positionals, named, return_type, std::move(enable_if), priority));
+    };
+
+    auto kw_expr = [](std::string keyword) -> expression
+    {
+        return expression_value_keyword{.keyword = std::move(keyword)};
+    };
+
+    auto false_expr = [&]() -> expression
+    {
+        return kw_expr("FALSE");
+    };
+
+    auto int_literal_expr = [](std::size_t value) -> expression
+    {
+        return expression_numeric_literal{.value = std::to_string(value)};
+    };
+
+    auto bits_expr = [](type_symbol of_type) -> expression
+    {
+        return expression_bits{.of_type = std::move(of_type)};
+    };
+
+    auto is_integral_expr = [](type_symbol of_type) -> expression
+    {
+        return expression_is_integral{.of_type = std::move(of_type)};
+    };
+
+    auto is_signed_expr = [](type_symbol of_type) -> expression
+    {
+        return expression_is_signed{.of_type = std::move(of_type)};
+    };
+
+    auto same_types_expr = [](type_symbol lhs_type, type_symbol rhs_type) -> expression
+    {
+        return expression_same_types{.lhs_type = std::move(lhs_type), .rhs_type = std::move(rhs_type)};
+    };
+
+    auto binary_expr = [](std::string operator_str, expression lhs, expression rhs) -> expression
+    {
+        return expression_binary{.operator_str = std::move(operator_str), .lhs = std::move(lhs), .rhs = std::move(rhs)};
+    };
+
+    auto static_choose_expr = [](expression condition, expression true_expr, expression false_expr) -> expression
+    {
+        return expression_static_choose{.condition = std::move(condition), .true_expr = std::move(true_expr), .false_expr = std::move(false_expr)};
     };
 
 
@@ -127,40 +172,89 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
     if (typeis_oneof< int_type, bool_type, readonly_constant, byte_type >(input))
     {
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
-        if (typeis_oneof< int_type, byte_type >(input))
+        if (typeis< byte_type >(input))
         {
             add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
 
+            auto u8_type = type_symbol(int_type{.bits = 8, .has_sign = false});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"EXPLICIT", u8_type}}, void_type{});
+        }
+        else if (typeis< int_type >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"CHECKED", numeric_literal_reference{}}}, void_type{});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"ASSUME", numeric_literal_reference{}}}, void_type{});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"PARTIAL", numeric_literal_reference{}}}, void_type{});
 
-            bool input_signed;
-            if (input.type_is<byte_type>())
-            {
-                input_signed = false;
-            }
-            else
-            {
-                input_signed = input.as<int_type>().has_sign;
-            }
+            bool input_signed = input.as<int_type>().has_sign;
+            std::size_t bits = input.as<int_type>().bits;
 
-            std::size_t bits;
-            if (input.type_is<byte_type>())
-            {
-                bits = 8;
-            }
-            else
-            {
-                bits = input.as<int_type>().bits;
-            }
+            auto integral_template = auto_temploidic{.name = "__int_type"};
+            auto integral_guard_type = type_symbol(freebound_identifier{.name = "__int_type"});
+            auto same_type_guard = same_types_expr(integral_guard_type, input);
+            auto integral_guard = is_integral_expr(integral_guard_type);
+            auto byte_guard = same_types_expr(integral_guard_type, type_symbol(byte_type{}));
+            auto signed_guard = is_signed_expr(integral_guard_type);
+            auto bits_of_input = bits_expr(integral_guard_type);
+            auto bits_literal = int_literal_expr(bits);
 
-            auto conv_ol = make_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", auto_temploidic{"__int"}}}, void_type{});
-
+            expression implicit_guard;
             if (input_signed)
             {
-                // I(X)::.CONSTRUCTOR(@THIS NEW{ I(X) }, @OTHER AUTO(__int)) ENABLE_IF(STATIC_CHOOSE(IS_INTEGRAL(__int), BITS(__int) > BITS(CLASSTYPE), false))
+                implicit_guard = static_choose_expr(
+                    same_type_guard,
+                    false_expr(),
+                    static_choose_expr(
+                        integral_guard,
+                        static_choose_expr(
+                            byte_guard,
+                            false_expr(),
+                            static_choose_expr(
+                                signed_guard,
+                                binary_expr("<=", bits_of_input, bits_literal),
+                                binary_expr("<", bits_of_input, bits_literal))),
+                        false_expr()));
+            }
+            else
+            {
+                implicit_guard = static_choose_expr(
+                    same_type_guard,
+                    false_expr(),
+                    static_choose_expr(
+                        integral_guard,
+                        static_choose_expr(
+                            byte_guard,
+                            false_expr(),
+                            static_choose_expr(
+                                signed_guard,
+                                false_expr(),
+                                binary_expr("<=", bits_of_input, bits_literal))),
+                        false_expr()));
             }
 
+            expression checked_guard = static_choose_expr(same_type_guard, false_expr(), integral_guard);
+            expression assume_guard = static_choose_expr(same_type_guard, false_expr(), integral_guard);
+            expression partial_guard = static_choose_expr(
+                same_type_guard,
+                false_expr(),
+                static_choose_expr(
+                    integral_guard,
+                    binary_expr(">=", bits_of_input, bits_literal),
+                    false_expr()));
 
+            if (!input.type_is<byte_type>())
+            {
+                add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", integral_template}}, void_type{}, std::move(implicit_guard), -1);
+            }
+            add_overload({}, {{"THIS", create_nslot(input)}, {"CHECKED", integral_template}}, void_type{}, std::move(checked_guard), -1);
+            add_overload({}, {{"THIS", create_nslot(input)}, {"ASSUME", integral_template}}, void_type{}, std::move(assume_guard), -1);
+            add_overload({}, {{"THIS", create_nslot(input)}, {"PARTIAL", integral_template}}, void_type{}, std::move(partial_guard), -1);
 
+            auto u8_type = type_symbol(int_type{.bits = 8, .has_sign = false});
+            if (input == u8_type)
+            {
+                add_overload({}, {{"THIS", create_nslot(input)}, {"EXPLICIT", type_symbol(byte_type{})}}, void_type{});
+            }
         }
         add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
     }
@@ -503,6 +597,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
         {
             add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, numeric_literal_reference{});
         }
+        else if (typeis< numeric_literal_reference >(parent) && compare_operators.contains(operator_name))
+        {
+            add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, bool_type{});
+        }
 
         if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator)
         {
@@ -803,6 +901,19 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
         std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .init_kind = input.init_kind}));
 
+        if (candidate && typeis< submember >(input.initializee))
+        {
+            auto const& member = as< submember >(input.initializee);
+            if (member.name == "CONSTRUCTOR" && candidate->named.contains("OTHER"))
+            {
+                auto const& other_type = candidate->named.at("OTHER");
+                if (!is_ref(other_type) && other_type == member.of)
+                {
+                    candidate.reset();
+                }
+            }
+        }
+
         // Evaluate ENABLE_IF in the proper context after instantiation
         if (candidate && o.enable_if)
         {
@@ -1047,6 +1158,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_map_user_formal_ensigs)
             }
 
             formal_ensig.interface.named["THIS"] = this_argif;
+        }
+
+        if (is_ctor && formal_ensig.interface.named.contains("OTHER"))
+        {
+            auto const& other_type = formal_ensig.interface.named.at("OTHER").type;
+            if (!is_ref(other_type) && other_type == class_type.value())
+            {
+                throw std::logic_error("Constructors cannot declare @OTHER with the same value type as the constructed class; use a reference form such as CONST& or TEMP& instead.");
+            }
         }
 
         if (output.contains(formal_ensig))

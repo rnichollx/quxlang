@@ -124,9 +124,17 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
     }
     else
     {
-        if (is_template(to) && match_template(to, from).has_value())
+        if (is_template(to))
         {
-            co_return 2;
+            auto direct_match = match_template(to, from);
+            if (direct_match.has_value())
+            {
+                bool allows_nonref_template_match = (init_kind == parameter_init_kind::call) || is_ref(direct_match->type);
+                if (allows_nonref_template_match)
+                {
+                    co_return 2;
+                }
+            }
         }
 
         auto ref_requal = co_await QUX_CO_DEP(bindable_by_reference_requalification, (implicitly_convertible_to_query{.from = from, .to = to}));
@@ -173,7 +181,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(argument_adaptation_rank)
             }
         }
 
-        if (is_template(to))
+        if (init_kind == parameter_init_kind::call && is_template(to))
         {
             auto objectized_match = match_template(to, unbound_from);
             if (objectized_match.has_value() && !is_ref(objectized_match->type))
@@ -299,8 +307,12 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
         auto match = match_template(to, from);
         if (match.has_value())
         {
-            std::cout << "   Convertible: " << from_str << " to " << to_str << std::endl;
-            co_return match.value().type;
+            bool allows_nonref_template_match = (init_kind == parameter_init_kind::call) || is_ref(match->type);
+            if (allows_nonref_template_match)
+            {
+                std::cout << "   Convertible: " << from_str << " to " << to_str << std::endl;
+                co_return match.value().type;
+            }
         }
     }
 
@@ -367,7 +379,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(ensig_argument_initialize)
         }
     }
 
-    if (is_template(to) && is_ref(from))
+    if (init_kind == parameter_init_kind::call && is_template(to) && is_ref(from))
     {
         auto objectized_match = match_template(to, remove_ref(from));
         if (objectized_match.has_value() && !is_ref(objectized_match->type))

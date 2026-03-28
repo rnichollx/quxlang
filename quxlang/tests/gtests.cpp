@@ -108,6 +108,15 @@ TEST(parsing, parse_class_constructor_delegates)
     ASSERT_TRUE(cl.has_value());
 }
 
+TEST(parsing, parse_class_explicit_constructor_keyword)
+{
+    std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { } }";
+
+    auto cl = quxlang::parsers::try_parse_class(test_string);
+
+    ASSERT_TRUE(cl.has_value());
+}
+
 TEST(parsing, functum_combining)
 {
     std::string test_string = "::foo FUNCTION(%a I32) { } ::foo FUNCTION(%a I64) { }";
@@ -306,6 +315,26 @@ TEST(parsing, parse_place_expression)
     ASSERT_EQ(quxlang::as< quxlang::expression_place >(expr).args.size(), 1);
     ASSERT_EQ(it, it_end);
 }
+
+TEST(parsing, parse_partial_cast_expression)
+{
+    std::string test_string = "x AS PARTIAL I16";
+
+    std::string::iterator it = test_string.begin();
+    std::string::iterator it_end = test_string.end();
+    auto expr = quxlang::parsers::try_parse_expression(it, it_end);
+
+    ASSERT_TRUE(expr.has_value());
+    ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
+    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().keyword.value(), "PARTIAL");
+}
+
+TEST(parsing, reject_internal_tempar_name_in_expression)
+{
+    EXPECT_ANY_THROW(quxlang::parsers::parse_expression("IS_INTEGRAL(__int_type)"));
+}
+
+
 
 TEST(parsing, parse_destroy_statement_with_args)
 {
@@ -752,6 +781,77 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_TRUE(get_constexpr_bool("(FALSE < TRUE) == (TRUE > FALSE)"));
     ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^-> BYTE(@OTHER 3)) == BYTE(@OTHER 251)"));
     ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^<- BYTE(@OTHER 3)) == BYTE(@OTHER 254)"));
+    ASSERT_FALSE(get_constexpr_bool("IS_INTEGRAL(BYTE)"));
+    ASSERT_TRUE(get_constexpr_bool("IS_INTEGRAL(U8)"));
+    ASSERT_TRUE(get_constexpr_bool("SAME_TYPES(BYTE, BYTE)"));
+    ASSERT_FALSE(get_constexpr_bool("SAME_TYPES(BYTE, U8)"));
+}
+
+TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto byte = quxlang::parsers::parse_type_symbol("BYTE");
+    auto u8 = quxlang::parsers::parse_type_symbol("U8");
+
+    auto u8_ctor = quxlang::initialization_reference{
+        .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
+        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"OTHER", byte}}},
+        .init_kind = quxlang::parameter_init_kind::implicit_conversion,
+    };
+    EXPECT_FALSE(c.get_instanciation(u8_ctor, std::nullopt).has_value());
+
+    auto byte_ctor = quxlang::initialization_reference{
+        .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
+        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"OTHER", u8}}},
+        .init_kind = quxlang::parameter_init_kind::implicit_conversion,
+    };
+    EXPECT_FALSE(c.get_instanciation(byte_ctor, std::nullopt).has_value());
+
+    auto explicit_u8_ctor = quxlang::initialization_reference{
+        .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
+        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"EXPLICIT", byte}}},
+        .init_kind = quxlang::parameter_init_kind::call,
+    };
+    EXPECT_TRUE(c.get_instanciation(explicit_u8_ctor, std::nullopt).has_value());
+
+    auto explicit_byte_ctor = quxlang::initialization_reference{
+        .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
+        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"EXPLICIT", u8}}},
+        .init_kind = quxlang::parameter_init_kind::call,
+    };
+    EXPECT_TRUE(c.get_instanciation(explicit_byte_ctor, std::nullopt).has_value());
+}
+
+TEST(quxlang, user_constructor_other_same_type_is_rejected)
+{
+    quxlang::source_bundle sources;
+
+    quxlang::target_configuration target;
+    target.module_configurations["main"] = quxlang::module_configuration{.source = "main"};
+    sources.targets["linux-x64"] = target;
+
+    quxlang::module_source main_module;
+    main_module.files["main.qx"] = quxlang::source_file{.contents = R"(
+::bad_ctor CLASS
+{
+    .CONSTRUCTOR FUNCTION(@OTHER bad_ctor)
+    {
+    }
+}
+)"};
+    sources.module_sources["main"] = main_module;
+
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto bad_ctor_symbol = quxlang::submember{
+        .of = quxlang::subsymbol{.of = quxlang::absolute_module_reference{"main"}, .name = "bad_ctor"},
+        .name = "CONSTRUCTOR",
+    };
+
+    EXPECT_THROW(c.get_functum_user_overloads(bad_ctor_symbol, std::nullopt), std::logic_error);
 }
 
 TEST(builtin_state, user_func_builtin)

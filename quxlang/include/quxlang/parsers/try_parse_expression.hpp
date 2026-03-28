@@ -189,6 +189,29 @@ namespace quxlang::parsers
             *value_bind_point = expr_is_integral;
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "SAME_TYPES"))
+        {
+            expression_same_types expr_same_types;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after SAME_TYPES");
+            }
+            expr_same_types.lhs_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after first SAME_TYPES(<type>, ...)");
+            }
+            expr_same_types.rhs_type = try_parse_type_symbol(pos, end).value();
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after SAME_TYPES(<lhs>, <rhs>)");
+            }
+            *value_bind_point = expr_same_types;
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "STATIC_CHOOSE"))
         {
             expression_static_choose expr;
@@ -428,7 +451,7 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, {"PARTIAL", "ASSUME", "CHECKED"}); kw)
+            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "PARTIAL", "ASSUME", "CHECKED"}); kw)
             {
                 tc.keyword = *kw;
                 skip_whitespace_and_comments(pos, end);
@@ -438,7 +461,7 @@ namespace quxlang::parsers
             auto to_type = try_parse_type_symbol(pos, end);
             if (!to_type)
             {
-                throw std::logic_error("Expected type after AS (optional PARTIAL/ASSUME/CHECKED)");
+                throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED)");
             }
             tc.to_type = *to_type;
 

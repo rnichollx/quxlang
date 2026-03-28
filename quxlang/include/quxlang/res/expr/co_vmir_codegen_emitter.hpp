@@ -15,6 +15,7 @@
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/operators.hpp"
+#include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/res/implicitly_convertible_to.hpp"
 #include "quxlang/res/symbol_type.hpp"
 #include "quxlang/vmir2/assembler.hpp"
@@ -205,6 +206,18 @@ namespace quxlang
             auto value_type = this->current_type(bidx, val);
 
             if (value_type == target_type)
+            {
+                assert(val != value_index(0));
+                co_return val;
+            }
+
+            if (target_type.type_is< nvalue_slot >() && value_type == target_type.get_as< nvalue_slot >().target)
+            {
+                assert(val != value_index(0));
+                co_return val;
+            }
+
+            if (target_type.type_is< dvalue_slot >() && value_type == target_type.get_as< dvalue_slot >().target)
             {
                 assert(val != value_index(0));
                 co_return val;
@@ -702,23 +715,6 @@ namespace quxlang
                 }
                 else
                 {
-                    if (name == "t1")
-                    {
-                        int debugbrk = 0;
-                        for (auto& [k, v] : this->state.scoped_definitions)
-                        {
-                            if (v.template type_is< type_symbol >())
-                            {
-                                auto def_type = v.template get_as< type_symbol >();
-                                assert(!type_is_contextual(def_type));
-                                std::cout << " scoped def: " << k << " = " << quxlang::to_string(def_type) << std::endl;
-                            }
-                            else
-                            {
-                                std::cout << " scoped def: " << k << " = CONSTEXPR" << std::endl;
-                            }
-                        }
-                    }
                     if (this->state.scoped_definitions.contains(name))
                     {
                         auto const& def = this->state.scoped_definitions.at(name);
@@ -782,6 +778,60 @@ namespace quxlang
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
             }
+            co_return new_object;
+        }
+
+        auto codegen_args_to_invotype(block_index& bidx, codegen_invocation_args const& args) -> invotype
+        {
+            invotype calltype;
+
+            for (auto const& arg : args.positional)
+            {
+                calltype.positional.push_back(this->current_type(bidx, arg));
+            }
+
+            for (auto const& [name, arg] : args.named)
+            {
+                calltype.named[name] = this->current_type(bidx, arg);
+            }
+
+            return calltype;
+        }
+
+        auto co_try_gen_call_ctor_with_named_argument(block_index& bidx, type_symbol new_type, std::string const& arg_name, value_index arg_val) -> typename CoroutineProvider::template co_type< std::optional< value_index > >
+        {
+            auto ctor = submember{.of = new_type, .name = "CONSTRUCTOR"};
+
+            codegen_invocation_args args;
+            args.named[arg_name] = arg_val;
+
+            invotype calltype;
+            calltype.named[arg_name] = this->current_type(bidx, arg_val);
+            calltype.named["THIS"] = create_nslot(new_type);
+
+            auto instanciation = co_await prv.instanciation(initialization_reference{
+                .initializee = ctor,
+                .parameters = calltype,
+                .init_kind = parameter_init_kind::call,
+            });
+
+            if (!instanciation.has_value())
+            {
+                co_return std::nullopt;
+            }
+
+            auto new_object = create_local_value(new_type);
+            args.named["THIS"] = new_object;
+            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, parameter_init_kind::call);
+
+            assert(retval == 0);
+
+            auto dtor = co_await prv.class_default_dtor(new_type);
+            if (dtor)
+            {
+                this->add_nontrivial_default_dtor(new_type, *dtor);
+            }
+
             co_return new_object;
         }
 
@@ -1273,17 +1323,26 @@ namespace quxlang
 
             if (member->name == "CONSTRUCTOR")
             {
-                if (call.named.contains("OTHER"))
+                std::optional< std::string > ctor_input_name;
+                for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL"})
                 {
-                    auto const& other = call.named.at("OTHER");
+                    if (call.named.contains(candidate_name))
+                    {
+                        ctor_input_name = candidate_name;
+                        break;
+                    }
+                }
+
+                if (ctor_input_name.has_value())
+                {
+                    auto const& other = call.named.at(*ctor_input_name);
+                    auto other_slot_id = args.named.at(*ctor_input_name);
                     if (cls->template type_is< readonly_constant >())
                     {
                         auto const ro = cls->as< readonly_constant >();
                         // Numeric literal to readonly constant
                         if (other.type_is< numeric_literal_reference >() && ro.kind == constant_kind::numeric)
                         {
-
-                            auto other_slot_id = args.named.at("OTHER");
                             auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
                             auto const& other_literal = other_slot.template get_as< codegen_literal >();
@@ -1299,8 +1358,6 @@ namespace quxlang
 
                         else if (other.type_is< string_literal_reference >() && ro.kind == constant_kind::string)
                         {
-                            auto other_slot_id = args.named.at("OTHER");
-
                             auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
                             auto const& other_literal = other_slot.template get_as< codegen_literal >();
@@ -1314,8 +1371,6 @@ namespace quxlang
                     }
                     else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && other.type_is< numeric_literal_reference >())
                     {
-                        auto other_slot_id = args.named.at("OTHER");
-
                         auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
                         assert(other_slot.template type_is< codegen_literal >());
@@ -1332,9 +1387,32 @@ namespace quxlang
 
                         return result;
                     }
-                    else if (other == make_cref(*cls))
+                    else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && typeis_oneof< int_type, byte_type >(other))
                     {
-                        auto other_slot_id = args.named.at("OTHER");
+                        vmir2::iconv result;
+                        result.from = get_local_index(other_slot_id);
+                        result.to = get_local_index(args.named.at("THIS"));
+
+                        if (*ctor_input_name == "CHECKED")
+                        {
+                            result.convtype = vmir2::conversion_class::checked;
+                        }
+                        else if (*ctor_input_name == "PARTIAL")
+                        {
+                            result.convtype = vmir2::conversion_class::partial;
+                        }
+                        else
+                        {
+                            result.convtype = vmir2::conversion_class::assume;
+                        }
+
+                        return result;
+                    }
+                    else if (other.type_is< ptrref_type >() &&
+                             other.as< ptrref_type >().ptr_class == pointer_class::ref &&
+                             remove_ref(other) == *cls &&
+                             (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))
+                    {
                         auto this_slot_id = args.named.at("THIS");
 
                         vmir2::load_from_ref lfr{};
@@ -1348,7 +1426,6 @@ namespace quxlang
                              cls->as< ptrref_type >().ptr_class == pointer_class::ref &&
                              other.as< ptrref_type >().ptr_class == pointer_class::ref)
                     {
-                        auto other_slot_id = args.named.at("OTHER");
                         auto this_slot_id = args.named.at("THIS");
 
                         auto const& other_ptrref = other.as< ptrref_type >();
@@ -1371,7 +1448,6 @@ namespace quxlang
 
                         if (matches_materialized_value)
                         {
-                            auto other_slot_id = args.named.at("OTHER");
                             auto this_slot_id = args.named.at("THIS");
 
                             vmir2::make_reference mrf{};
@@ -1895,6 +1971,11 @@ namespace quxlang
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
             }
 
+            if (attached_type.template type_is< byte_type >())
+            {
+                co_return this->create_numeric_literal("8");
+            }
+
             if (!attached_type.template type_is< int_type >())
             {
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
@@ -2002,12 +2083,54 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, false);
             }
 
-            if (!typeis_oneof< int_type, byte_type >(attached_type))
+            if (!typeis< int_type >(attached_type))
             {
                 co_return this->create_bool_value(bidx, false);
             }
 
             co_return this->create_bool_value(bidx, true);
+        }
+
+        auto co_generate(block_index& bidx, expression_same_types expr) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            auto resolve_type_expr = [&](type_symbol const& sym) -> typename CoroutineProvider::template co_type< type_symbol >
+            {
+                auto type_opt = co_await this->co_lookup_symbol(bidx, sym);
+                if (!type_opt.has_value())
+                {
+                    throw std::logic_error("Expected type " + quxlang::to_string(sym) + " to be defined.");
+                }
+
+                auto const& genvalue = this->state.genvalues.at(*type_opt);
+
+                if (genvalue.template type_is< codegen_literal >())
+                {
+                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got a literal instead.");
+                }
+
+                if (genvalue.template type_is< codegen_local >())
+                {
+                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got an object or reference instead.");
+                }
+
+                if (!genvalue.template type_is< codegen_binding >())
+                {
+                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got something else instead.");
+                }
+
+                auto const& binding = genvalue.template get_as< codegen_binding >();
+                if (binding.bound_value != value_index(0))
+                {
+                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                }
+
+                co_return binding.attached_symbol;
+            };
+
+            auto lhs_type = co_await resolve_type_expr(expr.lhs_type);
+            auto rhs_type = co_await resolve_type_expr(expr.rhs_type);
+
+            co_return this->create_bool_value(bidx, lhs_type == rhs_type);
         }
 
         auto co_generate(block_index& bidx, expression_this_reference expr) -> typename CoroutineProvider::template co_type< value_index >
@@ -2090,7 +2213,7 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.os_type == os::macos);
             }
 
-            if (kw.keyword == "THIS" || kw.keyword == "OTHER")
+            if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "ASSUME")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
                 if (!result.has_value())
@@ -2156,7 +2279,7 @@ namespace quxlang
         {
             // TODO: Add carried context support
             auto ce_input = constexpr_input{.context = ctx, .expr = expr};
-            // TODO: ce_input.scoped_definitions = ...;
+            ce_input.scoped_definitions = this->state.scoped_definitions;
             auto ce_result = co_await prv.constexpr_bool(ce_input);
             co_return ce_result;
         }
@@ -2379,6 +2502,54 @@ namespace quxlang
             type_symbol lhs_type = this->current_type(bidx, lhs);
             type_symbol rhs_type = this->current_type(bidx, rhs);
 
+            if (lhs_type.type_is< numeric_literal_reference >() && rhs_type.type_is< numeric_literal_reference >())
+            {
+                auto const& lhs_slot = this->state.genvalues.at(lhs);
+                auto const& rhs_slot = this->state.genvalues.at(rhs);
+
+                if (lhs_slot.template type_is< codegen_literal >() && rhs_slot.template type_is< codegen_literal >())
+                {
+                    auto bytes_to_string = [](std::vector< std::byte > const& bytes)
+                    {
+                        std::string out;
+                        out.reserve(bytes.size());
+                        for (std::byte b : bytes)
+                        {
+                            out.push_back(static_cast< char >(b));
+                        }
+                        return out;
+                    };
+
+                    auto lhs_value = parsers::str_to_int< std::int64_t >(bytes_to_string(lhs_slot.template get_as< codegen_literal >().value));
+                    auto rhs_value = parsers::str_to_int< std::int64_t >(bytes_to_string(rhs_slot.template get_as< codegen_literal >().value));
+
+                    if (operator_str == "==")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value == rhs_value);
+                    }
+                    if (operator_str == "!=")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value != rhs_value);
+                    }
+                    if (operator_str == "<")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value < rhs_value);
+                    }
+                    if (operator_str == "<=")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value <= rhs_value);
+                    }
+                    if (operator_str == ">")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value > rhs_value);
+                    }
+                    if (operator_str == ">=")
+                    {
+                        co_return this->create_bool_value(bidx, lhs_value >= rhs_value);
+                    }
+                }
+            }
+
             type_symbol lhs_underlying_type = remove_ref(lhs_type);
             type_symbol rhs_underlying_type = remove_ref(rhs_type);
 
@@ -2548,18 +2719,30 @@ namespace quxlang
 
         auto co_generate(block_index& bidx, expression_typecast input) -> typename CoroutineProvider::template co_type< value_index >
         {
-            // Conversions call the destination type's constructor with a named argument.
-            // Default name is "OTHER"; if a keyword is present (e.g., NARROWING/WRAP/CHECKED), use that instead.
+            // Casts call the destination type's constructor with a named argument.
+            // Bare AS prefers EXPLICIT and falls back to OTHER to preserve existing @OTHER-based casts.
             auto arg_val = co_await co_generate_expr(bidx, input.expr);
 
-            // Resolve the target class/type using local scope-aware lookup that supports tempar types.
             type_symbol target_class = co_await co_lookup_typeclass(bidx, input.to_type);
 
-            codegen_invocation_args args;
-            auto name = input.keyword.has_value() ? *input.keyword : std::string("OTHER");
-            args.named[name] = arg_val;
+            if (input.keyword.has_value())
+            {
+                codegen_invocation_args args;
+                args.named[*input.keyword] = arg_val;
+                co_return co_await co_gen_call_ctor(bidx, target_class, args);
+            }
 
-            co_return co_await co_gen_call_ctor(bidx, target_class, args);
+            if (auto explicit_ctor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, "EXPLICIT", arg_val); explicit_ctor.has_value())
+            {
+                co_return *explicit_ctor;
+            }
+
+            if (auto other_ctor = co_await co_try_gen_call_ctor_with_named_argument(bidx, target_class, "OTHER", arg_val); other_ctor.has_value())
+            {
+                co_return *other_ctor;
+            }
+
+            throw std::logic_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
         }
 
         auto co_generate(block_index& bidx, expression_pun input) -> typename CoroutineProvider::template co_type< value_index >
@@ -2960,8 +3143,8 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
-            bool type_is_array;
             auto cls = func.temploid.templexoid.get_as< submember >().of;
+
             if (cls.template type_is< array_type >())
             {
                 co_await co_generate_array_ctor_delegates(current_block, func, {});
@@ -3543,11 +3726,26 @@ namespace quxlang
         auto co_generate_builtin_copy_ctor(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
-            auto class_type = func.temploid.templexoid.get_as< submember >().of;
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
 
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+            auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+            if (thisidx.has_value() && otheridx.has_value())
+            {
+                codegen_invocation_args args;
+                args.named["THIS"] = *thisidx;
+                args.named["OTHER"] = *otheridx;
+                auto intrinsic = this->intrinsic_instruction(func, args);
+                if (intrinsic.has_value())
+                {
+                    this->emit(current_block, intrinsic.value());
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
 
             co_await co_generate_copy_ctor_delegates(current_block, func);
 
@@ -3563,6 +3761,24 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+            auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+            if (thisidx.has_value() && otheridx.has_value())
+            {
+                codegen_invocation_args args;
+                args.named["THIS"] = *thisidx;
+                args.named["OTHER"] = *otheridx;
+                auto intrinsic = this->intrinsic_instruction(func, args);
+                if (intrinsic.has_value())
+                {
+                    this->emit(current_block, intrinsic.value());
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
+
             co_await co_generate_move_ctor_delegates(current_block, func);
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();

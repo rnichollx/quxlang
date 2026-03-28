@@ -191,6 +191,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(expression_is_integral, of_type, qualifier);
     };
 
+    struct expression_same_types
+    {
+        type_symbol lhs_type;
+        type_symbol rhs_type;
+
+        RPNX_MEMBER_METADATA(expression_same_types, lhs_type, rhs_type);
+    };
+
     struct expression_is_signed
     {
         type_symbol of_type;
