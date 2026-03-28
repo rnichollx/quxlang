@@ -70,6 +70,22 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         auto result = co_await QUX_CO_DEP(builtin_swap_vm_procedure3, (input));
         co_return result;
     }
+    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR== #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    {
+        auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
+        if (co_await QUX_CO_DEP(symbol_type, (compared_type)) == symbol_kind::class_ && co_await QUX_CO_DEP(type_is_implicitly_datatype, (compared_type)))
+        {
+            co_return co_await QUX_CO_DEP(builtin_datatype_compare_vm_procedure3, (input));
+        }
+    }
+    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR!= #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    {
+        auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
+        if (co_await QUX_CO_DEP(symbol_type, (compared_type)) == symbol_kind::class_ && co_await QUX_CO_DEP(type_is_implicitly_datatype, (compared_type)))
+        {
+            co_return co_await QUX_CO_DEP(builtin_datatype_compare_vm_procedure3, (input));
+        }
+    }
 
     if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
     {
@@ -105,6 +121,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         {
             co_return co_await gen.co_generate_builtin_serialize(input);
         }
+        else if (sm.name == "DESERIALIZE")
+        {
+            co_return co_await gen.co_generate_builtin_deserialize(input);
+        }
 
     }
 
@@ -139,6 +159,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_assignment_vm_procedure3)
     co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
 
     co_return co_await gen.co_generate_builtin_assignment(input);
+}
+
+QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_datatype_compare_vm_procedure3)
+{
+    auto const& member = input.temploid.templexoid.get_as< submember >();
+    auto const invert = (member.name == "OPERATOR!=");
+    co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
+
+    co_return co_await gen.co_generate_builtin_datatype_compare(input, invert);
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_swap_vm_procedure3)

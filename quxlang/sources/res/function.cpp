@@ -509,6 +509,15 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
             add_overload({}, {{"THIS", parent}}, make_mref(remove_ptr(parent)));
         }
 
+        if (!is_rhs && basic_compare_operators.contains(operator_name) && !is_regular_primitive_type)
+        {
+            auto user_defined_operator = co_await QUX_CO_DEP(functum_user_overloads, (submember{.of = parent, .name = "OPERATOR" + operator_name}));
+            if (user_defined_operator.empty() && co_await QUX_CO_DEP(type_is_implicitly_datatype, (parent)))
+            {
+                add_overload({}, {{"THIS", make_cref(parent)}, {"OTHER", make_cref(parent)}}, bool_type{});
+            }
+        }
+
         // Bools use the regular 0/1 ordering so FALSE < TRUE.
         if (is_bool_type && compare_operators.contains(operator_name))
         {
@@ -580,6 +589,10 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
     if (name == "SERIALIZE" && co_await QUX_CO_DEP(type_should_autogen_serialize, (parent)))
     {
         add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
+    }
+    else if (name == "DESERIALIZE" && co_await QUX_CO_DEP(type_should_autogen_deserialize, (parent)))
+    {
+        add_overload({}, {{"THIS", make_wref(parent)}, {"INPUT_ITER", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
     }
 
     co_return allowed_operations;

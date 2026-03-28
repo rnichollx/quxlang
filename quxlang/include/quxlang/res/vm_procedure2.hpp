@@ -22,6 +22,7 @@ namespace quxlang
     QUX_CO_RESOLVER(builtin_move_ctor_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
     QUX_CO_RESOLVER(builtin_swap_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
     QUX_CO_RESOLVER(builtin_assignment_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
+    QUX_CO_RESOLVER(builtin_datatype_compare_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
 
     QUX_CO_RESOLVER(builtin_other_vm_procedure3, instanciation_reference, vmir2::functanoid_routine3);
 

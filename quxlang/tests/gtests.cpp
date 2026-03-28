@@ -918,6 +918,27 @@ TEST(quxlang, func_gen)
     std::cout << result << std::endl;
 }
 
+TEST(quxlang, datatype_struct_equality_builtin_presence)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto datatype_eq = c.get_functum_builtin_overloads(
+        quxlang::parsers::parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
+    auto datatype_ne = c.get_functum_builtin_overloads(
+        quxlang::parsers::parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
+    auto nondatatype_eq = c.get_functum_builtin_overloads(
+        quxlang::parsers::parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR=="), std::nullopt);
+    auto nondatatype_ne = c.get_functum_builtin_overloads(
+        quxlang::parsers::parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
+
+    EXPECT_FALSE(datatype_eq.empty());
+    EXPECT_FALSE(datatype_ne.empty());
+    EXPECT_TRUE(nondatatype_eq.empty());
+    EXPECT_TRUE(nondatatype_ne.empty());
+}
+
 TEST(quxlang, storage_type_lookup)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;

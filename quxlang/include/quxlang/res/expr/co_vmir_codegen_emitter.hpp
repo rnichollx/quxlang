@@ -3109,8 +3109,28 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_serialize_int(func);
             }
+            if (class_type.type_is< bool_type >())
+            {
+                co_return co_await this->co_generate_builtin_serialize_bool(func);
+            }
+            co_return co_await this->co_generate_builtin_serialize_struct(func);
+        }
 
-            throw rpnx::unimplemented();
+        auto co_generate_builtin_deserialize(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+
+            if (class_type.type_is< int_type >() || class_type.type_is< byte_type >())
+            {
+                co_return co_await this->co_generate_builtin_deserialize_int(func);
+            }
+            if (class_type.type_is< bool_type >())
+            {
+                co_return co_await this->co_generate_builtin_deserialize_bool(func);
+            }
+            co_return co_await this->co_generate_builtin_deserialize_struct(func);
         }
 
         auto co_generate_builtin_serialize_int(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
@@ -3207,6 +3227,315 @@ namespace quxlang
                 throw compiler_bug("Shouldn't be possible");
             }
             co_await co_return_value(current_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_serialize_bool(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+
+            if (!this_ref.has_value() || !outit_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE arguments");
+            }
+
+            auto byteval = this->create_local_value(byte_type{});
+            {
+                vmir2::load_from_ref lfr;
+                lfr.from_reference = get_local_index(*this_ref);
+                lfr.to_value = get_local_index(byteval);
+                this->emit(current_block, lfr);
+            }
+
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", *outit_ref);
+            auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+            co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
+
+            outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE iterator");
+            }
+
+            co_await co_return_value(current_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_serialize_struct(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto current_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+
+            if (!current_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE arguments");
+            }
+
+            auto const& fields = co_await prv.class_field_list(class_type);
+            for (class_field const& fld : fields)
+            {
+                auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                if (!this_ref.has_value())
+                {
+                    throw compiler_bug("Missing builtin SERIALIZE THIS");
+                }
+                auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
+                auto field_serialize_functum = submember{.of = fld.type, .name = "SERIALIZE"};
+                current_iter = co_await this->co_gen_call_functum(
+                    current_block,
+                    field_serialize_functum,
+                    codegen_invocation_args{.named = {{"THIS", field_ref}, {"OUTPUT_ITERATOR", *current_iter}}});
+            }
+
+            co_await co_return_value(current_block, *current_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_bool(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+
+            if (!this_ref.has_value() || !input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE arguments");
+            }
+
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
+            auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+
+            auto byteval = this->create_local_value(byte_type{});
+            {
+                vmir2::load_from_ref lfr;
+                lfr.from_reference = get_local_index(input_deref);
+                lfr.to_value = get_local_index(byteval);
+                this->emit(current_block, lfr);
+            }
+
+            {
+                vmir2::store_to_ref str;
+                str.from_value = get_local_index(byteval);
+                str.to_reference = get_local_index(*this_ref);
+                this->emit(current_block, str);
+            }
+
+            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE iterator");
+            }
+
+            co_await co_return_value(current_block, *input_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_int(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            assert(class_type.type_is< int_type >() || class_type.type_is< byte_type >());
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+
+            if (!this_ref.has_value() || !input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE arguments");
+            }
+
+            std::size_t bits = class_type.type_is< byte_type >() ? 8 : class_type.as< int_type >().bits;
+            std::size_t rounded_bits = ((bits + 7) / 8) * 8;
+            auto accum_type = class_type.type_is< byte_type >() ? type_symbol(byte_type{}) : type_symbol(int_type{.bits = rounded_bits, .has_sign = false});
+            auto accum = this->create_local_value(accum_type);
+            this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(accum)});
+
+            auto accum_mref_type = make_mref(accum_type);
+
+            for (std::size_t i = 0; i < rounded_bits; i += 8)
+            {
+                auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
+                auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+
+                auto byteval = this->create_local_value(byte_type{});
+                {
+                    vmir2::load_from_ref lfr;
+                    lfr.from_reference = get_local_index(input_deref);
+                    lfr.to_value = get_local_index(byteval);
+                    this->emit(current_block, lfr);
+                }
+
+                auto chunk = this->create_local_value(accum_type);
+                if (accum_type.type_is< byte_type >())
+                {
+                    vmir2::load_from_ref lfr;
+                    lfr.from_reference = get_local_index(input_deref);
+                    lfr.to_value = get_local_index(chunk);
+                    this->emit(current_block, lfr);
+                }
+                else
+                {
+                    vmir2::iconv icv;
+                    icv.convtype = vmir2::conversion_class::partial;
+                    icv.from = get_local_index(byteval);
+                    icv.to = get_local_index(chunk);
+                    this->emit(current_block, icv);
+                }
+
+                value_index shifted_chunk = chunk;
+                if (i != 0)
+                {
+                    auto shift_amount = create_numeric_literal(std::to_string(i));
+                    shifted_chunk = co_await co_generate_binary(current_block, "#++", chunk, shift_amount);
+                }
+
+                auto accum_ref = this->create_reference(current_block, accum, accum_mref_type);
+                auto accum_copy = this->create_local_value(accum_type);
+                {
+                    vmir2::load_from_ref lfr;
+                    lfr.from_reference = get_local_index(accum_ref);
+                    lfr.to_value = get_local_index(accum_copy);
+                    this->emit(current_block, lfr);
+                }
+
+                auto merged = co_await co_generate_binary(current_block, "#||", accum_copy, shifted_chunk);
+                accum_ref = this->create_reference(current_block, accum, accum_mref_type);
+                co_await co_generate_binary(current_block, ":=", accum_ref, merged);
+
+                input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+                if (!input_iter.has_value())
+                {
+                    throw compiler_bug("Missing builtin DESERIALIZE iterator");
+                }
+            }
+
+            value_index result_value = accum;
+            if (accum_type != class_type)
+            {
+                auto converted = this->create_local_value(class_type);
+                vmir2::iconv icv;
+                icv.convtype = vmir2::conversion_class::partial;
+                icv.from = get_local_index(accum);
+                icv.to = get_local_index(converted);
+                this->emit(current_block, icv);
+                result_value = converted;
+            }
+
+            {
+                vmir2::store_to_ref str;
+                str.from_value = get_local_index(result_value);
+                str.to_reference = get_local_index(*this_ref);
+                this->emit(current_block, str);
+            }
+
+            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE iterator");
+            }
+
+            co_await co_return_value(current_block, *input_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_struct(instanciation_reference const& func) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto current_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+
+            if (!current_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE arguments");
+            }
+
+            auto const& fields = co_await prv.class_field_list(class_type);
+            for (class_field const& fld : fields)
+            {
+                auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                if (!this_ref.has_value())
+                {
+                    throw compiler_bug("Missing builtin DESERIALIZE THIS");
+                }
+                auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
+                auto field_deserialize_functum = submember{.of = fld.type, .name = "DESERIALIZE"};
+                current_iter = co_await this->co_gen_call_functum(
+                    current_block,
+                    field_deserialize_functum,
+                    codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITER", *current_iter}}});
+            }
+
+            co_await co_return_value(current_block, *current_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_datatype_compare(instanciation_reference const& func, bool invert) -> typename CoroutineProvider::template co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto const& fields = co_await prv.class_field_list(class_type);
+
+            for (class_field const& fld : fields)
+            {
+                auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+                auto other_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"});
+
+                if (!this_ref.has_value() || !other_ref.has_value())
+                {
+                    throw compiler_bug("Missing builtin datatype comparison arguments");
+                }
+
+                auto this_field = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
+                auto other_field = co_await this->co_generate_dot_access(current_block, *other_ref, fld.name);
+                auto fields_equal = co_await this->co_generate_binary(current_block, "==", this_field, other_field);
+
+                auto match_block = this->generate_subblock(current_block, "datatype_compare_match");
+                auto mismatch_block = this->generate_subblock(current_block, "datatype_compare_mismatch");
+                this->generate_branch(fields_equal, current_block, match_block, mismatch_block);
+                this->kill_entry_value(match_block, fields_equal);
+                this->kill_entry_value(mismatch_block, fields_equal);
+
+                auto mismatch_result = this->create_bool_value(mismatch_block, invert);
+                co_await this->co_return_value(mismatch_block, mismatch_result);
+
+                current_block = match_block;
+            }
+
+            auto final_result = this->create_bool_value(current_block, !invert);
+            co_await this->co_return_value(current_block, final_result);
             co_await co_generate_dtor_references();
             co_return get_result();
         }
