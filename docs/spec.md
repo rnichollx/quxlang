@@ -8,7 +8,7 @@ If the compiler produces a compiler-output or compiler-error, the output must be
 occurs, the exception may be non-deterministic. A compiler error, includes, for example, syntax errors and semantic
 errors. A compiler exception includes, for example, "out of memory" or "stack overflow" errors, or other
 compiler-platform-specific errors. If a maximum template depth is set in any compiler flags, this must trigger a
-compiler exception and not a compiler error. If the compiler aborts compilation due to a compiler error encountered 
+compiler exception and not a compiler error. If the compiler aborts compilation due to a compiler error encountered
 during compilation of a _different_ output, this must be treated as a _compiler exception_ and not a compiler error.
 
 #### Compiler Flags
@@ -110,25 +110,47 @@ The compiler MAY produce non-deterministic output to stderr, such as progress me
 #### 1.1 Automatic Storage Duration
 
 An object has automatic storage duration if it is created as a local variable within a function or block scope. Such
-objects and all subobjects begin in the storage initialized state immeidately before the constructor is entered. At the entry of the constructor, the object becomes in the partially constructed state, and any delegates are executed such that the subobjects are constructed. Upon transitioning from delegate construction to the body of the constructor, all subobjects are in the fully constructed state. When the constructor returns, the object is in the fully constructed state. If a delegate initializer throws an exception, any already constructed delegate submembers are destroyed in the reverse order of their construction during unwinding. Upon entering the constructor body but before returning normally from it, if an exception is thrown which escapes the constructor body, delegates are automatically destroyed in submember destruction order, regardless of the order in which the delegates were initialized. When an exception leaves a constructor, the object is transitioned into a destroyed state. If an exception propagates to unwind a VAR statement, and the constructor completed, the destructor is executed. Regardless of whether the destructor executes, the storage is deallocated upon unwinding the VAR statement and pointers to it are invalidated.
+objects and all subobjects begin in the storage initialized state immeidately before the constructor is entered. At the
+entry of the constructor, the object becomes in the partially constructed state, and any delegates are executed such
+that the subobjects are constructed. Upon transitioning from delegate construction to the body of the constructor, all
+subobjects are in the fully constructed state. When the constructor returns, the object is in the fully constructed
+state. If a delegate initializer throws an exception, any already constructed delegate submembers are destroyed in the
+reverse order of their construction during unwinding. Upon entering the constructor body but before returning normally
+from it, if an exception is thrown which escapes the constructor body, delegates are automatically destroyed in
+submember destruction order, regardless of the order in which the delegates were initialized. When an exception leaves a
+constructor, the object is transitioned into a destroyed state. If an exception propagates to unwind a VAR statement,
+and the constructor completed, the destructor is executed. Regardless of whether the destructor executes, the storage is
+deallocated upon unwinding the VAR statement and pointers to it are invalidated.
 
-Once the constructor associated with an automatic storage node has completed, the behavior of the program is undefined if the object is destroyed by any method other than by unwinding the VAR statement in which it was created.
+Once the constructor associated with an automatic storage node has completed, the behavior of the program is undefined
+if the object is destroyed by any method other than by unwinding the VAR statement in which it was created.
 
-If an object exists at a given memory location, and another object is constructed at any overlapping memory location, the program's behavior is undefined unless the original object is destroyed before the new object is constructed.
+If an object exists at a given memory location, and another object is constructed at any overlapping memory location,
+the program's behavior is undefined unless the original object is destroyed before the new object is constructed.
 
-If a subobject of a structure is destroyed other than by the destructor of the enclosing object, the behavior of the program is undefined, this restriction does not apply to the stored subobject of any object of storage-type (e.g. `STORAGE@footype`).
+If a subobject of a structure is destroyed other than by the destructor of the enclosing object, the behavior of the
+program is undefined, this restriction does not apply to the stored subobject of any object of storage-type (e.g.
+`STORAGE@footype`).
 
-If a storage object is destroyed while a stored subobject is still alive, the behavior of the program is undefined _unless_ the stored subobject is trivially-destructible, in which case it is destroyed implicitly.
+If a storage object is destroyed while a stored subobject is still alive, the behavior of the program is undefined
+_unless_ the stored subobject is trivially-destructible, in which case it is destroyed implicitly.
 
-When an object is destroyed, including an object of trivial type like I32, BYTE or BOOL, its memory representation is also destroyed and its storage region is _poisoned_.
+When an object is destroyed, including an object of trivial type like I32, BYTE or BOOL, its memory representation is
+also destroyed and its storage region is _poisoned_.
 
-Contrast: In C++, trivial type destructors are no-ops and do not poison the memory representation. In Quxlang, all objects, including trivial types, poison their memory representation upon destruction.
+Contrast: In C++, trivial type destructors are no-ops and do not poison the memory representation. In Quxlang, all
+objects, including trivial types, poison their memory representation upon destruction.
 
-Remark: This provision allows the compiler to avoid writing short-lived temporary objects to memory. When the compiler can observe the entire lifetime of an object, it may optimize away the associated memory store operations of the object entirely, holding it entirely in registers, even if the storage region is re-used by other parts of the program and the compiler cannot prove that they do not read subsequently from the storage region.
+Remark: This provision allows the compiler to avoid writing short-lived temporary objects to memory. When the compiler
+can observe the entire lifetime of an object, it may optimize away the associated memory store operations of the object
+entirely, holding it entirely in registers, even if the storage region is re-used by other parts of the program and the
+compiler cannot prove that they do not read subsequently from the storage region.
 
-If the content of an object is read through a pointer or reference of a type that does not match its actual type the program's behavior is undefined.
+If the content of an object is read through a pointer or reference of a type that does not match its actual type the
+program's behavior is undefined.
 
-Contrast: In C++, some types are compatible, such as `int` and `unsigned int`. In Quxlang, no such compatibility exists; the types must match exactly with much more limited exceptions.
+Contrast: In C++, some types are compatible, such as `int` and `unsigned int`. In Quxlang, no such compatibility exists;
+the types must match exactly with much more limited exceptions.
 
 ## §1 Classes
 
@@ -230,6 +252,69 @@ A functum call contains the following steps:
     deterministically from the whole program source, such as a cryptographic hash of the source code. It is not
     permitted for internal concurrency of the compiler to affect the selection of PICKANY functions.
 
+##### Implicit Rebinding Conversions
+
+For the purposes of argument adaptation, an implicit rebinding conversion is any one of the following conversions
+between differently bound manifestations of the same unbound type `T`:
+
+1. Reference materialization: `T -> CONST& T`
+2. Reference materialization: `T -> TEMP& T`
+3. Objectization: `QUAL& T -> T`, where `QUAL&` is any reference qualifier except `WRITE&`
+4. Reference requalification: `QUAL1& T -> QUAL2& T`, where `QUAL1& T` is qualification-convertible to `QUAL2& T`
+
+The term "objectization" means constructing an object of type `T` from a reference to `T`.
+
+The term "reference materialization" means constructing a reference to `T` from an object of type `T`.
+
+The term "reference requalification" means converting one reference qualification of `T` to another reference
+qualification of `T` without changing the unbound type and without constructing a new object.
+
+##### Allowed Adaptations
+
+Argument adaptation is the process by which a source type is adapted to a destination type in a call or other implicit
+conversion context.
+
+An adaptation path consists of the following stages, in order:
+
+1. Zero or one source rebinding conversion.
+2. Zero or one class conversion.
+3. Zero or one destination reference materialization to `TEMP&` or `CONST&`.
+
+No other chaining is permitted. In particular, the source stage may perform at most one implicit rebinding conversion.
+
+Let `S` be the source type. The effective source forms of `S` are `S` itself together with each type reachable from `S`
+by exactly one implicit rebinding conversion.
+
+During template matching and during matching of a destination constructor's `@OTHER` parameter, each effective source
+form is considered independently. A candidate is a viable adaptation if it succeeds for any effective source form.
+
+The principal templating typoids used in argument adaptation are as follows:
+
+1. `AUTO(t)` matches the non-reference form of the type presented to it.
+2. `TT(t)` matches the type presented to it as-is, including references.
+3. `DIRECT(t)` matches the original source type as-is.
+
+`DIRECT(t)` does not consider any effective source form other than the original source type and therefore does not
+permit source rebinding during template matching.
+
+Examples:
+
+1. If the source type is `S`, the effective source forms are `S`, `CONST& S`, and `TEMP& S`.
+2. If the source type is `MUT& S`, the effective source forms are `MUT& S`, `CONST& S`, and `S`.
+
+A rebinding adaptation is an adaptation in which no class conversion is performed and the source and destination have
+the same unbound type.
+
+A class-conversion adaptation is an adaptation in which the destination's unbound class is constructed by invoking a
+constructor of that class with one effective source form as `@OTHER`. The class-conversion stage does not itself permit
+another class conversion.
+
+If the destination type is `TEMP& U` or `CONST& U`, a class-conversion adaptation first constructs a value of `U`, and
+may then perform the final destination reference materialization to produce `TEMP& U` or `CONST& U`. Final
+materialization to `MUT& U` or to any other reference type is not permitted.
+
+Adaptation of NEW or DESTROY parameters proceeds only through identity, it cannot be adapted from any other type.
+
 ##### 2.2.2.1 Better-Fit Ordering
 
 For overloads of the same numerical priority, a candidate function `F` is a better-fit than a candidate function `G`
@@ -258,28 +343,22 @@ From reference:
 1. Identity (no conversion): `QUAL& t -> QUAL& t`
 2. Direct templating match: `QUAL& t -> [template match]`
 3. Allowed reference requalification: `QUAL1& t -> QUAL2& t`, if `QUAL1` is qualification-convertible to `QUAL2`
-4. Direct reference objectization from the exact source reference type: `QUAL& t -> t`
-5. Direct reference objectization from the exact source reference type to template: `QUAL& t -> t -> [template match]`
-6. Direct reference objectization from `TEMP&`: `TEMP& t -> t`
-7. Direct reference objectization from `TEMP&` to template: `TEMP& t -> t -> [template match]`
-8. Direct reference objectization from `CONST&`: `CONST& t -> t`
-9. Indirect reference objectization from `CONST&`: `QUAL& t -> CONST& t -> t`
-10. Direct reference objectization from `CONST&` to template: `CONST& t -> t -> [template match]`
-11. Indirect reference objectization from `CONST&` to template: `QUAL& t -> CONST& t -> t -> [template match]`
-12. User-declared binding conversions, if supported
-13. Implicit non-binding conversions
+4. Reference-requalification templating match: `QUAL1& t -> QUAL2& t -> [template match]`, if `QUAL1` is
+   qualification-convertible to `QUAL2`
+5. Direct reference objectization from the exact source reference type: `QUAL& t -> t`
+6. Direct reference objectization from the exact source reference type to template: `QUAL& t -> t -> [template match]`
+7. User-declared binding conversions, if supported
+8. Implicit non-binding conversions
 
 Reference objectization from `QUAL& t` to `t` is permitted if `t::.CONSTRUCTOR` is invokable with `@OTHER` of type
-`QUAL& t`, or with `@OTHER` of an effective source reference type derived from `QUAL& t`.
+`QUAL& t`.
 
-The effective source reference types are `TEMP& t` and `CONST& t`. A source reference type `QUAL& t` may use one of
-those effective source reference types only if `QUAL& t` is implicitly reference-requalifiable to it.
+When template matching or constructor matching considers effective source forms, each such form is tested separately as
+an alternative one-step source rebinding. These alternatives do not compose with one another. For example, if the
+source type is `MUT& t`, the forms `MUT& t`, `CONST& t`, and `t` may each be considered, but the path
+`MUT& t -> CONST& t -> t` is not permitted.
 
-If a direct reference-objectization constructor exists for the exact source reference type, that direct path is
-better-ranked than any indirect reference-objectization path through an effective source reference type.
 
-Under the current implicit reference-requalification rules, there is no indirect conversion path to `TEMP& t`, so the
-only indirect reference-objectization path is through `CONST& t`.
 
 #### 2.2.3 Function Selection
 
@@ -363,11 +442,13 @@ RUNTIME NATIVE {
 }
 ```
 
-`RUNTIME CONSTEXPR` selects the first block when execution is occurring in a constexpr execution context. `RUNTIME NATIVE`
+`RUNTIME CONSTEXPR` selects the first block when execution is occurring in a constexpr execution context.
+`RUNTIME NATIVE`
 selects the first block when execution is occurring in a native execution context. If an `ELSE` block is present, it is
 selected when the primary condition is false.
 
 ## Operators
+
 ## Arithmetic Operators
 
 ### Operator `+`
