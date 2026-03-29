@@ -18,10 +18,9 @@ cmake-*
 *~
 .DS_Store
 *-out
-dev-workspace/buildspaces
-dev-workspace/toolchains
-dev-workspace/reports
+
 dev-workspace-*/
+dev-workspace/
 dev-workspace-backup/
 Testing
 **/Testing
