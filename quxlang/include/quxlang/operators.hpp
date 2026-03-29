@@ -11,7 +11,7 @@ namespace quxlang
     static std::set< std::string > const relative_compare_operators = {"<", ">", "<=", ">="};
     static std::set< std::string > const compare_operators = {"==", "!=", "<", ">", "<=", ">="};
 
-    static std::set< std::string > const bitwise_operators = {"#&&", "#||", "#^^", "#^!", "#&!", "#|!", "#^->", "#^<-"};
+    static std::set< std::string > const bitwise_operators = {"#&&", "#||", "#^^", "#^!", "#&!", "#|!", "#^>", "#^<"};
 
     static std::set< std::string > const logic_operators = {"&&", "||", "^^", "!^", "!&", "!|", "^>", "^<"};
 

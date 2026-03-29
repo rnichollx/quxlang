@@ -65,8 +65,8 @@ namespace quxlang::parsers
                 {"#^^", 8}, // bitwise xor
                 {"#|!", 8}, // bitwise nor
                 {"#||", 8}, // bitwise or
-                {"#^->", 8}, // bitwise implies (A implies B)
-                {"#^<-", 8}, // bitwise implied (B implies A)
+                {"#^>", 8}, // bitwise implies (A implies B)
+                {"#^<", 8}, // bitwise implied (B implies A)
                 {"#^!", 8}, // bitwise equivalent (nxor)
                 {"#++", 8}, // bitwise shift up
                 {"#--", 8}, // bitwise shift down

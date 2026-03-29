@@ -906,8 +906,8 @@ IMPORT foolib;
    ASSERT((x #&& y) == 2);
    ASSERT((x #|| y) == 7);
    ASSERT((x #^^ y) == 5);
-   ASSERT((x #^-> y) == 4294967291);
-   ASSERT((x #^<- y) == 4294967294);
+   ASSERT((x #^> y) == 4294967291);
+   ASSERT((x #^< y) == 4294967294);
 
    // Rotate for I32
    VAR r I32 := 1;
@@ -928,8 +928,8 @@ IMPORT foolib;
    b := b1 #&! b2; ASSERT(b == BYTE(@OTHER 253)); // ~(6&3)=~2=253
    b := b1 #|! b2; ASSERT(b == BYTE(@OTHER 248)); // ~(6|3)=~7=248
    b := b1 #^! b2; ASSERT(b == BYTE(@OTHER 250)); // ~(6^3)=~5=250
-   b := b1 #^-> b2; ASSERT(b == BYTE(@OTHER 251));
-   b := b1 #^<- b2; ASSERT(b == BYTE(@OTHER 254));
+   b := b1 #^> b2; ASSERT(b == BYTE(@OTHER 251));
+   b := b1 #^< b2; ASSERT(b == BYTE(@OTHER 254));
 
    // Unary bitwise inverse for BYTE
    VAR bu BYTE := 170; // 1010 1010

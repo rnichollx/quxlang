@@ -906,8 +906,8 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_TRUE(get_constexpr_bool("FALSE <= FALSE"));
     ASSERT_TRUE(get_constexpr_bool("TRUE >= TRUE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE < TRUE) == (TRUE > FALSE)"));
-    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^-> BYTE(@OTHER 3)) == BYTE(@OTHER 251)"));
-    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^<- BYTE(@OTHER 3)) == BYTE(@OTHER 254)"));
+    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^> BYTE(@OTHER 3)) == BYTE(@OTHER 251)"));
+    ASSERT_TRUE(get_constexpr_bool("(BYTE(@OTHER 6) #^< BYTE(@OTHER 3)) == BYTE(@OTHER 254)"));
     ASSERT_FALSE(get_constexpr_bool("IS_INTEGRAL(BYTE)"));
     ASSERT_TRUE(get_constexpr_bool("IS_INTEGRAL(U8)"));
     ASSERT_TRUE(get_constexpr_bool("SAME_TYPES(BYTE, BYTE)"));

@@ -41,8 +41,8 @@
 * `#||` bitwise or.
 * `#&!` bitwise and-inverse (nand).
 * `#|!` bitwise or-inverse (nor).
-* `#^->` bitwise a implies b.
-* `#^<-` bitwise b implies a.
+* `#^>` bitwise a implies b.
+* `#^<` bitwise b implies a.
 * `#^^` bitwise exclusive or.
 * `#^!` bitwise not exclusive-or.
 * `#++` bitwise up-shift ("left shift").

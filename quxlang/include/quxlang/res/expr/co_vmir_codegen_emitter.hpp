@@ -1681,11 +1681,11 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^->", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^>", true, *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<-", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<", true, *member, call, args))
                 {
                     return instr;
                 }
@@ -1769,11 +1769,11 @@ namespace quxlang
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^->", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^>", true, *member, call, args))
                 {
                     return instr;
                 }
-                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<-", true, *member, call, args))
+                if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<", true, *member, call, args))
                 {
                     return instr;
                 }
