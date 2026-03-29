@@ -35,7 +35,7 @@ namespace quxlang
         struct copy_reference;
         struct jump;
         struct branch;
-        struct cast_reference;
+        struct cast_ptrref;
         struct constexpr_set_result;
         struct load_const_value;
         struct load_const_int;
@@ -129,7 +129,7 @@ namespace quxlang
             invoke_indirect,
             get_procedure_ptr,
             make_reference,
-            cast_reference,
+            cast_ptrref,
             constexpr_set_result,
             load_const_int,
             load_const_value,
@@ -540,12 +540,12 @@ namespace quxlang
             RPNX_MEMBER_METADATA(make_pointer_to, of_index, pointer_index);
         };
 
-        struct cast_reference
+        struct cast_ptrref
         {
-            local_index source_ref_index;
-            local_index target_ref_index;
+            local_index source_index;
+            local_index target_index;
 
-            RPNX_MEMBER_METADATA(cast_reference, source_ref_index, target_ref_index);
+            RPNX_MEMBER_METADATA(cast_ptrref, source_index, target_index);
         };
 
         struct constexpr_set_result

@@ -201,7 +201,7 @@ namespace quxlang
             co_return result;
         }
 
-        auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, parameter_init_kind adaptation_kind) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_argument_adaptation(block_index& bidx, value_index val, type_symbol target_type, allowed_adaptations adaptations) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto value_type = this->current_type(bidx, val);
 
@@ -223,36 +223,41 @@ namespace quxlang
                 co_return val;
             }
 
-            co_return co_await co_gen_construct_with_target_type(bidx, val, target_type, adaptation_kind);
+            co_return co_await co_gen_construct_with_target_type(bidx, val, target_type, adaptations);
         }
 
-        auto nested_constructor_init_kind(parameter_init_kind init_method) -> parameter_init_kind
+        auto nested_constructor_adaptations(allowed_adaptations adaptations) -> allowed_adaptations
         {
-            switch (init_method)
+            switch (adaptations)
             {
-            case parameter_init_kind::call:
-                return parameter_init_kind::implicit_conversion;
-            case parameter_init_kind::implicit_conversion:
-            case parameter_init_kind::bind_only:
-                return parameter_init_kind::bind_only;
+            case allowed_adaptations::destination_rebinding:
+            case allowed_adaptations::class_conversions:
+                return allowed_adaptations::source_rebinding;
+            case allowed_adaptations::source_rebinding:
+                // Objectization is lowered through a constructor call, but that
+                // constructor still needs the same one-step source rebinding
+                // budget to bind copy-like parameters such as CONST& T.
+                return allowed_adaptations::source_rebinding;
+            case allowed_adaptations::none:
+                return allowed_adaptations::none;
             default:
-                throw std::logic_error("Invalid constructor init kind");
+                throw std::logic_error("Invalid constructor adaptation ceiling");
             }
         }
 
-        auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto target_index = create_local_value(target_type);
             auto constructor_functum = submember{target_type, "CONSTRUCTOR"};
-            auto constructor_init_kind = nested_constructor_init_kind(init_method);
+            auto constructor_adaptations = nested_constructor_adaptations(adaptations);
 
             codegen_invocation_args ctor_args = {.named = {{"THIS", target_index}, {"OTHER", source}}};
-            co_await co_gen_call_functum(bidx, constructor_functum, ctor_args, constructor_init_kind);
+            co_await co_gen_call_functum(bidx, constructor_functum, ctor_args, constructor_adaptations);
 
             co_return target_index;
         }
 
-        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, parameter_init_kind init_method = parameter_init_kind::call) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding) -> typename CoroutineProvider::template co_type< value_index >
         {
             std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
 
@@ -284,7 +289,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
 
             // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
@@ -332,7 +337,7 @@ namespace quxlang
 
             std::cout << "co_gen_call_functum selected instanciation: " << quxlang::to_string(*instanciation) << std::endl;
 
-            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, init_method);
+            co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations);
         }
 
       private:
@@ -487,9 +492,9 @@ namespace quxlang
             co_return pointer_value;
         }
 
-        auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< instanciation_reference >
+        auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> typename CoroutineProvider::template co_type< instanciation_reference >
         {
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
 
             auto kind = (co_await prv.symbol_type(func));
             if (kind != symbol_kind::functum)
@@ -525,7 +530,7 @@ namespace quxlang
                     assert(typeis< nvalue_slot >(arg_expr_type));
                 }
 
-                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, parameter_init_kind::call);
+                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, allowed_adaptations::destination_rebinding);
             };
 
             for (auto const& [name, arg_accepted_type] : what.params.named)
@@ -679,12 +684,12 @@ namespace quxlang
             return temp;
         }
 
-        auto cast_reference(block_index bidx, value_index index, type_symbol const& ty)
+        auto cast_ptrref(block_index bidx, value_index index, type_symbol const& ty)
         {
             auto temp = create_local_value(ty);
-            vmir2::cast_reference ref;
-            ref.source_ref_index = get_local_index(index);
-            ref.target_ref_index = get_local_index(temp);
+            vmir2::cast_ptrref ref;
+            ref.source_index = get_local_index(index);
+            ref.target_index = get_local_index(temp);
             this->emit(bidx, ref);
             return temp;
         }
@@ -764,7 +769,7 @@ namespace quxlang
 
                         if (lookup_type_ref.qual == qualifier::write)
                         {
-                            lookup = cast_reference(idx, *lookup, make_mref(remove_ref(lookup_type)));
+                            lookup = cast_ptrref(idx, *lookup, make_mref(remove_ref(lookup_type)));
                         }
                     }
 
@@ -871,7 +876,7 @@ namespace quxlang
             auto instanciation = co_await prv.instanciation(initialization_reference{
                 .initializee = ctor,
                 .parameters = calltype,
-                .init_kind = parameter_init_kind::call,
+                .adaptations = allowed_adaptations::destination_rebinding,
             });
 
             if (!instanciation.has_value())
@@ -881,7 +886,7 @@ namespace quxlang
 
             auto new_object = create_local_value(new_type);
             args.named["THIS"] = new_object;
-            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, parameter_init_kind::call);
+            auto retval = co_await this->co_gen_call_functanoid(bidx, *instanciation, args, allowed_adaptations::destination_rebinding);
 
             assert(retval == 0);
 
@@ -1033,7 +1038,7 @@ namespace quxlang
             return boolv;
         }
 
-        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< value_index >
+        auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations) -> typename CoroutineProvider::template co_type< value_index >
         {
             auto const& call_args_types = what.params;
 
@@ -1058,7 +1063,7 @@ namespace quxlang
                     co_return arg_expr_index;
                 }
 
-                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, init_method);
+                co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, adaptations);
             };
 
             for (auto const& [name, arg_accepted_type] : call_args_types.named)
@@ -1128,9 +1133,9 @@ namespace quxlang
 
             auto new_index = this->create_local_value(target_ref_type);
 
-            vmir2::cast_reference csr;
-            csr.source_ref_index = get_local_index(ref_index);
-            csr.target_ref_index = get_local_index(new_index);
+            vmir2::cast_ptrref csr;
+            csr.source_index = get_local_index(ref_index);
+            csr.target_index = get_local_index(new_index);
 
             this->emit(bidx, csr);
 
@@ -1154,7 +1159,7 @@ namespace quxlang
             type_symbol value_type = this->current_type(bidx, vidx);
             std::cout << "co_gen_value_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
 
-            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_value_type, parameter_init_kind::call);
+            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_value_type, allowed_adaptations::destination_rebinding);
         }
 
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> typename CoroutineProvider::template co_type< value_index >
@@ -1168,17 +1173,12 @@ namespace quxlang
                 co_return vidx;
             }
 
-            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_type, parameter_init_kind::call);
+            co_return co_await co_gen_argument_adaptation(bidx, vidx, target_type, allowed_adaptations::destination_rebinding);
         }
 
         auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> typename CoroutineProvider::template co_type< void >
         {
-            auto callee = what.temploid;
-
-            auto functum = callee.templexoid;
-
-            auto intrinsic = this->intrinsic_instruction(what, args);
-            if (intrinsic.has_value())
+            if (auto intrinsic = this->intrinsic_instruction(what, args); intrinsic.has_value())
             {
                 this->emit(bidx, intrinsic.value());
                 co_return;
@@ -1523,13 +1523,21 @@ namespace quxlang
                     {
                         auto this_slot_id = args.named.at("THIS");
 
-                        auto const& other_ptrref = other.as< ptrref_type >();
-                        auto const& cls_ptrref = cls->as< ptrref_type >();
+                        vmir2::cast_ptrref crf;
+                        crf.source_index = get_local_index(other_slot_id);
+                        crf.target_index = get_local_index(this_slot_id);
+                        return crf;
+                    }
+                    else if (cls->type_is< ptrref_type >() &&
+                             other.type_is< ptrref_type >() &&
+                             cls->as< ptrref_type >().ptr_class != pointer_class::ref &&
+                             other.as< ptrref_type >().ptr_class != pointer_class::ref)
+                    {
+                        auto this_slot_id = args.named.at("THIS");
 
-                        assert(other_ptrref.ptr_class == cls_ptrref.ptr_class);
-                        vmir2::cast_reference crf;
-                        crf.source_ref_index = get_local_index(other_slot_id);
-                        crf.target_ref_index = get_local_index(this_slot_id);
+                        vmir2::cast_ptrref crf;
+                        crf.source_index = get_local_index(other_slot_id);
+                        crf.target_index = get_local_index(this_slot_id);
                         return crf;
                     }
                     else if (cls->type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class == pointer_class::ref)
@@ -2725,7 +2733,7 @@ namespace quxlang
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .init_kind = parameter_init_kind::call});
+            auto lhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
 
             if (lhs_exists_and_callable_with)
             {
@@ -2733,7 +2741,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, parameter_init_kind::call});
+            auto rhs_exists_and_callable_with = co_await prv.instanciation(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
 
             if (rhs_exists_and_callable_with)
             {
@@ -3508,7 +3516,7 @@ namespace quxlang
 
             auto val_ctor = submember{.of = class_type, .name = "CONSTRUCTOR"};
 
-            co_await co_gen_call_functum(current_block, val_ctor, codegen_invocation_args{.named = {{"OTHER", this_ref.value()}, {"THIS", copy_val}}}, parameter_init_kind::implicit_conversion);
+            co_await co_gen_call_functum(current_block, val_ctor, codegen_invocation_args{.named = {{"OTHER", this_ref.value()}, {"THIS", copy_val}}}, allowed_adaptations::source_rebinding);
 
             auto class_mreftype = make_mref(class_type);
 
@@ -3904,8 +3912,7 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
-                auto intrinsic = this->intrinsic_instruction(func, args);
-                if (intrinsic.has_value())
+                if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
@@ -3936,8 +3943,7 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
-                auto intrinsic = this->intrinsic_instruction(func, args);
-                if (intrinsic.has_value())
+                if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
@@ -4667,7 +4673,7 @@ namespace quxlang
                 auto tref_type = vptr;
                 vptr.qual = qualifier::temp;
                 auto tref = this->create_local_value(tref_type);
-                this->emit(current_block, vmir2::cast_reference{.source_ref_index = this->get_local_index(val), .target_ref_index = this->get_local_index(tref)});
+                this->emit(current_block, vmir2::cast_ptrref{.source_index = this->get_local_index(val), .target_index = this->get_local_index(tref)});
                 co_return tref;
             }
 

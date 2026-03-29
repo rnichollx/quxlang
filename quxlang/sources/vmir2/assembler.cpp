@@ -414,16 +414,16 @@ namespace quxlang::vmir2
         return result;
     }
 
-    std::string assembler::to_string_internal(vmir2::cast_reference inst)
+    std::string assembler::to_string_internal(vmir2::cast_ptrref inst)
     {
-        std::string result = "CONVERT_REF %" + std::to_string(inst.source_ref_index) + ", %" + std::to_string(inst.target_ref_index);
+        std::string result = "CONVERT_PTRREF %" + std::to_string(inst.source_index) + ", %" + std::to_string(inst.target_index);
 
         // Use apply_visitor since both types have the same logic
 
         result += " // type1=";
-        result += quxlang::to_string(m_what.local_types.at(inst.source_ref_index).type);
+        result += quxlang::to_string(m_what.local_types.at(inst.source_index).type);
         result += " type2=";
-        result += quxlang::to_string(m_what.local_types.at(inst.target_ref_index).type);
+        result += quxlang::to_string(m_what.local_types.at(inst.target_index).type);
 
         return result;
     }

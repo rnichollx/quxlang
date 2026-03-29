@@ -20,7 +20,8 @@ RPNX_ENUM(quxlang, qualifier, std::uint16_t, mut, constant, temp, write, auto_, 
 RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring);
-RPNX_ENUM(quxlang, parameter_init_kind, std::uint8_t, none, call, implicit_conversion, bind_only);
+RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
+RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 
 namespace quxlang
 {
@@ -311,9 +312,9 @@ namespace quxlang
     {
         type_symbol initializee;
         invotype parameters;
-        parameter_init_kind init_kind = parameter_init_kind::none;
+        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters, init_kind);
+        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters, adaptations);
     };
 
     struct temploid_reference
@@ -327,9 +328,9 @@ namespace quxlang
     {
         temploid_ensig ensig;
         invotype params;
-        parameter_init_kind init_kind = parameter_init_kind::call;
+        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, init_kind);
+        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations);
     };
 
     struct instanciation_reference

@@ -36,8 +36,25 @@ IMPORT foolib;
   test_global();
 
   template_test();
+  ptrptr_tests();
 
   RETURN 1;
+}
+
+::ptrptr_tests FUNCTION()
+{
+  VAR x I32 := 5;
+  VAR px ->I32 := x<-;
+    VAR ppx -> ->I32 := px<-;
+    VAR ppx2 -> ->I32 := ppx;
+    ppx-> -> := 10;
+    ASSERT(x == 10);
+    ptrptr_incr(@ptr ppx);
+}
+
+::ptrptr_incr FUNCTION(@ptr CONST -> MUT-> I32)
+{
+  ptr-> -> ++;
 }
 
 ::global VAR I32 := 8;

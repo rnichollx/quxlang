@@ -24,12 +24,15 @@ namespace quxlang
     {
         type_symbol from;
         type_symbol to;
-        parameter_init_kind init_kind = parameter_init_kind::none;
+        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(argument_init_query, from, to, init_kind);
+        RPNX_MEMBER_METADATA(argument_init_query, from, to, adaptations);
     };
 
     QUX_CO_RESOLVER(ensig_argument_initialize, argument_init_query, std::optional<type_symbol>);
+    QUX_CO_RESOLVER(argument_initialize_by_intrinsic, argument_init_query, std::optional<type_symbol>);
+    QUX_CO_RESOLVER(argument_initialize_by_template, argument_init_query, std::optional<type_symbol>);
+    QUX_CO_RESOLVER(argument_initialize_by_class_conversion, argument_init_query, std::optional<type_symbol>);
 
     QUX_CO_RESOLVER(argument_adaptation_rank, argument_init_query, std::optional<std::size_t>);
 
@@ -38,9 +41,9 @@ namespace quxlang
         type_symbol from;
         type_symbol better_to;
         type_symbol worse_to;
-        parameter_init_kind init_kind = parameter_init_kind::none;
+        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(argument_adaptation_better_fit_query, from, better_to, worse_to, init_kind);
+        RPNX_MEMBER_METADATA(argument_adaptation_better_fit_query, from, better_to, worse_to, adaptations);
     };
 
     QUX_CO_RESOLVER(argument_adaptation_is_better_fit, argument_adaptation_better_fit_query, bool);

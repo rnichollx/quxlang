@@ -444,10 +444,10 @@ namespace quxlang::vmir2
             readonly(mrf.value_index);
             output(mrf.reference_index);
         }
-        void apply_internal(vmir2::cast_reference const& crf)
+        void apply_internal(vmir2::cast_ptrref const& crf)
         {
-            consume(crf.source_ref_index);
-            output(crf.target_ref_index);
+            consume(crf.source_index);
+            output(crf.target_index);
         }
         void apply_internal(vmir2::constexpr_set_result const& csr)
         {

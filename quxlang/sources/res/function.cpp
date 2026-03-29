@@ -53,17 +53,6 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
 {
     auto input_functum_str = quxlang::to_string(input_val.initializee);
 
-    if ((input_functum_str.contains("TEMP") && input_functum_str.contains("CONSTRUCTOR#")) || input.init_kind == parameter_init_kind::none)
-    {
-        auto callers = this->dependents();
-
-        for (auto const& call : callers)
-        {
-            std::cout << "Caller: " << call->question() << std::endl;
-        }
-
-        throw std::logic_error("invalid construction");
-    }
     auto selection = co_await QUX_CO_DEP(functum_select_function, (input_val));
 
     if (!selection)
@@ -74,7 +63,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_initialize)
         // throw std::logic_error("No function found that matches the given parameters.");
     }
 
-    co_return co_await QUX_CO_DEP(function_instanciation, (initialization_reference{.initializee = selection.value(), .parameters = input_val.parameters, .init_kind = input_val.init_kind}));
+    co_return co_await QUX_CO_DEP(function_instanciation, (initialization_reference{
+                                                               .initializee = selection.value(),
+                                                               .parameters = input_val.parameters,
+                                                               .adaptations = input_val.adaptations,
+                                                           }));
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
@@ -810,7 +803,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
         std::string arg_type_str = to_string(preargument_type);
         std::string param_type_str = to_string(param_type);
 
-        auto argument_type = co_await QUX_CO_DEP(ensig_argument_initialize, ({.from = preargument_type, .to = param_type.type, .init_kind = input.init_kind}));
+        auto argument_type = co_await QUX_CO_DEP(ensig_argument_initialize, ({.from = preargument_type, .to = param_type.type, .adaptations = input.adaptations}));
 
         if (!argument_type)
         {
@@ -823,7 +816,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(function_ensig_init_with)
     {
         auto arg_type = preargs.positional.at(i);
         auto param_type = os.interface.positional.at(i);
-        auto argument_type = co_await QUX_CO_DEP(ensig_argument_initialize, ({.from = arg_type, .to = param_type.type, .init_kind = input.init_kind}));
+        auto argument_type = co_await QUX_CO_DEP(ensig_argument_initialize, ({.from = arg_type, .to = param_type.type, .adaptations = input.adaptations}));
         if (!argument_type)
         {
             co_return std::nullopt;
@@ -891,19 +884,20 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
     std::optional< std::int64_t > highest_priority;
 
     std::string context_type = "";
-    switch (input.init_kind)
+    switch (input.adaptations)
     {
-    case parameter_init_kind::none:
-        context_type = "none";
+    case allowed_adaptations::none:
+        context_type = "exact";
         break;
-    case parameter_init_kind::call:
-        context_type = "call";
+    case allowed_adaptations::source_rebinding:
+        context_type = "source_rebinding";
         break;
-    case parameter_init_kind::bind_only:
-        context_type = "construct";
+    case allowed_adaptations::class_conversions:
+        context_type = "class_conversions";
         break;
-    case parameter_init_kind::implicit_conversion:
-        context_type = "conversion";
+    case allowed_adaptations::destination_rebinding:
+        context_type = "destination_rebinding";
+        break;
     }
 
     std::cout << "Select for " << quxlang::to_string(input) << " in " << context_type << std::endl;
@@ -925,7 +919,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
 
         std::cout << "  " << ss.str() << std::endl;
 
-        std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .init_kind = input.init_kind}));
+        std::optional< invotype > candidate = co_await QUX_CO_DEP(function_ensig_init_with, ({.ensig = o, .params = input.parameters, .adaptations = input.adaptations}));
 
         if (candidate && typeis< submember >(input.initializee))
         {
@@ -1019,14 +1013,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
                         .from = arg_type,
                         .better_to = other_param,
                         .worse_to = candidate_param,
-                        .init_kind = input.init_kind,
+                        .adaptations = input.adaptations,
                     }));
 
                     auto candidate_beats_other = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
                         .from = arg_type,
                         .better_to = candidate_param,
                         .worse_to = other_param,
-                        .init_kind = input.init_kind,
+                        .adaptations = input.adaptations,
                     }));
 
                     other_better = other_better || other_beats_candidate;
@@ -1043,14 +1037,14 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_select_function)
                         .from = arg_type,
                         .better_to = other_param,
                         .worse_to = candidate_param,
-                        .init_kind = input.init_kind,
+                        .adaptations = input.adaptations,
                     }));
 
                     auto candidate_beats_other = co_await QUX_CO_DEP(argument_adaptation_is_better_fit, (argument_adaptation_better_fit_query{
                         .from = arg_type,
                         .better_to = candidate_param,
                         .worse_to = other_param,
-                        .init_kind = input.init_kind,
+                        .adaptations = input.adaptations,
                     }));
 
                     other_better = other_better || other_beats_candidate;

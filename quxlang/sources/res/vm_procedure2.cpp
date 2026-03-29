@@ -98,6 +98,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
         co_vmir_generator<compiler_binder> gen(compiler_binder(c), input);
         auto const & sm = as< submember >(input.temploid.templexoid);
         auto parent_kind = co_await QUX_CO_DEP(symbol_type, (sm.of));
+       
         if (parent_kind == symbol_kind::global_variable)
         {
             if (sm.name == "GET_REFERENCE")
@@ -129,7 +130,7 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_vm_procedure3)
     }
 
 
-    throw compiler_bug("generation of builtin routine \'" + input_str + "\' not implemented");
+    throw compiler_bug("generation of builtin functanoid '" + input_str + "' is not implemented, no intrinsic routine generator matched");
 }
 
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(builtin_default_ctor_vm_procedure3)

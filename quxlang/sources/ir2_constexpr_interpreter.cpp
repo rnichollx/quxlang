@@ -321,7 +321,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
-    void exec_instr_val(vmir2::cast_reference const& cst);
+    void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::load_const_value const& lcv);
     void exec_instr_val(vmir2::make_pointer_to const& mpt);
@@ -1603,19 +1603,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     throw compiler_bug("unknown initguard state");
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_reference const& cst)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_ptrref const& cst)
 {
-    auto& local_ptr_base = get_current_frame().local_values.at(cst.source_ref_index);
-    auto local_ptr_result = output_local(cst.target_ref_index);
+    auto& local_ptr_base = get_current_frame().local_values.at(cst.source_index);
+    auto local_ptr_result = output_local(cst.target_index);
 
     if (!local_ptr_base)
     {
-        throw constexpr_logic_execution_error("Error executing <cast_reference>: accessing deallocated storage");
+        throw constexpr_logic_execution_error("Error executing <cast_ptrref>: accessing deallocated storage");
     }
 
     if (!local_ptr_base->alive())
     {
-        throw constexpr_logic_execution_error("Error executing <cast_reference>: accessing dealived storage");
+        throw constexpr_logic_execution_error("Error executing <cast_ptrref>: accessing dealived storage");
     }
 
     local_ptr_result->ref = local_ptr_base->ref;

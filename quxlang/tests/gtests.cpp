@@ -384,6 +384,21 @@ TEST(qual, template_matching)
     ASSERT_TRUE(res4.value().matches["foo"] != type2);
 }
 
+TEST(qual, template_matching_preserves_reference_shape_without_hidden_conversions)
+{
+    auto templ = quxlang::parsers::parse_type_symbol("CONST& AUTO(t)");
+    auto source = quxlang::parsers::parse_type_symbol("MUT& I32");
+
+    auto match = quxlang::match_template(templ, source);
+    ASSERT_TRUE(match.has_value());
+    EXPECT_EQ(match->type, quxlang::parsers::parse_type_symbol("CONST& I32"));
+    EXPECT_EQ(match->matches.at("t"), quxlang::parsers::parse_type_symbol("I32"));
+
+    auto auto_ref = quxlang::parsers::parse_type_symbol("& AUTO(t)");
+    auto value = quxlang::parsers::parse_type_symbol("I32");
+    EXPECT_FALSE(quxlang::match_template(auto_ref, value).has_value());
+}
+
 TEST(range, range_input)
 {
     std::vector< std::byte > v = {std::byte(1), std::byte(2), std::byte(3), std::byte(4)};
@@ -738,6 +753,118 @@ TEST(VariantTest, Serialization)
     EXPECT_EQ(v4, std::string("hello"));
 }
 
+namespace
+{
+    quxlang::compiler make_main_module_compiler(std::string source)
+    {
+        quxlang::source_bundle sources;
+
+        quxlang::target_configuration target;
+        target.module_configurations["main"] = quxlang::module_configuration{.source = "main"};
+        sources.targets["linux-x64"] = target;
+
+        quxlang::module_source main_module;
+        main_module.files["main.qx"] = quxlang::source_file{.contents = std::move(source)};
+        sources.module_sources["main"] = std::move(main_module);
+
+        return quxlang::compiler(sources, "linux-x64");
+    }
+} // namespace
+
+TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+                                                       .from = quxlang::parsers::parse_type_symbol("I32"),
+                                                       .to = quxlang::parsers::parse_type_symbol("CONST& AUTO(t)"),
+                                                       .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                   },
+                                                   std::nullopt);
+
+    ASSERT_TRUE(adapted.has_value());
+    EXPECT_EQ(*adapted, quxlang::parsers::parse_type_symbol("CONST& I32"));
+}
+
+TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+                                                       .from = quxlang::parsers::parse_type_symbol("WRITE& I32"),
+                                                       .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
+                                                       .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                   },
+                                                   std::nullopt);
+
+    EXPECT_FALSE(adapted.has_value());
+}
+
+TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    quxlang::compiler c(sources, "linux-x64");
+
+    auto ref_source = quxlang::parsers::parse_type_symbol("MUT& I32");
+
+    auto tt_const = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+                                                        .from = ref_source,
+                                                        .to = quxlang::parsers::parse_type_symbol("CONST& TT(t)"),
+                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                    },
+                                                    std::nullopt);
+    ASSERT_TRUE(tt_const.has_value());
+    EXPECT_EQ(*tt_const, quxlang::parsers::parse_type_symbol("CONST& I32"));
+
+    auto auto_value = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+                                                          .from = ref_source,
+                                                          .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
+                                                          .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                      },
+                                                      std::nullopt);
+    ASSERT_TRUE(auto_value.has_value());
+    EXPECT_EQ(*auto_value, quxlang::parsers::parse_type_symbol("I32"));
+}
+
+TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_materialization)
+{
+    auto c = make_main_module_compiler(R"(
+::from_const_i32 CLASS
+{
+    .value VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER CONST& I32)
+    {
+        .value := OTHER;
+    }
+}
+)");
+
+    auto class_type = quxlang::parsers::parse_type_symbol("MODULE(main)::from_const_i32");
+    auto const_ref_class_type = quxlang::parsers::parse_type_symbol("CONST& MODULE(main)::from_const_i32");
+
+    auto by_value = c.get_convertible_by_call(quxlang::implicitly_convertible_to_query{
+                                                  .from = quxlang::parsers::parse_type_symbol("I32"),
+                                                  .to = class_type,
+                                              },
+                                              std::nullopt);
+    ASSERT_TRUE(by_value.has_value());
+    EXPECT_EQ(*by_value, class_type);
+
+    auto by_const_ref = c.get_convertible_by_call(quxlang::implicitly_convertible_to_query{
+                                                      .from = quxlang::parsers::parse_type_symbol("I32"),
+                                                      .to = const_ref_class_type,
+                                                  },
+                                                  std::nullopt);
+    ASSERT_TRUE(by_const_ref.has_value());
+    EXPECT_EQ(*by_const_ref, const_ref_class_type);
+}
+
 TEST(quxlang, constexpr_result_bool)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
@@ -799,28 +926,28 @@ TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
     auto u8_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
         .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"OTHER", byte}}},
-        .init_kind = quxlang::parameter_init_kind::implicit_conversion,
+        .adaptations = quxlang::allowed_adaptations::source_rebinding,
     };
     EXPECT_FALSE(c.get_instanciation(u8_ctor, std::nullopt).has_value());
 
     auto byte_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
         .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"OTHER", u8}}},
-        .init_kind = quxlang::parameter_init_kind::implicit_conversion,
+        .adaptations = quxlang::allowed_adaptations::source_rebinding,
     };
     EXPECT_FALSE(c.get_instanciation(byte_ctor, std::nullopt).has_value());
 
     auto explicit_u8_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
         .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"EXPLICIT", byte}}},
-        .init_kind = quxlang::parameter_init_kind::call,
+        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
     };
     EXPECT_TRUE(c.get_instanciation(explicit_u8_ctor, std::nullopt).has_value());
 
     auto explicit_byte_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
         .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"EXPLICIT", u8}}},
-        .init_kind = quxlang::parameter_init_kind::call,
+        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
     };
     EXPECT_TRUE(c.get_instanciation(explicit_byte_ctor, std::nullopt).has_value());
 }

@@ -1009,22 +1009,14 @@ namespace quxlang
             // Matches any reference type
             ptrref_type const& template_autoref = as< ptrref_type >(template_type);
 
-            std::string type_str = to_string(type);
-
             if (!is_ref(type))
             {
-                // AUTO& ... matches any kind of reference
-                // However, a PR value should be converted to a TEMP& reference
-
-                template_match_results output;
-
-                type_symbol template_of = make_tref(template_autoref.target);
-                return match_template(template_of, make_tref(type));
+                return std::nullopt;
             }
 
             auto type_refof = remove_ref(type);
 
-            auto match = match_template(template_autoref.target, type_refof);
+            auto match = match_template_noconv(template_autoref.target, type_refof);
             if (!match)
             {
                 return std::nullopt;
@@ -1057,7 +1049,6 @@ namespace quxlang
         {
             auto const& ptr_template = as< ptrref_type >(template_type);
 
-            ptrref_type matched_type;
             if (!type.type_is< ptrref_type >())
             {
                 return std::nullopt;
@@ -1076,15 +1067,17 @@ namespace quxlang
                 return std::nullopt;
             }
 
-            matched_type.qual = *qual_match;
-
-            auto match = match_template(ptr_template.target, ptr_type.target);
+            auto match = match_template_noconv(ptr_template.target, ptr_type.target);
             if (!match.has_value())
             {
                 return std::nullopt;
             }
 
-            match->type = {std::move(match->type)};
+            match->type = ptrref_type{
+                .target = std::move(match->type),
+                .ptr_class = ptr_type.ptr_class,
+                .qual = *qual_match,
+            };
             return match;
         }
         else if (typeis< subsymbol >(template_type))
@@ -1202,17 +1195,9 @@ namespace quxlang
             // Matches any reference type
             ptrref_type const& template_autoref = as< ptrref_type >(template_type);
 
-            std::string type_str = to_string(type);
-
             if (!is_ref(type))
             {
-                // AUTO& ... matches any kind of reference
-                // However, a PR value should be converted to a TEMP& reference
-
-                template_match_results output;
-
-                type_symbol template_of = make_tref(template_autoref.target);
-                return match_template(template_of, make_tref(type));
+                return std::nullopt;
             }
 
             auto type_refof = remove_ref(type);
@@ -1250,7 +1235,6 @@ namespace quxlang
         {
             auto const& ptr_template = as< ptrref_type >(template_type);
 
-            ptrref_type matched_type;
             if (!type.type_is< ptrref_type >())
             {
                 return std::nullopt;
@@ -1269,15 +1253,17 @@ namespace quxlang
                 return std::nullopt;
             }
 
-            matched_type.qual = *qual_match;
-
             auto match = match_template(ptr_template.target, ptr_type.target);
             if (!match.has_value())
             {
                 return std::nullopt;
             }
 
-            match->type = {std::move(match->type)};
+            match->type = ptrref_type{
+                .target = std::move(match->type),
+                .ptr_class = ptr_type.ptr_class,
+                .qual = *qual_match,
+            };
             return match;
         }
         else if (typeis< subsymbol >(template_type))
