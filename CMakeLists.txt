@@ -12,20 +12,3 @@ find_package(benchmark REQUIRED)
 add_subdirectory(rpnx)
 
 add_subdirectory(quxlang)
-
-
-get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
-message(STATUS "${targets}")
-
-
-# link to the llvm libraries
-#target_link_libraries(quxlang PUBLIC ${LLVM_LIBS})
-
-
-
-# for each property that starts with LLVM, link to it
-foreach (target IN LISTS targets)
-    if (target MATCHES "^LLVM.*" AND NOT target MATCHES "^LLVMLineEditor$")
-    #    target_link_libraries(quxlang PRIVATE ${target})
-    endif ()
-endforeach ()

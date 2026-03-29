@@ -7,30 +7,20 @@ include(GoogleTest)
 find_package(yaml-cpp REQUIRED)
 find_package(RPNXDataStructures REQUIRED)
 
-option(QUXLANG_MAIN_DEV "Build quxlang_main" OFF)
-option(QUXLANG_QXC_DEV "Build qxc" OFF)
-
-
-
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/res/module_ast_precursor1_resolver.hpp include/quxlang/res/files_in_module_resolver.hpp include/quxlang/res/entity_ast_from_canonical_chain_resolver.hpp include/quxlang/res/module_ast_resolver.hpp sources/res/module_ast_resolver.cpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp sources/res/class_field_list.cpp include/quxlang/res/class_field_list_resolver.hpp include/quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/res/class.hpp sources/res/class.cpp include/quxlang/res/type_placement_info_resolver.hpp include/quxlang/data/type_placement_info.hpp sources/res/type_placement_info_resolver.cpp include/quxlang/manipulators/struct_math.hpp include/quxlang/res/types.hpp sources/res/types.cpp include/quxlang/data/expression.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/data/expression_add.hpp include/quxlang/data/expression_call.hpp include/quxlang/data/expression_lvalue_reference.hpp include/quxlang/cow.hpp include/quxlang/data/expression_multiply.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/expression_copy_assign.hpp include/quxlang/data/expression_move_assign.hpp include/quxlang/data/expression_subtract.hpp include/quxlang/data/expression_numeric_literal.hpp include/quxlang/data/expression_dotreference.hpp include/quxlang/backends/llvm/llvm_code_generator.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/res/implicitly_convertible_to.hpp include/quxlang/res/overload_set_is_callable_with_resolver.hpp sources/res/implicitly_convertible_to.cpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/llvm_proxy_types.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/data/vm_allocate_storage.hpp include/quxlang/data/vm_expr_load_reference.hpp include/quxlang/data/vm_executable_unit.hpp include/quxlang/data/vm_procedure.hpp include/quxlang/data/vm_procedure_interface.hpp include/quxlang/data/vm_expression.hpp include/quxlang/backends/llvm/vm_llvm_frame.hpp include/quxlang/backends/llvm/vm_llvm_frame_item.hpp include/quxlang/data/vm_expr_primitive_op.hpp include/quxlang/data/vm_invoke.hpp include/quxlang/data/vm_expr_dereference.hpp include/quxlang/ordering.hpp include/quxlang/data/type_symbol.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+# Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
+add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/res/module_ast_precursor1_resolver.hpp include/quxlang/res/files_in_module_resolver.hpp include/quxlang/res/entity_ast_from_canonical_chain_resolver.hpp include/quxlang/res/module_ast_resolver.hpp sources/res/module_ast_resolver.cpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp sources/res/class_field_list.cpp include/quxlang/res/class_field_list_resolver.hpp include/quxlang/res/canonical_symbol_from_contextual_symbol_resolver.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/res/class.hpp sources/res/class.cpp include/quxlang/res/type_placement_info_resolver.hpp include/quxlang/data/type_placement_info.hpp sources/res/type_placement_info_resolver.cpp include/quxlang/manipulators/struct_math.hpp include/quxlang/res/types.hpp sources/res/types.cpp include/quxlang/data/expression.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/data/expression_add.hpp include/quxlang/data/expression_call.hpp include/quxlang/data/expression_lvalue_reference.hpp include/quxlang/cow.hpp include/quxlang/data/expression_multiply.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/expression_copy_assign.hpp include/quxlang/data/expression_move_assign.hpp include/quxlang/data/expression_subtract.hpp include/quxlang/data/expression_numeric_literal.hpp include/quxlang/data/expression_dotreference.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/res/implicitly_convertible_to.hpp include/quxlang/res/overload_set_is_callable_with_resolver.hpp sources/res/implicitly_convertible_to.cpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/data/type_symbol.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
-        include/quxlang/data/vm_expr_store.hpp
         include/quxlang/vmir2/vmir2.hpp
         include/quxlang/data/expression_equals.hpp
         include/quxlang/data/numeric_literal.hpp
         include/quxlang/res/operator_is_overloaded_with_resolver.hpp
         include/quxlang/data/lookup_type.hpp
         sources/manipulators/typeutils.cpp
-        include/quxlang/data/vm_expr_load_literal.hpp
-        include/quxlang/data/vm_expr_access_field.hpp
         include/quxlang/data/function_while_statement.hpp
         include/quxlang/data/symbol_type.hpp
         include/quxlang/operators.hpp
-        include/quxlang/data/vm_expr_reinterpret.hpp
-        include/quxlang/data/vm_expr_poison.hpp
         include/quxlang/compiler.hpp
         sources/res/functanoid.cpp
-        include/quxlang/to_pretty_string.hpp
         include/quxlang/data/function_delegate.hpp
         include/quxlang/res/called_functanoids_resolver.hpp
         include/quxlang/res/overloads.hpp
@@ -103,19 +93,13 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/code_relocation.hpp
         include/quxlang/macros.hpp
         include/quxlang/manipulators/symbolmap.hpp
-        #include/quxlang/manipulators/llvm_symbol_relocation.hpp
-        #sources/manipulators/llvm_symbol_relocation.cpp
-        #include/quxlang/manipulators/convert_llvm_object.hpp
-        #sources/manipulators/convert_llvm_object.cpp
         include/quxlang/data/machine.hpp
-        include/quxlang/manipulators/llvm_lookup.hpp
         include/quxlang/input_aggregator.hpp
         sources/input_aggregator.cpp
         include/quxlang/linker/elf_linker.hpp
         include/quxlang/parsers/asm/arm_assembler.hpp
         include/quxlang/asm/asm.hpp
         include/quxlang/parsers/parse_asm_procedure.hpp
-        include/quxlang/backends/llvm/qux_mc_streamer.hpp
         include/quxlang/backends/asm/arm_asm_converter.hpp
         sources/res/symbol_type.cpp
         sources/res/asm_procedure_from_symbol_resolver.cpp
@@ -210,11 +194,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
 
 )
 
-if (QUXLANG_QXC_DEV)
-
-  add_executable(qxc sources/app/qxc.cpp)
-endif()
-
 add_executable(aprinter_test tests/aprinter_test.cpp
         include/quxlang/res/variable.hpp
         include/quxlang/res/function.hpp
@@ -225,21 +204,6 @@ add_library(quxlang-loaders
 
         include/quxlang/source_loader.hpp)
 target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
-
-if (QUXLANG_QXC_DEV)
-  target_link_libraries(qxc PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
-  #include_directories(${LLVM_INCLUDE_DIRS})
-  #find_package(LLVM 16 REQUIRED)
-  # for each property that starts with LLVM, link to it
-#foreach (target IN LISTS targets)
-#    if ((target MATCHES "^LLVM.*" OR target MATCHES "^lld.*") AND NOT target MATCHES "^LLVMLineEditor$" AND NOT target MATCHES "^LLVMHello$")
-#        message(STATUS "Linking to ${target}")
-#        target_link_libraries(quxlang PUBLIC ${target})
-#    else ()
-#        message(STATUS "Not linking to ${target}")
-#    endif ()
-#endforeach ()
-endif()
 
 
 target_link_libraries(aprinter_test PUBLIC quxlang quxlang-loaders yaml-cpp::yaml-cpp)
@@ -261,11 +225,6 @@ target_sources(quxlang PRIVATE sources/compiler.cpp
         ../rpnx/include/rpnx/value.hpp
         include/quxlang/data/target_configuration.hpp)
 target_link_libraries(quxlang PUBLIC graphlib RPNX::cow RPNX::datastructures)
-
-if (QUXLANG_MAIN_DEV)
-  add_executable(quxlang_main sources/main.cpp)
-  target_link_libraries(quxlang_main PUBLIC quxlang)
-endif()
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
