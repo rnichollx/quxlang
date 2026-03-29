@@ -253,6 +253,7 @@ namespace quxlang
         std::string operator()(function_arg const&) const;
         std::string operator()(nvalue_slot const&) const;
         std::string operator()(dvalue_slot const&) const;
+        std::string operator()(procedure_type const&) const;
         std::string operator()(ptrref_type const&) const;
         std::string operator()(instanciation_reference const&) const;
         std::string operator()(string_literal_reference const&) const;
@@ -339,6 +340,32 @@ namespace quxlang
 
         bool operator()(array_initializer_type const& ref) const
         {
+            return false;
+        }
+
+        bool operator()(procedure_type const& ref) const
+        {
+            for (auto const& [name, arg] : ref.signature.params.named)
+            {
+                if (is_template(arg))
+                {
+                    return true;
+                }
+            }
+
+            for (auto const& arg : ref.signature.params.positional)
+            {
+                if (is_template(arg))
+                {
+                    return true;
+                }
+            }
+
+            if (ref.signature.return_type.has_value() && is_template(*ref.signature.return_type))
+            {
+                return true;
+            }
+
             return false;
         }
 
@@ -574,6 +601,23 @@ namespace quxlang
             copy.target = with_context(as< ptrref_type >(ref).target, context);
             return copy;
         }
+        else if (ref.template type_is< procedure_type >())
+        {
+            procedure_type copy = as< procedure_type >(ref);
+            for (auto& [name, param] : copy.signature.params.named)
+            {
+                param = with_context(param, context);
+            }
+            for (auto& param : copy.signature.params.positional)
+            {
+                param = with_context(param, context);
+            }
+            if (copy.signature.return_type.has_value())
+            {
+                copy.signature.return_type = with_context(*copy.signature.return_type, context);
+            }
+            return copy;
+        }
         else if (ref.template type_is< initialization_reference >())
         {
             initialization_reference output = as< initialization_reference >(ref);
@@ -656,6 +700,49 @@ namespace quxlang
 
         output += " }";
 
+        return output;
+    }
+    std::string type_symbol_stringifier::operator()(procedure_type const& ref) const
+    {
+        std::string output = "PROCEDURE";
+
+        if (ref.calling_convention != "DEFAULT")
+        {
+            output += " " + ref.calling_convention;
+        }
+        if (ref.is_noexcept)
+        {
+            output += " NOEXCEPT";
+        }
+
+        output += "(";
+        bool first = true;
+        for (auto const& [name, arg] : ref.signature.params.named)
+        {
+            if (!first)
+            {
+                output += ", ";
+            }
+            first = false;
+            output += "@" + name + " " + to_string(arg);
+        }
+        for (auto const& arg : ref.signature.params.positional)
+        {
+            if (!first)
+            {
+                output += ", ";
+            }
+            first = false;
+            output += to_string(arg);
+        }
+
+        auto return_type = ref.signature.return_type.value_or(type_symbol(void_type{}));
+        if (!typeis< void_type >(return_type))
+        {
+            output += ": " + to_string(return_type);
+        }
+
+        output += ")";
         return output;
     }
     std::string type_symbol_stringifier::operator()(initialization_reference const& ref) const
@@ -1275,7 +1362,7 @@ namespace quxlang
     {
         std::string output;
         bool first = true;
-        output += "CALLABLE(";
+        output += "INVOTYPE(";
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
@@ -1720,6 +1807,28 @@ namespace quxlang
             bool check_impl(dvalue_slot const& tmpl, dvalue_slot const& val, bool conv)
             {
                 return check(tmpl.target, val.target, false);
+            }
+
+            bool check_impl(procedure_type const& tmpl, procedure_type const& val, bool conv)
+            {
+                if (tmpl.calling_convention != val.calling_convention)
+                {
+                    return false;
+                }
+
+                if (tmpl.is_noexcept != val.is_noexcept)
+                {
+                    return false;
+                }
+
+                if (!check(tmpl.signature.params, val.signature.params, false))
+                {
+                    return false;
+                }
+
+                auto tmpl_ret = tmpl.signature.return_type.value_or(type_symbol(void_type{}));
+                auto val_ret = val.signature.return_type.value_or(type_symbol(void_type{}));
+                return check(tmpl_ret, val_ret, false);
             }
         };
         bool template_matcher::check(invotype template_ct, invotype match_ct, bool conv)

@@ -26,6 +26,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(type_is_implicitly_datatype)
         co_return true;
     }
 
+    if (typeis< procedure_type >(input))
+    {
+        co_return false;
+    }
+
     // Pointers and references are not implicitly datatypes
     if (typeis< ptrref_type >(input) )
     {

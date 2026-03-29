@@ -342,6 +342,11 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(list_builtin_constructors)
         }
     }
 
+    if (typeis< procedure_type >(input))
+    {
+        co_return result;
+    }
+
     if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
     {
         co_return result;
@@ -604,7 +609,28 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(functum_builtins)
 
         if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator)
         {
-            add_overload({}, {{"THIS", parent}}, make_mref(remove_ptr(parent)));
+            auto ptr = as< ptrref_type >(parent);
+            add_overload({}, {{"THIS", parent}}, ptrref_type{.target = remove_ptr(parent), .ptr_class = pointer_class::ref, .qual = ptr.qual});
+        }
+
+        if (operator_name == "()" && typeis< procedure_type >(parent) && !is_rhs)
+        {
+            auto const& proc = as< procedure_type >(parent);
+            auto named = proc.signature.params.named;
+            named["THIS"] = make_cref(parent);
+            add_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{})));
+        }
+
+        if (operator_name == "()" && typeis< ptrref_type >(parent) && !is_rhs)
+        {
+            auto const& ptr = as< ptrref_type >(parent);
+            if (ptr.ptr_class == pointer_class::instance && typeis< procedure_type >(ptr.target))
+            {
+                auto const& proc = as< procedure_type >(ptr.target);
+                auto named = proc.signature.params.named;
+                named["THIS"] = make_cref(parent);
+                add_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{})));
+            }
         }
 
         if (!is_rhs && basic_compare_operators.contains(operator_name) && !is_regular_primitive_type)

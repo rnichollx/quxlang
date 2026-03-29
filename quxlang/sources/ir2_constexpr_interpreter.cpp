@@ -90,6 +90,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_initiated = false;
         std::uint64_t object_id{};
         bool readonly = false;
+        std::optional< type_symbol > procedure;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
         std::optional< std::weak_ptr< local > > storage_owner;
@@ -179,8 +180,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
     std::map< type_symbol, std::shared_ptr< local > > global_storages;
     std::map< type_symbol, std::shared_ptr< local > > global_initguards;
+    std::map< type_symbol, std::shared_ptr< local > > m_procedures;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
+    type_symbol load_indirect_callable_symbol(local_index slot, bool consume);
     void exec();
     void exec3();
 
@@ -312,6 +315,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::runtime_ce const& rce);
     void exec_instr_val(vmir2::access_array const& aca);
     void exec_instr_val(vmir2::invoke const& inv);
+    void exec_instr_val(vmir2::invoke_indirect const& inv);
+    void exec_instr_val(vmir2::get_procedure_ptr const& gpp);
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
@@ -803,7 +808,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     }
 
     // Pointer data is stored in ref, not data bytes.
-    if (typeis< ptrref_type >(type))
+    if (typeis< ptrref_type >(type) || typeis< procedure_type >(type))
     {
         return 0;
     }
@@ -843,7 +848,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         return 1;
     }
-    if (typeis< ptrref_type >(type))
+    if (typeis< ptrref_type >(type) || typeis< procedure_type >(type))
     {
         return 1;
     }
@@ -1352,6 +1357,36 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     call_func(inv.what, inv.args);
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke_indirect const& inv)
+{
+    auto callee = load_indirect_callable_symbol(inv.what_index, true);
+    call_func(callee, inv.args);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_procedure_ptr const& gpp)
+{
+    auto cc_suffix = gpp.calling_convention;
+    for (char& c : cc_suffix)
+    {
+        if (c >= 'A' && c <= 'Z')
+        {
+            c = static_cast< char >(c - 'A' + 'a');
+        }
+    }
+
+    auto procedure_symbol = type_symbol(submember{.of = gpp.routine, .name = "__procedure_" + cc_suffix});
+    auto& proc_local = m_procedures[procedure_symbol];
+    if (proc_local == nullptr)
+    {
+        procedure_type proc_type;
+        proc_type.calling_convention = gpp.calling_convention;
+        proc_local = create_object(proc_type);
+        proc_local->procedure = procedure_symbol;
+        begin_lifetime(proc_local);
+    }
+
+    auto ptrval = output_local(gpp.pointer_index);
+    ptrval->ref = pointer_impl{.pointer_target = proc_local};
+}
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_init const& sin)
 {
     auto slot_type = get_local_type(sin.storage);
@@ -1615,7 +1650,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& frame = get_current_frame();
     auto& source = frame.local_values.at(mpt.of_index);
-    if (!source || !source->ref.has_value())
+    if (!source || !source->alive())
     {
         throw constexpr_logic_execution_error("Expected source value to be valid");
     }
@@ -2516,17 +2551,25 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     {
         for (auto const& instr : block.instructions)
         {
-            if (typeis< vmir2::invoke >(instr))
-            {
-                auto const& inv = instr.get_as< vmir2::invoke >();
-                auto called_func = inv.what;
-                if (!this->implementation->functanoids3.contains(called_func))
+                if (typeis< vmir2::invoke >(instr))
                 {
-                    this->implementation->missing_functanoids_val.insert(called_func);
+                    auto const& inv = instr.get_as< vmir2::invoke >();
+                    auto called_func = inv.what;
+                    if (!this->implementation->functanoids3.contains(called_func))
+                    {
+                        this->implementation->missing_functanoids_val.insert(called_func);
+                    }
+                }
+                else if (typeis< vmir2::get_procedure_ptr >(instr))
+                {
+                    auto const& gpp = instr.get_as< vmir2::get_procedure_ptr >();
+                    if (!this->implementation->functanoids3.contains(gpp.routine))
+                    {
+                        this->implementation->missing_functanoids_val.insert(gpp.routine);
+                    }
                 }
             }
         }
-    }
     this->implementation->functanoids3[addr] = std::move(func);
     this->implementation->missing_functanoids_val.erase(addr);
 }
@@ -3240,6 +3283,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     local_value->storage_active_type = std::nullopt;
     local_value->storage_projection_type = std::nullopt;
     local_value->storage_destroy_delegate = false;
+    local_value->procedure = std::nullopt;
 
     type.match< readonly_constant >(
         [&](readonly_constant const& rc)
@@ -3362,6 +3406,85 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::point
     }
 
     return ptr_ref.value();
+}
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::load_indirect_callable_symbol(local_index slot, bool consume)
+{
+    auto callable_type = remove_ref(get_local_type(slot));
+
+    auto load_procedure_symbol_from_local = [](std::shared_ptr< local > const& proc_local) -> std::optional< type_symbol >
+    {
+        if (!proc_local)
+        {
+            return std::nullopt;
+        }
+        if (!proc_local->procedure.has_value())
+        {
+            return std::nullopt;
+        }
+
+        auto const& proc_symbol = *proc_local->procedure;
+        if (typeis< submember >(proc_symbol))
+        {
+            return as< submember >(proc_symbol).of;
+        }
+        return proc_symbol;
+    };
+
+    auto load_procedure_symbol_from_pointer_target = [&](std::shared_ptr< local > const& ptr_like_local) -> std::optional< type_symbol >
+    {
+        if (!ptr_like_local || !ptr_like_local->ref.has_value() || !ptr_like_local->ref->pointer_target.has_value())
+        {
+            return std::nullopt;
+        }
+
+        auto target = ptr_like_local->ref->pointer_target->lock();
+        return load_procedure_symbol_from_local(target);
+    };
+
+    if (typeis< procedure_type >(callable_type))
+    {
+        std::shared_ptr< local > local_ptr;
+        if (consume)
+        {
+            local_ptr = consume_local(slot);
+        }
+        else
+        {
+            local_ptr = get_current_frame().local_values.at(slot);
+        }
+
+        if (auto direct = load_procedure_symbol_from_local(local_ptr))
+        {
+            return *direct;
+        }
+        if (local_ptr && local_ptr->ref.has_value() && local_ptr->ref->pointer_target.has_value())
+        {
+            auto target = local_ptr->ref->pointer_target->lock();
+            if (auto indirect = load_procedure_symbol_from_local(target))
+            {
+                return *indirect;
+            }
+        }
+    }
+    else if (typeis< ptrref_type >(callable_type))
+    {
+        auto const& ptr = as< ptrref_type >(callable_type);
+        if (ptr.ptr_class == pointer_class::instance && typeis< procedure_type >(ptr.target))
+        {
+            auto proc_ptr = load_as_pointer(slot, consume);
+            auto target = proc_ptr.pointer_target.value().lock();
+            if (auto indirect = load_procedure_symbol_from_local(target))
+            {
+                return *indirect;
+            }
+            if (auto indirect = load_procedure_symbol_from_pointer_target(target))
+            {
+                return *indirect;
+            }
+        }
+    }
+
+    throw constexpr_logic_execution_error("invoke_indirect requires a valid procedure reference or pointer");
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::store_as_reference(local_index slot, std::shared_ptr< local > value)
 {

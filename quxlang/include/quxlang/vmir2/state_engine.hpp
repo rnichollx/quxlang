@@ -4,6 +4,7 @@
 #define QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
 
 #include <map>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include <vector>
 
@@ -323,6 +324,73 @@ namespace quxlang::vmir2
                 }
             }
             check_state_valid();
+        }
+        void apply_internal(vmir2::invoke_indirect const& inv)
+        {
+            check_state_valid();
+            consume(inv.what_index);
+
+            auto callable_type = remove_ref(slot_info.at(inv.what_index).type);
+            std::optional< procedure_type > proc_sig;
+
+            if (typeis< procedure_type >(callable_type))
+            {
+                proc_sig = as< procedure_type >(callable_type);
+            }
+            else if (typeis< ptrref_type >(callable_type))
+            {
+                auto const& ptr = as< ptrref_type >(callable_type);
+                if (ptr.ptr_class == pointer_class::instance && typeis< procedure_type >(ptr.target))
+                {
+                    proc_sig = as< procedure_type >(ptr.target);
+                }
+            }
+
+            if (!proc_sig.has_value())
+            {
+                throw invalid_instruction_error("invoke_indirect requires a procedure reference or pointer");
+            }
+
+            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            {
+                auto const arg_idx = inv.args.positional[index];
+                auto const& arg_inst_type = proc_sig->signature.params.positional.at(index);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(arg_idx);
+                }
+                else
+                {
+                    consume(arg_idx);
+                }
+            }
+
+            for (auto const& [name, index] : inv.args.named)
+            {
+                type_symbol arg_inst_type;
+                if (name == "RETURN")
+                {
+                    arg_inst_type = nvalue_slot{.target = slot_info.at(index).type};
+                }
+                else
+                {
+                    arg_inst_type = proc_sig->signature.params.named.at(name);
+                }
+
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(index);
+                }
+                else
+                {
+                    consume(index);
+                }
+            }
+            check_state_valid();
+        }
+        void apply_internal(vmir2::get_procedure_ptr const& gpp)
+        {
+            output(gpp.pointer_index);
         }
         void apply_internal(vmir2::storage_init const& sin)
         {

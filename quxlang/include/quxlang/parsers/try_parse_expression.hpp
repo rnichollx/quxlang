@@ -135,7 +135,10 @@ namespace quxlang::parsers
 
         if (kw.has_value() && loc.is_value_kw(*kw))
         {
-            discard_keyword(pos, end);
+            if (!skip_keyword_if_is(pos, end, kw_pre_translate))
+            {
+                throw std::logic_error("Expected value keyword");
+            }
             expression_value_keyword expr_kw;
             expr_kw.keyword = *kw;
             *value_bind_point = expr_kw;

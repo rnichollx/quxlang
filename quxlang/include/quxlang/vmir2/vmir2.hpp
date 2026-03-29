@@ -29,6 +29,8 @@ namespace quxlang
         struct access_array;
         struct ret;
         struct invoke;
+        struct invoke_indirect;
+        struct get_procedure_ptr;
         struct make_reference;
         struct copy_reference;
         struct jump;
@@ -124,6 +126,8 @@ namespace quxlang
         using vm_instruction = rpnx::variant<
             access_field,
             invoke,
+            invoke_indirect,
+            get_procedure_ptr,
             make_reference,
             cast_reference,
             constexpr_set_result,
@@ -492,6 +496,23 @@ namespace quxlang
             invocation_args args;
 
             RPNX_MEMBER_METADATA(invoke, what, args);
+        };
+
+        struct invoke_indirect
+        {
+            local_index what_index = local_index(0);
+            invocation_args args;
+
+            RPNX_MEMBER_METADATA(invoke_indirect, what_index, args);
+        };
+
+        struct get_procedure_ptr
+        {
+            type_symbol routine;
+            std::string calling_convention = "DEFAULT";
+            local_index pointer_index = local_index(0);
+
+            RPNX_MEMBER_METADATA(get_procedure_ptr, routine, calling_convention, pointer_index);
         };
 
         struct copy_reference

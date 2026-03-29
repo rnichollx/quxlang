@@ -428,6 +428,65 @@ namespace quxlang
             return value_index(this->state.genvalues.size() - 1);
         }
 
+        auto co_gen_get_procedure_ptr(block_index& bidx, type_symbol routine, std::string calling_convention) -> typename CoroutineProvider::template co_type< value_index >
+        {
+            procedure_type proc_type;
+            proc_type.calling_convention = std::move(calling_convention);
+
+            if (typeis< instanciation_reference >(routine))
+            {
+                auto const& functanoid = as< instanciation_reference >(routine);
+                proc_type.signature.params = functanoid.params;
+                proc_type.signature.return_type = co_await prv.functanoid_return_type(functanoid);
+            }
+            else if (typeis< temploid_reference >(routine))
+            {
+                auto const& selected_function = as< temploid_reference >(routine);
+                for (auto const& arg : selected_function.which.interface.positional)
+                {
+                    proc_type.signature.params.positional.push_back(arg.type);
+                }
+                for (auto const& [name, arg] : selected_function.which.interface.named)
+                {
+                    proc_type.signature.params.named[name] = arg.type;
+                }
+
+                auto decl = co_await prv.function_declaration(selected_function);
+                if (!decl.has_value())
+                {
+                    throw std::logic_error("Procedure pointer target function declaration not found");
+                }
+
+                auto ret_type = co_await prv.lookup(contextual_type_reference{
+                    .context = selected_function,
+                    .type = decl->definition.return_type.value_or(type_symbol(void_type{})),
+                });
+                if (!ret_type.has_value())
+                {
+                    throw std::logic_error("Procedure pointer target return type could not be resolved");
+                }
+                proc_type.signature.return_type = ret_type.value();
+            }
+            else
+            {
+                throw std::logic_error("Procedure pointers currently require a concrete function selection");
+            }
+
+            auto pointer_value = create_local_value(ptrref_type{
+                .target = proc_type,
+                .ptr_class = pointer_class::instance,
+                .qual = qualifier::constant,
+            });
+
+            vmir2::get_procedure_ptr get_proc_ptr;
+            get_proc_ptr.routine = routine;
+            get_proc_ptr.calling_convention = proc_type.calling_convention;
+            get_proc_ptr.pointer_index = get_local_index(pointer_value);
+            this->emit(bidx, get_proc_ptr);
+
+            co_return pointer_value;
+        }
+
         auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, parameter_init_kind init_method) -> typename CoroutineProvider::template co_type< instanciation_reference >
         {
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .init_kind = init_method};
@@ -703,7 +762,7 @@ namespace quxlang
 
                         auto const& lookup_type_ref = as< ptrref_type >(lookup_type);
 
-                        if (lookup_type_ref.qual == qualifier::write || lookup_type_ref.qual == qualifier::constant)
+                        if (lookup_type_ref.qual == qualifier::write)
                         {
                             lookup = cast_reference(idx, *lookup, make_mref(remove_ref(lookup_type)));
                         }
@@ -1138,7 +1197,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >();
         }
 
         // This implements builtin operators for primitives,
@@ -1235,6 +1294,42 @@ namespace quxlang
 
                         return tb;
                     }
+                }
+            }
+
+            if (member->name == "OPERATOR()")
+            {
+                std::optional< procedure_type > proc;
+                if (cls->template type_is< procedure_type >())
+                {
+                    proc = cls->template get_as< procedure_type >();
+                }
+                else if (cls->template type_is< ptrref_type >())
+                {
+                    auto const& ptr = cls->template get_as< ptrref_type >();
+                    if (ptr.ptr_class == pointer_class::instance && typeis< procedure_type >(ptr.target))
+                    {
+                        proc = as< procedure_type >(ptr.target);
+                    }
+                }
+
+                if (proc.has_value() && args.named.contains("THIS"))
+                {
+                    vmir2::invoke_indirect inv;
+                    inv.what_index = get_local_index(args.named.at("THIS"));
+                    for (auto const arg : args.positional)
+                    {
+                        inv.args.positional.push_back(get_local_index(arg));
+                    }
+                    for (auto const& [name, _] : proc->signature.params.named)
+                    {
+                        inv.args.named[name] = get_local_index(args.named.at(name));
+                    }
+                    if (args.named.contains("RETURN"))
+                    {
+                        inv.args.named["RETURN"] = get_local_index(args.named.at("RETURN"));
+                    }
+                    return inv;
                 }
             }
 
@@ -2148,14 +2243,86 @@ namespace quxlang
         {
             auto value = co_await co_generate_expr(bidx, expr.lhs);
 
+            auto type = this->current_type(bidx, value);
+            if (typeis< attached_type_reference >(type))
+            {
+                auto const& attached = as< attached_type_reference >(type);
+                auto kind = co_await prv.symbol_type(attached.attached_symbol);
+                if (kind == symbol_kind::funtanoid)
+                {
+                    if (!typeis< void_type >(attached.carrying_type))
+                    {
+                        throw std::logic_error("Bound method procedure pointers are not yet supported");
+                    }
+                    co_return co_await co_gen_get_procedure_ptr(bidx, attached.attached_symbol, "DEFAULT");
+                }
+                if (kind == symbol_kind::functum)
+                {
+                    if (!typeis< void_type >(attached.carrying_type))
+                    {
+                        throw std::logic_error("Bound method procedure pointers are not yet supported");
+                    }
+
+                    auto overloads = co_await prv.functum_overloads(attached.attached_symbol);
+                    if (overloads.size() != 1)
+                    {
+                        throw std::logic_error("Cannot take address of overloaded functum " + to_string(attached.attached_symbol));
+                    }
+
+                    auto const& selected_overload = *overloads.begin();
+                    bool has_template_params = false;
+                    for (auto const& arg : selected_overload.interface.positional)
+                    {
+                        if (is_template(arg.type))
+                        {
+                            has_template_params = true;
+                            break;
+                        }
+                    }
+                    for (auto const& [_, arg] : selected_overload.interface.named)
+                    {
+                        if (is_template(arg.type))
+                        {
+                            has_template_params = true;
+                            break;
+                        }
+                    }
+                    if (has_template_params)
+                    {
+                        throw std::logic_error("Cannot take address of templated functum " + to_string(attached.attached_symbol));
+                    }
+
+                    temploid_reference selected_function{
+                        .templexoid = attached.attached_symbol,
+                        .which = selected_overload,
+                    };
+                    instanciation_reference selected_inst;
+                    selected_inst.temploid = selected_function;
+                    for (auto const& arg : selected_overload.interface.positional)
+                    {
+                        selected_inst.params.positional.push_back(arg.type);
+                    }
+                    for (auto const& [name, arg] : selected_overload.interface.named)
+                    {
+                        selected_inst.params.named[name] = arg.type;
+                    }
+                    co_return co_await co_gen_get_procedure_ptr(bidx, selected_inst, "DEFAULT");
+                }
+
+                throw std::logic_error("Cannot take address of non-object binding " + to_string(attached.attached_symbol));
+            }
+
             vmir2::make_pointer_to make_pointer;
             make_pointer.of_index = get_local_index(value);
 
-            auto type = this->current_type(bidx, value);
-
             auto non_ref_type = remove_ref(type);
+            qualifier pointer_qual = qualifier::mut;
+            if (typeis< ptrref_type >(type) && as< ptrref_type >(type).ptr_class == pointer_class::ref)
+            {
+                pointer_qual = as< ptrref_type >(type).qual;
+            }
 
-            auto pointer_storage = create_local_value(ptrref_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            auto pointer_storage = create_local_value(ptrref_type{.target = non_ref_type, .ptr_class = pointer_class::instance, .qual = pointer_qual});
 
             make_pointer.pointer_index = get_local_index(pointer_storage);
 
@@ -4839,4 +5006,4 @@ namespace quxlang
 
 } // namespace quxlang
 
-#endif // RPNX_QUXLANG_CO_VMIR_EXPRESSION_EMITTER_HEADER
+#endif // QUXLANG_RES_EXPR_CO_VMIR_CODEGEN_EMITTER_HEADER_GUARD

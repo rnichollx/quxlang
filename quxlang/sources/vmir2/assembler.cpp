@@ -390,6 +390,16 @@ namespace quxlang::vmir2
         return "INVOKE " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);
     }
 
+    std::string assembler::to_string_internal(vmir2::invoke_indirect inst)
+    {
+        return "INVOKE_INDIRECT %" + std::to_string(inst.what_index) + ", " + this->to_string_internal(inst.args);
+    }
+
+    std::string assembler::to_string_internal(vmir2::get_procedure_ptr inst)
+    {
+        return "GET_PROCEDURE_PTR " + quxlang::to_string(inst.routine) + ", " + inst.calling_convention + ", %" + std::to_string(inst.pointer_index);
+    }
+
     std::string assembler::to_string_internal(vmir2::make_reference inst)
     {
         std::string result = "MAKEREF %" + std::to_string(inst.value_index) + ", %" + std::to_string(inst.reference_index);

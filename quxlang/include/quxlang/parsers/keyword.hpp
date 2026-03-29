@@ -65,21 +65,6 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    inline void discard_keyword(It& ipos, It end)
-    {
-        auto pos = iter_parse_keyword(ipos, end);
-        if (pos == ipos)
-        {
-            return;
-        }
-        auto pos2 = ipos;
-        ipos = pos;
-        return;
-    }
-
-
-
-    template < typename It >
     std::string parse_keyword(It& pos, It end)
     {
         auto it = iter_parse_keyword(pos, end);

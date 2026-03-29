@@ -9,7 +9,7 @@
 QUX_CO_RESOLVER_IMPL_FUNC_DEF(class_builtin)
 {
     type_symbol input_type = input;
-    if (typeis< int_type >(input_type) || typeis< bool_type >(input_type) || typeis< ptrref_type >(input_type) || typeis< nvalue_slot >(input_type) || is_ref(input_type) || typeis<numeric_literal_reference>(input) || typeis<dvalue_slot>(input_type) || typeis<array_type>(input_type) || typeis< initguard_type >(input_type) || typeis< initguard_lock_type >(input_type))
+    if (typeis< int_type >(input_type) || typeis< bool_type >(input_type) || typeis< procedure_type >(input_type) || typeis< ptrref_type >(input_type) || typeis< nvalue_slot >(input_type) || is_ref(input_type) || typeis<numeric_literal_reference>(input) || typeis<dvalue_slot>(input_type) || typeis<array_type>(input_type) || typeis< initguard_type >(input_type) || typeis< initguard_lock_type >(input_type))
     {
         co_return true;
     }

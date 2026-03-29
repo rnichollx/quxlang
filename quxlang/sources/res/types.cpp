@@ -72,6 +72,42 @@ QUX_CO_RESOLVER_IMPL_FUNC_DEF(lookup)
 
         co_return canonical_ptr_type;
     }
+    else if (type.template type_is< procedure_type >())
+    {
+        procedure_type canonical_proc = as< procedure_type >(type);
+
+        for (auto& [name, arg_type] : canonical_proc.signature.params.named)
+        {
+            auto canonical_arg = co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = input.context, .type = arg_type}));
+            if (!canonical_arg.has_value())
+            {
+                co_return std::nullopt;
+            }
+            arg_type = canonical_arg.value();
+        }
+
+        for (auto& arg_type : canonical_proc.signature.params.positional)
+        {
+            auto canonical_arg = co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = input.context, .type = arg_type}));
+            if (!canonical_arg.has_value())
+            {
+                co_return std::nullopt;
+            }
+            arg_type = canonical_arg.value();
+        }
+
+        if (canonical_proc.signature.return_type.has_value())
+        {
+            auto canonical_ret = co_await QUX_CO_DEP(lookup, (contextual_type_reference{.context = input.context, .type = *canonical_proc.signature.return_type}));
+            if (!canonical_ret.has_value())
+            {
+                co_return std::nullopt;
+            }
+            canonical_proc.signature.return_type = canonical_ret.value();
+        }
+
+        co_return canonical_proc;
+    }
     else if (type.template type_is< freebound_identifier >())
     {
         std::optional< type_symbol > current_context = context;

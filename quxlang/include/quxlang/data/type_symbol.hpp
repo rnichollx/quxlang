@@ -278,6 +278,15 @@ namespace quxlang
         RPNX_EMPTY_METADATA(bool_type);
     };
 
+    struct procedure_type
+    {
+        std::string calling_convention = "DEFAULT";
+        bool is_noexcept = false;
+        sigtype signature;
+
+        RPNX_MEMBER_METADATA(procedure_type, calling_convention, is_noexcept, signature);
+    };
+
     struct ptrref_type
     {
         type_symbol target;

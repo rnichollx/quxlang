@@ -126,6 +126,33 @@ namespace quxlang
             output += mangle_internal(ptr.target);
             return output;
         }
+        else if (qt.template type_is< procedure_type >())
+        {
+            auto const& proc = as< procedure_type >(qt);
+            std::string output = "Q";
+            auto mangled_cc = mangle_internal(proc.calling_convention);
+            output += std::to_string(mangled_cc.size());
+            output += mangled_cc;
+            output += proc.is_noexcept ? "N" : "X";
+
+            for (auto const& [name, arg] : proc.signature.params.named)
+            {
+                output += "AN";
+                output += name;
+                output += "A";
+                output += mangle_internal(arg);
+            }
+            for (auto const& arg : proc.signature.params.positional)
+            {
+                output += "AP";
+                output += mangle_internal(arg);
+            }
+
+            output += "R";
+            output += mangle_internal(proc.signature.return_type.value_or(type_symbol(void_type{})));
+            output += "E";
+            return output;
+        }
         else if (qt.template type_is< int_type >())
         {
             auto const& i = as< int_type >(qt);

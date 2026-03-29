@@ -83,6 +83,95 @@ namespace quxlang::parsers
         {
             output = byte_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "PROCEDURE"))
+        {
+            static std::set< std::string > const procedure_calling_conventions = {"CCALL", "STDCALL"};
+            procedure_type result;
+            result.signature.return_type = void_type{};
+
+            skip_whitespace_and_comments(pos, end);
+            if (auto calling_convention = skip_keyword_if_one_of(pos, end, procedure_calling_conventions))
+            {
+                result.calling_convention = *calling_convention;
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.is_noexcept = skip_keyword_if_is(pos, end, "NOEXCEPT");
+
+            skip_whitespace_and_comments(pos, end);
+            auto unexpected_modifier = next_keyword(pos, end);
+            if (!unexpected_modifier.empty())
+            {
+                throw std::logic_error("Unexpected PROCEDURE modifier keyword: " + unexpected_modifier);
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after PROCEDURE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+
+            if (skip_symbol_if_is(pos, end, ")"))
+            {
+                output = result;
+            }
+            else
+            {
+                while (true)
+                {
+                    skip_whitespace_and_comments(pos, end);
+
+                    if (skip_symbol_if_is(pos, end, ":"))
+                    {
+                        skip_whitespace_and_comments(pos, end);
+                        result.signature.return_type = parse_type_symbol(pos, end);
+                        skip_whitespace_and_comments(pos, end);
+                        if (!skip_symbol_if_is(pos, end, ")"))
+                        {
+                            throw std::logic_error("Expected ')' after PROCEDURE return type");
+                        }
+                        break;
+                    }
+
+                    if (skip_symbol_if_is(pos, end, "@"))
+                    {
+                        auto arg_name = parse_argument_name(pos, end);
+                        skip_whitespace_and_comments(pos, end);
+                        result.signature.params.named[arg_name] = parse_type_symbol(pos, end);
+                    }
+                    else
+                    {
+                        result.signature.params.positional.push_back(parse_type_symbol(pos, end));
+                    }
+
+                    skip_whitespace_and_comments(pos, end);
+                    if (skip_symbol_if_is(pos, end, ","))
+                    {
+                        continue;
+                    }
+                    if (skip_symbol_if_is(pos, end, ":"))
+                    {
+                        skip_whitespace_and_comments(pos, end);
+                        result.signature.return_type = parse_type_symbol(pos, end);
+                        skip_whitespace_and_comments(pos, end);
+                        if (!skip_symbol_if_is(pos, end, ")"))
+                        {
+                            throw std::logic_error("Expected ')' after PROCEDURE return type");
+                        }
+                        break;
+                    }
+                    if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+                    throw std::logic_error("Expected ',', ':', or ')' in PROCEDURE type");
+                }
+
+                output = result;
+            }
+        }
         else if (skip_keyword_if_is(pos, end, "INITGUARD"))
         {
             output = initguard_type{};

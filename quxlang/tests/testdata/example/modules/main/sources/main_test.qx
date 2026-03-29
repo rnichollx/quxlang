@@ -21,6 +21,8 @@ IMPORT foolib;
   test_roman_numeral();
   test_implicit_conversions();
   test_type_exprs();
+  test_reference_qualifier_address_of();
+  test_procedure_pointer_type();
   test_rhs_comparisons();
   test_bits();
   test_logic_operators();
@@ -340,6 +342,11 @@ IMPORT foolib;
   RETURN a + b;
 }
 
+::bar FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a * b;
+}
+
 ::option_num OPTION NUMBER DEFAULT(42);
 
 
@@ -513,6 +520,60 @@ IMPORT foolib;
   ASSERT( BITS(I32) == x );
 
 
+}
+
+::pointer_qualifier_probe FUNCTION(%p MUT -> I32): I32
+{
+  RETURN 1;
+}
+
+::pointer_qualifier_probe FUNCTION(%p CONST -> I32): I32
+{
+  RETURN 2;
+}
+
+::procedure_pointer_probe FUNCTION(%p CONST -> PROCEDURE(I32, I32: I32)): I32
+{
+  RETURN 1;
+}
+
+::procedure_pointer_parse_probe FUNCTION(%p CONST -> PROCEDURE CCALL NOEXCEPT(I32, I32: I32)): I32
+{
+  RETURN 2;
+}
+
+::test_reference_qualifier_address_of FUNCTION()
+{
+  VAR x I32 := 7;
+  VAR cx CONST& I32 := x;
+
+  ASSERT( pointer_qualifier_probe(x<-) == 1 );
+  ASSERT( pointer_qualifier_probe(cx<-) == 2 );
+}
+
+
+::vfunc FUNCTION(@val & I32)
+{
+    val := val + 1;
+}
+
+::test_procedure_pointer_type FUNCTION()
+{
+  VAR proc CONST -> PROCEDURE(I32, I32: I32) := foo<-;
+  ASSERT( procedure_pointer_probe(proc) == 1 );
+  ASSERT( proc(4, 5) == 9 );
+
+  proc := bar<-;
+  ASSERT( proc(4, 5) == 20 );
+  proc := foo<-;
+
+  VAR proc_ref CONST& PROCEDURE(I32, I32: I32) := proc->;
+  ASSERT( proc_ref(6, 7) == 13 );
+
+  VAR mutproc CONST -> PROCEDURE(@val & I32) := vfunc<-;
+  VAR x I32 := 10;
+  mutproc(@val x);
+  ASSERT(x == 11);
 }
 
 
