@@ -194,10 +194,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
 
 )
 
-add_executable(aprinter_test tests/aprinter_test.cpp
-        include/quxlang/res/variable.hpp
-        include/quxlang/res/function.hpp
-        include/quxlang/res/static_test.hpp)
+
 
 add_library(quxlang-loaders
         sources/loaders/source_loader.cpp
