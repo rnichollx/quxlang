@@ -1,4 +1,4 @@
-// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 
 #ifndef QUXLANG_PARSERS_STATEMENTS_HEADER_GUARD

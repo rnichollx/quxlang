@@ -1,8 +1,9 @@
-// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
-// Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
+// Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
 
 #include "quxlang/source_loader.hpp"
 
+#include "quxlang/macros.hpp"
 #include "rpnx/debug.hpp"
 #include "rpnx/value.hpp"
 

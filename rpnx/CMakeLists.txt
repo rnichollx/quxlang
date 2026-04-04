@@ -6,10 +6,9 @@ endif ()
 find_package(RPNXMetalib REQUIRED)
 find_package(RPNXSerialization REQUIRED)
 
-add_library(graphlib INTERFACE include/rpnx/resolver_utilities.hpp include/rpnx/value.hpp
+add_library(graphlib INTERFACE include/rpnx/value.hpp
         include/rpnx/string.hpp
         include/rpnx/range.hpp
-        include/rpnx/resolver2.hpp
         include/rpnx/inttypes.h
         include/rpnx/uint64_base.hpp
         include/rpnx/demangle.hpp)

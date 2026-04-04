@@ -1,4 +1,4 @@
-// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/bytemath.hpp" // Include the header file with the functions to test
 #include "gtest/gtest.h"
 #include <stdexcept> // For std::invalid_argument

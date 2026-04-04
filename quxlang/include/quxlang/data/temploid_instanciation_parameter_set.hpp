@@ -15,25 +15,4 @@ namespace quxlang
     };
 }
 
-template <>
-struct rpnx::resolver_traits<quxlang::temploid_instanciation_parameter_set>
-{
-    static std::string stringify(quxlang::temploid_instanciation_parameter_set const& v)
-    {
-        std::string result = "{";
-        bool first = true;
-        for (auto& [k, v] : v.parameter_map)
-        {
-            if (!first)
-            {
-                result += ", ";
-            }
-            first = false;
-            result += k + ": " + quxlang::to_string(v);
-        }
-        result += "}";
-        return result;
-    }
-};
-
 #endif //TEMPLATE_INSTANCIATION_PARAMETER_SET_HPP

@@ -1,0 +1,116 @@
+// Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#include <quxlang/queries/specs/functum_map_user_formal_ensigs_spec.hpp>
+
+#include "quxlang/manipulators/typeutils.hpp"
+#include "rpnx/debug.hpp"
+#include <vector>
+
+#include "quxlang/manipulators/typeutils.hpp"
+#include "quxlang/operators.hpp"
+#include "quxlang/variant_utils.hpp"
+
+#include <quxlang/macros.hpp>
+
+using namespace quxlang;
+
+
+rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxlang::functum_map_user_formal_ensigs_impl(type_symbol input)
+{
+    auto const& decls = co_await rpnx::querygraph::query_request< functum_list_user_ensig_declarations_query >(input);
+
+    std::string input_name = quxlang::to_string(input);
+
+    std::map< temploid_ensig, std::size_t > output;
+
+    bool is_member_functum = typeis< submember >(input);
+    std::optional< type_symbol > class_type;
+    bool is_ctor = false;
+    bool is_dtor = false;
+    if (is_member_functum)
+    {
+        submember const& m = as< submember >(input);
+        class_type = m.of;
+        if (m.name == "CONSTRUCTOR")
+        {
+            is_ctor = true;
+        }
+        else if (m.name == "DESTRUCTOR")
+        {
+            is_dtor = true;
+        }
+    }
+
+    for (std::size_t i = 0; i < decls.size(); i++)
+    {
+        auto const& decl = decls.at(i);
+        temploid_ensig formal_ensig;
+        formal_ensig.priority = decl.priority;
+        formal_ensig.enable_if = decl.enable_if;
+        for (auto const& param : decl.interface.named)
+        {
+            contextual_type_reference declared_type_with_context;
+            declared_type_with_context.type = param.second.type;
+
+            // We can't look at the typedefs of the function while we are resolving the function's formal ensig, as this would cause a circular dependency.
+            declared_type_with_context.context = type_parent(input).value_or(void_type{});
+
+            auto const& formal_type_opt = co_await rpnx::querygraph::query_request< lookup_query >(declared_type_with_context);
+            if (!formal_type_opt.has_value())
+            {
+                throw std::logic_error("Type not found");
+            }
+            formal_ensig.interface.named[param.first] = argif{.type = formal_type_opt.value(), .is_defaulted = param.second.is_defaulted};
+        }
+        for (auto const& param : decl.interface.positional)
+        {
+            contextual_type_reference declared_type_with_context;
+            declared_type_with_context.type = param.type;
+            declared_type_with_context.context = type_parent(input).value_or(void_type{});
+            auto const& formal_type_opt = co_await rpnx::querygraph::query_request< lookup_query >(declared_type_with_context);
+            if (!formal_type_opt.has_value())
+            {
+                throw std::logic_error("Type not found");
+            }
+            formal_ensig.interface.positional.push_back(argif{.type = formal_type_opt.value(), .is_defaulted = param.is_defaulted});
+        }
+
+        if (is_member_functum && !formal_ensig.interface.named.contains("THIS"))
+        {
+            argif this_argif;
+
+            if (is_ctor)
+            {
+                this_argif.type = nvalue_slot{.target = class_type.value()};
+            }
+            else if (is_dtor)
+            {
+                this_argif.type = dvalue_slot{.target = class_type.value()};
+            }
+            else
+            {
+                this_argif.type = ptrref_type{.target = class_type.value(), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+            }
+
+            formal_ensig.interface.named["THIS"] = this_argif;
+        }
+
+        if (is_ctor && formal_ensig.interface.named.contains("OTHER"))
+        {
+            auto const& other_type = formal_ensig.interface.named.at("OTHER").type;
+            if (!is_ref(other_type) && other_type == class_type.value())
+            {
+                throw std::logic_error("Constructors cannot declare @OTHER with the same value type as the constructed class; use a reference form such as CONST& or TEMP& instead.");
+            }
+        }
+
+        if (output.contains(formal_ensig))
+        {
+            throw std::logic_error("Duplicate overload");
+        }
+
+        output.insert({formal_ensig, i});
+    }
+
+    co_return output;
+}

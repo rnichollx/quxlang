@@ -1,4 +1,4 @@
-// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD
 #define QUXLANG_AST2_SOURCE_LOCATION_HEADER_GUARD

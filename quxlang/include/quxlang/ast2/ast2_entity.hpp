@@ -1,4 +1,4 @@
-// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_AST2_AST2_ENTITY_HEADER_GUARD
 #define QUXLANG_AST2_AST2_ENTITY_HEADER_GUARD
@@ -11,8 +11,6 @@
 #include <cinttypes>
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/ast2/ast2_function_delegate.hpp>
-#include <quxlang/macros.hpp>
-#include <rpnx/resolver_utilities.hpp>
 #include "quxlang/ast2/source_location.hpp"
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);

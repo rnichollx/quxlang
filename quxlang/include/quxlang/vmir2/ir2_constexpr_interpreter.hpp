@@ -5,7 +5,7 @@
 
 #include "quxlang/data/class_layout.hpp"
 #include "quxlang/data/type_symbol.hpp"
-#include "quxlang/res/constexpr.hpp"
+#include "quxlang/data/constexpr.hpp"
 #include "vmir2.hpp"
 namespace quxlang
 {

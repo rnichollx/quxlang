@@ -1,4 +1,4 @@
-// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
 
 #ifndef QUXLANG_FIXED_BYTEMATH_HEADER_GUARD

@@ -1,7 +1,7 @@
 default_configuration:
-  depends: ["rpnxcow","benchmark", "googletest", "yaml-cpp", "datastructures", "rpnxmetalib", "rpnxserialization"]
+  depends: ["cow","benchmark", "googletest", "yaml-cpp", "datastructures", "metalib", "serialization", "querygraph"]
 suggested_dep_sources:
-  rpnxcow:
+  cow:
     git:
       repository: "https://gitlab.com/rpnx/cow.git"
   benchmark:
@@ -16,12 +16,15 @@ suggested_dep_sources:
   datastructures:
     git:
       repository: "https://gitlab.com/rpnx/datastructures.git"
-  rpnxmetalib:
+  metalib:
     git:
       repository: "https://gitlab.com/rpnx/metalib.git"
-  rpnxserialization:
+  serialization:
     git:
       repository: "https://gitlab.com/rpnx/serialization.git"
+  querygraph:
+    git:
+      repository: "https://gitlab.com/rpnx/querygraph.git"
 project_default_configuration:
   cxx_version: 23
   default_build_configurations:

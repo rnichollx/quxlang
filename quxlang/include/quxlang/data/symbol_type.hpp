@@ -1,26 +1,25 @@
-// Copyright 2023-2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_SYMBOL_TYPE_HEADER_GUARD
 #define QUXLANG_DATA_SYMBOL_TYPE_HEADER_GUARD
 
-namespace quxlang
-{
-    enum class symbol_kind {
-        class_type,
-        functum_type,
-        function_type,
-        funtanoid_type,
-        variable,
-        member_variable_type,
-        member_functum_type,
-        member_function_type,
-        member_functanoid_type,
-        pseudo_type,
-        primitive_type,
-        invalid_symbol_reference,
+#include <cstdint>
 
-        static_value,
-    };
-}
+#include <rpnx/macros.hpp>
+
+// clang-format off
+RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
+    noexist,
+    module,
+    class_,
+    pseudotype,
+    functum, function, funtanoid,
+    global_variable,
+    local_variable,
+    member_variable,
+    templex, template_,
+    namespace_, argument
+)
+// clang-format on
 
 #endif // QUXLANG_SYMBOL_TYPE_HEADER_GUARD

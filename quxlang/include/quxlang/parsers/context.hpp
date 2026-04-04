@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
+// Copyright 2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_CONTEXT_HPP
 #define QUXLANG_CONTEXT_HPP

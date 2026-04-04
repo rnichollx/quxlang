@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <utility>
 
@@ -6,7 +6,6 @@
 
 #include "quxlang/backends/asm/arm_asm_converter.hpp"
 #include "quxlang/bytemath.hpp"
-#include "quxlang/compiler.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/parsers/parse_int.hpp"
@@ -14,6 +13,7 @@
 #include "rpnx/value.hpp"
 
 #include <deque>
+#include <iostream>
 
 namespace quxlang
 {

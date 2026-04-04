@@ -1,4 +1,4 @@
-// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 #define QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
@@ -10,7 +10,7 @@
 #include <set>
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
-#include <rpnx/resolver_utilities.hpp>
+#include "quxlang/data/symbol_type.hpp"
 
 #include <quxlang/data/fwd.hpp>
 
@@ -396,23 +396,8 @@ namespace quxlang
 
 #include "quxlang/manipulators/typeutils.hpp"
 
-template <>
-struct rpnx::resolver_traits< quxlang::type_symbol >
-{
-    static std::string stringify(quxlang::type_symbol const& v)
-    {
-        return quxlang::to_string(v);
-    }
-};
 
-template <>
-struct rpnx::resolver_traits< quxlang::initialization_reference >
-{
-    static std::string stringify(quxlang::type_symbol const& v)
-    {
-        return quxlang::to_string(v);
-    }
-};
+
 
 #include <quxlang/data/expression.hpp>
 

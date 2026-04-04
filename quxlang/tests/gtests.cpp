@@ -1,4 +1,4 @@
-// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <gtest/gtest.h>
 
@@ -19,11 +19,17 @@
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
 #include <quxlang/vmir2/assembler.hpp>
+#include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/module_source_name.hpp>
+#include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/source_bundle.hpp>
 
 #include "rpnx/serialization4.hpp"
 #include "rpnx/compat/variant_serializer.hpp"
 
 #include <random>
+#include <variant>
 
 struct foo
 {
@@ -464,7 +470,6 @@ TEST(range, iterator_advance)
 }
 
 #include "expr_test_provider.hpp"
-#include "quxlang/compiler.hpp"
 #include "quxlang/source_loader.hpp"
 #include "rpnx/range.hpp"
 #include <gtest/gtest.h>
@@ -755,11 +760,73 @@ TEST(VariantTest, Serialization)
 
 namespace
 {
-    quxlang::compiler make_main_module_compiler(std::string source)
+    class test_querygraph_compiler
+    {
+      public:
+        test_querygraph_compiler(quxlang::source_bundle const& sources, std::string target)
+            : m_graph(sources, target, sources.targets.at(target).target_output_config)
+        {
+        }
+
+        auto get_ensig_argument_initialize(quxlang::argument_init_input input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::ensig_argument_initialize_query >(
+                quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
+        }
+
+        auto get_convertible_by_call(quxlang::implicitly_convertible_to_input input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::convertible_by_call_query >(
+                quxlang::implicitly_convertible_to_input{.from = std::move(input.from), .to = std::move(input.to)});
+        }
+
+        auto get_constexpr_bool(quxlang::constexpr_input input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::constexpr_bool_query >(std::move(input));
+        }
+
+        auto get_instanciation(quxlang::initialization_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::instanciation_query >(std::move(input));
+        }
+
+        auto get_functum_user_overloads(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::functum_user_overloads_query >(std::move(input));
+        }
+
+        auto get_function_builtin(quxlang::temploid_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::function_builtin_query >(std::move(input));
+        }
+
+        auto get_vm_procedure3(quxlang::instanciation_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::vm_procedure3_query >(std::move(input));
+        }
+
+        auto get_functum_builtin_overloads(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::functum_builtin_overloads_query >(std::move(input));
+        }
+
+        auto get_lookup(quxlang::contextual_type_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::lookup_query >(std::move(input));
+        }
+
+      private:
+        mutable quxlang::compiler_querygraph m_graph;
+    };
+
+    quxlang::source_bundle make_main_module_source_bundle(std::string source)
     {
         quxlang::source_bundle sources;
 
         quxlang::target_configuration target;
+        target.target_output_config.cpu_type = quxlang::cpu::x86_64;
+        target.target_output_config.os_type = quxlang::os::linux;
+        target.target_output_config.binary_type = quxlang::binary::elf;
         target.module_configurations["main"] = quxlang::module_configuration{.source = "main"};
         sources.targets["linux-x64"] = target;
 
@@ -767,17 +834,40 @@ namespace
         main_module.files["main.qx"] = quxlang::source_file{.contents = std::move(source)};
         sources.module_sources["main"] = std::move(main_module);
 
-        return quxlang::compiler(sources, "linux-x64");
+        return sources;
+    }
+
+    test_querygraph_compiler make_main_module_compiler(std::string source)
+    {
+        quxlang::source_bundle sources = make_main_module_source_bundle(std::move(source));
+        return test_querygraph_compiler(sources, "linux-x64");
     }
 } // namespace
+
+TEST(quxlang, compiler_graph_resolves_main_source_bundle)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::main VAR I32;");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config);
+
+    auto machine_info = graph.make_request< quxlang::machine_info_query >(std::monostate{});
+    ASSERT_EQ(machine_info.cpu_type, quxlang::cpu::x86_64);
+    ASSERT_EQ(machine_info.os_type, quxlang::os::linux);
+    ASSERT_EQ(machine_info.binary_type, quxlang::binary::elf);
+
+    ASSERT_EQ(graph.make_request< quxlang::module_source_name_query >("main"), "main");
+
+    auto module = graph.make_request< quxlang::module_sources_query >("main");
+    ASSERT_TRUE(module.files.contains("main.qx"));
+    ASSERT_EQ(module.files.at("main.qx").get().contents, "::main VAR I32;");
+}
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                        .from = quxlang::parsers::parse_type_symbol("I32"),
                                                        .to = quxlang::parsers::parse_type_symbol("CONST& AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -792,9 +882,9 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
-    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                        .from = quxlang::parsers::parse_type_symbol("WRITE& I32"),
                                                        .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -808,11 +898,11 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto ref_source = quxlang::parsers::parse_type_symbol("MUT& I32");
 
-    auto tt_const = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+    auto tt_const = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                         .from = ref_source,
                                                         .to = quxlang::parsers::parse_type_symbol("CONST& TT(t)"),
                                                         .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -821,7 +911,7 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
     ASSERT_TRUE(tt_const.has_value());
     EXPECT_EQ(*tt_const, quxlang::parsers::parse_type_symbol("CONST& I32"));
 
-    auto auto_value = c.get_ensig_argument_initialize(quxlang::argument_init_query{
+    auto auto_value = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                           .from = ref_source,
                                                           .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
                                                           .adaptations = quxlang::allowed_adaptations::destination_rebinding,
@@ -848,7 +938,7 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
     auto class_type = quxlang::parsers::parse_type_symbol("MODULE(main)::from_const_i32");
     auto const_ref_class_type = quxlang::parsers::parse_type_symbol("CONST& MODULE(main)::from_const_i32");
 
-    auto by_value = c.get_convertible_by_call(quxlang::implicitly_convertible_to_query{
+    auto by_value = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
                                                   .from = quxlang::parsers::parse_type_symbol("I32"),
                                                   .to = class_type,
                                               },
@@ -856,7 +946,7 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
     ASSERT_TRUE(by_value.has_value());
     EXPECT_EQ(*by_value, class_type);
 
-    auto by_const_ref = c.get_convertible_by_call(quxlang::implicitly_convertible_to_query{
+    auto by_const_ref = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
                                                       .from = quxlang::parsers::parse_type_symbol("I32"),
                                                       .to = const_ref_class_type,
                                                   },
@@ -870,7 +960,7 @@ TEST(quxlang, constexpr_result_bool)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -918,7 +1008,7 @@ TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto byte = quxlang::parsers::parse_type_symbol("BYTE");
     auto u8 = quxlang::parsers::parse_type_symbol("U8");
@@ -971,7 +1061,7 @@ TEST(quxlang, user_constructor_other_same_type_is_rejected)
 )"};
     sources.module_sources["main"] = main_module;
 
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto bad_ctor_symbol = quxlang::submember{
         .of = quxlang::subsymbol{.of = quxlang::absolute_module_reference{"main"}, .name = "bad_ctor"},
@@ -986,7 +1076,7 @@ TEST(builtin_state, user_func_builtin)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
     auto type = quxlang::parsers::parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
@@ -998,7 +1088,7 @@ TEST(quxlang, constexpr_call_func)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -1048,7 +1138,7 @@ TEST(quxlang, constexpr_call_func_arm)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    quxlang::compiler c(sources, "linux-arm64");
+    test_querygraph_compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -1094,7 +1184,7 @@ TEST(quxlang, constexpr_test_suites)
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    quxlang::compiler c(sources, "linux-arm64");
+    test_querygraph_compiler c(sources, "linux-arm64");
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
@@ -1127,7 +1217,7 @@ TEST(quxlang, func_gen)
 
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
 
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto func_name = quxlang::parsers::parse_type_symbol("MODULE(main)::biz #{I32, I32}");
 
@@ -1149,7 +1239,7 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto datatype_eq = c.get_functum_builtin_overloads(
         quxlang::parsers::parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
@@ -1172,7 +1262,7 @@ TEST(quxlang, storage_type_lookup)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
 
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto resolved = c.get_lookup(quxlang::contextual_type_reference{
         .context = mainmodule,
@@ -1189,7 +1279,7 @@ TEST(quxlang, storage_type_validation)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
 
-    quxlang::compiler c(sources, "linux-x64");
+    test_querygraph_compiler c(sources, "linux-x64");
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {

@@ -1,0 +1,124 @@
+// Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#include <quxlang/compiler_querygraph.hpp>
+
+#include <map>
+#include <string>
+#include <utility>
+
+quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info)
+{
+    std::map< std::string, std::string > module_source_name_map;
+    auto const& target_config = bundle.targets.at(configured_target);
+    for (auto const& [logical_name, module_config] : target_config.module_configurations)
+    {
+        module_source_name_map.emplace(logical_name, module_config.source);
+    }
+
+    m_graph.register_handler_singleton< source_bundle_query >(bundle);
+    m_graph.register_handler_singleton< machine_info_query >(machine_info);
+    m_graph.register_handler_singleton< module_source_name_map_query >(std::move(module_source_name_map));
+
+    m_graph.register_handler_function< argument_adaptation_is_better_fit_spec >(argument_adaptation_is_better_fit_impl);
+    m_graph.register_handler_function< argument_adaptation_rank_spec >(argument_adaptation_rank_impl);
+    m_graph.register_handler_function< argument_initialize_by_class_conversion_spec >(argument_initialize_by_class_conversion_impl);
+    m_graph.register_handler_function< argument_initialize_by_intrinsic_spec >(argument_initialize_by_intrinsic_impl);
+    m_graph.register_handler_function< argument_initialize_by_template_spec >(argument_initialize_by_template_impl);
+    m_graph.register_handler_function< asm_procedure_from_symbol_spec >(asm_procedure_from_symbol_impl);
+    m_graph.register_handler_function< bindable_spec >(bindable_impl);
+    m_graph.register_handler_function< bindable_by_reference_objectization_spec >(bindable_by_reference_objectization_impl);
+    m_graph.register_handler_function< bindable_by_reference_requalification_spec >(bindable_by_reference_requalification_impl);
+    m_graph.register_handler_function< bindable_by_temporary_materialization_spec >(bindable_by_temporary_materialization_impl);
+    m_graph.register_handler_function< builtin_assignment_vm_procedure3_spec >(builtin_assignment_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_copy_ctor_vm_procedure3_spec >(builtin_copy_ctor_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_datatype_compare_vm_procedure3_spec >(builtin_datatype_compare_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_default_ctor_vm_procedure3_spec >(builtin_default_ctor_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_dtor_vm_procedure3_spec >(builtin_dtor_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_move_ctor_vm_procedure3_spec >(builtin_move_ctor_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_swap_vm_procedure3_spec >(builtin_swap_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_vm_procedure3_spec >(builtin_vm_procedure3_impl);
+    m_graph.register_handler_function< class_builtin_spec >(class_builtin_impl);
+    m_graph.register_handler_function< class_default_ctor_spec >(class_default_ctor_impl);
+    m_graph.register_handler_function< class_default_dtor_spec >(class_default_dtor_impl);
+    m_graph.register_handler_function< class_field_declaration_list_spec >(class_field_declaration_list_impl);
+    m_graph.register_handler_function< class_field_list_spec >(class_field_list_impl);
+    m_graph.register_handler_function< class_layout_spec >(class_layout_impl);
+    m_graph.register_handler_function< class_requires_gen_assignment_spec >(class_requires_gen_assignment_impl);
+    m_graph.register_handler_function< class_requires_gen_copy_ctor_spec >(class_requires_gen_copy_ctor_impl);
+    m_graph.register_handler_function< class_requires_gen_default_ctor_spec >(class_requires_gen_default_ctor_impl);
+    m_graph.register_handler_function< class_requires_gen_default_dtor_spec >(class_requires_gen_default_dtor_impl);
+    m_graph.register_handler_function< class_requires_gen_move_ctor_spec >(class_requires_gen_move_ctor_impl);
+    m_graph.register_handler_function< class_requires_gen_swap_spec >(class_requires_gen_swap_impl);
+    m_graph.register_handler_function< class_tags_spec >(class_tags_impl);
+    m_graph.register_handler_function< class_trivially_constructible_spec >(class_trivially_constructible_impl);
+    m_graph.register_handler_function< class_trivially_destructible_spec >(class_trivially_destructible_impl);
+    m_graph.register_handler_function< constexpr_bool_spec >(constexpr_bool_impl);
+    m_graph.register_handler_function< constexpr_eval_spec >(constexpr_eval_impl);
+    m_graph.register_handler_function< constexpr_routine_spec >(constexpr_routine_impl);
+    m_graph.register_handler_function< constexpr_u64_spec >(constexpr_u64_impl);
+    m_graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);
+    m_graph.register_handler_function< declaroids_spec >(declaroids_impl);
+    m_graph.register_handler_function< ensig_argument_initialize_spec >(ensig_argument_initialize_impl);
+    m_graph.register_handler_function< ensig_tempars_spec >(ensig_tempars_impl);
+    m_graph.register_handler_function< exists_spec >(exists_impl);
+    m_graph.register_handler_function< extern_linksymbol_spec >(extern_linksymbol_impl);
+    m_graph.register_handler_function< functanoid_return_type_spec >(functanoid_return_type_impl);
+    m_graph.register_handler_function< functanoid_sigtype_spec >(functanoid_sigtype_impl);
+    m_graph.register_handler_function< function_builtin_spec >(function_builtin_impl);
+    m_graph.register_handler_function< function_declaration_spec >(function_declaration_impl);
+    m_graph.register_handler_function< function_ensig_init_with_spec >(function_ensig_init_with_impl);
+    m_graph.register_handler_function< function_instanciation_spec >(function_instanciation_impl);
+    m_graph.register_handler_function< function_param_names_spec >(function_param_names_impl);
+    m_graph.register_handler_function< function_positional_parameter_names_spec >(function_positional_parameter_names_impl);
+    m_graph.register_handler_function< function_primitive_spec >(function_primitive_impl);
+    m_graph.register_handler_function< functum_builtin_overloads_spec >(functum_builtin_overloads_impl);
+    m_graph.register_handler_function< functum_builtins_spec >(functum_builtins_impl);
+    m_graph.register_handler_function< functum_exists_and_is_callable_with_spec >(functum_exists_and_is_callable_with_impl);
+    m_graph.register_handler_function< functum_initialize_spec >(functum_initialize_impl);
+    m_graph.register_handler_function< functum_list_user_ensig_declarations_spec >(functum_list_user_ensig_declarations_impl);
+    m_graph.register_handler_function< functum_list_user_overload_declarations_spec >(functum_list_user_overload_declarations_impl);
+    m_graph.register_handler_function< functum_map_user_formal_ensigs_spec >(functum_map_user_formal_ensigs_impl);
+    m_graph.register_handler_function< functum_overloads_spec >(functum_overloads_impl);
+    m_graph.register_handler_function< functum_select_function_spec >(functum_select_function_impl);
+    m_graph.register_handler_function< functum_user_overloads_spec >(functum_user_overloads_impl);
+    m_graph.register_handler_function< have_nontrivial_member_ctor_spec >(have_nontrivial_member_ctor_impl);
+    m_graph.register_handler_function< have_nontrivial_member_dtor_spec >(have_nontrivial_member_dtor_impl);
+    m_graph.register_handler_function< implicitly_convertible_to_spec >(implicitly_convertible_to_impl);
+    m_graph.register_handler_function< instanciation_spec >(instanciation_impl);
+    m_graph.register_handler_function< instanciation_tempar_map_spec >(instanciation_tempar_map_impl);
+    m_graph.register_handler_function< interpret_bool_spec >(interpret_bool_impl);
+    m_graph.register_handler_function< interpret_value_spec >(interpret_value_impl);
+    m_graph.register_handler_function< list_builtin_constructors_spec >(list_builtin_constructors_impl);
+    m_graph.register_handler_function< list_static_tests_spec >(list_static_tests_impl);
+    m_graph.register_handler_function< list_user_functum_formal_paratypes_spec >(list_user_functum_formal_paratypes_impl);
+    m_graph.register_handler_function< lookup_spec >(lookup_impl);
+    m_graph.register_handler_function< module_ast_spec >(module_ast_impl);
+    m_graph.register_handler_function< module_source_name_spec >(module_source_name_impl);
+    m_graph.register_handler_function< module_sources_spec >(module_sources_impl);
+    m_graph.register_handler_function< procedure_linksymbol_spec >(procedure_linksymbol_impl);
+    m_graph.register_handler_function< sintpointer_type_spec >(sintpointer_type_impl);
+    m_graph.register_handler_function< symboid_spec >(symboid_impl);
+    m_graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);
+    m_graph.register_handler_function< symbol_tempars_spec >(symbol_tempars_impl);
+    m_graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
+    m_graph.register_handler_function< template_instanciation_spec >(template_instanciation_impl);
+    m_graph.register_handler_function< templex_initialize_spec >(templex_initialize_impl);
+    m_graph.register_handler_function< type_is_implicitly_datatype_spec >(type_is_implicitly_datatype_impl);
+    m_graph.register_handler_function< type_placement_info_spec >(type_placement_info_impl);
+    m_graph.register_handler_function< type_should_autogen_deserialize_spec >(type_should_autogen_deserialize_impl);
+    m_graph.register_handler_function< type_should_autogen_serialize_spec >(type_should_autogen_serialize_impl);
+    m_graph.register_handler_function< uintpointer_type_spec >(uintpointer_type_impl);
+    m_graph.register_handler_function< user_assignment_exists_spec >(user_assignment_exists_impl);
+    m_graph.register_handler_function< user_copy_ctor_exists_spec >(user_copy_ctor_exists_impl);
+    m_graph.register_handler_function< user_default_ctor_exists_spec >(user_default_ctor_exists_impl);
+    m_graph.register_handler_function< user_default_dtor_exists_spec >(user_default_dtor_exists_impl);
+    m_graph.register_handler_function< user_deserialize_exists_spec >(user_deserialize_exists_impl);
+    m_graph.register_handler_function< user_move_ctor_exists_spec >(user_move_ctor_exists_impl);
+    m_graph.register_handler_function< user_serialize_exists_spec >(user_serialize_exists_impl);
+    m_graph.register_handler_function< user_swap_exists_spec >(user_swap_exists_impl);
+    m_graph.register_handler_function< user_vm_procedure3_spec >(user_vm_procedure3_impl);
+    m_graph.register_handler_function< variable_type_spec >(variable_type_impl);
+    m_graph.register_handler_function< vm_procedure3_spec >(vm_procedure3_impl);
+
+    m_graph.bind_handlers();
+}

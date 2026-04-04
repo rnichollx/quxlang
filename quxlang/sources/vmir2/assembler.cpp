@@ -1,5 +1,4 @@
-// Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
-#include "quxlang/res/expr/co_vmir_codegen_emitter.hpp"
+// Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #include <quxlang/vmir2/assembler.hpp>
 
 namespace quxlang::vmir2

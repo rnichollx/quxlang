@@ -1,11 +1,10 @@
-// Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_DATA_EXPRESSION_HEADER_GUARD
 #define QUXLANG_DATA_EXPRESSION_HEADER_GUARD
 
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"
-#include "rpnx/string.hpp"
 
 #include <quxlang/data/type_symbol.hpp>
 #include <rpnx/compare.hpp>

@@ -1,0 +1,45 @@
+// Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
+
+
+rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang::type_is_implicitly_datatype_impl(type_symbol input)
+{
+    // Check if the type is an int_type or bool_type
+    if (typeis< int_type >(input) || typeis< bool_type >(input))
+    {
+        co_return true;
+    }
+
+    if (typeis< procedure_type >(input))
+    {
+        co_return false;
+    }
+
+    // Pointers and references are not implicitly datatypes
+    if (typeis< ptrref_type >(input) )
+    {
+        co_return false;
+    }
+
+    auto type_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(input);
+
+    if (type_kind == symbol_kind::class_)
+    {
+
+
+        auto class_fields = co_await rpnx::querygraph::query_request< class_field_list_query >(input);
+        for (const auto& field : class_fields)
+        {
+            // If any member is not a datatype, the class is not implicitly a datatype
+            if (!(co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(field.type)))
+            {
+                co_return false;
+            }
+        }
+        co_return true;
+    }
+
+    // Default to false for other types
+    co_return false;
+}
