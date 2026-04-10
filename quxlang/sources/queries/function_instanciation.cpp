@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
     }
 
     temploid_reference const& sel_ref = as< temploid_reference >(input.initializee);
-    auto selected_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(sel_ref);
+    auto selected_kind = co_await rpnx::querygraph::request< symbol_type_query >(sel_ref);
 
     if (selected_kind == symbol_kind::template_)
     {
@@ -27,7 +27,7 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
 
 
     // Get the overload?
-    auto call_set = co_await rpnx::querygraph::query_request< function_ensig_init_with_query >(ensig_initialization{
+    auto call_set = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
                                                                        .ensig = sel_ref.which,
                                                                        .params = input.parameters,
                                                                        .adaptations = input.adaptations,

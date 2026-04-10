@@ -11,7 +11,7 @@
 
 rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::asm_procedure_from_symbol_impl(type_symbol input)
 {
-    auto ast = co_await rpnx::querygraph::query_request< symboid_query >(input);
+    auto ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
     asm_procedure out;
 
@@ -50,7 +50,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                 {
                     auto ext = as< ast2_procedure_ref >(part);
 
-                    auto linkname = co_await rpnx::querygraph::query_request< extern_linksymbol_query >(as<ast2_extern>(part));
+                    auto linkname = co_await rpnx::querygraph::request< extern_linksymbol_query >(as<ast2_extern>(part));
 
                     operand_str += linkname;
                 }
@@ -64,8 +64,8 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                         // TODO: calling convention?
                     };
 
-                    auto procedure_canonical = (co_await rpnx::querygraph::query_request< lookup_query >(proc_ctx)).value();
-                    auto linkname = co_await rpnx::querygraph::query_request< procedure_linksymbol_query >(ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical});
+                    auto procedure_canonical = (co_await rpnx::querygraph::request< lookup_query >(proc_ctx)).value();
+                    auto linkname = co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical});
                     operand_str += "=" + linkname;
                 }
                 else

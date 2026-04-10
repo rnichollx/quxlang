@@ -11,12 +11,12 @@
 rpnx::querygraph::coroutine< quxlang::vm_procedure3_spec > quxlang::vm_procedure3_impl(instanciation_reference input)
 {
     assert(!type_is_contextual(input));
-    if (co_await rpnx::querygraph::query_request< function_builtin_query >(input.temploid))
+    if (co_await rpnx::querygraph::request< function_builtin_query >(input.temploid))
     {
-        co_return co_await rpnx::querygraph::query_request< builtin_vm_procedure3_query >(input);
+        co_return co_await rpnx::querygraph::request< builtin_vm_procedure3_query >(input);
     }
     else
     {
-        co_return co_await rpnx::querygraph::query_request< user_vm_procedure3_query >(input);
+        co_return co_await rpnx::querygraph::request< user_vm_procedure3_query >(input);
     }
 }

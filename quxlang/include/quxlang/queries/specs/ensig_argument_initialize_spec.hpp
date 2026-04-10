@@ -14,7 +14,7 @@
 
 namespace quxlang
 {
-    using ensig_argument_initialize_spec = rpnx::query_handler_spec< ensig_argument_initialize_query, rpnx::typelist< argument_initialize_by_class_conversion_query, argument_initialize_by_intrinsic_query, argument_initialize_by_template_query, bindable_query, ensig_argument_initialize_query > >;
+    using ensig_argument_initialize_spec = rpnx::querygraph::query_handler_spec< ensig_argument_initialize_query, rpnx::typelist< argument_initialize_by_class_conversion_query, argument_initialize_by_intrinsic_query, argument_initialize_by_template_query, bindable_query, ensig_argument_initialize_query > >;
 
     rpnx::querygraph::coroutine< ensig_argument_initialize_spec > ensig_argument_initialize_impl(argument_init_input input);
 } // namespace quxlang

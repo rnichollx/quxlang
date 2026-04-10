@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
 
     std::vector< ast2_function_declaration > result;
 
-    auto maybe_functum_ast = co_await rpnx::querygraph::query_request< symboid_query >(input);
+    auto maybe_functum_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (!typeis< functum >(maybe_functum_ast))
     {

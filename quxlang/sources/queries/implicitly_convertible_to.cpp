@@ -208,7 +208,7 @@ namespace
 
 rpnx::querygraph::coroutine< quxlang::implicitly_convertible_to_spec > quxlang::implicitly_convertible_to_impl(implicitly_convertible_to_input input)
 {
-    auto adapted = co_await rpnx::querygraph::query_request< ensig_argument_initialize_query >(argument_init_input{
+    auto adapted = co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
                                                                       .from = input.from,
                                                                       .to = input.to,
                                                                       .adaptations = allowed_adaptations::destination_rebinding,

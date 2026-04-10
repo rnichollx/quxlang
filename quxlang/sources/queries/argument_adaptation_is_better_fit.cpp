@@ -209,7 +209,7 @@ namespace
 
 rpnx::querygraph::coroutine< quxlang::argument_adaptation_is_better_fit_spec > quxlang::argument_adaptation_is_better_fit_impl(argument_adaptation_better_fit_input input)
 {
-    auto better_rank = co_await rpnx::querygraph::query_request< argument_adaptation_rank_query >(argument_init_input{
+    auto better_rank = co_await rpnx::querygraph::request< argument_adaptation_rank_query >(argument_init_input{
                                                                          .from = input.from,
                                                                          .to = input.better_to,
                                                                          .adaptations = input.adaptations,
@@ -219,7 +219,7 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_is_better_fit_spec > q
         co_return false;
     }
 
-    auto worse_rank = co_await rpnx::querygraph::query_request< argument_adaptation_rank_query >(argument_init_input{
+    auto worse_rank = co_await rpnx::querygraph::request< argument_adaptation_rank_query >(argument_init_input{
                                                                         .from = input.from,
                                                                         .to = input.worse_to,
                                                                         .adaptations = input.adaptations,

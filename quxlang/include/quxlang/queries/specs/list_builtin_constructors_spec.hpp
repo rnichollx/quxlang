@@ -13,7 +13,7 @@
 
 namespace quxlang
 {
-    using list_builtin_constructors_spec = rpnx::query_handler_spec< list_builtin_constructors_query, rpnx::typelist< class_requires_gen_copy_ctor_query, class_requires_gen_default_ctor_query, class_requires_gen_move_ctor_query > >;
+    using list_builtin_constructors_spec = rpnx::querygraph::query_handler_spec< list_builtin_constructors_query, rpnx::typelist< class_requires_gen_copy_ctor_query, class_requires_gen_default_ctor_query, class_requires_gen_move_ctor_query > >;
 
     rpnx::querygraph::coroutine< list_builtin_constructors_spec > list_builtin_constructors_impl(type_symbol input);
 } // namespace quxlang

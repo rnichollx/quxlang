@@ -3,7 +3,6 @@
 #include <quxlang/queries/specs/function_builtin_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -17,7 +16,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_builtin_impl(temploid_reference input)
 {
-    auto builtin_overloads = co_await rpnx::querygraph::query_request< functum_builtin_overloads_query >(input.templexoid);
+    auto builtin_overloads = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(input.templexoid);
 
     for (auto const& info : builtin_overloads)
     {

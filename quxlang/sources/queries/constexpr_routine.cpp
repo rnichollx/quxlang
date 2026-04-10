@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_spec > quxlang::constexp
     quxlang::vmir2::functanoid_routine3 r;
 
     std::vector< bool > temp;
-    auto const machine_info = co_await rpnx::querygraph::query_request< machine_info_query >(machine_info_query::input_type{});
+    auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::constexpr_routine_spec > > emitter(machine_info, input.context);
     emitter.set_scoped_definitions(input.scoped_definitions);
     auto result = co_await emitter.co_generate_constexpr_eval(input.expr, input.type);

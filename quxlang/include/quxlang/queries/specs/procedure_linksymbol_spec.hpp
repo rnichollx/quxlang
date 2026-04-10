@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    using procedure_linksymbol_spec = rpnx::query_handler_spec< procedure_linksymbol_query, rpnx::typelist<  > >;
+    using procedure_linksymbol_spec = rpnx::querygraph::query_handler_spec< procedure_linksymbol_query, rpnx::typelist<  > >;
 
     rpnx::querygraph::coroutine< procedure_linksymbol_spec > procedure_linksymbol_impl(ast2_procedure_ref input);
 } // namespace quxlang

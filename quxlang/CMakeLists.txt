@@ -1,14 +1,25 @@
-if (CMAKE_IS_TOP_LEVEL_PROJECT)
-    project(Quxlang)
+cmake_minimum_required(VERSION 3.22)
+project(Quxlang)
+
+include(GNUInstallDirs)
+include(CTest)
+if (BUILD_TESTING)
+    find_package(GTest REQUIRED)
+    include(GoogleTest)
 endif ()
 
-find_package(GTest REQUIRED)
-include(GoogleTest)
 find_package(yaml-cpp REQUIRED)
 find_package(RPNXMetalib REQUIRED)
 find_package(RPNXSerialization REQUIRED)
 find_package(RPNXDataStructures REQUIRED)
 find_package(RPNXQueryGraph REQUIRED)
+
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
+
+find_package(RPNXCow REQUIRED)
+find_package(benchmark REQUIRED)
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
 add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/expression.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/data/expression_add.hpp include/quxlang/data/expression_call.hpp include/quxlang/data/expression_lvalue_reference.hpp include/quxlang/cow.hpp include/quxlang/data/expression_multiply.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/expression_copy_assign.hpp include/quxlang/data/expression_move_assign.hpp include/quxlang/data/expression_subtract.hpp include/quxlang/data/expression_numeric_literal.hpp include/quxlang/data/expression_dotreference.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/data/type_symbol.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
@@ -23,7 +34,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/operators.hpp
         include/quxlang/data/function_delegate.hpp
         include/quxlang/ast2/ast2_type_map.hpp
-        ../rpnx/include/rpnx/debug.hpp
         include/quxlang/ast2/ast2_entity.hpp
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_class_body.hpp
@@ -117,7 +127,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/builtin_functions.hpp
         include/quxlang/vmir2/assembler.hpp
         sources/vmir2/assembler.cpp
-        ../rpnx/include/rpnx/simple_coroutine.hpp
         include/quxlang/vmir2/ir2_constexpr_interpreter.hpp
         sources/ir2_constexpr_interpreter.cpp
         include/quxlang/exception.hpp
@@ -136,19 +145,26 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/co_vmir_generator2_deps.hpp
 
 )
-
+add_library(Quxlang::quxlang ALIAS quxlang)
 
 
 add_library(quxlang-loaders
         sources/loaders/source_loader.cpp
 
         include/quxlang/source_loader.hpp)
+add_library(Quxlang::quxlang-loaders ALIAS quxlang-loaders)
 target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
 
 
-
-target_include_directories(quxlang PUBLIC include)
+target_include_directories(quxlang PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(quxlang-loaders PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(quxlang PUBLIC cxx_std_23)
+set_target_properties(quxlang PROPERTIES EXPORT_NAME quxlang)
+set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 
 file(GLOB QUXLANG_QUERY_HEADERS CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/include/quxlang/queries/*.hpp")
@@ -359,7 +375,6 @@ set(QUXLANG_QUERY_SOURCES
 )
 
 
-
 target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
         ${QUXLANG_QUERY_SOURCES}
         include/quxlang/compiler_querygraph.hpp
@@ -370,7 +385,6 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
         include/quxlang/filelist.hpp
         ${QUXLANG_QUERY_HEADERS}
         ${QUXLANG_QUERY_SPEC_HEADERS}
-        ../rpnx/include/rpnx/value.hpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/argument_adaptation_types.hpp
         include/quxlang/data/adaptation_types.hpp
@@ -381,7 +395,7 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
         include/quxlang/data/functum_types.hpp
         include/quxlang/data/symbol_functum_types.hpp
         include/quxlang/data/tempar_types.hpp)
-target_link_libraries(quxlang PUBLIC graphlib RPNX::cow RPNX::datastructures RPNX::querygraph)
+target_link_libraries(quxlang PUBLIC RPNX::cow RPNX::datastructures RPNX::querygraph RPNX::metalib)
 
 
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
@@ -394,15 +408,17 @@ add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LI
 get_property(targets DIRECTORY "${CMAKE_SOURCE_DIR}" PROPERTY IMPORTED_TARGETS)
 
 
-
-
 # TOOD: This should be a flag instead of a variable
 
 
-set(QUXLANG_TESTS_TESTDATA_PATH "${CMAKE_SOURCE_DIR}/quxlang/tests/testdata" CACHE PATH "Path to the test data directory")
 
-if (GTest_FOUND)
+
+if (BUILD_TESTING)
     enable_testing()
+    set(QUXLANG_TESTS_TESTDATA_PATH "${CMAKE_SOURCE_DIR}/tests/testdata")
+    if (NOT EXISTS "${QUXLANG_TESTS_TESTDATA_PATH}")
+        message(FATAL_ERROR "The specified test data path does not exist: ${QUXLANG_TESTS_TESTDATA_PATH}")
+    endif ()
     add_executable(quxlang_gtests)
     add_executable(quxlang_math_gtests)
     add_executable(quxlang_querygraph_gtests)
@@ -419,3 +435,26 @@ if (GTest_FOUND)
     gtest_discover_tests(quxlang_gtests)
     gtest_discover_tests(quxlang_querygraph_gtests)
 endif ()
+
+install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/quxlang"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+        TARGETS quxlang quxlang-loaders
+        EXPORT quxlang_exports
+)
+
+export(
+        EXPORT quxlang_exports
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/QuxlangConfig.cmake"
+        NAMESPACE Quxlang::
+)
+
+install(
+        EXPORT quxlang_exports
+        FILE QuxlangConfig.cmake
+        NAMESPACE Quxlang::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Quxlang"
+)

@@ -15,14 +15,14 @@ rpnx::querygraph::coroutine< quxlang::function_param_names_spec > quxlang::funct
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared
     // between builtin and non-builtin functions.
-    auto is_builtin = co_await rpnx::querygraph::query_request< function_builtin_query >(input);
+    auto is_builtin = co_await rpnx::querygraph::request< function_builtin_query >(input);
 
     if (is_builtin)
     {
         co_return result;
     }
 
-    std::optional< ast2_function_declaration > decl_opt = co_await rpnx::querygraph::query_request< function_declaration_query >(input);
+    std::optional< ast2_function_declaration > decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(input);
 
     QUXLANG_COMPILER_BUG_IF(!decl_opt.has_value(), "Function declaration not found");
 

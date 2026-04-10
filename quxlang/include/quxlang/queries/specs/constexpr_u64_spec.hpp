@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using constexpr_u64_spec = rpnx::query_handler_spec< constexpr_u64_query, rpnx::typelist< constexpr_eval_query > >;
+    using constexpr_u64_spec = rpnx::querygraph::query_handler_spec< constexpr_u64_query, rpnx::typelist< constexpr_eval_query > >;
 
     rpnx::querygraph::coroutine< constexpr_u64_spec > constexpr_u64_impl(constexpr_input input);
 } // namespace quxlang

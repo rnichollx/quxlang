@@ -9,7 +9,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
 {
     type_symbol const& type = input;
     std::string type_str = to_string(type);
-    output_info const machine_info = co_await rpnx::querygraph::query_request< machine_info_query >(std::monostate{});
+    output_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     auto expr_u64 = [](expression const& expr) -> std::uint64_t
     {
@@ -30,7 +30,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else if (type.template type_is< subsymbol >())
     {
-        class_layout layout = co_await rpnx::querygraph::query_request< class_layout_query >(type);
+        class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(type);
 
         type_placement_info result;
         result.size = layout.size;
@@ -68,7 +68,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         type_placement_info result{.size = 0, .alignment = 1};
         for (auto const& stored_type : as< storage >(type).storable_types)
         {
-            auto child = co_await rpnx::querygraph::query_request< type_placement_info_query >(stored_type);
+            auto child = co_await rpnx::querygraph::request< type_placement_info_query >(stored_type);
             result.size = std::max< std::uint64_t >(result.size, child.size);
             result.alignment = std::max< std::uint64_t >(result.alignment, child.alignment);
         }

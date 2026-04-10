@@ -4,10 +4,10 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::class_trivially_destructible_spec > quxlang::class_trivially_destructible_impl(type_symbol input)
 {
-    co_return (co_await rpnx::querygraph::query_request< class_default_dtor_query >(input)).has_value() == false;
+    co_return (co_await rpnx::querygraph::request< class_default_dtor_query >(input)).has_value() == false;
 }

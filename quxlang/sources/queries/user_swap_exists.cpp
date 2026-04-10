@@ -4,7 +4,7 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::user_swap_exists_spec > quxlang::user_swap_exists_impl(type_symbol input)
@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::user_swap_exists_spec > quxlang::user_swap
 
     auto input_str = quxlang::to_string(input);
 
-    auto user_defined_ctor = co_await rpnx::querygraph::query_request< functum_user_overloads_query >(ctor_symbol);
+    auto user_defined_ctor = co_await rpnx::querygraph::request< functum_user_overloads_query >(ctor_symbol);
     if (user_defined_ctor.empty())
     {
         co_return false;

@@ -6,13 +6,13 @@
 rpnx::querygraph::coroutine< quxlang::type_should_autogen_serialize_spec > quxlang::type_should_autogen_serialize_impl(type_symbol input)
 {
     // If user-defined serialize exists, no need to autogen
-    if (co_await rpnx::querygraph::query_request< user_serialize_exists_query >(input))
+    if (co_await rpnx::querygraph::request< user_serialize_exists_query >(input))
     {
         co_return false;
     }
 
     // If the type is not an implicitly datatype, cannot autogen
-    if (!(co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(input)))
+    if (!(co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(input)))
     {
         co_return false;
     }

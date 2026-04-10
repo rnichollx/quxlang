@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using constexpr_routine_spec = rpnx::query_handler_spec< constexpr_routine_query, co_vmir_generator2_query_deps >;
+    using constexpr_routine_spec = rpnx::querygraph::query_handler_spec< constexpr_routine_query, co_vmir_generator2_query_deps >;
 
     rpnx::querygraph::coroutine< constexpr_routine_spec > constexpr_routine_impl(constexpr_input2 input);
 } // namespace quxlang

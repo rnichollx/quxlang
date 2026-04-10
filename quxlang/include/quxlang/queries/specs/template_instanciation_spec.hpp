@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using template_instanciation_spec = rpnx::query_handler_spec< template_instanciation_query, rpnx::typelist< lookup_query, symboid_query, symbol_type_query > >;
+    using template_instanciation_spec = rpnx::querygraph::query_handler_spec< template_instanciation_query, rpnx::typelist< lookup_query, symboid_query, symbol_type_query > >;
 
     rpnx::querygraph::coroutine< template_instanciation_spec > template_instanciation_impl(initialization_reference input);
 } // namespace quxlang

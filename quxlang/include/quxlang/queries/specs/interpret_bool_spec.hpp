@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using interpret_bool_spec = rpnx::query_handler_spec< interpret_bool_query, rpnx::typelist< interpret_value_query > >;
+    using interpret_bool_spec = rpnx::querygraph::query_handler_spec< interpret_bool_query, rpnx::typelist< interpret_value_query > >;
 
     rpnx::querygraph::coroutine< interpret_bool_spec > interpret_bool_impl(expr_interp_input input);
 } // namespace quxlang

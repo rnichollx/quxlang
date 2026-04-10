@@ -10,7 +10,7 @@
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembler.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 #include <deque>
 #include <iostream>
@@ -43,8 +43,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::uint64_t next_object_id = 1;
 
-    enum class initguard_state : std::uint8_t
-    {
+    enum class initguard_state : std::uint8_t {
         uninitialized = 0,
         initializing = 1,
         initialized = 2,
@@ -216,8 +215,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         return stack.size() - 1;
     }
 
-    enum class fixed_int_instruction : std::uint8_t
-    {
+    enum class fixed_int_instruction : std::uint8_t {
         add,
         sub,
         mul,
@@ -260,7 +258,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > get_or_create_initguard(type_symbol symbol);
     /** Decodes the current initguard state from the guard object's data payload. */
     initguard_state get_initguard_state(std::shared_ptr< local > const& guard);
-
 
     /** Stores the requested initguard state into the guard object's one-byte payload. */
     void set_initguard_state(std::shared_ptr< local > const& guard, initguard_state state);
@@ -692,7 +689,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
 
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl;
+        QUXLANG_DEBUG({ std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl; });
         //  If there is an error here, it usually means there is an instruction which is not implemented
         //  on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         //  should be implemented to throw a derivative of std::logic_error.
@@ -703,28 +700,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         auto state_diff = this->get_state_diff();
 
-        std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
-        std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
-
-        if (current_statemap != expected_state)
+        if constexpr (QUXLANG_IN_DEBUG)
         {
-            for (auto const& [index, states] : state_diff)
+            std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
+            std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
+
+            if (current_statemap != expected_state)
             {
-                std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer.to_string(index, states.second) << ", got " << ir_printer.to_string(index, states.first) << std::endl;
+                for (auto const& [index, states] : state_diff)
+                {
+                    std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer.to_string(index, states.second) << ", got " << ir_printer.to_string(index, states.first) << std::endl;
+                }
             }
+            assert(current_statemap == expected_state);
         }
-        assert(current_statemap == expected_state);
 
         std::size_t stack_size1 = stack.size();
-        rpnx::apply_visitor< void >(
-            instr,
-            [this](auto const& param)
-            {
-                return this->exec_instr_val(param);
-            });
+        rpnx::apply_visitor< void >(instr,
+                                    [this](auto const& param)
+                                    {
+                                        return this->exec_instr_val(param);
+                                    });
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
-        std::cout << std::endl;
+
+        if constexpr (QUXLANG_IN_DEBUG)
+        {
+            std::cout << std::endl;
+        }
         return;
     }
 
@@ -734,14 +737,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Constexpr execution reached end of block with undefined behavior");
     }
 
-    std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
+    if constexpr (QUXLANG_IN_DEBUG)
+    {
+        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
+    }
 
-    rpnx::apply_visitor< void >(
-        *terminator_instruction,
-        [this](auto const& param)
-        {
-            return this->exec_instr_val(param);
-        });
+    rpnx::apply_visitor< void >(*terminator_instruction,
+                                [this](auto const& param)
+                                {
+                                    return this->exec_instr_val(param);
+                                });
     return;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::raise_fault(std::string const& fault_name)
@@ -838,7 +843,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     if (typeis< int_type >(type))
     {
         auto sz = get_type_size(type);
-        return std::min<std::size_t>(sz, 8);
+        return std::min< std::size_t >(sz, 8);
     }
     if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
     {
@@ -900,27 +905,22 @@ char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
 {
     switch (instruction)
     {
-        case fixed_int_instruction::add:
-            return "IADD";
-        case fixed_int_instruction::sub:
-            return "ISUB";
-        case fixed_int_instruction::mul:
-            return "IMUL";
-        case fixed_int_instruction::div:
-            return "IDIV";
-        case fixed_int_instruction::mod:
-            return "IMOD";
+    case fixed_int_instruction::add:
+        return "IADD";
+    case fixed_int_instruction::sub:
+        return "ISUB";
+    case fixed_int_instruction::mul:
+        return "IMUL";
+    case fixed_int_instruction::div:
+        return "IDIV";
+    case fixed_int_instruction::mod:
+        return "IMOD";
     }
 
     throw compiler_bug("unknown fixed integer instruction");
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(
-    fixed_int_instruction instruction,
-    local_index a_slot,
-    local_index b_slot,
-    local_index result_slot,
-    fixed_int_binary_op op)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op)
 {
     char const* instruction_name = fixed_int_instruction_name(instruction);
 
@@ -1585,18 +1585,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     switch (get_initguard_state(guard))
     {
-      case initguard_state::initialized:
+    case initguard_state::initialized:
         transition(target_already_initialized);
         return;
-      case initguard_state::uninitialized:
-      {
-          auto lock = output_local(target_lock);
-          set_initguard_lock(lock, guard);
-          set_initguard_state(guard, initguard_state::initializing);
-          transition(target_acquired);
-          return;
-      }
-      case initguard_state::initializing:
+    case initguard_state::uninitialized: {
+        auto lock = output_local(target_lock);
+        set_initguard_lock(lock, guard);
+        set_initguard_state(guard, initguard_state::initializing);
+        transition(target_acquired);
+        return;
+    }
+    case initguard_state::initializing:
         throw constexpr_logic_execution_error("INITGUARD_TRY_ACQUIRE recursion detected for " + quxlang::to_string(symbol));
     }
 
@@ -2085,9 +2084,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 static std::size_t get_bit_width_for_type(const quxlang::type_symbol& ty)
 {
     if (typeis< quxlang::int_type >(ty))
+    {
         return ty.get_as< quxlang::int_type >().bits;
+    }
     if (typeis< quxlang::byte_type >(ty))
+    {
         return 8;
+    }
     // Fallback: use full byte width of storage
     return 8 * ((typeis< quxlang::ptrref_type >(ty)) ? 0 : 0);
 }
@@ -2119,7 +2122,9 @@ static void bitwise_not_inplace(std::vector< std::byte >& v)
 static std::vector< std::byte > truncate_to_bits(std::vector< std::byte > data, std::size_t bits)
 {
     if (bits == 0)
+    {
         return {};
+    }
     auto truncated = quxlang::bytemath::detail::le_truncate_raw(std::move(data), bits);
     // Ensure vector has exact byte size for given bits
     truncated.resize((bits + 7) / 8, std::byte{0});
@@ -2275,7 +2280,9 @@ static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
 {
     auto [v, ok] = quxlang::bytemath::le_to_u< std::uint64_t >(data);
     if (!ok)
+    {
         throw std::overflow_error("shift amount too large");
+    }
     return v;
 }
 
@@ -2334,7 +2341,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 static std::vector< std::byte > bit_or_vec(std::vector< std::byte > a, std::vector< std::byte > const& b)
 {
     if (b.size() > a.size())
+    {
         a.resize(b.size(), std::byte{0});
+    }
     for (std::size_t i = 0; i < b.size(); ++i)
     {
         std::uint8_t av = (i < a.size()) ? static_cast< std::uint8_t >(a[i]) : 0;
@@ -2359,7 +2368,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
     if (bits != 0)
+    {
         amt = amt % bits;
+    }
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(value), bits);
@@ -2395,7 +2406,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     std::uint64_t amt = bytes_to_u64(amount_bytes);
     if (bits != 0)
+    {
         amt = amt % bits;
+    }
     if (amt == 0)
     {
         auto out = truncate_to_bits(std::move(value), bits);
@@ -2551,25 +2564,25 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     {
         for (auto const& instr : block.instructions)
         {
-                if (typeis< vmir2::invoke >(instr))
+            if (typeis< vmir2::invoke >(instr))
+            {
+                auto const& inv = instr.get_as< vmir2::invoke >();
+                auto called_func = inv.what;
+                if (!this->implementation->functanoids3.contains(called_func))
                 {
-                    auto const& inv = instr.get_as< vmir2::invoke >();
-                    auto called_func = inv.what;
-                    if (!this->implementation->functanoids3.contains(called_func))
-                    {
-                        this->implementation->missing_functanoids_val.insert(called_func);
-                    }
+                    this->implementation->missing_functanoids_val.insert(called_func);
                 }
-                else if (typeis< vmir2::get_procedure_ptr >(instr))
+            }
+            else if (typeis< vmir2::get_procedure_ptr >(instr))
+            {
+                auto const& gpp = instr.get_as< vmir2::get_procedure_ptr >();
+                if (!this->implementation->functanoids3.contains(gpp.routine))
                 {
-                    auto const& gpp = instr.get_as< vmir2::get_procedure_ptr >();
-                    if (!this->implementation->functanoids3.contains(gpp.routine))
-                    {
-                        this->implementation->missing_functanoids_val.insert(gpp.routine);
-                    }
+                    this->implementation->missing_functanoids_val.insert(gpp.routine);
                 }
             }
         }
+    }
     this->implementation->functanoids3[addr] = std::move(func);
     this->implementation->missing_functanoids_val.erase(addr);
 }
@@ -2962,7 +2975,9 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
     for (auto [idx, local] : frame_object.local_values)
     {
         if (local == nullptr)
+        {
             continue;
+        }
         if (local->initializer_of.has_value() && local->initializer_of.value().lock() == slot_ptr)
         {
             if (!result.delegates)
@@ -3532,28 +3547,28 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     for (auto& [idx, local] : current_frame.local_values)
     {
-            if (local != nullptr)
+        if (local != nullptr)
+        {
+            if (local->alive() && !target_block.entry_state.contains(idx))
             {
-                if (local->alive() && !target_block.entry_state.contains(idx))
+                auto slot_type = current_func_ir->local_types.at(idx).type;
+                abort_initguard_lock_if_needed(slot_type, local);
+                bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
+                bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
+                if (local_has_nontrivial_dtor && !local_is_delegate_alias)
                 {
-                    auto slot_type = current_func_ir->local_types.at(idx).type;
-                    abort_initguard_lock_if_needed(slot_type, local);
-                    bool local_is_delegate_alias = local->member_of.has_value() || local->storage_owner.has_value() || local->initializer_of.has_value() || local->array_init_member_of.has_value();
-                    bool local_has_nontrivial_dtor = current_func_ir->non_trivial_dtors.contains(slot_type);
-                    if (local_has_nontrivial_dtor && !local_is_delegate_alias)
-                    {
-                        auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
-                        call_func(dtor, {.named = {{"THIS", idx}}});
-                        // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
-                        return;
-                    }
-                    else
-                    {
-                        local = nullptr;
-                    }
+                    auto dtor = current_func_ir->non_trivial_dtors.at(slot_type);
+                    call_func(dtor, {.named = {{"THIS", idx}}});
+                    // We return because we don't want to double stack dtor frames, we are only looking for singular violations.
+                    return;
                 }
-                else if (!target_block.entry_state.contains(idx))
+                else
                 {
+                    local = nullptr;
+                }
+            }
+            else if (!target_block.entry_state.contains(idx))
+            {
                 // If the local is not alive, we can safely remove it
                 local = nullptr;
             }
@@ -3628,10 +3643,10 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     for (auto& [idx, local] : current_frame.local_values)
     {
         auto lidx = idx;
-            if (local != nullptr)
+        if (local != nullptr)
+        {
+            if (destroy_values.contains(idx))
             {
-                if (destroy_values.contains(idx))
-                {
                 // If the local is a DESTROY[T] slot, then returning from this function
                 // sets it to not alive by definition.
                 // However, this does not eliminate the underlying storage.
@@ -3836,13 +3851,13 @@ quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::initg
 
     switch (static_cast< std::uint8_t >(guard->data[0]))
     {
-      case 0:
+    case 0:
         return initguard_state::uninitialized;
-      case 1:
+    case 1:
         return initguard_state::initializing;
-      case 2:
+    case 2:
         return initguard_state::initialized;
-      default:
+    default:
         throw constexpr_logic_execution_error("invalid initguard state byte");
     }
 }

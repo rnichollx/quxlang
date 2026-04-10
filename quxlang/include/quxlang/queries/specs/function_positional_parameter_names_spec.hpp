@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using function_positional_parameter_names_spec = rpnx::query_handler_spec< function_positional_parameter_names_query, rpnx::typelist< function_declaration_query > >;
+    using function_positional_parameter_names_spec = rpnx::querygraph::query_handler_spec< function_positional_parameter_names_query, rpnx::typelist< function_declaration_query > >;
 
     rpnx::querygraph::coroutine< function_positional_parameter_names_spec > function_positional_parameter_names_impl(temploid_reference input);
 } // namespace quxlang

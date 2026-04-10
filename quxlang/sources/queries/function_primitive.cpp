@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/function_primitive_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -17,7 +17,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::function_primitive_spec > quxlang::function_primitive_impl(temploid_reference input)
 {
-    auto primitive_overloads = co_await rpnx::querygraph::query_request< functum_builtins_query >(input.templexoid);
+    auto primitive_overloads = co_await rpnx::querygraph::request< functum_builtins_query >(input.templexoid);
 
     for (auto const& info : primitive_overloads)
     {

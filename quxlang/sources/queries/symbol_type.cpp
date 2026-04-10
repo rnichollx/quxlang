@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         co_return symbol_kind::pseudotype;
     }
 
-    auto functions = co_await rpnx::querygraph::query_request< functum_overloads_query >(input);
+    auto functions = co_await rpnx::querygraph::request< functum_overloads_query >(input);
     if (functions.size() > 0)
     {
       co_return symbol_kind::functum;
@@ -38,7 +38,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     {
         auto parent = type_parent(input).value();
 
-        auto parent_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(parent);
+        auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
 
         if (parent_kind == symbol_kind::noexist)
         {
@@ -47,7 +47,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 
         if (parent_kind == symbol_kind::class_)
         {
-            auto decls = co_await rpnx::querygraph::query_request< functum_overloads_query >(input);
+            auto decls = co_await rpnx::querygraph::request< functum_overloads_query >(input);
 
             if (decls.size() > 0)
             {
@@ -55,7 +55,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
             }
         }
 
-        auto s = co_await rpnx::querygraph::query_request< symboid_query >(input);
+        auto s = co_await rpnx::querygraph::request< symboid_query >(input);
 
         if (typeis< functum >(s))
         {
@@ -103,7 +103,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     }
     else if (typeis< instanciation_reference >(input))
     {
-       auto const& selected_ast = co_await rpnx::querygraph::query_request< symboid_query >(input);
+       auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
        if (typeis< ast2_class_declaration >(selected_ast))
        {
@@ -147,7 +147,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 
        auto const & templexoid = temploid.templexoid;
 
-       auto templexoid_type = co_await rpnx::querygraph::query_request< symbol_type_query >(templexoid);
+       auto templexoid_type = co_await rpnx::querygraph::request< symbol_type_query >(templexoid);
 
        if (templexoid_type == symbol_kind::templex)
        {

@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using type_should_autogen_deserialize_spec = rpnx::query_handler_spec< type_should_autogen_deserialize_query, rpnx::typelist< type_is_implicitly_datatype_query, user_deserialize_exists_query > >;
+    using type_should_autogen_deserialize_spec = rpnx::querygraph::query_handler_spec< type_should_autogen_deserialize_query, rpnx::typelist< type_is_implicitly_datatype_query, user_deserialize_exists_query > >;
 
     rpnx::querygraph::coroutine< type_should_autogen_deserialize_spec > type_should_autogen_deserialize_impl(type_symbol input);
 } // namespace quxlang

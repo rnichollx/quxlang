@@ -7,7 +7,7 @@
 
 rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symboid_subdeclaroids_impl(type_symbol input)
 {
-    auto sym = co_await rpnx::querygraph::query_request< symboid_query >(input);
+    auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (typeis< ast2_class_declaration >(sym))
     {

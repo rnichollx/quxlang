@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/functum_list_user_ensig_declarations_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -17,7 +17,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec > quxlang::functum_list_user_ensig_declarations_impl(type_symbol input)
 {
-    auto const& decls = co_await rpnx::querygraph::query_request< functum_list_user_overload_declarations_query >(input);
+    auto const& decls = co_await rpnx::querygraph::request< functum_list_user_overload_declarations_query >(input);
 
     std::vector< temploid_ensig > output;
 

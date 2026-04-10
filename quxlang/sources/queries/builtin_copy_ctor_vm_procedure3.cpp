@@ -13,7 +13,7 @@
 
 rpnx::querygraph::coroutine< quxlang::builtin_copy_ctor_vm_procedure3_spec > quxlang::builtin_copy_ctor_vm_procedure3_impl(instanciation_reference input)
 {
-    auto const machine_info = co_await rpnx::querygraph::query_request< machine_info_query >(machine_info_query::input_type{});
+    auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_copy_ctor_vm_procedure3_spec > > gen(machine_info, input);
 
     co_return co_await gen.co_generate_builtin_copy_ctor(input);

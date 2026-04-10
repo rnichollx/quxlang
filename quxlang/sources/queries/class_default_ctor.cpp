@@ -4,7 +4,7 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::class_default_ctor_spec > quxlang::class_default_ctor_impl(type_symbol input)
@@ -16,7 +16,7 @@ rpnx::querygraph::coroutine< quxlang::class_default_ctor_spec > quxlang::class_d
     init.parameters = invotype{.named{{"THIS", nvalue_slot{input}}}};
     init.adaptations = allowed_adaptations::destination_rebinding;
 
-    auto ctor_inst = co_await rpnx::querygraph::query_request< functum_initialize_query >(init);
+    auto ctor_inst = co_await rpnx::querygraph::request< functum_initialize_query >(init);
 
     co_return ctor_inst;
 }

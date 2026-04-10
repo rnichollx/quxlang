@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using function_primitive_spec = rpnx::query_handler_spec< function_primitive_query, rpnx::typelist< functum_builtins_query > >;
+    using function_primitive_spec = rpnx::querygraph::query_handler_spec< function_primitive_query, rpnx::typelist< functum_builtins_query > >;
 
     rpnx::querygraph::coroutine< function_primitive_spec > function_primitive_impl(temploid_reference input);
 } // namespace quxlang

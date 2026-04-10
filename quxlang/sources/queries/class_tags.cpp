@@ -4,7 +4,7 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::class_tags_spec > quxlang::class_tags_impl(type_symbol input)
@@ -12,7 +12,7 @@ rpnx::querygraph::coroutine< quxlang::class_tags_spec > quxlang::class_tags_impl
     std::string name = quxlang::to_string(input);
     std::set< std::string > tags;
 
-    ast2_symboid the_class = co_await rpnx::querygraph::query_request< symboid_query >(input);
+    ast2_symboid the_class = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (!typeis< ast2_class_declaration >(the_class))
     {

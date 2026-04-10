@@ -49,7 +49,7 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
     {
         auto const& temploid = as< temploid_reference >(initializee);
 
-        auto temploid_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(temploid);
+        auto temploid_kind = co_await rpnx::querygraph::request< symbol_type_query >(temploid);
         if (temploid_kind != symbol_kind::template_)
         {
             throw std::logic_error("template_instanciation called on a non-template selection");
@@ -61,13 +61,13 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
         };
     }
 
-    auto initializee_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(initializee);
+    auto initializee_kind = co_await rpnx::querygraph::request< symbol_type_query >(initializee);
     if (initializee_kind != symbol_kind::templex)
     {
         throw std::logic_error("template_instanciation called on a non-templex");
     }
 
-    auto const& sym = co_await rpnx::querygraph::query_request< symboid_query >(initializee);
+    auto const& sym = co_await rpnx::querygraph::request< symboid_query >(initializee);
     if (!typeis< ast2_templex >(sym))
     {
         throw compiler_bug("templex symbol did not resolve to ast2_templex");
@@ -93,7 +93,7 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
         bool matched = true;
         for (std::size_t i = 0; i < tmpl.m_template_args.positional.size(); i++)
         {
-            auto arg_pattern_opt = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{
+            auto arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = template_context,
                 .type = tmpl.m_template_args.positional.at(i).type,
             });
@@ -134,7 +134,7 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
                 break;
             }
 
-            auto arg_pattern_opt = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{
+            auto arg_pattern_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                 .context = template_context,
                 .type = declared_param.type,
             });

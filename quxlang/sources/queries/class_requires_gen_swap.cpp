@@ -4,18 +4,18 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::class_requires_gen_swap_spec > quxlang::class_requires_gen_swap_impl(type_symbol input)
 {
-    auto have_required_func = co_await rpnx::querygraph::query_request< user_swap_exists_query >(input);
+    auto have_required_func = co_await rpnx::querygraph::request< user_swap_exists_query >(input);
     if (have_required_func)
     {
         co_return false;
     }
 
-    auto const& tags = co_await rpnx::querygraph::query_request< class_tags_query >(input);
+    auto const& tags = co_await rpnx::querygraph::request< class_tags_query >(input);
 
     static std::set< std::string > const forbidden_tags = {
         "NO_BUILTIN_SWAP",

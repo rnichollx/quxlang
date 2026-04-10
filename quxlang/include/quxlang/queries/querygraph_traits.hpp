@@ -5,11 +5,13 @@
 
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/target_configuration.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
+#include <quxlang/vmir2/assembler.hpp>
 
-#include <rpnx/compat/variant_serializer.hpp>
 #include <rpnx/querygraph/querygraph.hpp>
 #include <rpnx/serialization4.hpp>
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -17,7 +19,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <typeinfo>
 #include <variant>
 #include <vector>
 
@@ -229,25 +230,20 @@ namespace quxlang
         rpnx::serial4::serialize_iter(value, std::back_inserter(bytes));
         return bytes;
     }
+
+    template < typename T >
+    concept querygraph_string_debuggable = requires(T const& value) {
+        { quxlang::to_string(value) } -> std::convertible_to< std::string >;
+    };
+
+    template < typename T >
+    concept querygraph_json_debuggable = requires(T const& value, std::vector< std::byte > bytes) {
+        rpnx::serial4::json_serialize_iter(value, std::back_inserter(bytes));
+    };
 } // namespace quxlang
 
 namespace rpnx
 {
-    template < typename T >
-    concept serial4_debuggable = requires(T const& value, std::vector< std::byte > buffer) {
-        rpnx::serial4::serialize_iter(value, std::back_inserter(buffer));
-    };
-
-    template < serial4_debuggable T >
-    struct querygraph_debug_traits< T >
-    {
-        static auto to_debug_string(T const& value) -> std::string
-        {
-            (void)value;
-            return std::string{"serial4{"} + typeid(T).name() + "}";
-        }
-    };
-
     template <>
     struct enum_traits< quxlang::cpu >
     {
@@ -363,9 +359,41 @@ namespace rpnx
             throw std::runtime_error("invalid output_kind enum string");
         }
     };
+} // namespace rpnx
+
+namespace rpnx::querygraph
+{
+    template < quxlang::querygraph_string_debuggable T >
+    struct debug_traits< T >
+    {
+        static auto to_debug_string(T const& value) -> std::string
+        {
+            return quxlang::to_string(value);
+        }
+    };
 
     template <>
-    struct querygraph_traits< quxlang::output_info >
+    struct debug_traits< quxlang::vmir2::functanoid_routine3 >
+    {
+        static auto to_debug_string(quxlang::vmir2::functanoid_routine3 const& value) -> std::string
+        {
+            quxlang::vmir2::assembler assembler(value);
+            return assembler.to_string(value);
+        }
+    };
+
+    template < typename T >
+        requires (!quxlang::querygraph_string_debuggable< T > && quxlang::querygraph_json_debuggable< T >)
+    struct debug_traits< T >
+    {
+        static auto to_debug_string(T const& value) -> std::string
+        {
+            return quxlang::querygraph_json_string(value);
+        }
+    };
+
+    template <>
+    struct binary_traits< quxlang::output_info >
     {
         static auto serialize_to_binary(quxlang::output_info const& value) -> std::vector< std::byte >
         {
@@ -374,7 +402,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_traits< quxlang::module_source >
+    struct binary_traits< quxlang::module_source >
     {
         static auto serialize_to_binary(quxlang::module_source const& value) -> std::vector< std::byte >
         {
@@ -383,7 +411,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_traits< std::map< std::string, std::string > >
+    struct binary_traits< std::map< std::string, std::string > >
     {
         static auto serialize_to_binary(std::map< std::string, std::string > const& value) -> std::vector< std::byte >
         {
@@ -392,7 +420,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_traits< quxlang::source_bundle >
+    struct binary_traits< quxlang::source_bundle >
     {
         static auto serialize_to_binary(quxlang::source_bundle const& value) -> std::vector< std::byte >
         {
@@ -401,7 +429,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_debug_traits< quxlang::output_info >
+    struct debug_traits< quxlang::output_info >
     {
         static auto to_debug_string(quxlang::output_info const& value) -> std::string
         {
@@ -410,7 +438,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_debug_traits< quxlang::module_source >
+    struct debug_traits< quxlang::module_source >
     {
         static auto to_debug_string(quxlang::module_source const& value) -> std::string
         {
@@ -419,7 +447,7 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_debug_traits< std::map< std::string, std::string > >
+    struct debug_traits< std::map< std::string, std::string > >
     {
         static auto to_debug_string(std::map< std::string, std::string > const& value) -> std::string
         {
@@ -428,14 +456,14 @@ namespace rpnx
     };
 
     template <>
-    struct querygraph_debug_traits< quxlang::source_bundle >
+    struct debug_traits< quxlang::source_bundle >
     {
         static auto to_debug_string(quxlang::source_bundle const& value) -> std::string
         {
             return quxlang::detail::source_bundle_debug_string(value);
         }
     };
-} // namespace rpnx
+} // namespace rpnx::querygraph
 
 namespace rpnx::serial4
 {

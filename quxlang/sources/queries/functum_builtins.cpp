@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/functum_builtins_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <vector>
 
@@ -36,7 +36,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::string const& name = as_submember.name;
 
-    auto parent_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(parent);
+    auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
 
     std::set< builtin_function_info > allowed_operations;
 
@@ -62,7 +62,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (parent_kind == symbol_kind::global_variable)
     {
-        auto variable_type = co_await rpnx::querygraph::query_request< variable_type_query >(parent);
+        auto variable_type = co_await rpnx::querygraph::request< variable_type_query >(parent);
         storage global_storage_type;
         global_storage_type.storable_types.insert(variable_type);
 
@@ -81,7 +81,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     if (name == "CONSTRUCTOR")
     {
-        co_return co_await rpnx::querygraph::query_request< list_builtin_constructors_query >(parent);
+        co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
     }
 
     if (name == "OPERATOR??" && (parent.test< ptrref_type >(
@@ -94,8 +94,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         add_overload({}, {{"THIS", parent}}, bool_type{});
     }
 
-    auto uintptr_type = co_await rpnx::querygraph::query_request< uintpointer_type_query >({});
-    auto sintptr_type = co_await rpnx::querygraph::query_request< sintpointer_type_query >({});
+    auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+    auto sintptr_type = co_await rpnx::querygraph::request< sintpointer_type_query >({});
 
     if (name == "OPERATOR[]" && parent.type_is< array_type >())
     {
@@ -155,7 +155,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
         else if (is_swap_operator)
         {
-            bool should_autogen_swap = co_await rpnx::querygraph::query_request< class_requires_gen_swap_query >(parent);
+            bool should_autogen_swap = co_await rpnx::querygraph::request< class_requires_gen_swap_query >(parent);
             std::cout << "Should autogen swap for " << to_string(parent) << ": " << (should_autogen_swap ? "yes" : "no") << "\n";
             if (should_autogen_swap && !is_rhs)
             {
@@ -224,7 +224,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
             else
             {
-                bool should_autogen_assignment = co_await rpnx::querygraph::query_request< class_requires_gen_assignment_query >(parent);
+                bool should_autogen_assignment = co_await rpnx::querygraph::request< class_requires_gen_assignment_query >(parent);
                 if (should_autogen_assignment)
                 {
                     add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{});
@@ -274,8 +274,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
         if (!is_rhs && basic_compare_operators.contains(operator_name) && !is_regular_primitive_type)
         {
-            auto user_defined_operator = co_await rpnx::querygraph::query_request< functum_user_overloads_query >(submember{.of = parent, .name = "OPERATOR" + operator_name});
-            if (user_defined_operator.empty() && co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(parent))
+            auto user_defined_operator = co_await rpnx::querygraph::request< functum_user_overloads_query >(submember{.of = parent, .name = "OPERATOR" + operator_name});
+            if (user_defined_operator.empty() && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(parent))
             {
                 add_overload({}, {{"THIS", make_cref(parent)}, {"OTHER", make_cref(parent)}}, bool_type{});
             }
@@ -349,11 +349,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         co_return (allowed_operations);
     }
 
-    if (name == "SERIALIZE" && co_await rpnx::querygraph::query_request< type_should_autogen_serialize_query >(parent))
+    if (name == "SERIALIZE" && co_await rpnx::querygraph::request< type_should_autogen_serialize_query >(parent))
     {
         add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
     }
-    else if (name == "DESERIALIZE" && co_await rpnx::querygraph::query_request< type_should_autogen_deserialize_query >(parent))
+    else if (name == "DESERIALIZE" && co_await rpnx::querygraph::request< type_should_autogen_deserialize_query >(parent))
     {
         add_overload({}, {{"THIS", make_wref(parent)}, {"INPUT_ITER", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
     }

@@ -11,7 +11,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_sigtype_spec > quxlang::functan
 
     result.params = input.params;
 
-    result.return_type = co_await rpnx::querygraph::query_request< functanoid_return_type_query >(input);
+    result.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(input);
 
     co_return result;
 }

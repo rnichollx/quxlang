@@ -225,7 +225,7 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
     {
         for (auto const& probe : enumerate_source_forms(from, input.adaptations))
         {
-            if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::query_request< bindable_query >(implicitly_convertible_to_input{
+            if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                                         .from = from,
                                                                         .to = probe.type,
                                                                     }))
@@ -247,7 +247,7 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         }
     }
 
-    if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::query_request< bindable_query >(implicitly_convertible_to_input{
+    if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                               .from = from,
                                                               .to = to,
                                                           }))
@@ -255,7 +255,7 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return direct_binding_rank(from, to);
     }
 
-    if ((co_await rpnx::querygraph::query_request< argument_initialize_by_class_conversion_query >(input)).has_value())
+    if ((co_await rpnx::querygraph::request< argument_initialize_by_class_conversion_query >(input)).has_value())
     {
         co_return 8;
     }

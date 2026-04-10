@@ -3,7 +3,7 @@
 #ifndef QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
 #define QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
 
-#include "rpnx/debug.hpp"
+
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/parsers/extern.hpp"
 

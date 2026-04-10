@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using user_serialize_exists_spec = rpnx::query_handler_spec< user_serialize_exists_query, rpnx::typelist< functum_user_overloads_query > >;
+    using user_serialize_exists_spec = rpnx::querygraph::query_handler_spec< user_serialize_exists_query, rpnx::typelist< functum_user_overloads_query > >;
 
     rpnx::querygraph::coroutine< user_serialize_exists_spec > user_serialize_exists_impl(type_symbol input);
 } // namespace quxlang

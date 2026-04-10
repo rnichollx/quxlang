@@ -4,7 +4,7 @@
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::user_move_ctor_exists_spec > quxlang::user_move_ctor_exists_impl(type_symbol input)
@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::user_move_ctor_exists_spec > quxlang::user
 
     auto input_str = quxlang::to_string(input);
 
-    auto user_defined_ctor = co_await rpnx::querygraph::query_request< functum_user_overloads_query >(ctor_symbol);
+    auto user_defined_ctor = co_await rpnx::querygraph::request< functum_user_overloads_query >(ctor_symbol);
 
     auto ctor_call_type = invotype{.named{{"THIS", nvalue_slot{input}}, {"OTHER", make_tref(input)}}};
 
@@ -22,7 +22,7 @@ rpnx::querygraph::coroutine< quxlang::user_move_ctor_exists_spec > quxlang::user
 
     for (auto& ol : user_defined_ctor)
     {
-        auto candidate = co_await rpnx::querygraph::query_request< function_ensig_init_with_query >({.ensig = ol, .params = ctor_call_type, .adaptations = allowed_adaptations::none});
+        auto candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = ol, .params = ctor_call_type, .adaptations = allowed_adaptations::none});
 
         if (candidate)
         {

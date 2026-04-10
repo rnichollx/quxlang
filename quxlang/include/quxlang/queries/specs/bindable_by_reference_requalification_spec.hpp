@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    using bindable_by_reference_requalification_spec = rpnx::query_handler_spec< bindable_by_reference_requalification_query, rpnx::typelist<  > >;
+    using bindable_by_reference_requalification_spec = rpnx::querygraph::query_handler_spec< bindable_by_reference_requalification_query, rpnx::typelist<  > >;
 
     rpnx::querygraph::coroutine< bindable_by_reference_requalification_spec > bindable_by_reference_requalification_impl(implicitly_convertible_to_input input);
 } // namespace quxlang

@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using type_placement_info_spec = rpnx::query_handler_spec< type_placement_info_query, rpnx::typelist< class_layout_query, machine_info_query, type_placement_info_query > >;
+    using type_placement_info_spec = rpnx::querygraph::query_handler_spec< type_placement_info_query, rpnx::typelist< class_layout_query, machine_info_query, type_placement_info_query > >;
 
     rpnx::querygraph::coroutine< type_placement_info_spec > type_placement_info_impl(type_symbol input);
 } // namespace quxlang

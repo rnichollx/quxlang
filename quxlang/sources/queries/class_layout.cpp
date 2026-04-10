@@ -12,13 +12,13 @@ rpnx::querygraph::coroutine< quxlang::class_layout_spec > quxlang::class_layout_
     class_layout output;
     // 1 get class field information
     // TODO: Rearrange
-    std::vector< class_field > class_fields = co_await rpnx::querygraph::query_request< class_field_list_query >(input);
+    std::vector< class_field > class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
     for (auto& f : class_fields)
     {
         class_field_info this_field;
         this_field.name = f.name;
         this_field.type = f.type;
-        auto placement_info = co_await rpnx::querygraph::query_request< type_placement_info_query >(this_field.type);
+        auto placement_info = co_await rpnx::querygraph::request< type_placement_info_query >(this_field.type);
         advance_to_alignment(output.size, placement_info.alignment);
         this_field.offset = output.size;
         output.size += placement_info.size;

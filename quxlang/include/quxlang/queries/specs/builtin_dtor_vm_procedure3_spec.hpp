@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using builtin_dtor_vm_procedure3_spec = rpnx::query_handler_spec< builtin_dtor_vm_procedure3_query, co_vmir_generator2_query_deps >;
+    using builtin_dtor_vm_procedure3_spec = rpnx::querygraph::query_handler_spec< builtin_dtor_vm_procedure3_query, co_vmir_generator2_query_deps >;
 
     rpnx::querygraph::coroutine< builtin_dtor_vm_procedure3_spec > builtin_dtor_vm_procedure3_impl(instanciation_reference input);
 } // namespace quxlang

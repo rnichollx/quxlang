@@ -223,7 +223,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
 
     for (auto const& probe : enumerate_source_forms(from, input.adaptations))
     {
-        if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::query_request< bindable_query >(implicitly_convertible_to_input{
+        if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                                     .from = from,
                                                                     .to = probe.type,
                                                                 }))

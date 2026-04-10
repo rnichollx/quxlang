@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using constexpr_bool_spec = rpnx::query_handler_spec< constexpr_bool_query, rpnx::typelist< constexpr_eval_query > >;
+    using constexpr_bool_spec = rpnx::querygraph::query_handler_spec< constexpr_bool_query, rpnx::typelist< constexpr_eval_query > >;
 
     rpnx::querygraph::coroutine< constexpr_bool_spec > constexpr_bool_impl(constexpr_input input);
 } // namespace quxlang

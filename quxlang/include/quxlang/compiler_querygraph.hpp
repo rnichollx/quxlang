@@ -112,6 +112,8 @@
 
 #include <rpnx/querygraph/querygraph.hpp>
 
+#include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
@@ -120,16 +122,29 @@ namespace quxlang
     class compiler_querygraph
     {
       public:
-        compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info);
+        compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info,
+                            std::optional< std::filesystem::path > dump_output_path = std::nullopt);
+        ~compiler_querygraph();
 
         template < typename Query >
         auto make_request(typename Query::input_type input) -> typename Query::output_type
         {
-            return m_graph.make_request< Query >(std::move(input));
+            auto result = m_graph.make_request< Query >(std::move(input));
+            write_dump_file();
+            return result;
+        }
+
+        auto raw_graph() -> decltype(auto)
+        {
+            return (m_graph);
         }
 
       private:
-        rpnx::querygraph m_graph;
+        void write_dump_file();
+
+        rpnx::querygraph::graph m_graph;
+        std::optional< std::filesystem::path > m_dump_output_path;
+        bool m_has_reported_dump_output_path = false;
     };
 } // namespace quxlang
 

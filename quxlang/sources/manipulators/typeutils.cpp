@@ -2,12 +2,12 @@
 
 #include "quxlang/manipulators/typeutils.hpp"
 
+#include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
-#include "rpnx/value.hpp"
-#include "quxlang/data/codegen_types.hpp"
+#include "rpnx/unimplemented.hpp"
 
 namespace quxlang
 {
@@ -121,7 +121,9 @@ namespace quxlang
             {
                 result += to_string(brkts.bracketed[i]);
                 if (i != brkts.bracketed.size() - 1)
+                {
                     result += " , ";
+                }
             }
             result += " ]";
             return result;
@@ -140,17 +142,18 @@ namespace quxlang
         std::string operator()(expression_call const& expr) const
         {
             std::string result = "(" + to_string(expr.callee) + "(";
-            for (int i = 0; i < expr.args.size(); i++)
+            for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
             {
                 auto arg = expr.args[i].value;
                 result += to_string(arg);
                 if (i != expr.args.size() - 1)
+                {
                     result += ", ";
+                }
             }
             result += "))";
             return result;
         }
-
 
         std::string operator()(expression_multiply const& expr) const
         {
@@ -187,17 +190,29 @@ namespace quxlang
             auto val = static_cast< char >(expr.value);
 
             if (val == '\n')
+            {
                 return "'\\n'";
+            }
             else if (val == '\t')
+            {
                 return "'\\t'";
+            }
             else if (val == '\r')
+            {
                 return "'\\r'";
+            }
             else if (val == '\'')
+            {
                 return "'\\''";
+            }
             else if (val == '\\')
+            {
                 return "'\\\\'";
+            }
             else if (val == '\0')
+            {
                 return "'\\0'";
+            }
             else
             {
                 return std::string("'") + val + "'";
@@ -270,17 +285,25 @@ namespace quxlang
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 result += ", ";
+            }
             result += "@" + name + " " + std::to_string(arg);
         }
         for (auto const& arg : ref.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 result += ", ";
+            }
             result += std::to_string(arg);
         }
         result += "]";
@@ -293,17 +316,25 @@ namespace quxlang
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 result += ", ";
+            }
             result += "@" + name + " " + std::to_string(arg);
         }
         for (auto const& arg : ref.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 result += ", ";
+            }
             result += std::to_string(arg);
         }
         result += "]";
@@ -369,7 +400,6 @@ namespace quxlang
             return false;
         }
 
-
         bool operator()(readonly_constant const& ref) const
         {
             return false;
@@ -415,12 +445,16 @@ namespace quxlang
             for (auto& p : type.params.positional)
             {
                 if (is_template(p))
+                {
                     return true;
+                }
             }
             for (auto& p : type.params.named)
             {
                 if (is_template(p.second))
+                {
                     return true;
+                }
             }
             return is_template(type.temploid);
         }
@@ -455,11 +489,15 @@ namespace quxlang
         bool operator()(initialization_reference const& ref) const
         {
             if (is_template(ref.initializee))
+            {
                 return true;
+            }
             for (auto& p : ref.parameters.positional)
             {
                 if (is_template(p))
+                {
                     return true;
+                }
             }
             // TODO: Support named parameters here
             return false;
@@ -468,7 +506,9 @@ namespace quxlang
         bool operator()(temploid_reference const& ref) const
         {
             if (is_template(ref.templexoid))
+            {
                 return true;
+            }
             return false;
         }
 
@@ -753,17 +793,25 @@ namespace quxlang
         for (auto const& [name, type] : ref.parameters.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + name + " " + to_string(type);
         }
         for (auto& p : ref.parameters.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += rpnx::apply_visitor< std::string >(p, *this);
         }
         output += ")";
@@ -787,9 +835,13 @@ namespace quxlang
         for (auto const& [name, param] : sel.which.interface.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + name + " " + to_string(param.type);
             if (ref.params.named.at(name) != param.type)
             {
@@ -800,9 +852,13 @@ namespace quxlang
         {
             auto const& param = sel.which.interface.positional.at(i);
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += to_string(param.type);
             if (ref.params.positional.at(i) != sel.which.interface.positional.at(i).type)
             {
@@ -965,17 +1021,25 @@ namespace quxlang
         for (auto const& arg : ref.which.interface.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + arg.first + " " + to_string(arg.second.type);
         }
         for (auto const& arg : ref.which.interface.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += to_string(arg);
         }
         output += "]";
@@ -1352,17 +1416,25 @@ namespace quxlang
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + name + " " + to_string(arg);
         }
         for (auto const& arg : ref.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += to_string(arg);
         }
         output += ")";
@@ -1377,17 +1449,25 @@ namespace quxlang
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + name + " " + to_string(arg);
         }
         for (auto const& arg : ref.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += to_string(arg);
         }
         output += ")";
@@ -1402,17 +1482,25 @@ namespace quxlang
         for (auto const& [name, arg] : ref.named)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += "@" + name + " " + to_string(arg.type);
         }
         for (auto const& arg : ref.positional)
         {
             if (first)
+            {
                 first = false;
+            }
             else
+            {
                 output += ", ";
+            }
             output += to_string(arg.type);
         }
         output += ")";
@@ -1709,7 +1797,9 @@ namespace quxlang
                 bool of_match = check(tmpl.initializee, val.initializee, conv);
 
                 if (!of_match)
+                {
                     return false;
+                }
 
                 return check(tmpl.parameters, val.parameters, false);
             }
@@ -1945,22 +2035,21 @@ namespace quxlang
                 return false;
             }
 
-            return rpnx::apply_visitor< bool >(
-                template_val,
-                [&](auto const& template_unwrapped)
-                {
-                    using val_type = std::decay_t< decltype(template_unwrapped) >;
+            return rpnx::apply_visitor< bool >(template_val,
+                                               [&](auto const& template_unwrapped)
+                                               {
+                                                   using val_type = std::decay_t< decltype(template_unwrapped) >;
 
-                    val_type const& match_val_unwrapped = as< val_type >(match_val);
+                                                   val_type const& match_val_unwrapped = as< val_type >(match_val);
 
-                    bool result = check_impl(template_unwrapped, match_val_unwrapped, conv);
-                    if (result == false)
-                    {
-                        int x = 0;
-                    }
+                                                   bool result = check_impl(template_unwrapped, match_val_unwrapped, conv);
+                                                   if (result == false)
+                                                   {
+                                                       int x = 0;
+                                                   }
 
-                    return result;
-                });
+                                                   return result;
+                                               });
         }
     } // namespace
 

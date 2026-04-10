@@ -13,7 +13,7 @@
 
 rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::builtin_vm_procedure3_impl(instanciation_reference input)
 {
-    auto const machine_info = co_await rpnx::querygraph::query_request< machine_info_query >(machine_info_query::input_type{});
+    auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
 
     auto ctor_match = quxlang::parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
 
@@ -26,48 +26,48 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
 
     if (template_match_result)
     {
-        co_return co_await rpnx::querygraph::query_request< builtin_default_ctor_vm_procedure3_query >(input);
+        co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
     }
     else if (match_template2(quxlang::parsers::parse_type_symbol("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
     {
-        auto result =  co_await rpnx::querygraph::query_request< builtin_dtor_vm_procedure3_query >(input);
+        auto result =  co_await rpnx::querygraph::request< builtin_dtor_vm_procedure3_query >(input);
         co_return result;
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
-        auto result = co_await rpnx::querygraph::query_request< builtin_copy_ctor_vm_procedure3_query >(input);
+        auto result = co_await rpnx::querygraph::request< builtin_copy_ctor_vm_procedure3_query >(input);
         co_return result;
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER TEMP& AUTO(t1)}"), input))
     {
-        auto result = co_await rpnx::querygraph::query_request< builtin_move_ctor_vm_procedure3_query >(input);
+        auto result = co_await rpnx::querygraph::request< builtin_move_ctor_vm_procedure3_query >(input);
         co_return result;
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
     {
-        auto result = co_await rpnx::querygraph::query_request< builtin_swap_vm_procedure3_query >(input);
+        auto result = co_await rpnx::querygraph::request< builtin_swap_vm_procedure3_query >(input);
         co_return result;
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR== #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
-        if (co_await rpnx::querygraph::query_request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(compared_type))
+        if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
         {
-            co_return co_await rpnx::querygraph::query_request< builtin_datatype_compare_vm_procedure3_query >(input);
+            co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
     else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR!= #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
-        if (co_await rpnx::querygraph::query_request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(compared_type))
+        if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
         {
-            co_return co_await rpnx::querygraph::query_request< builtin_datatype_compare_vm_procedure3_query >(input);
+            co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
 
     if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
     {
-        auto result = co_await rpnx::querygraph::query_request< builtin_assignment_vm_procedure3_query >(input);
+        auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
         co_return result;
     }
 
@@ -75,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     {
         co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
         auto const & sm = as< submember >(input.temploid.templexoid);
-        auto parent_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(sm.of);
+        auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(sm.of);
        
         if (parent_kind == symbol_kind::global_variable)
         {

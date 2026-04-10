@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/functum_exists_and_is_callable_with_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -17,7 +17,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::functum_exists_and_is_callable_with_spec > quxlang::functum_exists_and_is_callable_with_impl(initialization_reference input)
 {
-    auto ol = co_await rpnx::querygraph::query_request< functum_initialize_query >(input);
+    auto ol = co_await rpnx::querygraph::request< functum_initialize_query >(input);
 
     co_return ol.has_value();
 }

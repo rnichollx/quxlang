@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using functum_overloads_spec = rpnx::query_handler_spec< functum_overloads_query, rpnx::typelist< functum_builtin_overloads_query, functum_user_overloads_query > >;
+    using functum_overloads_spec = rpnx::querygraph::query_handler_spec< functum_overloads_query, rpnx::typelist< functum_builtin_overloads_query, functum_user_overloads_query > >;
 
     rpnx::querygraph::coroutine< functum_overloads_spec > functum_overloads_impl(type_symbol input);
 } // namespace quxlang

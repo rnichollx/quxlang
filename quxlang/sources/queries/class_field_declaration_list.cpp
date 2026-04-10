@@ -12,12 +12,12 @@ rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlan
         assert(false);
     }
 
-    bool is_builtin_class = co_await rpnx::querygraph::query_request< class_builtin_query >(input);
+    bool is_builtin_class = co_await rpnx::querygraph::request< class_builtin_query >(input);
     if (is_builtin_class)
     {
         co_return {};
     }
-    ast2_symboid the_class = co_await rpnx::querygraph::query_request< symboid_query >(input);
+    ast2_symboid the_class = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (!typeis< ast2_class_declaration >(the_class))
     {

@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_bool_spec > quxlang::constexpr_b
     inp.type = bool_type{}; // We want a boolean result
     inp.scoped_definitions = input.scoped_definitions;
 
-    auto eval = co_await rpnx::querygraph::query_request< constexpr_eval_query >(inp);
+    auto eval = co_await rpnx::querygraph::request< constexpr_eval_query >(inp);
 
     if (eval.value == std::vector{std::byte{0}})
     {

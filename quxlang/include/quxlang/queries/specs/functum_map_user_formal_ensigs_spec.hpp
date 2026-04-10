@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using functum_map_user_formal_ensigs_spec = rpnx::query_handler_spec< functum_map_user_formal_ensigs_query, rpnx::typelist< functum_list_user_ensig_declarations_query, lookup_query > >;
+    using functum_map_user_formal_ensigs_spec = rpnx::querygraph::query_handler_spec< functum_map_user_formal_ensigs_query, rpnx::typelist< functum_list_user_ensig_declarations_query, lookup_query > >;
 
     rpnx::querygraph::coroutine< functum_map_user_formal_ensigs_spec > functum_map_user_formal_ensigs_impl(type_symbol input);
 } // namespace quxlang

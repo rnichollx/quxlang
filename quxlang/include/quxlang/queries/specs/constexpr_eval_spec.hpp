@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using constexpr_eval_spec = rpnx::query_handler_spec< constexpr_eval_query, rpnx::typelist< constexpr_routine_query, vm_procedure3_query > >;
+    using constexpr_eval_spec = rpnx::querygraph::query_handler_spec< constexpr_eval_query, rpnx::typelist< constexpr_routine_query, vm_procedure3_query > >;
 
     rpnx::querygraph::coroutine< constexpr_eval_spec > constexpr_eval_impl(constexpr_input2 input);
 } // namespace quxlang

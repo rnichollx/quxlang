@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using ensig_tempars_spec = rpnx::query_handler_spec< ensig_tempars_query, rpnx::typelist< symbol_tempars_query > >;
+    using ensig_tempars_spec = rpnx::querygraph::query_handler_spec< ensig_tempars_query, rpnx::typelist< symbol_tempars_query > >;
 
     rpnx::querygraph::coroutine< ensig_tempars_spec > ensig_tempars_impl(temploid_ensig input);
 } // namespace quxlang

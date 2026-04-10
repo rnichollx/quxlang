@@ -12,7 +12,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_u64_spec > quxlang::constexpr_u6
     inp.expr = input.expr;
     inp.type = int_type{.bits = 64, .has_sign = false}; // We want a boolean result
 
-    auto eval = co_await rpnx::querygraph::query_request< constexpr_eval_query >(inp);
+    auto eval = co_await rpnx::querygraph::request< constexpr_eval_query >(inp);
 
     auto data = eval.value.get();
 

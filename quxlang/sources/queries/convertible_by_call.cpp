@@ -208,7 +208,7 @@ namespace
 
 rpnx::querygraph::coroutine< quxlang::convertible_by_call_spec > quxlang::convertible_by_call_impl(implicitly_convertible_to_input input)
 {
-    co_return co_await rpnx::querygraph::query_request< argument_initialize_by_class_conversion_query >(argument_init_input{
+    co_return co_await rpnx::querygraph::request< argument_initialize_by_class_conversion_query >(argument_init_input{
                                                         .from = input.from,
                                                         .to = input.to,
                                                         .adaptations = allowed_adaptations::destination_rebinding,

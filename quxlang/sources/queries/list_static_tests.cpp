@@ -6,7 +6,7 @@
 
 rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_static_tests_impl(type_symbol input)
 {
-    auto input_subdeclaroids = co_await rpnx::querygraph::query_request< symboid_subdeclaroids_query >(input);
+    auto input_subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(input);
 
     std::set< type_symbol > result;
 
@@ -26,7 +26,7 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
             constexpr_input input_constexpr;
             input_constexpr.context = input;
             input_constexpr.expr = *sdcl_2.include_if;
-            included = co_await rpnx::querygraph::query_request< constexpr_bool_query >(input_constexpr);
+            included = co_await rpnx::querygraph::request< constexpr_bool_query >(input_constexpr);
         }
         if (!included)
         {
@@ -46,7 +46,7 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
 
         if (sdcl_2.decl.type_is< ast2_namespace_declaration >() || sdcl_2.decl.type_is< ast2_class_declaration >())
         {
-            auto ns_results = co_await rpnx::querygraph::query_request< list_static_tests_query >(subsymbol{.of = input, .name = sdcl_2.name});
+            auto ns_results = co_await rpnx::querygraph::request< list_static_tests_query >(subsymbol{.of = input, .name = sdcl_2.name});
             result.insert(ns_results.begin(), ns_results.end());
             continue;
         }

@@ -15,7 +15,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_datatype_compare_vm_procedure3_spe
 {
     auto const& member = input.temploid.templexoid.get_as< submember >();
     auto const invert = (member.name == "OPERATOR!=");
-    auto const machine_info = co_await rpnx::querygraph::query_request< machine_info_query >(machine_info_query::input_type{});
+    auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_datatype_compare_vm_procedure3_spec > > gen(machine_info, input);
 
     co_return co_await gen.co_generate_builtin_datatype_compare(input, invert);

@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using argument_adaptation_is_better_fit_spec = rpnx::query_handler_spec< argument_adaptation_is_better_fit_query, rpnx::typelist< argument_adaptation_rank_query > >;
+    using argument_adaptation_is_better_fit_spec = rpnx::querygraph::query_handler_spec< argument_adaptation_is_better_fit_query, rpnx::typelist< argument_adaptation_rank_query > >;
 
     rpnx::querygraph::coroutine< argument_adaptation_is_better_fit_spec > argument_adaptation_is_better_fit_impl(argument_adaptation_better_fit_input input);
 } // namespace quxlang

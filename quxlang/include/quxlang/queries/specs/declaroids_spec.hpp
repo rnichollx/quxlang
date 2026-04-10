@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using declaroids_spec = rpnx::query_handler_spec< declaroids_query, rpnx::typelist< constexpr_bool_query, symboid_subdeclaroids_query > >;
+    using declaroids_spec = rpnx::querygraph::query_handler_spec< declaroids_query, rpnx::typelist< constexpr_bool_query, symboid_subdeclaroids_query > >;
 
     rpnx::querygraph::coroutine< declaroids_spec > declaroids_impl(type_symbol input);
 } // namespace quxlang

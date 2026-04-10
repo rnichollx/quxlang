@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using module_source_name_spec = rpnx::query_handler_spec< module_source_name_query, rpnx::typelist< module_source_name_map_query > >;
+    using module_source_name_spec = rpnx::querygraph::query_handler_spec< module_source_name_query, rpnx::typelist< module_source_name_map_query > >;
 
     rpnx::querygraph::coroutine< module_source_name_spec > module_source_name_impl(std::string input);
 } // namespace quxlang

@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using bindable_by_reference_objectization_spec = rpnx::query_handler_spec< bindable_by_reference_objectization_query, rpnx::typelist< bindable_by_reference_requalification_query, functum_initialize_query > >;
+    using bindable_by_reference_objectization_spec = rpnx::querygraph::query_handler_spec< bindable_by_reference_objectization_query, rpnx::typelist< bindable_by_reference_requalification_query, functum_initialize_query > >;
 
     rpnx::querygraph::coroutine< bindable_by_reference_objectization_spec > bindable_by_reference_objectization_impl(implicitly_convertible_to_input input);
 } // namespace quxlang

@@ -9,8 +9,8 @@
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include "quxlang/source_loader.hpp"
 #include "rpnx/serialization4.hpp"
-#include "rpnx/compat/variant_serializer.hpp"
-#include "rpnx/value.hpp"
+
+#include "rpnx/unimplemented.hpp"
 
 #include <filesystem>
 #include <fstream>

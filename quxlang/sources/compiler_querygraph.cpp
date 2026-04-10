@@ -2,11 +2,38 @@
 
 #include <quxlang/compiler_querygraph.hpp>
 
+#include <fstream>
+#include <format>
+#include <iostream>
 #include <map>
 #include <string>
 #include <utility>
 
-quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info)
+namespace
+{
+    auto write_marshaled_graph_dump(rpnx::querygraph::graph& graph, std::filesystem::path const& output_path) -> void
+    {
+        auto const marshaled_dump = graph.marshall();
+        std::ofstream out(output_path, std::ios::binary | std::ios::trunc);
+        if (!out)
+        {
+            throw std::runtime_error(std::format("Failed to open dump file for writing: {}", output_path.string()));
+        }
+
+        if (!marshaled_dump.empty())
+        {
+            out.write(reinterpret_cast< char const* >(marshaled_dump.data()), static_cast< std::streamsize >(marshaled_dump.size()));
+        }
+        if (!out)
+        {
+            throw std::runtime_error(std::format("Failed to write dump file: {}", output_path.string()));
+        }
+    }
+} // namespace
+
+quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info,
+                                                  std::optional< std::filesystem::path > dump_output_path)
+    : m_dump_output_path(std::move(dump_output_path))
 {
     std::map< std::string, std::string > module_source_name_map;
     auto const& target_config = bundle.targets.at(configured_target);
@@ -121,4 +148,21 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< vm_procedure3_spec >(vm_procedure3_impl);
 
     m_graph.bind_handlers();
+}
+
+quxlang::compiler_querygraph::~compiler_querygraph() = default;
+
+void quxlang::compiler_querygraph::write_dump_file()
+{
+    if (!m_dump_output_path.has_value())
+    {
+        return;
+    }
+
+    write_marshaled_graph_dump(m_graph, *m_dump_output_path);
+    if (!m_has_reported_dump_output_path)
+    {
+        std::cout << "Quxlang graph dump written to: " << m_dump_output_path->string() << std::endl;
+        m_has_reported_dump_output_path = true;
+    }
 }

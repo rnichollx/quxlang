@@ -9,7 +9,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
 {
     vmir2::ir2_constexpr_interpreter interp;
 
-    auto ir3 = co_await rpnx::querygraph::query_request< constexpr_routine_query >(input);
+    auto ir3 = co_await rpnx::querygraph::request< constexpr_routine_query >(input);
 
     interp.add_functanoid3(void_type{}, ir3);
 
@@ -23,7 +23,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
             {
                 throw compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
             }
-            vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::query_request< vm_procedure3_query >(funcname.template get_as< instanciation_reference >());
+            vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::request< vm_procedure3_query >(funcname.template get_as< instanciation_reference >());
 
             interp.add_functanoid3(funcname, ir2_other);
         }

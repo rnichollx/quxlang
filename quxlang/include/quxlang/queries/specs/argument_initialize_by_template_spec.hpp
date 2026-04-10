@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using argument_initialize_by_template_spec = rpnx::query_handler_spec< argument_initialize_by_template_query, rpnx::typelist< bindable_query > >;
+    using argument_initialize_by_template_spec = rpnx::querygraph::query_handler_spec< argument_initialize_by_template_query, rpnx::typelist< bindable_query > >;
 
     rpnx::querygraph::coroutine< argument_initialize_by_template_spec > argument_initialize_by_template_impl(argument_init_input input);
 } // namespace quxlang

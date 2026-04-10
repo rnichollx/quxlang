@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using functanoid_sigtype_spec = rpnx::query_handler_spec< functanoid_sigtype_query, rpnx::typelist< functanoid_return_type_query > >;
+    using functanoid_sigtype_spec = rpnx::querygraph::query_handler_spec< functanoid_sigtype_query, rpnx::typelist< functanoid_return_type_query > >;
 
     rpnx::querygraph::coroutine< functanoid_sigtype_spec > functanoid_sigtype_impl(instanciation_reference input);
 } // namespace quxlang

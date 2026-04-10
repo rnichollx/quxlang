@@ -22,17 +22,17 @@ rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang
         co_return false;
     }
 
-    auto type_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(input);
+    auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
 
     if (type_kind == symbol_kind::class_)
     {
 
 
-        auto class_fields = co_await rpnx::querygraph::query_request< class_field_list_query >(input);
+        auto class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
         for (const auto& field : class_fields)
         {
             // If any member is not a datatype, the class is not implicitly a datatype
-            if (!(co_await rpnx::querygraph::query_request< type_is_implicitly_datatype_query >(field.type)))
+            if (!(co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(field.type)))
             {
                 co_return false;
             }

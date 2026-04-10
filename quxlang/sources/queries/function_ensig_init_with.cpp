@@ -46,7 +46,7 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
         std::string arg_type_str = to_string(preargument_type);
         std::string param_type_str = to_string(param_type);
 
-        auto argument_type = co_await rpnx::querygraph::query_request< ensig_argument_initialize_query >({.from = preargument_type, .to = param_type.type, .adaptations = input.adaptations});
+        auto argument_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >({.from = preargument_type, .to = param_type.type, .adaptations = input.adaptations});
 
         if (!argument_type)
         {
@@ -59,7 +59,7 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
     {
         auto arg_type = preargs.positional.at(i);
         auto param_type = os.interface.positional.at(i);
-        auto argument_type = co_await rpnx::querygraph::query_request< ensig_argument_initialize_query >({.from = arg_type, .to = param_type.type, .adaptations = input.adaptations});
+        auto argument_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >({.from = arg_type, .to = param_type.type, .adaptations = input.adaptations});
         if (!argument_type)
         {
             co_return std::nullopt;

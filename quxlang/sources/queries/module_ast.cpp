@@ -12,7 +12,7 @@
 rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl(std::string input)
 {
 
-    auto srcs = co_await rpnx::querygraph::query_request< module_sources_query >(input);
+    auto srcs = co_await rpnx::querygraph::request< module_sources_query >(input);
 
     ast2_module_declaration result;
 

@@ -11,7 +11,7 @@ rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_b
 {
     // Get the general interpret value, check if it's a boolean, and return it.
     // if it's not a boolean, throw an error.
-    auto val = co_await rpnx::querygraph::query_request< interpret_value_query >(input);
+    auto val = co_await rpnx::querygraph::request< interpret_value_query >(input);
 
     auto booltype = parsers::parse_type_symbol("BOOL");
 

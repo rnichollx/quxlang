@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using exists_spec = rpnx::query_handler_spec< exists_query, rpnx::typelist< symbol_type_query > >;
+    using exists_spec = rpnx::querygraph::query_handler_spec< exists_query, rpnx::typelist< symbol_type_query > >;
 
     rpnx::querygraph::coroutine< exists_spec > exists_impl(type_symbol input);
 } // namespace quxlang

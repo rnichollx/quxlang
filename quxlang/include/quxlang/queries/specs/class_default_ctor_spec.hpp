@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using class_default_ctor_spec = rpnx::query_handler_spec< class_default_ctor_query, rpnx::typelist< functum_initialize_query > >;
+    using class_default_ctor_spec = rpnx::querygraph::query_handler_spec< class_default_ctor_query, rpnx::typelist< functum_initialize_query > >;
 
     rpnx::querygraph::coroutine< class_default_ctor_spec > class_default_ctor_impl(type_symbol input);
 } // namespace quxlang

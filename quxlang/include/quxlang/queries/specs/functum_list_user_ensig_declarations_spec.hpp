@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using functum_list_user_ensig_declarations_spec = rpnx::query_handler_spec< functum_list_user_ensig_declarations_query, rpnx::typelist< functum_list_user_overload_declarations_query > >;
+    using functum_list_user_ensig_declarations_spec = rpnx::querygraph::query_handler_spec< functum_list_user_ensig_declarations_query, rpnx::typelist< functum_list_user_overload_declarations_query > >;
 
     rpnx::querygraph::coroutine< functum_list_user_ensig_declarations_spec > functum_list_user_ensig_declarations_impl(type_symbol input);
 } // namespace quxlang

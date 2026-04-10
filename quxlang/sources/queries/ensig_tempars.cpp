@@ -8,14 +8,14 @@ rpnx::querygraph::coroutine< quxlang::ensig_tempars_spec > quxlang::ensig_tempar
 
     for (auto const& param : input.interface.positional)
     {
-        auto param_tempars = co_await rpnx::querygraph::query_request< symbol_tempars_query >(param.type);
+        auto param_tempars = co_await rpnx::querygraph::request< symbol_tempars_query >(param.type);
         result.insert(param_tempars.begin(), param_tempars.end());
     }
 
     for (auto const& [name, param] : input.interface.named)
     {
         (void)name;
-        auto param_tempars = co_await rpnx::querygraph::query_request< symbol_tempars_query >(param.type);
+        auto param_tempars = co_await rpnx::querygraph::request< symbol_tempars_query >(param.type);
         result.insert(param_tempars.begin(), param_tempars.end());
     }
 

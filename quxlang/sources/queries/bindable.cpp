@@ -225,17 +225,17 @@ rpnx::querygraph::coroutine< quxlang::bindable_spec > quxlang::bindable_impl(imp
 
     if (!is_ref(from) && is_ref(to))
     {
-        co_return co_await rpnx::querygraph::query_request< bindable_by_temporary_materialization_query >(input);
+        co_return co_await rpnx::querygraph::request< bindable_by_temporary_materialization_query >(input);
     }
 
     if (is_ref(from) && is_ref(to))
     {
-        co_return co_await rpnx::querygraph::query_request< bindable_by_reference_requalification_query >(input);
+        co_return co_await rpnx::querygraph::request< bindable_by_reference_requalification_query >(input);
     }
 
     if (is_ref(from) && !is_ref(to))
     {
-        co_return co_await rpnx::querygraph::query_request< bindable_by_reference_objectization_query >(input);
+        co_return co_await rpnx::querygraph::request< bindable_by_reference_objectization_query >(input);
     }
 
     co_return false;

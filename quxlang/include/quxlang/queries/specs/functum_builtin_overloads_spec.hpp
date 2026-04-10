@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using functum_builtin_overloads_spec = rpnx::query_handler_spec< functum_builtin_overloads_query, rpnx::typelist< functum_builtins_query > >;
+    using functum_builtin_overloads_spec = rpnx::querygraph::query_handler_spec< functum_builtin_overloads_query, rpnx::typelist< functum_builtins_query > >;
 
     rpnx::querygraph::coroutine< functum_builtin_overloads_spec > functum_builtin_overloads_impl(type_symbol input);
 } // namespace quxlang

@@ -13,7 +13,7 @@
 
 namespace quxlang
 {
-    using have_nontrivial_member_ctor_spec = rpnx::query_handler_spec< have_nontrivial_member_ctor_query, rpnx::typelist< class_builtin_query, class_default_ctor_query, class_field_list_query, have_nontrivial_member_ctor_query > >;
+    using have_nontrivial_member_ctor_spec = rpnx::querygraph::query_handler_spec< have_nontrivial_member_ctor_query, rpnx::typelist< class_builtin_query, class_default_ctor_query, class_field_list_query, have_nontrivial_member_ctor_query > >;
 
     rpnx::querygraph::coroutine< have_nontrivial_member_ctor_spec > have_nontrivial_member_ctor_impl(type_symbol input);
 } // namespace quxlang

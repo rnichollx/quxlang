@@ -10,7 +10,7 @@
 
 namespace quxlang
 {
-    using interpret_value_spec = rpnx::query_handler_spec< interpret_value_query, rpnx::typelist<  > >;
+    using interpret_value_spec = rpnx::querygraph::query_handler_spec< interpret_value_query, rpnx::typelist<  > >;
 
     rpnx::querygraph::coroutine< interpret_value_spec > interpret_value_impl(expr_interp_input input);
 } // namespace quxlang

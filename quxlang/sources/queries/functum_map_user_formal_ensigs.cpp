@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/functum_map_user_formal_ensigs_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -17,7 +17,7 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxlang::functum_map_user_formal_ensigs_impl(type_symbol input)
 {
-    auto const& decls = co_await rpnx::querygraph::query_request< functum_list_user_ensig_declarations_query >(input);
+    auto const& decls = co_await rpnx::querygraph::request< functum_list_user_ensig_declarations_query >(input);
 
     std::string input_name = quxlang::to_string(input);
 
@@ -55,7 +55,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             // We can't look at the typedefs of the function while we are resolving the function's formal ensig, as this would cause a circular dependency.
             declared_type_with_context.context = type_parent(input).value_or(void_type{});
 
-            auto const& formal_type_opt = co_await rpnx::querygraph::query_request< lookup_query >(declared_type_with_context);
+            auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
             {
                 throw std::logic_error("Type not found");
@@ -67,7 +67,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             contextual_type_reference declared_type_with_context;
             declared_type_with_context.type = param.type;
             declared_type_with_context.context = type_parent(input).value_or(void_type{});
-            auto const& formal_type_opt = co_await rpnx::querygraph::query_request< lookup_query >(declared_type_with_context);
+            auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
             {
                 throw std::logic_error("Type not found");

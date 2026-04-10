@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using function_ensig_init_with_spec = rpnx::query_handler_spec< function_ensig_init_with_query, rpnx::typelist< ensig_argument_initialize_query > >;
+    using function_ensig_init_with_spec = rpnx::querygraph::query_handler_spec< function_ensig_init_with_query, rpnx::typelist< ensig_argument_initialize_query > >;
 
     rpnx::querygraph::coroutine< function_ensig_init_with_spec > function_ensig_init_with_impl(ensig_initialization input);
 } // namespace quxlang

@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using module_ast_spec = rpnx::query_handler_spec< module_ast_query, rpnx::typelist< module_sources_query > >;
+    using module_ast_spec = rpnx::querygraph::query_handler_spec< module_ast_query, rpnx::typelist< module_sources_query > >;
 
     rpnx::querygraph::coroutine< module_ast_spec > module_ast_impl(std::string input);
 } // namespace quxlang

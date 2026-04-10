@@ -9,7 +9,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
     std::string input_str = quxlang::to_string(input);
     temploid_reference selected_function = input.temploid;
 
-    auto primitive = co_await rpnx::querygraph::query_request< function_primitive_query >(selected_function);
+    auto primitive = co_await rpnx::querygraph::request< function_primitive_query >(selected_function);
 
     if (primitive)
     {
@@ -18,7 +18,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
         {
             // this can happen if the return type is based on e.g. the paramters
             auto lookup_input = contextual_type_reference{.type = ret_type, .context = input};
-            auto lookup_result = co_await rpnx::querygraph::query_request< lookup_query >(lookup_input);
+            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(lookup_input);
             if (lookup_result)
             {
                 co_return lookup_result.value();
@@ -32,7 +32,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
 
     }
 
-    auto decl = co_await rpnx::querygraph::query_request< function_declaration_query >(selected_function);
+    auto decl = co_await rpnx::querygraph::request< function_declaration_query >(selected_function);
 
     if (!decl.has_value())
     {
@@ -41,7 +41,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
 
     contextual_type_reference decl_ctx = {.context = input, .type = decl.value().definition.return_type.value_or(void_type{})};
 
-    auto decl_type = co_await rpnx::querygraph::query_request< lookup_query >(decl_ctx);
+    auto decl_type = co_await rpnx::querygraph::request< lookup_query >(decl_ctx);
 
     co_return decl_type.value();
 }

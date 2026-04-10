@@ -43,7 +43,7 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
         co_return {};
     }
 
-    std::vector< subdeclaroid > subdeclaroids = co_await rpnx::querygraph::query_request< symboid_subdeclaroids_query >(parent_addr.value());
+    std::vector< subdeclaroid > subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(parent_addr.value());
 
     for (auto& subdecl : subdeclaroids)
     {
@@ -57,7 +57,7 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
                 constexpr_input cx_input;
                 cx_input.context = parent_addr.value();
                 cx_input.expr = *member.include_if;
-                included = co_await rpnx::querygraph::query_request< constexpr_bool_query >(cx_input);
+                included = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
             }
 
             if (!included)
@@ -75,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
                 constexpr_input cx_input;
                 cx_input.context = parent_addr.value();
                 cx_input.expr = *global.include_if;
-                included = co_await rpnx::querygraph::query_request< constexpr_bool_query >(cx_input);
+                included = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
             }
             if (!included)
             {

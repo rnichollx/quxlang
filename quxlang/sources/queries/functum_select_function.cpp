@@ -19,7 +19,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     if (typeis< temploid_reference >(input.initializee))
     {
         auto const& selected = as< temploid_reference >(input.initializee);
-        auto selected_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(selected);
+        auto selected_kind = co_await rpnx::querygraph::request< symbol_type_query >(selected);
 
         if (selected_kind == symbol_kind::template_)
         {
@@ -42,14 +42,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         co_return selected;
     }
 
-    auto sym_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(input.initializee);
+    auto sym_kind = co_await rpnx::querygraph::request< symbol_type_query >(input.initializee);
 
     if (sym_kind != symbol_kind::functum)
     {
         co_return std::nullopt;
     }
 
-    auto overloads = co_await rpnx::querygraph::query_request< functum_overloads_query >(input.initializee);
+    auto overloads = co_await rpnx::querygraph::request< functum_overloads_query >(input.initializee);
 
     std::vector< temploid_ensig > best_match;
     std::optional< std::int64_t > highest_priority;
@@ -90,7 +90,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
         std::cout << "  " << ss.str() << std::endl;
 
-        std::optional< invotype > candidate = co_await rpnx::querygraph::query_request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
+        std::optional< invotype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
 
         if (candidate && typeis< submember >(input.initializee))
         {
@@ -121,13 +121,13 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             {
                 temploid_reference tr{.templexoid = input.initializee, .which = o};
                 instanciation_reference inst{.temploid = tr, .params = *candidate};
-                auto tempar_map = co_await rpnx::querygraph::query_request< instanciation_tempar_map_query >(inst);
+                auto tempar_map = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(inst);
                 for (auto const& [name, t] : tempar_map.parameter_map)
                 {
                     cx_input.scoped_definitions[name] = t;
                 }
             }
-            bool include = co_await rpnx::querygraph::query_request< constexpr_bool_query >(cx_input);
+            bool include = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
             if (!include)
             {
                 candidate.reset();
@@ -180,14 +180,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                     auto const& candidate_param = candidate.interface.named.at(name).type;
                     auto const& other_param = other.interface.named.at(name).type;
 
-                    auto other_beats_candidate = co_await rpnx::querygraph::query_request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
+                    auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
                         .better_to = other_param,
                         .worse_to = candidate_param,
                         .adaptations = input.adaptations,
                     });
 
-                    auto candidate_beats_other = co_await rpnx::querygraph::query_request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
+                    auto candidate_beats_other = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
                         .better_to = candidate_param,
                         .worse_to = other_param,
@@ -204,14 +204,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                     auto const& candidate_param = candidate.interface.positional.at(i).type;
                     auto const& other_param = other.interface.positional.at(i).type;
 
-                    auto other_beats_candidate = co_await rpnx::querygraph::query_request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
+                    auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
                         .better_to = other_param,
                         .worse_to = candidate_param,
                         .adaptations = input.adaptations,
                     });
 
-                    auto candidate_beats_other = co_await rpnx::querygraph::query_request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
+                    auto candidate_beats_other = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
                         .better_to = candidate_param,
                         .worse_to = other_param,

@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using type_is_implicitly_datatype_spec = rpnx::query_handler_spec< type_is_implicitly_datatype_query, rpnx::typelist< class_field_list_query, symbol_type_query, type_is_implicitly_datatype_query > >;
+    using type_is_implicitly_datatype_spec = rpnx::querygraph::query_handler_spec< type_is_implicitly_datatype_query, rpnx::typelist< class_field_list_query, symbol_type_query, type_is_implicitly_datatype_query > >;
 
     rpnx::querygraph::coroutine< type_is_implicitly_datatype_spec > type_is_implicitly_datatype_impl(type_symbol input);
 } // namespace quxlang

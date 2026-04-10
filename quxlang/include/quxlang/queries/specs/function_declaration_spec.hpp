@@ -13,7 +13,7 @@
 
 namespace quxlang
 {
-    using function_declaration_spec = rpnx::query_handler_spec< function_declaration_query, rpnx::typelist< functum_list_user_overload_declarations_query, functum_map_user_formal_ensigs_query, symbol_type_query > >;
+    using function_declaration_spec = rpnx::querygraph::query_handler_spec< function_declaration_query, rpnx::typelist< functum_list_user_overload_declarations_query, functum_map_user_formal_ensigs_query, symbol_type_query > >;
 
     rpnx::querygraph::coroutine< function_declaration_spec > function_declaration_impl(temploid_reference input);
 } // namespace quxlang

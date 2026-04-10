@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using implicitly_convertible_to_spec = rpnx::query_handler_spec< implicitly_convertible_to_qg_query, rpnx::typelist< ensig_argument_initialize_query > >;
+    using implicitly_convertible_to_spec = rpnx::querygraph::query_handler_spec< implicitly_convertible_to_qg_query, rpnx::typelist< ensig_argument_initialize_query > >;
 
     rpnx::querygraph::coroutine< implicitly_convertible_to_spec > implicitly_convertible_to_impl(implicitly_convertible_to_input input);
 } // namespace quxlang

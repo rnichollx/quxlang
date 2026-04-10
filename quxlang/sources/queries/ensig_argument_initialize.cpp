@@ -213,7 +213,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
 
     if (typeis< attached_type_reference >(from))
     {
-        co_return co_await rpnx::querygraph::query_request< ensig_argument_initialize_query >(argument_init_input{
+        co_return co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
                                                                       .from = as< attached_type_reference >(from).carrying_type,
                                                                       .to = to,
                                                                       .adaptations = input.adaptations,
@@ -225,7 +225,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return to;
     }
 
-    if (auto intrinsic = co_await rpnx::querygraph::query_request< argument_initialize_by_intrinsic_query >(argument_init_input{
+    if (auto intrinsic = co_await rpnx::querygraph::request< argument_initialize_by_intrinsic_query >(argument_init_input{
                                                        .from = from,
                                                        .to = to,
                                                        .adaptations = input.adaptations,
@@ -234,7 +234,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return intrinsic;
     }
 
-    if (auto templated = co_await rpnx::querygraph::query_request< argument_initialize_by_template_query >(argument_init_input{
+    if (auto templated = co_await rpnx::querygraph::request< argument_initialize_by_template_query >(argument_init_input{
                                                       .from = from,
                                                       .to = to,
                                                       .adaptations = input.adaptations,
@@ -243,7 +243,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return templated;
     }
 
-    if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::query_request< bindable_query >(implicitly_convertible_to_input{
+    if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
                                                               .from = from,
                                                               .to = to,
                                                           }))
@@ -251,7 +251,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
         co_return to;
     }
 
-    co_return co_await rpnx::querygraph::query_request< argument_initialize_by_class_conversion_query >(argument_init_input{
+    co_return co_await rpnx::querygraph::request< argument_initialize_by_class_conversion_query >(argument_init_input{
                                                         .from = from,
                                                         .to = to,
                                                         .adaptations = input.adaptations,

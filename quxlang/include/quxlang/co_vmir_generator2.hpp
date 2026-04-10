@@ -298,7 +298,7 @@ namespace quxlang
             // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
             //  Get call type
 
-            auto kind = (co_await rpnx::querygraph::query_request< symbol_type_query >(func));
+            auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
             {
                 auto func_str = to_string(func);
@@ -323,9 +323,9 @@ namespace quxlang
                     throw std::logic_error("Error: symbol " + func_str + " is not a functum");
                 }
             }
-            auto instanciation = co_await rpnx::querygraph::query_request< instanciation_query >(functanoid_unnormalized);
+            auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
 
-            auto functum_overloeads = co_await rpnx::querygraph::query_request< functum_overloads_query >(func);
+            auto functum_overloeads = co_await rpnx::querygraph::request< functum_overloads_query >(func);
 
             for (auto const& overload : functum_overloeads)
             {
@@ -446,7 +446,7 @@ namespace quxlang
             {
                 auto const& functanoid = as< instanciation_reference >(routine);
                 proc_type.signature.params = functanoid.params;
-                proc_type.signature.return_type = co_await rpnx::querygraph::query_request< functanoid_return_type_query >(functanoid);
+                proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
             }
             else if (typeis< temploid_reference >(routine))
             {
@@ -460,13 +460,13 @@ namespace quxlang
                     proc_type.signature.params.named[name] = arg.type;
                 }
 
-                auto decl = co_await rpnx::querygraph::query_request< function_declaration_query >(selected_function);
+                auto decl = co_await rpnx::querygraph::request< function_declaration_query >(selected_function);
                 if (!decl.has_value())
                 {
                     throw std::logic_error("Procedure pointer target function declaration not found");
                 }
 
-                auto ret_type = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{
+                auto ret_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                     .context = selected_function,
                     .type = decl->definition.return_type.value_or(type_symbol(void_type{})),
                 });
@@ -500,13 +500,13 @@ namespace quxlang
         {
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
 
-            auto kind = (co_await rpnx::querygraph::query_request< symbol_type_query >(func));
+            auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
             {
                 throw std::logic_error("Expected functum symbol " + to_string(func));
             }
 
-            auto instanciation = co_await rpnx::querygraph::query_request< instanciation_query >(functanoid_unnormalized);
+            auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
             if (!instanciation)
             {
                 throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
@@ -597,8 +597,8 @@ namespace quxlang
             }
             else if (projected_type.has_value() && typeis< aligned_storage >(storage_type))
             {
-                auto projected_placement = co_await rpnx::querygraph::query_request< type_placement_info_query >(*projected_type);
-                auto storage_placement = co_await rpnx::querygraph::query_request< type_placement_info_query >(storage_type);
+                auto projected_placement = co_await rpnx::querygraph::request< type_placement_info_query >(*projected_type);
+                auto storage_placement = co_await rpnx::querygraph::request< type_placement_info_query >(storage_type);
                 if (projected_placement.size > storage_placement.size || projected_placement.alignment > storage_placement.alignment)
                 {
                     throw std::logic_error("Projected type does not fit in aligned storage");
@@ -725,7 +725,7 @@ namespace quxlang
                 throw std::logic_error("Type symbol bound to a value: " + to_string(vtype));
             }
 
-            auto kind = co_await rpnx::querygraph::query_request< symbol_type_query >(att.attached_symbol);
+            auto kind = co_await rpnx::querygraph::request< symbol_type_query >(att.attached_symbol);
             if (kind != symbol_kind::class_)
             {
                 throw std::logic_error("Symbol is not a class: " + to_string(att.attached_symbol));
@@ -801,7 +801,7 @@ namespace quxlang
                     }
                 }
             }
-            auto canonical_symbol_opt = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{.context = ctx, .type = sym});
+            auto canonical_symbol_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = sym});
 
             if (!canonical_symbol_opt)
             {
@@ -813,7 +813,7 @@ namespace quxlang
             auto canonical_symbol = canonical_symbol_opt.value();
             std::cout << "co_lookup_symbol(" << symbol_str << ") -> " << quxlang::to_string(canonical_symbol) << std::endl;
 
-            auto kind = co_await rpnx::querygraph::query_request< symbol_type_query >(canonical_symbol);
+            auto kind = co_await rpnx::querygraph::request< symbol_type_query >(canonical_symbol);
 
             value_index index(0);
 
@@ -841,7 +841,7 @@ namespace quxlang
 
             assert(retval == 0);
 
-            auto dtor = co_await rpnx::querygraph::query_request< class_default_dtor_query >(new_type);
+            auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(new_type);
             if (dtor)
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
@@ -877,7 +877,7 @@ namespace quxlang
             calltype.named[arg_name] = this->current_type(bidx, arg_val);
             calltype.named["THIS"] = create_nslot(new_type);
 
-            auto instanciation = co_await rpnx::querygraph::query_request< instanciation_query >(initialization_reference{
+            auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
                 .initializee = ctor,
                 .parameters = calltype,
                 .adaptations = allowed_adaptations::destination_rebinding,
@@ -894,7 +894,7 @@ namespace quxlang
 
             assert(retval == 0);
 
-            auto dtor = co_await rpnx::querygraph::query_request< class_default_dtor_query >(new_type);
+            auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(new_type);
             if (dtor)
             {
                 this->add_nontrivial_default_dtor(new_type, *dtor);
@@ -934,7 +934,7 @@ namespace quxlang
             type_symbol attached_symbol = as< attached_type_reference >(callee_type).attached_symbol;
 
             type_symbol carrying_type = as< attached_type_reference >(callee_type).carrying_type;
-            symbol_kind attached_symbol_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached_symbol);
+            symbol_kind attached_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_symbol);
 
             codegen_invocation_args args;
             std::string callee_type_string2 = to_string(as< attached_type_reference >(callee_type));
@@ -1091,7 +1091,7 @@ namespace quxlang
             }
 
             assert(!type_is_contextual(what));
-            auto return_type = co_await rpnx::querygraph::query_request< functanoid_return_type_query >(what);
+            auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(what);
 
             // Index 0 is defined to be the special "void" value.
             value_index retval(0);
@@ -1952,7 +1952,7 @@ namespace quxlang
 
         auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args) -> co_type< void >
         {
-            auto is_builtin = co_await rpnx::querygraph::query_request< function_builtin_query >(what.temploid);
+            auto is_builtin = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
             if (is_builtin)
             {
                 co_return co_await co_gen_invoke_builtin(bidx, what, args);
@@ -2024,13 +2024,13 @@ namespace quxlang
             auto const& attached_type = binding.attached_symbol;
             assert(!type_is_contextual(attached_type));
 
-            symbol_kind kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached_type);
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
                 throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
             }
 
-            type_placement_info placement_info = co_await rpnx::querygraph::query_request< type_placement_info_query >(attached_type);
+            type_placement_info placement_info = co_await rpnx::querygraph::request< type_placement_info_query >(attached_type);
 
             auto lit = this->create_numeric_literal(std::to_string(placement_info.size));
 
@@ -2072,7 +2072,7 @@ namespace quxlang
             type_symbol const& attached_type = binding.attached_symbol;
             assert(!type_is_contextual(attached_type));
 
-            symbol_kind kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached_type);
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
@@ -2129,7 +2129,7 @@ namespace quxlang
             type_symbol const& attached_type = binding.attached_symbol;
             assert(!type_is_contextual(attached_type));
 
-            symbol_kind kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached_type);
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
                 throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
@@ -2184,7 +2184,7 @@ namespace quxlang
             type_symbol const& attached_type = binding.attached_symbol;
             assert(!type_is_contextual(attached_type));
 
-            symbol_kind kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached_type);
+            symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
                 co_return this->create_bool_value(bidx, false);
@@ -2259,7 +2259,7 @@ namespace quxlang
             if (typeis< attached_type_reference >(type))
             {
                 auto const& attached = as< attached_type_reference >(type);
-                auto kind = co_await rpnx::querygraph::query_request< symbol_type_query >(attached.attached_symbol);
+                auto kind = co_await rpnx::querygraph::request< symbol_type_query >(attached.attached_symbol);
                 if (kind == symbol_kind::funtanoid)
                 {
                     if (!typeis< void_type >(attached.carrying_type))
@@ -2275,7 +2275,7 @@ namespace quxlang
                         throw std::logic_error("Bound method procedure pointers are not yet supported");
                     }
 
-                    auto overloads = co_await rpnx::querygraph::query_request< functum_overloads_query >(attached.attached_symbol);
+                    auto overloads = co_await rpnx::querygraph::request< functum_overloads_query >(attached.attached_symbol);
                     if (overloads.size() != 1)
                     {
                         throw std::logic_error("Cannot take address of overloaded functum " + to_string(attached.attached_symbol));
@@ -2459,7 +2459,7 @@ namespace quxlang
             // TODO: Add carried context support
             auto ce_input = constexpr_input{.context = ctx, .expr = expr};
             ce_input.scoped_definitions = this->state.scoped_definitions;
-            auto ce_result = co_await rpnx::querygraph::query_request< constexpr_bool_query >(ce_input);
+            auto ce_result = co_await rpnx::querygraph::request< constexpr_bool_query >(ce_input);
             co_return ce_result;
         }
 
@@ -2737,7 +2737,7 @@ namespace quxlang
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await rpnx::querygraph::query_request< instanciation_query >(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
+            auto lhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
 
             if (lhs_exists_and_callable_with)
             {
@@ -2745,7 +2745,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await rpnx::querygraph::query_request< instanciation_query >(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
+            auto rhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
 
             if (rhs_exists_and_callable_with)
             {
@@ -3007,7 +3007,7 @@ namespace quxlang
             query.from = type_of_expr;
             query.to = target_type;
 
-            bool convertible = co_await rpnx::querygraph::query_request< implicitly_convertible_to_qg_query >(query);
+            bool convertible = co_await rpnx::querygraph::request< implicitly_convertible_to_qg_query >(query);
 
             if (!convertible)
             {
@@ -3181,7 +3181,7 @@ namespace quxlang
         {
             std::string type_str = quxlang::to_string(st.type);
             std::string context_str = quxlang::to_string(ctx);
-            type_symbol var_type = (co_await rpnx::querygraph::query_request< lookup_query >({.context = ctx, .type = st.type})).value();
+            type_symbol var_type = (co_await rpnx::querygraph::request< lookup_query >({.context = ctx, .type = st.type})).value();
 
             block_index new_expr_block = this->generate_subblock(current_block, "var_new");
             block_index after_block = this->generate_subblock(current_block, "var_after");
@@ -3225,7 +3225,7 @@ namespace quxlang
             {
                 auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
                 co_await this->co_gen_call_functum(new_expr_block, ctor, args);
-                auto class_default_dtor = co_await rpnx::querygraph::query_request< class_default_dtor_query >(var_type);
+                auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
                 if (class_default_dtor)
                 {
                     if (!state.non_trivial_dtors.contains(var_type))
@@ -3280,7 +3280,7 @@ namespace quxlang
             std::string base_type_noref_string = quxlang::to_string(base_type_noref);
 
             // First try to find a field with this name
-            class_layout layout = co_await rpnx::querygraph::query_request< class_layout_query >(base_type_noref);
+            class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(base_type_noref);
 
             // std::string base_type_str = to_string(base_type);
 
@@ -3303,7 +3303,7 @@ namespace quxlang
 
             // If no field is found, look for a member function
             auto member_func = submember{.of = base_type_noref, .name = field_name};
-            auto lookup_result = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{.context = ctx, .type = member_func});
+            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = member_func});
 
             if (lookup_result)
             {
@@ -3357,8 +3357,8 @@ namespace quxlang
             block_index current_block = block_index(0);
 
             auto global_symbol = func.temploid.templexoid.get_as< submember >().of;
-            auto global_type = co_await rpnx::querygraph::query_request< variable_type_query >(global_symbol);
-            auto decl = co_await rpnx::querygraph::query_request< symboid_query >(global_symbol);
+            auto global_type = co_await rpnx::querygraph::request< variable_type_query >(global_symbol);
+            auto decl = co_await rpnx::querygraph::request< symboid_query >(global_symbol);
             if (!typeis< ast2_variable_declaration >(decl))
             {
                 throw compiler_bug("Global variable declaration not found");
@@ -3382,7 +3382,7 @@ namespace quxlang
 
             auto entry_block = block_index(0);
             auto global_symbol = func.temploid.templexoid.get_as< submember >().of;
-            auto global_type = co_await rpnx::querygraph::query_request< variable_type_query >(global_symbol);
+            auto global_type = co_await rpnx::querygraph::request< variable_type_query >(global_symbol);
 
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
@@ -3646,7 +3646,7 @@ namespace quxlang
                 throw compiler_bug("Missing builtin SERIALIZE arguments");
             }
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(class_type);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
             for (class_field const& fld : fields)
             {
                 auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
@@ -3839,7 +3839,7 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE arguments");
             }
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(class_type);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
             for (class_field const& fld : fields)
             {
                 auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
@@ -3868,7 +3868,7 @@ namespace quxlang
             this->generate_entry_block();
 
             auto current_block = block_index(0);
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(class_type);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
 
             for (class_field const& fld : fields)
             {
@@ -4027,7 +4027,7 @@ namespace quxlang
 
             auto& function_ref = inst.temploid;
 
-            auto function_decl_opt = co_await rpnx::querygraph::query_request< function_declaration_query >(function_ref);
+            auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(function_ref);
             assert(function_decl_opt.has_value());
             ast2_function_declaration& function_decl = function_decl_opt.value();
 
@@ -4062,7 +4062,7 @@ namespace quxlang
                 {
                     continue;
                 }
-                auto dtor = co_await rpnx::querygraph::query_request< class_default_dtor_query >(slot.type);
+                auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(slot.type);
                 if (dtor)
                 {
                     assert(!this->state.non_trivial_dtors.contains(slot.type) || this->state.non_trivial_dtors[slot.type] == *dtor);
@@ -4129,7 +4129,7 @@ namespace quxlang
                     co_return;
                 }
 
-                auto return_type = co_await rpnx::querygraph::query_request< functanoid_return_type_query >(ctx.get_as< instanciation_reference >());
+                auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(ctx.get_as< instanciation_reference >());
                 assert(typeis< void_type >(return_type));
                 this->generate_return(current_block);
             }
@@ -4252,9 +4252,9 @@ namespace quxlang
             assert(this->state.blocks.empty());
 
             // TODO: Support AUTO return types
-            auto sig = co_await rpnx::querygraph::query_request< functanoid_sigtype_query >(inst);
+            auto sig = co_await rpnx::querygraph::request< functanoid_sigtype_query >(inst);
 
-            type_symbol return_type = sig.return_type.value_or(void_type()); // co_await rpnx::querygraph::query_request< functanoid_return_type_query >(inst);
+            type_symbol return_type = sig.return_type.value_or(void_type()); // co_await rpnx::querygraph::request< functanoid_return_type_query >(inst);
 
             if (!typeis< void_type >(return_type))
             {
@@ -4266,7 +4266,7 @@ namespace quxlang
                 this->state.top_level_lookups["RETURN"] = return_valueidx;
             }
 
-            auto arg_names = co_await rpnx::querygraph::query_request< function_param_names_query >(inst.temploid);
+            auto arg_names = co_await rpnx::querygraph::request< function_param_names_query >(inst.temploid);
 
             std::size_t positional_index = 0;
             for (auto const& param_name : arg_names.positional)
@@ -4340,7 +4340,7 @@ namespace quxlang
             co_await this->co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block(0);
-            if (!co_await rpnx::querygraph::query_request< function_builtin_query >(func.temploid))
+            if (!co_await rpnx::querygraph::request< function_builtin_query >(func.temploid))
             {
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
@@ -4377,7 +4377,7 @@ namespace quxlang
                 {
                     continue;
                 }
-                auto dtor = co_await rpnx::querygraph::query_request< class_default_dtor_query >(slot.type);
+                auto dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(slot.type);
                 if (dtor.has_value())
                 {
                     assert(!this->state.non_trivial_dtors.contains(slot.type) || this->state.non_trivial_dtors[slot.type] == *dtor);
@@ -4392,7 +4392,7 @@ namespace quxlang
         {
             temploid_reference const& function = func.temploid;
 
-            std::optional< ast2_function_declaration > const& function_ast = co_await rpnx::querygraph::query_request< function_declaration_query >(function);
+            std::optional< ast2_function_declaration > const& function_ast = co_await rpnx::querygraph::request< function_declaration_query >(function);
 
             QUXLANG_COMPILER_BUG_IF(!function_ast.has_value(), "Expected function declaration to be defined");
 
@@ -4475,7 +4475,7 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
 
             // Implicit copy ctor delegates just calls copy constructor on all fields.
 
@@ -4586,7 +4586,7 @@ namespace quxlang
             auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
             auto init_loop_done = this->generate_subblock(current_block, "array_copy_ctor_loop_done");
 
-            type_symbol uintptr_type = co_await rpnx::querygraph::query_request< uintpointer_type_query >({});
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
             auto remaining_result_bool = this->create_local_value(bool_type{});
             auto element_index = this->create_local_value(uintptr_type);
@@ -4629,7 +4629,7 @@ namespace quxlang
 
             cls = as< submember >(functum).of;
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
 
             for (class_field const& fld : fields)
             {
@@ -4702,7 +4702,7 @@ namespace quxlang
 
             // This function is for default ctors, it should just default construct all member variables.
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
 
             codegen_invocation_args fields_args;
 
@@ -4759,7 +4759,7 @@ namespace quxlang
 
             // This function is for default ctors, it should just default construct all member variables.
 
-            auto const& fields = co_await rpnx::querygraph::query_request< class_field_list_query >(cls);
+            auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(cls);
 
             codegen_invocation_args fields_args;
 
@@ -4862,7 +4862,7 @@ namespace quxlang
 
             this->generate_jump(current_block, init_loop_condition_block);
 
-            type_symbol uintptr_type = co_await rpnx::querygraph::query_request< uintpointer_type_query >({});
+            type_symbol uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
             auto remaining_result_bool = this->create_local_value(bool_type{});
             auto element_index = this->create_local_value(uintptr_type);

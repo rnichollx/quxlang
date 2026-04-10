@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using convertible_by_call_spec = rpnx::query_handler_spec< convertible_by_call_query, rpnx::typelist< argument_initialize_by_class_conversion_query > >;
+    using convertible_by_call_spec = rpnx::querygraph::query_handler_spec< convertible_by_call_query, rpnx::typelist< argument_initialize_by_class_conversion_query > >;
 
     rpnx::querygraph::coroutine< convertible_by_call_spec > convertible_by_call_impl(implicitly_convertible_to_input input);
 } // namespace quxlang

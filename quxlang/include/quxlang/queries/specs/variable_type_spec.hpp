@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using variable_type_spec = rpnx::query_handler_spec< variable_type_query, rpnx::typelist< lookup_query, symboid_query > >;
+    using variable_type_spec = rpnx::querygraph::query_handler_spec< variable_type_query, rpnx::typelist< lookup_query, symboid_query > >;
 
     rpnx::querygraph::coroutine< variable_type_spec > variable_type_impl(type_symbol input);
 } // namespace quxlang

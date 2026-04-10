@@ -86,22 +86,22 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
     if (typeis< initialization_reference >(input))
     {
         auto const& init = as< initialization_reference >(input);
-        auto inst = co_await rpnx::querygraph::query_request< instanciation_query >(init);
+        auto inst = co_await rpnx::querygraph::request< instanciation_query >(init);
         if (!inst.has_value())
         {
             throw std::logic_error("symboid resolver received a non-canonical initialization_reference that could not be canonicalized");
         }
-        co_return co_await rpnx::querygraph::query_request< symboid_query >(*inst);
+        co_return co_await rpnx::querygraph::request< symboid_query >(*inst);
     }
 
     if (typeis< instanciation_reference >(input))
     {
         auto const& inst = as< instanciation_reference >(input);
-        auto temploid_kind = co_await rpnx::querygraph::query_request< symbol_type_query >(inst.temploid);
+        auto temploid_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
 
         if (temploid_kind == symbol_kind::template_)
         {
-            auto const& sym = co_await rpnx::querygraph::query_request< symboid_query >(inst.temploid.templexoid);
+            auto const& sym = co_await rpnx::querygraph::request< symboid_query >(inst.temploid.templexoid);
             if (!typeis< ast2_templex >(sym))
             {
                 throw compiler_bug("template instanciation parent did not resolve to ast2_templex");
@@ -118,7 +118,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                 bool valid = true;
                 for (auto const& arg : tmpl.m_template_args.positional)
                 {
-                    auto canonical_arg = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{
+                    auto canonical_arg = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                         .context = template_context,
                         .type = arg.type,
                     });
@@ -134,7 +134,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
 
                 for (auto const& [name, arg] : tmpl.m_template_args.named)
                 {
-                    auto canonical_arg = co_await rpnx::querygraph::query_request< lookup_query >(contextual_type_reference{
+                    auto canonical_arg = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
                         .context = template_context,
                         .type = arg.type,
                     });
@@ -163,10 +163,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
     if (typeis< absolute_module_reference >(input))
     {
         auto const & module_ref = as< absolute_module_reference >(input);
-        co_return co_await rpnx::querygraph::query_request< module_ast_query >(as< absolute_module_reference >(input).module_name);
+        co_return co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(input).module_name);
     }
 
-    auto declaroids = co_await rpnx::querygraph::query_request< declaroids_query >(input);
+    auto declaroids = co_await rpnx::querygraph::request< declaroids_query >(input);
 
     ast2_symboid output;
 

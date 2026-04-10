@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using user_move_ctor_exists_spec = rpnx::query_handler_spec< user_move_ctor_exists_query, rpnx::typelist< function_ensig_init_with_query, functum_user_overloads_query > >;
+    using user_move_ctor_exists_spec = rpnx::querygraph::query_handler_spec< user_move_ctor_exists_query, rpnx::typelist< function_ensig_init_with_query, functum_user_overloads_query > >;
 
     rpnx::querygraph::coroutine< user_move_ctor_exists_spec > user_move_ctor_exists_impl(type_symbol input);
 } // namespace quxlang

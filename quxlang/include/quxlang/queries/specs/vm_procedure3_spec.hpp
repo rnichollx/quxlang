@@ -13,7 +13,7 @@
 
 namespace quxlang
 {
-    using vm_procedure3_spec = rpnx::query_handler_spec< vm_procedure3_query, rpnx::typelist< builtin_vm_procedure3_query, function_builtin_query, user_vm_procedure3_query > >;
+    using vm_procedure3_spec = rpnx::querygraph::query_handler_spec< vm_procedure3_query, rpnx::typelist< builtin_vm_procedure3_query, function_builtin_query, user_vm_procedure3_query > >;
 
     rpnx::querygraph::coroutine< vm_procedure3_spec > vm_procedure3_impl(instanciation_reference input);
 } // namespace quxlang

@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using class_requires_gen_swap_spec = rpnx::query_handler_spec< class_requires_gen_swap_query, rpnx::typelist< class_tags_query, user_swap_exists_query > >;
+    using class_requires_gen_swap_spec = rpnx::querygraph::query_handler_spec< class_requires_gen_swap_query, rpnx::typelist< class_tags_query, user_swap_exists_query > >;
 
     rpnx::querygraph::coroutine< class_requires_gen_swap_spec > class_requires_gen_swap_impl(type_symbol input);
 } // namespace quxlang

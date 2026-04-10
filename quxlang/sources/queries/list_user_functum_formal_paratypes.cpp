@@ -9,7 +9,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
 {
     std::string name = to_string(input);
 
-    auto decls = co_await rpnx::querygraph::query_request< functum_list_user_overload_declarations_query >(input);
+    auto decls = co_await rpnx::querygraph::request< functum_list_user_overload_declarations_query >(input);
 
     std::vector< paratype > result;
 
@@ -27,7 +27,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
         {
             contextual_type_reference ctx_type{.context = input, .type = param.type};
 
-            auto type = co_await rpnx::querygraph::query_request< lookup_query >(ctx_type);
+            auto type = co_await rpnx::querygraph::request< lookup_query >(ctx_type);
             if (!type)
             {
                 throw std::logic_error("Type not found");

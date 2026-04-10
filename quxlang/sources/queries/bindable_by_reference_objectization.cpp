@@ -228,7 +228,7 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_objectization_spec >
             continue;
         }
 
-        if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::query_request< bindable_by_reference_requalification_query >(implicitly_convertible_to_input{
+        if (probe.kind != source_form_kind::exact && !co_await rpnx::querygraph::request< bindable_by_reference_requalification_query >(implicitly_convertible_to_input{
                                                                .from = from,
                                                                .to = probe.type,
                                                            }))
@@ -242,7 +242,7 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_objectization_spec >
             .adaptations = allowed_adaptations::none,
         };
 
-        if ((co_await rpnx::querygraph::query_request< functum_initialize_query >(init)).has_value())
+        if ((co_await rpnx::querygraph::request< functum_initialize_query >(init)).has_value())
         {
             co_return true;
         }

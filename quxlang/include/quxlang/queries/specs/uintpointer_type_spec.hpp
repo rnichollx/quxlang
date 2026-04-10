@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using uintpointer_type_spec = rpnx::query_handler_spec< uintpointer_type_query, rpnx::typelist< machine_info_query > >;
+    using uintpointer_type_spec = rpnx::querygraph::query_handler_spec< uintpointer_type_query, rpnx::typelist< machine_info_query > >;
 
     rpnx::querygraph::coroutine< uintpointer_type_spec > uintpointer_type_impl(std::monostate input);
 } // namespace quxlang

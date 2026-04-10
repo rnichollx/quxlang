@@ -8,11 +8,12 @@ DerivePointerAlignment: false
 PointerAlignment: Left
 SpacesInAngles: true
 AllowShortIfStatementsOnASingleLine: false
+InsertBraces: true
 AlwaysBreakTemplateDeclarations: true
 UseTab: Never
 ColumnLimit: 99999
 NamespaceIndentation: All
-AllowShortBlocksOnASingleLine: Always
+AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: None
 AllowShortLambdasOnASingleLine: None
 BreakConstructorInitializers: AfterColon

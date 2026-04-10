@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using templex_initialize_spec = rpnx::query_handler_spec< templex_initialize_query, rpnx::typelist< symbol_type_query, template_instanciation_query > >;
+    using templex_initialize_spec = rpnx::querygraph::query_handler_spec< templex_initialize_query, rpnx::typelist< symbol_type_query, template_instanciation_query > >;
 
     rpnx::querygraph::coroutine< templex_initialize_spec > templex_initialize_impl(initialization_reference input);
 } // namespace quxlang

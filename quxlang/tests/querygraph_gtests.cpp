@@ -8,6 +8,7 @@
 #include <quxlang/queries/module_source_name_map.hpp>
 #include <quxlang/queries/module_sources.hpp>
 #include <quxlang/queries/source_bundle.hpp>
+#include "graph_dump_test_utils.hpp"
 
 #include <variant>
 
@@ -45,7 +46,8 @@ namespace
 TEST(querygraph_queries, source_bundle_returns_injected_bundle)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config);
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::source_bundle_query >(std::monostate{});
 
@@ -58,7 +60,8 @@ TEST(querygraph_queries, source_bundle_returns_injected_bundle)
 TEST(querygraph_queries, machine_info_returns_injected_output_info)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config);
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::machine_info_query >(std::monostate{});
 
@@ -70,9 +73,11 @@ TEST(querygraph_queries, machine_info_returns_injected_output_info)
 TEST(querygraph_queries, module_source_name_uses_configured_target)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph x64_graph(bundle, "x64", bundle.targets.at("x64").target_output_config);
+    quxlang::compiler_querygraph x64_graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
 
-    quxlang::compiler_querygraph arm64_graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config);
+    quxlang::compiler_querygraph arm64_graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config,
+                                             quxlang::tests::current_test_graph_dump_path());
 
     ASSERT_EQ(x64_graph.make_request< quxlang::module_source_name_query >("main"), "main_x64");
     ASSERT_EQ(arm64_graph.make_request< quxlang::module_source_name_query >("main"), "main_arm64");
@@ -81,7 +86,8 @@ TEST(querygraph_queries, module_source_name_uses_configured_target)
 TEST(querygraph_queries, module_source_name_map_uses_configured_target)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config);
+    quxlang::compiler_querygraph graph(bundle, "arm64", bundle.targets.at("arm64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::module_source_name_map_query >(std::monostate{});
 
@@ -92,7 +98,8 @@ TEST(querygraph_queries, module_source_name_map_uses_configured_target)
 TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
-    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config);
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
 
     auto resolved = graph.make_request< quxlang::module_sources_query >("util");
 

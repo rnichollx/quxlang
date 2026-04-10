@@ -11,7 +11,7 @@
 
 namespace quxlang
 {
-    using symboid_subdeclaroids_spec = rpnx::query_handler_spec< symboid_subdeclaroids_query, rpnx::typelist< symboid_query > >;
+    using symboid_subdeclaroids_spec = rpnx::querygraph::query_handler_spec< symboid_subdeclaroids_query, rpnx::typelist< symboid_query > >;
 
     rpnx::querygraph::coroutine< symboid_subdeclaroids_spec > symboid_subdeclaroids_impl(type_symbol input);
 } // namespace quxlang

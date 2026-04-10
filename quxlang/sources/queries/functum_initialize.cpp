@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/functum_initialize_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -19,7 +19,7 @@ rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum
 {
     auto input_functum_str = quxlang::to_string(input.initializee);
 
-    auto selection = co_await rpnx::querygraph::query_request< functum_select_function_query >(input);
+    auto selection = co_await rpnx::querygraph::request< functum_select_function_query >(input);
 
     if (!selection)
     {
@@ -29,7 +29,7 @@ rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum
         // throw std::logic_error("No function found that matches the given parameters.");
     }
 
-    co_return co_await rpnx::querygraph::query_request< function_instanciation_query >(initialization_reference{
+    co_return co_await rpnx::querygraph::request< function_instanciation_query >(initialization_reference{
                                                                .initializee = selection.value(),
                                                                .parameters = input.parameters,
                                                                .adaptations = input.adaptations,

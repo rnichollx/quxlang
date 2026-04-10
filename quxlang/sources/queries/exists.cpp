@@ -9,6 +9,6 @@
 
 rpnx::querygraph::coroutine< quxlang::exists_spec > quxlang::exists_impl(type_symbol input)
 {
-    auto typ = co_await rpnx::querygraph::query_request< symbol_type_query >(input);
+    auto typ = co_await rpnx::querygraph::request< symbol_type_query >(input);
     co_return typ != symbol_kind::noexist;
 }

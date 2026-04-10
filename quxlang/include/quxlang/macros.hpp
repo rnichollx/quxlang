@@ -12,7 +12,7 @@
 
 #include "quxlang/exception.hpp"
 
-#include "rpnx/value.hpp"
+#include "rpnx/unimplemented.hpp"
 // clang-format off
 
 // MOVEREL is Move In Release Configuration
@@ -70,9 +70,21 @@
 
 #ifndef NDEBUG
 #define QUXLANG_DEBUG(x) x
+#define QUXLANG_IN_DEBUG true
 #else
 #define QUXLANG_DEBUG(x)
+#define QUXLANG_IN_DEBUG false
 #endif
+
+
+#ifndef QUXLANG_DEBUG_MESSAGES_ENABLED
+#ifdef NDEBUG
+#define QUXLANG_DEBUG_MESSAGES_ENABLED false
+#else
+#define QUXLANG_DEBUG_MESSAGES_ENABLED true
+#endif
+#endif
+
 
 
 

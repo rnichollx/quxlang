@@ -8,8 +8,8 @@
 rpnx::querygraph::coroutine< quxlang::functum_overloads_spec > quxlang::functum_overloads_impl(type_symbol input)
 {
 
-    auto const & builtins = co_await rpnx::querygraph::query_request< functum_builtin_overloads_query >(input);
-    auto const & user = co_await rpnx::querygraph::query_request< functum_user_overloads_query >(input);
+    auto const & builtins = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(input);
+    auto const & user = co_await rpnx::querygraph::request< functum_user_overloads_query >(input);
 
     std::set<temploid_ensig> results;
 

@@ -3,7 +3,7 @@
 #include <quxlang/queries/specs/list_builtin_constructors_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
-#include "rpnx/debug.hpp"
+
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -290,11 +290,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    bool should_autogen_constructor = co_await rpnx::querygraph::query_request< class_requires_gen_default_ctor_query >(input);
-    bool should_autogen_copy_constructor = co_await rpnx::querygraph::query_request< class_requires_gen_copy_ctor_query >(input);
-    bool should_autogen_move_constructor = co_await rpnx::querygraph::query_request< class_requires_gen_move_ctor_query >(input);
+    bool should_autogen_constructor = co_await rpnx::querygraph::request< class_requires_gen_default_ctor_query >(input);
+    bool should_autogen_copy_constructor = co_await rpnx::querygraph::request< class_requires_gen_copy_ctor_query >(input);
+    bool should_autogen_move_constructor = co_await rpnx::querygraph::request< class_requires_gen_move_ctor_query >(input);
 
-    // co_await rpnx::querygraph::query_request< class_should_autogen_default_constructor_query >(input);
+    // co_await rpnx::querygraph::request< class_should_autogen_default_constructor_query >(input);
 
     if (should_autogen_constructor)
     {

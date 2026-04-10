@@ -12,7 +12,7 @@
 
 namespace quxlang
 {
-    using list_user_functum_formal_paratypes_spec = rpnx::query_handler_spec< list_user_functum_formal_paratypes_query, rpnx::typelist< functum_list_user_overload_declarations_query, lookup_query > >;
+    using list_user_functum_formal_paratypes_spec = rpnx::querygraph::query_handler_spec< list_user_functum_formal_paratypes_query, rpnx::typelist< functum_list_user_overload_declarations_query, lookup_query > >;
 
     rpnx::querygraph::coroutine< list_user_functum_formal_paratypes_spec > list_user_functum_formal_paratypes_impl(type_symbol input);
 } // namespace quxlang
