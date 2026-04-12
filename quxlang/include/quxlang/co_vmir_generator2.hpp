@@ -3126,6 +3126,15 @@ namespace quxlang
             this->state.blocks.at(from).terminator = vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)};
         }
 
+        auto generate_runtime_constexpr(block_index from, block_index constexpr_branch, block_index native_branch) -> void
+        {
+            if (this->state.blocks.at(from).terminator.has_value())
+            {
+                throw std::logic_error("Cannot branch from a block that already has a terminator");
+            }
+            this->state.blocks.at(from).terminator = vmir2::runtime_constexpr{.target_constexpr = block_index(constexpr_branch), .target_native = block_index(native_branch)};
+        }
+
         auto block(block_index blk) -> codegen_block&
         {
             return this->state.blocks.at(blk);
@@ -3185,6 +3194,11 @@ namespace quxlang
                                             {
                                                 generate_survivor_local_chain(it, term.target_true, end, survivor);
                                                 generate_survivor_local_chain(it, term.target_false, end, survivor);
+                                            }
+                                            else if constexpr (std::is_same_v< T, vmir2::runtime_constexpr >)
+                                            {
+                                                generate_survivor_local_chain(it, term.target_constexpr, end, survivor);
+                                                generate_survivor_local_chain(it, term.target_native, end, survivor);
                                             }
                                             else if constexpr (std::is_same_v< T, vmir2::jump >)
                                             {
@@ -5026,31 +5040,22 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_runtime_statement const& st) -> co_type< void >
         {
-            // Generate blocks similar to an if-statement, but condition is based on RT_CE
             block_index after_block = this->generate_subblock(current_block, "runtime_statement_after");
             block_index condition_block = this->generate_subblock(current_block, "runtime_statement_condition");
             block_index then_block = this->generate_subblock(current_block, "runtime_then");
 
             this->generate_jump(current_block, condition_block);
 
-            // Emit RT_CE into a temporary bool
-            auto rt_flag = this->create_local_value(bool_type{});
-            this->emit(condition_block, vmir2::runtime_ce{.target = get_local_index(rt_flag)});
-
-            value_index branch_cond = rt_flag;
-
-            if (st.condition == runtime_condition::NATIVE)
-            {
-                // For NATIVE, we want true when not constexpr -> negate the RT_CE flag
-                auto native_flag = this->create_local_value(bool_type{});
-                this->emit(condition_block, vmir2::to_bool_not{.from = get_local_index(rt_flag), .to = get_local_index(native_flag)});
-                branch_cond = native_flag;
-            }
-            // For CONSTEXPR, branch_cond is the RT_CE flag as-is
-
             if (!st.else_block.has_value())
             {
-                this->generate_branch(branch_cond, condition_block, then_block, after_block);
+                if (st.condition == runtime_condition::CONSTEXPR)
+                {
+                    this->generate_runtime_constexpr(condition_block, then_block, after_block);
+                }
+                else
+                {
+                    this->generate_runtime_constexpr(condition_block, after_block, then_block);
+                }
 
                 // Then
                 co_await co_generate_function_block(then_block, st.then_block, "runtime_then");
@@ -5059,7 +5064,14 @@ namespace quxlang
             else
             {
                 block_index else_block = this->generate_subblock(current_block, "runtime_else");
-                this->generate_branch(branch_cond, condition_block, then_block, else_block);
+                if (st.condition == runtime_condition::CONSTEXPR)
+                {
+                    this->generate_runtime_constexpr(condition_block, then_block, else_block);
+                }
+                else
+                {
+                    this->generate_runtime_constexpr(condition_block, else_block, then_block);
+                }
 
                 // Then
                 co_await co_generate_function_block(then_block, st.then_block, "runtime_then");

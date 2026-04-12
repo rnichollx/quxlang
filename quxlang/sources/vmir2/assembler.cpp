@@ -349,11 +349,6 @@ namespace quxlang::vmir2
         return result;
     }
 
-    std::string assembler::to_string_internal(vmir2::runtime_ce inst)
-    {
-        return std::string("RT_CE -> %") + std::to_string(inst.target);
-    }
-
     std::string assembler::to_string_internal(vmir2::array_init_start ani)
     {
         return std::string("ARRAY_INIT_START %") + std::to_string(ani.initializer) + ", %" + std::to_string(ani.on_value);
@@ -456,6 +451,13 @@ namespace quxlang::vmir2
     {
         std::string result;
         result += "BRANCH %" + std::to_string(inst.condition) + ", !" + std::to_string(inst.target_true) + ", !" + std::to_string(inst.target_false);
+        return result;
+    }
+
+    std::string assembler::to_string_internal(vmir2::runtime_constexpr inst)
+    {
+        std::string result;
+        result += "RUNTIME_CONSTEXPR !" + std::to_string(inst.target_constexpr) + ", !" + std::to_string(inst.target_native);
         return result;
     }
 

@@ -39,7 +39,6 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::iconv);
         std::string to_string_internal(vmir2::unimplemented unimpl);
         std::string to_string_internal(vmir2::to_bool_not inst);
-        std::string to_string_internal(vmir2::runtime_ce inst);
         std::string to_string_internal(vmir2::array_init_start);
         std::string to_string_internal(vmir2::array_init_element);
         std::string to_string_internal(vmir2::array_init_index);
@@ -121,6 +120,7 @@ namespace quxlang::vmir2
 
         std::string to_string_internal(vmir2::jump inst);
         std::string to_string_internal(vmir2::branch inst);
+        std::string to_string_internal(vmir2::runtime_constexpr inst);
         std::string to_string_internal(vmir2::initguard_try_acquire inst);
         std::string to_string_internal(vmir2::ret inst);
         std::string to_string_internal(vmir2::pointer_arith inst);

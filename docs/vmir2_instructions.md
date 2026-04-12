@@ -491,6 +491,17 @@ Purpose:
 State:
 - Terminator; consumes condition value.
 
+### `runtime_constexpr` (RUNTIME_CONSTEXPR)
+Operands:
+- `{constexpr_block, native_block}`
+
+Purpose:
+- Branch on the evaluation context.
+- Constexpr interpretation takes `constexpr_block`; native execution takes `native_block`.
+
+State:
+- Terminator; no per-slot state change.
+
 ---
 
 ## Pointer/integer conversions and fences

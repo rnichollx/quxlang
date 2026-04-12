@@ -65,7 +65,7 @@ namespace quxlang
         struct i_to_ptr;
         struct to_bool;
         struct to_bool_not;
-        struct runtime_ce;
+        struct runtime_constexpr;
         struct increment;
         struct decrement;
         struct preincrement;
@@ -191,7 +191,6 @@ namespace quxlang
             access_array,
             to_bool,
             to_bool_not,
-            runtime_ce,
             increment,
             decrement,
             preincrement,
@@ -208,7 +207,7 @@ namespace quxlang
             array_init_more
         >;
         // clang-format: on
-        using vm_terminator = rpnx::variant< jump, branch, initguard_try_acquire, ret >;
+        using vm_terminator = rpnx::variant< jump, branch, runtime_constexpr, initguard_try_acquire, ret >;
 
         RPNX_UNIQUE_U64(local_index);
 
@@ -879,16 +878,6 @@ namespace quxlang
             RPNX_MEMBER_METADATA(to_bool_not, from, to);
         };
 
-        // The runtime_ce(RT_CE) instruction stores the value TRUE in the target when executed in
-        // a constexpr context, or FALSE when executed natively.
-        struct runtime_ce
-        {
-            // TODO: Instead of output a bool, this should be similar to a branch terminator instead,
-            // that would simplify codegen and allow the compiler to skip generating code for both paths.
-            local_index target;
-            RPNX_MEMBER_METADATA(runtime_ce, target);
-        };
-
         struct increment
         {
             local_index value;
@@ -936,6 +925,14 @@ namespace quxlang
             block_index target_false;
 
             RPNX_MEMBER_METADATA(branch, condition, target_true, target_false);
+        };
+
+        struct runtime_constexpr
+        {
+            block_index target_constexpr;
+            block_index target_native;
+
+            RPNX_MEMBER_METADATA(runtime_constexpr, target_constexpr, target_native);
         };
 
         struct initguard_try_acquire

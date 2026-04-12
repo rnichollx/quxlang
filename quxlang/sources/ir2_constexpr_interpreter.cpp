@@ -324,7 +324,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::swap const& swp);
     void exec_instr_val(vmir2::to_bool const& lcz);
     void exec_instr_val(vmir2::to_bool_not const& acf);
-    void exec_instr_val(vmir2::runtime_ce const& rce);
     void exec_instr_val(vmir2::access_array const& aca);
     void exec_instr_val(vmir2::invoke const& inv);
     void exec_instr_val(vmir2::invoke_indirect const& inv);
@@ -332,6 +331,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
     void exec_instr_val(vmir2::branch const& brn);
+    void exec_instr_val(vmir2::runtime_constexpr const& rce);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
@@ -1246,26 +1246,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     std::swap(local_a->data, local_b->data);
 }
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::runtime_ce const& rce)
-{
-    // runtime_ce does not consume inputs; it simply produces true in the target bool slot
-    auto const& type = get_local_type(rce.target);
-    auto sz = get_type_size(type);
-
-    if (type != bool_type{})
-    {
-        throw compiler_bug("RT_CE must write to a bool slot");
-    }
-
-    if (get_current_frame().local_values[rce.target] && get_current_frame().local_values[rce.target]->alive())
-    {
-        throw compiler_bug("Local value already has pointer");
-    }
-
-    auto local_ptr = output_local(rce.target);
-    local_set_data(local_ptr, std::vector< std::byte >(sz, std::byte{1}));
-}
-
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
 {
     // There are two different versions of TB instruction, one which operates on pointer and one which
@@ -1620,6 +1600,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         transition(brn.target_true);
     }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::runtime_constexpr const& rce)
+{
+    transition(rce.target_constexpr);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const& ita)
