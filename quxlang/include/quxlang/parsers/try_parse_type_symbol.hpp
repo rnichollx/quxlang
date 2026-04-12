@@ -390,6 +390,19 @@ namespace quxlang::parsers
         {
             return size_type{};
         }
+        else if (auto paren_pos = pos; skip_symbol_if_is(pos, end, "("))
+        {
+            auto grouped_pos = pos;
+            auto grouped = try_parse_type_symbol(grouped_pos, end);
+            skip_whitespace_and_comments(grouped_pos, end);
+            if (!grouped || !skip_symbol_if_is(grouped_pos, end, ")"))
+            {
+                pos = paren_pos;
+                return std::nullopt;
+            }
+            output = *grouped;
+            pos = grouped_pos;
+        }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
             auto ident = parse_subentity(pos, end);

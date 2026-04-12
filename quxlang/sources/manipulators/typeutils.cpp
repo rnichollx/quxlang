@@ -674,9 +674,24 @@ namespace quxlang
         }
     }
 
+    bool type_symbol_needs_postfix_receiver_parentheses(type_symbol const& ref)
+    {
+        return typeis< ptrref_type >(ref) || typeis< array_type >(ref) || typeis< nvalue_slot >(ref) || typeis< dvalue_slot >(ref);
+    }
+
+    std::string to_string_as_postfix_receiver(type_symbol const& ref)
+    {
+        auto output = to_string(ref);
+        if (type_symbol_needs_postfix_receiver_parentheses(ref))
+        {
+            return "(" + output + ")";
+        }
+        return output;
+    }
+
     std::string type_symbol_stringifier::operator()(subsymbol const& ref) const
     {
-        return to_string(ref.of) + "::" + ref.name;
+        return to_string_as_postfix_receiver(ref.of) + "::" + ref.name;
     }
 
     std::string type_symbol_stringifier::operator()(size_type const& ref) const
@@ -734,11 +749,8 @@ namespace quxlang
             output += "&";
         }
 
-        output += " #{ ";
-
-        output += rpnx::apply_visitor< std::string >(ref.target, *this);
-
-        output += " }";
+        output += " ";
+        output += to_string(ref.target);
 
         return output;
     }
@@ -787,7 +799,7 @@ namespace quxlang
     }
     std::string type_symbol_stringifier::operator()(initialization_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(ref.initializee, *this);
+        std::string output = to_string_as_postfix_receiver(ref.initializee);
         output += " #(";
         bool first = true;
         for (auto const& [name, type] : ref.parameters.named)
@@ -822,7 +834,7 @@ namespace quxlang
     {
 
         temploid_reference const& sel = ref.temploid;
-        std::string output = rpnx::apply_visitor< std::string >(sel.templexoid, *this);
+        std::string output = to_string_as_postfix_receiver(sel.templexoid);
 
         output += " #{";
 
@@ -967,7 +979,7 @@ namespace quxlang
     }
     std::string type_symbol_stringifier::operator()(submember const& ref) const
     {
-        return to_string(ref.of) + "::." + ref.name;
+        return to_string_as_postfix_receiver(ref.of) + "::." + ref.name;
     }
 
     std::string type_symbol_stringifier::operator()(numeric_literal_reference const&) const
@@ -1012,7 +1024,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
-        std::string output = rpnx::apply_visitor< std::string >(ref.templexoid, *this) + "#[";
+        std::string output = to_string_as_postfix_receiver(ref.templexoid) + "#[";
         bool first = true;
         if (false) // ref.which.builtin)
         {

@@ -168,6 +168,34 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
 }
 
+TEST(parsing, type_symbol_parenthesized_postfix)
+{
+    using namespace quxlang::parsers;
+    using namespace quxlang;
+
+    auto foo = type_symbol(freebound_identifier{"foo"});
+    auto foo_bar = type_symbol(subsymbol{.of = foo, .name = "bar"});
+    auto const_foo = type_symbol(ptrref_type{.target = foo, .ptr_class = pointer_class::ref, .qual = qualifier::constant});
+    auto const_foo_bar = type_symbol(ptrref_type{.target = foo_bar, .ptr_class = pointer_class::ref, .qual = qualifier::constant});
+
+    ASSERT_EQ(parse_type_symbol("CONST& foo::bar"), const_foo_bar);
+    ASSERT_EQ(parse_type_symbol("CONST& (foo::bar)"), const_foo_bar);
+    ASSERT_EQ(parse_type_symbol("(CONST& foo)::bar"), type_symbol(subsymbol{.of = const_foo, .name = "bar"}));
+    ASSERT_EQ(parse_type_symbol("(CONST& foo)::.bar"), type_symbol(submember{.of = const_foo, .name = "bar"}));
+
+    auto expect_round_trip = [](type_symbol const& symbol, std::string const& expected) {
+        auto printed = to_string(symbol);
+        ASSERT_EQ(printed, expected);
+        ASSERT_EQ(parse_type_symbol(printed), symbol);
+    };
+
+    expect_round_trip(const_foo_bar, "CONST& foo::bar");
+    expect_round_trip(type_symbol(subsymbol{.of = const_foo, .name = "bar"}), "(CONST& foo)::bar");
+    expect_round_trip(type_symbol(submember{.of = const_foo, .name = "bar"}), "(CONST& foo)::.bar");
+
+    ASSERT_TRUE(typeis< instanciation_reference >(parse_type_symbol("foo #{bar}")));
+}
+
 TEST(parsing, parse_global_constexpr_variable_declaration)
 {
     std::string test_string = "::foobar VAR CONSTEXPR_READABLE I32 := 4;";
