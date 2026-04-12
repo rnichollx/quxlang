@@ -128,6 +128,8 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< module_source_name_spec >(module_source_name_impl);
     m_graph.register_handler_function< module_sources_spec >(module_sources_impl);
     m_graph.register_handler_function< procedure_linksymbol_spec >(procedure_linksymbol_impl);
+    m_graph.register_handler_function< run_static_test_spec >(run_static_test_impl);
+    m_graph.register_handler_function< run_static_tests_spec >(run_static_tests_impl);
     m_graph.register_handler_function< sintpointer_type_spec >(sintpointer_type_impl);
     m_graph.register_handler_function< symboid_spec >(symboid_impl);
     m_graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);

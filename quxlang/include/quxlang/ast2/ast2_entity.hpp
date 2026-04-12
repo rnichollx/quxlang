@@ -14,6 +14,7 @@
 #include "quxlang/ast2/source_location.hpp"
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
+RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_nocompile);
 
 namespace quxlang
 {
@@ -234,9 +235,10 @@ namespace quxlang
     struct ast2_static_test
     {
         source_location location;
+        static_test_expected_mode expected_mode = static_test_expected_mode::normal;
         ast2_function_definition definition;
 
-        RPNX_MEMBER_METADATA(ast2_static_test, definition);
+        RPNX_MEMBER_METADATA(ast2_static_test, expected_mode, definition);
     };
 
     struct ast2_named_global

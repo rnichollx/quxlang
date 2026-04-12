@@ -1116,7 +1116,17 @@ IMPORT foolib;
   RETURN x[1] ;
 }
 
-::pinc_test2 STATIC_TEST
+::static_test_pass STATIC_TEST
+{
+  ASSERT (3 == 3);
+}
+
+::static_test_nocompile STATIC_TEST EXPECT_NOCOMPILE
+{
+  missing_static_test_symbol();
+}
+
+::pinc_test2 STATIC_TEST EXPECT_FAIL
 {
   ASSERT (3 == 4);
 }

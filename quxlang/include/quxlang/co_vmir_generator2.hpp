@@ -4195,7 +4195,8 @@ namespace quxlang
             }
             catch (compilation_error& err)
             {
-                get_location(st);
+                err.traceback.push_back(trace_frame{.trace_context = "statement", .location = get_location(st)});
+                throw;
             }
             co_return;
         }
@@ -4402,6 +4403,22 @@ namespace quxlang
 
                 co_await co_generate_body(current_block, func);
             }
+            co_await co_generate_dtors();
+
+            co_return get_result();
+        }
+
+        [[nodiscard]] auto co_generate_static_test(ast2_static_test const& test) -> co_type< vmir2::functanoid_routine3 >
+        {
+            this->generate_entry_block();
+            block_index current_block(0);
+            co_await co_generate_function_block(current_block, test.definition.body, "static_test_body");
+
+            if (this->state.blocks.at(current_block).terminator.has_value() == false)
+            {
+                this->generate_return(current_block);
+            }
+
             co_await co_generate_dtors();
 
             co_return get_result();

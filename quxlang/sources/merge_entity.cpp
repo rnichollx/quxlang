@@ -87,7 +87,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_asm_procedure_declaration >(source);
     }
-    else if (typeis< ast2_static_test > (destination))
+    else if (typeis< ast2_static_test > (source))
     {
         if (!typeis< std::monostate >(destination))
         {

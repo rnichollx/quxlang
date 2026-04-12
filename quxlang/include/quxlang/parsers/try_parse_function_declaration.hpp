@@ -74,6 +74,16 @@ namespace quxlang::parsers
         }
         out = ast2_static_test{};
 
+        skip_whitespace_and_comments(pos, end);
+        if (skip_keyword_if_is(pos, end, "EXPECT_FAIL"))
+        {
+            out->expected_mode = static_test_expected_mode::expect_fail;
+        }
+        else if (skip_keyword_if_is(pos, end, "EXPECT_NOCOMPILE"))
+        {
+            out->expected_mode = static_test_expected_mode::expect_nocompile;
+        }
+
         out->definition.body = parse_function_block(pos, end);
         out->location.set(begin, pos);
         return out;

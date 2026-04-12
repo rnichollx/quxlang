@@ -18,7 +18,8 @@ RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
     local_variable,
     member_variable,
     templex, template_,
-    namespace_, argument
+    namespace_, argument,
+    static_test
 )
 // clang-format on
 

@@ -649,6 +649,21 @@ namespace
             return m_graph.make_request< quxlang::lookup_query >(std::move(input));
         }
 
+        auto list_static_tests(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::list_static_tests_query >(std::move(input));
+        }
+
+        auto run_static_test(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::run_static_test_query >(std::move(input));
+        }
+
+        auto run_static_tests(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::run_static_tests_query >(std::move(input));
+        }
+
       private:
         mutable quxlang::compiler_querygraph m_graph;
     };
@@ -677,6 +692,51 @@ namespace
         return test_querygraph_compiler(sources, "linux-x64");
     }
 } // namespace
+
+TEST(quxlang, static_tests_discover_and_run_expected_modes)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+    test_querygraph_compiler c(sources, "linux-arm64");
+
+    auto tests = c.list_static_tests(mainmodule, std::nullopt);
+
+    auto test_argument_passing2 = quxlang::type_symbol{quxlang::subsymbol{.of = mainmodule, .name = "test_argument_passing2"}};
+    auto static_test_pass = quxlang::type_symbol{quxlang::subsymbol{.of = mainmodule, .name = "static_test_pass"}};
+    auto static_test_nocompile = quxlang::type_symbol{quxlang::subsymbol{.of = mainmodule, .name = "static_test_nocompile"}};
+    auto pinc_test2 = quxlang::type_symbol{quxlang::subsymbol{.of = mainmodule, .name = "pinc_test2"}};
+
+    EXPECT_TRUE(tests.contains(test_argument_passing2));
+    EXPECT_TRUE(tests.contains(static_test_pass));
+    EXPECT_TRUE(tests.contains(static_test_nocompile));
+    EXPECT_TRUE(tests.contains(pinc_test2));
+
+    EXPECT_TRUE(c.run_static_test(test_argument_passing2, std::nullopt));
+    EXPECT_TRUE(c.run_static_test(static_test_pass, std::nullopt));
+    EXPECT_TRUE(c.run_static_test(static_test_nocompile, std::nullopt));
+    EXPECT_TRUE(c.run_static_test(pinc_test2, std::nullopt));
+    EXPECT_TRUE(c.run_static_tests(mainmodule, std::nullopt));
+}
+
+TEST(quxlang, static_test_expected_failure_modes_are_phase_sensitive)
+{
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    auto run_all_static_tests = [&](std::string source)
+    {
+        auto c = make_main_module_compiler(std::move(source));
+        return c.run_static_tests(mainmodule, std::nullopt);
+    };
+
+    EXPECT_TRUE(run_all_static_tests("::bad STATIC_TEST EXPECT_FAIL { ASSERT(3 == 4); }"));
+    EXPECT_TRUE(run_all_static_tests("::bad STATIC_TEST EXPECT_NOCOMPILE { missing_static_test_symbol(); }"));
+
+    EXPECT_THROW(run_all_static_tests("::bad STATIC_TEST { ASSERT(3 == 4); }"), quxlang::constexpr_logic_execution_error);
+    EXPECT_THROW(run_all_static_tests("::bad STATIC_TEST EXPECT_FAIL { ASSERT(3 == 3); }"), std::logic_error);
+    EXPECT_THROW(run_all_static_tests("::bad STATIC_TEST EXPECT_NOCOMPILE { ASSERT(3 == 3); }"), std::logic_error);
+    EXPECT_THROW(run_all_static_tests("::bad STATIC_TEST EXPECT_FAIL { missing_static_test_symbol(); }"), std::logic_error);
+}
 
 TEST(quxlang, compiler_graph_resolves_main_source_bundle)
 {
