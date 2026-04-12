@@ -427,6 +427,10 @@ namespace quxlang::vmir2
         {
             output(ggs.target_ref);
         }
+        void apply_internal(vmir2::get_antestatal_ref const& gar)
+        {
+            output(gar.target_ref);
+        }
         void apply_internal(vmir2::initguard_global_get_ref const& igr)
         {
             output(igr.target_ref);
@@ -450,6 +454,10 @@ namespace quxlang::vmir2
             output(crf.target_index);
         }
         void apply_internal(vmir2::constexpr_set_result const& csr)
+        {
+            consume(csr.target);
+        }
+        void apply_internal(vmir2::constexpr_set_result2 const& csr)
         {
             consume(csr.target);
         }

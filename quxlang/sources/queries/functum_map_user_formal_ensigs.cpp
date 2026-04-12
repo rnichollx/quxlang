@@ -19,8 +19,11 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
 {
     auto const& decls = co_await rpnx::querygraph::request< functum_list_user_ensig_declarations_query >(input);
 
-    std::string input_name = quxlang::to_string(input);
-
+    std::optional<std::string> input_name;
+    if constexpr (QUXLANG_IN_DEBUG)
+    {
+        input_name = quxlang::to_string(input);
+    }
     std::map< temploid_ensig, std::size_t > output;
 
     bool is_member_functum = typeis< submember >(input);

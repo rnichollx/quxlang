@@ -58,6 +58,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::cast_ptrref inst);
         std::string to_string_internal(vmir2::copy_reference cpr);
         std::string to_string_internal(vmir2::constexpr_set_result inst);
+        std::string to_string_internal(vmir2::constexpr_set_result2 inst);
         std::string to_string_internal(vmir2::load_const_value inst);
         std::string to_string_internal(vmir2::load_const_bool inst);
         std::string to_string_internal(vmir2::load_const_zero inst);
@@ -68,6 +69,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::storage_deinit_start inst);
         std::string to_string_internal(vmir2::storage_pun inst);
         std::string to_string_internal(vmir2::get_global_storage inst);
+        std::string to_string_internal(vmir2::get_antestatal_ref inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
         std::string to_string_internal(vmir2::initguard_release inst);
         std::string to_string_internal(vmir2::initguard_abort inst);

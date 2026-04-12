@@ -16,14 +16,21 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_variable_declaration > output;
 
+        std::set< std::string > keyword_tags;
         if (!skip_keyword_if_is(pos, end, "VAR"))
         {
-            return output;
+            if (skip_keyword_if_is(pos, end, "STATIC"))
+            {
+                keyword_tags.insert("STATIC");
+            }
+            else
+            {
+                return output;
+            }
         }
 
         skip_whitespace_and_comments(pos, end);
 
-        std::set< std::string > keyword_tags;
         while (true)
         {
             if (skip_keyword_if_is(pos, end, "CONSTEXPR_READABLE"))

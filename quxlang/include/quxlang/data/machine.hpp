@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <rpnx/macros.hpp>
 #include <stdexcept>
 
 #ifdef linux
@@ -60,6 +61,8 @@ namespace quxlang
         {
             return pointer_size_bytes();
         }
+
+        RPNX_MEMBER_METADATA(output_info, cpu_type, os_type, binary_type);
     };
 
 } // namespace quxlang

@@ -253,6 +253,11 @@ namespace quxlang::vmir2
         return "GET_GLOBAL_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
     }
 
+    std::string assembler::to_string_internal(vmir2::get_antestatal_ref inst)
+    {
+        return "GET_ANTESTATAL_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+    }
+
     std::string assembler::to_string_internal(vmir2::initguard_global_get_ref inst)
     {
         return "INITGUARD_GLOBAL_GET_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
@@ -434,6 +439,11 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::constexpr_set_result inst)
     {
         std::string result = "CE_SETRESULT %" + std::to_string(inst.target);
+        return result;
+    }
+    std::string assembler::to_string_internal(vmir2::constexpr_set_result2 inst)
+    {
+        std::string result = "CE_SETRESULT_ANTESTATAL %" + std::to_string(inst.target);
         return result;
     }
     std::string assembler::to_string_internal(vmir2::jump inst)

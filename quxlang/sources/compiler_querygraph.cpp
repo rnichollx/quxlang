@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/macros.hpp>
 
 #include <fstream>
 #include <format>
@@ -51,6 +52,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< argument_initialize_by_class_conversion_spec >(argument_initialize_by_class_conversion_impl);
     m_graph.register_handler_function< argument_initialize_by_intrinsic_spec >(argument_initialize_by_intrinsic_impl);
     m_graph.register_handler_function< argument_initialize_by_template_spec >(argument_initialize_by_template_impl);
+    m_graph.register_handler_function< antestatal_static_value_spec >(antestatal_static_value_impl);
     m_graph.register_handler_function< asm_procedure_from_symbol_spec >(asm_procedure_from_symbol_impl);
     m_graph.register_handler_function< bindable_spec >(bindable_impl);
     m_graph.register_handler_function< bindable_by_reference_objectization_spec >(bindable_by_reference_objectization_impl);
@@ -80,7 +82,9 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< class_trivially_constructible_spec >(class_trivially_constructible_impl);
     m_graph.register_handler_function< class_trivially_destructible_spec >(class_trivially_destructible_impl);
     m_graph.register_handler_function< constexpr_bool_spec >(constexpr_bool_impl);
+    m_graph.register_handler_function< constexpr_eval_antestatal_spec >(constexpr_eval_antestatal_impl);
     m_graph.register_handler_function< constexpr_eval_spec >(constexpr_eval_impl);
+    m_graph.register_handler_function< constexpr_routine_antestatal_spec >(constexpr_routine_antestatal_impl);
     m_graph.register_handler_function< constexpr_routine_spec >(constexpr_routine_impl);
     m_graph.register_handler_function< constexpr_u64_spec >(constexpr_u64_impl);
     m_graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);
@@ -108,6 +112,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< functum_overloads_spec >(functum_overloads_impl);
     m_graph.register_handler_function< functum_select_function_spec >(functum_select_function_impl);
     m_graph.register_handler_function< functum_user_overloads_spec >(functum_user_overloads_impl);
+    m_graph.register_handler_function< global_is_antestatal_static_spec >(global_is_antestatal_static_impl);
     m_graph.register_handler_function< have_nontrivial_member_ctor_spec >(have_nontrivial_member_ctor_impl);
     m_graph.register_handler_function< have_nontrivial_member_dtor_spec >(have_nontrivial_member_dtor_impl);
     m_graph.register_handler_function< implicitly_convertible_to_spec >(implicitly_convertible_to_impl);
@@ -130,6 +135,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
     m_graph.register_handler_function< template_instanciation_spec >(template_instanciation_impl);
     m_graph.register_handler_function< templex_initialize_spec >(templex_initialize_impl);
+    m_graph.register_handler_function< type_is_antestatal_spec >(type_is_antestatal_impl);
     m_graph.register_handler_function< type_is_implicitly_datatype_spec >(type_is_implicitly_datatype_impl);
     m_graph.register_handler_function< type_placement_info_spec >(type_placement_info_impl);
     m_graph.register_handler_function< type_should_autogen_deserialize_spec >(type_should_autogen_deserialize_impl);
@@ -162,7 +168,10 @@ void quxlang::compiler_querygraph::write_dump_file()
     write_marshaled_graph_dump(m_graph, *m_dump_output_path);
     if (!m_has_reported_dump_output_path)
     {
-        std::cout << "Quxlang graph dump written to: " << m_dump_output_path->string() << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "Quxlang graph dump written to: " << m_dump_output_path->string() << std::endl;
+        }
         m_has_reported_dump_output_path = true;
     }
 }

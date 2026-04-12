@@ -34,6 +34,7 @@ IMPORT foolib;
   storage_buz_test();
 
   test_global();
+  test_antestatal_statics();
 
   template_test();
   ptrptr_tests();
@@ -59,8 +60,13 @@ IMPORT foolib;
 
 ::global VAR I32 := 8;
 
-::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
+::antestatal_static_i32 STATIC I32 := 4;
 
+::antestatal_static_i32_ptr STATIC CONST -> I32 := antestatal_static_i32<-;
+
+::antestatal_static_proc STATIC CONST -> PROCEDURE(I32, I32: I32) := foo<-;
+
+::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
 
 
 ::test_global FUNCTION()
@@ -73,6 +79,15 @@ IMPORT foolib;
   global_tmpl#(@foo I32) := 5;
   ASSERT(global_tmpl#(@foo I32) == 5);
   ASSERT(global_tmpl#(@foo I64) == 1);
+
+}
+
+::test_antestatal_statics FUNCTION()
+{
+  ASSERT(antestatal_static_i32 == 4);
+  ASSERT(antestatal_static_i32_ptr-> == 4);
+  ASSERT(antestatal_static_proc(4, 5) == 9);
+  // TODO: Add a negative constexpr test that verifies mutating an antestatal static is rejected.
 
 }
 

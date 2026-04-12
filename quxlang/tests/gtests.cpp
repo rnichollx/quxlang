@@ -10,6 +10,7 @@
 
 
 #include <quxlang/data/type_symbol.hpp>
+#include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_symbol.hpp>
 #include <quxlang/parsers/statements.hpp>
@@ -184,6 +185,27 @@ TEST(parsing, parse_global_constexpr_variable_declaration)
     ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
     ASSERT_TRUE(variable_decl.keyword_tags.contains("CONSTEXPR_READABLE"));
     ASSERT_FALSE(variable_decl.keyword_tags.contains("CONSTEXPR_READWRITE"));
+    ASSERT_TRUE(variable_decl.init_expr.has_value());
+    ASSERT_EQ(quxlang::to_string(*variable_decl.init_expr), "4");
+    ASSERT_TRUE(variable_decl.init_args.empty());
+}
+
+TEST(parsing, parse_global_static_variable_declaration)
+{
+    std::string test_string = "::foo STATIC I32 := 4;";
+
+    quxlang::ast2_file_declaration file = quxlang::parsers::parse_file(test_string);
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    ASSERT_EQ(decl.name, "foo");
+    ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
+
+    auto const& variable_decl = quxlang::as< quxlang::ast2_variable_declaration >(decl.decl);
+    ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
+    ASSERT_TRUE(variable_decl.keyword_tags.contains("STATIC"));
     ASSERT_TRUE(variable_decl.init_expr.has_value());
     ASSERT_EQ(quxlang::to_string(*variable_decl.init_expr), "4");
     ASSERT_TRUE(variable_decl.init_args.empty());
@@ -785,10 +807,16 @@ TEST(quxlang, constexpr_result_bool)
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
         } catch (...)
         {
-            std::cout << "tempfile: " << tempfile << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "tempfile: " << tempfile << std::endl;
+            }
             throw;
         }
-        std::cout << "tempfile: " << tempfile << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+        }
         return yaynay;
     };
     auto val1 = get_constexpr_bool("2 + I32(@OTHER 8) - 4 < 5");
@@ -913,10 +941,16 @@ TEST(quxlang, constexpr_call_func)
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
         } catch (...)
         {
-            std::cout << "tempfile: " << tempfile << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "tempfile: " << tempfile << std::endl;
+            }
             throw;
         }
-        std::cout << "tempfile: " << tempfile << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+        }
         return yaynay;
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
@@ -963,10 +997,16 @@ TEST(quxlang, constexpr_call_func_arm)
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
         } catch (...)
         {
-            std::cout << "tempfile: " << tempfile << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "tempfile: " << tempfile << std::endl;
+            }
             throw;
         }
-        std::cout << "tempfile: " << tempfile << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+        }
         return yaynay;
     };
     auto val1 = get_constexpr_bool("biz(4, 3) == 4");
@@ -1009,10 +1049,16 @@ TEST(quxlang, constexpr_test_suites)
             yaynay = c.get_constexpr_bool(quxlang::constexpr_input{.expr = expr, .context = mainmodule}, tempfile);
         } catch (...)
         {
-            std::cout << "tempfile: " << tempfile << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "tempfile: " << tempfile << std::endl;
+            }
             throw;
         }
-        std::cout << "tempfile: " << tempfile << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "tempfile: " << tempfile << std::endl;
+        }
         return yaynay;
     };
     auto val1 = get_constexpr_bool("constexpr_test_suite() == 1");
@@ -1045,7 +1091,10 @@ TEST(quxlang, func_gen)
 
     std::string result = quxlang::vmir2::assembler(func).to_string(func);
 
-    std::cout << result << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << result << std::endl;
+    }
 }
 
 TEST(quxlang, datatype_struct_equality_builtin_presence)

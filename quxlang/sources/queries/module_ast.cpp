@@ -1,6 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/module_ast_spec.hpp>
+#include <quxlang/macros.hpp>
 
 #include "quxlang/manipulators/merge_entity.hpp"
 
@@ -8,6 +9,7 @@
 #include <quxlang/ast2/ast2_module.hpp>
 #include <quxlang/parsers/parse_file.hpp>
 
+#include <exception>
 
 rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl(std::string input)
 {
@@ -25,6 +27,9 @@ rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl
 
         auto it = content.begin();
 
+        std::exception_ptr parse_error;
+        std::string error_snippet;
+        std::string error_message;
         try
         {
             v_file_ast = parsers::parse_file(it, content.end());
@@ -37,10 +42,20 @@ rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl
 
             std::string snippet(it, end_snippet_iter);
 
-            std::cout << "At:  " << snippet << std::endl;
-            std::cout << "Error: " << e.what() << std::endl;
+            error_snippet = std::move(snippet);
+            error_message = e.what();
+            parse_error = std::current_exception();
+        }
 
-            throw;
+        if (parse_error)
+        {
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("At:  {}", error_snippet);
+                co_yield rpnx::querygraph::debug_message("Error: {}", error_message);
+            }
+
+            std::rethrow_exception(parse_error);
         }
 
         // TODO: consider if we should keep v_file_ast.filename

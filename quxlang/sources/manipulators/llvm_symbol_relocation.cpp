@@ -1,6 +1,7 @@
 // Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
 // Copyright (c) 2024 Ryan Nicholl $USER_EMAIL
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
+#include "quxlang/macros.hpp"
 
 #include <iostream>
 #include <map>
@@ -22,7 +23,10 @@ namespace quxlang
                                   [&](llvm::ErrorInfoBase& EIB)
                                   {
                                       error_string = EIB.message();
-                                      std::cout << "Error: " << error_string << std::endl;
+                                      if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                                      {
+                                          std::cout << "Error: " << error_string << std::endl;
+                                      }
                                   });
             return std::nullopt;
         }
@@ -33,7 +37,10 @@ namespace quxlang
 
         std::string type_str = std::string(TypeName.begin(), TypeName.end());
 
-        std::cout << "Relocation " << symname << " of type " << type_str << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "Relocation " << symname << " of type " << type_str << std::endl;
+        }
 
         symbol_relocation reloc_info{};
 

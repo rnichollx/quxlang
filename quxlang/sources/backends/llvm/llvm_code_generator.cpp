@@ -153,7 +153,10 @@ std::vector< std::byte > quxlang::llvm_code_generator::qxbc_to_llvm_bc(quxlang::
         func_llvm_arg_types.push_back(get_llvm_type_from_vm_type(context, arg_type));
     }
 
-    QUXLANG_DEBUG({ std::cout << "New function name: " << vmf.mangled_name << std::endl; });
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << "New function name: " << vmf.mangled_name << std::endl;
+    }
     llvm::Function* func = llvm::Function::Create(llvm::FunctionType::get(func_llvm_return_type, func_llvm_arg_types, false), llvm::Function::ExternalLinkage, vmf.mangled_name, frame.module.get());
 
     llvm::BasicBlock* storage = llvm::BasicBlock::Create(context, "storage", func);
@@ -399,7 +402,10 @@ bool quxlang::llvm_code_generator::generate_code(llvm::LLVMContext& context, llv
                 args.push_back(get_llvm_value(context, builder, frame, arg));
             }
 
-            QUXLANG_DEBUG({ std::cout << "mangled name: " << call.mangled_procedure_name << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "mangled name: " << call.mangled_procedure_name << std::endl;
+            }
 
             llvm::FunctionType* funcType = get_llvm_type_from_func_interface(context, call.interface);
             llvm::Function* externalFunction = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, call.mangled_procedure_name, frame.module.get());
@@ -768,7 +774,10 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_intptr(llvm::LLVMContext& con
 
 std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_procedure input)
 {
-    std::cout << "Target triple is: " << target_triple_str << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << "Target triple is: " << target_triple_str << std::endl;
+    }
     std::string assembly;
 
     if (m_machine_info.cpu_type == quxlang::cpu::arm_32 || m_machine_info.cpu_type == cpu::arm_64)
@@ -876,7 +885,10 @@ std::unique_ptr< llvm::MemoryBuffer > to_llvm_buffer(std::string str)
 
 void quxlang::llvm_code_generator::foo()
 {
-    std::cout << "Target triple is: " << target_triple_str << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << "Target triple is: " << target_triple_str << std::endl;
+    }
     std::string assembly(R"(
         .text
         .global _start
@@ -977,7 +989,10 @@ std::vector< std::byte > quxlang::llvm_code_generator::compile_llvm_ir_to_elf(st
     pm.run(*module);
 
     // std::cout << "Object code for " << vmf.mangled_name << std::endl;
-    std::cout << mc_buffer.size() << " bytes" << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << mc_buffer.size() << " bytes" << std::endl;
+    }
 
     std::vector< std::byte > bytecode_vector;
 

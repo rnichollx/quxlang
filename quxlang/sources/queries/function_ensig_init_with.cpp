@@ -20,7 +20,10 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
     if (os.interface.positional.size() != preargs.positional.size())
     {
         // TODO: Support default arguments.
-        std::cout << "Positional size mismatch: " << to << " vs " << from << "\n";
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            co_yield rpnx::querygraph::debug_message("Positional size mismatch: {} vs {}", to, from);
+        }
         co_return std::nullopt;
     }
 
@@ -67,7 +70,10 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
         result.positional.push_back(*argument_type);
     }
 
-    std::cout << "Function ensig init with " << to_string(input.ensig.interface) << " with " << to_string(input.params) << " yields " << to_string(result) << "\n";
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        co_yield rpnx::querygraph::debug_message("Function ensig init with {} with {} yields {}", to_string(input.ensig.interface), to_string(input.params), to_string(result));
+    }
 
     co_return result;
 }

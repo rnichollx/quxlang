@@ -20,6 +20,7 @@
 #include <quxlang/queries/function_declaration.hpp>
 #include <quxlang/queries/function_param_names.hpp>
 #include <quxlang/queries/functum_overloads.hpp>
+#include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
@@ -46,6 +47,7 @@ namespace quxlang
         function_declaration_query,
         function_param_names_query,
         functum_overloads_query,
+        global_is_antestatal_static_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
         lookup_query,
@@ -67,6 +69,7 @@ namespace quxlang
         function_declaration_query,
         function_param_names_query,
         functum_overloads_query,
+        global_is_antestatal_static_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
         lookup_query,

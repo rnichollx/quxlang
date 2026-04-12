@@ -5,6 +5,7 @@
 #include "quxlang/backends/llvm/llvm_code_generator.hpp"
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/machine.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include "quxlang/source_loader.hpp"
@@ -35,7 +36,10 @@ int main(int argc, char** argv)
     {
         if (verbose)
         {
-            std::cout << "Compiling Target: " << target_name << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "Compiling Target: " << target_name << std::endl;
+            }
         }
 
         quxlang::compiler c(input_srcs, target_name);
@@ -46,7 +50,10 @@ int main(int argc, char** argv)
         {
             if (verbose)
             {
-                std::cout << "Compiling: " << target_name << "/" << output_name << std::endl;
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    std::cout << "Compiling: " << target_name << "/" << output_name << std::endl;
+                }
             }
 
             std::filesystem::create_directories(output / target_name / "build");
@@ -71,7 +78,10 @@ int main(int argc, char** argv)
                 if (to_compile_vmir.size() != 0)
                 {
                     auto sym = *to_compile_vmir.begin();
-                    std::cout << "Compiling symbol: " << quxlang::mangle(sym) << std::endl;
+                    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                    {
+                        std::cout << "Compiling symbol: " << quxlang::mangle(sym) << std::endl;
+                    }
 
                     if (!quxlang::typeis<quxlang::instanciation_reference>(sym))
                     {
@@ -113,23 +123,38 @@ int main(int argc, char** argv)
 
                     for (auto const& sym2 : proc.invoked_functanoids)
                     {
-                        std::cout << "Invoked: " << quxlang::mangle(sym2) << std::endl;
+                        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                        {
+                            std::cout << "Invoked: " << quxlang::mangle(sym2) << std::endl;
+                        }
                         if (compiled_vmir.find(sym2) == compiled_vmir.end())
                         {
-                            std::cout << "should compile: " << quxlang::mangle(sym2) << std::endl;
+                            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                            {
+                                std::cout << "should compile: " << quxlang::mangle(sym2) << std::endl;
+                            }
                             to_compile_vmir.insert(sym2);
 
-                            std::cout << "to_compile_vmir.size() = " << to_compile_vmir.size() << std::endl;
+                            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                            {
+                                std::cout << "to_compile_vmir.size() = " << to_compile_vmir.size() << std::endl;
+                            }
                         }
                         else
                         {
-                            std::cout << "already compiled: " << quxlang::mangle(sym2) << std::endl;
+                            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                            {
+                                std::cout << "already compiled: " << quxlang::mangle(sym2) << std::endl;
+                            }
                         }
                     }
 
                     for (auto const& sym2 : proc.invoked_asm_procedures)
                     {
-                        std::cout << "Invoked asm: " << quxlang::mangle(sym2) << std::endl;
+                        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                        {
+                            std::cout << "Invoked asm: " << quxlang::mangle(sym2) << std::endl;
+                        }
                         if (compiled_asm.find(sym2) == compiled_asm.end())
                         {
                             to_compile_asm.insert(sym2);
@@ -141,7 +166,10 @@ int main(int argc, char** argv)
                     auto sym = *to_compile_asm.begin();
                     // TODO: compile this
 
-                    std::cout << "Compiling asm symbol: " << quxlang::mangle(sym) << std::endl;
+                    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                    {
+                        std::cout << "Compiling asm symbol: " << quxlang::mangle(sym) << std::endl;
+                    }
 
                     quxlang::asm_procedure proc = c.get_asm_procedure_from_canonical_symbol(sym);
 

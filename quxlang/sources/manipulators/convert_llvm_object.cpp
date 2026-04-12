@@ -1,6 +1,7 @@
 // Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include "quxlang/manipulators/convert_llvm_object.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
 #include "quxlang/manipulators/symbolmap.hpp"
 #include <iostream>
@@ -141,7 +142,10 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
 
                                   sym.section = section_name;
 
-                                  QUXLANG_DEBUG({ std::cout << "symbol name: " << sym.name << " at " << std::dec << output.position << " to " << std::dec << output.position_end << std::endl; });
+                                  if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                                  {
+                                      std::cout << "symbol name: " << sym.name << " at " << std::dec << output.position << " to " << std::dec << output.position_end << std::endl;
+                                  }
 
                                   for (auto const& relocation : section.relocations())
                                   {

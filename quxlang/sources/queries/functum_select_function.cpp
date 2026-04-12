@@ -19,7 +19,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     if (typeis< temploid_reference >(input.initializee))
     {
         auto const& selected = as< temploid_reference >(input.initializee);
-        auto selected_kind = co_await rpnx::querygraph::request< symbol_type_query >(selected);
+        auto const& selected_kind = co_await rpnx::querygraph::request< symbol_type_query >(selected);
 
         if (selected_kind == symbol_kind::template_)
         {
@@ -49,7 +49,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         co_return std::nullopt;
     }
 
-    auto overloads = co_await rpnx::querygraph::request< functum_overloads_query >(input.initializee);
+    auto const &overloads = co_await rpnx::querygraph::request< functum_overloads_query >(input.initializee);
 
     std::vector< temploid_ensig > best_match;
     std::optional< std::int64_t > highest_priority;
@@ -71,24 +71,34 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         break;
     }
 
-    std::cout << "Select for " << quxlang::to_string(input) << " in " << context_type << std::endl;
-
-    for (auto const& o : overloads)
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        std::cout << "  Found overload: " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << std::endl;
+        co_yield rpnx::querygraph::debug_message("Select for {} in {}", quxlang::to_string(input), context_type);
     }
 
     for (auto const& o : overloads)
     {
-        std::stringstream ss;
-        ss << "Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters);
-
-        if (ss.str() == "Considering overload BYTE::.OPERATOR==#[@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
-            int breakpoint = 0;
+            co_yield rpnx::querygraph::debug_message("  Found overload: {}", quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}));
         }
+    }
 
-        std::cout << "  " << ss.str() << std::endl;
+    for (auto const& o : overloads)
+    {
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::stringstream ss;
+            ss << "Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters);
+
+            if (ss.str() == "Considering overload BYTE::.OPERATOR==#[@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
+            {
+                int breakpoint = 0;
+            }
+
+
+            co_yield rpnx::querygraph::debug_message("  {}", ss.str());
+        }
 
         std::optional< invotype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
 
@@ -240,15 +250,24 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
     if (best_match.size() > 1)
     {
-        std::cout << " Ambiguous overloads for " << to_string(input) << ":" << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            co_yield rpnx::querygraph::debug_message(" Ambiguous overloads for {}:", to_string(input));
+        }
         for (auto const& item : best_match)
         {
-            std::cout << "   Ambiguous candidate: " << to_string(temploid_reference{.templexoid = input.initializee, .which = item}) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("   Ambiguous candidate: {}", to_string(temploid_reference{.templexoid = input.initializee, .which = item}));
+            }
         }
         throw std::logic_error("Ambiguous overload resolution");
     }
     auto best_ref = temploid_reference{.templexoid = input.initializee, .which = best_match.front()};
-    std::cout << " Best match for " << to_string(input) << " is " << to_string(best_ref) << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        co_yield rpnx::querygraph::debug_message(" Best match for {} is {}", to_string(input), to_string(best_ref));
+    }
 
     co_return best_ref;
 }

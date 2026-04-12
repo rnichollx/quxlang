@@ -35,7 +35,10 @@ namespace quxlang
 
             // TODO: Check if module_name is valid
 
-            QUXLANG_DEBUG({ std::cout << "Module: " << module_name << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "Module: " << module_name << std::endl;
+            }
 
             if (module_name.starts_with('.') || module_name.starts_with('_'))
             {
@@ -51,7 +54,10 @@ namespace quxlang
 
             for (auto const& module_file : std::filesystem::recursive_directory_iterator(module_dirent.path() / "sources"))
             {
-                QUXLANG_DEBUG({ std::cout << "File: " << module_file.path().string() << std::endl; });
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    std::cout << "File: " << module_file.path().string() << std::endl;
+                }
 
                 if (module_name.starts_with("."))
                 {
@@ -61,7 +67,10 @@ namespace quxlang
 
                 auto relpath = module_file.path().lexically_relative(path);
 
-                QUXLANG_DEBUG({ std::cout << "Relpath: " << relpath.string() << std::endl; });
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    std::cout << "Relpath: " << relpath.string() << std::endl;
+                }
 
                 mod.files[relpath.string()] = source_file();
 
@@ -84,7 +93,10 @@ namespace quxlang
                 continue;
             }
 
-            QUXLANG_DEBUG({ std::cout << "Loading Target: " << target_name << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "Loading Target: " << target_name << std::endl;
+            }
 
             auto target_config_node = target_node.second;
 

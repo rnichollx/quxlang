@@ -1,6 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/lookup_spec.hpp>
+#include <quxlang/macros.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -15,11 +16,12 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
 
 
-    QUXLANG_DEBUG({
-        std::cout << "type lookup," << std::endl;
-        std::cout << "With Context: " << to_string(context) << std::endl;
-        std::cout << "Looking up type: " << to_string(type) << std::endl;
-    });
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        co_yield rpnx::querygraph::debug_message("type lookup,");
+        co_yield rpnx::querygraph::debug_message("With Context: {}", to_string(context));
+        co_yield rpnx::querygraph::debug_message("Looking up type: {}", to_string(type));
+    }
 
     auto current_module = get_root_module(context).value_or(void_type{});
 
@@ -114,21 +116,25 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             std::string name = fb.name;
             if (typeis< instanciation_reference >(*current_context))
             {
-                QUXLANG_DEBUG({ std::cout << "Instanciation:  within " << to_string(*current_context) << " check  " << to_string(type) << std::endl; });
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    co_yield rpnx::querygraph::debug_message("Instanciation:  within {} check  {}", to_string(*current_context), to_string(type));
+                }
 
                 // Two possibilities, 1 = this is a template, 2 = this is a function
                 instanciation_reference inst = as< instanciation_reference >(*current_context);
 
                 auto param_set = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(inst);
 
-                QUXLANG_DEBUG({
-                    std::cout << "Param set, name=" << name << std::endl;
-                    std::cout << "Param map " << to_string(inst) << " / " << to_string(*current_context) << " " << param_set.parameter_map.size() << std::endl;
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    co_yield rpnx::querygraph::debug_message("Param set, name={}", name);
+                    co_yield rpnx::querygraph::debug_message("Param map {} / {} {}", to_string(inst), to_string(*current_context), param_set.parameter_map.size());
                     for (auto it = param_set.parameter_map.begin(); it != param_set.parameter_map.end(); it++)
                     {
-                        std::cout << "Param map: k=" << it->first << " v=" << to_string(it->second) << std::endl;
+                        co_yield rpnx::querygraph::debug_message("Param map: k={} v={}", it->first, to_string(it->second));
                     }
-                });
+                }
                 auto it = param_set.parameter_map.find(name);
                 if (it != param_set.parameter_map.end())
                 {
@@ -140,7 +146,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
             if (current_context.value().type_is< absolute_module_reference >())
             {
-                ast2_module_declaration module_ast = co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(current_context.value()).module_name);
+                ast2_module_declaration const & module_ast = co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(current_context.value()).module_name);
 
                 auto import_at = module_ast.imports.find(fb.name);
 
@@ -152,16 +158,25 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
             auto exists = co_await rpnx::querygraph::request< exists_query >(sub2);
 
-            QUXLANG_DEBUG({ std::cout << "Exists? " << to_string(sub2) << ": " << (exists ? "yes" : "no") << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Exists? {}: {}", to_string(sub2), exists ? "yes" : "no");
+            }
 
             if (exists)
             {
-                std::cout << "Found '" << fb.name << "' in context " << quxlang::to_string(current_context.value()) << std::endl;
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    co_yield rpnx::querygraph::debug_message("Found '{}' in context {}", fb.name, quxlang::to_string(current_context.value()));
+                }
                 co_return sub2;
             }
 
             current_context = type_parent(current_context.value());
-            QUXLANG_DEBUG({ std::cout << "New context: " << quxlang::to_string(current_context.value_or(void_type{})) << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("New context: {}", quxlang::to_string(current_context.value_or(void_type{})));
+            }
         }
 
         std::string str = "Could not find '" + fb.name + "'";
@@ -180,7 +195,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             co_return rval;
         }
 
-        std::cout << "Parent: " << to_string(parent) << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            co_yield rpnx::querygraph::debug_message("Parent: {}", to_string(parent));
+        }
 
         auto parent_canonical_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = parent});
         if (!parent_canonical_opt.has_value())
@@ -373,7 +391,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     else
     {
         std::string str = std::string() + "unimplemented: " + type.type().name();
-        QUXLANG_DEBUG({ std::cout << str << std::endl; });
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            co_yield rpnx::querygraph::debug_message("{}", str);
+        }
         throw std::logic_error("unreachable/unimplemented");
     }
 

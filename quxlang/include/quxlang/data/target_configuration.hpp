@@ -74,6 +74,8 @@ namespace quxlang
         output_kind type;
         std::optional<std::string> module;
         std::optional<std::string> main_functanoid;
+
+        RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid);
     };
 
 
@@ -85,6 +87,8 @@ namespace quxlang
         output_info target_output_config;
 
         std::map< std::string, output_config > outputs;
+
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, outputs);
     };
 
 
@@ -93,6 +97,7 @@ namespace quxlang
         std::map< std::string, target_configuration > targets;
         std::map< std::string, module_source > module_sources;
 
+        RPNX_MEMBER_METADATA(source_bundle, targets, module_sources);
     };
 
 } // namespace quxlang

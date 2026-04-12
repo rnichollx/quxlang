@@ -68,7 +68,9 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
         if (name == "GET_REFERENCE")
         {
-            add_overload({}, {}, make_mref(variable_type));
+            auto is_antestatal_static = co_await rpnx::querygraph::request< global_is_antestatal_static_query >(parent);
+            auto ref_type = is_antestatal_static ? make_cref(variable_type) : make_mref(variable_type);
+            add_overload({}, {}, ref_type);
             co_return allowed_operations;
         }
 
@@ -156,7 +158,10 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         else if (is_swap_operator)
         {
             bool should_autogen_swap = co_await rpnx::querygraph::request< class_requires_gen_swap_query >(parent);
-            std::cout << "Should autogen swap for " << to_string(parent) << ": " << (should_autogen_swap ? "yes" : "no") << "\n";
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Should autogen swap for {}: {}", to_string(parent), should_autogen_swap ? "yes" : "no");
+            }
             if (should_autogen_swap && !is_rhs)
             {
                 add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", make_mref(parent)}}, void_type{});

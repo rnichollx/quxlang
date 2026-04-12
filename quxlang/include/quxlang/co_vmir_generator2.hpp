@@ -15,6 +15,7 @@
 #include "quxlang/data/type_placement_info.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
@@ -22,11 +23,11 @@
 #include "quxlang/queries/class_field_list.hpp"
 #include "quxlang/queries/class_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
+#include "quxlang/queries/functanoid_return_type.hpp"
+#include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/function_builtin.hpp"
 #include "quxlang/queries/function_declaration.hpp"
 #include "quxlang/queries/function_param_names.hpp"
-#include "quxlang/queries/functanoid_return_type.hpp"
-#include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
@@ -42,12 +43,10 @@
 #include "quxlang/vmir2/state_engine.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/querygraph/querygraph.hpp"
-#include "quxlang/macros.hpp"
-
 
 #include <assert.h>
-#include <set>
 #include <quxlang/macros.hpp>
+#include <set>
 
 namespace quxlang
 {
@@ -172,6 +171,28 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_constexpr_eval_antestatal(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
+        {
+            assert(this->state.blocks.empty());
+            this->state.blocks.push_back(codegen_block{});
+            auto current_block = block_index(0);
+            std::string type_str = to_string(type);
+            std::string expr_str = to_string(expr);
+            auto result_val = co_await this->co_generate_typed_expr(current_block, expr, type);
+            assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+            assert(result_val != value_index(0));
+            vmir2::constexpr_set_result2 csr;
+            assert(this->current_type(current_block, result_val) == type);
+            csr.target = get_local_index(result_val);
+            this->emit(current_block, csr);
+
+            this->generate_return(current_block);
+
+            co_await co_generate_dtor_references();
+
+            co_return get_result();
+        }
+
         bool local_alive(block_index bidx, local_index idx)
         {
             auto& block = this->state.blocks.at(bidx);
@@ -194,12 +215,11 @@ namespace quxlang
         auto co_generate_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
-            auto result = co_await rpnx::apply_visitor< co_type< value_index > >(
-                expr,
-                [&](auto&& val)
-                {
-                    return co_generate(bidx, std::forward< decltype(val) >(val));
-                });
+            auto result = co_await rpnx::apply_visitor< co_type< value_index > >(expr,
+                                                                                 [&](auto&& val)
+                                                                                 {
+                                                                                     return co_generate(bidx, std::forward< decltype(val) >(val));
+                                                                                 });
             std::string expr_str = to_string(expr);
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             co_return result;
@@ -263,7 +283,10 @@ namespace quxlang
 
         auto co_gen_call_functum(block_index& bidx, type_symbol func, codegen_invocation_args args, allowed_adaptations adaptations = allowed_adaptations::destination_rebinding) -> co_type< value_index >
         {
-            std::cout << "co_gen_call_functum(" << quxlang::to_string(func) << ")" << quxlang::to_string(args) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("co_gen_call_functum({}){}", quxlang::to_string(func), quxlang::to_string(args));
+            }
 
             invotype calltype;
             for (auto& arg : args.positional)
@@ -281,10 +304,13 @@ namespace quxlang
                 auto arg_type = current_type(bidx, arg);
                 bool is_alive = value_alive(bidx, arg);
 
-                std::string name_copy = name;
-                std::string arg_type_str = to_string(arg_type);
+                if constexpr (QUXLANG_IN_DEBUG)
+                {
+                    std::string name_copy = name;
+                    std::string arg_type_str = to_string(arg_type);
 
-                // std::cout << " arg name=" << name << " index=" << arg << " is_alive=" << is_alive << " current_type=" << to_string(arg_type) << std::endl;
+                    // co_yield rpnx::querygraph::debug_message(" arg name={} index={} is_alive={} current_type={}", name, arg, is_alive, to_string(arg_type));
+                }
                 if (!is_alive)
                 {
                     assert(typeis< nvalue_slot >(arg_type));
@@ -295,16 +321,16 @@ namespace quxlang
 
             initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
 
-            // std::cout << "co_gen_call_functum initialization params: (" << quxlang::to_string(functanoid_unnormalized) << ")" << std::endl;
+            // co_yield rpnx::querygraph::debug_message("co_gen_call_functum initialization params: ({})", quxlang::to_string(functanoid_unnormalized));
             //  Get call type
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
             {
-                auto func_str = to_string(func);
 
                 if (kind == symbol_kind::noexist)
                 {
+                    auto func_str = to_string(func);
                     compilation_error c;
                     c.structured_error = semantic_error{func_str + " does not exist"};
 
@@ -312,14 +338,17 @@ namespace quxlang
                 }
                 else if (kind == symbol_kind::local_variable)
                 {
+                    auto func_str = to_string(func);
                     throw std::logic_error("Error: cannot call local variable " + func_str + " as a functum");
                 }
                 else if (kind == symbol_kind::class_)
                 {
+                    auto func_str = to_string(func);
                     throw std::logic_error("Error: cannot call class type " + func_str + " as a functum");
                 }
                 else
                 {
+                    auto func_str = to_string(func);
                     throw std::logic_error("Error: symbol " + func_str + " is not a functum");
                 }
             }
@@ -329,7 +358,10 @@ namespace quxlang
 
             for (auto const& overload : functum_overloeads)
             {
-                std::cout << " - Candidate: " + to_string(overload.interface) << std::endl;
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    co_yield rpnx::querygraph::debug_message(" - Candidate: {}", to_string(overload.interface));
+                }
             }
 
             if (!instanciation)
@@ -339,7 +371,10 @@ namespace quxlang
                 throw std::logic_error(message);
             }
 
-            std::cout << "co_gen_call_functum selected instanciation: " << quxlang::to_string(*instanciation) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("co_gen_call_functum selected instanciation: {}", quxlang::to_string(*instanciation));
+            }
 
             co_return co_await this->co_gen_call_functanoid(bidx, instanciation.value(), args, adaptations);
         }
@@ -752,12 +787,12 @@ namespace quxlang
             if (typeis< freebound_identifier >(sym))
             {
                 std::string const& name = as< freebound_identifier >(sym).name;
-                // std::cout << "lookup " << name << std::endl;
+                // co_yield rpnx::querygraph::debug_message("lookup {}", name);
                 auto lookup = this->local_value_direct_lookup(idx, name);
                 if (lookup)
                 {
                     auto lookup_type = this->current_type(idx, lookup.value());
-                    // std::cout << "lookup " << name << " -> " << lookup.value() << " type=" << to_string(lookup_type) << std::endl;
+                    // co_yield rpnx::querygraph::debug_message("lookup {} -> {} type={}", name, lookup.value(), to_string(lookup_type));
 
                     if (!is_ref(lookup_type))
                     {
@@ -811,7 +846,10 @@ namespace quxlang
             assert(!type_is_contextual(canonical_symbol_opt.value()));
 
             auto canonical_symbol = canonical_symbol_opt.value();
-            std::cout << "co_lookup_symbol(" << symbol_str << ") -> " << quxlang::to_string(canonical_symbol) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("co_lookup_symbol({}) -> {}", symbol_str, quxlang::to_string(canonical_symbol));
+            }
 
             auto kind = co_await rpnx::querygraph::request< symbol_type_query >(canonical_symbol);
 
@@ -909,17 +947,26 @@ namespace quxlang
             auto val = this->create_numeric_literal(number_string);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            QUXLANG_DEBUG({ std::cout << "Generated numeric literal from char " << val << " of type " << to_string(val_type) << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Generated numeric literal from char {} of type {}", static_cast< std::uint64_t >(val), to_string(val_type));
+            }
             co_return val;
         }
 
         auto co_generate(block_index& bidx, expression_call call) -> co_type< value_index >
         {
-            std::cout << "gen_call_expr A()" << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("gen_call_expr A()");
+            }
             auto callee = co_await co_generate_expr(bidx, call.callee);
 
             type_symbol callee_type = this->current_type(bidx, callee);
-            std::cout << "gen_call_expr B() -> callee_type=" << quxlang::to_string(callee_type) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("gen_call_expr B() -> callee_type={}", quxlang::to_string(callee_type));
+            }
 
             std::string callee_type_string = to_string(callee_type);
 
@@ -939,7 +986,7 @@ namespace quxlang
             codegen_invocation_args args;
             std::string callee_type_string2 = to_string(as< attached_type_reference >(callee_type));
 
-            // std::cout << "requesting generate call to bindval=" << to_string(carrying_type) << " bindsym=" << to_string(attached_symbol) << std::endl;
+            // co_yield rpnx::querygraph::debug_message("requesting generate call to bindval={} bindsym={}", to_string(carrying_type), to_string(attached_symbol));
 
             std::string callee_type_string3 = to_string(callee_type);
 
@@ -1099,7 +1146,7 @@ namespace quxlang
             if (!typeis< void_type >(return_type))
             {
                 auto return_slot = create_local_value(return_type);
-                // std::cout << "Created return slot " << return_slot << std::endl;
+                // co_yield rpnx::querygraph::debug_message("Created return slot {}", return_slot);
 
                 // calltype.named_parameters["RETURN"] = return_slot_type;
                 invocation_args.named["RETURN"] = return_slot;
@@ -1161,7 +1208,10 @@ namespace quxlang
         auto co_gen_value_constructor_conversion(block_index& bidx, value_index vidx, type_symbol target_value_type) -> co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
-            std::cout << "co_gen_value_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_value_type) << ")" << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("co_gen_value_conversion({}({}), {})", static_cast< std::uint64_t >(vidx), to_string(value_type), to_string(target_value_type));
+            }
 
             co_return co_await co_gen_argument_adaptation(bidx, vidx, target_value_type, allowed_adaptations::destination_rebinding);
         }
@@ -1169,7 +1219,7 @@ namespace quxlang
         auto co_gen_implicit_conversion(block_index& bidx, value_index vidx, type_symbol target_type, std::optional< value_index > constructed_index = std::nullopt) -> co_type< value_index >
         {
             type_symbol value_type = this->current_type(bidx, vidx);
-            // std::cout << "gen_implicit_conversion(" << vidx << "(" << to_string(value_type) << "), " << to_string(target_type) << ")" << std::endl;
+            // co_yield rpnx::querygraph::debug_message("gen_implicit_conversion({}({}), {})", vidx, to_string(value_type), to_string(target_type));
 
             if (value_type == target_type)
             {
@@ -1507,10 +1557,7 @@ namespace quxlang
 
                         return result;
                     }
-                    else if (other.type_is< ptrref_type >() &&
-                             other.as< ptrref_type >().ptr_class == pointer_class::ref &&
-                             remove_ref(other) == *cls &&
-                             (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))
+                    else if (other.type_is< ptrref_type >() && other.as< ptrref_type >().ptr_class == pointer_class::ref && remove_ref(other) == *cls && (!cls->type_is< ptrref_type >() || cls->as< ptrref_type >().ptr_class != pointer_class::ref))
                     {
                         auto this_slot_id = args.named.at("THIS");
 
@@ -1520,10 +1567,7 @@ namespace quxlang
 
                         return lfr;
                     }
-                    else if (cls->type_is< ptrref_type >() &&
-                             other.type_is< ptrref_type >() &&
-                             cls->as< ptrref_type >().ptr_class == pointer_class::ref &&
-                             other.as< ptrref_type >().ptr_class == pointer_class::ref)
+                    else if (cls->type_is< ptrref_type >() && other.type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class == pointer_class::ref && other.as< ptrref_type >().ptr_class == pointer_class::ref)
                     {
                         auto this_slot_id = args.named.at("THIS");
 
@@ -1532,10 +1576,7 @@ namespace quxlang
                         crf.target_index = get_local_index(this_slot_id);
                         return crf;
                     }
-                    else if (cls->type_is< ptrref_type >() &&
-                             other.type_is< ptrref_type >() &&
-                             cls->as< ptrref_type >().ptr_class != pointer_class::ref &&
-                             other.as< ptrref_type >().ptr_class != pointer_class::ref)
+                    else if (cls->type_is< ptrref_type >() && other.type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref && other.as< ptrref_type >().ptr_class != pointer_class::ref)
                     {
                         auto this_slot_id = args.named.at("THIS");
 
@@ -2811,7 +2852,10 @@ namespace quxlang
             auto val = this->create_numeric_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            QUXLANG_DEBUG({ std::cout << "Generated numeric literal " << val << " of type " << to_string(val_type) << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Generated numeric literal {} of type {}", static_cast< std::uint64_t >(val), to_string(val_type));
+            }
             co_return val;
         }
 
@@ -2820,7 +2864,10 @@ namespace quxlang
             auto val = this->create_string_literal(input.value);
             assert(val != 0);
             auto val_type = this->current_type(bidx, val);
-            QUXLANG_DEBUG({ std::cout << "Generated string literal " << val << " of type " << to_string(val_type) << std::endl; });
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Generated string literal {} of type {}", static_cast< std::uint64_t >(val), to_string(val_type));
+            }
             co_return val;
         }
 
@@ -2831,15 +2878,11 @@ namespace quxlang
             auto delegate_value = this->create_local_value(target_type);
             if (destroy_delegate)
             {
-                this->emit(bidx, vmir2::storage_deinit_start{
-                                     .on_storage = get_local_index(storage_ref),
-                                     .target_value = get_local_index(delegate_value)});
+                this->emit(bidx, vmir2::storage_deinit_start{.on_storage = get_local_index(storage_ref), .target_value = get_local_index(delegate_value)});
             }
             else
             {
-                this->emit(bidx, vmir2::storage_init_start{
-                                     .on_storage = get_local_index(storage_ref),
-                                     .target_value = get_local_index(delegate_value)});
+                this->emit(bidx, vmir2::storage_init_start{.on_storage = get_local_index(storage_ref), .target_value = get_local_index(delegate_value)});
             }
 
             co_return delegate_value;
@@ -2877,15 +2920,10 @@ namespace quxlang
             co_await this->co_gen_call_functum(bidx, constructor, ctor_args);
 
             auto typed_ref = this->create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
-            this->emit(bidx, vmir2::storage_pun{
-                                 .from_storage = get_local_index(storage_ref),
-                                 .as_type = target_type,
-                                 .to_reference = get_local_index(typed_ref)});
+            this->emit(bidx, vmir2::storage_pun{.from_storage = get_local_index(storage_ref), .as_type = target_type, .to_reference = get_local_index(typed_ref)});
 
             auto result_pointer = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::instance, .qual = storage_ref_type.qual});
-            this->emit(bidx, vmir2::make_pointer_to{
-                                 .of_index = get_local_index(typed_ref),
-                                 .pointer_index = get_local_index(result_pointer)});
+            this->emit(bidx, vmir2::make_pointer_to{.of_index = get_local_index(typed_ref), .pointer_index = get_local_index(result_pointer)});
             co_return result_pointer;
         }
 
@@ -3139,21 +3177,20 @@ namespace quxlang
                 return;
             }
 
-            rpnx::apply_visitor< void >(
-                this->block(it).terminator.value(),
-                [&](auto const& term)
-                {
-                    using T = std::remove_cvref_t< decltype(term) >;
-                    if constexpr (std::is_same_v< T, vmir2::branch >)
-                    {
-                        generate_survivor_local_chain(it, term.target_true, end, survivor);
-                        generate_survivor_local_chain(it, term.target_false, end, survivor);
-                    }
-                    else if constexpr (std::is_same_v< T, vmir2::jump >)
-                    {
-                        generate_survivor_local_chain(it, term.target, end, survivor);
-                    }
-                });
+            rpnx::apply_visitor< void >(this->block(it).terminator.value(),
+                                        [&](auto const& term)
+                                        {
+                                            using T = std::remove_cvref_t< decltype(term) >;
+                                            if constexpr (std::is_same_v< T, vmir2::branch >)
+                                            {
+                                                generate_survivor_local_chain(it, term.target_true, end, survivor);
+                                                generate_survivor_local_chain(it, term.target_false, end, survivor);
+                                            }
+                                            else if constexpr (std::is_same_v< T, vmir2::jump >)
+                                            {
+                                                generate_survivor_local_chain(it, term.target, end, survivor);
+                                            }
+                                        });
         }
 
         auto generate_survivor_local(block_index from, block_index to, local_index survivor) -> void
@@ -3294,7 +3331,7 @@ namespace quxlang
                     type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), field.type);
                     auto result_idx = create_local_value(result_ref_type);
                     access.store_index = get_local_index(result_idx);
-                    // std::cout << "Created field access " << access.store_index << " for " << field_name << " in " << to_string(base_type) << std::endl;
+                    // co_yield rpnx::querygraph::debug_message("Created field access {} for {} in {}", access.store_index, field_name, to_string(base_type));
 
                     this->emit(bidx, access);
                     co_return result_idx;
@@ -3309,7 +3346,10 @@ namespace quxlang
             {
                 // Create a binding to the member function with the base object
                 auto binding = create_binding(base, lookup_result.value());
-                std::cout << "Created member function binding " << binding << " for " << field_name << " in " << to_string(base_type) << std::endl;
+                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                {
+                    co_yield rpnx::querygraph::debug_message("Created member function binding {} for {} in {}", static_cast< std::uint64_t >(binding), field_name, to_string(base_type));
+                }
                 co_return binding;
             }
 
@@ -3384,6 +3424,19 @@ namespace quxlang
             auto global_symbol = func.temploid.templexoid.get_as< submember >().of;
             auto global_type = co_await rpnx::querygraph::request< variable_type_query >(global_symbol);
 
+            if (co_await rpnx::querygraph::request< global_is_antestatal_static_query >(global_symbol))
+            {
+                auto result_ref = this->create_local_value(make_cref(global_type));
+                this->emit(entry_block, vmir2::get_antestatal_ref{
+                                            .symbol = global_symbol,
+                                            .target_ref = get_local_index(result_ref),
+                                        });
+
+                co_await this->co_return_value(entry_block, result_ref);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
 
@@ -3413,16 +3466,16 @@ namespace quxlang
             {
                 auto storage_ref = this->create_local_value(make_mref(global_storage_type));
                 this->emit(current_block, vmir2::get_global_storage{
-                    .symbol = global_symbol,
-                    .target_ref = get_local_index(storage_ref),
-                });
+                                              .symbol = global_symbol,
+                                              .target_ref = get_local_index(storage_ref),
+                                          });
 
                 auto result_ref = this->create_local_value(make_mref(global_type));
                 this->emit(current_block, vmir2::storage_pun{
-                    .from_storage = get_local_index(storage_ref),
-                    .as_type = global_type,
-                    .to_reference = get_local_index(result_ref),
-                });
+                                              .from_storage = get_local_index(storage_ref),
+                                              .as_type = global_type,
+                                              .to_reference = get_local_index(result_ref),
+                                          });
 
                 co_await this->co_return_value(current_block, result_ref);
             };
@@ -3430,9 +3483,9 @@ namespace quxlang
             auto init_functum = submember{.of = global_symbol, .name = "INIT"};
             auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));
             this->emit(acquire_block, vmir2::get_global_storage{
-                .symbol = global_symbol,
-                .target_ref = get_local_index(init_storage_ref),
-            });
+                                          .symbol = global_symbol,
+                                          .target_ref = get_local_index(init_storage_ref),
+                                      });
             co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
             this->emit(acquire_block, vmir2::initguard_release{.lock = get_local_index(lock_value)});
             co_await emit_return_from_storage(acquire_block);
@@ -3656,10 +3709,7 @@ namespace quxlang
                 }
                 auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
                 auto field_serialize_functum = submember{.of = fld.type, .name = "SERIALIZE"};
-                current_iter = co_await this->co_gen_call_functum(
-                    current_block,
-                    field_serialize_functum,
-                    codegen_invocation_args{.named = {{"THIS", field_ref}, {"OUTPUT_ITERATOR", *current_iter}}});
+                current_iter = co_await this->co_gen_call_functum(current_block, field_serialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"OUTPUT_ITERATOR", *current_iter}}});
             }
 
             co_await co_return_value(current_block, *current_iter);
@@ -3849,10 +3899,7 @@ namespace quxlang
                 }
                 auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
                 auto field_deserialize_functum = submember{.of = fld.type, .name = "DESERIALIZE"};
-                current_iter = co_await this->co_gen_call_functum(
-                    current_block,
-                    field_deserialize_functum,
-                    codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITER", *current_iter}}});
+                current_iter = co_await this->co_gen_call_functum(current_block, field_deserialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITER", *current_iter}}});
             }
 
             co_await co_return_value(current_block, *current_iter);
@@ -3926,7 +3973,6 @@ namespace quxlang
             }
 
             co_await co_generate_copy_ctor_delegates(current_block, func);
-
 
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
@@ -4141,12 +4187,11 @@ namespace quxlang
         {
             try
             {
-                co_await rpnx::apply_visitor< co_type< void > >(
-                    st,
-                    [&](auto st) -> co_type< void >
-                    {
-                        co_return co_await this->co_generate_statement_ovl(current_block, st);
-                    });
+                co_await rpnx::apply_visitor< co_type< void > >(st,
+                                                                [&](auto st) -> co_type< void >
+                                                                {
+                                                                    co_return co_await this->co_generate_statement_ovl(current_block, st);
+                                                                });
             }
             catch (compilation_error& err)
             {

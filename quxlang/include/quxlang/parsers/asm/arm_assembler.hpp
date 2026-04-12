@@ -5,6 +5,7 @@
 
 
 #include "quxlang/asm/asm.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/parsers/extern.hpp"
 
 #include <iostream>
@@ -115,24 +116,25 @@ namespace quxlang::parsers
 
         if (comp)
         {
-            QUXLANG_DEBUG({
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
                 if (typeis< std::string >(*comp))
                 {
-                std::cout << "comp: " << as< std::string >(*comp) << std::endl;
+                    std::cout << "comp: " << as< std::string >(*comp) << std::endl;
                 }
                 else if (typeis< ast2_extern >(*comp))
                 {
-                std::cout << "comp: EXTERNAL" << std::endl;
+                    std::cout << "comp: EXTERNAL" << std::endl;
                 }
                 else if (typeis< ast2_procedure_ref >(*comp))
                 {
-                std::cout << "comp: PROCEDURE" << std::endl;
+                    std::cout << "comp: PROCEDURE" << std::endl;
                 }
                 else
                 {
-                std::cout << "comp: err?" << std::endl;
+                    std::cout << "comp: err?" << std::endl;
                 }
-                });
+            }
             ret.components.push_back(*comp);
             goto get_part;
         }
@@ -161,7 +163,10 @@ namespace quxlang::parsers
         if (arm_instruction_opcodes.find(kw) == arm_instruction_opcodes.end())
         {
             // For now, no error checking, because the list of opcodes might not be complete
-            std::cout << "Warning: opcode '" << kw << "' not recognized" << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "Warning: opcode '" << kw << "' not recognized" << std::endl;
+            }
             // return std::nullopt;
         }
 

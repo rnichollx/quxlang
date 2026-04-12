@@ -37,6 +37,7 @@ namespace quxlang
         struct branch;
         struct cast_ptrref;
         struct constexpr_set_result;
+        struct constexpr_set_result2;
         struct load_const_value;
         struct load_const_int;
         struct make_pointer_to;
@@ -48,6 +49,7 @@ namespace quxlang
         struct storage_deinit_start;
         struct storage_pun;
         struct get_global_storage;
+        struct get_antestatal_ref;
         struct initguard_global_get_ref;
         struct initguard_release;
         struct initguard_abort;
@@ -131,6 +133,7 @@ namespace quxlang
             make_reference,
             cast_ptrref,
             constexpr_set_result,
+            constexpr_set_result2,
             load_const_int,
             load_const_value,
             make_pointer_to,
@@ -140,6 +143,7 @@ namespace quxlang
             storage_deinit_start,
             storage_pun,
             get_global_storage,
+            get_antestatal_ref,
             initguard_global_get_ref,
             initguard_release,
             initguard_abort,
@@ -286,6 +290,14 @@ namespace quxlang
             local_index target_ref;
 
             RPNX_MEMBER_METADATA(get_global_storage, symbol, target_ref);
+        };
+
+        struct get_antestatal_ref
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            RPNX_MEMBER_METADATA(get_antestatal_ref, symbol, target_ref);
         };
 
         struct initguard_global_get_ref
@@ -552,6 +564,12 @@ namespace quxlang
         {
             local_index target;
             RPNX_MEMBER_METADATA(constexpr_set_result, target);
+        };
+
+        struct constexpr_set_result2
+        {
+            local_index target;
+            RPNX_MEMBER_METADATA(constexpr_set_result2, target);
         };
 
         struct load_const_value

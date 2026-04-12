@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp>
+#include <quxlang/macros.hpp>
 #include "quxlang/data/expression.hpp"
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
@@ -16,7 +17,10 @@ rpnx::querygraph::coroutine< quxlang::have_nontrivial_member_ctor_spec > quxlang
         {
             auto element_type = input.get_as< array_type >().element_type;
 
-            std::cout << "Checking nontrivial member ctor for array element type: " << quxlang::to_string(element_type) << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                co_yield rpnx::querygraph::debug_message("Checking nontrivial member ctor for array element type: {}", quxlang::to_string(element_type));
+            }
 
             co_return co_await rpnx::querygraph::request< have_nontrivial_member_ctor_query >(element_type);
         }

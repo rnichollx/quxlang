@@ -43,7 +43,7 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
         co_return {};
     }
 
-    std::vector< subdeclaroid > subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(parent_addr.value());
+    std::vector< subdeclaroid > const& subdeclaroids = co_await rpnx::querygraph::request< symboid_subdeclaroids_query >(parent_addr.value());
 
     for (auto& subdecl : subdeclaroids)
     {

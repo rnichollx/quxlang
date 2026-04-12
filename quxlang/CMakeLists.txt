@@ -143,6 +143,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/compilation_result.hpp
         include/quxlang/parsers/context.hpp
         include/quxlang/co_vmir_generator2_deps.hpp
+        include/quxlang/data/antestatal.hpp
 
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
@@ -163,6 +164,7 @@ target_include_directories(quxlang-loaders PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(quxlang PUBLIC cxx_std_23)
+target_compile_options(quxlang PRIVATE $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fconstexpr-steps=67108864>)
 set_target_properties(quxlang PROPERTIES EXPORT_NAME quxlang)
 set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 
@@ -174,6 +176,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp
         include/quxlang/queries/specs/argument_initialize_by_intrinsic_spec.hpp
         include/quxlang/queries/specs/argument_initialize_by_template_spec.hpp
+        include/quxlang/queries/specs/antestatal_static_value_spec.hpp
         include/quxlang/queries/specs/asm_procedure_from_symbol_spec.hpp
         include/quxlang/queries/specs/bindable_by_reference_objectization_spec.hpp
         include/quxlang/queries/specs/bindable_by_reference_requalification_spec.hpp
@@ -203,7 +206,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/class_trivially_constructible_spec.hpp
         include/quxlang/queries/specs/class_trivially_destructible_spec.hpp
         include/quxlang/queries/specs/constexpr_bool_spec.hpp
+        include/quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_spec.hpp
+        include/quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp
         include/quxlang/queries/specs/constexpr_routine_spec.hpp
         include/quxlang/queries/specs/constexpr_u64_spec.hpp
         include/quxlang/queries/specs/convertible_by_call_spec.hpp
@@ -231,6 +236,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/functum_overloads_spec.hpp
         include/quxlang/queries/specs/functum_select_function_spec.hpp
         include/quxlang/queries/specs/functum_user_overloads_spec.hpp
+        include/quxlang/queries/specs/global_is_antestatal_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp
         include/quxlang/queries/specs/implicitly_convertible_to_spec.hpp
@@ -253,6 +259,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
         include/quxlang/queries/specs/templex_initialize_spec.hpp
+        include/quxlang/queries/specs/type_is_antestatal_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
@@ -277,6 +284,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/argument_initialize_by_class_conversion.cpp
         sources/queries/argument_initialize_by_intrinsic.cpp
         sources/queries/argument_initialize_by_template.cpp
+        sources/queries/antestatal_static_value.cpp
         sources/queries/asm_procedure_from_symbol.cpp
         sources/queries/bindable.cpp
         sources/queries/bindable_by_reference_objectization.cpp
@@ -306,7 +314,9 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/class_trivially_constructible.cpp
         sources/queries/class_trivially_destructible.cpp
         sources/queries/constexpr_bool.cpp
+        sources/queries/constexpr_eval_antestatal.cpp
         sources/queries/constexpr_eval.cpp
+        sources/queries/constexpr_routine_antestatal.cpp
         sources/queries/constexpr_routine.cpp
         sources/queries/constexpr_u64.cpp
         sources/queries/convertible_by_call.cpp
@@ -334,6 +344,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/functum_overloads.cpp
         sources/queries/functum_select_function.cpp
         sources/queries/functum_user_overloads.cpp
+        sources/queries/global_is_antestatal_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
         sources/queries/have_nontrivial_member_dtor.cpp
         sources/queries/implicitly_convertible_to.cpp
@@ -356,6 +367,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/symbol_type.cpp
         sources/queries/template_instanciation.cpp
         sources/queries/templex_initialize.cpp
+        sources/queries/type_is_antestatal.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp
@@ -421,19 +433,14 @@ if (BUILD_TESTING)
     endif ()
     add_executable(quxlang_gtests)
     add_executable(quxlang_math_gtests)
-    add_executable(quxlang_querygraph_gtests)
-    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp)
+    target_sources(quxlang_gtests PRIVATE tests/gtests.cpp tests/expr_test_generator.cpp tests/querygraph_gtests.cpp)
     target_link_libraries(quxlang_gtests PUBLIC GTest::GTest GTest::Main quxlang quxlang-loaders)
     target_link_libraries(quxlang_math_gtests PRIVATE GTest::GTest GTest::Main quxlang)
-    target_link_libraries(quxlang_querygraph_gtests PRIVATE GTest::GTest GTest::Main quxlang)
     target_include_directories(quxlang_math_gtests PRIVATE include)
-    target_include_directories(quxlang_querygraph_gtests PRIVATE include)
     target_sources(quxlang_math_gtests PRIVATE tests/gtests_bytemath.cpp)
-    target_sources(quxlang_querygraph_gtests PRIVATE tests/querygraph_gtests.cpp)
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     gtest_discover_tests(quxlang_math_gtests)
     gtest_discover_tests(quxlang_gtests)
-    gtest_discover_tests(quxlang_querygraph_gtests)
 endif ()
 
 install(

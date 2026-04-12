@@ -14,6 +14,7 @@
 #include <quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp>
 #include <quxlang/queries/specs/argument_initialize_by_intrinsic_spec.hpp>
 #include <quxlang/queries/specs/argument_initialize_by_template_spec.hpp>
+#include <quxlang/queries/specs/antestatal_static_value_spec.hpp>
 #include <quxlang/queries/specs/asm_procedure_from_symbol_spec.hpp>
 #include <quxlang/queries/specs/bindable_by_reference_objectization_spec.hpp>
 #include <quxlang/queries/specs/bindable_by_reference_requalification_spec.hpp>
@@ -43,7 +44,9 @@
 #include <quxlang/queries/specs/class_trivially_constructible_spec.hpp>
 #include <quxlang/queries/specs/class_trivially_destructible_spec.hpp>
 #include <quxlang/queries/specs/constexpr_bool_spec.hpp>
+#include <quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_spec.hpp>
+#include <quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_routine_spec.hpp>
 #include <quxlang/queries/specs/constexpr_u64_spec.hpp>
 #include <quxlang/queries/specs/convertible_by_call_spec.hpp>
@@ -71,6 +74,7 @@
 #include <quxlang/queries/specs/functum_overloads_spec.hpp>
 #include <quxlang/queries/specs/functum_select_function_spec.hpp>
 #include <quxlang/queries/specs/functum_user_overloads_spec.hpp>
+#include <quxlang/queries/specs/global_is_antestatal_static_spec.hpp>
 #include <quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp>
 #include <quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp>
 #include <quxlang/queries/specs/implicitly_convertible_to_spec.hpp>
@@ -93,6 +97,7 @@
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/queries/specs/template_instanciation_spec.hpp>
 #include <quxlang/queries/specs/templex_initialize_spec.hpp>
+#include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
 #include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
 #include <quxlang/queries/specs/type_placement_info_spec.hpp>
 #include <quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp>

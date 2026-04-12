@@ -8,6 +8,7 @@
 #include "quxlang/bytemath.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
+#include "quxlang/macros.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "rpnx/unimplemented.hpp"
@@ -32,14 +33,22 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     friend class quxlang::vmir2::ir2_constexpr_interpreter;
 
   private:
+    struct local;
+
     std::size_t exec_mode = 1;
     std::map< cow< type_symbol >, class_layout > class_layouts;
     std::map< cow< type_symbol >, cow< functanoid_routine3 > > functanoids3;
     std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
     std::optional< type_symbol > constexpr_result_type_value;
+    std::optional< type_symbol > constexpr_result_global_symbol;
+    std::map< type_symbol, type_symbol > constexpr_antestatal_global_types;
+    std::map< type_symbol, antestatal_value > constexpr_antestatal_global_values;
+    std::weak_ptr< local > constexpr_result_root;
+    std::optional< antestatal_value > constexpr_result_antestatal;
 
     std::set< type_symbol > missing_functanoids_val;
+    std::set< type_symbol > missing_antestatal_globals_val;
 
     std::uint64_t next_object_id = 1;
 
@@ -49,7 +58,6 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         initialized = 2,
     };
 
-    struct local;
     struct primitive_object;
     struct array_object;
     struct struct_object;
@@ -95,6 +103,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< std::weak_ptr< local > > storage_owner;
         std::optional< std::weak_ptr< local > > initializer_of;
         std::optional< std::weak_ptr< local > > array_init_member_of;
+        std::optional< type_symbol > antestatal_static_symbol;
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
@@ -178,6 +187,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::deque< stack_frame > stack;
     std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
     std::map< type_symbol, std::shared_ptr< local > > global_storages;
+    std::map< local*, type_symbol > global_storage_symbols;
+    std::map< type_symbol, std::shared_ptr< local > > antestatal_global_roots;
     std::map< type_symbol, std::shared_ptr< local > > global_initguards;
     std::map< type_symbol, std::shared_ptr< local > > m_procedures;
 
@@ -254,6 +265,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > output_local(local_index at);
     /** Returns the unique constexpr storage object associated with a global symbol, creating it from the target slot type on first use. */
     std::shared_ptr< local > get_or_create_global_storage(type_symbol symbol, type_symbol storage_type);
+    /** Ensures an antestatal global has a top-level object root for pointer identity. */
+    void ensure_antestatal_global_object(type_symbol symbol, std::shared_ptr< local > const& storage_local, type_symbol storage_type);
     /** Returns the unique constexpr initguard object associated with a symbol, creating it on first use. */
     std::shared_ptr< local > get_or_create_initguard(type_symbol symbol);
     /** Decodes the current initguard state from the guard object's data payload. */
@@ -277,6 +290,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized);
     /** Resolves a live storage object from a storage reference local without changing the reference's lifetime. */
     std::shared_ptr< local > get_storage_local_from_reference(local_index storage_ref, std::string const& instruction_name);
+    /** Materializes a reference to a precomputed antestatal global object. */
+    void do_get_antestatal_ref(type_symbol symbol, local_index target_ref);
     /** Checks whether the referenced storage can contain an object of the requested type. */
     void expect_storage_accepts_type(local_index storage_ref, std::shared_ptr< local > const& storage_local, type_symbol object_type, std::string const& instruction_name);
 
@@ -320,6 +335,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
+    void exec_instr_val(vmir2::constexpr_set_result2 const& csr);
     void exec_instr_val(vmir2::load_const_value const& lcv);
     void exec_instr_val(vmir2::make_pointer_to const& mpt);
     void exec_instr_val(vmir2::storage_init const& sin);
@@ -327,6 +343,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_deinit_start const& sds);
     void exec_instr_val(vmir2::storage_pun const& spn);
     void exec_instr_val(vmir2::get_global_storage const& ggs);
+    void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_release const& igr);
     void exec_instr_val(vmir2::initguard_abort const& iga);
@@ -388,11 +405,27 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > create_object(type_symbol type);
 
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
+    void begin_lifetime_tree(std::shared_ptr< local > const& object);
+    void set_readonly_tree(std::shared_ptr< local > const& object, bool readonly);
+    bool has_constexpr_antestatal_global(type_symbol const& symbol) const;
+    void mark_missing_antestatal_global(type_symbol const& symbol);
+    void collect_missing_antestatal_globals(antestatal_value const& value, std::optional< type_symbol > type = std::nullopt);
+    void collect_missing_antestatal_globals(antestatal_access const& access, std::optional< type_symbol > type = std::nullopt);
 
     std::shared_ptr< local > load_from_reference(local_index local_idx, bool consume);
     pointer_impl load_as_pointer(local_index slot, bool consume);
     void store_as_reference(local_index slot, std::shared_ptr< local > value);
     void store_as_pointer(local_index slot, pointer_impl value);
+    type_symbol procedure_symbol(type_symbol routine, std::string calling_convention) const;
+    std::shared_ptr< local > get_or_create_procedure(type_symbol routine, std::string calling_convention);
+    std::shared_ptr< local > get_or_create_antestatal_global(type_symbol symbol, std::optional< type_symbol > expected_type = std::nullopt);
+    void initialize_local_from_antestatal_value(std::shared_ptr< local > const& object, type_symbol type, antestatal_value const& value);
+    pointer_impl pointer_from_antestatal_access(antestatal_access const& access, ptrref_type const& ptr_type);
+    std::shared_ptr< local > local_from_antestatal_access(antestatal_access const& access);
+    antestatal_value materialize_antestatal_value(std::shared_ptr< local > const& object, type_symbol type);
+    antestatal_access materialize_antestatal_access(pointer_impl ptr, ptrref_type const& ptr_type);
+    std::optional< antestatal_access > access_to_antestatal_local(std::shared_ptr< local > const& target);
+    std::optional< antestatal_access > access_to_antestatal_subobject(std::shared_ptr< local > const& object, std::shared_ptr< local > const& target, antestatal_access access);
 
     bool is_reference_type(quxlang::vmir2::local_index slot);
     bool is_pointer_type(quxlang::vmir2::local_index slot);
@@ -625,14 +658,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     // print all functanoids
 
-    for (auto const& func : functanoids3)
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        quxlang::vmir2::assembler ir_printer(func.second.get());
+        for (auto const& func : functanoids3)
+        {
 
-        std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
 
-        std::cout << ir_printer.to_string(func.second.get()) << std::endl;
+
+            quxlang::vmir2::assembler ir_printer(func.second.get());
+            std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
+            std::cout << ir_printer.to_string(func.second.get()) << std::endl;
+        }
     }
+
 
     while (!stack.empty())
     {
@@ -679,40 +717,50 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto const& current_func = stack.back().type;
 
-    auto current_func_ir = functanoids3.at(current_func.get());
+    auto const & current_func_ir = functanoids3.at(current_func.get());
 
     auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
 
-    quxlang::vmir2::assembler ir_printer(current_func_ir.get());
+    std::optional<quxlang::vmir2::assembler> ir_printer;
+    if constexpr(QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        ir_printer.emplace(current_func_ir.get());
+    }
 
     if (current_instr_address.instruction_index < current_block.instructions.size())
     {
         vm_instruction const& instr = current_block.instructions.at(current_instr_address.instruction_index);
 
-        QUXLANG_DEBUG({ std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer.to_string(instr) << std::endl; });
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer->to_string(instr) << std::endl;
+        }
         //  If there is an error here, it usually means there is an instruction which is not implemented
         //  on the constexpr virtual machine. Instructions which are illegal in a constexpr context
         //  should be implemented to throw a derivative of std::logic_error.
 
-        auto expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
-        auto start_frame_id = current_frame_index();
-        auto current_statemap = get_current_state_map3(current_frame_index());
-
-        auto state_diff = this->get_state_diff();
-
         if constexpr (QUXLANG_IN_DEBUG)
         {
-            std::cout << " - Expected before state: " << ir_printer.to_string(expected_state) << std::endl;
-            std::cout << " - Actual before state: " << ir_printer.to_string(current_statemap) << std::endl;
+            auto expected_state = get_expected_state_map_preexec3(current_frame_index(), current_instr_address.block, current_instr_address.instruction_index);
+            auto start_frame_id = current_frame_index();
+            auto current_statemap = get_current_state_map3(current_frame_index());
 
-            if (current_statemap != expected_state)
+            auto state_diff = this->get_state_diff();
+
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
-                for (auto const& [index, states] : state_diff)
+                std::cout << " - Expected before state: " << ir_printer->to_string(expected_state) << std::endl;
+                std::cout << " - Actual before state: " << ir_printer->to_string(current_statemap) << std::endl;
+
+                if (current_statemap != expected_state)
                 {
-                    std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer.to_string(index, states.second) << ", got " << ir_printer.to_string(index, states.first) << std::endl;
+                    for (auto const& [index, states] : state_diff)
+                    {
+                        std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer->to_string(index, states.second) << ", got " << ir_printer->to_string(index, states.first) << std::endl;
+                    }
                 }
+                assert(current_statemap == expected_state);
             }
-            assert(current_statemap == expected_state);
         }
 
         std::size_t stack_size1 = stack.size();
@@ -724,7 +772,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
 
-        if constexpr (QUXLANG_IN_DEBUG)
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
             std::cout << std::endl;
         }
@@ -737,9 +785,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Constexpr execution reached end of block with undefined behavior");
     }
 
-    if constexpr (QUXLANG_IN_DEBUG)
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer.to_string(terminator_instruction.value()) << std::endl;
+        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer->to_string(terminator_instruction.value()) << std::endl;
     }
 
     rpnx::apply_visitor< void >(*terminator_instruction,
@@ -1364,26 +1412,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_procedure_ptr const& gpp)
 {
-    auto cc_suffix = gpp.calling_convention;
-    for (char& c : cc_suffix)
-    {
-        if (c >= 'A' && c <= 'Z')
-        {
-            c = static_cast< char >(c - 'A' + 'a');
-        }
-    }
-
-    auto procedure_symbol = type_symbol(submember{.of = gpp.routine, .name = "__procedure_" + cc_suffix});
-    auto& proc_local = m_procedures[procedure_symbol];
-    if (proc_local == nullptr)
-    {
-        procedure_type proc_type;
-        proc_type.calling_convention = gpp.calling_convention;
-        proc_local = create_object(proc_type);
-        proc_local->procedure = procedure_symbol;
-        begin_lifetime(proc_local);
-    }
-
+    auto proc_local = get_or_create_procedure(gpp.routine, gpp.calling_convention);
     auto ptrval = output_local(gpp.pointer_index);
     ptrval->ref = pointer_impl{.pointer_target = proc_local};
 }
@@ -1517,6 +1546,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     do_get_global_storage(ggs.symbol, ggs.target_ref);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_antestatal_ref const& gar)
+{
+    do_get_antestatal_ref(gar.symbol, gar.target_ref);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_global_storage(type_symbol symbol, local_index target_ref)
 {
     auto const target_type = get_local_type(target_ref);
@@ -1534,6 +1568,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto storage_local = get_or_create_global_storage(symbol, storage_type);
     auto out_ref = output_local(target_ref);
     out_ref->ref = pointer_impl{.pointer_target = storage_local};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_antestatal_ref(type_symbol symbol, local_index target_ref)
+{
+    auto const target_type = get_local_type(target_ref);
+    if (!is_ref(target_type))
+    {
+        throw compiler_bug("GET_ANTESTATAL_REF requires a reference-typed destination");
+    }
+
+    auto const object_type = remove_ref(target_type);
+    auto object = get_or_create_antestatal_global(symbol, object_type);
+    auto out_ref = output_local(target_ref);
+    out_ref->ref = pointer_impl{.pointer_target = object};
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_reference const& mrf)
@@ -1581,6 +1629,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized)
 {
+    if (has_constexpr_antestatal_global(symbol))
+    {
+        transition(target_already_initialized);
+        return;
+    }
+
     auto guard = get_or_create_initguard(symbol);
 
     switch (get_initguard_state(guard))
@@ -1628,6 +1682,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     this->constexpr_result_v = consume_local_as_data(csr.target);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result2 const& csr)
+{
+    auto& local_ptr = get_current_frame().local_values.at(csr.target);
+    auto target_type = get_local_type(csr.target);
+    constexpr_result_root = local_ptr;
+    this->constexpr_result_antestatal = materialize_antestatal_value(local_ptr, target_type);
+    consume_local(csr.target);
+    constexpr_result_root.reset();
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
 {
     auto& frame = get_current_frame();
@@ -1672,7 +1736,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (!ptr->ref.has_value())
     {
-        std::cout << "ptr object id: " << ptr->object_id << std::endl;
+        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+        {
+            std::cout << "ptr object id: " << ptr->object_id << std::endl;
+        }
         throw std::logic_error("pointer missing value?");
     }
 
@@ -1704,6 +1771,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
     auto& load_from = *load_from_ptr;
+    if (!load_from.alive() && access_to_antestatal_local(load_from_ptr).has_value())
+    {
+        throw constexpr_logic_execution_error("cannot read symbolic antestatal static during constexpr evaluation");
+    }
 
     auto target_slot = output_local(lfr.to_value);
     target_slot->data = load_from.data;
@@ -1865,6 +1936,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& from_ptr_target = *from_ptr.pointer_target.value().lock();
     auto& to_ptr_target = *to_ptr.pointer_target.value().lock();
 
+    if (to_ptr_target.readonly)
+    {
+        throw constexpr_logic_execution_error("Error executing <store_to_ref>: storing into read-only object");
+    }
+
     std::size_t write_size = from_ptr_target.data.size();
 
     for (auto i = 0; i < write_size; i++)
@@ -1872,7 +1948,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto to_ptr_offset = i;
         if (to_ptr_offset >= to_ptr_target.data.size())
         {
-            std::cout << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id << std::endl;
+            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+            {
+                std::cout << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id << std::endl;
+            }
             throw constexpr_logic_execution_error("Error executing <store_to_ref>: out of bounds write");
         }
         to_ptr_target.data[to_ptr_offset] = from_ptr_target.data[i];
@@ -2026,7 +2105,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto a = consume_local_as_data(clt.a);
     auto b = consume_local_as_data(clt.b);
 
-    std::cout << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b) << std::endl;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::cout << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b) << std::endl;
+    }
 
     for (std::size_t i = a.size() - 1; true; i--)
     {
@@ -2548,6 +2630,33 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_class_layout(quxlang::type_s
     this->implementation->class_layouts[name] = std::move(layout);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::set_constexpr_result_global_symbol(std::optional< type_symbol > symbol)
+{
+    this->implementation->constexpr_result_global_symbol = std::move(symbol);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value)
+{
+    auto const symbol_copy = symbol;
+    auto const type_copy = type;
+
+    this->implementation->constexpr_antestatal_global_types[std::move(symbol)] = std::move(type);
+    this->implementation->collect_missing_antestatal_globals(value, type_copy);
+    this->implementation->constexpr_antestatal_global_values[symbol_copy] = std::move(value);
+    this->implementation->missing_antestatal_globals_val.erase(symbol_copy);
+
+    auto root_it = this->implementation->antestatal_global_roots.find(symbol_copy);
+    if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr && !root_it->second->alive())
+    {
+        this->implementation->initialize_local_from_antestatal_value(root_it->second, type_copy, this->implementation->constexpr_antestatal_global_values.at(symbol_copy));
+        this->implementation->set_readonly_tree(root_it->second, true);
+    }
+    else if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
+    {
+        this->implementation->set_readonly_tree(root_it->second, true);
+    }
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func)
 {
     // Track missing dtors
@@ -2580,6 +2689,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
                 {
                     this->implementation->missing_functanoids_val.insert(gpp.routine);
                 }
+            }
+            else if (typeis< vmir2::get_antestatal_ref >(instr))
+            {
+                auto const& gar = instr.get_as< vmir2::get_antestatal_ref >();
+                this->implementation->mark_missing_antestatal_global(gar.symbol);
             }
         }
     }
@@ -2622,9 +2736,23 @@ quxlang::constexpr_result quxlang::vmir2::ir2_constexpr_interpreter::get_cr_valu
     return constexpr_result{.type = void_type{}, .value = this->implementation->constexpr_result_v};
 }
 
+quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::get_cr_antestatal_value()
+{
+    if (!this->implementation->constexpr_result_antestatal.has_value())
+    {
+        throw std::logic_error("expected antestatal constexpr result");
+    }
+    return *this->implementation->constexpr_result_antestatal;
+}
+
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()
 {
     return this->implementation->missing_functanoids_val;
+}
+
+std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_antestatal_globals()
+{
+    return this->implementation->missing_antestatal_globals_val;
 }
 
 std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_local_as_data(vmir2::local_index slot)
@@ -2671,6 +2799,10 @@ std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexp
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local_set_data(std::shared_ptr< local > local_value, std::vector< std::byte > data)
 {
     assert(local_value != nullptr);
+    if (local_value->readonly)
+    {
+        throw constexpr_logic_execution_error("attempted to modify read-only constexpr object");
+    }
     // TODO: Consider check if value already alive or not.
     local_value->data = std::move(data);
 
@@ -3359,6 +3491,168 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         std::fill(local_value->data.begin(), local_value->data.end(), std::byte(0));
     }
 }
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::begin_lifetime_tree(std::shared_ptr< local > const& object)
+{
+    if (!object)
+    {
+        throw compiler_bug("begin_lifetime_tree on null object");
+    }
+
+    for (auto const& [_, member] : object->struct_members)
+    {
+        begin_lifetime_tree(member);
+    }
+    for (auto const& member : object->array_members)
+    {
+        begin_lifetime_tree(member);
+    }
+    if (object->stored_object)
+    {
+        begin_lifetime_tree(object->stored_object);
+    }
+
+    begin_lifetime(object);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_readonly_tree(std::shared_ptr< local > const& object, bool readonly)
+{
+    if (!object)
+    {
+        return;
+    }
+
+    object->readonly = readonly;
+
+    for (auto const& [_, member] : object->struct_members)
+    {
+        set_readonly_tree(member, readonly);
+    }
+    for (auto const& member : object->array_members)
+    {
+        set_readonly_tree(member, readonly);
+    }
+    if (object->stored_object)
+    {
+        set_readonly_tree(object->stored_object, readonly);
+    }
+}
+
+bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::has_constexpr_antestatal_global(type_symbol const& symbol) const
+{
+    return constexpr_antestatal_global_values.contains(symbol);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::mark_missing_antestatal_global(type_symbol const& symbol)
+{
+    if (constexpr_result_global_symbol.has_value() && *constexpr_result_global_symbol == symbol)
+    {
+        return;
+    }
+    if (has_constexpr_antestatal_global(symbol))
+    {
+        return;
+    }
+
+    missing_antestatal_globals_val.insert(symbol);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::collect_missing_antestatal_globals(antestatal_access const& access, std::optional< type_symbol > type)
+{
+    if (typeis< antestatal_access_global >(access))
+    {
+        mark_missing_antestatal_global(as< antestatal_access_global >(access).symbol);
+        return;
+    }
+
+    if (typeis< antestatal_access_field >(access))
+    {
+        auto const& field = as< antestatal_access_field >(access);
+        collect_missing_antestatal_globals(field.object);
+        return;
+    }
+
+    if (typeis< antestatal_access_array_element >(access))
+    {
+        auto const& array_element = as< antestatal_access_array_element >(access);
+        collect_missing_antestatal_globals(array_element.array, std::move(type));
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::collect_missing_antestatal_globals(antestatal_value const& value, std::optional< type_symbol > type)
+{
+    if (type.has_value())
+    {
+        if (typeis< nvalue_slot >(*type))
+        {
+            type = as< nvalue_slot >(*type).target;
+        }
+        else if (typeis< dvalue_slot >(*type))
+        {
+            type = as< dvalue_slot >(*type).target;
+        }
+    }
+
+    if (typeis< antestatal_ptrref >(value))
+    {
+        if (type.has_value() && typeis< ptrref_type >(*type) && typeis< procedure_type >(as< ptrref_type >(*type).target))
+        {
+            return;
+        }
+
+        collect_missing_antestatal_globals(as< antestatal_ptrref >(value).target, std::move(type));
+        return;
+    }
+
+    if (typeis< antestatal_array >(value))
+    {
+        std::optional< type_symbol > element_type;
+        if (type.has_value() && typeis< array_type >(*type))
+        {
+            element_type = as< array_type >(*type).element_type;
+        }
+
+        for (auto const& element : as< antestatal_array >(value).elements)
+        {
+            collect_missing_antestatal_globals(element, element_type);
+        }
+        return;
+    }
+
+    if (typeis< antestatal_struct >(value))
+    {
+        auto const& fields = as< antestatal_struct >(value).fields;
+        if (type.has_value() && typeis< readonly_constant >(*type))
+        {
+            auto byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+            for (auto const& [_, field_value] : fields)
+            {
+                collect_missing_antestatal_globals(field_value, byte_ptr_type);
+            }
+            return;
+        }
+
+        if (type.has_value() && class_layouts.contains(*type))
+        {
+            auto const& layout = class_layouts.at(*type);
+            for (auto const& field : layout.fields)
+            {
+                auto value_it = fields.find(field.name);
+                if (value_it != fields.end())
+                {
+                    collect_missing_antestatal_globals(value_it->second, field.type);
+                }
+            }
+            return;
+        }
+
+        for (auto const& [_, field_value] : fields)
+        {
+            collect_missing_antestatal_globals(field_value);
+        }
+    }
+}
+
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::load_from_reference(local_index local_idx, bool consume)
 {
     auto& frame = get_current_frame();
@@ -3391,6 +3685,10 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (!ptr_target)
     {
         throw constexpr_logic_execution_error("dereferencing invalidated pointer or reference");
+    }
+    if (!ptr_target->alive() && access_to_antestatal_local(ptr_target).has_value())
+    {
+        throw constexpr_logic_execution_error("cannot read symbolic antestatal static during constexpr evaluation");
     }
 
     return ptr_target;
@@ -3516,6 +3814,490 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     create_local_value(slot, true);
     local_ptr->ref = value;
 }
+
+quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::procedure_symbol(type_symbol routine, std::string calling_convention) const
+{
+    for (char& c : calling_convention)
+    {
+        if (c >= 'A' && c <= 'Z')
+        {
+            c = static_cast< char >(c - 'A' + 'a');
+        }
+    }
+
+    return submember{.of = std::move(routine), .name = "__procedure_" + calling_convention};
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_procedure(type_symbol routine, std::string calling_convention)
+{
+    auto symbol = procedure_symbol(std::move(routine), calling_convention);
+    auto& proc_local = m_procedures[symbol];
+    if (proc_local == nullptr)
+    {
+        procedure_type proc_type;
+        proc_type.calling_convention = std::move(calling_convention);
+        proc_local = create_object(proc_type);
+        proc_local->procedure = symbol;
+        begin_lifetime(proc_local);
+    }
+
+    return proc_local;
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_antestatal_global(type_symbol symbol, std::optional< type_symbol > expected_type)
+{
+    bool const has_data = has_constexpr_antestatal_global(symbol);
+    if (!has_data)
+    {
+        mark_missing_antestatal_global(symbol);
+    }
+
+    if (!has_data && !expected_type.has_value())
+    {
+        throw constexpr_logic_execution_error("attempted to access non-antestatal global from antestatal value: " + quxlang::to_string(symbol));
+    }
+
+    auto data_it = constexpr_antestatal_global_values.find(symbol);
+    auto type_it = constexpr_antestatal_global_types.find(symbol);
+    if (type_it == constexpr_antestatal_global_types.end())
+    {
+        if (!expected_type.has_value())
+        {
+            throw constexpr_logic_execution_error("missing antestatal type for global: " + quxlang::to_string(symbol));
+        }
+
+        type_it = constexpr_antestatal_global_types.emplace(symbol, *expected_type).first;
+    }
+    else if (expected_type.has_value() && *expected_type != type_it->second)
+    {
+        throw constexpr_logic_execution_error("antestatal global reference type mismatch for: " + quxlang::to_string(symbol));
+    }
+
+    auto& root = antestatal_global_roots[symbol];
+    if (root == nullptr)
+    {
+        auto const& global_type = type_it->second;
+        root = create_object(global_type);
+        root->antestatal_static_symbol = symbol;
+        if (data_it != constexpr_antestatal_global_values.end())
+        {
+            initialize_local_from_antestatal_value(root, global_type, data_it->second);
+            set_readonly_tree(root, true);
+        }
+    }
+
+    return root;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::initialize_local_from_antestatal_value(std::shared_ptr< local > const& object, type_symbol type, antestatal_value const& value)
+{
+    if (!object)
+    {
+        throw compiler_bug("cannot initialize null antestatal object");
+    }
+
+    if (typeis< nvalue_slot >(type))
+    {
+        type = as< nvalue_slot >(type).target;
+    }
+    else if (typeis< dvalue_slot >(type))
+    {
+        type = as< dvalue_slot >(type).target;
+    }
+
+    if (typeis< storage >(type) || typeis< aligned_storage >(type))
+    {
+        if (typeis< antestatal_primitive >(value))
+        {
+            object->data = as< antestatal_primitive >(value).value;
+            begin_lifetime(object);
+            return;
+        }
+        throw constexpr_logic_execution_error("antestatal storage values are only supported as primitive bytes");
+    }
+
+    if (typeis< ptrref_type >(type))
+    {
+        if (!typeis< antestatal_ptrref >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal pointer/reference initializer has non-pointer value");
+        }
+        object->ref = pointer_from_antestatal_access(as< antestatal_ptrref >(value).target, as< ptrref_type >(type));
+        begin_lifetime(object);
+        return;
+    }
+
+    if (typeis< procedure_type >(type))
+    {
+        throw constexpr_logic_execution_error("antestatal procedure values are not representable yet");
+    }
+
+    if (typeis< array_type >(type))
+    {
+        if (!typeis< antestatal_array >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal array initializer has non-array value");
+        }
+        auto const& array_ty = as< array_type >(type);
+        auto const& array_value = as< antestatal_array >(value);
+        if (object->array_members.size() != array_value.elements.size())
+        {
+            throw constexpr_logic_execution_error("antestatal array initializer length mismatch");
+        }
+        for (std::size_t i = 0; i < array_value.elements.size(); ++i)
+        {
+            initialize_local_from_antestatal_value(object->array_members.at(i), array_ty.element_type, array_value.elements.at(i));
+        }
+        begin_lifetime(object);
+        return;
+    }
+
+    if (typeis< readonly_constant >(type))
+    {
+        if (!typeis< antestatal_struct >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal readonly constant initializer has non-struct value");
+        }
+        auto byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+        auto const& struct_value = as< antestatal_struct >(value);
+        for (auto const& field_name : {"__start", "__end"})
+        {
+            auto value_it = struct_value.fields.find(field_name);
+            auto member_it = object->struct_members.find(field_name);
+            if (value_it != struct_value.fields.end() && member_it != object->struct_members.end())
+            {
+                initialize_local_from_antestatal_value(member_it->second, byte_ptr_type, value_it->second);
+            }
+        }
+        begin_lifetime(object);
+        return;
+    }
+
+    if (class_layouts.contains(type))
+    {
+        if (!typeis< antestatal_struct >(value))
+        {
+            throw constexpr_logic_execution_error("antestatal struct initializer has non-struct value");
+        }
+        auto const& layout = class_layouts.at(type);
+        auto const& struct_value = as< antestatal_struct >(value);
+        for (auto const& field : layout.fields)
+        {
+            auto member_it = object->struct_members.find(field.name);
+            auto value_it = struct_value.fields.find(field.name);
+            if (member_it == object->struct_members.end() || value_it == struct_value.fields.end())
+            {
+                throw constexpr_logic_execution_error("antestatal struct initializer missing field: " + field.name);
+            }
+            initialize_local_from_antestatal_value(member_it->second, field.type, value_it->second);
+        }
+        begin_lifetime(object);
+        return;
+    }
+
+    if (!typeis< antestatal_primitive >(value))
+    {
+        throw constexpr_logic_execution_error("antestatal primitive initializer has non-primitive value");
+    }
+    object->data = as< antestatal_primitive >(value).value;
+    begin_lifetime(object);
+}
+
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_impl quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_from_antestatal_access(antestatal_access const& access, ptrref_type const& ptr_type)
+{
+    if (typeis< antestatal_nullptr >(access))
+    {
+        return {};
+    }
+
+    if (typeis< antestatal_access_array_element >(access))
+    {
+        auto const& array_element = as< antestatal_access_array_element >(access);
+        auto array = local_from_antestatal_access(array_element.array);
+        if (array_element.index == array->array_members.size())
+        {
+            return pointer_impl{.one_past_the_end = array};
+        }
+        if (array_element.index > array->array_members.size())
+        {
+            throw constexpr_logic_execution_error("antestatal pointer array element is out of bounds");
+        }
+        return pointer_impl{.pointer_target = array->array_members.at(static_cast< std::size_t >(array_element.index))};
+    }
+
+    if (typeis< procedure_type >(ptr_type.target) && typeis< antestatal_access_global >(access))
+    {
+        auto const& procedure = as< antestatal_access_global >(access);
+        auto const& expected_proc = as< procedure_type >(ptr_type.target);
+        return pointer_impl{.pointer_target = get_or_create_procedure(procedure.symbol, expected_proc.calling_convention)};
+    }
+
+    return pointer_impl{.pointer_target = local_from_antestatal_access(access)};
+}
+
+std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local_from_antestatal_access(antestatal_access const& access)
+{
+    if (typeis< antestatal_nullptr >(access))
+    {
+        throw constexpr_logic_execution_error("nullptr is not an antestatal object access");
+    }
+
+    if (typeis< antestatal_access_global >(access))
+    {
+        auto const& global = as< antestatal_access_global >(access);
+        return get_or_create_antestatal_global(global.symbol);
+    }
+
+    if (typeis< antestatal_access_field >(access))
+    {
+        auto const& field = as< antestatal_access_field >(access);
+        auto object = local_from_antestatal_access(field.object);
+        auto member_it = object->struct_members.find(field.field_name);
+        if (member_it == object->struct_members.end())
+        {
+            throw constexpr_logic_execution_error("antestatal field access cannot be resolved: " + field.field_name);
+        }
+        return member_it->second;
+    }
+
+    auto const& array_element = as< antestatal_access_array_element >(access);
+    auto array = local_from_antestatal_access(array_element.array);
+    if (array_element.index >= array->array_members.size())
+    {
+        throw constexpr_logic_execution_error("antestatal array access cannot be resolved to an object");
+    }
+    return array->array_members.at(static_cast< std::size_t >(array_element.index));
+}
+
+quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::materialize_antestatal_value(std::shared_ptr< local > const& object, type_symbol type)
+{
+    if (!object || !object->alive())
+    {
+        throw constexpr_logic_execution_error("antestatal result materialization requires a live object");
+    }
+
+    if (typeis< nvalue_slot >(type))
+    {
+        type = as< nvalue_slot >(type).target;
+    }
+    else if (typeis< dvalue_slot >(type))
+    {
+        type = as< dvalue_slot >(type).target;
+    }
+
+    if (typeis< storage >(type) || typeis< aligned_storage >(type))
+    {
+        if (object->storage_active_type.has_value() && object->stored_object != nullptr)
+        {
+            return materialize_antestatal_value(object->stored_object, *object->storage_active_type);
+        }
+        return antestatal_primitive{.value = object->data};
+    }
+
+    if (typeis< ptrref_type >(type))
+    {
+        if (!object->ref.has_value())
+        {
+            throw constexpr_logic_execution_error("antestatal pointer materialization requires an initialized pointer/reference");
+        }
+        return antestatal_ptrref{.target = materialize_antestatal_access(*object->ref, as< ptrref_type >(type))};
+    }
+
+    if (typeis< procedure_type >(type))
+    {
+        throw constexpr_logic_execution_error("antestatal procedure values are not representable yet");
+    }
+
+    if (typeis< array_type >(type))
+    {
+        auto const& array_ty = as< array_type >(type);
+        antestatal_array result;
+        result.elements.reserve(object->array_members.size());
+        for (auto const& element : object->array_members)
+        {
+            result.elements.push_back(materialize_antestatal_value(element, array_ty.element_type));
+        }
+        return result;
+    }
+
+    if (typeis< readonly_constant >(type))
+    {
+        auto byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+        antestatal_struct result;
+        for (auto const& field_name : {"__start", "__end"})
+        {
+            auto it = object->struct_members.find(field_name);
+            if (it != object->struct_members.end())
+            {
+                result.fields[field_name] = materialize_antestatal_value(it->second, byte_ptr_type);
+            }
+        }
+        return result;
+    }
+
+    if (class_layouts.contains(type))
+    {
+        antestatal_struct result;
+        auto const& layout = class_layouts.at(type);
+        for (auto const& field : layout.fields)
+        {
+            auto it = object->struct_members.find(field.name);
+            if (it == object->struct_members.end())
+            {
+                throw constexpr_logic_execution_error("antestatal struct materialization missing field: " + field.name);
+            }
+            result.fields[field.name] = materialize_antestatal_value(it->second, field.type);
+        }
+        return result;
+    }
+
+    return antestatal_primitive{.value = object->data};
+}
+
+quxlang::antestatal_access quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::materialize_antestatal_access(pointer_impl ptr, ptrref_type const& ptr_type)
+{
+    if (pointer_invalidated(ptr))
+    {
+        throw constexpr_logic_execution_error("antestatal pointer materialization cannot represent an invalidated pointer");
+    }
+
+    if (pointer_is_nullptr(ptr))
+    {
+        return antestatal_nullptr{};
+    }
+
+    if (pointer_is_one_past_the_end(ptr))
+    {
+        auto array = ptr.one_past_the_end->lock();
+        if (!array)
+        {
+            throw constexpr_logic_execution_error("antestatal pointer materialization cannot represent an expired one-past pointer");
+        }
+        auto array_access = access_to_antestatal_local(array);
+        if (!array_access.has_value())
+        {
+            throw constexpr_logic_execution_error("antestatal pointer materialization cannot anchor one-past pointer");
+        }
+        return antestatal_access_array_element{.array = *array_access, .index = static_cast< std::uint64_t >(array->array_members.size())};
+    }
+
+    if (!ptr.pointer_target.has_value())
+    {
+        throw compiler_bug("antestatal pointer materialization saw non-null pointer without a target");
+    }
+
+    auto target = ptr.pointer_target->lock();
+    if (!target)
+    {
+        throw constexpr_logic_execution_error("antestatal pointer materialization cannot represent an expired pointer");
+    }
+
+    if (typeis< procedure_type >(ptr_type.target))
+    {
+        if (!target->procedure.has_value())
+        {
+            throw constexpr_logic_execution_error("antestatal procedure pointer materialization requires a procedure target");
+        }
+
+        auto routine = *target->procedure;
+        if (typeis< submember >(routine))
+        {
+            auto const& procedure_submember = as< submember >(routine);
+            if (procedure_submember.name.starts_with("__procedure_"))
+            {
+                routine = procedure_submember.of;
+            }
+        }
+
+        return antestatal_access_global{.symbol = routine};
+    }
+
+    auto access = access_to_antestatal_local(target);
+    if (!access.has_value())
+    {
+        throw constexpr_logic_execution_error("antestatal pointer materialization cannot anchor pointer target");
+    }
+
+    return *access;
+}
+
+std::optional< quxlang::antestatal_access > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::access_to_antestatal_local(std::shared_ptr< local > const& target)
+{
+    if (!target)
+    {
+        return std::nullopt;
+    }
+
+    if (auto root = constexpr_result_root.lock(); root && constexpr_result_global_symbol.has_value())
+    {
+        if (auto access = access_to_antestatal_subobject(root, target, antestatal_access_global{.symbol = *constexpr_result_global_symbol}))
+        {
+            return access;
+        }
+    }
+
+    auto global_root = target;
+    while (global_root)
+    {
+        if (global_root->antestatal_static_symbol.has_value())
+        {
+            if (auto access = access_to_antestatal_subobject(global_root, target, antestatal_access_global{.symbol = *global_root->antestatal_static_symbol}))
+            {
+                return access;
+            }
+            return std::nullopt;
+        }
+
+        if (global_root->member_of.has_value())
+        {
+            global_root = global_root->member_of->lock();
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional< quxlang::antestatal_access > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::access_to_antestatal_subobject(std::shared_ptr< local > const& object, std::shared_ptr< local > const& target, antestatal_access access)
+{
+    if (!object)
+    {
+        return std::nullopt;
+    }
+    if (object == target)
+    {
+        return access;
+    }
+
+    for (auto const& [field_name, field] : object->struct_members)
+    {
+        auto field_access = antestatal_access_field{.object = access, .field_name = field_name};
+        if (auto result = access_to_antestatal_subobject(field, target, field_access))
+        {
+            return result;
+        }
+    }
+
+    for (std::size_t i = 0; i < object->array_members.size(); ++i)
+    {
+        auto element_access = antestatal_access_array_element{.array = access, .index = static_cast< std::uint64_t >(i)};
+        if (auto result = access_to_antestatal_subobject(object->array_members.at(i), target, element_access))
+        {
+            return result;
+        }
+    }
+
+    if (object->stored_object)
+    {
+        return access_to_antestatal_subobject(object->stored_object, target, access);
+    }
+
+    return std::nullopt;
+}
+
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::is_reference_type(quxlang::vmir2::local_index slot)
 {
     throw compiler_bug("removed");
@@ -3763,6 +4545,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             owner->storage_active_type = object->storage_projection_type;
             owner->stored_object = object;
+            auto storage_symbol = global_storage_symbols.find(owner.get());
+            if (storage_symbol != global_storage_symbols.end() && has_constexpr_antestatal_global(storage_symbol->second))
+            {
+                object->antestatal_static_symbol = storage_symbol->second;
+            }
         }
     }
 
@@ -3786,6 +4573,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             owner->stored_object = nullptr;
         }
     }
+    object->antestatal_static_symbol = std::nullopt;
     if (!object->member_of.has_value() && !object->storage_owner.has_value())
     {
         object->storage_initiated = false;
@@ -3821,8 +4609,36 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
         storage_local = create_object(storage_type);
         begin_lifetime(storage_local);
     }
+    global_storage_symbols[storage_local.get()] = symbol;
+    if (has_constexpr_antestatal_global(symbol))
+    {
+        ensure_antestatal_global_object(symbol, storage_local, storage_type);
+    }
 
     return storage_local;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::ensure_antestatal_global_object(type_symbol symbol, std::shared_ptr< local > const& storage_local, type_symbol storage_type)
+{
+    if (!storage_local)
+    {
+        throw compiler_bug("antestatal global storage root missing");
+    }
+    if (!typeis< storage >(storage_type))
+    {
+        throw compiler_bug("antestatal global storage must be STORAGE(T)");
+    }
+
+    auto const& storable_types = as< storage >(storage_type).storable_types;
+    if (storable_types.size() != 1)
+    {
+        throw compiler_bug("global storage should contain exactly one storable type");
+    }
+
+    auto object_type = *storable_types.begin();
+    auto object = get_or_create_antestatal_global(symbol, object_type);
+    storage_local->storage_active_type = object_type;
+    storage_local->stored_object = object;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_initguard(type_symbol symbol)
