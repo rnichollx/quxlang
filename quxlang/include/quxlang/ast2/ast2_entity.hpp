@@ -14,7 +14,7 @@
 #include "quxlang/ast2/source_location.hpp"
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
-RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_nocompile);
+RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_compilation_failure);
 
 namespace quxlang
 {

@@ -1083,7 +1083,7 @@ IMPORT foolib;
   ASSERT (3 == 3);
 }
 
-::unresolved_symbol_nocompile_test STATIC_TEST EXPECT_NOCOMPILE
+::unresolved_symbol_compilation_failure_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   missing_static_test_symbol();
 }
@@ -1091,6 +1091,44 @@ IMPORT foolib;
 ::assertion_expect_fail_test STATIC_TEST EXPECT_FAIL
 {
   ASSERT (3 == 4);
+}
+
+::narrowing_implicit_conversion_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y I8 := x;
+}
+
+::narrowing_explicit_no_spec_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y I8 := x AS I8;
+}
+
+::narrowing_explicit_partial_conversion_test STATIC_TEST
+{
+  VAR x I32 := 300;
+  VAR y I8 := x AS PARTIAL I8;
+  ASSERT(y == 44);
+}
+
+::widening_implicitly_okay_test STATIC_TEST
+{
+  VAR x I32 := 300;
+  VAR y I64 := x;
+  ASSERT(y == 300);
+}
+
+::same_width_signed_to_unsigned_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y U32 := x;
+}
+
+::same_width_unsigned_to_signed_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x U32 := 300;
+  VAR y I32 := x;
 }
 
 ::main FUNCTION(): I32

@@ -183,7 +183,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (compilation_error const&)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_nocompile)
+        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
@@ -191,16 +191,16 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     }
     catch (std::logic_error const&)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_nocompile)
+        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
         throw;
     }
 
-    if (test.expected_mode == static_test_expected_mode::expect_nocompile)
+    if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
     {
-        throw std::logic_error("STATIC_TEST EXPECT_NOCOMPILE generated successfully: " + quxlang::to_string(input));
+        throw std::logic_error("STATIC_TEST EXPECT_COMPILATION_FAILURE generated successfully: " + quxlang::to_string(input));
     }
 
     try

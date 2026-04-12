@@ -79,9 +79,9 @@ namespace quxlang::parsers
         {
             out->expected_mode = static_test_expected_mode::expect_fail;
         }
-        else if (skip_keyword_if_is(pos, end, "EXPECT_NOCOMPILE"))
+        else if (skip_keyword_if_is(pos, end, "EXPECT_COMPILATION_FAILURE"))
         {
-            out->expected_mode = static_test_expected_mode::expect_nocompile;
+            out->expected_mode = static_test_expected_mode::expect_compilation_failure;
         }
 
         out->definition.body = parse_function_block(pos, end);
