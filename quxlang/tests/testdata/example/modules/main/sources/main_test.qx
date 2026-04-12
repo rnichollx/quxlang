@@ -1,48 +1,7 @@
 IMPORT foolib;
 
 
-::constexpr_test_suite FUNCTION() :I32
-{
-  test_runtime_statement();
-  test_dtor_executes();
-  test_arry_pointers();
-  test_array_ctor();
-  test_argument_passing();
-  test_swap();
-  test_choose();
-  test_load_store();
-  test_narrowing();
-  test_pinc_2();
-
-  test_call_function_from_other_file();
-  test_call_imported_function();
-  test_class_default_copy_works();
-  test_array_arithmetic();
-  test_roman_numeral();
-  test_implicit_conversions();
-  test_type_exprs();
-  test_reference_qualifier_address_of();
-  test_procedure_pointer_type();
-  test_rhs_comparisons();
-  test_bits();
-  test_logic_operators();
-  test_include_if_overloads();
-  test_bitwise_operators();
-  test_serialize();
-  test_deserialize();
-  test_datatype_struct_equality();
-  storage_buz_test();
-
-  test_global();
-  test_antestatal_statics();
-
-  template_test();
-  ptrptr_tests();
-
-  RETURN 1;
-}
-
-::ptrptr_tests FUNCTION()
+::pointer_to_pointer_increment_test STATIC_TEST
 {
   VAR x I32 := 5;
   VAR px ->I32 := x<-;
@@ -69,7 +28,7 @@ IMPORT foolib;
 ::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
 
 
-::test_global FUNCTION()
+::mutable_global_and_template_global_test STATIC_TEST
 {
   ASSERT(global == 8);
   global := global + 2;
@@ -82,7 +41,7 @@ IMPORT foolib;
 
 }
 
-::test_antestatal_statics FUNCTION()
+::antestatal_static_values_test STATIC_TEST
 {
   ASSERT(antestatal_static_i32 == 4);
   ASSERT(antestatal_static_i32_ptr-> == 4);
@@ -97,7 +56,7 @@ IMPORT foolib;
   .value VAR t;
 }
 
-::template_test FUNCTION()
+::templated_holder_value_test STATIC_TEST
 {
   VAR holder templated_holder#( I32 );
   holder.value := 5;
@@ -106,11 +65,9 @@ IMPORT foolib;
   holder.value := 9;
 
   ASSERT(holder.value == 9);
-
-  RETURN;
 }
 
-::test_pinc_2 FUNCTION()
+::postincrement_array_iterator_store_test STATIC_TEST
 {
 
   VAR x [3]I32;
@@ -127,7 +84,7 @@ IMPORT foolib;
   ASSERT( x[2] == 30 );
 }
 
-::test_load_store FUNCTION()
+::array_byte_pointer_load_store_test STATIC_TEST
 {
   VAR x [4]BYTE;
 
@@ -148,7 +105,7 @@ IMPORT foolib;
 }
 
 
-::test_choose FUNCTION()
+::static_choose_import_test STATIC_TEST
 {
    VAR x I32;
 
@@ -159,7 +116,7 @@ IMPORT foolib;
    ASSERT( x == 20 );
 }
 
-::test_serialize FUNCTION()
+::primitive_serialize_test STATIC_TEST
 {
    VAR output [4]BYTE;
 
@@ -192,7 +149,7 @@ IMPORT foolib;
    .p VAR -> I32;
 }
 
-::test_deserialize FUNCTION()
+::primitive_and_struct_deserialize_test STATIC_TEST
 {
    VAR bool_output [1]BYTE;
    VAR flag BOOL := FALSE;
@@ -238,7 +195,7 @@ IMPORT foolib;
    ASSERT( probe_roundtrip == probe );
 }
 
-::test_datatype_struct_equality FUNCTION()
+::datatype_struct_equality_test STATIC_TEST
 {
    VAR lhs datatype_equality_probe;
    VAR rhs datatype_equality_probe;
@@ -255,7 +212,7 @@ IMPORT foolib;
    ASSERT( lhs != rhs );
 }
 
-::test_narrowing FUNCTION()
+::checked_and_partial_narrowing_test STATIC_TEST
 {
 
   VAR x I64 := 17;
@@ -284,7 +241,7 @@ IMPORT foolib;
 
 }
 
-::test_array_ctor FUNCTION()
+::array_default_constructor_test STATIC_TEST
 
 {
     VAR x [3]arrytest_cls;
@@ -294,7 +251,7 @@ IMPORT foolib;
     ASSERT( x[2].val == 5 );
 }
 
-::test_array_literal FUNCTION() {
+::array_literal_helper FUNCTION() {
    UNIMPLEMENTED;
 
    // VAR x [4]I32 :[ 1, 3, 5, 7 ];
@@ -307,7 +264,7 @@ IMPORT foolib;
 }
 
 
-::test_runtime_statement FUNCTION()
+::runtime_statement_branching_test STATIC_TEST
 {
 
    VAR x I32;
@@ -402,7 +359,7 @@ IMPORT foolib;
   }
 }
 
-::storage_buz_test FUNCTION(): I32
+::storage_buz_helper FUNCTION(): I32
 {
   VAR slot STORAGE(buz);
   VAR p ->buz := PLACE AT(slot) buz;
@@ -420,7 +377,12 @@ IMPORT foolib;
   RETURN 10;
 }
 
-::aligned_storage_buz_test FUNCTION(): I32
+::storage_buz_lifetime_test STATIC_TEST
+{
+  ASSERT(storage_buz_helper() == 10);
+}
+
+::aligned_storage_buz_helper FUNCTION(): I32
 {
   VAR slot ALIGNED_STORAGE(4, 4);
   VAR p ->buz := PLACE AT(slot) buz;
@@ -538,7 +500,7 @@ IMPORT foolib;
   RETURN yip(x);
 }
 
-::test_type_exprs FUNCTION()
+::type_expression_bits_sizeof_test STATIC_TEST
 {
   VAR x I32;
   x := 4;
@@ -574,7 +536,7 @@ IMPORT foolib;
   RETURN 2;
 }
 
-::test_reference_qualifier_address_of FUNCTION()
+::reference_qualifier_address_of_test STATIC_TEST
 {
   VAR x I32 := 7;
   VAR cx CONST& I32 := x;
@@ -589,7 +551,7 @@ IMPORT foolib;
     val := val + 1;
 }
 
-::test_procedure_pointer_type FUNCTION()
+::procedure_pointer_call_test STATIC_TEST
 {
   VAR proc CONST -> PROCEDURE(I32, I32: I32) := foo<-;
   ASSERT( procedure_pointer_probe(proc) == 1 );
@@ -623,7 +585,7 @@ IMPORT foolib;
 {
   RETURN 3;
 }
-::test_include_if_overloads FUNCTION()
+::include_if_overload_resolution_test STATIC_TEST
 {
     VAR x I32;
 
@@ -637,7 +599,7 @@ IMPORT foolib;
     ASSERT( x == 3 );
 }
 
-::test_rhs_comparisons FUNCTION()
+::symmetric_comparison_operators_test STATIC_TEST
 {
     VAR x I32 := 5;
 
@@ -663,7 +625,7 @@ IMPORT foolib;
     ASSERT( 4 <= x );
 }
 
-::test_bits FUNCTION()
+::bits_type_expression_test STATIC_TEST
 {
    VAR xbits I32;
    xbits := BITS(I32);
@@ -679,7 +641,7 @@ IMPORT foolib;
   RETURN 1;
 }
 
-::test_dtor_executes FUNCTION()
+::destructor_execution_test STATIC_TEST
 {
   VAR x I32;
 
@@ -695,7 +657,7 @@ IMPORT foolib;
   ASSERT (x == 2);
 }
 
-::test_arry_pointers FUNCTION()
+::array_pointer_destructor_test STATIC_TEST
 {
   VAR x [4]I32;
   x[0] := 1;
@@ -718,7 +680,7 @@ IMPORT foolib;
 }
 
 
-::test_lambda FUNCTION()
+::lambda_helper FUNCTION()
 {
   UNIMPLEMENTED;
   VAR x I32;
@@ -787,7 +749,7 @@ IMPORT foolib;
 
 }
 
-::test_swap FUNCTION()
+::swap_operator_test STATIC_TEST
 {
     VAR a I32;
     VAR y I32;
@@ -801,7 +763,7 @@ IMPORT foolib;
     ASSERT(y == 5);
 }
 
-::test_call_function_from_other_file FUNCTION()
+::cross_file_function_call_test STATIC_TEST
 {
   VAR x I32;
 
@@ -811,7 +773,7 @@ IMPORT foolib;
 }
 
 
-::test_call_imported_function FUNCTION()
+::imported_function_call_test STATIC_TEST
 {
    VAR x I32;
 
@@ -820,7 +782,7 @@ IMPORT foolib;
    ASSERT(x == 42);
 }
 
-::test_array_arithmetic FUNCTION()
+::array_pointer_arithmetic_test STATIC_TEST
 {
   VAR a [4]I32;
   VAR ptr1 =>> I32;
@@ -840,7 +802,7 @@ IMPORT foolib;
   ASSERT(ptr1 == ptr2);
 }
 
-::test_roman_numeral FUNCTION()
+::roman_numeral_conversion_test STATIC_TEST
 {
   VAR r roman;
   VAR i I32 := 4;
@@ -856,7 +818,7 @@ IMPORT foolib;
   .x VAR I32;
 }
 
-::test_class_default_copy_works FUNCTION()
+::class_default_copy_assignment_test STATIC_TEST
 {
 
     VAR a class_default_copy_class;
@@ -869,33 +831,33 @@ IMPORT foolib;
 }
 
 
-::test_argument_passing FUNCTION()
+::named_argument_passing_test STATIC_TEST
 {
   VAR b bam;
   b.x := 5;
   VAR i I32;
   b.y := i<-;
 
-  test_argument_passing_helper(@int i, @arg b);
+  argument_passing_helper(@int i, @arg b);
 
   ASSERT(i == 6);
 }
 
 
-::test_argument_passing2 STATIC_TEST
+::named_argument_reordered_passing_test STATIC_TEST
 {
   VAR b bam;
   b.x := 5;
   VAR i I32;
   b.y := i<-;
 
-  test_argument_passing_helper(@arg b, @int i);
+  argument_passing_helper(@arg b, @int i);
 
   ASSERT(i == 6);
 }
 
 
-::test_bitwise_operators FUNCTION()
+::bitwise_operators_test STATIC_TEST
 {
    // Shifts for I32 (uintptr shift amount)
    VAR a I32 := 5; // = 2^0 + 2^2 ->  2^1 + 2^3
@@ -969,7 +931,7 @@ IMPORT foolib;
    RETURN value;
 }
 
-::test_logic_operators FUNCTION()
+::logical_operators_test STATIC_TEST
 {
    ASSERT((TRUE && TRUE) == TRUE);
    ASSERT((TRUE && FALSE) == FALSE);
@@ -1017,7 +979,7 @@ IMPORT foolib;
    ASSERT(counter == 4);
 }
 
-::test_argument_passing_helper FUNCTION(@arg bam, @int & I32)
+::argument_passing_helper FUNCTION(@arg bam, @int & I32)
 {
    int := int + arg.x;
 }
@@ -1043,7 +1005,7 @@ IMPORT foolib;
     }
 }
 
-::test_implicit_conversions FUNCTION()
+::implicit_conversions_test STATIC_TEST
 {
     VAR a implicit_foo;
     a := I32(@OTHER 5);
@@ -1096,7 +1058,7 @@ IMPORT foolib;
   RETURN x;
 }
 
-::pinc_test FUNCTION() : I32
+::pinc_helper FUNCTION() : I32
 {
   VAR x [3 + foobar()]I32;
   x[0] := 0;
@@ -1116,17 +1078,17 @@ IMPORT foolib;
   RETURN x[1] ;
 }
 
-::static_test_pass STATIC_TEST
+::basic_passing_static_test STATIC_TEST
 {
   ASSERT (3 == 3);
 }
 
-::static_test_nocompile STATIC_TEST EXPECT_NOCOMPILE
+::unresolved_symbol_nocompile_test STATIC_TEST EXPECT_NOCOMPILE
 {
   missing_static_test_symbol();
 }
 
-::pinc_test2 STATIC_TEST EXPECT_FAIL
+::assertion_expect_fail_test STATIC_TEST EXPECT_FAIL
 {
   ASSERT (3 == 4);
 }

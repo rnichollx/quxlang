@@ -3597,6 +3597,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         if (type.has_value() && typeis< ptrref_type >(*type) && typeis< procedure_type >(as< ptrref_type >(*type).target))
         {
+            auto const& access = as< antestatal_ptrref >(value).target;
+            if (typeis< antestatal_access_global >(access))
+            {
+                auto routine = as< antestatal_access_global >(access).symbol;
+                if (!functanoids3.contains(routine))
+                {
+                    missing_functanoids_val.insert(std::move(routine));
+                }
+            }
             return;
         }
 
@@ -3830,7 +3839,13 @@ quxlang::type_symbol quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_in
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_procedure(type_symbol routine, std::string calling_convention)
 {
+    auto routine_symbol = routine;
     auto symbol = procedure_symbol(std::move(routine), calling_convention);
+    if (!functanoids3.contains(routine_symbol))
+    {
+        missing_functanoids_val.insert(std::move(routine_symbol));
+    }
+
     auto& proc_local = m_procedures[symbol];
     if (proc_local == nullptr)
     {
