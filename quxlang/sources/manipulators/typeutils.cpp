@@ -278,22 +278,45 @@ namespace quxlang
         type_symbol_stringifier() = default;
     };
 
+    template < typename NamedMap, typename PrintEntry >
+    void append_named_arguments_in_print_order(std::string& output, bool& first, NamedMap const& named, PrintEntry print_entry)
+    {
+        auto append = [&](auto const& entry) {
+            if (!first)
+            {
+                output += ", ";
+            }
+            first = false;
+            print_entry(entry);
+        };
+
+        if (auto this_arg = named.find("THIS"); this_arg != named.end())
+        {
+            append(*this_arg);
+        }
+        if (auto other_arg = named.find("OTHER"); other_arg != named.end())
+        {
+            append(*other_arg);
+        }
+
+        for (auto const& entry : named)
+        {
+            if (entry.first == "THIS" || entry.first == "OTHER")
+            {
+                continue;
+            }
+            append(entry);
+        }
+    }
+
     std::string to_string(vmir2::invocation_args const& ref)
     {
         std::string result = "[";
         bool first = true;
-        for (auto const& [name, arg] : ref.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                result += ", ";
-            }
+        append_named_arguments_in_print_order(result, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             result += "@" + name + " " + std::to_string(arg);
-        }
+        });
         for (auto const& arg : ref.positional)
         {
             if (first)
@@ -313,18 +336,10 @@ namespace quxlang
     {
         std::string result = "[";
         bool first = true;
-        for (auto const& [name, arg] : ref.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                result += ", ";
-            }
+        append_named_arguments_in_print_order(result, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             result += "@" + name + " " + std::to_string(arg);
-        }
+        });
         for (auto const& arg : ref.positional)
         {
             if (first)
@@ -769,15 +784,10 @@ namespace quxlang
 
         output += "(";
         bool first = true;
-        for (auto const& [name, arg] : ref.signature.params.named)
-        {
-            if (!first)
-            {
-                output += ", ";
-            }
-            first = false;
+        append_named_arguments_in_print_order(output, first, ref.signature.params.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
-        }
+        });
         for (auto const& arg : ref.signature.params.positional)
         {
             if (!first)
@@ -802,18 +812,10 @@ namespace quxlang
         std::string output = to_string_as_postfix_receiver(ref.initializee);
         output += " #(";
         bool first = true;
-        for (auto const& [name, type] : ref.parameters.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, ref.parameters.named, [&](auto const& entry) {
+            auto const& [name, type] = entry;
             output += "@" + name + " " + to_string(type);
-        }
+        });
         for (auto& p : ref.parameters.positional)
         {
             if (first)
@@ -836,7 +838,7 @@ namespace quxlang
         temploid_reference const& sel = ref.temploid;
         std::string output = to_string_as_postfix_receiver(sel.templexoid);
 
-        output += " #{";
+        output += "#{";
 
         // TODO: consider if keep this
         if (false) // (sel.which.builtin)
@@ -844,22 +846,14 @@ namespace quxlang
             output += "BUILTIN; ";
         }
         bool first = true;
-        for (auto const& [name, param] : sel.which.interface.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, sel.which.interface.named, [&](auto const& entry) {
+            auto const& [name, param] = entry;
             output += "@" + name + " " + to_string(param.type);
             if (ref.params.named.at(name) != param.type)
             {
                 output += ": " + to_string(ref.params.named.at(name));
             }
-        }
+        });
         for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
         {
             auto const& param = sel.which.interface.positional.at(i);
@@ -1030,18 +1024,9 @@ namespace quxlang
         {
             output += "BUILTIN; ";
         }
-        for (auto const& arg : ref.which.interface.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, ref.which.interface.named, [&](auto const& arg) {
             output += "@" + arg.first + " " + to_string(arg.second.type);
-        }
+        });
         for (auto const& arg : ref.which.interface.positional)
         {
             if (first)
@@ -1425,18 +1410,10 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "INVOTYPE(";
-        for (auto const& [name, arg] : ref.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
-        }
+        });
         for (auto const& arg : ref.positional)
         {
             if (first)
@@ -1458,18 +1435,10 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "INTERTYPE(";
-        for (auto const& [name, arg] : ref.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg);
-        }
+        });
         for (auto const& arg : ref.positional)
         {
             if (first)
@@ -1491,18 +1460,10 @@ namespace quxlang
         std::string output;
         bool first = true;
         output += "PARAMETERS(";
-        for (auto const& [name, arg] : ref.named)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
+        append_named_arguments_in_print_order(output, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
             output += "@" + name + " " + to_string(arg.type);
-        }
+        });
         for (auto const& arg : ref.positional)
         {
             if (first)

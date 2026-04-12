@@ -500,6 +500,13 @@ IMPORT foolib;
   RETURN yip(x);
 }
 
+::overload_resolution_test STATIC_TEST
+{
+  ASSERT( boq() == 5 );
+  ASSERT( boq(10) == 15 );
+  ASSERT( yip() == 8 );
+}
+
 ::type_expression_bits_sizeof_test STATIC_TEST
 {
   VAR x I32;

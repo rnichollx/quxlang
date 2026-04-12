@@ -196,6 +196,42 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     ASSERT_TRUE(typeis< instanciation_reference >(parse_type_symbol("foo #{bar}")));
 }
 
+TEST(typeutils, named_arguments_print_in_stable_order)
+{
+    using namespace quxlang;
+
+    auto i32 = type_symbol(int_type{32, true});
+    auto i64 = type_symbol(int_type{64, true});
+    auto byte = type_symbol(byte_type{});
+    auto boolean = type_symbol(bool_type{});
+    auto size = type_symbol(size_type{});
+
+    invotype inv{
+        .named = {{"ZZZ", boolean}, {"OTHER", i64}, {"THIS", i32}, {"AAA", byte}},
+        .positional = {size},
+    };
+    intertype interface{
+        .positional = {argif{.type = size}},
+        .named = {
+            {"ZZZ", argif{.type = boolean}},
+            {"OTHER", argif{.type = i64}},
+            {"THIS", argif{.type = i32}},
+            {"AAA", argif{.type = byte}},
+        },
+    };
+
+    ASSERT_EQ(to_string(inv), "INVOTYPE(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+    ASSERT_EQ(to_string(interface), "INTERTYPE(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+    ASSERT_EQ(to_string(type_symbol(procedure_type{.signature = sigtype{.params = inv}})), "PROCEDURE(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+
+    auto receiver = type_symbol(freebound_identifier{"foo"});
+    temploid_reference temploid{.templexoid = receiver, .which = temploid_ensig{.interface = interface}};
+
+    ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = inv})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+    ASSERT_EQ(to_string(type_symbol(temploid)), "foo#[@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ]");
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = inv})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
+}
+
 TEST(parsing, parse_global_constexpr_variable_declaration)
 {
     std::string test_string = "::foobar VAR CONSTEXPR_READABLE I32 := 4;";
