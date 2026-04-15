@@ -115,7 +115,6 @@ What doesn't work:
 * For loops
 * Non-constexpr codegen / linking
 * Floating point
-* Global objects
 * Exceptions
 * Polymorphism / virtual functions
 
