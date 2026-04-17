@@ -2,7 +2,7 @@
 
 #include <quxlang/queries/specs/instanciation_tempar_map_spec.hpp>
 
-
+#include "quxlang/manipulators/typeutils.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::instanciation_tempar_map_impl(instanciation_reference input)

@@ -6,6 +6,8 @@
 
 #include <quxlang/parsers/try_parse_expression.hpp>
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< function_expression_statement > try_parse_expression_statement(parsing_context& ctx)
@@ -24,9 +26,9 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected ';' after expression");
             }
             function_expression_statement result;
-            result.expr = std::move(expr.value());
+            result.expr = std::move(*expr);
             result.location = ctx.get_location_optional(begin, pos);
-            return result;
+            return std::move(result);
         }
         return std::nullopt;
     }

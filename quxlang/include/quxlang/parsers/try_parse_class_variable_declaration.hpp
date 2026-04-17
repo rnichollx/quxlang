@@ -6,15 +6,15 @@
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_class_variable_declaration(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
-        auto end = ctx.iter_end;
         auto begin = pos;
-        std::string start_str(pos, end);
-        skip_whitespace_and_comments(pos, end);
+        skip_whitespace_and_comments(pos, ctx.iter_end);
         auto trial = ctx;
 
         bool is_member;
@@ -49,8 +49,6 @@ namespace quxlang::parsers
 
         type_symbol type = try_parse_type_symbol(trial).value();
 
-        std::string typestr = quxlang::to_string(type);
-
         skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
         if (!skip_symbol_if_is(trial.iter_pos, trial.iter_end, ";"))
@@ -61,11 +59,11 @@ namespace quxlang::parsers
         pos = trial.iter_pos;
 
         ast2_variable_declaration var;
-        var.type = type;
+        var.type = std::move(type);
         var.location = ctx.get_location_optional(begin, pos);
         // TOOD: offset, include_if
 
-        return {{name, is_member, var}};
+        return {{std::move(name), is_member, std::move(var)}};
     }
 } // namespace quxlang::parsers
 

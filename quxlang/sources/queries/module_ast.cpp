@@ -1,82 +1,37 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/module_ast_spec.hpp>
-#include <quxlang/macros.hpp>
 
-#include "quxlang/manipulators/merge_entity.hpp"
-
-#include <quxlang/ast2/ast2_entity.hpp>
-#include <quxlang/ast2/ast2_module.hpp>
-#include <quxlang/parsers/parse_file.hpp>
-
-#include <exception>
+#include <vector>
 
 rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl(std::string input)
 {
 
-    auto srcs = co_await rpnx::querygraph::request< module_sources_query >(input);
+    auto const& srcs = co_await rpnx::querygraph::request< module_sources_query >(input);
     auto source_module_name = co_await rpnx::querygraph::request< module_source_name_query >(input);
 
     ast2_module_declaration result;
+    std::vector< rpnx::querygraph::request< parse_file_query > > parse_requests;
+    parse_requests.reserve(srcs.files.size());
 
-    for (auto& file : srcs.files)
+    for (auto const& [relative_path, file] : srcs.files)
     {
-        ast2_file_declaration v_file_ast;
+        (void)file;
+        parse_requests.emplace_back(source_file_name{.source_module = source_module_name, .relative_path = relative_path});
+        co_yield rpnx::querygraph::dependency(parse_requests.back());
+    }
 
-        auto content = file.second->contents;
-        auto input_filename = input + "/" + file.first;
-
-        auto file_id = co_await rpnx::querygraph::request< source_file_id_query >(source_file_name{.source_module = source_module_name, .relative_path = file.first});
-        parsers::parsing_context ctx{
-            .file_id = file_id,
-            .source_locations_enabled = true,
-            .iter_begin = content.begin(),
-            .iter_pos = content.begin(),
-            .iter_end = content.end(),
-        };
-
-        std::exception_ptr parse_error;
-        std::string error_snippet;
-        std::string error_message;
-        try
-        {
-            v_file_ast = parsers::parse_file(ctx);
-        }
-        catch (std::exception& e)
-        {
-            auto distance_to_end = std::distance(ctx.iter_pos, ctx.iter_end);
-
-            auto end_snippet_iter = ctx.iter_pos + std::min(distance_to_end, ptrdiff_t(100));
-
-            std::string snippet(ctx.iter_pos, end_snippet_iter);
-
-            error_snippet = std::move(snippet);
-            error_message = e.what();
-            parse_error = std::current_exception();
-        }
-
-        if (parse_error)
-        {
-            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-            {
-                co_yield rpnx::querygraph::debug_message("At:  {}", error_snippet);
-                co_yield rpnx::querygraph::debug_message("Error: {}", error_message);
-            }
-
-            std::rethrow_exception(parse_error);
-        }
-
-        // TODO: consider if we should keep v_file_ast.filename
-        v_file_ast.filename = input_filename;
-
+    for (auto const& parse_request : parse_requests)
+    {
+        auto const& v_file_ast = co_await parse_request;
 
         // TODO: Check for duplicate imports
-        for (auto import : v_file_ast.imports)
+        for (auto const& import : v_file_ast.imports)
         {
             result.imports.insert(import);
         }
 
-        for (auto decl : v_file_ast.declarations)
+        for (auto const& decl : v_file_ast.declarations)
         {
             result.declarations.push_back(decl);
         }

@@ -19,7 +19,7 @@
 
 // MOVEREL is Move In Release Configuration
 // Helps preserve objects for debugging in debug builds.
-#ifdef _NDEBUG
+#ifdef NDEBUG
 #define MOVEREL(x) std::move(x)
 #else
 #define MOVEREL(x) x
@@ -58,15 +58,15 @@
 #endif
 
 
-#ifndef _NDEBUG
+#ifndef NDEBUG
 #define QUXLANG_COMPILER_BUG_IF(x, y) if (x) QUXLANG_COMPILER_BUG(y)
 #else
 #define QUXLANG_COMPILER_BUG_IF(x, y)
 #endif
 
-#ifndef _NDEBUG
-#define QUXLANG_DEBUG_VALUE(x) auto quxlang_dbg_val_ ## __LINE__ = x;
-#define QUXLANG_DEBUG_NAMED_VALUE(name, x) auto name = x;
+#ifndef NDEBUG
+#define QUXLANG_DEBUG_VALUE(x) [[maybe_unused]] auto quxlang_dbg_val_ ## __LINE__ = x;
+#define QUXLANG_DEBUG_NAMED_VALUE(name, x) [[maybe_unused]] auto name = x;
 #define QUXLANG_ASSERT(x) if (!(x)) throw quxlang::assert_failure(#x);
 
 

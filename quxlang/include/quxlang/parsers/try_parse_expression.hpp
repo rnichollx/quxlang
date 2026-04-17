@@ -4,9 +4,12 @@
 #define QUXLANG_PARSERS_TRY_PARSE_EXPRESSION_HEADER_GUARD
 #include "quxlang/lang/lang.hpp"
 
+#include <array>
 #include <optional>
+#include <utility>
 #include <quxlang/data/expression.hpp>
 #include <quxlang/data/type_symbol.hpp>
+#include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
@@ -31,7 +34,7 @@ namespace quxlang::parsers
             auto expr_begin = pos;
             if (auto output = try_parse_expression_impl(ctx); output)
             {
-                auto result = output.value();
+                auto result = std::move(*output);
                 set_location(result, ctx.get_location_optional(parse_iterator(expr_begin), parse_iterator(pos)));
                 return result;
             }
@@ -39,7 +42,7 @@ namespace quxlang::parsers
         }
 
         template < typename It >
-        bool binary_operator_v3(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
+        bool binary_operator_v3(It& pos, It end, std::array< expression*, 10 >& operator_bindings, expression*& value_binding)
         {
             static std::map< std::string, int > operators_map = {
                 // clang-format off
@@ -106,7 +109,7 @@ namespace quxlang::parsers
             new_expression.lhs = std::move(*binding_point2);
             *binding_point2 = std::move(new_expression);
             expression* binding_pointer = &as< expression_binary >(*binding_point2).rhs;
-            for (int i = priority + 1; i < operator_bindings.size(); i++)
+            for (std::size_t i = static_cast< std::size_t >(priority) + 1; i < operator_bindings.size(); i++)
             {
                 operator_bindings[i] = binding_pointer;
             }
@@ -125,12 +128,10 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string remaining{pos, end};
+        QUXLANG_DEBUG_NAMED_VALUE(remaining, std::string(pos, end));
 
         expression result;
-        std::vector< expression* > bindings;
-
-        bindings.resize(10);
+        std::array< expression*, 10 > bindings{};
 
         for (auto& binding : bindings)
         {
@@ -142,7 +143,7 @@ namespace quxlang::parsers
 
     next_value:
 
-        remaining = std::string(pos, end);
+        QUXLANG_DEBUG(remaining = std::string(pos, end);)
         std::optional< type_symbol > sym;
         skip_whitespace_and_comments(pos, end);
 
@@ -157,21 +158,21 @@ namespace quxlang::parsers
             }
             expression_value_keyword expr_kw;
             expr_kw.keyword = *kw;
-            *value_bind_point = expr_kw;
+            *value_bind_point = std::move(expr_kw);
             have_anything = true;
         }
         else if (auto str = try_parse_string_literal(pos, end); str)
         {
             expression_string_literal str_lit;
-            str_lit.value = str.value();
-            *value_bind_point = str_lit;
+            str_lit.value = std::move(*str);
+            *value_bind_point = std::move(str_lit);
             have_anything = true;
         }
         else if (auto chr = try_parse_char_literal(pos, end); chr)
         {
             expression_char_literal chr_lit;
             chr_lit.value = chr.value();
-            *value_bind_point = chr_lit;
+            *value_bind_point = std::move(chr_lit);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "IS_SIGNED"))
@@ -188,7 +189,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after IS_SIGNED(<type>");
             }
-            *value_bind_point = expr_is_integral;
+            *value_bind_point = std::move(expr_is_integral);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "IS_INTEGRAL"))
@@ -205,7 +206,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after IS_INTEGRAL(<type>");
             }
-            *value_bind_point = expr_is_integral;
+            *value_bind_point = std::move(expr_is_integral);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "SAME_TYPES"))
@@ -228,7 +229,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after SAME_TYPES(<lhs>, <rhs>)");
             }
-            *value_bind_point = expr_same_types;
+            *value_bind_point = std::move(expr_same_types);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "STATIC_CHOOSE"))
@@ -259,7 +260,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after STATIC_CHOOSE(<cond>, <true>, <false>");
             }
-            *value_bind_point = expr;
+            *value_bind_point = std::move(expr);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
@@ -276,7 +277,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after SIZEOF(<type>");
             }
-            *value_bind_point = sz;
+            *value_bind_point = std::move(sz);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "BITS"))
@@ -293,7 +294,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ')' after SIZEOF(<type>");
             }
-            *value_bind_point = bits;
+            *value_bind_point = std::move(bits);
             have_anything = true;
         }
         else if (skip_keyword_if_is(pos, end, "TARGET"))
@@ -304,13 +305,13 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after TARGET");
             }
-            tg.target = try_parse_string_literal(pos, end).value();
+            tg.target = std::move(try_parse_string_literal(pos, end).value());
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
                 throw std::logic_error("Expected ')' after TARGET(\"...\"");
             }
-            *value_bind_point = tg;
+            *value_bind_point = std::move(tg);
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
         }
@@ -329,11 +330,11 @@ namespace quxlang::parsers
                     throw std::logic_error("Expected type after PUN ... AS");
                 }
                 pun_expr.value = std::move(parsed_value);
-                pun_expr.as_type = *as_type;
+                pun_expr.as_type = std::move(*as_type);
             }
             else if (parsed_value.template type_is< expression_typecast >() && !parsed_value.template get_as< expression_typecast >().keyword.has_value())
             {
-                auto cast_expr = parsed_value.template get_as< expression_typecast >();
+                auto& cast_expr = parsed_value.template get_as< expression_typecast >();
                 pun_expr.value = std::move(cast_expr.expr);
                 pun_expr.as_type = std::move(cast_expr.to_type);
             }
@@ -400,8 +401,8 @@ namespace quxlang::parsers
         else if (auto num_str = parse_int(pos, end); !num_str.empty())
         {
             expression_numeric_literal num;
-            num.value = num_str;
-            *value_bind_point = num;
+            num.value = std::move(num_str);
+            *value_bind_point = std::move(num);
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
         }
@@ -410,7 +411,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             expression_thisdot_reference thisdot;
             thisdot.field_name = parse_subentity(pos, end);
-            *value_bind_point = thisdot;
+            *value_bind_point = std::move(thisdot);
             have_anything = true;
         }
         else if (auto sym = try_parse_type_symbol(ctx); sym)
@@ -418,9 +419,9 @@ namespace quxlang::parsers
             assert(sym.has_value());
 
             expression_symbol_reference lvalue;
-            lvalue.symbol = sym.value();
+            lvalue.symbol = std::move(*sym);
 
-            *value_bind_point = lvalue;
+            *value_bind_point = std::move(lvalue);
             have_anything = true;
         }
         else if (skip_symbol_if_is(pos, end, "("))
@@ -428,7 +429,7 @@ namespace quxlang::parsers
 
             expression parenthesis;
             parenthesis = parse_expression_impl(ctx);
-            *value_bind_point = parenthesis;
+            *value_bind_point = std::move(parenthesis);
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
@@ -449,7 +450,7 @@ namespace quxlang::parsers
         }
 
     next_operator:
-        remaining = std::string(pos, end);
+        QUXLANG_DEBUG(remaining = std::string(pos, end);)
 
         skip_whitespace_and_comments(pos, end);
         if (detail::binary_operator_v3(pos, end, bindings, value_bind_point))
@@ -459,8 +460,9 @@ namespace quxlang::parsers
         else if (std::optional< expression_call > call = try_parse_function_callsite_expression(ctx); call)
         {
             expression* binding_point2 = bindings[bindings.size() - 1];
-            call.value().callee = std::move(*binding_point2);
-            *binding_point2 = quxlang::expression(call.value());
+            auto call_expr = std::move(*call);
+            call_expr.callee = std::move(*binding_point2);
+            *binding_point2 = quxlang::expression(std::move(call_expr));
             goto next_operator;
         }
         else if (skip_keyword_if_is(pos, end, "AS"))
@@ -482,7 +484,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED)");
             }
-            tc.to_type = *to_type;
+            tc.to_type = std::move(*to_type);
 
             // Insert the node at precedence level 3
             expression* binding_point2 = bindings[3];
@@ -503,7 +505,7 @@ namespace quxlang::parsers
             expression_dotreference dot;
             dot.field_name = parse_subentity(pos, end);
             dot.lhs = std::move(*bindings[bindings.size() - 1]);
-            *bindings[bindings.size() - 1] = dot;
+            *bindings[bindings.size() - 1] = std::move(dot);
             goto next_operator;
         }
         else if (skip_symbol_if_is(pos, end, ":("))
@@ -619,7 +621,7 @@ namespace quxlang::parsers
         }
         else
         {
-            return result;
+            return std::move(result);
         }
 
         throw rpnx::unimplemented();

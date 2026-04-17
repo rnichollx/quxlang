@@ -5,6 +5,7 @@
 #include <quxlang/co_vmir_generator2.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
+#include <quxlang/vmir2/source_index.hpp>
 
 #include <optional>
 #include <set>
@@ -131,9 +132,10 @@ namespace
         co_return co_await gen.co_generate_static_test(test);
     }
 
-    auto execute_static_test_routine(quxlang::vmir2::functanoid_routine3 const& routine) -> run_static_test_coroutine::cosubroutine< void >
+    auto execute_static_test_routine(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::source_index source_index) -> run_static_test_coroutine::cosubroutine< void >
     {
         quxlang::vmir2::ir2_constexpr_interpreter interp;
+        interp.set_source_index(std::move(source_index));
         static_test_dependency_provider dependency_provider;
 
         co_await dependency_provider.add_layouts_for_routine(interp, routine);
@@ -205,7 +207,9 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
     try
     {
-        co_await execute_static_test_routine(*routine);
+        auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
+        auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+        co_await execute_static_test_routine(*routine, quxlang::vmir2::source_index(source_file_index, source_bundle));
     }
     catch (constexpr_logic_execution_error const&)
     {

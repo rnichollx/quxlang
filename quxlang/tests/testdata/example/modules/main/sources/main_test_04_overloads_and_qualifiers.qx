@@ -1,0 +1,192 @@
+::arch_int INCLUDE_IF(ARCH_X64 && OS_LINUX ) FUNCTION(): I32
+{
+  RETURN 2;
+}
+
+::arch_int INCLUDE_IF(ARCH_ARM64) FUNCTION(): I32
+{
+  RETURN 1;
+}
+
+// ::arch_int INCLUDE_IF(ARCH_ARM64) FUNCTION(): I32
+// {
+//  RETURN 3;
+// }
+
+::buf FUNCTION(%a MUT& I32)
+{
+    VAR zz yak;
+    zz.z := a<-;
+}
+
+::biz FUNCTION(%a I32, %b I32): I32
+{
+  VAR y I32;
+  VAR q [3]I32;
+  q[0] := 1;
+  q[1] := 2;
+  q[2] := 3;
+
+  IF (y == 0)
+  {
+    VAR x yak;
+    x.z := y<-;
+    x.f := q[& 0];
+    x.f_count := 3;
+  }
+  buf(a);
+  RETURN a + b + y + q[0] + q[1] + q[2] + 1;
+}
+
+
+::mif FUNCTION(): I64
+{
+  VAR x [4]I64;
+  x[0] := 1;
+  x[1] := 2;
+  x[2] := 3;
+  x[3] := 4;
+
+
+  RETURN x[0] + x[1] + x[2] + x[3];
+}
+
+
+// [4]->I32
+// ->  [4]I32
+// ->  [4]->I32
+// =>> I32
+// [4]I32
+
+// *I32
+// ^I32
+
+
+::boq FUNCTION(): I32
+{
+  RETURN 5;
+}
+
+::boq FUNCTION(%a I32): I32
+{
+  RETURN a + 5;
+}
+
+::yip FUNCTION(%a AUTO(t1)) : t1
+{
+  RETURN a + 1;
+}
+
+::yip FUNCTION(): I32
+{
+  VAR x I32;
+  x := 7;
+  RETURN yip(x);
+}
+
+::overload_resolution_test STATIC_TEST
+{
+  ASSERT( boq() == 5 );
+  ASSERT( boq(10) == 15 );
+  ASSERT( yip() == 8 );
+}
+
+::type_expression_bits_sizeof_test STATIC_TEST
+{
+  VAR x I32;
+  x := 4;
+
+  // ASSERT( SIZEOF(I32) == 4  );
+
+  ASSERT( SIZEOF(I32)  == x );
+
+  x := 32;
+
+  ASSERT( BITS(I32) == x );
+
+
+}
+
+::pointer_qualifier_probe FUNCTION(%p MUT -> I32): I32
+{
+  RETURN 1;
+}
+
+::pointer_qualifier_probe FUNCTION(%p CONST -> I32): I32
+{
+  RETURN 2;
+}
+
+::procedure_pointer_probe FUNCTION(%p CONST -> PROCEDURE(I32, I32: I32)): I32
+{
+  RETURN 1;
+}
+
+::procedure_pointer_parse_probe FUNCTION(%p CONST -> PROCEDURE CCALL NOEXCEPT(I32, I32: I32)): I32
+{
+  RETURN 2;
+}
+
+::reference_qualifier_address_of_test STATIC_TEST
+{
+  VAR x I32 := 7;
+  VAR cx CONST& I32 := x;
+
+  ASSERT( pointer_qualifier_probe(x<-) == 1 );
+  ASSERT( pointer_qualifier_probe(cx<-) == 2 );
+}
+
+
+::vfunc FUNCTION(@val & I32)
+{
+    val := val + 1;
+}
+
+::procedure_pointer_call_test STATIC_TEST
+{
+  VAR proc CONST -> PROCEDURE(I32, I32: I32) := foo<-;
+  ASSERT( procedure_pointer_probe(proc) == 1 );
+  ASSERT( proc(4, 5) == 9 );
+
+  proc := bar<-;
+  ASSERT( proc(4, 5) == 20 );
+  proc := foo<-;
+
+  VAR proc_ref CONST& PROCEDURE(I32, I32: I32) := proc->;
+  ASSERT( proc_ref(6, 7) == 13 );
+
+  VAR mutproc CONST -> PROCEDURE(@val & I32) := vfunc<-;
+  VAR x I32 := 10;
+  mutproc(@val x);
+  ASSERT(x == 11);
+}
+
+
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
+{
+  RETURN 1;
+}
+
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) == 32 AS I64 ): I32
+{
+  RETURN 2;
+}
+
+::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) > 32 AS I32 ): I32
+{
+  RETURN 3;
+}
+::include_if_overload_resolution_test STATIC_TEST
+{
+    VAR x I32;
+
+    x := include_if_helper( 0 AS I16 );
+    ASSERT( x == 1 );
+
+    x := include_if_helper( 0 AS I32 );
+    ASSERT( x == 2 );
+
+    x := include_if_helper( 0 AS I64 );
+    ASSERT( x == 3 );
+}
+

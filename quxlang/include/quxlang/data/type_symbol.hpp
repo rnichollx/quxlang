@@ -3,14 +3,20 @@
 #ifndef QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 #define QUXLANG_DATA_TYPE_SYMBOL_HEADER_GUARD
 
-#include "numeric_literal.hpp"
 #include "rpnx/variant.hpp"
 #include <compare>
+#include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
+#include <string>
+#include <vector>
 #include <rpnx/compare.hpp>
 #include <rpnx/macros.hpp>
+
+
 #include "quxlang/data/symbol_type.hpp"
+#include "quxlang/variant_utils.hpp"
 
 #include <quxlang/data/fwd.hpp>
 
@@ -393,11 +399,6 @@ namespace quxlang
     std::optional< type_symbol > func_class(type_symbol const& func);
 
 } // namespace quxlang
-
-#include "quxlang/manipulators/typeutils.hpp"
-
-
-
 
 #include <quxlang/data/expression.hpp>
 

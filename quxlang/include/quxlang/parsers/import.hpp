@@ -12,6 +12,8 @@
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/keyword.hpp>
 
+#include <utility>
+
 
 namespace quxlang::parsers
 {
@@ -36,7 +38,7 @@ namespace quxlang::parsers
         }
 
         type_symbol import_symbol = parse_type_symbol(ctx);
-        return import_symbol;
+        return std::move(import_symbol);
 
     }
 

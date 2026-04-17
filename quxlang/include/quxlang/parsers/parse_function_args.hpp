@@ -2,6 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
+#include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
@@ -30,7 +31,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string remaining = std::string(pos, end);
+        QUXLANG_DEBUG_NAMED_VALUE(remaining, std::string(pos, end));
         ast2_function_parameter arg;
 
         if (skip_symbol_if_is(pos, end, "@"))
@@ -77,7 +78,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string remaining_after_name = std::string(pos, end);
+        QUXLANG_DEBUG_NAMED_VALUE(remaining_after_name, std::string(pos, end));
 
         arg_type = parse_type_symbol(ctx);
 

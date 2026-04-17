@@ -3,7 +3,6 @@
 #ifndef QUXLANG_DATA_STATEMENTS_HEADER_GUARD
 #define QUXLANG_DATA_STATEMENTS_HEADER_GUARD
 #include "expression.hpp"
-#include "quxlang/data/expression_call.hpp"
 #include "quxlang/data/type_symbol.hpp"
 #include "rpnx/variant.hpp"
 

@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_VMIR2_HEADER_GUARD
 
 #include <optional>
+#include <utility>
 #include <quxlang/parsers/integer.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
@@ -48,7 +49,7 @@ namespace quxlang::parsers::vmir2
             skip_whitespace(ipos, end);
             consume_symbol(ipos, end, '=');
             skip_whitespace(ipos, end);
-            result.named[str.value()] = parse_vmir_register(ipos, end);
+            result.named[std::move(*str)] = parse_vmir_register(ipos, end);
             skip_whitespace(ipos, end);
             if (skip_symbol_if_is(ipos, end, ','))
                 goto named_arg;
@@ -128,12 +129,12 @@ namespace quxlang::parsers::vmir2
         result = try_parse_access_field(ctx);
         if (result.has_value())
         {
-            return result;
+            return std::move(result);
         }
         result = try_parse_invoke(ctx);
         if (result.has_value())
         {
-            return result;
+            return std::move(result);
         }
         return std::nullopt;
     }

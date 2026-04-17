@@ -92,6 +92,7 @@
 #include <quxlang/queries/specs/module_options_map_spec.hpp>
 #include <quxlang/queries/specs/module_source_name_spec.hpp>
 #include <quxlang/queries/specs/module_sources_spec.hpp>
+#include <quxlang/queries/specs/parse_file_spec.hpp>
 #include <quxlang/queries/specs/procedure_linksymbol_spec.hpp>
 #include <quxlang/queries/specs/run_static_test_spec.hpp>
 #include <quxlang/queries/specs/run_static_tests_spec.hpp>

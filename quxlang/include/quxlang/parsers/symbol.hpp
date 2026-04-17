@@ -3,7 +3,10 @@
 
 #ifndef QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
 #define QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
+#include <algorithm>
+#include <iterator>
 #include <string>
+#include <string_view>
 
 #include <quxlang/parsers/ctype.hpp>
 
@@ -71,7 +74,7 @@ namespace quxlang::parsers
         {
             return false;
         }
-        if (std::string(begin, pos) == symbol)
+        if (static_cast< std::size_t >(std::distance(begin, pos)) == symbol.size() && std::equal(begin, pos, symbol.begin(), symbol.end()))
         {
             begin = pos;
             return true;
@@ -87,7 +90,7 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected symbol");
         }
-        if (std::string(begin, pos) != symbol)
+        if (static_cast< std::size_t >(std::distance(begin, pos)) != symbol.size() || !std::equal(begin, pos, symbol.begin(), symbol.end()))
         {
             throw std::logic_error("Expected symbol");
         }

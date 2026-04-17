@@ -3,6 +3,7 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_VARIABLE_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_VARIABLE_DECLARATION_HEADER_GUARD
 
+#include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
@@ -101,7 +102,7 @@ namespace quxlang::parsers
 
         output = ast2_variable_declaration{};
 
-        output->type = type;
+        output->type = std::move(type);
         output->keyword_tags = std::move(keyword_tags);
         output->init_expr = std::move(init_expr);
         output->init_args = std::move(init_args);

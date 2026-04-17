@@ -6,6 +6,7 @@
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -62,7 +63,7 @@ namespace quxlang::parsers
             if (try_if.has_value())
             {
                 function_block block;
-                block.statements.push_back(*try_if);
+                block.statements.push_back(std::move(*try_if));
                 if_statement.else_block = std::move(block);
             }
             else

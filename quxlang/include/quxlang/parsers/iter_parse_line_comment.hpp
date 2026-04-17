@@ -10,13 +10,18 @@ namespace quxlang::parsers
     template < typename It >
     auto iter_parse_line_comment(It begin, It end) -> It
     {
-        auto sym_end = iter_parse_symbol(begin, end);
-        std::string symbol = std::string(begin, sym_end);
-        if (symbol == "//")
+        if (begin != end && *begin == '/')
         {
-            while (begin != end && *begin != '\n' && *begin != '\r')
+            auto pos = begin;
+            ++pos;
+            if (pos != end && *pos == '/')
             {
+                begin = pos;
                 ++begin;
+                while (begin != end && *begin != '\n' && *begin != '\r')
+                {
+                    ++begin;
+                }
             }
         }
         return begin;

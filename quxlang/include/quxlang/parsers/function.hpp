@@ -5,30 +5,32 @@
 
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
-#include <set>
+#include <algorithm>
+#include <array>
+#include <iterator>
 #include <string>
+#include <string_view>
 
 namespace quxlang::parsers
 {
     template < typename It >
     std::string parse_argument_name(It& pos, It end)
     {
-        static std::set< std::string > argument_keywords = {"THIS", "RETURN", "OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "OUTPUT_ITERATOR", "INPUT_ITER"};
+        static constexpr std::array< std::string_view, 9 > argument_keywords = {"THIS", "RETURN", "OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "OUTPUT_ITERATOR", "INPUT_ITER"};
 
         auto identifier = parse_identifier(pos, end);
         if (identifier.empty())
         {
             auto keyword_end = iter_parse_keyword(pos, end);
-            std::string keyword(pos, keyword_end);
-            if (argument_keywords.contains(keyword))
+            for (auto keyword : argument_keywords)
             {
-                pos = keyword_end;
-                return keyword;
+                if (static_cast< std::size_t >(std::distance(pos, keyword_end)) == keyword.size() && std::equal(pos, keyword_end, keyword.begin(), keyword.end()))
+                {
+                    pos = keyword_end;
+                    return std::string(keyword);
+                }
             }
-            else
-            {
-                throw std::logic_error("Expected identifier or keyword");
-            }
+            throw std::logic_error("Expected identifier or keyword");
         }
 
         return identifier;

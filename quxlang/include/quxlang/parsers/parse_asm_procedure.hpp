@@ -6,6 +6,7 @@
 #include "linkname.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 #include <optional>
+#include <utility>
 
 #include "quxlang/parsers/asm/arm_assembler.hpp"
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
@@ -46,13 +47,13 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if ((callable = try_parse_asm_callable(ctx)).has_value())
         {
-            out.callable_interfaces.push_back(callable.value());
+            out.callable_interfaces.push_back(std::move(*callable));
             skip_whitespace_and_comments(pos, end);
             goto loop;
         }
         else if (auto linkname = try_parse_linkname(ctx); linkname.has_value())
         {
-            out.linkname = linkname;
+            out.linkname = std::move(linkname);
             skip_whitespace_and_comments(pos, end);
             goto loop;
         }
@@ -75,7 +76,7 @@ namespace quxlang::parsers
                 {
                     break;
                 }
-                out.instructions.push_back(next.value());
+                out.instructions.push_back(std::move(*next));
             }
         }
         else
@@ -92,7 +93,7 @@ namespace quxlang::parsers
         
         out.location = ctx.get_location_optional(begin, pos);
 
-        return out;
+        return std::move(out);
     }
 } // namespace quxlang::parsers
 

@@ -2,6 +2,7 @@
 
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/macros.hpp>
+#include <quxlang/vmir2/assembler.hpp>
 
 #include <fstream>
 #include <format>
@@ -9,6 +10,12 @@
 #include <map>
 #include <string>
 #include <utility>
+
+auto rpnx::querygraph::debug_traits< quxlang::vmir2::functanoid_routine3 >::to_debug_string(quxlang::vmir2::functanoid_routine3 const& value) -> std::string
+{
+    quxlang::vmir2::assembler assembler(value);
+    return assembler.to_string(value);
+}
 
 namespace
 {
@@ -131,6 +138,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< module_options_map_spec >(module_options_map_impl);
     m_graph.register_handler_function< module_source_name_spec >(module_source_name_impl);
     m_graph.register_handler_function< module_sources_spec >(module_sources_impl);
+    m_graph.register_handler_function< parse_file_spec >(parse_file_impl);
     m_graph.register_handler_function< procedure_linksymbol_spec >(procedure_linksymbol_impl);
     m_graph.register_handler_function< run_static_test_spec >(run_static_test_impl);
     m_graph.register_handler_function< run_static_tests_spec >(run_static_tests_impl);

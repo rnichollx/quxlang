@@ -21,6 +21,8 @@
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/run_static_test.hpp>
+#include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
@@ -53,6 +55,8 @@ namespace quxlang
             lookup_query,
             machine_info_query,
             module_options_map_query,
+            source_bundle_query,
+            source_file_index_query,
             symboid_query,
             symbol_type_query,
             type_placement_info_query,

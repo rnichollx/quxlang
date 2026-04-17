@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/source_loader.hpp>
 

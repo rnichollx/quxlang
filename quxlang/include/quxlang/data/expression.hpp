@@ -8,8 +8,11 @@
 #include "quxlang/macros.hpp"
 
 #include <quxlang/data/type_symbol.hpp>
+#include <compare>
 #include <rpnx/compare.hpp>
 #include <rpnx/variant.hpp>
+#include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -61,6 +64,13 @@ namespace quxlang
         type_symbol symbol;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_symbol_reference, symbol);
+    };
+
+    struct expression_target
+    {
+        std::string target;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_target, target);
     };
 
 
@@ -121,6 +131,91 @@ namespace quxlang
         std::vector< expression > bracketed;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_multibind, operator_str, lhs, bracketed);
+    };
+
+    struct expression_lvalue_reference
+    {
+        lookup_chain chain;
+    };
+
+    struct expression_equals
+    {
+        static constexpr const char* name = "equals";
+        static constexpr const char* symbol = "==";
+        static constexpr const int priority = 2;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_equals const& other) const = default;
+    };
+
+    struct expression_not_equals
+    {
+        static constexpr const char* name = "not_equals";
+        static constexpr const char* symbol = "!=";
+        static constexpr const int priority = 2;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_not_equals const& other) const = default;
+    };
+
+    struct expression_multiply
+    {
+        static constexpr const char* const symbol = "*";
+        static constexpr const char* const name = "multiply";
+        static constexpr const int priority = 5;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_multiply const& other) const = default;
+    };
+
+    struct expression_divide
+    {
+        static constexpr const char* const symbol = "/";
+        static constexpr const char* const name = "divide";
+        static constexpr const int priority = 3;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_divide const& other) const = default;
+    };
+
+    struct expression_modulus
+    {
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_modulus const& other) const = default;
+    };
+
+    struct expression_subtract
+    {
+        static constexpr const char* name = "subtract";
+        static constexpr const char* symbol = "-";
+        static constexpr const int priority = 4;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_subtract const& other) const = default;
+    };
+
+    struct expression_move_assign
+    {
+        static constexpr const char* name = "move_assign";
+        static constexpr const char* symbol = ":<";
+        static constexpr const int priority = 0;
+
+        expression lhs;
+        expression rhs;
+
+        std::strong_ordering operator<=>(expression_move_assign const& other) const = default;
     };
 
     struct expression_value_keyword
@@ -268,16 +363,6 @@ namespace quxlang
 
 
 } // namespace quxlang
-
-#include "quxlang/data/expression_add.hpp"
-#include "quxlang/data/expression_call.hpp"
-#include "quxlang/data/expression_copy_assign.hpp"
-#include "quxlang/data/expression_dotreference.hpp"
-#include "quxlang/data/expression_equals.hpp"
-#include "quxlang/data/expression_move_assign.hpp"
-#include "quxlang/data/expression_multiply.hpp"
-#include "quxlang/data/expression_subtract.hpp"
-#include <quxlang/data/builtins.hpp>
 
 namespace quxlang
 {

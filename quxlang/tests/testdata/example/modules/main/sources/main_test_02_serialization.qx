@@ -1,0 +1,113 @@
+::primitive_serialize_test STATIC_TEST
+{
+   VAR output [4]BYTE;
+
+   VAR x I32 := 255;
+
+   x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] );
+
+   ASSERT( output[0] ==  255 );
+   ASSERT( output[1] ==  0 );
+   ASSERT( output[2] ==  0 );
+   ASSERT( output[3] ==  0 );
+}
+
+::serialization_probe CLASS
+{
+   .a VAR I16;
+   .b VAR BOOL;
+   .c VAR U22;
+}
+
+::datatype_equality_probe CLASS
+{
+   .a VAR I32;
+   .b VAR BOOL;
+}
+
+::nondatatype_equality_probe CLASS
+{
+   .a VAR I32;
+   .p VAR -> I32;
+}
+
+::primitive_and_struct_deserialize_test STATIC_TEST
+{
+   VAR bool_output [1]BYTE;
+   VAR flag BOOL := FALSE;
+   VAR roundtrip_flag BOOL := TRUE;
+
+   flag.SERIALIZE( @OUTPUT_ITERATOR bool_output[& 0] );
+   ASSERT( bool_output[0] == BYTE(@OTHER 0) );
+
+   roundtrip_flag.DESERIALIZE( @INPUT_ITER bool_output[& 0] );
+   ASSERT( roundtrip_flag == FALSE );
+
+   VAR int_output [3]BYTE;
+   VAR x U22 := 66051;
+   VAR y U22 := 0;
+
+   x.SERIALIZE( @OUTPUT_ITERATOR int_output[& 0] );
+   ASSERT( int_output[0] == BYTE(@OTHER 3) );
+   ASSERT( int_output[1] == BYTE(@OTHER 2) );
+   ASSERT( int_output[2] == BYTE(@OTHER 1) );
+
+   y.DESERIALIZE( @INPUT_ITER int_output[& 0] );
+   ASSERT( y == x );
+
+   VAR probe serialization_probe;
+   probe.a := I16(@OTHER 4660);
+   probe.b := TRUE;
+   probe.c := U22(@OTHER 66051);
+
+   VAR probe_output [6]BYTE;
+   probe.SERIALIZE( @OUTPUT_ITERATOR probe_output[& 0] );
+   ASSERT( probe_output[0] == BYTE(@OTHER 52) );
+   ASSERT( probe_output[1] == BYTE(@OTHER 18) );
+   ASSERT( probe_output[2] == BYTE(@OTHER 1) );
+   ASSERT( probe_output[3] == BYTE(@OTHER 3) );
+   ASSERT( probe_output[4] == BYTE(@OTHER 2) );
+   ASSERT( probe_output[5] == BYTE(@OTHER 1) );
+
+   VAR probe_roundtrip serialization_probe;
+   probe_roundtrip.DESERIALIZE( @INPUT_ITER probe_output[& 0] );
+   ASSERT( probe_roundtrip.a == probe.a );
+   ASSERT( probe_roundtrip.b == probe.b );
+   ASSERT( probe_roundtrip.c == probe.c );
+   ASSERT( probe_roundtrip == probe );
+}
+
+::datatype_struct_equality_test STATIC_TEST
+{
+   VAR lhs datatype_equality_probe;
+   VAR rhs datatype_equality_probe;
+
+   lhs.a := 42;
+   lhs.b := TRUE;
+   rhs.a := 42;
+   rhs.b := TRUE;
+
+   ASSERT( lhs == rhs );
+
+   rhs.b := FALSE;
+
+   ASSERT( lhs != rhs );
+}
+
+::checked_and_partial_narrowing_test STATIC_TEST
+{
+
+  VAR x I64 := 17;
+
+  VAR y I32 := x AS CHECKED I32;
+
+  ASSERT(y == 17);
+
+  VAR chopped U32 := 257;
+  VAR narrowed U8 := chopped AS PARTIAL U8;
+  VAR b BYTE := narrowed AS BYTE;
+
+  ASSERT(b == BYTE(@OTHER 1));
+
+}
+

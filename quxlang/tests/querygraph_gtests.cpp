@@ -287,6 +287,49 @@ TEST(querygraph_queries, option_string_value_is_codegen_literal)
     ASSERT_TRUE(found_string_load);
 }
 
+TEST(querygraph_queries, constexpr_routine_generated_ir_inherits_expression_location)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::source_location loc{.file_id = 7, .begin_index = 3, .end_index = std::optional< std::size_t >{5}};
+    quxlang::expression expr = quxlang::expression_numeric_literal{.value = "42", .location = loc};
+
+    auto routine = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
+        .expr = expr,
+        .context = context,
+        .type = quxlang::int_type{.bits = 64, .has_sign = false},
+    });
+
+    auto expect_location = [&](std::optional< quxlang::source_location > location)
+    {
+        ASSERT_TRUE(location.has_value());
+        ASSERT_EQ(location->file_id, loc.file_id);
+        ASSERT_EQ(location->begin_index, loc.begin_index);
+        ASSERT_EQ(location->end_index, loc.end_index);
+    };
+
+    bool found_instruction = false;
+    bool found_terminator = false;
+    for (auto const& block : routine.blocks)
+    {
+        for (auto const& instruction : block.instructions)
+        {
+            expect_location(quxlang::vmir2::get_location(instruction));
+            found_instruction = true;
+        }
+
+        if (block.terminator.has_value())
+        {
+            expect_location(quxlang::vmir2::get_location(*block.terminator));
+            found_terminator = true;
+        }
+    }
+
+    ASSERT_TRUE(found_instruction);
+    ASSERT_TRUE(found_terminator);
+}
+
 TEST(querygraph_queries, option_default_from_copies_another_option)
 {
     auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder CLASS { .answer OPTION NUMBER DEFAULT_FROM(::answer); }");

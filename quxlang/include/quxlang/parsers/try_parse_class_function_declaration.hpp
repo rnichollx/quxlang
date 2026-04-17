@@ -8,6 +8,8 @@
 
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< std::tuple< std::string, bool, ast2_function_declaration > > try_parse_class_function_declaration(parsing_context& ctx)
@@ -51,11 +53,11 @@ namespace quxlang::parsers
             return std::nullopt;
         }
 
-        auto function = *function_opt;
+        auto function = std::move(*function_opt);
 
         pos = trial.iter_pos;
 
-        return { { name, is_member, function } };
+        return { { std::move(name), is_member, std::move(function) } };
     }
 
 } // namespace quxlang::parsers

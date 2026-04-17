@@ -10,8 +10,8 @@
 
 #include <iostream>
 #include <optional>
-#include <set>
 #include <string>
+#include <utility>
 
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
 #include "quxlang/parsers/procedure_ref.hpp"
@@ -28,13 +28,13 @@ namespace quxlang::parsers
         std::optional< ast2_extern > exte = try_parse_ast2_extern(ctx);
         if (exte)
         {
-            return *exte;
+            return std::move(*exte);
         }
 
         std::optional< ast2_procedure_ref > proc = try_parse_ast2_procedure_ref(ctx);
         if (proc)
         {
-            return *proc;
+            return std::move(*proc);
         }
 
         std::string outstr;
@@ -137,7 +137,7 @@ namespace quxlang::parsers
                     std::cout << "comp: err?" << std::endl;
                 }
             }
-            ret.components.push_back(*comp);
+            ret.components.push_back(std::move(*comp));
             goto get_part;
         }
 
@@ -148,8 +148,6 @@ namespace quxlang::parsers
 
     inline std::optional< ast2_asm_instruction > try_parse_arm_instruction(parsing_context& ctx)
     {
-        std::set< std::string > arm_instruction_opcodes{"ADC", "ADCS", "ADD", "ADDG", "ADDS", "ADR", "ADRP", "AND", "ANDS", "ASR", "ASRV", "AT", "B", "BFI", "BFC", "BFXIL", "BIC", "BICS", "BL", "BLR", "BR", "BRK", "BSL", "CBNZ", "CBZ", "CCMN", "CCMP", "CINC", "CINV", "CLREX", "CLS", "CLZ", "CMN", "CMP", "CNEG", "CRC32B", "CRC32CB", "CRC32CH", "CRC32CW", "CRC32CX", "CRC32H", "CRC32W", "CRC32X", "CSEL", "CSINC", "CSINV", "CSNEG", "DC", "DCPS1", "DCPS2", "DCPS3", "DMB", "DRPS", "DSB", "DUP", "EON", "EOR", "ERET", "EXTR", "HINT", "HLT", "HVC", "IC", "ISB", "LD1", "LD1R", "LD2", "LD2R", "LD3", "LD3R", "LD4", "LD4R", "LDADD", "LDADDB", "LDADDH", "LDADDL", "LDADDLB", "LDADDLH", "LDAXP", "LDAXR", "LDCLR", "LDCLRB", "LDCLRH", "LDCLRL", "LDCLRLB", "LDCLRLH", "LDEOR", "LDEORB", "LDEORH", "LDEORL", "LDEORLB", "LDEORLH", "LDLAR", "LDLARB", "LDLARH", "LDNP", "LDP", "LDPSW", "LDR", "LDRAA", "LDRAB", "LDRB", "LDRH", "LDRSB", "LDRSH", "LDRSW", "LDSET", "LDSETB", "LDSETH", "LDSETL", "LDSETLB", "LDSETLH", "LDSMAX", "LDSMAXB", "LDSMAXH", "LDSMAXL", "LDSMAXLB", "LDSMAXLH", "LDSMIN", "LDSMINB", "LDSMINH", "LDSMINL", "LDSMINLB", "LDSMINLH", "LDTR", "LDTRB", "LDTRH", "LDTRSB", "LDTRSH", "LDTRSW", "LDUMAX", "LDUMAXB", "LDUMAXH", "LDUMAXL", "LDUMAXLB", "LDUMAXLH", "LDUMIN", "LDUMINB", "LDUMINH", "LDUMINL", "LDUMINLB", "LDUMINLH", "LDUR", "LDURB", "LDURH", "LDURSB", "LDURSH", "LDURSW", "LDXP", "LDXR", "LSL", "LSLV", "LSR", "LSRV", "MADD", "MLA", "MLS", "MOV", "MOVK", "MOVN", "MOVZ", "MRS", "MSR", "MUL", "MVN", "NEG", "NEGS", "NGC", "NGCS", "NOP", "ORN", "ORR", "PACDA", "PACDB", "PACDZA", "PACDZB", "PACGA", "PACIA", "PACIA1716", "PACIAA", "PACIASP", "PACIAZ", "PACIB", "PACIB1716", "PACIBA", "PACIBSP", "PACIBZ", "PACIZA", "PACIZB", "PRFM", "PRFUM", "PSB", "RBIT", "RET", "RETAA", "RETAB", "REV", "REV16", "REV32", "REV64", "ROR", "RORV", "SBC", "SBCS", "SBFIZ", "SBFM", "SBI", "SBIX", "SCVTF", "SDIV", "SEV", "SEVL", "SMADDL", "SMC", "SMULH", "SMULL", "SMSUBL", "SPLICE", "SQADD", "SQDMLAL", "SQDMLAL2", "SQDMLSL", "SQDMLSL2", "SQDMULH", "SQDMULL", "SQDMULL2", "SQNEG", "SQRDMULH", "SQRSHL", "SQRSHRN", "SQRSHRN2", "SQRSHRUN", "SQRSHRUN2", "SQSHL", "SQSHLU", "SQSHRN", "SQSHRN2", "SQSHRUN", "SQSHRUN2", "SQSUB", "SQXTN", "SQXTN2", "SQXTUN", "SQXTUN2", "SRHADD", "SRI", "SRSHR", "SRSRA", "SSBB", "SSHL", "SSHLL", "SSHLL2", "SSHR", "SSRA", "SSUBL", "SSUBL2", "SUQADD", "SVC", "SWP", "SWPA", "SWPAB", "SWPAL", "SWPALB", "SWPALH", "SWPAX", "SWPB", "SWPH", "SWPL", "SWPLB", "SWPLH", "SWPX", "SXTB", "SXTH", "SXTL", "SXTL2", "SXTW", "SYS", "SYSL", "TBNZ", "TBZ", "TLBI", "TRN1", "TRN2", "TST", "UABA", "UABAL", "UABAL2", "UABD", "UABDL", "UABDL2", "UADDL", "UADDL2", "UADDLP", "UADDLV", "UADDW", "UADDW2", "UBFIZ", "UBFM", "UBFX", "UDF", "UDIV", "UHADD", "UHSUB", "UMADDL", "UMAX", "UMAXP", "UMAXV", "UMIN", "UMINP", "UMINV", "UMLAL", "UMLAL2", "UMLSL", "UMLSL2", "UMOV", "UMSUBL", "UMULH", "UMULL", "UMULL2", "UQADD", "UQRSHL", "UQRSHRN", "UQRSHRN2", "UQSHL", "UQSHRN", "UQSHRN2", "UQSUB", "UQXTN", "UQXTN2", "URECPE", "URHADD", "URSHL", "URSHR", "URSQRTE", "URSRA", "USADALP", "USDOT", "USDOT", "USHL", "USHL", "USHLL", "USHLL2", "USHR", "USQADD", "USRA", "USUBL", "USUBL2", "UXTB", "UXTH", "UXTL", "UXTL2", "UZP1", "UZP2", "WFE", "WFI", "XPACD", "XPACI", "XPACLRI", "YIELD", "ZIP1", "ZIP2"};
-
         auto trial = ctx;
         auto& pos = trial.iter_pos;
         auto end = trial.iter_end;
@@ -161,16 +159,6 @@ namespace quxlang::parsers
         if (kw == "")
         {
             return std::nullopt;
-        }
-
-        if (arm_instruction_opcodes.find(kw) == arm_instruction_opcodes.end())
-        {
-            // For now, no error checking, because the list of opcodes might not be complete
-            if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-            {
-                std::cout << "Warning: opcode '" << kw << "' not recognized" << std::endl;
-            }
-            // return std::nullopt;
         }
 
         ast2_asm_instruction ret;
@@ -193,7 +181,7 @@ namespace quxlang::parsers
                 throw std::logic_error("expected operand");
             }
 
-            ret.operands.push_back(*operand);
+            ret.operands.push_back(std::move(*operand));
 
             skip_whitespace_and_comments(pos, end);
 

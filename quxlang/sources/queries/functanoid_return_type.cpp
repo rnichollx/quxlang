@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
 #include "quxlang/exception.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::functanoid_return_type_impl(instanciation_reference input)

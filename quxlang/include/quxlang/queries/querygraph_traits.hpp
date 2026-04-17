@@ -5,8 +5,6 @@
 
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/target_configuration.hpp>
-#include <quxlang/manipulators/typeutils.hpp>
-#include <quxlang/vmir2/assembler.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 #include <rpnx/serialization4.hpp>
@@ -21,6 +19,11 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+
+namespace quxlang::vmir2
+{
+    struct functanoid_routine3;
+}
 
 namespace quxlang
 {
@@ -266,8 +269,8 @@ namespace quxlang
     }
 
     template < typename T >
-    concept querygraph_string_debuggable = requires(T const& value) {
-        { quxlang::to_string(value) } -> std::convertible_to< std::string >;
+    concept querygraph_string_debuggable = requires {
+        { static_cast< std::string (*)(T const&) >(&quxlang::to_string) };
     };
 
     template < typename T >
@@ -409,11 +412,7 @@ namespace rpnx::querygraph
     template <>
     struct debug_traits< quxlang::vmir2::functanoid_routine3 >
     {
-        static auto to_debug_string(quxlang::vmir2::functanoid_routine3 const& value) -> std::string
-        {
-            quxlang::vmir2::assembler assembler(value);
-            return assembler.to_string(value);
-        }
+        static auto to_debug_string(quxlang::vmir2::functanoid_routine3 const& value) -> std::string;
     };
 
     template < typename T >

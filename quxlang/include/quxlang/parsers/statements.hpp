@@ -12,6 +12,8 @@
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional<function_place_statement> try_parse_place_statement(parsing_context& ctx)
@@ -97,7 +99,7 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected ';' after PLACE := initializer");
             }
             result.location = ctx.get_location_optional(begin, pos);
-            return result;
+            return std::move(result);
         }
         else
         {
@@ -106,7 +108,7 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected ';' after PLACE statement");
             }
             result.location = ctx.get_location_optional(begin, pos);
-            return result;
+            return std::move(result);
         }
     }
 

@@ -11,6 +11,8 @@
 #include "quxlang/parsers/parse_identifier.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
 
+#include <utility>
+
 namespace quxlang::parsers
 {
 
@@ -36,7 +38,7 @@ namespace quxlang::parsers
 
             std::string callconv = parsers::parse_identifier(pos, end);
 
-            output.calling_conv = callconv;
+            output.calling_conv = std::move(callconv);
 
             parsers::skip_whitespace_and_comments(pos, end);
         }
@@ -65,7 +67,7 @@ namespace quxlang::parsers
 
             auto input_type = parsers::parse_type_symbol(trial);
 
-            output.args.push_back(ast2_argument_interface{.register_name = register_name, .type = input_type});
+            output.args.push_back(ast2_argument_interface{.register_name = std::move(register_name), .type = std::move(input_type)});
 
             parsers::skip_whitespace_and_comments(pos, end);
 
@@ -81,7 +83,7 @@ namespace quxlang::parsers
         }
 
         ctx.iter_pos = pos;
-        return output;
+        return std::move(output);
 
     }
 

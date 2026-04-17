@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/functanoid_sigtype_spec.hpp>
 #include "quxlang/exception.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::functanoid_sigtype_spec > quxlang::functanoid_sigtype_impl(instanciation_reference input)

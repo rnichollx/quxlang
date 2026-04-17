@@ -16,6 +16,8 @@ namespace quxlang
 {
     namespace vmir2
     {
+        struct source_index;
+
         class ir2_constexpr_interpreter
         {
           private:
@@ -28,6 +30,7 @@ namespace quxlang
             // Adds a class layout (for accessing fields)
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
+            void set_source_index(source_index source_index);
             void set_constexpr_result_global_symbol(std::optional< type_symbol > symbol);
             void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value);
 

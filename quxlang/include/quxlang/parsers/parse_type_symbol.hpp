@@ -6,6 +6,7 @@
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 #include <optional>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -18,7 +19,7 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected type symbol");
         }
-        return result.value();
+        return std::move(*result);
     }
 
     inline argif parse_argif(parsing_context& ctx)

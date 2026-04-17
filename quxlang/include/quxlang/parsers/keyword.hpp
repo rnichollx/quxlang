@@ -3,6 +3,13 @@
 #ifndef QUXLANG_PARSERS_KEYWORD_HEADER_GUARD
 #define QUXLANG_PARSERS_KEYWORD_HEADER_GUARD
 
+#include <algorithm>
+#include <initializer_list>
+#include <iterator>
+#include <optional>
+#include <string>
+#include <string_view>
+
 namespace quxlang::parsers
 {
 
@@ -27,9 +34,7 @@ namespace quxlang::parsers
         {
             return false;
         }
-        auto pos2 = ipos;
-        std::string kw(pos2, pos);
-        if (kw == std::string(keyword))
+        if (static_cast< std::size_t >(std::distance(ipos, pos)) == keyword.size() && std::equal(ipos, pos, keyword.begin(), keyword.end()))
         {
             ipos = pos;
             return true;
@@ -38,9 +43,9 @@ namespace quxlang::parsers
     }
 
     template < typename It >
-    inline std::optional<std::string> skip_keyword_if_one_of(It& ipos, It end, std::set<std::string> const& keywords)
+    inline std::optional< std::string_view > skip_keyword_if_one_of(It& ipos, It end, std::initializer_list< std::string_view > keywords)
     {
-        for (auto const& kw : keywords)
+        for (auto kw : keywords)
         {
             if (skip_keyword_if_is(ipos, end, kw))
             {

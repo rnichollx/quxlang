@@ -11,6 +11,7 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
+#include <utility>
 #include <quxlang/data/function_block.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_statement.hpp>
@@ -37,20 +38,20 @@ namespace quxlang::parsers
         if (skip_symbol_if_is(pos, end, "}"))
         {
             body.location = ctx.get_location_optional(begin, pos);
-            return body;
+            return std::move(body);
         }
 
         std::optional< function_statement > statement;
 
         while ((statement = try_parse_statement(ctx)))
         {
-            body.statements.push_back(std::move(statement.value()));
+            body.statements.push_back(std::move(*statement));
             skip_whitespace_and_comments(pos, end);
 
             if (skip_symbol_if_is(pos, end, "}"))
             {
                 body.location = ctx.get_location_optional(begin, pos);
-                return body;
+                return std::move(body);
             }
         }
 
@@ -59,7 +60,7 @@ namespace quxlang::parsers
         if (skip_symbol_if_is(pos, end, "}"))
         {
             body.location = ctx.get_location_optional(begin, pos);
-            return body;
+            return std::move(body);
         }
         throw std::logic_error("Expected '}' or statement");
     }
@@ -69,7 +70,7 @@ namespace quxlang::parsers
         auto fb = try_parse_function_block(ctx);
         if (fb)
         {
-            return *fb;
+            return std::move(*fb);
         }
         throw std::logic_error("Expected a function block");
     }

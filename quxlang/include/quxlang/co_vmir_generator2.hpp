@@ -10,7 +10,7 @@
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
-#include "quxlang/data/expression_call.hpp"
+#include "quxlang/data/expression.hpp"
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_placement_info.hpp"
 #include "quxlang/exception.hpp"
@@ -130,6 +130,7 @@ namespace quxlang
             std::map< std::string, value_index > top_level_lookups_weak;
             type_symbol context;
             std::optional< instanciation_reference > functanoid_type;
+            std::optional< source_location > current_source_location;
 
             std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > scoped_definitions;
         };
@@ -137,6 +138,63 @@ namespace quxlang
         codegen_state state;
         type_symbol ctx;
         output_info machine_info;
+
+        class source_location_scope
+        {
+          public:
+            source_location_scope(co_vmir_generator2& owner, std::optional< source_location > location) : owner(owner), previous(owner.state.current_source_location)
+            {
+                if (location.has_value())
+                {
+                    owner.state.current_source_location = location;
+                }
+            }
+
+            source_location_scope(source_location_scope const&) = delete;
+            source_location_scope& operator=(source_location_scope const&) = delete;
+
+            ~source_location_scope()
+            {
+                owner.state.current_source_location = previous;
+            }
+
+          private:
+            co_vmir_generator2& owner;
+            std::optional< source_location > previous;
+        };
+
+        auto scoped_source_location(std::optional< source_location > location) -> source_location_scope
+        {
+            return source_location_scope(*this, location);
+        }
+
+        void apply_current_source_location(vmir2::vm_instruction& instruction)
+        {
+            if (!this->state.current_source_location.has_value() || vmir2::get_location(instruction).has_value())
+            {
+                return;
+            }
+
+            auto location = this->state.current_source_location;
+            rpnx::apply_visitor< void >(instruction, [&](auto& item) { item.location = location; });
+        }
+
+        void apply_current_source_location(vmir2::vm_terminator& terminator)
+        {
+            if (!this->state.current_source_location.has_value() || vmir2::get_location(terminator).has_value())
+            {
+                return;
+            }
+
+            auto location = this->state.current_source_location;
+            rpnx::apply_visitor< void >(terminator, [&](auto& item) { item.location = location; });
+        }
+
+        void set_terminator(block_index idx, vmir2::vm_terminator terminator)
+        {
+            this->apply_current_source_location(terminator);
+            this->state.blocks.at(idx).terminator = std::move(terminator);
+        }
 
         template < typename T >
         using co_type = typename CoroutineBaseType::template cosubroutine< T >;
@@ -156,6 +214,7 @@ namespace quxlang
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
             auto current_block = block_index(0);
+            auto location_scope = this->scoped_source_location(get_location(expr));
             std::string type_str = to_string(type);
             std::string expr_str = to_string(expr);
             auto result_val = co_await this->co_generate_typed_expr(current_block, expr, type);
@@ -178,6 +237,7 @@ namespace quxlang
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
             auto current_block = block_index(0);
+            auto location_scope = this->scoped_source_location(get_location(expr));
             std::string type_str = to_string(type);
             std::string expr_str = to_string(expr);
             auto result_val = co_await this->co_generate_typed_expr(current_block, expr, type);
@@ -216,6 +276,7 @@ namespace quxlang
 
         auto co_generate_expr(block_index& bidx, expression const& expr) -> co_type< value_index >
         {
+            auto location_scope = this->scoped_source_location(get_location(expr));
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
             auto result = co_await rpnx::apply_visitor< co_type< value_index > >(expr,
                                                                                  [&](auto&& val)
@@ -683,6 +744,7 @@ namespace quxlang
             codegen_block& block = this->state.blocks.at(bidx);
             // val.from = get_local_index(val.from);
             // ... (do this for all relevant fields)
+            this->apply_current_source_location(val);
             vmir2::codegen_state_engine(this->state.blocks.at(bidx).current_state, this->state.locals, this->state.params).apply(val);
 
             state.blocks.at(bidx).instructions.push_back(val);
@@ -3161,6 +3223,7 @@ namespace quxlang
 
         auto co_generate_typed_expr(block_index& bidx, expression expr, type_symbol target_type) -> co_type< value_index >
         {
+            auto location_scope = this->scoped_source_location(get_location(expr));
             std::string expr_str = quxlang::to_string(expr);
             auto expr_val = co_await co_generate_expr(bidx, expr);
             assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
@@ -3198,7 +3261,10 @@ namespace quxlang
 
             if (!st.else_block.has_value())
             {
-                this->generate_branch(cond, condition_block, if_block, after_block);
+                {
+                    auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
+                    this->generate_branch(cond, condition_block, if_block, after_block);
+                }
 
                 // Then
                 co_await co_generate_function_block(if_block, st.then_block, "if_then");
@@ -3207,7 +3273,10 @@ namespace quxlang
             else
             {
                 block_index else_block = this->generate_subblock(current_block, "if_statement_else");
-                this->generate_branch(cond, condition_block, if_block, else_block);
+                {
+                    auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
+                    this->generate_branch(cond, condition_block, if_block, else_block);
+                }
 
                 // Then
                 co_await co_generate_function_block(if_block, st.then_block, "if_then");
@@ -3239,7 +3308,10 @@ namespace quxlang
 
             auto cond = co_await co_generate_bool_expr(condition_block, st.condition);
 
-            this->generate_branch(cond, condition_block, body_block, after_block);
+            {
+                auto condition_location_scope = this->scoped_source_location(get_location(st.condition));
+                this->generate_branch(cond, condition_block, body_block, after_block);
+            }
             co_await co_generate_function_block(body_block, st.loop_block, "while_statement");
             this->generate_jump(body_block, condition_block);
 
@@ -3254,7 +3326,7 @@ namespace quxlang
             {
                 throw std::logic_error("Cannot branch from a block that already has a terminator");
             }
-            this->state.blocks.at(from).terminator = vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)};
+            this->set_terminator(from, vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)});
         }
 
         auto generate_runtime_constexpr(block_index from, block_index constexpr_branch, block_index native_branch) -> void
@@ -3263,7 +3335,7 @@ namespace quxlang
             {
                 throw std::logic_error("Cannot branch from a block that already has a terminator");
             }
-            this->state.blocks.at(from).terminator = vmir2::runtime_constexpr{.target_constexpr = block_index(constexpr_branch), .target_native = block_index(native_branch)};
+            this->set_terminator(from, vmir2::runtime_constexpr{.target_constexpr = block_index(constexpr_branch), .target_native = block_index(native_branch)});
         }
 
         auto block(block_index blk) -> codegen_block&
@@ -3594,12 +3666,12 @@ namespace quxlang
                 throw compiler_bug("Expected no terminator in global GET_REFERENCE entry block");
             }
 
-            this->state.blocks.at(entry_block).terminator = vmir2::initguard_try_acquire{
+            this->set_terminator(entry_block, vmir2::initguard_try_acquire{
                 .symbol = global_symbol,
                 .target_lock = get_local_index(lock_value),
                 .target_acquired = acquire_block,
                 .target_already_initialized = initialized_block,
-            };
+            });
 
             vmir2::slot_state lock_state;
             lock_state.stage = vmir2::slot_stage::full;
@@ -4235,7 +4307,7 @@ namespace quxlang
 
         void generate_return(block_index idx)
         {
-            this->state.blocks[idx].terminator = vmir2::ret();
+            this->set_terminator(idx, vmir2::ret());
         }
 
         auto co_generate_dtor_references() -> co_type< void >
@@ -4330,6 +4402,7 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_fblock_statement(block_index& current_block, function_statement const& st) -> co_type< void >
         {
+            auto location_scope = this->scoped_source_location(get_location(st));
             try
             {
                 co_await rpnx::apply_visitor< co_type< void > >(st,
@@ -4423,7 +4496,7 @@ namespace quxlang
             }
 
             vmir2::jump jump_instruction{.target = to};
-            from_block.terminator = jump_instruction;
+            this->set_terminator(from, jump_instruction);
         }
 
         bool has_terminator(block_index const& block) const

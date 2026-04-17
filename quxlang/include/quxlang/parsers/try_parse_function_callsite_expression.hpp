@@ -2,7 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_FUNCTION_CALLSITE_EXPRESSION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_CALLSITE_EXPRESSION_HEADER_GUARD
-#include <quxlang/data/expression_call.hpp>
+#include <quxlang/data/expression.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>

@@ -7,7 +7,7 @@
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/keywords.hpp>
-#include <set>
+#include <quxlang/macros.hpp>
 #include <string>
 
 namespace quxlang::parsers
@@ -52,7 +52,7 @@ namespace quxlang::parsers
                 result += "RHS";
             }
         }
-        std::string remaining(pos, end);
+        QUXLANG_DEBUG_NAMED_VALUE(remaining, std::string(pos, end));
         begin = pos;
         return result;
     }

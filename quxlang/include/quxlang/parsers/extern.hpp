@@ -10,6 +10,8 @@
 #include "string_literal.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< ast2_extern > try_parse_ast2_extern(parsing_context& ctx)
@@ -63,8 +65,8 @@ namespace quxlang::parsers
         }
 
         return ast2_extern{
-            .lang = *lang,
-            .symbol = *name
+            .lang = std::move(*lang),
+            .symbol = std::move(*name)
         };
     }
 

@@ -3,6 +3,8 @@
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/macros.hpp>
 
+#include "quxlang/manipulators/typeutils.hpp"
+
 
 rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_impl(type_symbol input)
 {

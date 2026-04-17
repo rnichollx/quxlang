@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
 
 #include <optional>
+#include <utility>
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/keywords.hpp>
 #include <quxlang/parsers/declaration.hpp>
@@ -56,9 +57,9 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         auto subdecls = parse_subdeclaroids(ctx);
 
-        for (subdeclaroid const& decl : subdecls)
+        for (auto& decl : subdecls)
         {
-            result.declarations.push_back(decl);
+            result.declarations.push_back(std::move(decl));
         }
 
         skip_whitespace_and_comments(pos, end);

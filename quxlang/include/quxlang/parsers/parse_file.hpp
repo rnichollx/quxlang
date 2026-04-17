@@ -8,6 +8,7 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -41,17 +42,14 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected ; here");
             }
 
-            output.imports[import_name] = module_name;
+            output.imports.emplace(std::move(import_name), std::move(module_name));
         }
 
         skip_whitespace_and_comments(pos, end);
         auto decl = parse_subdeclaroids(ctx);
         skip_whitespace_and_comments(pos, end);
 
-        for (auto d : decl)
-        {
-            output.declarations.push_back(d);
-        }
+        output.declarations = std::move(decl);
 
         if (pos != end)
         {

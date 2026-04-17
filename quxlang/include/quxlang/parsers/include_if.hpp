@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_INCLUDE_IF_HEADER_GUARD
 
 #include <optional>
+#include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
@@ -41,7 +42,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        return out;
+        return std::move(out);
     }
 
 } // namespace quxlang::parsers

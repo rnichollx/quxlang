@@ -3,9 +3,12 @@
 #define QUXLANG_VMIR2_ASSEMBLY_HEADER_GUARD
 
 #include "state_engine.hpp"
+#include "source_index.hpp"
 
 #include <quxlang/vmir2/vmir2.hpp>
+#include <optional>
 #include <string>
+#include <utility>
 
 namespace quxlang::vmir2
 {
@@ -13,6 +16,8 @@ namespace quxlang::vmir2
     {
       public:
         bool print_states = false;
+        std::optional< vmir2::source_index > source_index;
+
         std::string to_string(vmir2::functanoid_routine3 inst);
         std::string to_string(vmir2::vm_instruction inst);
         std::string to_string(vmir2::vm_terminator inst);
@@ -24,11 +29,15 @@ namespace quxlang::vmir2
 
 
         assembler(vmir2::functanoid_routine3 what) : m_what(what) {}
+        assembler(vmir2::functanoid_routine3 what, vmir2::source_index source_index) : source_index(std::move(source_index)), m_what(what) {}
       private:
         vmir2::functanoid_routine3 m_what;
         vmir2::state_map state;
 
         void set_arg_state();
+
+        std::string source_location_suffix(std::optional< source_location > const& location) const;
+        std::string append_source_location_suffix(std::string result, std::optional< source_location > const& location) const;
 
         std::string to_string_internal(vmir2::assert_instr const &asrt);
         std::string to_string_internal(vmir2::increment inst);

@@ -4,6 +4,7 @@
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
 
+#include "quxlang/manipulators/typeutils.hpp"
 
 
 

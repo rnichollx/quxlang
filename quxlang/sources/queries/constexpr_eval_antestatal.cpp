@@ -5,6 +5,7 @@
 #include "quxlang/bytemath.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
+#include "quxlang/vmir2/source_index.hpp"
 
 #include <set>
 #include <stdexcept>
@@ -53,6 +54,10 @@ namespace
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_antestatal_spec > quxlang::constexpr_eval_antestatal_impl(constexpr_input2 input)
 {
     vmir2::ir2_constexpr_interpreter interp;
+    auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
+    auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+    interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+
     interp.set_constexpr_result_global_symbol(input.antestatal_global_symbol);
 
     std::set< type_symbol > layout_types;

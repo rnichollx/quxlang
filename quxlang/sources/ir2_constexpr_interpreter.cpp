@@ -46,6 +46,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::map< type_symbol, antestatal_value > constexpr_antestatal_global_values;
     std::weak_ptr< local > constexpr_result_root;
     std::optional< antestatal_value > constexpr_result_antestatal;
+    std::optional< source_index > printer_source_index;
 
     std::set< type_symbol > missing_functanoids_val;
     std::set< type_symbol > missing_antestatal_globals_val;
@@ -666,6 +667,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 
             quxlang::vmir2::assembler ir_printer(func.second.get());
+            ir_printer.source_index = this->printer_source_index;
             std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
             std::cout << ir_printer.to_string(func.second.get()) << std::endl;
         }
@@ -725,6 +727,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if constexpr(QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
         ir_printer.emplace(current_func_ir.get());
+        ir_printer->source_index = this->printer_source_index;
     }
 
     if (current_instr_address.instruction_index < current_block.instructions.size())
@@ -2684,6 +2687,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     }
     this->implementation->functanoids3[addr] = std::move(func);
     this->implementation->missing_functanoids_val.erase(addr);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::set_source_index(source_index source_index)
+{
+    this->implementation->printer_source_index = std::move(source_index);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::exec(type_symbol func)

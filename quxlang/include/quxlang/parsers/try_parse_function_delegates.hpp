@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_DELEGATES_HEADER_GUARD
 #include <quxlang/parsers/try_parse_delegate_callsite_args.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_args.hpp>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -21,9 +22,9 @@ namespace quxlang::parsers
             ast2_function_delegate d;
             d.target = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
-            d.args = try_parse_delegate_callsite_args(ctx).value();
+            d.args = std::move(try_parse_delegate_callsite_args(ctx).value());
             skip_whitespace_and_comments(pos, end);
-            output.push_back(d);
+            output.push_back(std::move(d));
             if (skip_symbol_if_is(pos, end, ","))
             {
                 goto delegate;

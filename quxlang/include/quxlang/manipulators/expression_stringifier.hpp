@@ -4,7 +4,6 @@
 #define QUXLANG_MANIPULATORS_EXPRESSION_STRINGIFIER_HEADER_GUARD
 
 #include "quxlang/data/expression.hpp"
-#include "quxlang/data/expression_numeric_literal.hpp"
 #include "quxlang/data/numeric_literal.hpp"
 #include <string>
 

@@ -1,0 +1,189 @@
+::arrytest_cls CLASS
+{
+  .val VAR I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+     .val := 5;
+  }
+
+}
+
+::array_default_constructor_test STATIC_TEST
+
+{
+    VAR x [3]arrytest_cls;
+
+    ASSERT( x[0].val == 5 );
+    ASSERT( x[1].val == 5 );
+    ASSERT( x[2].val == 5 );
+}
+
+::array_literal_helper FUNCTION() {
+   UNIMPLEMENTED;
+
+   // VAR x [4]I32 :[ 1, 3, 5, 7 ];
+
+   ASSERT( x[0] == 1 );
+   ASSERT( x[1] == 3 );
+   ASSERT( x[2] == 5 );
+   ASSERT( x[3] == 7 );
+
+}
+
+
+::runtime_statement_branching_test STATIC_TEST
+{
+
+   VAR x I32;
+
+   RUNTIME CONSTEXPR {
+      x := 10;
+   } ELSE {
+      x := 20;
+   }
+   ASSERT( x == 10 );
+
+   RUNTIME NATIVE {
+      x := 30;
+   } ELSE {
+      x := 40;
+   }
+
+   ASSERT( x == 40 );
+
+}
+
+::string CLASS
+{
+   .data VAR =>> BYTE;
+   .length VAR SZ;
+   .capacity VAR SZ;
+
+
+   .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
+   {
+      VAR len SZ := OTHER.END() - OTHER.BEGIN();
+      .length := len;
+      RUNTIME CONSTEXPR {
+      // Need to implement constexpr allocator.
+      //  .data = CONSTEXPR_ALLOC(BYTE, len);
+      } ELSE {
+        // Native runtime, need to write standard library allocator first
+        UNIMPLEMENTED;
+      }
+   }
+
+   .push_back FUNCTION( @val BYTE )
+   {
+     IF ( .capacity > .length )
+     {
+        PLACE AT(.data + .length) BYTE := val;
+        .length++;
+     } ELSE {
+        UNIMPLEMENTED;
+     }
+   }
+
+   .pop_back FUNCTION()
+   {
+      DESTROY AT(.data + .length - 1) BYTE;
+      .length--;
+   }
+}
+
+
+
+::foo FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a + b;
+}
+
+::bar FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a * b;
+}
+
+::option_num OPTION NUMBER DEFAULT(42);
+
+::option_test STATIC_TEST
+{
+  ASSERT(option_num == 5);
+}
+
+
+::buz CLASS
+{
+  .x VAR I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+     .x := 9;
+  }
+
+  .DESTRUCTOR FUNCTION()
+  {
+
+  }
+
+  .foo FUNCTION()
+  {
+    .x := .x + 1;
+  }
+}
+
+::storage_buz_helper FUNCTION(): I32
+{
+  VAR slot STORAGE(buz);
+  VAR p ->buz := PLACE AT(slot) buz;
+  ASSERT(p??);
+  ASSERT(buz_x(PUN slot AS buz) == 9);
+  buz_inc(PUN slot AS buz);
+  ASSERT(buz_x(PUN slot AS buz) == 10);
+  DESTROY AT(slot) buz;
+
+  VAR slot2 STORAGE(I32);
+  VAR iptr ->I32 := PLACE AT(slot2) I32 := 9;
+  ASSERT(iptr??);
+  ASSERT((PUN slot2 AS I32) == 9);
+  DESTROY AT(slot2) I32;
+  RETURN 10;
+}
+
+::storage_buz_lifetime_test STATIC_TEST
+{
+  ASSERT(storage_buz_helper() == 10);
+}
+
+::aligned_storage_buz_helper FUNCTION(): I32
+{
+  VAR slot ALIGNED_STORAGE(4, 4);
+  VAR p ->buz := PLACE AT(slot) buz;
+  ASSERT(p??);
+  ASSERT(buz_x(PUN slot AS buz) == 9);
+  DESTROY AT(slot) buz;
+  RETURN 9;
+}
+
+::aligned_storage_baz FUNCTION()
+{
+      VAR slot ALIGNED_STORAGE(4, 4);
+      VAR a -> ->I32 := PLACE AT(slot) ->I32;
+}
+
+::storage_wrong_type_baz FUNCTION()
+{
+      VAR slot STORAGE(buz);
+      VAR a ->yak := PLACE AT(slot) yak;
+}
+
+::buz_x FUNCTION(%b CONST& buz): I32
+{
+  RETURN b.x;
+}
+
+::buz_inc FUNCTION(%b MUT& buz)
+{
+  b.foo();
+}
+

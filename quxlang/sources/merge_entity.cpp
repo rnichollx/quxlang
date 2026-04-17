@@ -1,5 +1,6 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #include "quxlang/manipulators/merge_entity.hpp"
+#include "quxlang/variant_utils.hpp"
 #include <iostream>
 
 

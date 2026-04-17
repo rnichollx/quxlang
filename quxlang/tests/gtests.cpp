@@ -486,6 +486,43 @@ TEST(source_locations, vmir_instruction_and_terminator_locations_print_automatic
     ASSERT_EQ(assembler.to_string(located_instruction), "ASSERT %1, \"ok\" @@(123, 2, 6)");
     ASSERT_EQ(assembler.to_string(unlocated_instruction), "ASSERT %1, \"ok\"");
     ASSERT_EQ(assembler.to_string(located_terminator), "RET @@(123, 2, 6)");
+
+    quxlang::source_file_name file_name{.source_module = "foo", .relative_path = "bar.qx"};
+    quxlang::source_file_index file_index;
+    file_index.file_to_id.emplace(file_name, 123);
+    file_index.id_to_file.emplace(123, file_name);
+
+    quxlang::source_bundle bundle;
+    bundle.module_sources["foo"].files["bar.qx"] = quxlang::source_file{.contents = "a\nbcdefgh\n"};
+
+    quxlang::vmir2::assembler source_assembler(routine, quxlang::vmir2::source_index(file_index, bundle));
+    ASSERT_EQ(source_assembler.to_string(located_instruction), "ASSERT %1, \"ok\" @@ foo/bar.qx:2:1,2:5");
+    ASSERT_EQ(source_assembler.to_string(located_terminator), "RET @@ foo/bar.qx:2:1,2:5");
+
+    quxlang::source_file_name loaded_file_name{.source_module = "main", .relative_path = "modules/main/sources/bar.qx"};
+    quxlang::source_file_index loaded_file_index;
+    loaded_file_index.file_to_id.emplace(loaded_file_name, 123);
+    loaded_file_index.id_to_file.emplace(123, loaded_file_name);
+
+    quxlang::source_bundle loaded_bundle;
+    loaded_bundle.module_sources["main"].files["modules/main/sources/bar.qx"] = quxlang::source_file{.contents = "a\nbcdefgh\n"};
+
+    quxlang::vmir2::assembler loaded_source_assembler(routine, quxlang::vmir2::source_index(loaded_file_index, loaded_bundle));
+    ASSERT_EQ(loaded_source_assembler.to_string(located_instruction), "ASSERT %1, \"ok\" @@ modules/main/sources/bar.qx:2:1,2:5");
+
+    routine.local_types.push_back(quxlang::vmir2::local_type{.type = quxlang::int_type{32, true}});
+    routine.local_types.push_back(quxlang::vmir2::local_type{.type = quxlang::int_type{32, true}});
+    quxlang::vmir2::assembler typed_comment_assembler(routine);
+    quxlang::vmir2::vm_instruction located_typed_comment_instruction = quxlang::vmir2::access_field{
+        .base_index = quxlang::vmir2::local_index(0),
+        .store_index = quxlang::vmir2::local_index(1),
+        .field_name = "x",
+        .location = loc,
+    };
+    ASSERT_EQ(typed_comment_assembler.to_string(located_typed_comment_instruction), "ACCESS_FIELD %0, %1, x @@(123, 2, 6) // type1=I32 type2=I32");
+
+    quxlang::vmir2::assembler typed_comment_source_assembler(routine, quxlang::vmir2::source_index(file_index, bundle));
+    ASSERT_EQ(typed_comment_source_assembler.to_string(located_typed_comment_instruction), "ACCESS_FIELD %0, %1, x @@ foo/bar.qx:2:1,2:5 // type1=I32 type2=I32");
 }
 
 TEST(parsing, parse_pun_expression)

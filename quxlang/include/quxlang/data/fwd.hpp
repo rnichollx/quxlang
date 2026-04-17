@@ -93,4 +93,9 @@ namespace quxlang
 
 }; // namespace quxlang
 
+extern template quxlang::type_symbol::basic_variant(quxlang::type_symbol::allocator_type const&);
+extern template quxlang::type_symbol::basic_variant(quxlang::type_symbol const&);
+extern template quxlang::expression::basic_variant(quxlang::expression::allocator_type const&);
+extern template quxlang::expression::basic_variant(quxlang::expression const&);
+
 #endif // RPNX_QUXLANG_FWD_HEADER

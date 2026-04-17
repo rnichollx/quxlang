@@ -2,6 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_CLASS_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_CLASS_HEADER_GUARD
+#include <utility>
 #include <quxlang/ast2/ast2_type_map.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
 
@@ -14,7 +15,7 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected class");
         }
-        return result.value();
+        return std::move(*result);
     }
 }
 

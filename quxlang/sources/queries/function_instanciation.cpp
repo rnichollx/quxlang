@@ -2,7 +2,7 @@
 
 #include <quxlang/queries/specs/function_instanciation_spec.hpp>
 
-
+#include "quxlang/macros.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::function_instanciation_impl(initialization_reference input)

@@ -1,6 +1,7 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
 #include "quxlang/data/expression.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/parsers/parse_expression.hpp"
 
 #include <benchmark/benchmark.h>

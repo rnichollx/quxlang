@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_OPTION_HEADER_GUARD
 
 #include <optional>
+#include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/keyword.hpp>
@@ -63,7 +64,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ) after DEFAULT_VALUE expression");
             }
-            opt.option_default = ast2_option_default{ast2_option_default_value{.value = e}};
+            opt.option_default = ast2_option_default{ast2_option_default_value{.value = std::move(e)}};
             skip_whitespace_and_comments(pos, end);
         }
         else if (skip_keyword_if_is(pos, end, "DEFAULT_FROM"))

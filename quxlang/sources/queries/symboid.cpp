@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/symboid_spec.hpp>
 #include "quxlang/manipulators/merge_entity.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 namespace
 {

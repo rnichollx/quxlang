@@ -1,0 +1,114 @@
+::pointer_to_pointer_increment_test STATIC_TEST
+{
+  VAR x I32 := 5;
+  VAR px ->I32 := x<-;
+  VAR ppx -> ->I32 := px<-;
+  VAR ppx2 -> ->I32 := ppx;
+  ppx-> -> := 10;
+  ASSERT(x == 10);
+  ptrptr_incr(@ptr ppx);
+}
+
+::ptrptr_incr FUNCTION(@ptr CONST -> MUT-> I32)
+{
+  ptr-> -> ++;
+}
+
+::global VAR I32 := 8;
+
+::antestatal_static_i32 STATIC I32 := 4;
+
+::antestatal_static_i32_ptr STATIC CONST -> I32 := antestatal_static_i32<-;
+
+::antestatal_static_proc STATIC CONST -> PROCEDURE(I32, I32: I32) := foo<-;
+
+::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
+
+
+::mutable_global_and_template_global_test STATIC_TEST
+{
+  ASSERT(global == 8);
+  global := global + 2;
+  ASSERT(global == 10);
+
+  ASSERT(global_tmpl#(@foo I32) == 1);
+  global_tmpl#(@foo I32) := 5;
+  ASSERT(global_tmpl#(@foo I32) == 5);
+  ASSERT(global_tmpl#(@foo I64) == 1);
+
+}
+
+::antestatal_static_values_test STATIC_TEST
+{
+  ASSERT(antestatal_static_i32 == 4);
+  ASSERT(antestatal_static_i32_ptr-> == 4);
+  ASSERT(antestatal_static_proc(4, 5) == 9);
+  // TODO: Add a negative constexpr test that verifies mutating an antestatal static is rejected.
+
+}
+
+
+::templated_holder TEMPLATE(AUTO(t)) CLASS
+{
+  .value VAR t;
+}
+
+::templated_holder_value_test STATIC_TEST
+{
+  VAR holder templated_holder#( I32 );
+  holder.value := 5;
+  ASSERT(holder.value == 5);
+
+  holder.value := 9;
+
+  ASSERT(holder.value == 9);
+}
+
+::postincrement_array_iterator_store_test STATIC_TEST
+{
+
+  VAR x [3]I32;
+
+  VAR y =>> I32;
+  y := x[& 0];
+
+  (y++)-> := 10;
+  (y++)-> := 20;
+  (y++)-> := 30;
+
+  ASSERT( x[0] == 10 );
+  ASSERT( x[1] == 20 );
+  ASSERT( x[2] == 30 );
+}
+
+::array_byte_pointer_load_store_test STATIC_TEST
+{
+  VAR x [4]BYTE;
+
+  VAR z =>> BYTE;
+
+  z := x[& 0];
+
+  VAR z2 =>> BYTE;
+  z2 := z;
+
+  z-> := 42;
+
+  ASSERT( x[0] == 42 );
+
+  z2-> := 84;
+
+  ASSERT( x[0] == 84 );
+}
+
+
+::static_choose_import_test STATIC_TEST
+{
+   VAR x I32;
+
+   x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 );
+   ASSERT( x == 10 );
+
+   x := STATIC_CHOOSE( foolib::imported_function() != 42 , 10 , 20 );
+   ASSERT( x == 20 );
+}

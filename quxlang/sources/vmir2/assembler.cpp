@@ -1,8 +1,125 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 #include <quxlang/vmir2/assembler.hpp>
 
+#include <algorithm>
+#include <stdexcept>
+
 namespace quxlang::vmir2
 {
+    indexed_source_file::indexed_source_file(source_file_name name, std::string contents) : name(std::move(name)), contents(std::move(contents))
+    {
+        this->line_starts.push_back(0);
+        for (std::size_t i = 0; i < this->contents.size(); ++i)
+        {
+            if (this->contents.at(i) == '\n')
+            {
+                this->line_starts.push_back(i + 1);
+            }
+        }
+    }
+
+    auto indexed_source_file::path() const -> std::string
+    {
+        if (this->name.source_module.empty())
+        {
+            return this->name.relative_path;
+        }
+        if (this->name.relative_path.empty())
+        {
+            return this->name.source_module;
+        }
+
+        auto const bundle_module_prefix = "modules/" + this->name.source_module + "/sources/";
+        if (this->name.relative_path.starts_with(bundle_module_prefix))
+        {
+            return this->name.relative_path;
+        }
+
+        return this->name.source_module + "/" + this->name.relative_path;
+    }
+
+    auto indexed_source_file::position(std::size_t offset) const -> source_position
+    {
+        offset = std::min(offset, this->contents.size());
+        auto line_iter = std::upper_bound(this->line_starts.begin(), this->line_starts.end(), offset);
+        auto const line_index = static_cast< std::size_t >(std::distance(this->line_starts.begin(), line_iter) - 1);
+        return source_position{
+            .line = line_index + 1,
+            .column = offset - this->line_starts.at(line_index) + 1,
+        };
+    }
+
+    source_index::source_index(source_file_index const& file_index, source_bundle const& bundle)
+    {
+        for (auto const& [file_id, name] : file_index.id_to_file)
+        {
+            auto module_iter = bundle.module_sources.find(name.source_module);
+            if (module_iter == bundle.module_sources.end())
+            {
+                throw std::logic_error("source_index received a source file index with an unknown source module");
+            }
+
+            auto file_iter = module_iter->second.files.find(name.relative_path);
+            if (file_iter == module_iter->second.files.end())
+            {
+                throw std::logic_error("source_index received a source file index with an unknown relative path");
+            }
+
+            this->files.emplace(file_id, indexed_source_file{name, file_iter->second->contents});
+        }
+    }
+
+    auto source_index::format(std::optional< source_location > const& location) const -> std::string
+    {
+        if (!location.has_value())
+        {
+            return {};
+        }
+
+        auto file_iter = this->files.find(location->file_id);
+        if (file_iter == this->files.end())
+        {
+            return quxlang::source_location_suffix(location);
+        }
+
+        auto const begin = file_iter->second.position(location->begin_index);
+        std::string result = " @@ " + file_iter->second.path() + ":" + std::to_string(begin.line) + ":" + std::to_string(begin.column);
+        if (location->end_index.has_value())
+        {
+            auto const end = file_iter->second.position(*location->end_index);
+            result += "," + std::to_string(end.line) + ":" + std::to_string(end.column);
+        }
+        return result;
+    }
+
+    std::string assembler::source_location_suffix(std::optional< source_location > const& location) const
+    {
+        if (this->source_index.has_value())
+        {
+            return this->source_index->format(location);
+        }
+        return quxlang::source_location_suffix(location);
+    }
+
+    std::string assembler::append_source_location_suffix(std::string result, std::optional< source_location > const& location) const
+    {
+        auto suffix = this->source_location_suffix(location);
+        if (suffix.empty())
+        {
+            return result;
+        }
+
+        auto const comment_position = result.find(" //");
+        if (comment_position == std::string::npos)
+        {
+            result += suffix;
+            return result;
+        }
+
+        result.insert(comment_position, suffix);
+        return result;
+    }
+
     std::string assembler::to_string(vmir2::functanoid_routine3 fnc)
     {
         std::string output;
@@ -168,8 +285,7 @@ namespace quxlang::vmir2
             {
                 return this->to_string_internal(x);
             });
-        result += quxlang::source_location_suffix(vmir2::get_location(inst));
-        return result;
+        return this->append_source_location_suffix(result, vmir2::get_location(inst));
     }
 
     std::string assembler::to_string(vmir2::vm_terminator inst)
@@ -180,8 +296,7 @@ namespace quxlang::vmir2
             {
                 return this->to_string_internal(x);
             });
-        result += quxlang::source_location_suffix(vmir2::get_location(inst));
-        return result;
+        return this->append_source_location_suffix(result, vmir2::get_location(inst));
     }
 
     std::string assembler::to_string(vmir2::local_type lct)

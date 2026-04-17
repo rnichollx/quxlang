@@ -1,0 +1,167 @@
+::argument_passing_helper FUNCTION(@arg bam, @int & I32)
+{
+   int := int + arg.x;
+}
+
+
+::implicit_foo CLASS
+{
+    .x VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@OTHER I32)
+    {
+        .x := OTHER;
+    }
+}
+
+::explicit_cast_only CLASS
+{
+    .x VAR I32;
+
+    .CONSTRUCTOR FUNCTION(@EXPLICIT I32)
+    {
+        .x := EXPLICIT;
+    }
+}
+
+::implicit_conversions_test STATIC_TEST
+{
+    VAR a implicit_foo;
+    a := I32(@OTHER 5);
+
+    ASSERT(a.x == 5);
+
+    VAR b I32 := 8;
+    a := b;
+
+    ASSERT(a.x == 8);
+
+    VAR c explicit_cast_only := b AS explicit_cast_only;
+    ASSERT(c.x == 8);
+}
+
+
+
+
+::yak CLASS
+{
+   .z VAR -> I32;
+   .f VAR =>> I32;
+   .f_count VAR SZ;
+
+   .DESTRUCTOR FUNCTION()
+   {
+     IF (.z??)
+     {
+        .z-> := .z-> + 1;
+     }
+
+     IF (.f??)
+     {
+        WHILE(.f_count > 0)
+        {
+           .f-> ++;
+           .f++;
+           .f--;
+           .f++;
+           .f_count := .f_count - 1;
+        }
+     }
+   }
+}
+
+::foobar FUNCTION(): U64
+{
+  VAR x U64;
+  x := 1;
+  RETURN x;
+}
+
+::pinc_helper FUNCTION() : I32
+{
+  VAR x [3 + foobar()]I32;
+  x[0] := 0;
+  x[1] := 0;
+  x[2] := 0;
+  x[3] := 0;
+  VAR y =>> I32;
+  y := x[& 0];
+  y++;
+  y++;
+  y--;
+  y-> ++ ;
+  y-> ++ ;
+  VAR three I32;
+  three := 3;
+  ASSERT (three == 3);
+  RETURN x[1] ;
+}
+
+::basic_passing_static_test STATIC_TEST
+{
+  ASSERT (3 == 3);
+}
+
+::unresolved_symbol_compilation_failure_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  missing_static_test_symbol();
+}
+
+::assertion_expect_fail_test STATIC_TEST EXPECT_FAIL
+{
+  ASSERT (3 == 4);
+}
+
+::narrowing_implicit_conversion_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y I8 := x;
+}
+
+::narrowing_explicit_no_spec_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y I8 := x AS I8;
+}
+
+::narrowing_explicit_partial_conversion_test STATIC_TEST
+{
+  VAR x I32 := 300;
+  VAR y I8 := x AS PARTIAL I8;
+  ASSERT(y == 44);
+}
+
+::widening_implicitly_okay_test STATIC_TEST
+{
+  VAR x I32 := 300;
+  VAR y I64 := x;
+  ASSERT(y == 300);
+}
+
+::same_width_signed_to_unsigned_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 300;
+  VAR y U32 := x;
+}
+
+::same_width_unsigned_to_signed_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x U32 := 300;
+  VAR y I32 := x;
+}
+
+::main FUNCTION(): I32
+{
+  VAR x I32;
+  x := 1;
+  VAR y I32;
+  y := 3;
+  ::foo( 3 ,  8 );
+  VAR z buz;
+  z.foo();
+  VAR a ->I32;
+  a := z.x <-;
+  a-> := a-> + 5;
+  VAR bz yak;
+  RETURN 4;
+}

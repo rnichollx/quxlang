@@ -3,6 +3,7 @@
 #ifndef QUXLANG_PARSERS_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_DECLARATION_HEADER_GUARD
 #include <optional>
+#include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 
 #include <quxlang/parsers/declaration.hpp>
@@ -45,7 +46,7 @@ namespace quxlang::parsers
             {
                 break;
             }
-            output.push_back(*decl);
+            output.push_back(std::move(*decl));
         }
 
         return output;
@@ -63,7 +64,7 @@ namespace quxlang::parsers
         {
             return output;
         }
-        auto [member, name] = *name_opt;
+        auto [member, name] = std::move(*name_opt);
 
         skip_whitespace_and_comments(pos, end);
 
@@ -73,11 +74,19 @@ namespace quxlang::parsers
 
         if (member)
         {
-            output = member_subdeclaroid {.decl = decl, .name = name, .include_if = ifl, .location = ctx.get_location_optional(begin, pos)};
+            output = member_subdeclaroid {
+                .decl = std::move(decl),
+                .name = std::move(name),
+                .include_if = std::move(ifl),
+                .location = ctx.get_location_optional(begin, pos)};
         }
         else
         {
-            output = global_subdeclaroid {.decl = decl, .name = name, .include_if = ifl, .location = ctx.get_location_optional(begin, pos)};
+            output = global_subdeclaroid {
+                .decl = std::move(decl),
+                .name = std::move(name),
+                .include_if = std::move(ifl),
+                .location = ctx.get_location_optional(begin, pos)};
         }
 
         return output;
@@ -92,40 +101,40 @@ namespace quxlang::parsers
         output = try_parse_template(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
         output = try_parse_function_declaration(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
         output = try_parse_class(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
         output = try_parse_option(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
         output = try_parse_variable_declaration(ctx);
 
         if (output)
         {
-            return output;
+            return std::move(output);
         }
 
         output = try_parse_asm_procedure_declaration(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
 
         output = try_parse_static_test(ctx);
         if (output)
         {
-            return output;
+            return std::move(output);
         }
 
         output = try_parse_namespace(ctx);
@@ -140,7 +149,7 @@ namespace quxlang::parsers
         {
             throw std::logic_error("expected declaroid");
         }
-        return std::move(decl.value());
+        return std::move(*decl);
     }
 
     inline std::optional< ast2_namespace_declaration > try_parse_namespace(parsing_context& ctx)
@@ -162,12 +171,7 @@ namespace quxlang::parsers
             throw std::logic_error("expected { after namespace");
         }
 
-        auto decls = parse_subdeclaroids(ctx);
-
-        for (auto& decl : decls)
-        {
-            out.declarations.push_back(decl);
-        }
+        out.declarations = parse_subdeclaroids(ctx);
 
         skip_whitespace_and_comments(pos, end);
 

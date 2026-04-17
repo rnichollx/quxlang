@@ -4,6 +4,7 @@
 
 #include "quxlang/data/class_field_declaration.hpp"
 #include "quxlang/manipulators/struct_math.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 
 rpnx::querygraph::coroutine< quxlang::class_builtin_spec > quxlang::class_builtin_impl(type_symbol input)

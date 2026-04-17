@@ -12,6 +12,8 @@
 #include <quxlang/parsers/fwd.hpp> // added forward declarations
 #include <quxlang/parsers/parse_runtime_statement.hpp>
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< function_statement > try_parse_statement(parsing_context& ctx)
@@ -25,8 +27,10 @@ namespace quxlang::parsers
 
         if (auto res = try_parse_function_block(ctx); res)
         {
-            return *res;
+            return std::move(*res);
         }
+
+        auto kw = next_keyword(pos, end);
 
         if (skip_keyword_if_is(pos, end, "UNIMPLEMENTED"))
         {
@@ -37,43 +41,43 @@ namespace quxlang::parsers
             }
             function_unimplemented_statement st;
             st.location = ctx.get_location_optional(begin, pos);
-            return st;
+            return std::optional< function_statement >{std::move(st)};
         }
-        else if (next_keyword(pos, end) == "PLACE")
+        else if (kw == "PLACE")
         {
             return parse_place_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "DESTROY")
+        else if (kw == "DESTROY")
         {
             return parse_destroy_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "RUNTIME")
+        else if (kw == "RUNTIME")
         {
             return parse_runtime_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "IF")
+        else if (kw == "IF")
         {
             return parse_if_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "VAR")
+        else if (kw == "VAR")
         {
             return parse_var_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "RETURN")
+        else if (kw == "RETURN")
         {
             return parse_return_statement(ctx);
         }
-        else if (next_keyword(pos, end) == "WHILE")
+        else if (kw == "WHILE")
         {
             return parse_while_statement(ctx);
         }
-        if (next_keyword(pos, end) == "ASSERT")
+        if (kw == "ASSERT")
         {
             return parse_assert_statement(ctx);
         }
         else if (auto expr_st = try_parse_expression_statement(ctx); expr_st)
         {
-            return *expr_st;
+            return std::move(*expr_st);
         }
 
         return std::nullopt;

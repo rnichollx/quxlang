@@ -22,10 +22,9 @@ find_package(RPNXCow REQUIRED)
 find_package(benchmark REQUIRED)
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/expression.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/data/expression_add.hpp include/quxlang/data/expression_call.hpp include/quxlang/data/expression_lvalue_reference.hpp include/quxlang/cow.hpp include/quxlang/data/expression_multiply.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/expression_copy_assign.hpp include/quxlang/data/expression_move_assign.hpp include/quxlang/data/expression_subtract.hpp include/quxlang/data/expression_numeric_literal.hpp include/quxlang/data/expression_dotreference.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/data/type_symbol.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/expression.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/data/type_symbol.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
         include/quxlang/vmir2/vmir2.hpp
-        include/quxlang/data/expression_equals.hpp
         include/quxlang/data/numeric_literal.hpp
         include/quxlang/data/lookup_type.hpp
         sources/manipulators/typeutils.cpp
@@ -120,7 +119,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/variants.hpp
         include/quxlang/parsers/include_if.hpp
         include/quxlang/parsers/expression/target.hpp
-        include/quxlang/data/builtins.hpp
         include/quxlang/data/function_header.hpp
         include/quxlang/data/fwd.hpp
         include/quxlang/builtins.hpp
@@ -251,6 +249,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/module_ast_spec.hpp
         include/quxlang/queries/specs/module_source_name_spec.hpp
         include/quxlang/queries/specs/module_sources_spec.hpp
+        include/quxlang/queries/specs/parse_file_spec.hpp
         include/quxlang/queries/specs/procedure_linksymbol_spec.hpp
         include/quxlang/queries/specs/run_static_test_spec.hpp
         include/quxlang/queries/specs/run_static_tests_spec.hpp
@@ -365,6 +364,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp
         sources/queries/module_sources.cpp
+        sources/queries/parse_file.cpp
         sources/queries/procedure_linksymbol.cpp
         sources/queries/run_static_test.cpp
         sources/queries/run_static_tests.cpp
@@ -399,6 +399,7 @@ set(QUXLANG_QUERY_SOURCES
 
 
 target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
+        sources/variant_instantiations.cpp
         ${QUXLANG_QUERY_SOURCES}
         include/quxlang/compiler_querygraph.hpp
         include/quxlang/co_vmir_generator2.hpp
@@ -424,6 +425,11 @@ target_link_libraries(quxlang PUBLIC RPNX::cow RPNX::datastructures RPNX::queryg
 add_executable(quxlang-benchmarks sources/benchmarks/variant_bms.cpp)
 
 target_link_libraries(quxlang-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main quxlang)
+
+add_executable(quxlang-parser-benchmarks sources/benchmarks/parser_bms.cpp)
+
+target_link_libraries(quxlang-parser-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main quxlang)
+target_compile_definitions(quxlang-parser-benchmarks PRIVATE QUXLANG_PARSER_BENCHMARK_CORPUS_DIR="${CMAKE_CURRENT_BINARY_DIR}/parser_benchmark_corpus")
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)

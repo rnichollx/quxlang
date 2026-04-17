@@ -8,6 +8,8 @@
 #include "string_literal.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 
+#include <utility>
+
 namespace quxlang::parsers
 {
     inline std::optional< ast2_procedure_ref > try_parse_ast2_procedure_ref(parsing_context& ctx)
@@ -32,7 +34,7 @@ namespace quxlang::parsers
 
         parsers::skip_whitespace_and_comments(pos, end);
 
-        auto calling_convention = *try_parse_string_literal(pos, end);
+        auto calling_convention = std::move(try_parse_string_literal(pos, end).value());
 
         skip_whitespace_and_comments(pos, end);
 
@@ -53,8 +55,8 @@ namespace quxlang::parsers
         }
 
         return ast2_procedure_ref{
-            .cc = calling_convention,
-            .functanoid = sym
+            .cc = std::move(calling_convention),
+            .functanoid = std::move(sym)
         };
     }
 }

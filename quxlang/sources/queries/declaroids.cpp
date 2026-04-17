@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/declaroids_spec.hpp>
 
+#include "quxlang/manipulators/typeutils.hpp"
 
 rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl(type_symbol input)
 {
