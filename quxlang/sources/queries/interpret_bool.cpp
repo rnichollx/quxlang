@@ -5,7 +5,19 @@
 
 #include "quxlang/macros.hpp"
 
-
+namespace
+{
+    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    {
+        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        auto result = quxlang::parsers::parse_type_symbol(ctx);
+        if (ctx.iter_pos != ctx.iter_end)
+        {
+            throw std::logic_error("Input not fully parsed");
+        }
+        return result;
+    }
+}
 
 rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_bool_impl(expr_interp_input input)
 {
@@ -13,7 +25,7 @@ rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_b
     // if it's not a boolean, throw an error.
     auto val = co_await rpnx::querygraph::request< interpret_value_query >(input);
 
-    auto booltype = parsers::parse_type_symbol("BOOL");
+    auto booltype = parse_type_symbol_text("BOOL");
 
     if (val.type != booltype)
     {

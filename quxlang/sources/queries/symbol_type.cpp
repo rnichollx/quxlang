@@ -88,6 +88,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::static_test;
         }
+        else if (typeis< ast2_option >(s))
+        {
+            co_return symbol_kind::option;
+        }
         else if (typeis< std::monostate >(s))
         {
             co_return symbol_kind::noexist;

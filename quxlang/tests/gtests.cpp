@@ -62,11 +62,73 @@ std::filesystem::path temp_output_file()
     return tempdir / fname;
 }
 
+static quxlang::parsers::parsing_context test_parsing_context(std::string const& input)
+{
+    return quxlang::parsers::make_unlocated_parsing_context(input);
+}
+
+static quxlang::ast2_file_declaration parse_file_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::parse_file(ctx);
+}
+
+static std::optional< quxlang::ast2_class_declaration > try_parse_class_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::try_parse_class(ctx);
+}
+
+static std::vector< quxlang::ast2_function_parameter > parse_function_args_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::parse_function_args(ctx);
+}
+
+static quxlang::type_symbol parse_type_symbol(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    auto result = quxlang::parsers::parse_type_symbol(ctx);
+    if (ctx.iter_pos != ctx.iter_end)
+    {
+        throw std::logic_error("Input not fully parsed");
+    }
+    return result;
+}
+
+static quxlang::expression parse_expression_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    auto result = quxlang::parsers::parse_expression(ctx);
+    if (ctx.iter_pos != ctx.iter_end)
+    {
+        throw std::logic_error("Input not fully parsed");
+    }
+    return result;
+}
+
+static std::optional< quxlang::expression > try_parse_expression_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::try_parse_expression(ctx);
+}
+
+static quxlang::function_destroy_statement parse_destroy_statement_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    auto result = quxlang::parsers::parse_destroy_statement(ctx);
+    if (ctx.iter_pos != ctx.iter_end)
+    {
+        throw std::logic_error("Input not fully parsed");
+    }
+    return result;
+}
+
 TEST(parsing, parse_empty_class)
 {
     std::string test_string = "CLASS { }";
 
-    std::optional< quxlang::ast2_class_declaration > cl = quxlang::parsers::try_parse_class(test_string);
+    std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -75,7 +137,7 @@ TEST(parsing, parse_class_with_variables)
 {
     std::string test_string = "CLASS { .a VAR I32; .b VAR I64; ::c VAR I32; }";
 
-    std::optional< quxlang::ast2_class_declaration > cl = quxlang::parsers::try_parse_class(test_string);
+    std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 
@@ -102,7 +164,7 @@ TEST(parsing, parse_class_constructor)
 {
     std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) { } }";
 
-    auto cl = quxlang::parsers::try_parse_class(test_string);
+    auto cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -111,7 +173,7 @@ TEST(parsing, parse_class_constructor_delegates)
 {
     std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
 
-    auto cl = quxlang::parsers::try_parse_class(test_string);
+    auto cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -120,7 +182,7 @@ TEST(parsing, parse_class_explicit_constructor_keyword)
 {
     std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(@EXPLICIT I32) { } }";
 
-    auto cl = quxlang::parsers::try_parse_class(test_string);
+    auto cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
 }
@@ -130,7 +192,7 @@ TEST(parsing, functum_combining)
     std::string test_string = "::foo FUNCTION(%a I32) { } ::foo FUNCTION(%a I64) { }";
 
     quxlang::ast2_file_declaration file;
-    file = quxlang::parsers::parse_file(test_string);
+    file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 2);
 
@@ -141,7 +203,7 @@ TEST(parsing, parse_function_args)
 {
     std::string test_string = "(%a I32, %b I64, %c -> I32)";
 
-    auto args = quxlang::parsers::parse_function_args(test_string);
+    auto args = parse_function_args_text(test_string);
 
     ASSERT_EQ(args.size(), 3);
     ASSERT_EQ(args[0].name, "a");
@@ -236,7 +298,7 @@ TEST(parsing, parse_global_constexpr_variable_declaration)
 {
     std::string test_string = "::foobar VAR CONSTEXPR_READABLE I32 := 4;";
 
-    quxlang::ast2_file_declaration file = quxlang::parsers::parse_file(test_string);
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
     ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
@@ -258,7 +320,7 @@ TEST(parsing, parse_global_static_variable_declaration)
 {
     std::string test_string = "::foo STATIC I32 := 4;";
 
-    quxlang::ast2_file_declaration file = quxlang::parsers::parse_file(test_string);
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
 
     ASSERT_EQ(file.declarations.size(), 1);
     ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
@@ -307,16 +369,14 @@ TEST(collector_tester, order_of_operations)
 
     quxlang::expression expr;
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    expr = quxlang::parsers::parse_expression(ctx);
 
     std::string str = quxlang::to_string(expr);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_binary >());
     ASSERT_TRUE(as< quxlang::expression_binary >(expr).operator_str == ":=");
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 };
 
 
@@ -327,95 +387,137 @@ TEST(collector_tester, function_call)
 
     quxlang::expression expr;
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    expr = quxlang::parsers::parse_expression(ctx);
 
     std::string str = quxlang::to_string(expr);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_call >());
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 };
 
 TEST(parsing, parse_bitwise_inverse_postfix)
 {
     std::string test_string = "bu #!!";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_unary_postfix >());
     ASSERT_EQ(quxlang::as< quxlang::expression_unary_postfix >(expr).operator_str, "#!!");
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 }
 
 TEST(parsing, parse_logical_inverse_postfix)
 {
     std::string test_string = "bu !!";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_unary_postfix >());
     ASSERT_EQ(quxlang::as< quxlang::expression_unary_postfix >(expr).operator_str, "!!");
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 }
 
 TEST(parsing, parse_extended_logical_operators)
 {
     for (std::string const& test_string : {"a !| b", "a !^ b", "a ^> b", "a ^< b"})
     {
-        std::string::const_iterator it = test_string.begin();
-        std::string::const_iterator it_end = test_string.end();
-
-        quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+        auto ctx = test_parsing_context(test_string);
+        quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
 
         ASSERT_TRUE(expr.template type_is< quxlang::expression_binary >());
-        ASSERT_EQ(it, it_end);
+        ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
     }
+}
+
+TEST(source_locations, source_location_string_format)
+{
+    ASSERT_EQ(quxlang::to_string(quxlang::source_location{.file_id = 0, .begin_index = 2, .end_index = std::optional< std::size_t >{6}}), "@@(0, 2, 6)");
+    ASSERT_EQ(quxlang::to_string(quxlang::source_location{.file_id = 0, .begin_index = 2}), "@@(0, 2)");
+}
+
+TEST(source_locations, expression_locations_are_hidden_unless_requested)
+{
+    quxlang::expression expr = quxlang::expression_numeric_literal{
+        .value = "4",
+        .location = quxlang::source_location{.file_id = 0, .begin_index = 2, .end_index = std::optional< std::size_t >{6}},
+    };
+
+    ASSERT_EQ(quxlang::to_string(expr), "4");
+    ASSERT_EQ(quxlang::to_string(expr, true), "4 @@(0, 2, 6)");
+}
+
+TEST(source_locations, context_expression_parser_assigns_recursive_locations)
+{
+    std::string source = "STATIC_CHOOSE(1, 2, 3)";
+    quxlang::parsers::parsing_context ctx{
+        .file_id = 17,
+        .source_locations_enabled = true,
+        .iter_begin = source.begin(),
+        .iter_pos = source.begin(),
+        .iter_end = source.end(),
+    };
+
+    quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
+
+    ASSERT_EQ(quxlang::to_string(expr, true), "STATIC_CHOOSE( 1 @@(17, 14, 15) , 2 @@(17, 17, 18) , 3 @@(17, 20, 21) ) @@(17, 0, 22)");
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
+}
+
+TEST(source_locations, vmir_instruction_and_terminator_locations_print_automatically)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    quxlang::vmir2::assembler assembler(routine);
+    quxlang::source_location loc{.file_id = 123, .begin_index = 2, .end_index = std::optional< std::size_t >{6}};
+
+    quxlang::vmir2::vm_instruction located_instruction = quxlang::vmir2::assert_instr{
+        .condition = quxlang::vmir2::local_index(1),
+        .message = "ok",
+        .location = loc,
+    };
+    quxlang::vmir2::vm_instruction unlocated_instruction = quxlang::vmir2::assert_instr{
+        .condition = quxlang::vmir2::local_index(1),
+        .message = "ok",
+    };
+    quxlang::vmir2::vm_terminator located_terminator = quxlang::vmir2::ret{.location = loc};
+
+    ASSERT_EQ(assembler.to_string(located_instruction), "ASSERT %1, \"ok\" @@(123, 2, 6)");
+    ASSERT_EQ(assembler.to_string(unlocated_instruction), "ASSERT %1, \"ok\"");
+    ASSERT_EQ(assembler.to_string(located_terminator), "RET @@(123, 2, 6)");
 }
 
 TEST(parsing, parse_pun_expression)
 {
     std::string test_string = "PUN x AS I32";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_pun >());
     ASSERT_EQ(quxlang::to_string(quxlang::as< quxlang::expression_pun >(expr).as_type), "I32");
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 }
 
 TEST(parsing, parse_place_expression)
 {
     std::string test_string = "PLACE AT(x) I32:(y)";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    quxlang::expression expr = quxlang::parsers::parse_expression(it, it_end);
+    auto ctx = test_parsing_context(test_string);
+    quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
 
     ASSERT_TRUE(expr.template type_is< quxlang::expression_place >());
     ASSERT_EQ(quxlang::to_string(quxlang::as< quxlang::expression_place >(expr).type), "I32");
     ASSERT_EQ(quxlang::as< quxlang::expression_place >(expr).args.size(), 1);
-    ASSERT_EQ(it, it_end);
+    ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 }
 
 TEST(parsing, parse_partial_cast_expression)
 {
     std::string test_string = "x AS PARTIAL I16";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-    auto expr = quxlang::parsers::try_parse_expression(it, it_end);
+    auto expr = try_parse_expression_text(test_string);
 
     ASSERT_TRUE(expr.has_value());
     ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
@@ -424,7 +526,7 @@ TEST(parsing, parse_partial_cast_expression)
 
 TEST(parsing, reject_internal_tempar_name_in_expression)
 {
-    EXPECT_ANY_THROW(quxlang::parsers::parse_expression("IS_INTEGRAL(__int_type)"));
+    EXPECT_ANY_THROW(parse_expression_text("IS_INTEGRAL(__int_type)"));
 }
 
 
@@ -433,14 +535,10 @@ TEST(parsing, parse_destroy_statement_with_args)
 {
     std::string test_string = "DESTROY AT(x) I32:(y);";
 
-    std::string::iterator it = test_string.begin();
-    std::string::iterator it_end = test_string.end();
-
-    auto st = quxlang::parsers::parse_destroy_statement(it, it_end);
+    auto st = parse_destroy_statement_text(test_string);
 
     ASSERT_EQ(quxlang::to_string(st.type), "I32");
     ASSERT_EQ(st.args.size(), 1);
-    ASSERT_EQ(it, it_end);
 }
 
 TEST(quxlang_modules, merge_entities)
@@ -479,16 +577,16 @@ TEST(qual, template_matching)
 
 TEST(qual, template_matching_preserves_reference_shape_without_hidden_conversions)
 {
-    auto templ = quxlang::parsers::parse_type_symbol("CONST& AUTO(t)");
-    auto source = quxlang::parsers::parse_type_symbol("MUT& I32");
+    auto templ = parse_type_symbol("CONST& AUTO(t)");
+    auto source = parse_type_symbol("MUT& I32");
 
     auto match = quxlang::match_template(templ, source);
     ASSERT_TRUE(match.has_value());
-    EXPECT_EQ(match->type, quxlang::parsers::parse_type_symbol("CONST& I32"));
-    EXPECT_EQ(match->matches.at("t"), quxlang::parsers::parse_type_symbol("I32"));
+    EXPECT_EQ(match->type, parse_type_symbol("CONST& I32"));
+    EXPECT_EQ(match->matches.at("t"), parse_type_symbol("I32"));
 
-    auto auto_ref = quxlang::parsers::parse_type_symbol("& AUTO(t)");
-    auto value = quxlang::parsers::parse_type_symbol("I32");
+    auto auto_ref = parse_type_symbol("& AUTO(t)");
+    auto value = parse_type_symbol("I32");
     EXPECT_FALSE(quxlang::match_template(auto_ref, value).has_value());
 }
 
@@ -768,14 +866,14 @@ TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_referenc
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
-                                                       .from = quxlang::parsers::parse_type_symbol("I32"),
-                                                       .to = quxlang::parsers::parse_type_symbol("CONST& AUTO(t)"),
+                                                       .from = parse_type_symbol("I32"),
+                                                       .to = parse_type_symbol("CONST& AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
                                                    },
                                                    std::nullopt);
 
     ASSERT_TRUE(adapted.has_value());
-    EXPECT_EQ(*adapted, quxlang::parsers::parse_type_symbol("CONST& I32"));
+    EXPECT_EQ(*adapted, parse_type_symbol("CONST& I32"));
 }
 
 TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
@@ -785,8 +883,8 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
-                                                       .from = quxlang::parsers::parse_type_symbol("WRITE& I32"),
-                                                       .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
+                                                       .from = parse_type_symbol("WRITE& I32"),
+                                                       .to = parse_type_symbol("AUTO(t)"),
                                                        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
                                                    },
                                                    std::nullopt);
@@ -800,25 +898,25 @@ TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto ref_source = quxlang::parsers::parse_type_symbol("MUT& I32");
+    auto ref_source = parse_type_symbol("MUT& I32");
 
     auto tt_const = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                         .from = ref_source,
-                                                        .to = quxlang::parsers::parse_type_symbol("CONST& TT(t)"),
+                                                        .to = parse_type_symbol("CONST& TT(t)"),
                                                         .adaptations = quxlang::allowed_adaptations::destination_rebinding,
                                                     },
                                                     std::nullopt);
     ASSERT_TRUE(tt_const.has_value());
-    EXPECT_EQ(*tt_const, quxlang::parsers::parse_type_symbol("CONST& I32"));
+    EXPECT_EQ(*tt_const, parse_type_symbol("CONST& I32"));
 
     auto auto_value = c.get_ensig_argument_initialize(quxlang::argument_init_input{
                                                           .from = ref_source,
-                                                          .to = quxlang::parsers::parse_type_symbol("AUTO(t)"),
+                                                          .to = parse_type_symbol("AUTO(t)"),
                                                           .adaptations = quxlang::allowed_adaptations::destination_rebinding,
                                                       },
                                                       std::nullopt);
     ASSERT_TRUE(auto_value.has_value());
-    EXPECT_EQ(*auto_value, quxlang::parsers::parse_type_symbol("I32"));
+    EXPECT_EQ(*auto_value, parse_type_symbol("I32"));
 }
 
 TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_materialization)
@@ -835,11 +933,11 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
 }
 )");
 
-    auto class_type = quxlang::parsers::parse_type_symbol("MODULE(main)::from_const_i32");
-    auto const_ref_class_type = quxlang::parsers::parse_type_symbol("CONST& MODULE(main)::from_const_i32");
+    auto class_type = parse_type_symbol("MODULE(main)::from_const_i32");
+    auto const_ref_class_type = parse_type_symbol("CONST& MODULE(main)::from_const_i32");
 
     auto by_value = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
-                                                  .from = quxlang::parsers::parse_type_symbol("I32"),
+                                                  .from = parse_type_symbol("I32"),
                                                   .to = class_type,
                                               },
                                               std::nullopt);
@@ -847,7 +945,7 @@ TEST(quxlang, class_conversion_uses_effective_source_forms_and_final_const_mater
     EXPECT_EQ(*by_value, class_type);
 
     auto by_const_ref = c.get_convertible_by_call(quxlang::implicitly_convertible_to_input{
-                                                      .from = quxlang::parsers::parse_type_symbol("I32"),
+                                                      .from = parse_type_symbol("I32"),
                                                       .to = const_ref_class_type,
                                                   },
                                                   std::nullopt);
@@ -864,7 +962,7 @@ TEST(quxlang, constexpr_result_bool)
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
-        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        quxlang::expression expr = parse_expression_text(expr_string);
         auto tempfile = temp_output_file();
         bool yaynay;
         try
@@ -916,8 +1014,8 @@ TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto byte = quxlang::parsers::parse_type_symbol("BYTE");
-    auto u8 = quxlang::parsers::parse_type_symbol("U8");
+    auto byte = parse_type_symbol("BYTE");
+    auto u8 = parse_type_symbol("U8");
 
     auto u8_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
@@ -983,7 +1081,7 @@ TEST(builtin_state, user_func_builtin)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     test_querygraph_compiler c(sources, "linux-x64");
-    auto type = quxlang::parsers::parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
+    auto type = parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
     GTEST_ASSERT_FALSE(val_builtin);
@@ -998,7 +1096,7 @@ TEST(quxlang, constexpr_call_func)
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
-        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        quxlang::expression expr = parse_expression_text(expr_string);
         auto tempfile = temp_output_file();
         bool yaynay;
         try
@@ -1054,7 +1152,7 @@ TEST(quxlang, constexpr_call_func_arm)
 
     auto get_constexpr_bool = [&](std::string expr_string) -> bool
     {
-        quxlang::expression expr = quxlang::parsers::parse_expression(expr_string);
+        quxlang::expression expr = parse_expression_text(expr_string);
         auto tempfile = temp_output_file();
         bool yaynay;
         try
@@ -1108,7 +1206,7 @@ TEST(quxlang, func_gen)
 
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto func_name = quxlang::parsers::parse_type_symbol("MODULE(main)::biz #{I32, I32}");
+    auto func_name = parse_type_symbol("MODULE(main)::biz #{I32, I32}");
 
     func_name = quxlang::with_context(func_name, mainmodule);
 
@@ -1134,13 +1232,13 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
     test_querygraph_compiler c(sources, "linux-x64");
 
     auto datatype_eq = c.get_functum_builtin_overloads(
-        quxlang::parsers::parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
+        parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR=="), std::nullopt);
     auto datatype_ne = c.get_functum_builtin_overloads(
-        quxlang::parsers::parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
+        parse_type_symbol("MODULE(main)::datatype_equality_probe::.OPERATOR!="), std::nullopt);
     auto nondatatype_eq = c.get_functum_builtin_overloads(
-        quxlang::parsers::parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR=="), std::nullopt);
+        parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR=="), std::nullopt);
     auto nondatatype_ne = c.get_functum_builtin_overloads(
-        quxlang::parsers::parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
+        parse_type_symbol("MODULE(main)::nondatatype_equality_probe::.OPERATOR!="), std::nullopt);
 
     EXPECT_FALSE(datatype_eq.empty());
     EXPECT_FALSE(datatype_ne.empty());
@@ -1158,7 +1256,7 @@ TEST(quxlang, storage_type_lookup)
 
     auto resolved = c.get_lookup(quxlang::contextual_type_reference{
         .context = mainmodule,
-        .type = quxlang::parsers::parse_type_symbol("STORAGE(buz, yak)"),
+        .type = parse_type_symbol("STORAGE(buz, yak)"),
     }, std::nullopt);
 
     ASSERT_TRUE(resolved.has_value());
@@ -1175,7 +1273,7 @@ TEST(quxlang, storage_type_validation)
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {
-        auto func_name = quxlang::parsers::parse_type_symbol("MODULE(main)::" + function_name + " #{}");
+        auto func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{}");
         func_name = quxlang::with_context(func_name, mainmodule);
         auto tempname = temp_output_file();
         EXPECT_THROW(c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), tempname), std::logic_error);

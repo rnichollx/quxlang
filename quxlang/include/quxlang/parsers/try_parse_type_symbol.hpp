@@ -5,6 +5,7 @@
 
 #include <optional>
 #include <quxlang/data/type_symbol.hpp>
+#include <quxlang/parsers/context.hpp>
 #include <quxlang/parsers/function.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
@@ -15,19 +16,14 @@
 
 namespace quxlang::parsers
 {
+    expression parse_expression(parsing_context& ctx);
+    type_symbol parse_type_symbol(parsing_context& ctx);
+    argif parse_argif(parsing_context& ctx);
 
-    template < typename It >
-    expression parse_expression(It& pos, It end);
-
-    template < typename It >
-    type_symbol parse_type_symbol(It& pos, It end);
-
-    template < typename It >
-    argif parse_argif(It& pos, It end);
-
-    template < typename It >
-    std::optional< type_symbol > try_parse_type_symbol(It& pos, It end)
+    inline std::optional< type_symbol > try_parse_type_symbol(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         type_symbol output = context_reference{};
         std::string remaining = std::string(pos, end);
         skip_whitespace_and_comments(pos, end);
@@ -126,7 +122,7 @@ namespace quxlang::parsers
                     if (skip_symbol_if_is(pos, end, ":"))
                     {
                         skip_whitespace_and_comments(pos, end);
-                        result.signature.return_type = parse_type_symbol(pos, end);
+                        result.signature.return_type = parse_type_symbol(ctx);
                         skip_whitespace_and_comments(pos, end);
                         if (!skip_symbol_if_is(pos, end, ")"))
                         {
@@ -139,11 +135,11 @@ namespace quxlang::parsers
                     {
                         auto arg_name = parse_argument_name(pos, end);
                         skip_whitespace_and_comments(pos, end);
-                        result.signature.params.named[arg_name] = parse_type_symbol(pos, end);
+                        result.signature.params.named[arg_name] = parse_type_symbol(ctx);
                     }
                     else
                     {
-                        result.signature.params.positional.push_back(parse_type_symbol(pos, end));
+                        result.signature.params.positional.push_back(parse_type_symbol(ctx));
                     }
 
                     skip_whitespace_and_comments(pos, end);
@@ -154,7 +150,7 @@ namespace quxlang::parsers
                     if (skip_symbol_if_is(pos, end, ":"))
                     {
                         skip_whitespace_and_comments(pos, end);
-                        result.signature.return_type = parse_type_symbol(pos, end);
+                        result.signature.return_type = parse_type_symbol(ctx);
                         skip_whitespace_and_comments(pos, end);
                         if (!skip_symbol_if_is(pos, end, ")"))
                         {
@@ -195,7 +191,7 @@ namespace quxlang::parsers
             {
                 while (true)
                 {
-                    result.storable_types.insert(parse_type_symbol(pos, end));
+                    result.storable_types.insert(parse_type_symbol(ctx));
                     skip_whitespace_and_comments(pos, end);
                     if (skip_symbol_if_is(pos, end, ","))
                     {
@@ -228,14 +224,14 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
-            result.size = parse_expression(pos, end);
+            result.size = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ","))
             {
                 throw std::logic_error("Expected ',' after ALIGNED_STORAGE size");
             }
             skip_whitespace_and_comments(pos, end);
-            result.align = parse_expression(pos, end);
+            result.align = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -253,7 +249,7 @@ namespace quxlang::parsers
             array_type arr;
 
             skip_whitespace(pos, end);
-            arr.element_count = parse_expression(pos, end);
+            arr.element_count = parse_expression(ctx);
 
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, "]"))
@@ -263,7 +259,7 @@ namespace quxlang::parsers
 
             skip_whitespace(pos, end);
 
-            arr.element_type = parse_type_symbol(pos, end);
+            arr.element_type = parse_type_symbol(ctx);
 
             output = arr;
         }
@@ -313,7 +309,7 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "&"))
         {
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::mut};
         }
         else if (auto kw = skip_keyword_if_one_of(pos, end, {"MUT", "CONST", "WRITE", "TEMP"}); kw != std::nullopt)
         {
@@ -356,7 +352,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected &, ->, or =>> after " + *kw);
             }
-            pr_result.target = parse_type_symbol(pos, end);
+            pr_result.target = parse_type_symbol(ctx);
             return pr_result;
         }
         else if (skip_keyword_if_is(pos, end, "NEW"))
@@ -366,7 +362,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after NEW");
             }
-            return nvalue_slot{parse_type_symbol(pos, end)};
+            return nvalue_slot{parse_type_symbol(ctx)};
         }
         else if (skip_keyword_if_is(pos, end, "DESTROY"))
         {
@@ -375,7 +371,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected && after DESTROY");
             }
-            return dvalue_slot{parse_type_symbol(pos, end)};
+            return dvalue_slot{parse_type_symbol(ctx)};
         }
         else if (skip_keyword_if_is(pos, end, "AUTO"))
         {
@@ -384,7 +380,7 @@ namespace quxlang::parsers
                 // TODO: Support MUT-> etc
                 throw std::logic_error("Expected & after DESTROY");
             }
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
         else if (skip_keyword_if_is(pos, end, "SZ"))
         {
@@ -392,16 +388,17 @@ namespace quxlang::parsers
         }
         else if (auto paren_pos = pos; skip_symbol_if_is(pos, end, "("))
         {
-            auto grouped_pos = pos;
-            auto grouped = try_parse_type_symbol(grouped_pos, end);
-            skip_whitespace_and_comments(grouped_pos, end);
-            if (!grouped || !skip_symbol_if_is(grouped_pos, end, ")"))
+            auto grouped_ctx = ctx;
+            grouped_ctx.iter_pos = pos;
+            auto grouped = try_parse_type_symbol(grouped_ctx);
+            skip_whitespace_and_comments(grouped_ctx.iter_pos, grouped_ctx.iter_end);
+            if (!grouped || !skip_symbol_if_is(grouped_ctx.iter_pos, grouped_ctx.iter_end, ")"))
             {
                 pos = paren_pos;
                 return std::nullopt;
             }
             output = *grouped;
-            pos = grouped_pos;
+            pos = grouped_ctx.iter_pos;
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
@@ -423,11 +420,11 @@ namespace quxlang::parsers
         }
         else if (skip_symbol_if_is(pos, end, "->"))
         {
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::instance, .qual = qualifier::mut};
         }
         else if (skip_symbol_if_is(pos, end, "=>>"))
         {
-            return ptrref_type{.target = parse_type_symbol(pos, end), .ptr_class = pointer_class::array, .qual = qualifier::mut};
+            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::array, .qual = qualifier::mut};
         }
         else
         {
@@ -450,18 +447,7 @@ namespace quxlang::parsers
 
         remaining = std::string(pos, end);
 
-        if (skip_symbol_if_is(pos, end, "::"))
-        {
-            auto ident = parse_subentity(pos, end);
-            if (ident.empty())
-            {
-                return output;
-            }
-
-            output = subsymbol{std::move(output), std::move(ident)};
-            goto check_next;
-        }
-        else if (skip_symbol_if_is(pos, end, "::."))
+        if (skip_symbol_if_is(pos, end, "::."))
         {
             auto ident = parse_subentity(pos, end);
             remaining = std::string(pos, end);
@@ -471,6 +457,17 @@ namespace quxlang::parsers
             }
 
             output = submember{std::move(output), std::move(ident)};
+            goto check_next;
+        }
+        else if (skip_symbol_if_is(pos, end, "::"))
+        {
+            auto ident = parse_subentity(pos, end);
+            if (ident.empty())
+            {
+                return output;
+            }
+
+            output = subsymbol{std::move(output), std::move(ident)};
             goto check_next;
         }
         else if (skip_symbol_if_is(pos, end, "#("))
@@ -492,11 +489,11 @@ namespace quxlang::parsers
                 std::string param_name = parse_argument_name(pos, end);
                 skip_whitespace(pos, end);
                 remaining = std::string(pos, end);
-                param_set.parameters.named[param_name] = parse_type_symbol(pos, end);
+                param_set.parameters.named[param_name] = parse_type_symbol(ctx);
             }
             else
             {
-                param_set.parameters.positional.push_back(parse_type_symbol(pos, end));
+                param_set.parameters.positional.push_back(parse_type_symbol(ctx));
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -535,13 +532,13 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                argif seltype = parse_argif(pos, end);
+                argif seltype = parse_argif(ctx);
                 param_set.temploid.which.interface.named[param_name] = seltype;
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
                     skip_whitespace(pos, end);
-                    param_set.params.named[param_name] = parse_type_symbol(pos, end);
+                    param_set.params.named[param_name] = parse_type_symbol(ctx);
                 }
                 else
                 {
@@ -550,13 +547,13 @@ namespace quxlang::parsers
             }
             else
             {
-                argif seltype = parse_argif(pos, end);
+                argif seltype = parse_argif(ctx);
                 param_set.temploid.which.interface.positional.push_back(seltype);
                 skip_whitespace(pos, end);
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
                     skip_whitespace(pos, end);
-                    param_set.params.positional.push_back(parse_type_symbol(pos, end));
+                    param_set.params.positional.push_back(parse_type_symbol(ctx));
                 }
                 else
                 {
@@ -610,11 +607,11 @@ namespace quxlang::parsers
             if (skip_symbol_if_is(pos, end, "@"))
             {
                 std::string param_name = parse_argument_name(pos, end);
-                param_set.which.interface.named[param_name] = parse_argif(pos, end);
+                param_set.which.interface.named[param_name] = parse_argif(ctx);
             }
             else
             {
-                param_set.which.interface.positional.push_back(parse_argif(pos, end));
+                param_set.which.interface.positional.push_back(parse_argif(ctx));
             }
 
             skip_whitespace_and_comments(pos, end);

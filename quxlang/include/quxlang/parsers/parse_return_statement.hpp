@@ -10,9 +10,12 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    function_return_statement parse_return_statement(It& pos, It end)
+    inline function_return_statement parse_return_statement(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         if (!skip_keyword_if_is(pos, end, "RETURN"))
         {
             throw std::logic_error("Expected 'RETURN'");
@@ -24,16 +27,18 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, ";"))
         {
+            output.location = ctx.get_location_optional(begin, pos);
             return output;
         }
 
-        output.expr = parse_expression(pos, end);
+        output.expr = parse_expression(ctx);
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
             throw std::logic_error("Expected ';'");
         }
 
+        output.location = ctx.get_location_optional(begin, pos);
         return output;
     }
 

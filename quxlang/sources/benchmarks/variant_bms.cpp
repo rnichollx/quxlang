@@ -166,13 +166,23 @@ BENCHMARK(BM_Variant)->Apply(VariantArgs);
 
 static void BM_SomeFunction(benchmark::State& state)
 {
+    auto parse_expression_text = [](std::string const& text) {
+        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        auto result = quxlang::parsers::parse_expression(ctx);
+        if (ctx.iter_pos != ctx.iter_end)
+        {
+            throw std::logic_error("Input not fully parsed");
+        }
+        return result;
+    };
+
     std::vector< quxlang::expression > expressions;
 
-    expressions.push_back(quxlang::parsers::parse_expression("a[& 999 + 42 * (foo.bar(123, baz) - 56)]"));
+    expressions.push_back(parse_expression_text("a[& 999 + 42 * (foo.bar(123, baz) - 56)]"));
 
-    expressions.push_back(quxlang::parsers::parse_expression("x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] )"));
+    expressions.push_back(parse_expression_text("x.SERIALIZE( @OUTPUT_ITERATOR output[& 0] )"));
 
-    expressions.push_back(quxlang::parsers::parse_expression("x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 )"));
+    expressions.push_back(parse_expression_text("x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 )"));
 
     for (auto _ : state)
     {

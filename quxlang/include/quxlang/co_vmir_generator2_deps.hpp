@@ -25,6 +25,7 @@
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
@@ -32,7 +33,7 @@
 #include <quxlang/queries/uintpointer_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 
-#include <rpnx/querygraph/querygraph.hpp>
+#include <rpnx/typelist.hpp>
 
 namespace quxlang
 {
@@ -52,6 +53,7 @@ namespace quxlang
         instanciation_query,
         lookup_query,
         machine_info_query,
+        module_options_map_query,
         symboid_query,
         symbol_type_query,
         type_placement_info_query,
@@ -74,6 +76,7 @@ namespace quxlang
         instanciation_query,
         lookup_query,
         machine_info_query,
+        module_options_map_query,
         symboid_query,
         symbol_type_query,
         type_placement_info_query,

@@ -14,10 +14,11 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_asm_procedure_declaration > try_parse_asm_procedure_declaration(It& begin, It end)
+    inline std::optional< ast2_asm_procedure_declaration > try_parse_asm_procedure_declaration(parsing_context& ctx)
     {
-        auto pos = begin;
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
 
         skip_whitespace_and_comments(pos, end);
 
@@ -43,13 +44,13 @@ namespace quxlang::parsers
 
         loop:
         skip_whitespace_and_comments(pos, end);
-        if ((callable = try_parse_asm_callable(pos, end)).has_value())
+        if ((callable = try_parse_asm_callable(ctx)).has_value())
         {
             out.callable_interfaces.push_back(callable.value());
             skip_whitespace_and_comments(pos, end);
             goto loop;
         }
-        else if (auto linkname = try_parse_linkname(pos, end); linkname.has_value())
+        else if (auto linkname = try_parse_linkname(ctx); linkname.has_value())
         {
             out.linkname = linkname;
             skip_whitespace_and_comments(pos, end);
@@ -69,7 +70,7 @@ namespace quxlang::parsers
         {
             while (true)
             {
-                auto next = try_parse_arm_instruction(pos, end);
+                auto next = try_parse_arm_instruction(ctx);
                 if (!next.has_value())
                 {
                     break;
@@ -89,7 +90,7 @@ namespace quxlang::parsers
             throw std::logic_error("Expected }");
         }
         
-        begin = pos;
+        out.location = ctx.get_location_optional(begin, pos);
 
         return out;
     }

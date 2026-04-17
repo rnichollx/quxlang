@@ -7,8 +7,11 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< function_block > try_parse_function_block(It& pos, It end);
+    struct parsing_context;
+
+    std::optional< function_block > try_parse_function_block(parsing_context& ctx);
+    function_block parse_function_block(parsing_context& ctx);
+
 }
 
 #endif // FWD_HPP

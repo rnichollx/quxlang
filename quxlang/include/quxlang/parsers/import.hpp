@@ -15,14 +15,16 @@
 
 namespace quxlang::parsers
 {
-    template <typename It>
-    std::optional< type_symbol > try_parse_import(It& it, It end)
+    inline std::optional< type_symbol > try_parse_import(parsing_context& ctx)
     {
-        auto pos = it;
-        skip_whitespace_and_comments(it, end);
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+        skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "IMPORT"))
         {
+            pos = begin;
             return std::nullopt;
         }
 
@@ -33,7 +35,8 @@ namespace quxlang::parsers
             throw std::logic_error("Expected '(' after IMPORT");
         }
 
-        type_symbol import_symbol = parse_type_symbol(pos, end);
+        type_symbol import_symbol = parse_type_symbol(ctx);
+        return import_symbol;
 
     }
 

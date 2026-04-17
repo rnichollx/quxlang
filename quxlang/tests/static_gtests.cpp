@@ -152,8 +152,8 @@ namespace
         for (auto const& [_, source_file] : main_sources.files)
         {
             std::string contents = source_file->contents;
-            auto pos = contents.begin();
-            auto file_ast = quxlang::parsers::parse_file(pos, contents.end());
+            auto ctx = quxlang::parsers::make_unlocated_parsing_context(contents);
+            auto file_ast = quxlang::parsers::parse_file(ctx);
             collect_static_test_symbols(main_static_test_module(), file_ast.declarations, output);
         }
 

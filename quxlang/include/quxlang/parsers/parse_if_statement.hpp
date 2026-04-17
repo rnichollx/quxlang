@@ -9,15 +9,15 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    function_block parse_function_block(It& pos, It end);
+    function_block parse_function_block(parsing_context& ctx);
 
-    template < typename It, bool Try >
-    auto parse_if_statement_ext(It& pos, It end) -> std::conditional_t< Try, std::optional< function_if_statement >, function_if_statement >;
-
-    template < typename It, bool Try >
-    auto parse_if_statement_ext(It& pos, It end) -> std::conditional_t< Try, std::optional< function_if_statement >, function_if_statement >
+    template < bool Try >
+    auto parse_if_statement_ext(parsing_context& ctx) -> std::conditional_t< Try, std::optional< function_if_statement >, function_if_statement >
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "IF"))
@@ -41,7 +41,7 @@ namespace quxlang::parsers
 
         function_if_statement if_statement;
 
-        if_statement.condition = parse_expression(pos, end);
+        if_statement.condition = parse_expression(ctx);
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
@@ -51,16 +51,14 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if_statement.then_block = parse_function_block(pos, end);
+        if_statement.then_block = parse_function_block(ctx);
 
         skip_whitespace_and_comments(pos, end);
-
-        std::string remaining = std::string(pos, end);
 
         if (skip_keyword_if_is(pos, end, "ELSE"))
         {
             skip_whitespace_and_comments(pos, end);
-            auto try_if = parse_if_statement_ext< It, true >(pos, end);
+            auto try_if = parse_if_statement_ext< true >(ctx);
             if (try_if.has_value())
             {
                 function_block block;
@@ -69,29 +67,30 @@ namespace quxlang::parsers
             }
             else
             {
-                if_statement.else_block = parse_function_block(pos, end);
+                if_statement.else_block = parse_function_block(ctx);
             }
         }
 
+        if_statement.location = ctx.get_location_optional(begin, pos);
         return if_statement;
     }
 
-    template <typename It>
-    inline auto parse_if_statement(It & pos, It end) -> function_if_statement
+    inline auto parse_if_statement(parsing_context& ctx) -> function_if_statement
     {
-        return parse_if_statement_ext< It, false >(pos, end);
+        return parse_if_statement_ext< false >(ctx);
     }
 
-    template < typename It >
-    inline std::optional< function_if_statement > try_parse_if_statement(It& pos, It end)
+    inline std::optional< function_if_statement > try_parse_if_statement(parsing_context& ctx)
     {
-        return parse_if_statement_ext< It, true >(pos, end);
+        return parse_if_statement_ext< true >(ctx);
     }
 
-    template < typename It >
-    function_assert_statement parse_assert_statement(It& pos, It end)
+    inline function_assert_statement parse_assert_statement(parsing_context& ctx)
     {
-        auto beg = pos;
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "ASSERT"))
@@ -108,7 +107,7 @@ namespace quxlang::parsers
 
         function_assert_statement asrt_statement;
 
-        asrt_statement.condition = parse_expression(pos, end);
+        asrt_statement.condition = parse_expression(ctx);
 
         skip_whitespace_and_comments(pos, end);
 
@@ -116,9 +115,6 @@ namespace quxlang::parsers
         {
             skip_whitespace_and_comments(pos, end);
             asrt_statement.tagline = try_parse_string_literal(pos, end).value_or("NO_MESSAGE");
-
-            std::string tag = asrt_statement.tagline.value();
-            // TODO: Fix this up a bit
         }
         if (!skip_symbol_if_is(pos, end, ")"))
         {
@@ -132,9 +128,10 @@ namespace quxlang::parsers
             throw std::logic_error("Expected ';'");
         }
 
-        asrt_statement.location.set(pos, end);
+        asrt_statement.location = ctx.get_location_optional(begin, pos);
         return asrt_statement;
     }
+
 } // namespace quxlang::parsers
 
 #endif // PARSE_IF_STATEMENT_HPP

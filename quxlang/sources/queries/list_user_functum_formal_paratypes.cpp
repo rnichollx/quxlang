@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp>
 
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 
 
@@ -74,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
             }
         }
 
-        result.push_back(p);
+        result.push_back(strip_source_locations(std::move(p)));
     }
 
     co_return result;

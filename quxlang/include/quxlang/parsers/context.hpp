@@ -10,13 +10,14 @@ namespace quxlang::parsers
     using parse_iterator = std::string::const_iterator;
     struct parsing_context
     {
-        std::uint64_t file_id;
+        std::uint64_t file_id = {};
+        bool source_locations_enabled = false;
 
         parse_iterator iter_begin;
         parse_iterator iter_pos;
         parse_iterator iter_end;
 
-        source_location get_location(parse_iterator begin, parse_iterator end)
+        auto get_location(parse_iterator begin, parse_iterator end) const -> source_location
         {
             source_location loc;
 
@@ -26,7 +27,7 @@ namespace quxlang::parsers
             return loc;
         }
 
-        source_location get_location(parse_iterator begin)
+        auto get_location(parse_iterator begin) const -> source_location
         {
             source_location loc;
             loc.file_id = file_id;
@@ -34,14 +35,51 @@ namespace quxlang::parsers
             return loc;
         }
 
-        source_location get_location()
+        auto get_location() const -> source_location
         {
             source_location loc;
             loc.file_id = file_id;
             loc.begin_index = std::distance(iter_begin, iter_pos);
             return loc;
         }
+
+        auto get_location_optional(parse_iterator begin, parse_iterator end) const -> std::optional<source_location>
+        {
+            if (!source_locations_enabled)
+            {
+                return std::nullopt;
+            }
+            return get_location(begin, end);
+        }
+
+        auto get_location_optional(parse_iterator begin) const -> std::optional<source_location>
+        {
+            if (!source_locations_enabled)
+            {
+                return std::nullopt;
+            }
+            return get_location(begin);
+        }
+
+        auto get_location_optional() const -> std::optional<source_location>
+        {
+            if (!source_locations_enabled)
+            {
+                return std::nullopt;
+            }
+            return get_location();
+        }
     };
+
+    inline auto make_unlocated_parsing_context(std::string const& input) -> parsing_context
+    {
+        return parsing_context{
+            .source_locations_enabled = false,
+            .iter_begin = input.begin(),
+            .iter_pos = input.begin(),
+            .iter_end = input.end(),
+        };
+    }
 
     template < typename Func >
     auto in_context(std::string const& ctx_name, parsing_context &ctx, Func f)
@@ -54,7 +92,7 @@ namespace quxlang::parsers
         }
         catch (compilation_error& err)
         {
-            err.traceback.push_back(trace_frame{.trace_context = ctx_name, .location = start_context.get_location()});
+            err.traceback.push_back(trace_frame{.trace_context = ctx_name, .location = start_context.get_location_optional()});
             throw;
         }
     }

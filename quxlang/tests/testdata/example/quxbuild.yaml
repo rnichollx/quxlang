@@ -28,6 +28,8 @@ linux-arm64:
     barlib:
       source: barlib2_1
     main:
+      options:
+        option_num: 5
       source: main
   platform: linux
   cpu: ARM64
@@ -60,7 +62,6 @@ windows:
       source: main_experimental_windows
   platform: windows
   cpu: x64
-
 
 
 

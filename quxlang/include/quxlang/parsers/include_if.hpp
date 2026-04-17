@@ -12,9 +12,10 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< expression > try_parse_include_if(It& pos, It end)
+    inline std::optional< expression > try_parse_include_if(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         if (!skip_keyword_if_is(pos, end, "INCLUDE_IF"))
         {
             return std::nullopt;
@@ -29,9 +30,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        expression out;
-
-        out = parse_expression(pos, end);
+        expression out = parse_expression(ctx);
 
         skip_whitespace_and_comments(pos, end);
 

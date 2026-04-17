@@ -6,6 +6,7 @@
 #include <optional>
 #include <quxlang/parsers/integer.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
@@ -31,9 +32,10 @@ namespace quxlang::parsers::vmir2
         return parse_integer(ipos, end);
     }
 
-    template < typename It >
-    vm_invocation_args parse_invocation_args(It& ipos, It end)
+    inline vm_invocation_args parse_invocation_args(parsing_context& ctx)
     {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         vm_invocation_args result;
 
         consume_symbol(ipos, end, '[');
@@ -69,11 +71,16 @@ namespace quxlang::parsers::vmir2
             throw std::logic_error("Expected ',' or ']' after positional argument");
     }
 
-    template < typename It >
-    std::optional< quxlang::vmir2::access_field > try_parse_access_field(It& ipos, It end)
+    inline std::optional< quxlang::vmir2::access_field > try_parse_access_field(parsing_context& ctx)
     {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
         if (!skip_keyword_if_is(ipos, end, "ACF"))
+        {
+            ipos = begin;
             return std::nullopt;
+        }
 
         skip_whitespace(ipos, end);
 
@@ -91,17 +98,22 @@ namespace quxlang::parsers::vmir2
         return result;
     }
 
-    template < typename It >
-    std::optional< quxlang::vmir2::invoke > try_parse_invoke(It& ipos, It end)
+    inline std::optional< quxlang::vmir2::invoke > try_parse_invoke(parsing_context& ctx)
     {
+        auto& ipos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ipos;
         if (!skip_keyword_if_is(ipos, end, "IVK"))
+        {
+            ipos = begin;
             return std::nullopt;
+        }
 
         skip_whitespace(ipos, end);
 
         quxlang::vmir2::invoke result;
 
-        result.what = parse_type_symbol(ipos, end);
+        result.what = parse_type_symbol(ctx);
         skip_whitespace(ipos, end);
         consume_symbol(ipos, end, ',');
         skip_whitespace(ipos, end);
@@ -110,16 +122,15 @@ namespace quxlang::parsers::vmir2
         return result;
     }
 
-    template < typename It >
-    std::optional< quxlang::vmir2::vm_instruction > try_parse_instruction(It& ipos, It end)
+    inline std::optional< quxlang::vmir2::vm_instruction > try_parse_instruction(parsing_context& ctx)
     {
         std::optional< quxlang::vmir2::vm_instruction > result;
-        result = try_parse_access_field(ipos, end);
+        result = try_parse_access_field(ctx);
         if (result.has_value())
         {
             return result;
         }
-        result = try_parse_invoke(ipos, end);
+        result = try_parse_invoke(ctx);
         if (result.has_value())
         {
             return result;

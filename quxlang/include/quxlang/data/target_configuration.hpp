@@ -8,12 +8,29 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <cstdint>
 #include <rpnx/macros.hpp>
 #include <string>
 #include <rpnx/variant.hpp>
 
 namespace quxlang
 {
+    struct source_file_name
+    {
+        std::string source_module;
+        std::string relative_path;
+
+        RPNX_MEMBER_METADATA(source_file_name, source_module, relative_path);
+    };
+
+    struct source_file_index
+    {
+        std::map< source_file_name, std::uint64_t > file_to_id;
+        std::map< std::uint64_t, source_file_name > id_to_file;
+
+        RPNX_MEMBER_METADATA(source_file_index, file_to_id, id_to_file);
+    };
+
     struct source_file
     {
         std::string contents;

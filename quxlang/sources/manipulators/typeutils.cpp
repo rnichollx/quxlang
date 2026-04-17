@@ -15,8 +15,15 @@ namespace quxlang
 
     struct expression_stringifier
     {
-        expression_stringifier()
+        bool print_locations = false;
+
+        expression_stringifier(bool print_locations = false) : print_locations(print_locations)
         {
+        }
+
+        std::string expr_to_string(expression const& expr) const
+        {
+            return to_string(expr, print_locations);
         }
 
         std::string operator()(expression_bits const& bits) const
@@ -26,7 +33,7 @@ namespace quxlang
 
         std::string operator()(expression_typecast const& cast) const
         {
-            std::string result = "( " + to_string(cast.expr) + " AS ";
+            std::string result = "( " + expr_to_string(cast.expr) + " AS ";
 
             if (cast.keyword)
             {
@@ -40,15 +47,15 @@ namespace quxlang
 
         std::string operator()(expression_pun const& expr) const
         {
-            return "( PUN " + to_string(expr.value) + " AS " + to_string(expr.as_type) + " )";
+            return "( PUN " + expr_to_string(expr.value) + " AS " + to_string(expr.as_type) + " )";
         }
 
         std::string operator()(expression_place const& expr) const
         {
-            std::string result = "( PLACE AT(" + to_string(expr.at) + ") " + to_string(expr.type);
+            std::string result = "( PLACE AT(" + expr_to_string(expr.at) + ") " + to_string(expr.type);
             if (expr.assign_init)
             {
-                result += " := " + to_string(*expr.assign_init);
+                result += " := " + expr_to_string(*expr.assign_init);
             }
             else if (!expr.args.empty())
             {
@@ -59,7 +66,7 @@ namespace quxlang
                     {
                         result += ", ";
                     }
-                    result += to_string(expr.args[i].value);
+                    result += expr_to_string(expr.args[i].value);
                 }
                 result += ")";
             }
@@ -89,12 +96,12 @@ namespace quxlang
 
         std::string operator()(expression_unary_postfix const& be) const
         {
-            return "(" + to_string(be.lhs) + " " + be.operator_str + ")";
+            return "(" + expr_to_string(be.lhs) + " " + be.operator_str + ")";
         }
 
         std::string operator()(expression_unary_prefix const& be) const
         {
-            return "(" + be.operator_str + " " + to_string(be.rhs) + ")";
+            return "(" + be.operator_str + " " + expr_to_string(be.rhs) + ")";
         }
 
         std::string operator()(expression_value_keyword const& kw) const
@@ -104,22 +111,22 @@ namespace quxlang
 
         std::string operator()(expression_static_choose const& expr) const
         {
-            return "STATIC_CHOOSE( " + to_string(expr.condition) + " , " + to_string(expr.true_expr) + " , " + to_string(expr.false_expr) + " )";
+            return "STATIC_CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
         }
 
         std::string operator()(expression_choose const& expr) const
         {
-            return "CHOOSE( " + to_string(expr.condition) + " , " + to_string(expr.true_expr) + " , " + to_string(expr.false_expr) + " )";
+            return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
         }
 
         std::string operator()(expression_multibind const& brkts) const
         {
             std::string result;
-            result += to_string(brkts.lhs);
+            result += expr_to_string(brkts.lhs);
             result += " [ ";
             for (std::size_t i = 0; i < brkts.bracketed.size(); i++)
             {
-                result += to_string(brkts.bracketed[i]);
+                result += expr_to_string(brkts.bracketed[i]);
                 if (i != brkts.bracketed.size() - 1)
                 {
                     result += " , ";
@@ -136,7 +143,7 @@ namespace quxlang
 
         std::string operator()(expression_dotreference const& expr) const
         {
-            return "(" + to_string(expr.lhs) + "." + expr.field_name + ")";
+            return "(" + expr_to_string(expr.lhs) + "." + expr.field_name + ")";
         }
 
         std::string operator()(expression_call const& expr) const
@@ -145,7 +152,7 @@ namespace quxlang
             for (decltype(expr.args)::size_type i = 0; i < expr.args.size(); i++)
             {
                 auto arg = expr.args[i].value;
-                result += to_string(arg);
+                result += expr_to_string(arg);
                 if (i != expr.args.size() - 1)
                 {
                     result += ", ";
@@ -157,12 +164,12 @@ namespace quxlang
 
         std::string operator()(expression_multiply const& expr) const
         {
-            return "(" + to_string(expr.lhs) + " * " + to_string(expr.rhs) + ")";
+            return "(" + expr_to_string(expr.lhs) + " * " + expr_to_string(expr.rhs) + ")";
         }
 
         std::string operator()(expression_binary const& expr) const
         {
-            return "(" + to_string(expr.lhs) + " " + expr.operator_str + " " + to_string(expr.rhs) + ")";
+            return "(" + expr_to_string(expr.lhs) + " " + expr.operator_str + " " + expr_to_string(expr.rhs) + ")";
         }
 
         std::string operator()(expression_this_reference const& expr) const
@@ -227,13 +234,13 @@ namespace quxlang
 
         std::string operator()(expression_leftarrow const& expr) const
         {
-            std::string output = "(" + to_string(expr.lhs) + " <- )";
+            std::string output = "(" + expr_to_string(expr.lhs) + " <- )";
             return output;
         }
 
         std::string operator()(expression_rightarrow const& expr) const
         {
-            std::string output = "(" + to_string(expr.lhs) + " -> )";
+            std::string output = "(" + expr_to_string(expr.lhs) + " -> )";
             return output;
         }
     };
@@ -2055,8 +2062,252 @@ std::string quxlang::to_string(quxlang::type_symbol const& ref)
 
 std::string quxlang::to_string(expression const& expr)
 {
-    auto str = rpnx::apply_visitor< std::string, rpnx::dispatch_type::branching >(expr, expression_stringifier{});
+    return to_string(expr, false);
+}
+
+std::string quxlang::to_string(expression const& expr, bool print_locations)
+{
+    auto str = rpnx::apply_visitor< std::string, rpnx::dispatch_type::branching >(expr, expression_stringifier{print_locations});
+    if (print_locations)
+    {
+        str += source_location_suffix(get_location(expr));
+    }
 
     // TODO: replace all "  " with " "
     return str;
+}
+
+quxlang::expression quxlang::strip_source_locations(expression expr)
+{
+    rpnx::apply_visitor<void>(
+        expr,
+        [](auto& value)
+        {
+            value.location = std::nullopt;
+            using value_type = std::decay_t< decltype(value) >;
+            if constexpr (std::is_same_v< value_type, expression_binary >)
+            {
+                value.lhs = strip_source_locations(std::move(value.lhs));
+                value.rhs = strip_source_locations(std::move(value.rhs));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_unary_prefix >)
+            {
+                value.rhs = strip_source_locations(std::move(value.rhs));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > ||
+                               std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
+            {
+                value.lhs = strip_source_locations(std::move(value.lhs));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_multibind >)
+            {
+                value.lhs = strip_source_locations(std::move(value.lhs));
+                for (auto& item : value.bracketed)
+                {
+                    item = strip_source_locations(std::move(item));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_call >)
+            {
+                value.callee = strip_source_locations(std::move(value.callee));
+                for (auto& arg : value.args)
+                {
+                    arg.location = std::nullopt;
+                    arg.value = strip_source_locations(std::move(arg.value));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_typecast >)
+            {
+                value.expr = strip_source_locations(std::move(value.expr));
+                value.to_type = strip_source_locations(std::move(value.to_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_pun >)
+            {
+                value.value = strip_source_locations(std::move(value.value));
+                value.as_type = strip_source_locations(std::move(value.as_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_place >)
+            {
+                value.at = strip_source_locations(std::move(value.at));
+                value.type = strip_source_locations(std::move(value.type));
+                if (value.assign_init)
+                {
+                    value.assign_init = strip_source_locations(std::move(*value.assign_init));
+                }
+                for (auto& arg : value.args)
+                {
+                    arg.location = std::nullopt;
+                    arg.value = strip_source_locations(std::move(arg.value));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_choose > || std::is_same_v< value_type, expression_static_choose >)
+            {
+                value.condition = strip_source_locations(std::move(value.condition));
+                value.true_expr = strip_source_locations(std::move(value.true_expr));
+                value.false_expr = strip_source_locations(std::move(value.false_expr));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_symbol_reference >)
+            {
+                value.symbol = strip_source_locations(std::move(value.symbol));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_bits > || std::is_same_v< value_type, expression_sizeof > ||
+                               std::is_same_v< value_type, expression_is_integral > || std::is_same_v< value_type, expression_is_signed >)
+            {
+                value.of_type = strip_source_locations(std::move(value.of_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_same_types >)
+            {
+                value.lhs_type = strip_source_locations(std::move(value.lhs_type));
+                value.rhs_type = strip_source_locations(std::move(value.rhs_type));
+            }
+        });
+    return expr;
+}
+
+namespace
+{
+    auto strip_invotype_locations(quxlang::invotype inv) -> quxlang::invotype
+    {
+        for (auto& item : inv.positional)
+        {
+            item = quxlang::strip_source_locations(std::move(item));
+        }
+        for (auto& [name, item] : inv.named)
+        {
+            (void)name;
+            item = quxlang::strip_source_locations(std::move(item));
+        }
+        return inv;
+    }
+
+    auto strip_argif_locations(quxlang::argif arg) -> quxlang::argif
+    {
+        arg.type = quxlang::strip_source_locations(std::move(arg.type));
+        return arg;
+    }
+
+    auto strip_intertype_locations(quxlang::intertype inter) -> quxlang::intertype
+    {
+        for (auto& item : inter.positional)
+        {
+            item = strip_argif_locations(std::move(item));
+        }
+        for (auto& [name, item] : inter.named)
+        {
+            (void)name;
+            item = strip_argif_locations(std::move(item));
+        }
+        return inter;
+    }
+
+    auto strip_sigtype_locations(quxlang::sigtype sig) -> quxlang::sigtype
+    {
+        sig.params = strip_invotype_locations(std::move(sig.params));
+        if (sig.return_type)
+        {
+            sig.return_type = quxlang::strip_source_locations(std::move(*sig.return_type));
+        }
+        return sig;
+    }
+} // namespace
+
+quxlang::temploid_ensig quxlang::strip_source_locations(temploid_ensig ref)
+{
+    ref.interface = strip_intertype_locations(std::move(ref.interface));
+    if (ref.enable_if)
+    {
+        ref.enable_if = strip_source_locations(std::move(*ref.enable_if));
+    }
+    return ref;
+}
+
+quxlang::paratype quxlang::strip_source_locations(paratype ref)
+{
+    auto strip_parameter = [](parameter_type param)
+    {
+        param.type = strip_source_locations(std::move(param.type));
+        if (param.default_value)
+        {
+            param.default_value = strip_source_locations(std::move(*param.default_value));
+        }
+        return param;
+    };
+    for (auto& item : ref.positional)
+    {
+        item = strip_parameter(std::move(item));
+    }
+    for (auto& [name, item] : ref.named)
+    {
+        (void)name;
+        item = strip_parameter(std::move(item));
+    }
+    return ref;
+}
+
+quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
+{
+    rpnx::apply_visitor<void>(
+        ref,
+        [](auto& value)
+        {
+            using value_type = std::decay_t< decltype(value) >;
+            if constexpr (std::is_same_v< value_type, subsymbol > || std::is_same_v< value_type, submember >)
+            {
+                value.of = strip_source_locations(std::move(value.of));
+            }
+            else if constexpr (std::is_same_v< value_type, procedure_type >)
+            {
+                value.signature = strip_sigtype_locations(std::move(value.signature));
+            }
+            else if constexpr (std::is_same_v< value_type, ptrref_type > || std::is_same_v< value_type, nvalue_slot > || std::is_same_v< value_type, dvalue_slot >)
+            {
+                value.target = strip_source_locations(std::move(value.target));
+            }
+            else if constexpr (std::is_same_v< value_type, initialization_reference >)
+            {
+                value.initializee = strip_source_locations(std::move(value.initializee));
+                value.parameters = strip_invotype_locations(std::move(value.parameters));
+            }
+            else if constexpr (std::is_same_v< value_type, temploid_reference >)
+            {
+                value.templexoid = strip_source_locations(std::move(value.templexoid));
+                value.which = strip_source_locations(std::move(value.which));
+            }
+            else if constexpr (std::is_same_v< value_type, ensig_initialization >)
+            {
+                value.ensig = strip_source_locations(std::move(value.ensig));
+                value.params = strip_invotype_locations(std::move(value.params));
+            }
+            else if constexpr (std::is_same_v< value_type, instanciation_reference >)
+            {
+                value.temploid.templexoid = strip_source_locations(std::move(value.temploid.templexoid));
+                value.temploid.which = strip_source_locations(std::move(value.temploid.which));
+                value.params = strip_invotype_locations(std::move(value.params));
+            }
+            else if constexpr (std::is_same_v< value_type, attached_type_reference >)
+            {
+                value.carrying_type = strip_source_locations(std::move(value.carrying_type));
+                value.attached_symbol = strip_source_locations(std::move(value.attached_symbol));
+            }
+            else if constexpr (std::is_same_v< value_type, array_type >)
+            {
+                value.element_type = strip_source_locations(std::move(value.element_type));
+                value.element_count = strip_source_locations(std::move(value.element_count));
+            }
+            else if constexpr (std::is_same_v< value_type, storage >)
+            {
+                std::set< type_symbol > stripped;
+                for (auto item : value.storable_types)
+                {
+                    stripped.insert(strip_source_locations(std::move(item)));
+                }
+                value.storable_types = std::move(stripped);
+            }
+            else if constexpr (std::is_same_v< value_type, aligned_storage >)
+            {
+                value.size = strip_source_locations(std::move(value.size));
+                value.align = strip_source_locations(std::move(value.align));
+            }
+        });
+    return ref;
 }

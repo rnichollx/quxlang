@@ -10,9 +10,12 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_variable_declaration > try_parse_variable_declaration(It& pos, It end)
+    inline std::optional< ast2_variable_declaration > try_parse_variable_declaration(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
         std::optional< ast2_variable_declaration > output;
 
@@ -49,7 +52,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
         }
 
-        type_symbol type = try_parse_type_symbol(pos, end).value();
+        type_symbol type = try_parse_type_symbol(ctx).value();
 
         skip_whitespace_and_comments(pos, end);
 
@@ -66,7 +69,7 @@ namespace quxlang::parsers
                     break;
                 }
 
-                init_args.push_back(parse_expression_arg(pos, end));
+                init_args.push_back(parse_expression_arg(ctx));
 
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, ","))
@@ -87,7 +90,7 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ":="))
         {
             skip_whitespace_and_comments(pos, end);
-            init_expr = parse_expression(pos, end);
+            init_expr = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
         }
 
@@ -102,9 +105,11 @@ namespace quxlang::parsers
         output->keyword_tags = std::move(keyword_tags);
         output->init_expr = std::move(init_expr);
         output->init_args = std::move(init_args);
+        output->location = ctx.get_location_optional(begin, pos);
 
         return output;
     }
+
 } // namespace quxlang
 
 #endif //TRY_PARSE_VARIABLE_DECLARATION_HPP

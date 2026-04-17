@@ -9,13 +9,11 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< type_symbol > try_parse_type_symbol(It& pos, It end);
+    std::optional< type_symbol > try_parse_type_symbol(parsing_context& ctx);
 
-    template < typename It >
-    type_symbol parse_type_symbol(It& pos, It end)
+    inline type_symbol parse_type_symbol(parsing_context& ctx)
     {
-        auto result = try_parse_type_symbol(pos, end);
+        auto result = try_parse_type_symbol(ctx);
         if (!result)
         {
             throw std::logic_error("Expected type symbol");
@@ -23,11 +21,12 @@ namespace quxlang::parsers
         return result.value();
     }
 
-    template < typename It >
-    argif parse_argif(It& pos, It end)
+    inline argif parse_argif(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         argif result;
-        result.type = parse_type_symbol(pos, end);
+        result.type = parse_type_symbol(ctx);
         skip_whitespace(pos, end);
         if (skip_keyword_if_is(pos, end, "DEFAULTED"))
         {
@@ -36,20 +35,6 @@ namespace quxlang::parsers
         else
         {
             result.is_defaulted = false;
-        }
-        return result;
-    }
-
-    inline type_symbol parse_type_symbol(std::string str)
-    {
-        auto pos = str.begin();
-        auto end = str.end();
-        auto result = parse_type_symbol(pos, end);
-        if (pos != end)
-        {
-            std::string rest(pos, end);
-            std::string next_symbol = quxlang::parsers::parse_symbol(pos, end);
-            throw std::logic_error("Input not fully parsed");
         }
         return result;
     }

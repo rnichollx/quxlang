@@ -255,6 +255,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/run_static_test_spec.hpp
         include/quxlang/queries/specs/run_static_tests_spec.hpp
         include/quxlang/queries/specs/sintpointer_type_spec.hpp
+        include/quxlang/queries/specs/source_file_id_spec.hpp
+        include/quxlang/queries/specs/source_file_index_spec.hpp
+        include/quxlang/queries/specs/source_file_name_spec.hpp
         include/quxlang/queries/specs/symboid_spec.hpp
         include/quxlang/queries/specs/symboid_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
@@ -359,11 +362,15 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/list_user_functum_formal_paratypes.cpp
         sources/queries/lookup.cpp
         sources/queries/module_ast.cpp
+        sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp
         sources/queries/module_sources.cpp
         sources/queries/procedure_linksymbol.cpp
         sources/queries/run_static_test.cpp
         sources/queries/run_static_tests.cpp
+        sources/queries/source_file_id.cpp
+        sources/queries/source_file_index.cpp
+        sources/queries/source_file_name.cpp
         sources/queries/sintpointer_type.cpp
         sources/queries/symboid.cpp
         sources/queries/symboid_subdeclaroids.cpp

@@ -4,12 +4,14 @@
 #define QUXLANG_MACROS_HEADER_GUARD
 
 #include <compare>
+#include <optional>
 #include <tuple>
 #include <utility>
 
 #include <rpnx/macros.hpp>
 #include <string>
 
+#include "quxlang/ast2/source_location.hpp"
 #include "quxlang/exception.hpp"
 
 #include "rpnx/unimplemented.hpp"
@@ -26,12 +28,19 @@
 
 
 
-// QUX_AST_METADATA is a macro that allows ast2_ X to be converted to X,
-// and provides tie functions for comparison, assignment, etc.
+// QUXLANG_WITH_SOURCE_LOCATION_METADATA adds source provenance to syntax/IR nodes
+// and includes it in the node metadata.
 
-#define QUX_AST_METADATA(ty, ...) \
-    quxlang::source_location location; \
+#define QUXLANG_WITH_SOURCE_LOCATION_METADATA(ty, ...) \
+    std::optional< quxlang::source_location > location; \
     RPNX_MEMBER_METADATA(ty, location, __VA_ARGS__)
+
+#define QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(ty) \
+    std::optional< quxlang::source_location > location; \
+    RPNX_MEMBER_METADATA(ty, location)
+
+// Compatibility alias for older AST declarations.
+#define QUX_AST_METADATA(ty, ...) QUXLANG_WITH_SOURCE_LOCATION_METADATA(ty, __VA_ARGS__)
 
 #define QUX_WHY( strs )
 

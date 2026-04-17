@@ -351,7 +351,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         {
             co_return std::nullopt;
         }
-        result_type.element_type = lookup_element_type.value();
+        result_type.element_type = strip_source_locations(lookup_element_type.value());
         co_return result_type;
     }
     else if (typeis< storage >(type))
@@ -364,7 +364,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             {
                 co_return std::nullopt;
             }
-            result_type.storable_types.insert(lookup_stored_type.value());
+            result_type.storable_types.insert(strip_source_locations(lookup_stored_type.value()));
         }
         co_return result_type;
     }

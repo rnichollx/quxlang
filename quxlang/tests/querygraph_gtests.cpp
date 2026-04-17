@@ -4,13 +4,22 @@
 
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
+#include <quxlang/queries/constexpr_bool.hpp>
+#include <quxlang/queries/constexpr_routine.hpp>
+#include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
 #include <quxlang/queries/module_sources.hpp>
 #include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/source_file_id.hpp>
+#include <quxlang/queries/source_file_index.hpp>
+#include <quxlang/queries/source_file_name.hpp>
+#include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_is_antestatal.hpp>
+#include <quxlang/vmir2/vmir2.hpp>
 #include "graph_dump_test_utils.hpp"
 
 #include <cstddef>
@@ -121,6 +130,34 @@ TEST(querygraph_queries, module_source_name_map_uses_configured_target)
     ASSERT_EQ(resolved.at("util"), "util_shared");
 }
 
+TEST(querygraph_queries, module_options_map_uses_configured_target)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
+    bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
+    auto graph = make_x64_graph(bundle);
+    auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
+
+    auto resolved = graph.make_request< quxlang::module_options_map_query >(std::monostate{});
+
+    ASSERT_EQ(resolved.at(answer), "7");
+}
+
+TEST(querygraph_queries, module_options_map_resolves_overloaded_option_symbols)
+{
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder CLASS { .answer OPTION NUMBER DEFAULT_VALUE(5); }");
+    bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
+    bundle.targets.at("x64").module_configurations.at("main").option_values["holder::.answer"] = "9";
+    auto graph = make_x64_graph(bundle);
+    auto module_answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
+    auto holder = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "holder"});
+    auto holder_answer = quxlang::type_symbol(quxlang::submember{holder, "answer"});
+
+    auto resolved = graph.make_request< quxlang::module_options_map_query >(std::monostate{});
+
+    ASSERT_EQ(resolved.at(module_answer), "7");
+    ASSERT_EQ(resolved.at(holder_answer), "9");
+}
+
 TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
@@ -131,6 +168,139 @@ TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 
     ASSERT_TRUE(resolved.files.contains("util.qx"));
     ASSERT_EQ(resolved.files.at("util.qx").get().contents, "::util VAR I32;");
+}
+
+TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    auto resolved = graph.make_request< quxlang::source_file_index_query >(std::monostate{});
+
+    ASSERT_EQ(resolved.file_to_id.size(), 3);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qx"}), 0);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qx"}), 1);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "util_shared", .relative_path = "util.qx"}), 2);
+}
+
+TEST(querygraph_queries, source_file_id_is_unique_across_modules)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    auto arm_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qx"});
+    auto x64_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qx"});
+
+    ASSERT_NE(arm_id, x64_id);
+}
+
+TEST(querygraph_queries, source_file_name_round_trips_from_id)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::source_file_name input{.source_module = "util_shared", .relative_path = "util.qx"};
+
+    auto id = graph.make_request< quxlang::source_file_id_query >(input);
+    auto output = graph.make_request< quxlang::source_file_name_query >(id);
+
+    ASSERT_EQ(output, input);
+}
+
+TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
+{
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
+    auto graph = make_x64_graph(bundle);
+    auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
+
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
+}
+
+TEST(querygraph_queries, option_number_and_bool_values_are_constexpr_literals)
+{
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::enabled OPTION BOOL DEFAULT_VALUE(FALSE);");
+    bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "7";
+    bundle.targets.at("x64").module_configurations.at("main").option_values["enabled"] = "true";
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto answer = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"answer"}},
+        .context = context,
+    });
+    auto enabled = graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"enabled"}},
+        .context = context,
+    });
+
+    ASSERT_EQ(answer, 7);
+    ASSERT_TRUE(enabled);
+}
+
+TEST(querygraph_queries, option_number_uses_default_when_unconfigured)
+{
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4);");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto answer = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"answer"}},
+        .context = context,
+    });
+
+    ASSERT_EQ(answer, 4);
+}
+
+TEST(querygraph_queries, option_string_value_is_codegen_literal)
+{
+    auto bundle = make_single_main_source_bundle("::message OPTION STRING DEFAULT_VALUE(\"fallback\");");
+    bundle.targets.at("x64").module_configurations.at("main").option_values["message"] = "configured";
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto routine = graph.make_request< quxlang::constexpr_routine_query >(quxlang::constexpr_input2{
+        .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"message"}},
+        .context = context,
+        .type = quxlang::readonly_constant{.kind = quxlang::constant_kind::string},
+    });
+
+    std::vector< std::byte > expected;
+    for (char const c : std::string("configured"))
+    {
+        expected.push_back(static_cast< std::byte >(c));
+    }
+
+    bool found_string_load = false;
+    for (auto const& block : routine.blocks)
+    {
+        for (auto const& instruction : block.instructions)
+        {
+            if (quxlang::typeis< quxlang::vmir2::load_const_value >(instruction))
+            {
+                found_string_load = found_string_load || quxlang::as< quxlang::vmir2::load_const_value >(instruction).value == expected;
+            }
+        }
+    }
+
+    ASSERT_TRUE(found_string_load);
+}
+
+TEST(querygraph_queries, option_default_from_copies_another_option)
+{
+    auto bundle = make_single_main_source_bundle("::answer OPTION NUMBER DEFAULT_VALUE(4); ::holder CLASS { .answer OPTION NUMBER DEFAULT_FROM(::answer); }");
+    bundle.targets.at("x64").module_configurations.at("main").option_values["answer"] = "11";
+    auto graph = make_x64_graph(bundle);
+    auto holder = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "holder"});
+    auto holder_answer = quxlang::type_symbol(quxlang::submember{holder, "answer"});
+
+    auto answer = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_symbol_reference{holder_answer},
+        .context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"}),
+    });
+
+    ASSERT_EQ(answer, 11);
 }
 
 TEST(querygraph_queries, type_is_antestatal_accepts_conservative_shapes)

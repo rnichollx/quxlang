@@ -96,6 +96,15 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as < ast2_static_test >(source);
     }
+    else if (typeis< ast2_option >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::logic_error("Cannot merge option into already existing entity");
+        }
+
+        destination = as< ast2_option >(source);
+    }
     else
     {
         rpnx::unimplemented();

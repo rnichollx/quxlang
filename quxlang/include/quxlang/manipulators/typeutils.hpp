@@ -25,6 +25,11 @@ namespace quxlang
     std::string to_string(intertype const& ref);
     std::string to_string(argif const& ref);
     std::string to_string(expression const& expr);
+    std::string to_string(expression const& expr, bool print_locations);
+    expression strip_source_locations(expression expr);
+    type_symbol strip_source_locations(type_symbol ref);
+    temploid_ensig strip_source_locations(temploid_ensig ref);
+    paratype strip_source_locations(paratype ref);
 
     bool is_ref(type_symbol type);
 

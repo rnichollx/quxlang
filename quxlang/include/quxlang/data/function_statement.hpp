@@ -153,10 +153,10 @@ namespace quxlang
 
 namespace quxlang
 {
-    source_location get_location(function_statement const& st);
-    inline source_location get_location(function_statement const& st)
+    std::optional<source_location> get_location(function_statement const& st);
+    inline std::optional<source_location> get_location(function_statement const& st)
     {
-        return rpnx::apply_visitor<source_location>(st, [](auto const& s) { return s.location; });
+        return rpnx::apply_visitor<std::optional<source_location>>(st, [](auto const& s) { return s.location; });
     }
 } // namespace quxlang
 

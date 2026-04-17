@@ -7,13 +7,9 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_class_declaration > try_parse_class(It& pos, It end);
-
-    template <typename It>
-    ast2_class_declaration parse_class(It & pos, It end)
+    inline ast2_class_declaration parse_class(parsing_context& ctx)
     {
-        auto result = try_parse_class(pos, end);
+        auto result = try_parse_class(ctx);
         if (!result)
         {
             throw std::logic_error("Expected class");

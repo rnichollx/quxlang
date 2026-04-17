@@ -64,10 +64,20 @@ int main(int argc, char** argv)
             std::string main_module_name = output_config.module.value_or("::main#()");
             std::string main_function_name = output_config.main_functanoid.value_or("::main#()");
 
-            auto mainfunc_sym = quxlang::parsers::parse_type_symbol(main_function_name);
+            auto parse_type_symbol_text = [](std::string const& text) {
+                auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+                auto result = quxlang::parsers::parse_type_symbol(ctx);
+                if (ctx.iter_pos != ctx.iter_end)
+                {
+                    throw std::logic_error("Input not fully parsed");
+                }
+                return result;
+            };
+
+            auto mainfunc_sym = parse_type_symbol_text(main_function_name);
             mainfunc_sym = quxlang::with_context(mainfunc_sym, quxlang::module_reference{main_module_name});
 
-            auto start_sym = quxlang::parsers::parse_type_symbol("::runtime_main");
+            auto start_sym = parse_type_symbol_text("::runtime_main");
             start_sym = quxlang::with_context(start_sym, quxlang::module_reference{main_module_name});
 
             std::set< quxlang::type_symbol > to_compile_vmir{mainfunc_sym};

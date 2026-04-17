@@ -5,35 +5,16 @@
 
 #include "quxlang/data/parser_data.hpp"
 
+#include <quxlang/parsers/context.hpp>
 #include <quxlang/parsers/try_parse_expression.hpp>
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< expression > try_parse_expression(It& pos, It end);
+    inline expression parse_expression(parsing_context& ctx);
 
-    template < typename It >
-    expression parse_expression(It& pos, It end)
+    inline expression parse_expression(parsing_context& ctx)
     {
-        std::string remaining = std::string(pos, end);
-        if (auto output = try_parse_expression(pos, end); output)
-        {
-            return output.value();
-        }
-        throw std::logic_error("Expected expression");
-    }
-
-    inline expression parse_expression(std::string str)
-    {
-        auto it = str.begin();
-        auto expr = parse_expression(it, str.end());
-        if (it != str.end())
-        {
-            std::string remaining = std::string(it, str.end());
-            throw std::logic_error("expected fully parsed expression");
-        }
-
-        return expr;
+        return detail::parse_expression_impl(ctx);
     }
 } // namespace quxlang::parsers
 

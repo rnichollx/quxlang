@@ -16,6 +16,7 @@
 #include "quxlang/exception.hpp"
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/macros.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
@@ -33,6 +34,7 @@
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/lookup.hpp"
+#include "quxlang/queries/module_options_map.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
 #include "quxlang/queries/type_placement_info.hpp"
@@ -769,6 +771,125 @@ namespace quxlang
             co_return att.attached_symbol;
         }
 
+        static auto option_bool_value(std::string const& value) -> std::optional< bool >
+        {
+            if (value == "TRUE" || value == "true" || value == "1" || value == "on" || value == "enable" || value == "enabled")
+            {
+                return true;
+            }
+            if (value == "FALSE" || value == "false" || value == "0" || value == "off" || value == "disabled")
+            {
+                return false;
+            }
+            return std::nullopt;
+        }
+
+        auto create_configured_option_value(block_index idx, ast2_option const& option, std::string const& option_value, type_symbol const& option_symbol) -> value_index
+        {
+            if (option.kind == option_kind::number)
+            {
+                return this->create_numeric_literal(option_value);
+            }
+            if (option.kind == option_kind::string)
+            {
+                return this->create_string_literal(option_value);
+            }
+            if (option.kind == option_kind::boolean)
+            {
+                auto bool_value = option_bool_value(option_value);
+                if (!bool_value.has_value())
+                {
+                    throw std::logic_error("Invalid BOOL option value for " + to_string(option_symbol) + ": " + option_value);
+                }
+                return this->create_bool_value(idx, *bool_value);
+            }
+
+            throw compiler_bug("Unhandled option kind");
+        }
+
+        auto create_default_option_value(block_index idx, ast2_option const& option, expression const& default_value, type_symbol const& option_symbol) -> value_index
+        {
+            if (option.kind == option_kind::number && default_value.type_is< expression_numeric_literal >())
+            {
+                return this->create_numeric_literal(default_value.get_as< expression_numeric_literal >().value);
+            }
+            if (option.kind == option_kind::string && default_value.type_is< expression_string_literal >())
+            {
+                return this->create_string_literal(default_value.get_as< expression_string_literal >().value);
+            }
+            if (option.kind == option_kind::boolean && default_value.type_is< expression_value_keyword >())
+            {
+                auto const& keyword = default_value.get_as< expression_value_keyword >().keyword;
+                auto bool_value = option_bool_value(keyword);
+                if (bool_value.has_value())
+                {
+                    return this->create_bool_value(idx, *bool_value);
+                }
+            }
+
+            throw std::logic_error("Option default value for " + to_string(option_symbol) + " does not match the declared option kind");
+        }
+
+        auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option, std::set< type_symbol > resolving_options) -> co_type< value_index >
+        {
+            if (!resolving_options.insert(option_symbol).second)
+            {
+                throw std::logic_error("Cyclic DEFAULT_FROM while resolving option " + to_string(option_symbol));
+            }
+
+            auto options_map = co_await rpnx::querygraph::request< module_options_map_query >(std::monostate{});
+            if (auto option_it = options_map.find(option_symbol); option_it != options_map.end())
+            {
+                co_return this->create_configured_option_value(idx, option, option_it->second, option_symbol);
+            }
+
+            if (option.option_default.has_value() && option.option_default->type_is< ast2_option_default_from >())
+            {
+                auto const& default_from = option.option_default->get_as< ast2_option_default_from >().symbol;
+                auto context = type_parent(option_symbol).value_or(option_symbol);
+                auto default_option_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = context,
+                    .type = default_from,
+                });
+                if (!default_option_symbol.has_value())
+                {
+                    throw std::logic_error("DEFAULT_FROM option for " + to_string(option_symbol) + " did not resolve: " + to_string(default_from));
+                }
+
+                auto default_kind = co_await rpnx::querygraph::request< symbol_type_query >(*default_option_symbol);
+                if (default_kind != symbol_kind::option)
+                {
+                    throw std::logic_error("DEFAULT_FROM for " + to_string(option_symbol) + " resolved to non-option symbol " + to_string(*default_option_symbol));
+                }
+
+                auto default_symboid = co_await rpnx::querygraph::request< symboid_query >(*default_option_symbol);
+                if (!default_symboid.template type_is< ast2_option >())
+                {
+                    throw compiler_bug("DEFAULT_FROM option symbol did not resolve to ast2_option");
+                }
+
+                auto const& default_option = default_symboid.template get_as< ast2_option >();
+                if (default_option.kind != option.kind)
+                {
+                    throw std::logic_error("DEFAULT_FROM option for " + to_string(option_symbol) + " has a different kind: " + to_string(*default_option_symbol));
+                }
+
+                co_return co_await co_generate_option_value(idx, *default_option_symbol, default_option, std::move(resolving_options));
+            }
+            if (option.option_default.has_value() && option.option_default->type_is< ast2_option_default_value >())
+            {
+                auto const& default_value = option.option_default->get_as< ast2_option_default_value >().value;
+                co_return this->create_default_option_value(idx, option, default_value, option_symbol);
+            }
+
+            throw std::logic_error("No configured or default value for option " + to_string(option_symbol));
+        }
+
+        auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option) -> co_type< value_index >
+        {
+            co_return co_await co_generate_option_value(idx, option_symbol, option, {});
+        }
+
         auto co_lookup_symbol(block_index idx, type_symbol sym) -> co_type< std::optional< value_index > >
         {
             std::string symbol_str = to_string(sym);
@@ -852,6 +973,16 @@ namespace quxlang
             }
 
             auto kind = co_await rpnx::querygraph::request< symbol_type_query >(canonical_symbol);
+
+            if (kind == quxlang::symbol_kind::option)
+            {
+                auto option_symboid = co_await rpnx::querygraph::request< symboid_query >(canonical_symbol);
+                if (!option_symboid.template type_is< ast2_option >())
+                {
+                    throw compiler_bug("Option symbol did not resolve to ast2_option");
+                }
+                co_return co_await co_generate_option_value(idx, canonical_symbol, option_symboid.template get_as< ast2_option >());
+            }
 
             value_index index(0);
 

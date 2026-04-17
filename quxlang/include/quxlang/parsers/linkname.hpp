@@ -4,6 +4,7 @@
 #ifndef QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
 #define QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
 #include "keyword.hpp"
+#include "quxlang/parsers/context.hpp"
 #include "parse_whitespace_and_comments.hpp"
 #include "symbol.hpp"
 #include "string_literal.hpp"
@@ -13,9 +14,10 @@
 
 namespace quxlang::parsers
 {
-    template <typename It>
-    std::optional< std::string > try_parse_linkname(It& begin, It end)
+    inline std::optional< std::string > try_parse_linkname(parsing_context& ctx)
     {
+        auto& begin = ctx.iter_pos;
+        auto end = ctx.iter_end;
         if (begin == end)
         {
             return std::nullopt;

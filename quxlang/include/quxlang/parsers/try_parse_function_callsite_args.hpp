@@ -9,9 +9,10 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< std::vector< expression > > try_parse_function_callsite_args(It& pos, It end)
+    inline std::optional< std::vector< expression > > try_parse_function_callsite_args(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
 
         skip_whitespace_and_comments(pos, end);
 
@@ -30,7 +31,7 @@ namespace quxlang::parsers
         }
     get_arg:
 
-        expression expr = parsers::parse_expression(pos, end);
+        expression expr = parsers::parse_expression(ctx);
         result.push_back(std::move(expr));
 
         if (skip_symbol_if_is(pos, end, ","))

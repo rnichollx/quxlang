@@ -5,11 +5,11 @@ IMPORT foolib;
 {
   VAR x I32 := 5;
   VAR px ->I32 := x<-;
-    VAR ppx -> ->I32 := px<-;
-    VAR ppx2 -> ->I32 := ppx;
-    ppx-> -> := 10;
-    ASSERT(x == 10);
-    ptrptr_incr(@ptr ppx);
+  VAR ppx -> ->I32 := px<-;
+  VAR ppx2 -> ->I32 := ppx;
+  ppx-> -> := 10;
+  ASSERT(x == 10);
+  ptrptr_incr(@ptr ppx);
 }
 
 ::ptrptr_incr FUNCTION(@ptr CONST -> MUT-> I32)
@@ -337,6 +337,11 @@ IMPORT foolib;
 }
 
 ::option_num OPTION NUMBER DEFAULT(42);
+
+::option_test STATIC_TEST
+{
+  ASSERT(option_num == 5);
+}
 
 
 ::buz CLASS

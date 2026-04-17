@@ -6,6 +6,7 @@
 #include <quxlang/ast2/ast2_function_arg.hpp>
 #include <quxlang/data/function_block.hpp>
 #include <quxlang/data/function_delegate.hpp>
+#include <quxlang/macros.hpp>
 
 namespace quxlang
 {
@@ -15,7 +16,7 @@ namespace quxlang
         std::vector< expression > args;
 
 
-        RPNX_MEMBER_METADATA(ast2_function_delegate, target, args)
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_delegate, target, args)
     };
 
 

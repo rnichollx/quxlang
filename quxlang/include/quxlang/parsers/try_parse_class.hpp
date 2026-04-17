@@ -10,9 +10,11 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_class_declaration > try_parse_class(It& pos, It end)
+    inline std::optional< ast2_class_declaration > try_parse_class(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
         std::optional< ast2_class_declaration > out;
 
         if (!skip_keyword_if_is(pos, end, "CLASS"))
@@ -22,16 +24,9 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string remaining = std::string(pos, end);
-
-        out = parse_class_body(pos, end);
+        out = parse_class_body(ctx);
+        out->location = ctx.get_location_optional(begin, pos);
         return out;
-    }
-
-    inline std::optional< ast2_class_declaration > try_parse_class(std::string str)
-    {
-        auto it = str.begin();
-        return try_parse_class(it, str.end());
     }
 
 } // namespace quxlang::parsers

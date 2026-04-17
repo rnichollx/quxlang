@@ -6,6 +6,7 @@
 #include <string>
 
 #include "type_symbol.hpp"
+#include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
 namespace quxlang
 {
@@ -13,7 +14,7 @@ namespace quxlang
     {
         std::string target;
 
-        RPNX_MEMBER_METADATA(expression_target, target);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_target, target);
     };
 
 } // namespace quxlang

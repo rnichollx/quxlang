@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <quxlang/data/type_symbol.hpp>
+#include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
 #include <rpnx/variant.hpp>
 #include <string>
@@ -217,20 +218,20 @@ namespace quxlang
         {
             local_index of;
 
-            RPNX_MEMBER_METADATA(end_lifetime, of);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(end_lifetime, of);
         };
 
         struct destroy
         {
             local_index of;
 
-            RPNX_MEMBER_METADATA(destroy, of);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(destroy, of);
         };
 
         struct unimplemented
         {
             std::optional< std::string > message;
-            RPNX_MEMBER_METADATA(unimplemented, message);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(unimplemented, message);
         };
 
         struct newtype
@@ -255,7 +256,7 @@ namespace quxlang
         {
             local_index storage;
 
-            RPNX_MEMBER_METADATA(storage_init, storage);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_init, storage);
         };
 
         struct storage_init_start
@@ -263,7 +264,7 @@ namespace quxlang
             local_index on_storage;
             local_index target_value;
 
-            RPNX_MEMBER_METADATA(storage_init_start, on_storage, target_value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_init_start, on_storage, target_value);
         };
 
         struct storage_deinit_start
@@ -271,7 +272,7 @@ namespace quxlang
             local_index on_storage;
             local_index target_value;
 
-            RPNX_MEMBER_METADATA(storage_deinit_start, on_storage, target_value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_deinit_start, on_storage, target_value);
         };
 
         struct storage_pun
@@ -280,7 +281,7 @@ namespace quxlang
             type_symbol as_type;
             local_index to_reference;
 
-            RPNX_MEMBER_METADATA(storage_pun, from_storage, as_type, to_reference);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_pun, from_storage, as_type, to_reference);
         };
 
         struct get_global_storage
@@ -288,7 +289,7 @@ namespace quxlang
             type_symbol symbol;
             local_index target_ref;
 
-            RPNX_MEMBER_METADATA(get_global_storage, symbol, target_ref);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_storage, symbol, target_ref);
         };
 
         struct get_antestatal_ref
@@ -296,7 +297,7 @@ namespace quxlang
             type_symbol symbol;
             local_index target_ref;
 
-            RPNX_MEMBER_METADATA(get_antestatal_ref, symbol, target_ref);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_antestatal_ref, symbol, target_ref);
         };
 
         struct initguard_global_get_ref
@@ -304,21 +305,21 @@ namespace quxlang
             type_symbol symbol;
             local_index target_ref;
 
-            RPNX_MEMBER_METADATA(initguard_global_get_ref, symbol, target_ref);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_global_get_ref, symbol, target_ref);
         };
 
         struct initguard_release
         {
             local_index lock;
 
-            RPNX_MEMBER_METADATA(initguard_release, lock);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_release, lock);
         };
 
         struct initguard_abort
         {
             local_index lock;
 
-            RPNX_MEMBER_METADATA(initguard_abort, lock);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_abort, lock);
         };
 
         // The struct_init_start (STRUCT_INIT_START) instruction is used in constructor and destructor delegation to member fields.
@@ -333,7 +334,7 @@ namespace quxlang
             local_index on_value;
             invocation_args fields;
 
-            RPNX_MEMBER_METADATA(struct_init_start, on_value, fields);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_start, on_value, fields);
         };
 
         // struct_init_finish is used in conjunction with struct_init_start to finalize an object.
@@ -347,7 +348,7 @@ namespace quxlang
         {
             local_index on_value;
 
-            RPNX_MEMBER_METADATA(struct_init_finish, on_value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(struct_init_finish, on_value);
         };
 
         // The array_init_start (ARRAY_INIT_START) instruction is used to mark the beginning of
@@ -364,7 +365,7 @@ namespace quxlang
             local_index on_value;
             local_index initializer;
 
-            RPNX_MEMBER_METADATA(array_init_start, on_value, initializer);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_start, on_value, initializer);
         };
 
         // The array_init_element (ARRAY_INIT_ELEMENT) instruction is used to assign a
@@ -374,7 +375,7 @@ namespace quxlang
             local_index initializer;
             local_index target;
 
-            RPNX_MEMBER_METADATA(array_init_element, initializer, target);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_element, initializer, target);
         };
 
 
@@ -385,7 +386,7 @@ namespace quxlang
             local_index initializer;
             local_index result;
 
-            RPNX_MEMBER_METADATA(array_init_index, initializer, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_index, initializer, result);
         };
 
         // The array_init_remaining (ARRAY_INIT_REMAINING) instruction is used to test whether or not there are
@@ -395,7 +396,7 @@ namespace quxlang
             local_index initializer;
             local_index result;
 
-            RPNX_MEMBER_METADATA(array_init_more, initializer, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_more, initializer, result);
         };
 
         // The array_init_finish (ARRAY_INIT_FINISH) instruction is used to finalize
@@ -406,7 +407,7 @@ namespace quxlang
         {
             local_index initializer;
 
-            RPNX_MEMBER_METADATA(array_init_finish, initializer);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(array_init_finish, initializer);
         };
 
         struct swap
@@ -414,7 +415,7 @@ namespace quxlang
             local_index a;
             local_index b;
 
-            RPNX_MEMBER_METADATA(swap, a, b);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(swap, a, b);
         };
 
         // fence_byte_acquire (FBA) causes values of type BYTE that were written to memory to be visible
@@ -450,7 +451,7 @@ namespace quxlang
             local_index offset;
             local_index result;
 
-            RPNX_MEMBER_METADATA(pointer_arith, from, multiplier, offset, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pointer_arith, from, multiplier, offset, result);
         };
 
         // pointer_diff(PDF) is used to find the offset between two pointers in the same array
@@ -460,7 +461,7 @@ namespace quxlang
             local_index to;
             local_index result;
 
-            RPNX_MEMBER_METADATA(pointer_diff, from, to, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pointer_diff, from, to, result);
         };
 
         // We make assert a custom instruction so it can be used during constexpr and cause the
@@ -469,9 +470,7 @@ namespace quxlang
         {
             local_index condition;
             std::string message;
-            std::optional< source_location > location;
-
-            RPNX_MEMBER_METADATA(assert_instr, condition, message, location);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(assert_instr, condition, message);
         };
 
         // Defers a non-trivial destructor call.
@@ -481,7 +480,7 @@ namespace quxlang
             local_index on_value;
             invocation_args args;
 
-            RPNX_MEMBER_METADATA(defer_nontrivial_dtor, func, on_value, args);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(defer_nontrivial_dtor, func, on_value, args);
         };
 
         struct access_field
@@ -490,7 +489,7 @@ namespace quxlang
             local_index store_index = local_index(0);
             std::string field_name;
 
-            RPNX_MEMBER_METADATA(access_field, base_index, store_index, field_name);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(access_field, base_index, store_index, field_name);
         };
 
         struct access_array
@@ -498,7 +497,7 @@ namespace quxlang
             local_index base_index = local_index(0);
             local_index index_index = local_index(0);
             local_index store_index = local_index(0);
-            RPNX_MEMBER_METADATA(access_array, base_index, index_index, store_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(access_array, base_index, index_index, store_index);
         };
 
         struct invoke
@@ -506,7 +505,7 @@ namespace quxlang
             type_symbol what;
             invocation_args args;
 
-            RPNX_MEMBER_METADATA(invoke, what, args);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(invoke, what, args);
         };
 
         struct invoke_indirect
@@ -514,7 +513,7 @@ namespace quxlang
             local_index what_index = local_index(0);
             invocation_args args;
 
-            RPNX_MEMBER_METADATA(invoke_indirect, what_index, args);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(invoke_indirect, what_index, args);
         };
 
         struct get_procedure_ptr
@@ -523,7 +522,7 @@ namespace quxlang
             std::string calling_convention = "DEFAULT";
             local_index pointer_index = local_index(0);
 
-            RPNX_MEMBER_METADATA(get_procedure_ptr, routine, calling_convention, pointer_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_procedure_ptr, routine, calling_convention, pointer_index);
         };
 
         struct copy_reference
@@ -531,7 +530,7 @@ namespace quxlang
             local_index from_index;
             local_index to_index;
 
-            RPNX_MEMBER_METADATA(copy_reference, from_index, to_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(copy_reference, from_index, to_index);
         };
 
         // MKR makes a reference to a value
@@ -540,7 +539,7 @@ namespace quxlang
             local_index value_index;
             local_index reference_index;
 
-            RPNX_MEMBER_METADATA(make_reference, value_index, reference_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(make_reference, value_index, reference_index);
         };
 
         struct make_pointer_to
@@ -548,7 +547,7 @@ namespace quxlang
             local_index of_index;
             local_index pointer_index;
 
-            RPNX_MEMBER_METADATA(make_pointer_to, of_index, pointer_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(make_pointer_to, of_index, pointer_index);
         };
 
         struct cast_ptrref
@@ -556,19 +555,19 @@ namespace quxlang
             local_index source_index;
             local_index target_index;
 
-            RPNX_MEMBER_METADATA(cast_ptrref, source_index, target_index);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_ptrref, source_index, target_index);
         };
 
         struct constexpr_set_result
         {
             local_index target;
-            RPNX_MEMBER_METADATA(constexpr_set_result, target);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_set_result, target);
         };
 
         struct constexpr_set_result2
         {
             local_index target;
-            RPNX_MEMBER_METADATA(constexpr_set_result2, target);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_set_result2, target);
         };
 
         struct load_const_value
@@ -576,7 +575,7 @@ namespace quxlang
             local_index target;
             std::vector< std::byte > value;
 
-            RPNX_MEMBER_METADATA(load_const_value, target, value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_value, target, value);
         };
 
         // Converts a pointer into a reference to the pointed-to value
@@ -585,7 +584,7 @@ namespace quxlang
             local_index from_pointer;
             local_index to_reference;
 
-            RPNX_MEMBER_METADATA(dereference_pointer, from_pointer, to_reference);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(dereference_pointer, from_pointer, to_reference);
         };
 
         struct load_from_ref
@@ -593,7 +592,7 @@ namespace quxlang
             local_index from_reference;
             local_index to_value;
 
-            RPNX_MEMBER_METADATA(load_from_ref, from_reference, to_value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_from_ref, from_reference, to_value);
         };
 
         struct store_to_ref
@@ -601,7 +600,7 @@ namespace quxlang
             local_index from_value;
             local_index to_reference;
 
-            RPNX_MEMBER_METADATA(store_to_ref, from_value, to_reference);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(store_to_ref, from_value, to_reference);
         };
 
         struct load_const_int
@@ -609,20 +608,20 @@ namespace quxlang
 
             local_index target;
             std::string value;
-            RPNX_MEMBER_METADATA(load_const_int, target, value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_int, target, value);
         };
 
         struct load_const_bool
         {
             local_index target;
             bool value;
-            RPNX_MEMBER_METADATA(load_const_bool, target, value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_bool, target, value);
         };
 
         struct load_const_zero
         {
             local_index target;
-            RPNX_MEMBER_METADATA(load_const_zero, target);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_zero, target);
         };
 
         struct int_add
@@ -631,7 +630,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(int_add, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_add, a, b, result);
         };
 
         struct int_sub
@@ -639,7 +638,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(int_sub, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_sub, a, b, result);
         };
 
         struct int_mul
@@ -647,7 +646,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(int_mul, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_mul, a, b, result);
         };
 
         struct int_div
@@ -655,7 +654,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(int_div, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_div, a, b, result);
         };
 
         struct int_mod
@@ -663,7 +662,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(int_mod, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_mod, a, b, result);
         };
 
         struct iconv
@@ -672,7 +671,7 @@ namespace quxlang
             local_index to;
             conversion_class convtype{};
 
-            RPNX_MEMBER_METADATA(iconv, from, to, convtype);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(iconv, from, to, convtype);
         };
 
         // Bitwise operations
@@ -681,90 +680,90 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_and, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_and, a, b, result);
         };
         struct bitwise_or
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_or, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_or, a, b, result);
         };
         struct bitwise_xor
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_xor, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_xor, a, b, result);
         };
         struct bitwise_nand
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_nand, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_nand, a, b, result);
         };
         struct bitwise_nor
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_nor, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_nor, a, b, result);
         };
         struct bitwise_nxor
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_nxor, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_nxor, a, b, result);
         };
         struct bitwise_implies
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_implies, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_implies, a, b, result);
         };
         struct bitwise_implied
         {
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_implied, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_implied, a, b, result);
         };
         struct bitwise_shift_up
         {
             local_index value;
             local_index amount;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_shift_up, value, amount, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_up, value, amount, result);
         };
         struct bitwise_shift_down
         {
             local_index value;
             local_index amount;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_shift_down, value, amount, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_shift_down, value, amount, result);
         };
         struct bitwise_rotate_up
         {
             local_index value;
             local_index amount;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_rotate_up, value, amount, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_up, value, amount, result);
         };
         struct bitwise_rotate_down
         {
             local_index value;
             local_index amount;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_rotate_down, value, amount, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_rotate_down, value, amount, result);
         };
         struct bitwise_inverse
         {
             local_index value;
             local_index result;
-            RPNX_MEMBER_METADATA(bitwise_inverse, value, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_inverse, value, result);
         };
 
         struct cmp_eq
@@ -772,7 +771,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(cmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_eq, a, b, result);
         };
 
         struct pcmp_eq
@@ -780,7 +779,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(pcmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_eq, a, b, result);
         };
 
         struct gcmp_eq
@@ -788,7 +787,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(gcmp_eq, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_eq, a, b, result);
         };
 
         struct cmp_ne
@@ -796,7 +795,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(cmp_ne, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_ne, a, b, result);
         };
 
         struct pcmp_ne
@@ -804,7 +803,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(pcmp_ne, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_ne, a, b, result);
         };
 
         struct gcmp_ne
@@ -812,7 +811,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(gcmp_ne, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_ne, a, b, result);
         };
 
         struct cmp_lt
@@ -820,7 +819,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(cmp_lt, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_lt, a, b, result);
         };
 
         struct gcmp_lt
@@ -828,7 +827,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(gcmp_lt, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_lt, a, b, result);
         };
 
         struct pcmp_lt
@@ -836,7 +835,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(pcmp_lt, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_lt, a, b, result);
         };
 
         struct cmp_ge
@@ -844,7 +843,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(cmp_ge, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_ge, a, b, result);
         };
 
         struct pcmp_ge
@@ -852,7 +851,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(pcmp_ge, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(pcmp_ge, a, b, result);
         };
 
         struct gcmp_ge
@@ -860,7 +859,7 @@ namespace quxlang
             local_index a;
             local_index b;
             local_index result;
-            RPNX_MEMBER_METADATA(gcmp_ge, a, b, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(gcmp_ge, a, b, result);
         };
 
         struct to_bool
@@ -868,54 +867,54 @@ namespace quxlang
             local_index from;
             local_index to;
 
-            RPNX_MEMBER_METADATA(to_bool, from, to);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(to_bool, from, to);
         };
 
         struct to_bool_not
         {
             local_index from;
             local_index to;
-            RPNX_MEMBER_METADATA(to_bool_not, from, to);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(to_bool_not, from, to);
         };
 
         struct increment
         {
             local_index value;
             local_index result;
-            RPNX_MEMBER_METADATA(increment, value, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(increment, value, result);
         };
 
         struct decrement
         {
             local_index value;
             local_index result;
-            RPNX_MEMBER_METADATA(decrement, value, result);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(decrement, value, result);
         };
 
         struct preincrement
         {
             local_index target;
             local_index target2;
-            RPNX_MEMBER_METADATA(preincrement, target, target2);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(preincrement, target, target2);
         };
 
         struct predecrement
         {
             local_index target;
             local_index target2;
-            RPNX_MEMBER_METADATA(predecrement, target, target2);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(predecrement, target, target2);
         };
 
         struct jump
         {
             block_index target;
 
-            RPNX_MEMBER_METADATA(jump, target);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(jump, target);
         };
 
         struct ret
         {
-            RPNX_EMPTY_METADATA(ret);
+            QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(ret);
         };
 
         struct branch
@@ -924,7 +923,7 @@ namespace quxlang
             block_index target_true;
             block_index target_false;
 
-            RPNX_MEMBER_METADATA(branch, condition, target_true, target_false);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(branch, condition, target_true, target_false);
         };
 
         struct runtime_constexpr
@@ -932,7 +931,7 @@ namespace quxlang
             block_index target_constexpr;
             block_index target_native;
 
-            RPNX_MEMBER_METADATA(runtime_constexpr, target_constexpr, target_native);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(runtime_constexpr, target_constexpr, target_native);
         };
 
         struct initguard_try_acquire
@@ -942,7 +941,7 @@ namespace quxlang
             block_index target_acquired;
             block_index target_already_initialized;
 
-            RPNX_MEMBER_METADATA(initguard_try_acquire, symbol, target_lock, target_acquired, target_already_initialized);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_try_acquire, symbol, target_lock, target_acquired, target_already_initialized);
         };
 
         struct vm_slot
@@ -1069,6 +1068,16 @@ namespace quxlang
 
             RPNX_MEMBER_METADATA(state_transition, entry_alive, exit_alive);
         };
+
+        inline std::optional< source_location > get_location(vm_instruction const& instruction)
+        {
+            return rpnx::apply_visitor< std::optional< source_location > >(instruction, [](auto const& item) { return item.location; });
+        }
+
+        inline std::optional< source_location > get_location(vm_terminator const& terminator)
+        {
+            return rpnx::apply_visitor< std::optional< source_location > >(terminator, [](auto const& item) { return item.location; });
+        }
     } // namespace vmir2
 
 }; // namespace quxlang

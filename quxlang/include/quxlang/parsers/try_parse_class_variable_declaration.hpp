@@ -8,20 +8,22 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_class_variable_declaration(It& pos, It end)
+    inline std::optional< std::tuple< std::string, bool, ast2_variable_declaration > > try_parse_class_variable_declaration(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
         std::string start_str(pos, end);
         skip_whitespace_and_comments(pos, end);
-        auto pos2 = pos;
+        auto trial = ctx;
 
         bool is_member;
 
-        if (skip_symbol_if_is(pos2, end, "."))
+        if (skip_symbol_if_is(trial.iter_pos, trial.iter_end, "."))
         {
             is_member = true;
         }
-        else if (skip_symbol_if_is(pos2, end, "::"))
+        else if (skip_symbol_if_is(trial.iter_pos, trial.iter_end, "::"))
         {
             is_member = false;
         }
@@ -29,37 +31,38 @@ namespace quxlang::parsers
         {
             return std::nullopt;
         }
-        std::string name = parse_identifier(pos2, end);
+        std::string name = parse_identifier(trial.iter_pos, trial.iter_end);
 
         if (name.empty())
         {
             throw std::logic_error("Expected identifier");
         }
 
-        skip_whitespace(pos2, end);
+        skip_whitespace(trial.iter_pos, trial.iter_end);
 
-        if (!skip_keyword_if_is(pos2, end, "VAR"))
+        if (!skip_keyword_if_is(trial.iter_pos, trial.iter_end, "VAR"))
         {
             return std::nullopt;
         }
 
-        skip_whitespace_and_comments(pos2, end);
+        skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
-        type_symbol type = try_parse_type_symbol(pos2, end).value();
+        type_symbol type = try_parse_type_symbol(trial).value();
 
         std::string typestr = quxlang::to_string(type);
 
-        skip_whitespace_and_comments(pos2, end);
+        skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);
 
-        if (!skip_symbol_if_is(pos2, end, ";"))
+        if (!skip_symbol_if_is(trial.iter_pos, trial.iter_end, ";"))
         {
             throw std::logic_error("Expected ';' after VAR type");
         }
 
-        pos = pos2;
+        pos = trial.iter_pos;
 
         ast2_variable_declaration var;
         var.type = type;
+        var.location = ctx.get_location_optional(begin, pos);
         // TOOD: offset, include_if
 
         return {{name, is_member, var}};

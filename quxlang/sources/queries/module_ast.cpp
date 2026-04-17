@@ -15,6 +15,7 @@ rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl
 {
 
     auto srcs = co_await rpnx::querygraph::request< module_sources_query >(input);
+    auto source_module_name = co_await rpnx::querygraph::request< module_source_name_query >(input);
 
     ast2_module_declaration result;
 
@@ -25,22 +26,29 @@ rpnx::querygraph::coroutine< quxlang::module_ast_spec > quxlang::module_ast_impl
         auto content = file.second->contents;
         auto input_filename = input + "/" + file.first;
 
-        auto it = content.begin();
+        auto file_id = co_await rpnx::querygraph::request< source_file_id_query >(source_file_name{.source_module = source_module_name, .relative_path = file.first});
+        parsers::parsing_context ctx{
+            .file_id = file_id,
+            .source_locations_enabled = true,
+            .iter_begin = content.begin(),
+            .iter_pos = content.begin(),
+            .iter_end = content.end(),
+        };
 
         std::exception_ptr parse_error;
         std::string error_snippet;
         std::string error_message;
         try
         {
-            v_file_ast = parsers::parse_file(it, content.end());
+            v_file_ast = parsers::parse_file(ctx);
         }
         catch (std::exception& e)
         {
-            auto distance_to_end = std::distance(it, content.end());
+            auto distance_to_end = std::distance(ctx.iter_pos, ctx.iter_end);
 
-            std::string::iterator end_snippet_iter = it + std::min(distance_to_end, ptrdiff_t(100));
+            auto end_snippet_iter = ctx.iter_pos + std::min(distance_to_end, ptrdiff_t(100));
 
-            std::string snippet(it, end_snippet_iter);
+            std::string snippet(ctx.iter_pos, end_snippet_iter);
 
             error_snippet = std::move(snippet);
             error_message = e.what();

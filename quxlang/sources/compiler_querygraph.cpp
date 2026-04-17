@@ -37,15 +37,18 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     : m_dump_output_path(std::move(dump_output_path))
 {
     std::map< std::string, std::string > module_source_name_map;
+    std::map< std::string, std::map< std::string, std::string > > module_option_strings_map;
     auto const& target_config = bundle.targets.at(configured_target);
     for (auto const& [logical_name, module_config] : target_config.module_configurations)
     {
         module_source_name_map.emplace(logical_name, module_config.source);
+        module_option_strings_map.emplace(logical_name, module_config.option_values);
     }
 
     m_graph.register_handler_singleton< source_bundle_query >(bundle);
     m_graph.register_handler_singleton< machine_info_query >(machine_info);
     m_graph.register_handler_singleton< module_source_name_map_query >(std::move(module_source_name_map));
+    m_graph.register_handler_singleton< module_option_strings_map_query >(std::move(module_option_strings_map));
 
     m_graph.register_handler_function< argument_adaptation_is_better_fit_spec >(argument_adaptation_is_better_fit_impl);
     m_graph.register_handler_function< argument_adaptation_rank_spec >(argument_adaptation_rank_impl);
@@ -125,12 +128,16 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< list_user_functum_formal_paratypes_spec >(list_user_functum_formal_paratypes_impl);
     m_graph.register_handler_function< lookup_spec >(lookup_impl);
     m_graph.register_handler_function< module_ast_spec >(module_ast_impl);
+    m_graph.register_handler_function< module_options_map_spec >(module_options_map_impl);
     m_graph.register_handler_function< module_source_name_spec >(module_source_name_impl);
     m_graph.register_handler_function< module_sources_spec >(module_sources_impl);
     m_graph.register_handler_function< procedure_linksymbol_spec >(procedure_linksymbol_impl);
     m_graph.register_handler_function< run_static_test_spec >(run_static_test_impl);
     m_graph.register_handler_function< run_static_tests_spec >(run_static_tests_impl);
     m_graph.register_handler_function< sintpointer_type_spec >(sintpointer_type_impl);
+    m_graph.register_handler_function< source_file_id_spec >(source_file_id_impl);
+    m_graph.register_handler_function< source_file_index_spec >(source_file_index_impl);
+    m_graph.register_handler_function< source_file_name_spec >(source_file_name_impl);
     m_graph.register_handler_function< symboid_spec >(symboid_impl);
     m_graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);
     m_graph.register_handler_function< symbol_tempars_spec >(symbol_tempars_impl);

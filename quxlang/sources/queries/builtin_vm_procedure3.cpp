@@ -7,15 +7,25 @@
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
 
-
-
-
+namespace
+{
+    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    {
+        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        auto result = quxlang::parsers::parse_type_symbol(ctx);
+        if (ctx.iter_pos != ctx.iter_end)
+        {
+            throw std::logic_error("Input not fully parsed");
+        }
+        return result;
+    }
+}
 
 rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::builtin_vm_procedure3_impl(instanciation_reference input)
 {
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
 
-    auto ctor_match = quxlang::parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
+    auto ctor_match = parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
 
 
     auto input_str = quxlang::to_string(input);
@@ -28,27 +38,27 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     {
         co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
     }
-    else if (match_template2(quxlang::parsers::parse_type_symbol("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
     {
         auto result =  co_await rpnx::querygraph::request< builtin_dtor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
         auto result = co_await rpnx::querygraph::request< builtin_copy_ctor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER TEMP& AUTO(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER TEMP& AUTO(t1)}"), input))
     {
         auto result = co_await rpnx::querygraph::request< builtin_move_ctor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
     {
         auto result = co_await rpnx::querygraph::request< builtin_swap_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR== #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR== #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
         if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
@@ -56,7 +66,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
-    else if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR!= #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR!= #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
         if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
@@ -65,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
 
-    if (match_template2(parsers::parse_type_symbol("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
+    if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
     {
         auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
         co_return result;

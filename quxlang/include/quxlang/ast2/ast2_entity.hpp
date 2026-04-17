@@ -41,7 +41,7 @@ namespace quxlang
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
     using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -51,7 +51,7 @@ namespace quxlang
         std::string name;
         std::optional<expression> include_if;
 
-        RPNX_MEMBER_METADATA(member_subdeclaroid, name, decl, include_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(member_subdeclaroid, name, decl, include_if);
     };
 
     struct global_subdeclaroid
@@ -60,7 +60,7 @@ namespace quxlang
         std::string name;
         std::optional<expression> include_if;
 
-        RPNX_MEMBER_METADATA(global_subdeclaroid, name, decl, include_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if);
     };
 
 
@@ -125,14 +125,14 @@ namespace quxlang
         std::vector< ast2_asm_callable > callable_interfaces;
         std::vector< type_symbol > imports;
 
-        RPNX_MEMBER_METADATA(ast2_asm_procedure_declaration, instructions, linkname, callable_interfaces, imports);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, instructions, linkname, callable_interfaces, imports);
     };
 
     struct ast2_namespace_declaration
     {
         std::vector< subdeclaroid > declarations;
 
-        RPNX_MEMBER_METADATA(ast2_namespace_declaration, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_namespace_declaration, declarations);
     };
 
     struct ast2_variable_declaration
@@ -143,15 +143,31 @@ namespace quxlang
         std::vector< expression_arg > init_args;
         std::optional< std::size_t > offset;
 
-        RPNX_MEMBER_METADATA(ast2_variable_declaration, type, keyword_tags, init_expr, init_args, offset);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_variable_declaration, type, keyword_tags, init_expr, init_args, offset);
     };
+
+    struct ast2_option_default_value
+    {
+        expression value;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_option_default_value, value);
+    };
+
+    struct ast2_option_default_from
+    {
+        type_symbol symbol;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_option_default_from, symbol);
+    };
+
+    using ast2_option_default = rpnx::variant< ast2_option_default_value, ast2_option_default_from >;
 
     struct ast2_option
     {
         option_kind kind;
-        std::optional< expression > default_value;
+        std::optional< ast2_option_default > option_default;
 
-        RPNX_MEMBER_METADATA(ast2_option, kind, default_value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_option, kind, option_default);
     };
 
     struct ast2_class_declaration
@@ -159,7 +175,7 @@ namespace quxlang
         std::vector< subdeclaroid > declarations;
         std::set< std::string > class_keywords;
 
-        RPNX_MEMBER_METADATA(ast2_class_declaration, declarations, class_keywords);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_class_declaration, declarations, class_keywords);
     };
 
     struct ast2_template_declaration
@@ -168,35 +184,33 @@ namespace quxlang
         declaroid m_declaroid;
         std::optional< std::int64_t > priority;
 
-        RPNX_MEMBER_METADATA(ast2_template_declaration, m_template_args, m_declaroid, priority);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_template_declaration, m_template_args, m_declaroid, priority);
     };
 
     struct ast2_templex
     {
         std::vector< ast2_template_declaration > templates;
 
-        RPNX_MEMBER_METADATA(ast2_templex, templates);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_templex, templates);
     };
 
     struct ast2_function_parameter
     {
-        source_location location;
         std::optional<std::string> name;
         std::optional< std::string > api_name;
         type_symbol type;
         std::optional< expression > default_expr;
 
-        RPNX_MEMBER_METADATA(ast2_function_parameter, location, name, api_name, type, default_expr)
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr);
     };
 
     struct ast2_function_header
     {
-        source_location location;
         std::vector< ast2_function_parameter > call_parameters;
         std::optional< std::int64_t > priority;
         std::optional< expression > enable_if;
 
-        RPNX_MEMBER_METADATA(ast2_function_header, location, call_parameters, priority, enable_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_header, call_parameters, priority, enable_if);
     };
 
     struct parameters
@@ -209,12 +223,11 @@ namespace quxlang
 
     struct ast2_function_definition
     {
-        source_location location;
         std::optional< type_symbol > return_type;
         std::vector< ast2_function_delegate > delegates;
         function_block body;
 
-        RPNX_MEMBER_METADATA(ast2_function_definition, location, return_type, delegates, body);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_definition, return_type, delegates, body);
     };
 
     struct ast2_functum
@@ -225,20 +238,18 @@ namespace quxlang
 
     struct ast2_function_declaration
     {
-        source_location location;
         ast2_function_header header;
         ast2_function_definition definition;
 
-        RPNX_MEMBER_METADATA(ast2_function_declaration, header, definition);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_declaration, header, definition);
     };
 
     struct ast2_static_test
     {
-        source_location location;
         static_test_expected_mode expected_mode = static_test_expected_mode::normal;
         ast2_function_definition definition;
 
-        RPNX_MEMBER_METADATA(ast2_static_test, expected_mode, definition);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_static_test, expected_mode, definition);
     };
 
     struct ast2_named_global
@@ -246,7 +257,7 @@ namespace quxlang
         std::string name;
         declaroid declaration;
 
-        RPNX_MEMBER_METADATA(ast2_named_global, name, declaration);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_named_global, name, declaration);
     };
 
     struct ast2_named_member
@@ -254,7 +265,7 @@ namespace quxlang
         std::string name;
         declaroid declaration;
 
-        RPNX_MEMBER_METADATA(ast2_named_member, name, declaration);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_named_member, name, declaration);
     };
 
     struct ast2_include_if;
@@ -264,7 +275,7 @@ namespace quxlang
         expression condition;
         ast2_named_declaration declaration;
 
-        RPNX_MEMBER_METADATA(ast2_include_if, condition, declaration);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_include_if, condition, declaration);
     };
 
     struct ast2_file_declaration
@@ -273,7 +284,7 @@ namespace quxlang
         std::map< std::string, std::string > imports;
         std::vector< subdeclaroid > declarations;
 
-        RPNX_MEMBER_METADATA(ast2_file_declaration, filename, imports, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_file_declaration, filename, imports, declarations);
     };
 
     struct ast2_module_declaration
@@ -282,7 +293,7 @@ namespace quxlang
         std::map< std::string, std::string > imports;
         std::vector< subdeclaroid > declarations;
 
-        RPNX_MEMBER_METADATA(ast2_module_declaration, module_name, imports, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_module_declaration, module_name, imports, declarations);
     };
 
     struct ast2_declarations
@@ -316,6 +327,7 @@ namespace quxlang
     std::string to_string(ast2_function_declaration const& ref);
     std::string to_string(declaroid const& ref);
     std::string to_string(expression const& ref);
+    std::string to_string(expression const& ref, bool print_locations);
 
 } // namespace quxlang
 

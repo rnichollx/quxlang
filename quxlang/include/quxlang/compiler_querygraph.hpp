@@ -6,6 +6,8 @@
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/target_configuration.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/module_option_strings_map.hpp>
+#include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
 #include <quxlang/queries/querygraph_traits.hpp>
 #include <quxlang/queries/source_bundle.hpp>
@@ -87,12 +89,16 @@
 #include <quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp>
 #include <quxlang/queries/specs/lookup_spec.hpp>
 #include <quxlang/queries/specs/module_ast_spec.hpp>
+#include <quxlang/queries/specs/module_options_map_spec.hpp>
 #include <quxlang/queries/specs/module_source_name_spec.hpp>
 #include <quxlang/queries/specs/module_sources_spec.hpp>
 #include <quxlang/queries/specs/procedure_linksymbol_spec.hpp>
 #include <quxlang/queries/specs/run_static_test_spec.hpp>
 #include <quxlang/queries/specs/run_static_tests_spec.hpp>
 #include <quxlang/queries/specs/sintpointer_type_spec.hpp>
+#include <quxlang/queries/specs/source_file_id_spec.hpp>
+#include <quxlang/queries/specs/source_file_index_spec.hpp>
+#include <quxlang/queries/specs/source_file_name_spec.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
 #include <quxlang/queries/specs/symboid_subdeclaroids_spec.hpp>
 #include <quxlang/queries/specs/symbol_tempars_spec.hpp>

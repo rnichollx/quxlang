@@ -9,12 +9,16 @@
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
+#include <quxlang/parsers/parse_type_symbol.hpp>
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_option > try_parse_option(It& pos, It end)
+    inline std::optional< ast2_option > try_parse_option(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "OPTION"))
@@ -45,21 +49,37 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (skip_keyword_if_is(pos, end, "DEFAULT"))
+        if (skip_keyword_if_is(pos, end, "DEFAULT") || skip_keyword_if_is(pos, end, "DEFAULT_VALUE"))
         {
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected ( after DEFAULT");
+                throw std::logic_error("Expected ( after DEFAULT_VALUE");
             }
             skip_whitespace_and_comments(pos, end);
-            expression e = parse_expression(pos, end);
+            expression e = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ) after DEFAULT expression");
+                throw std::logic_error("Expected ) after DEFAULT_VALUE expression");
             }
-            opt.default_value = e;
+            opt.option_default = ast2_option_default{ast2_option_default_value{.value = e}};
+            skip_whitespace_and_comments(pos, end);
+        }
+        else if (skip_keyword_if_is(pos, end, "DEFAULT_FROM"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected ( after DEFAULT_FROM");
+            }
+            skip_whitespace_and_comments(pos, end);
+            opt.option_default = ast2_option_default{ast2_option_default_from{.symbol = parse_type_symbol(ctx)}};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ) after DEFAULT_FROM option symbol");
+            }
             skip_whitespace_and_comments(pos, end);
         }
 
@@ -68,8 +88,10 @@ namespace quxlang::parsers
             throw std::logic_error("Expected ';' after OPTION declaration");
         }
 
+        opt.location = ctx.get_location_optional(begin, pos);
         return opt;
     }
+
 }
 
 #endif // QUXLANG_OPTION_HPP

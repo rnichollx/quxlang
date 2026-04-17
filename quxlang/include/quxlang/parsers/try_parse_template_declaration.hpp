@@ -12,14 +12,14 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    declaroid parse_declaroid(It& pos, It end);
+    declaroid parse_declaroid(parsing_context& ctx);
 
-    template < typename It >
-    std::optional< quxlang::ast2_template_declaration > try_parse_template(It& pos, It end)
+    inline std::optional< quxlang::ast2_template_declaration > try_parse_template(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
         auto pos2 = pos;
-
 
         if (!skip_keyword_if_is(pos2, end, "TEMPLATE"))
         {
@@ -55,7 +55,7 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
-            arg.type = parse_type_symbol(pos, end);
+            arg.type = parse_type_symbol(ctx);
 
             if (ct->m_template_args.named.contains(*arg.api_name))
             {
@@ -66,7 +66,7 @@ namespace quxlang::parsers
         }
         else
         {
-            arg.type = parse_type_symbol(pos, end);
+            arg.type = parse_type_symbol(ctx);
             ct->m_template_args.positional.push_back(std::move(arg));
         }
         skip_whitespace_and_comments(pos, end);
@@ -78,7 +78,8 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ")"))
         {
             skip_whitespace_and_comments(pos, end);
-            ct->m_declaroid = parse_declaroid(pos, end);
+            ct->m_declaroid = parse_declaroid(ctx);
+            ct->location = ctx.get_location_optional(begin, pos);
             return ct;
         }
         else

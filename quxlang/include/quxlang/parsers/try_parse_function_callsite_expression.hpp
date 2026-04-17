@@ -9,12 +9,16 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    expression parse_expression(It& pos, It end);
-
-    template < typename It >
-    expression_arg parse_expression_arg(It& pos, It end)
+    namespace detail
     {
+        expression parse_expression_impl(parsing_context& ctx);
+    }
+
+    inline expression_arg parse_expression_arg(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
         expression_arg result;
         if (skip_symbol_if_is(pos, end, "@"))
         {
@@ -22,16 +26,19 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
         }
 
-        result.value = parse_expression(pos, end);
+        result.value = detail::parse_expression_impl(ctx);
+        result.location = ctx.get_location_optional(parse_iterator(begin), parse_iterator(pos));
         return result;
     }
 
-    template < typename It >
-    std::optional< expression_call > try_parse_function_callsite_expression(It& pos, It end)
+    inline std::optional< expression_call > try_parse_function_callsite_expression(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
 
         skip_whitespace_and_comments(pos, end);
 
+        auto begin = pos;
         if (!skip_symbol_if_is(pos, end, "("))
         {
             return std::nullopt;
@@ -48,7 +55,7 @@ namespace quxlang::parsers
     get_arg:
 
         skip_whitespace_and_comments(pos, end);
-        expression_arg expr = parse_expression_arg(pos, end);
+        expression_arg expr = parse_expression_arg(ctx);
         result.args.push_back(std::move(expr));
 
         if (skip_symbol_if_is(pos, end, ","))
@@ -61,6 +68,7 @@ namespace quxlang::parsers
             throw std::logic_error("expected ',' or ')'");
         }
 
+        result.location = ctx.get_location_optional(parse_iterator(begin), parse_iterator(pos));
         return std::move(result);
     }
 

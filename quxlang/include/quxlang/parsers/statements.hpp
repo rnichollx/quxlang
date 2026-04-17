@@ -14,13 +14,11 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional<function_place_statement> try_parse_place_statement(It& pos, It end)
+    inline std::optional<function_place_statement> try_parse_place_statement(parsing_context& ctx)
     {
-        // there are three forms,
-        // PLACE AT(loc) type :(args...);
-        // PLACE AT(loc) type := assign_init_expr;
-        // PLACE AT(loc) type;
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
 
         skip_whitespace_and_comments(pos, end);
 
@@ -43,7 +41,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
         function_place_statement result;
-        result.at = parse_expression(pos, end);
+        result.at = parse_expression(ctx);
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
@@ -52,20 +50,19 @@ namespace quxlang::parsers
         }
 
         skip_whitespace_and_comments(pos, end);
-        result.type = parse_type_symbol(pos, end);
+        result.type = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, ":("))
         {
-            // constructor argument form
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
                 while (true)
                 {
                     skip_whitespace_and_comments(pos, end);
-                    expression_arg arg = parse_expression_arg(pos, end);
+                    expression_arg arg = parse_expression_arg(ctx);
                     result.args.push_back(std::move(arg));
                     skip_whitespace_and_comments(pos, end);
                     if (skip_symbol_if_is(pos, end, ","))
@@ -87,35 +84,35 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected ';' after PLACE statement");
             }
+            result.location = ctx.get_location_optional(begin, pos);
             return std::optional<function_place_statement>{std::move(result)};
         }
         else if (skip_symbol_if_is(pos, end, ":="))
         {
-            // assignment initializer form
             skip_whitespace_and_comments(pos, end);
-            result.assign_init = parse_expression(pos, end);
+            result.assign_init = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
                 throw std::logic_error("Expected ';' after PLACE := initializer");
             }
+            result.location = ctx.get_location_optional(begin, pos);
             return result;
         }
         else
         {
-            // bare form
             if (!skip_symbol_if_is(pos, end, ";"))
             {
                 throw std::logic_error("Expected ';' after PLACE statement");
             }
+            result.location = ctx.get_location_optional(begin, pos);
             return result;
         }
     }
 
-    template < typename It >
-    function_place_statement parse_place_statement(It& pos, It end)
+    inline function_place_statement parse_place_statement(parsing_context& ctx)
     {
-        auto res = try_parse_place_statement(pos, end);
+        auto res = try_parse_place_statement(ctx);
         if (!res)
         {
             throw std::logic_error("Expected PLACE statement");
@@ -123,9 +120,12 @@ namespace quxlang::parsers
         return std::move(*res);
     }
 
-    template < typename It >
-    auto parse_destroy_statement(It& pos, It end) -> function_destroy_statement
+    inline auto parse_destroy_statement(parsing_context& ctx) -> function_destroy_statement
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "DESTROY"))
         {
@@ -143,14 +143,14 @@ namespace quxlang::parsers
         }
         skip_whitespace_and_comments(pos, end);
         function_destroy_statement result;
-        result.at = parse_expression(pos, end);
+        result.at = parse_expression(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
             throw std::logic_error("Expected ')' after DESTROY AT(location expression)");
         }
         skip_whitespace_and_comments(pos, end);
-        result.type = parse_type_symbol(pos, end);
+        result.type = parse_type_symbol(ctx);
         skip_whitespace_and_comments(pos, end);
         if (skip_symbol_if_is(pos, end, ":("))
         {
@@ -160,7 +160,7 @@ namespace quxlang::parsers
                 while (true)
                 {
                     skip_whitespace_and_comments(pos, end);
-                    result.args.push_back(parse_expression_arg(pos, end));
+                    result.args.push_back(parse_expression_arg(ctx));
                     skip_whitespace_and_comments(pos, end);
                     if (skip_symbol_if_is(pos, end, ","))
                     {
@@ -182,8 +182,10 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected ';' after DESTROY statement");
         }
+        result.location = ctx.get_location_optional(begin, pos);
         return result;
     }
+
 } // namespace quxlang::parsers
 
 #endif // QUXLANG_STATEMENT_HPP

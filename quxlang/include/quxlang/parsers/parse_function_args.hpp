@@ -7,9 +7,10 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::vector< ast2_function_parameter > parse_function_args(It& pos, It end)
+    inline std::vector< ast2_function_parameter > parse_function_args(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         std::vector< ast2_function_parameter > result;
 
         if (!skip_symbol_if_is(pos, end, "("))
@@ -78,7 +79,7 @@ namespace quxlang::parsers
 
         std::string remaining_after_name = std::string(pos, end);
 
-        arg_type = parse_type_symbol(pos, end);
+        arg_type = parse_type_symbol(ctx);
 
         result.push_back(std::move(arg));
 
@@ -100,11 +101,6 @@ namespace quxlang::parsers
         // TODO: Check for duplicate argument names here?
     }
 
-    inline std::vector< ast2_function_parameter > parse_function_args(std::string str)
-    {
-        auto it = str.begin();
-        return parse_function_args(it, str.end());
-    }
 } // namespace quxlang::parsers
 
 #endif // PARSE_FUNCTION_ARGS_HPP

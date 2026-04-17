@@ -164,6 +164,80 @@ namespace quxlang
             return result;
         }
 
+        inline auto source_file_name_debug_string(source_file_name const& value) -> std::string
+        {
+            return value.source_module + "/" + value.relative_path;
+        }
+
+        inline auto source_file_index_debug_string(source_file_index const& value) -> std::string
+        {
+            std::string result = "source_file_index{";
+            bool first = true;
+            for (auto const& [id, file] : value.id_to_file)
+            {
+                if (!first)
+                {
+                    result += ", ";
+                }
+                first = false;
+                result += std::to_string(id);
+                result += "=";
+                result += source_file_name_debug_string(file);
+            }
+            result += "}";
+            return result;
+        }
+
+        inline auto module_options_map_debug_string(std::map< std::string, std::map< std::string, std::string > > const& value) -> std::string
+        {
+            std::string result = "module_option_strings_map{";
+            bool first_module = true;
+
+            for (auto const& [module_name, option_values] : value)
+            {
+                if (!first_module)
+                {
+                    result += ", ";
+                }
+                else
+                {
+                    first_module = false;
+                }
+
+                result += module_name;
+                result += "=";
+                result += debug_key_list(option_values);
+            }
+
+            result += "}";
+            return result;
+        }
+
+        inline auto module_options_map_debug_string(std::map< type_symbol, std::string > const& value) -> std::string
+        {
+            std::string result = "module_options_map{";
+            bool first = true;
+
+            for (auto const& [option_symbol, option_value] : value)
+            {
+                if (!first)
+                {
+                    result += ", ";
+                }
+                else
+                {
+                    first = false;
+                }
+
+                result += to_string(option_symbol);
+                result += "=";
+                result += option_value;
+            }
+
+            result += "}";
+            return result;
+        }
+
         inline auto source_bundle_debug_string(source_bundle const& value) -> std::string
         {
             std::string result = "source_bundle{targets=";
@@ -380,9 +454,45 @@ namespace rpnx::querygraph
     };
 
     template <>
+    struct binary_traits< std::map< std::string, std::map< std::string, std::string > > >
+    {
+        static auto serialize_to_binary(std::map< std::string, std::map< std::string, std::string > > const& value) -> std::vector< std::byte >
+        {
+            return quxlang::querygraph_serialize(value);
+        }
+    };
+
+    template <>
+    struct binary_traits< std::map< quxlang::type_symbol, std::string > >
+    {
+        static auto serialize_to_binary(std::map< quxlang::type_symbol, std::string > const& value) -> std::vector< std::byte >
+        {
+            return quxlang::querygraph_serialize(value);
+        }
+    };
+
+    template <>
     struct binary_traits< quxlang::source_bundle >
     {
         static auto serialize_to_binary(quxlang::source_bundle const& value) -> std::vector< std::byte >
+        {
+            return quxlang::querygraph_serialize(value);
+        }
+    };
+
+    template <>
+    struct binary_traits< quxlang::source_file_name >
+    {
+        static auto serialize_to_binary(quxlang::source_file_name const& value) -> std::vector< std::byte >
+        {
+            return quxlang::querygraph_serialize(value);
+        }
+    };
+
+    template <>
+    struct binary_traits< quxlang::source_file_index >
+    {
+        static auto serialize_to_binary(quxlang::source_file_index const& value) -> std::vector< std::byte >
         {
             return quxlang::querygraph_serialize(value);
         }
@@ -416,11 +526,47 @@ namespace rpnx::querygraph
     };
 
     template <>
+    struct debug_traits< std::map< std::string, std::map< std::string, std::string > > >
+    {
+        static auto to_debug_string(std::map< std::string, std::map< std::string, std::string > > const& value) -> std::string
+        {
+            return quxlang::detail::module_options_map_debug_string(value);
+        }
+    };
+
+    template <>
+    struct debug_traits< std::map< quxlang::type_symbol, std::string > >
+    {
+        static auto to_debug_string(std::map< quxlang::type_symbol, std::string > const& value) -> std::string
+        {
+            return quxlang::detail::module_options_map_debug_string(value);
+        }
+    };
+
+    template <>
     struct debug_traits< quxlang::source_bundle >
     {
         static auto to_debug_string(quxlang::source_bundle const& value) -> std::string
         {
             return quxlang::detail::source_bundle_debug_string(value);
+        }
+    };
+
+    template <>
+    struct debug_traits< quxlang::source_file_name >
+    {
+        static auto to_debug_string(quxlang::source_file_name const& value) -> std::string
+        {
+            return quxlang::detail::source_file_name_debug_string(value);
+        }
+    };
+
+    template <>
+    struct debug_traits< quxlang::source_file_index >
+    {
+        static auto to_debug_string(quxlang::source_file_index const& value) -> std::string
+        {
+            return quxlang::detail::source_file_index_debug_string(value);
         }
     };
 } // namespace rpnx::querygraph

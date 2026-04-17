@@ -9,9 +9,14 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    function_while_statement parse_while_statement(It& pos, It end)
+    function_block parse_function_block(parsing_context& ctx);
+
+    inline function_while_statement parse_while_statement(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "WHILE"))
         {
@@ -23,16 +28,18 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected '('");
         }
-        output.condition = parse_expression(pos, end);
+        output.condition = parse_expression(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
             throw std::logic_error("Expected ')'");
         }
         skip_whitespace_and_comments(pos, end);
-        output.loop_block = parse_function_block(pos, end);
+        output.loop_block = parse_function_block(ctx);
+        output.location = ctx.get_location_optional(begin, pos);
         return output;
     }
+
 } // namespace quxlang::parsers
 
 #endif // PARSE_WHILE_STATEMENT_HPP

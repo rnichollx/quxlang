@@ -4,6 +4,7 @@
 #define QUXLANG_DATA_NUMERIC_LITERAL_HEADER_GUARD
 
 #include <string>
+#include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
 #include <cinttypes>
 
@@ -13,21 +14,21 @@ namespace quxlang
     {
         std::string value;
 
-        RPNX_MEMBER_METADATA(expression_numeric_literal, value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_numeric_literal, value);
     };
 
     struct expression_string_literal
     {
         std::string value;
 
-        RPNX_MEMBER_METADATA(expression_string_literal, value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_string_literal, value);
     };
 
     struct expression_char_literal
     {
         std::byte value;
 
-        RPNX_MEMBER_METADATA(expression_char_literal, value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_char_literal, value);
     };
 
 } // namespace quxlang

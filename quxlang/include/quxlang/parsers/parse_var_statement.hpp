@@ -7,9 +7,12 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    function_var_statement parse_var_statement(It& pos, It end)
+    inline function_var_statement parse_var_statement(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "VAR"))
@@ -25,26 +28,21 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string remaining{pos, end};
-        var_statement.type = parse_type_symbol(pos, end);
+        var_statement.type = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, ":("))
         {
-
             while (true)
             {
-
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, ")"))
                 {
                     break;
                 }
 
-                remaining = std::string(pos, end);
-
-                expression expr = parse_expression(pos, end);
+                expression expr = parse_expression(ctx);
                 var_statement.initializers.push_back(std::move(expr));
 
                 if (skip_symbol_if_is(pos, end, ","))
@@ -63,21 +61,16 @@ namespace quxlang::parsers
         }
         if (skip_symbol_if_is(pos, end, ":["))
         {
-
             while (true)
             {
-
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, ")"))
                 {
                     break;
                 }
 
-                remaining = std::string(pos, end);
-
-                expression expr = parse_expression(pos, end);
+                expression expr = parse_expression(ctx);
                 throw rpnx::unimplemented();
-                //var_statement.array_initializers.push_back(std::move(expr));
 
                 if (skip_symbol_if_is(pos, end, ","))
                 {
@@ -96,11 +89,9 @@ namespace quxlang::parsers
         else if (skip_symbol_if_is(pos, end, ":="))
         {
             skip_whitespace_and_comments(pos, end);
-            var_statement.equals_initializer = parse_expression(pos, end);
+            var_statement.equals_initializer = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
         }
-
-        std::string remaining2{pos, end};
 
         skip_whitespace_and_comments(pos, end);
 
@@ -109,8 +100,10 @@ namespace quxlang::parsers
             throw std::logic_error("Expected ';'");
         }
 
+        var_statement.location = ctx.get_location_optional(begin, pos);
         return var_statement;
     }
+
 } // namespace quxlang
 
 #endif // PARSE_VAR_STATEMENT_HPP

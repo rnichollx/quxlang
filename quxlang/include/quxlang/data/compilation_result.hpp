@@ -4,7 +4,12 @@
 #ifndef QUXLANG_COMPILATION_RESULT_HPP
 #define QUXLANG_COMPILATION_RESULT_HPP
 
+#include <quxlang/ast2/source_location.hpp>
 #include <rpnx/variant.hpp>
+
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace quxlang
 {
@@ -15,7 +20,7 @@ namespace quxlang
     struct trace_frame
     {
         std::string trace_context;
-        source_location location;
+        std::optional< source_location > location;
 
         RPNX_MEMBER_METADATA(trace_frame, trace_context, location);
     };

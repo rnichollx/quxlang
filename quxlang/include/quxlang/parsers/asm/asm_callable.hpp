@@ -14,11 +14,12 @@
 namespace quxlang::parsers
 {
 
-    template <typename It>
-    std::optional< ast2_asm_callable > try_parse_asm_callable(It& start, It end)
+    inline std::optional< ast2_asm_callable > try_parse_asm_callable(parsing_context& ctx)
     {
         ast2_asm_callable output;
-        auto pos = start;
+        auto trial = ctx;
+        auto& pos = trial.iter_pos;
+        auto end = trial.iter_end;
 
         skip_whitespace_and_comments(pos, end);
         if (!parsers::skip_keyword_if_is(pos, end, "CALLABLE"))
@@ -62,7 +63,7 @@ namespace quxlang::parsers
 
             parsers::skip_whitespace_and_comments(pos, end);
 
-            auto input_type = parsers::parse_type_symbol(pos, end);
+            auto input_type = parsers::parse_type_symbol(trial);
 
             output.args.push_back(ast2_argument_interface{.register_name = register_name, .type = input_type});
 
@@ -79,7 +80,7 @@ namespace quxlang::parsers
             }
         }
 
-        start = pos;
+        ctx.iter_pos = pos;
         return output;
 
     }

@@ -18,47 +18,38 @@
 
 namespace quxlang::parsers
 {
-    /**
-     * @brief Attempts to parse a function block from the given iterator range.
-     *
-     * Skips whitespace and comments, then checks for the opening '{'. Continues to parse
-     * function statements until the closing '}' is encountered.
-     *
-     * @tparam It Iterator type.
-     * @param pos Iterator referencing the current position.
-     * @param end End iterator marking the limit.
-     * @return Optional function_block if successfully parsed; std::nullopt if the opening '{' is missing.
-     * @throw std::logic_error When the closing '}' is not found after parsing the statements.
-     */
-    template < typename It >
-    std::optional<function_block> try_parse_function_block(It& pos, It end)
+    inline std::optional<function_block> try_parse_function_block(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         function_block body;
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-           return std::nullopt;// throw std::logic_error("Expected '{'");
+           return std::nullopt;
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, "}"))
         {
-            // end of function body
+            body.location = ctx.get_location_optional(begin, pos);
             return body;
         }
 
         std::optional< function_statement > statement;
 
-        while ((statement = try_parse_statement(pos, end)))
+        while ((statement = try_parse_statement(ctx)))
         {
             body.statements.push_back(std::move(statement.value()));
             skip_whitespace_and_comments(pos, end);
 
             if (skip_symbol_if_is(pos, end, "}"))
             {
-                // end of function body
+                body.location = ctx.get_location_optional(begin, pos);
                 return body;
             }
         }
@@ -67,28 +58,15 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, "}"))
         {
-            // end of function body
+            body.location = ctx.get_location_optional(begin, pos);
             return body;
         }
-        auto remaining = std::string(pos, end);
         throw std::logic_error("Expected '}' or statement");
     }
 
-    /**
-     * @brief Parses a function block from the input iterator range.
-     *
-     * Wrapper around try_parse_function_block. Throws an exception if a function block cannot be parsed.
-     *
-     * @tparam It Iterator type.
-     * @param pos Iterator referencing the current position.
-     * @param end End iterator marking the limit.
-     * @return A function_block representing the parsed function block.
-     * @throw std::logic_error When the function block is not successfully parsed.
-     */
-    template <typename It>
-    function_block parse_function_block(It& pos, It end)
+    inline function_block parse_function_block(parsing_context& ctx)
     {
-        auto fb = try_parse_function_block(pos, end);
+        auto fb = try_parse_function_block(ctx);
         if (fb)
         {
             return *fb;
@@ -99,4 +77,3 @@ namespace quxlang::parsers
 } // namespace quxlang::parsers
 
 #endif // PARSE_FUNCTION_BODY_HPP
-

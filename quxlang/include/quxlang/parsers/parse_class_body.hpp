@@ -13,17 +13,15 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::vector< ast2_named_declaration > parse_named_declarations(It& pos, It end);
+    std::vector< subdeclaroid > parse_subdeclaroids(parsing_context& ctx);
 
-    template < typename It >
-    std::vector< subdeclaroid > parse_subdeclaroids(It& pos, It end);
-
-    template < typename It >
-    ast2_class_declaration parse_class_body(It& pos, It end)
+    inline ast2_class_declaration parse_class_body(parsing_context& ctx)
     {
-        skip_whitespace_and_comments(pos, end);
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
 
+        skip_whitespace_and_comments(pos, end);
 
         ast2_class_declaration result;
 
@@ -50,17 +48,13 @@ namespace quxlang::parsers
             break;
         }
 
-
-
         if (!skip_symbol_if_is(pos, end, "{"))
         {
             throw std::logic_error("Expected '{'");
         }
 
-    member:
-
         skip_whitespace_and_comments(pos, end);
-        auto subdecls = parse_subdeclaroids(pos, end);
+        auto subdecls = parse_subdeclaroids(ctx);
 
         for (subdeclaroid const& decl : subdecls)
         {
@@ -69,13 +63,12 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        std::string rem(pos, end);
-
         if (!skip_symbol_if_is(pos, end, "}"))
         {
             throw std::logic_error("Expected '}'");
         }
 
+        result.location = ctx.get_location_optional(begin, pos);
         return result;
     }
 } // namespace quxlang::parsers

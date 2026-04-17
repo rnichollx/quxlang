@@ -16,12 +16,14 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::optional< ast2_function_declaration > try_parse_function_declaration(It& pos, It end)
-    {
-        std::string str (pos, end);
+    function_block parse_function_block(parsing_context& ctx);
 
-        It begin = pos;
+    inline std::optional< ast2_function_declaration > try_parse_function_declaration(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
         std::optional< ast2_function_declaration > out;
 
         if (!skip_keyword_if_is(pos, end, "FUNCTION"))
@@ -30,10 +32,8 @@ namespace quxlang::parsers
         }
         out = ast2_function_declaration{};
 
-        // TODO: Add support for named arguments
-        out->header.call_parameters = parse_function_args(pos, end);
-        
-        // Optional ENABLE_IF(<expr>) before return type
+        out->header.call_parameters = parse_function_args(ctx);
+
         skip_whitespace_and_comments(pos, end);
         if (skip_keyword_if_is(pos, end, "ENABLE_IF"))
         {
@@ -43,7 +43,7 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected '(' after ENABLE_IF");
             }
             skip_whitespace_and_comments(pos, end);
-            out->header.enable_if = parse_expression(pos, end);
+            out->header.enable_if = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -52,20 +52,19 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
         }
 
-        out->definition.return_type = try_parse_function_return_type(pos, end);
-        out->definition.delegates = parse_function_delegates(pos, end);
-        out->definition.body = parse_function_block(pos, end);
-        out->location.set(begin, pos);
+        out->definition.return_type = try_parse_function_return_type(ctx);
+        out->definition.delegates = parse_function_delegates(ctx);
+        out->definition.body = parse_function_block(ctx);
+        out->location = ctx.get_location_optional(begin, pos);
         return out;
     }
 
-
-    template < typename It >
-    std::optional< ast2_static_test > try_parse_static_test(It& pos, It end)
+    inline std::optional< ast2_static_test > try_parse_static_test(parsing_context& ctx)
     {
-        std::string str (pos, end);
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
 
-        It begin = pos;
         std::optional< ast2_static_test > out;
 
         if (!skip_keyword_if_is(pos, end, "STATIC_TEST"))
@@ -84,10 +83,11 @@ namespace quxlang::parsers
             out->expected_mode = static_test_expected_mode::expect_compilation_failure;
         }
 
-        out->definition.body = parse_function_block(pos, end);
-        out->location.set(begin, pos);
+        out->definition.body = parse_function_block(ctx);
+        out->location = ctx.get_location_optional(begin, pos);
         return out;
     }
+
 } // namespace quxlang::parsers
 
 #endif // TRY_PARSE_FUNCTION_DECLARATION_HPP

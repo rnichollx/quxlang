@@ -17,11 +17,27 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    expression parse_expression(It& pos, It end);
+    inline std::optional< expression > try_parse_expression(parsing_context& ctx);
 
     namespace detail
     {
+        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx);
+
+        inline expression parse_expression_impl(parsing_context& ctx)
+        {
+            auto& pos = ctx.iter_pos;
+            auto end = ctx.iter_end;
+            skip_whitespace_and_comments(pos, end);
+            auto expr_begin = pos;
+            if (auto output = try_parse_expression_impl(ctx); output)
+            {
+                auto result = output.value();
+                set_location(result, ctx.get_location_optional(parse_iterator(expr_begin), parse_iterator(pos)));
+                return result;
+            }
+            throw std::logic_error("Expected expression");
+        }
+
         template < typename It >
         bool binary_operator_v3(It& pos, It end, std::vector< expression* >& operator_bindings, expression*& value_binding)
         {
@@ -97,15 +113,15 @@ namespace quxlang::parsers
             value_binding = &(as< expression_binary >(*binding_point2)).rhs;
             return true;
         }
-    } // namespace detail
 
-    template < typename It >
-    std::optional< expression > try_parse_expression(It& pos, It end)
-    {
-        static localizer loc;
+        inline std::optional< expression > try_parse_expression_impl(parsing_context& ctx)
+        {
+            auto& pos = ctx.iter_pos;
+            auto end = ctx.iter_end;
+            static localizer loc;
 
-        // TODO: Make this not hardcoded
-        std::string lang = "EN";
+            // TODO: Make this not hardcoded
+            std::string lang = "EN";
 
         skip_whitespace_and_comments(pos, end);
 
@@ -166,7 +182,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after IS_SIGNED");
             }
-            expr_is_integral.of_type = try_parse_type_symbol(pos, end).value();
+            expr_is_integral.of_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -183,7 +199,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after IS_INTEGRAL");
             }
-            expr_is_integral.of_type = try_parse_type_symbol(pos, end).value();
+            expr_is_integral.of_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -200,13 +216,13 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after SAME_TYPES");
             }
-            expr_same_types.lhs_type = try_parse_type_symbol(pos, end).value();
+            expr_same_types.lhs_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ","))
             {
                 throw std::logic_error("Expected ',' after first SAME_TYPES(<type>, ...)");
             }
-            expr_same_types.rhs_type = try_parse_type_symbol(pos, end).value();
+            expr_same_types.rhs_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -223,21 +239,21 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after STATIC_CHOOSE");
             }
-            expr.condition = parse_expression(pos, end);
+            expr.condition = parse_expression_impl(ctx);
             skip_whitespace_and_comments(pos, end);
 
             if (!skip_symbol_if_is(pos, end, ","))
             {
                 throw std::logic_error("Expected ',' after STATIC_CHOOSE condition");
             }
-            expr.true_expr = parse_expression(pos, end);
+            expr.true_expr = parse_expression_impl(ctx);
             skip_whitespace_and_comments(pos, end);
 
             if (!skip_symbol_if_is(pos, end, ","))
             {
                 throw std::logic_error("Expected ',' after STATIC_CHOOSE true expression");
             }
-            expr.false_expr = parse_expression(pos, end);
+            expr.false_expr = parse_expression_impl(ctx);
 
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -254,7 +270,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after SIZEOF");
             }
-            sz.of_type = try_parse_type_symbol(pos, end).value();
+            sz.of_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -271,7 +287,7 @@ namespace quxlang::parsers
             {
                 throw std::logic_error("Expected '(' after SIZEOF");
             }
-            bits.of_type = try_parse_type_symbol(pos, end).value();
+            bits.of_type = try_parse_type_symbol(ctx).value();
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
@@ -302,12 +318,12 @@ namespace quxlang::parsers
         {
             expression_pun pun_expr;
             skip_whitespace_and_comments(pos, end);
-            auto parsed_value = parse_expression(pos, end);
+            auto parsed_value = parse_expression_impl(ctx);
             skip_whitespace_and_comments(pos, end);
             if (skip_keyword_if_is(pos, end, "AS"))
             {
                 skip_whitespace_and_comments(pos, end);
-                auto as_type = try_parse_type_symbol(pos, end);
+                auto as_type = try_parse_type_symbol(ctx);
                 if (!as_type)
                 {
                     throw std::logic_error("Expected type after PUN ... AS");
@@ -342,14 +358,14 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected '(' after PLACE AT");
             }
             skip_whitespace_and_comments(pos, end);
-            place_expr.at = parse_expression(pos, end);
+            place_expr.at = parse_expression_impl(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
                 throw std::logic_error("Expected ')' after PLACE AT(location expression)");
             }
             skip_whitespace_and_comments(pos, end);
-            place_expr.type = parse_type_symbol(pos, end);
+            place_expr.type = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ":("))
             {
@@ -359,7 +375,7 @@ namespace quxlang::parsers
                     while (true)
                     {
                         skip_whitespace_and_comments(pos, end);
-                        place_expr.args.push_back(parse_expression_arg(pos, end));
+                        place_expr.args.push_back(parse_expression_arg(ctx));
                         skip_whitespace_and_comments(pos, end);
                         if (skip_symbol_if_is(pos, end, ","))
                         {
@@ -376,7 +392,7 @@ namespace quxlang::parsers
             else if (skip_symbol_if_is(pos, end, ":="))
             {
                 skip_whitespace_and_comments(pos, end);
-                place_expr.assign_init = parse_expression(pos, end);
+                place_expr.assign_init = parse_expression_impl(ctx);
             }
             *value_bind_point = std::move(place_expr);
             have_anything = true;
@@ -397,7 +413,7 @@ namespace quxlang::parsers
             *value_bind_point = thisdot;
             have_anything = true;
         }
-        else if (auto sym = try_parse_type_symbol(pos, end); sym)
+        else if (auto sym = try_parse_type_symbol(ctx); sym)
         {
             assert(sym.has_value());
 
@@ -411,7 +427,7 @@ namespace quxlang::parsers
         {
 
             expression parenthesis;
-            parenthesis = parse_expression(pos, end);
+            parenthesis = parse_expression_impl(ctx);
             *value_bind_point = parenthesis;
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
@@ -440,7 +456,7 @@ namespace quxlang::parsers
         {
             goto next_value;
         }
-        else if (std::optional< expression_call > call = try_parse_function_callsite_expression(pos, end); call)
+        else if (std::optional< expression_call > call = try_parse_function_callsite_expression(ctx); call)
         {
             expression* binding_point2 = bindings[bindings.size() - 1];
             call.value().callee = std::move(*binding_point2);
@@ -461,7 +477,7 @@ namespace quxlang::parsers
             }
 
             // Parse the destination type
-            auto to_type = try_parse_type_symbol(pos, end);
+            auto to_type = try_parse_type_symbol(ctx);
             if (!to_type)
             {
                 throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED)");
@@ -518,7 +534,7 @@ namespace quxlang::parsers
             brkts.lhs = std::move(*bindings[bindings.size() - 1]);
             while (true)
             {
-                brkts.bracketed.push_back(parse_expression(pos, end));
+                brkts.bracketed.push_back(parse_expression_impl(ctx));
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, "]"))
                 {
@@ -539,7 +555,7 @@ namespace quxlang::parsers
             brkts.lhs = std::move(*bindings[bindings.size() - 1]);
             while (true)
             {
-                brkts.bracketed.push_back(parse_expression(pos, end));
+                brkts.bracketed.push_back(parse_expression_impl(ctx));
                 skip_whitespace_and_comments(pos, end);
                 if (skip_symbol_if_is(pos, end, "]"))
                 {
@@ -607,6 +623,19 @@ namespace quxlang::parsers
         }
 
         throw rpnx::unimplemented();
+    }
+    } // namespace detail
+
+    inline std::optional< expression > try_parse_expression(parsing_context& ctx)
+    {
+        skip_whitespace_and_comments(ctx.iter_pos, ctx.iter_end);
+        auto begin = ctx.iter_pos;
+        auto result = detail::try_parse_expression_impl(ctx);
+        if (result)
+        {
+            set_location(*result, ctx.get_location_optional(begin, ctx.iter_pos));
+        }
+        return result;
     }
 } // namespace quxlang::parsers
 

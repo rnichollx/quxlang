@@ -162,22 +162,26 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string(vmir2::vm_instruction inst)
     {
-        return rpnx::apply_visitor< std::string >(
+        auto result = rpnx::apply_visitor< std::string >(
             inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
             });
+        result += quxlang::source_location_suffix(vmir2::get_location(inst));
+        return result;
     }
 
     std::string assembler::to_string(vmir2::vm_terminator inst)
     {
-        return rpnx::apply_visitor< std::string >(
+        auto result = rpnx::apply_visitor< std::string >(
             inst,
             [&](auto&& x)
             {
                 return this->to_string_internal(x);
             });
+        result += quxlang::source_location_suffix(vmir2::get_location(inst));
+        return result;
     }
 
     std::string assembler::to_string(vmir2::local_type lct)
@@ -306,8 +310,7 @@ namespace quxlang::vmir2
         // TODO: Escape the message so it wont look weird if it has quotes in it
         message = "\"" + asrt.message + "\"";
 
-        // TODO: convert the location to string also
-        return "ASSERT %" + std::to_string(asrt.condition) + ", " + message + ", @@ <TODO>";
+        return "ASSERT %" + std::to_string(asrt.condition) + ", " + message;
     }
     std::string assembler::to_string_internal(vmir2::increment inst)
     {

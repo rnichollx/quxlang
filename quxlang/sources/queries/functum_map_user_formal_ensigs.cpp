@@ -107,6 +107,8 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             }
         }
 
+        formal_ensig = strip_source_locations(std::move(formal_ensig));
+
         if (output.contains(formal_ensig))
         {
             throw std::logic_error("Duplicate overload");

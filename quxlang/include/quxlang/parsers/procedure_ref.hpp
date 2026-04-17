@@ -10,14 +10,16 @@
 
 namespace quxlang::parsers
 {
-    template <typename It>
-    std::optional< ast2_procedure_ref > try_parse_ast2_procedure_ref(It& it, It end)
+    inline std::optional< ast2_procedure_ref > try_parse_ast2_procedure_ref(parsing_context& ctx)
     {
         // Example: PROCEDURE_REF( "ccall", foo::bar#(I32, MUT & I32) )
-        auto pos = it;
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
 
         if (!skip_keyword_if_is(pos, end, "PROCEDURE_REF"))
         {
+            pos = begin;
             return std::nullopt;
         }
 
@@ -41,7 +43,7 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        auto sym = parse_type_symbol(pos, end);
+        auto sym = parse_type_symbol(ctx);
 
         skip_whitespace_and_comments(pos, end);
 
@@ -49,8 +51,6 @@ namespace quxlang::parsers
         {
             throw std::logic_error("Expected ')' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\", ...");
         }
-
-        it = pos;
 
         return ast2_procedure_ref{
             .cc = calling_convention,

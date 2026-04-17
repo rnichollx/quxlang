@@ -5,6 +5,7 @@
 
 #include "lookup_chain.hpp"
 #include "numeric_literal.hpp"
+#include "quxlang/macros.hpp"
 
 #include <quxlang/data/type_symbol.hpp>
 #include <rpnx/compare.hpp>
@@ -34,7 +35,7 @@ namespace quxlang
 
     struct expression_this_reference
     {
-        RPNX_EMPTY_METADATA(expression_this_reference);
+        QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(expression_this_reference);
     };
 
     struct expression_dotreference;
@@ -43,14 +44,14 @@ namespace quxlang
     {
         std::string field_name;
 
-        RPNX_MEMBER_METADATA(expression_thisdot_reference, field_name);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_thisdot_reference, field_name);
     };
 
     struct expression_quarrow
     {
         std::string field_name;
 
-        RPNX_MEMBER_METADATA(expression_quarrow, field_name);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_quarrow, field_name);
     };
 
 
@@ -59,7 +60,7 @@ namespace quxlang
     {
         type_symbol symbol;
 
-        RPNX_MEMBER_METADATA(expression_symbol_reference, symbol);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_symbol_reference, symbol);
     };
 
 
@@ -70,7 +71,7 @@ namespace quxlang
         expression lhs;
         expression rhs;
 
-        RPNX_MEMBER_METADATA(expression_binary, operator_str, lhs, rhs);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_binary, operator_str, lhs, rhs);
     };
 
     struct expression_unary_prefix
@@ -78,7 +79,7 @@ namespace quxlang
         std::string operator_str;
         expression rhs;
 
-        RPNX_MEMBER_METADATA(expression_unary_prefix, operator_str, rhs);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_unary_prefix, operator_str, rhs);
     };
 
     struct expression_unary_postfix
@@ -86,7 +87,7 @@ namespace quxlang
         std::string operator_str;
         expression lhs;
 
-        RPNX_MEMBER_METADATA(expression_unary_postfix, operator_str, lhs);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_unary_postfix, operator_str, lhs);
     };
 
     struct expression_dotreference
@@ -94,7 +95,7 @@ namespace quxlang
         expression lhs;
         std::string field_name;
 
-        RPNX_MEMBER_METADATA(expression_dotreference, lhs, field_name);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_dotreference, lhs, field_name);
     };
 
     // Right arrow -> is used to get a reference from a pointer.
@@ -102,7 +103,7 @@ namespace quxlang
     {
         expression lhs;
 
-        RPNX_MEMBER_METADATA(expression_rightarrow, lhs);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_rightarrow, lhs);
     };
 
     // Left arrow <- is used to get a pointer from a reference.
@@ -110,7 +111,7 @@ namespace quxlang
     {
         expression lhs;
 
-        RPNX_MEMBER_METADATA(expression_leftarrow, lhs);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_leftarrow, lhs);
     };
 
     struct expression_multibind
@@ -119,14 +120,14 @@ namespace quxlang
         expression lhs;
         std::vector< expression > bracketed;
 
-        RPNX_MEMBER_METADATA(expression_multibind, operator_str, lhs, bracketed);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_multibind, operator_str, lhs, bracketed);
     };
 
     struct expression_value_keyword
     {
         std::string keyword;
 
-        RPNX_MEMBER_METADATA(expression_value_keyword, keyword);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_value_keyword, keyword);
     };
 
     struct expression_arg
@@ -134,7 +135,7 @@ namespace quxlang
         std::optional< std::string > name;
         expression value;
 
-        RPNX_MEMBER_METADATA(expression_arg, name, value);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_arg, name, value);
     };
 
     struct call_initializer
@@ -165,21 +166,21 @@ namespace quxlang
         expression callee;
         std::vector< expression_arg > args;
 
-        RPNX_MEMBER_METADATA(expression_call, callee, args);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_call, callee, args);
     };
 
     struct expression_bits
     {
         type_symbol of_type;
 
-        RPNX_MEMBER_METADATA(expression_bits, of_type);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_bits, of_type);
     };
 
     struct expression_sizeof
     {
         type_symbol of_type;
 
-        RPNX_MEMBER_METADATA(expression_sizeof);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_sizeof, of_type);
     };
 
     struct expression_is_integral
@@ -187,7 +188,7 @@ namespace quxlang
         type_symbol of_type;
         integral_qualifier qualifier = integral_qualifier::none;
 
-        RPNX_MEMBER_METADATA(expression_is_integral, of_type, qualifier);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_integral, of_type, qualifier);
     };
 
     struct expression_same_types
@@ -195,14 +196,14 @@ namespace quxlang
         type_symbol lhs_type;
         type_symbol rhs_type;
 
-        RPNX_MEMBER_METADATA(expression_same_types, lhs_type, rhs_type);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_same_types, lhs_type, rhs_type);
     };
 
     struct expression_is_signed
     {
         type_symbol of_type;
 
-        RPNX_MEMBER_METADATA(expression_is_signed, of_type);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_signed, of_type);
     };
 
 
@@ -212,7 +213,7 @@ namespace quxlang
         type_symbol to_type;
         std::optional< std::string > keyword;
 
-        RPNX_MEMBER_METADATA(expression_typecast, expr, to_type, keyword);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_typecast, expr, to_type, keyword);
     };
 
     struct expression_pun
@@ -220,7 +221,7 @@ namespace quxlang
         expression value;
         type_symbol as_type;
 
-        RPNX_MEMBER_METADATA(expression_pun, value, as_type);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_pun, value, as_type);
     };
 
     struct expression_place
@@ -230,7 +231,7 @@ namespace quxlang
         std::optional< expression > assign_init;
         std::vector< expression_arg > args;
 
-        RPNX_MEMBER_METADATA(expression_place, at, type, assign_init, args);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_place, at, type, assign_init, args);
     };
 
     struct expression_static_choose
@@ -239,7 +240,7 @@ namespace quxlang
         expression true_expr;
         expression false_expr;
 
-        RPNX_MEMBER_METADATA(expression_static_choose, condition, true_expr, false_expr);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_static_choose, condition, true_expr, false_expr);
     };
 
     struct expression_choose
@@ -248,7 +249,7 @@ namespace quxlang
         expression true_expr;
         expression false_expr;
 
-        RPNX_MEMBER_METADATA(expression_choose, condition, true_expr, false_expr);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_choose, condition, true_expr, false_expr);
     };
 
     struct delegate
@@ -277,5 +278,18 @@ namespace quxlang
 #include "quxlang/data/expression_multiply.hpp"
 #include "quxlang/data/expression_subtract.hpp"
 #include <quxlang/data/builtins.hpp>
+
+namespace quxlang
+{
+    inline std::optional< source_location > get_location(expression const& expr)
+    {
+        return rpnx::apply_visitor< std::optional< source_location > >(expr, [](auto const& value) { return value.location; });
+    }
+
+    inline void set_location(expression& expr, std::optional< source_location > location)
+    {
+        rpnx::apply_visitor<void>(expr, [&](auto& value) { value.location = location; });
+    }
+}
 
 #endif // QUXLANG_EXPRESSION_HEADER_GUARD

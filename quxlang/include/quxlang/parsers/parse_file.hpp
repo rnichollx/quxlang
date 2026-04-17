@@ -11,18 +11,14 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    ast2_file_declaration parse_file(It& begin, It end)
+    ast2_file_declaration parse_file2(parsing_context ctx);
+
+    inline ast2_file_declaration parse_file(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = ctx.iter_pos;
         ast2_file_declaration output;
-        It& pos = begin;
-        skip_whitespace_and_comments(pos, end);
-
-
-        skip_whitespace_and_comments(pos, end);
-
-
-
         skip_whitespace_and_comments(pos, end);
 
         if (skip_keyword_if_is(pos, end, "IMPORT"))
@@ -48,9 +44,8 @@ namespace quxlang::parsers
             output.imports[import_name] = module_name;
         }
 
-    entry:
         skip_whitespace_and_comments(pos, end);
-        auto decl = parse_subdeclaroids(pos, end);
+        auto decl = parse_subdeclaroids(ctx);
         skip_whitespace_and_comments(pos, end);
 
         for (auto d : decl)
@@ -63,17 +58,10 @@ namespace quxlang::parsers
             throw std::logic_error("Expected parse_subdeclaroids to consume the remainder of the file");
         }
 
+        output.location = ctx.get_location_optional(begin, ctx.iter_pos);
         return output;
     }
 
-    ast2_file_declaration parse_file2(parsing_context ctx);
-
-    inline ast2_file_declaration parse_file(std::string const& input)
-    {
-        auto it = input.begin();
-        auto end = input.end();
-        return parse_file(it, end);
-    }
 } // namespace quxlang::parsers
 
 #endif // PARSE_FILE_HPP

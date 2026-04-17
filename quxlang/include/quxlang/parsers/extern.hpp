@@ -5,20 +5,23 @@
 #define QUXLANG_PARSERS_EXTERN_HEADER_GUARD
 
 #include "parse_whitespace_and_comments.hpp"
+#include "quxlang/parsers/context.hpp"
 #include "symbol.hpp"
 #include "string_literal.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 
 namespace quxlang::parsers
 {
-    template <typename It>
-    std::optional< ast2_extern > try_parse_ast2_extern(It& it, It end)
+    inline std::optional< ast2_extern > try_parse_ast2_extern(parsing_context& ctx)
     {
-        auto pos = it;
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_keyword_if_is(pos, end, "EXTERNAL"))
         {
+            pos = begin;
             return std::nullopt;
         }
 

@@ -7,9 +7,10 @@
 
 namespace quxlang::parsers
 {
-    template < typename It >
-    std::vector< ast2_function_delegate > parse_function_delegates(It& pos, It end)
+    inline std::vector< ast2_function_delegate > parse_function_delegates(parsing_context& ctx)
     {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
         std::vector< ast2_function_delegate > output;
 
         if (skip_symbol_if_is(pos, end, ":>"))
@@ -18,10 +19,9 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
 
             ast2_function_delegate d;
-            d.target = parse_type_symbol(pos, end);
+            d.target = parse_type_symbol(ctx);
             skip_whitespace_and_comments(pos, end);
-            std::string remaning(pos, end);
-            d.args = try_parse_delegate_callsite_args(pos, end).value();
+            d.args = try_parse_delegate_callsite_args(ctx).value();
             skip_whitespace_and_comments(pos, end);
             output.push_back(d);
             if (skip_symbol_if_is(pos, end, ","))
