@@ -124,12 +124,12 @@
    ASSERT((FALSE || FALSE) == FALSE);
    ASSERT((TRUE ^^ FALSE) == TRUE);
    ASSERT((TRUE ^^ TRUE) == FALSE);
-   ASSERT((TRUE !^ TRUE) == TRUE);
-   ASSERT((TRUE !^ FALSE) == FALSE);
-   ASSERT((TRUE !& TRUE) == FALSE);
-   ASSERT((FALSE !& TRUE) == TRUE);
-   ASSERT((TRUE !| FALSE) == FALSE);
-   ASSERT((FALSE !| FALSE) == TRUE);
+   ASSERT((TRUE ^! TRUE) == TRUE);
+   ASSERT((TRUE ^! FALSE) == FALSE);
+   ASSERT((TRUE &! TRUE) == FALSE);
+   ASSERT((FALSE &! TRUE) == TRUE);
+   ASSERT((TRUE |! FALSE) == FALSE);
+   ASSERT((FALSE |! FALSE) == TRUE);
    ASSERT((TRUE ^> FALSE) == FALSE);
    ASSERT((FALSE ^> FALSE) == TRUE);
    ASSERT((FALSE ^< TRUE) == FALSE);
@@ -163,4 +163,3 @@
    ASSERT((FALSE ^< bool_probe(@counter counter, @value TRUE)) == FALSE);
    ASSERT(counter == 4);
 }
-

@@ -529,6 +529,14 @@ Bitwise nand.
 
 Bitwise nor.
 
+### Operator `#^>`
+
+Bitwise implication.
+
+### Operator `#^<`
+
+Bitwise reverse implication.
+
 ### Operator `#^!`
 
 Bitwise nxor.
@@ -567,23 +575,23 @@ Logical or.
 
 Logical xor.
 
-### Operator `!^`
+### Operator `^!`
 
 Logical nxor.
 
-### Operator `!&`
+### Operator `&!`
 
 Logical nand.
 
-### Operator `!|`
+### Operator `|!`
 
 Logical nor.
 
-### Operator `?>`
+### Operator `^>`
 
 Logical implication.
 
-### Operator `<?`
+### Operator `^<`
 
 Logical reverse implication.
 

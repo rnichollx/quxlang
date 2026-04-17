@@ -13,7 +13,7 @@ namespace quxlang
 
     static std::set< std::string > const bitwise_operators = {"#&&", "#||", "#^^", "#^!", "#&!", "#|!", "#^>", "#^<"};
 
-    static std::set< std::string > const logic_operators = {"&&", "||", "^^", "!^", "!&", "!|", "^>", "^<"};
+    static std::set< std::string > const logic_operators = {"&&", "||", "^^", "^!", "&!", "|!", "^>", "^<"};
 
     static std::string const bracket_operator = "[]";
 

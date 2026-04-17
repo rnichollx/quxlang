@@ -52,13 +52,13 @@ namespace quxlang::parsers
 
                 // Logical operators
                 {"&&", 1}, // and
-                {"!&", 1}, // nand
+                {"&!", 1}, // nand
                 {"^^", 1}, // xor
-                {"!|", 1}, // nor
+                {"|!", 1}, // nor
                 {"||", 1}, // or
                 {"^>", 1}, // implies
                 {"^<", 1}, // implied
-                {"!^", 1}, // equilvalent/nxor
+                {"^!", 1}, // equilvalent/nxor
 
                 // Comparison operators
                 {"==", 2}, {"!=", 2}, {"<=", 2}, {">=", 2}, {"<", 2}, {">", 2},

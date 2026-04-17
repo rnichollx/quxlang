@@ -422,7 +422,7 @@ TEST(parsing, parse_logical_inverse_postfix)
 
 TEST(parsing, parse_extended_logical_operators)
 {
-    for (std::string const& test_string : {"a !| b", "a !^ b", "a ^> b", "a ^< b"})
+    for (std::string const& test_string : {"a &! b", "a |! b", "a ^! b", "a ^> b", "a ^< b"})
     {
         auto ctx = test_parsing_context(test_string);
         quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
@@ -1024,8 +1024,9 @@ TEST(quxlang, constexpr_result_bool)
     auto val2 = get_constexpr_bool("2 + I32(@OTHER 3) - 4 < 5");
     ASSERT_TRUE(val2);
     ASSERT_TRUE(get_constexpr_bool("TRUE || FALSE"));
-    ASSERT_TRUE(get_constexpr_bool("(TRUE !| FALSE) == FALSE"));
-    ASSERT_TRUE(get_constexpr_bool("(TRUE !^ TRUE) == TRUE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE &! TRUE) == FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE |! FALSE) == FALSE"));
+    ASSERT_TRUE(get_constexpr_bool("(TRUE ^! TRUE) == TRUE"));
     ASSERT_TRUE(get_constexpr_bool("(TRUE ^> FALSE) == FALSE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE ^> FALSE) == TRUE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE ^< TRUE) == FALSE"));

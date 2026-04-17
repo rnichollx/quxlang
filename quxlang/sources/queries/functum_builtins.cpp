@@ -293,7 +293,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
         else if (is_bool_type)
         {
-            static const std::set< std::string > bool_binary_logic_operators = {"&&", "||", "^^", "!^", "!&", "!|", "^>", "^<"};
+            static const std::set< std::string > bool_binary_logic_operators = {"&&", "||", "^^", "^!", "&!", "|!", "^>", "^<"};
 
             if (bool_binary_logic_operators.contains(operator_name))
             {

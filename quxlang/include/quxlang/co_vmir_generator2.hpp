@@ -2999,7 +2999,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_and(bidx, input);
                 }
 
-                if (input.operator_str == "!&")
+                if (input.operator_str == "&!")
                 {
                     co_return co_await co_generate_logic_nand(bidx, input);
                 }
@@ -3009,7 +3009,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_or(bidx, input);
                 }
 
-                if (input.operator_str == "!|")
+                if (input.operator_str == "|!")
                 {
                     co_return co_await co_generate_logic_nor(bidx, input);
                 }
@@ -3019,7 +3019,7 @@ namespace quxlang
                     co_return co_await co_generate_logic_xor(bidx, input);
                 }
 
-                if (input.operator_str == "!^")
+                if (input.operator_str == "^!")
                 {
                     co_return co_await co_generate_logic_nxor(bidx, input);
                 }

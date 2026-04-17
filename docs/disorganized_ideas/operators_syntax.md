@@ -29,8 +29,8 @@
 * `&!` Logical and-inverse (nand).
 * `|!` Logical or-inverse (nor).
 * `^^` Logical exclusive or.
-* `^->` Logical A implies B,
-* `^<-` Logical B implies A.
+* `^>` Logical A implies B,
+* `^<` Logical B implies A.
 * `!!` Logical inverse (suffix)
 
 ## Bitwise operators
@@ -87,4 +87,3 @@
   Pointers convert to `true` if they are non-null and `false` if they are null.
   e.g. `IF (ptr??) { ... }` checks if `ptr` is non-null.
   Note that in Quxlang integers and pointers cannot be used in an IF statement directly without an explicit conversion.
-  
