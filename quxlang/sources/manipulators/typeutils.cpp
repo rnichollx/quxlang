@@ -119,6 +119,16 @@ namespace quxlang
             return "SNAPSHOT(" + expr.name + ")";
         }
 
+        std::string operator()(expression_pack_size const& expr) const
+        {
+            return "PACK_SIZE(" + expr.pack_name + ")";
+        }
+
+        std::string operator()(expression_pack_arg const& expr) const
+        {
+            return "PACK_ARG(" + expr.pack_name + ", " + expr_to_string(expr.index) + ")";
+        }
+
         std::string operator()(expression_choose const& expr) const
         {
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
@@ -289,6 +299,8 @@ namespace quxlang
         std::string operator()(static_local_ref const&) const;
         /// Formats an internal function-local static snapshot symbol.
         std::string operator()(static_snapshot_ref const&) const;
+        /// Formats a pack argument type query.
+        std::string operator()(pack_arg_type_ref const&) const;
 
       public:
         type_symbol_stringifier() = default;
@@ -415,6 +427,11 @@ namespace quxlang
         bool operator()(static_snapshot_ref const& ref) const
         {
             return is_template(ref.functanoid);
+        }
+
+        bool operator()(pack_arg_type_ref const& ref) const
+        {
+            return false;
         }
 
         bool operator()(procedure_type const& ref) const
@@ -731,6 +748,10 @@ namespace quxlang
             output.functanoid = with_context(output.functanoid, context);
             return output;
         }
+        else if (ref.template type_is< pack_arg_type_ref >())
+        {
+            return ref;
+        }
         else
         {
             return ref;
@@ -902,22 +923,44 @@ namespace quxlang
                 output += ": " + to_string(ref.params.named.at(name));
             }
         });
-        for (size_t i = 0; i < sel.which.interface.positional.size(); i++)
+        std::size_t actual_positional_index = 0;
+        for (std::size_t i = 0; i < sel.which.interface.positional.size(); i++)
         {
             auto const& param = sel.which.interface.positional.at(i);
-            if (first)
+            auto append_one = [&](type_symbol const& accepted_type)
             {
-                first = false;
-            }
-            else
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    output += ", ";
+                }
+                output += to_string(param.type);
+                if (accepted_type != param.type)
+                {
+                    output += ": " + to_string(accepted_type);
+                }
+            };
+
+            if (param.is_pack)
             {
-                output += ", ";
+                while (actual_positional_index < ref.params.positional.size())
+                {
+                    append_one(ref.params.positional.at(actual_positional_index));
+                    actual_positional_index++;
+                }
+                continue;
             }
-            output += to_string(param.type);
-            if (ref.params.positional.at(i) != sel.which.interface.positional.at(i).type)
+
+            if (actual_positional_index >= ref.params.positional.size())
             {
-                output += ": " + to_string(ref.params.positional.at(i));
+                output += to_string(param.type);
+                continue;
             }
+            append_one(ref.params.positional.at(actual_positional_index));
+            actual_positional_index++;
         }
         output += "}";
         return output;
@@ -1049,6 +1092,11 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(static_snapshot_ref const& ref) const
     {
         return to_string_as_postfix_receiver(ref.functanoid) + "::__STATIC_SNAPSHOT(" + ref.name + ", " + std::to_string(ref.generation) + ", " + std::to_string(ref.snapshot_id) + ")";
+    }
+
+    std::string type_symbol_stringifier::operator()(pack_arg_type_ref const& ref) const
+    {
+        return "PACK_ARG_TYPE(" + ref.pack_name + ", " + to_string(ref.index) + ")";
     }
 
     std::string type_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -1457,6 +1505,10 @@ namespace quxlang
     std::string to_string(argif const& arg)
     {
         std::string output;
+        if (arg.is_pack)
+        {
+            output += "...";
+        }
         output += to_string(arg.type);
         if (arg.is_defaulted)
         {
@@ -1951,6 +2003,12 @@ namespace quxlang
             {
                 return tmpl.name == val.name && tmpl.generation == val.generation && tmpl.snapshot_id == val.snapshot_id && check(tmpl.functanoid, val.functanoid, false);
             }
+
+            /// Matches unresolved pack argument type references structurally.
+            bool check_impl(pack_arg_type_ref const& tmpl, pack_arg_type_ref const& val, bool conv)
+            {
+                return tmpl == val;
+            }
         };
         bool template_matcher::check(invotype template_ct, invotype match_ct, bool conv)
         {
@@ -2007,6 +2065,11 @@ namespace quxlang
                     return false;
                 }
 
+                if (type.is_pack != match_ct.named.at(name).is_pack)
+                {
+                    return false;
+                }
+
                 if (!check(type.type, match_ct.named.at(name).type, conv))
                 {
                     return false;
@@ -2026,6 +2089,11 @@ namespace quxlang
                 }
 
                 if (template_ct.positional[i].is_defaulted != match_ct.positional[i].is_defaulted)
+                {
+                    return false;
+                }
+
+                if (template_ct.positional[i].is_pack != match_ct.positional[i].is_pack)
                 {
                     return false;
                 }
@@ -2225,6 +2293,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.lhs_type = strip_source_locations(std::move(value.lhs_type));
                 value.rhs_type = strip_source_locations(std::move(value.rhs_type));
             }
+            else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
+            {
+                value.index = strip_source_locations(std::move(value.index));
+            }
         });
     return expr;
 }
@@ -2380,6 +2452,10 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, static_snapshot_ref >)
             {
                 value.functanoid = strip_source_locations(std::move(value.functanoid));
+            }
+            else if constexpr (std::is_same_v< value_type, pack_arg_type_ref >)
+            {
+                value.index = strip_source_locations(std::move(value.index));
             }
         });
     return ref;

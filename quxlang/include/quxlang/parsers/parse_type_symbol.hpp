@@ -27,6 +27,9 @@ namespace quxlang::parsers
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         argif result;
+        skip_whitespace(pos, end);
+        result.is_pack = skip_symbol_if_is(pos, end, "...");
+        skip_whitespace(pos, end);
         result.type = parse_type_symbol(ctx);
         skip_whitespace(pos, end);
         if (skip_keyword_if_is(pos, end, "DEFAULTED"))

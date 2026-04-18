@@ -65,6 +65,7 @@
 #include <quxlang/queries/specs/function_declaration_spec.hpp>
 #include <quxlang/queries/specs/function_ensig_init_with_spec.hpp>
 #include <quxlang/queries/specs/function_instanciation_spec.hpp>
+#include <quxlang/queries/specs/function_pack_info_spec.hpp>
 #include <quxlang/queries/specs/function_param_names_spec.hpp>
 #include <quxlang/queries/specs/function_positional_parameter_names_spec.hpp>
 #include <quxlang/queries/specs/function_primitive_spec.hpp>

@@ -51,6 +51,10 @@ namespace quxlang
         {
             result += "D";
         }
+        if (arg.is_pack)
+        {
+            result += "V";
+        }
         result += mangle_internal(arg.type);
 
         return result;
@@ -184,6 +188,10 @@ namespace quxlang
             }
             out += "E";
             return out;
+        }
+        else if (qt.template type_is< pack_arg_type_ref >())
+        {
+            throw std::logic_error("PACK_ARG_TYPE must be resolved before mangling");
         }
         else if (qt.template type_is< value_expression_reference >())
         {

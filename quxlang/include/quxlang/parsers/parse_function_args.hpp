@@ -13,6 +13,7 @@ namespace quxlang::parsers
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         std::vector< ast2_function_parameter > result;
+        bool seen_positional_pack = false;
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
@@ -34,7 +35,11 @@ namespace quxlang::parsers
         QUXLANG_DEBUG_NAMED_VALUE(remaining, std::string(pos, end));
         ast2_function_parameter arg;
 
-        if (skip_symbol_if_is(pos, end, "@"))
+        if (skip_symbol_if_is(pos, end, "@..."))
+        {
+            throw std::logic_error("Named variadic packs are not supported");
+        }
+        else if (skip_symbol_if_is(pos, end, "@"))
         {
             arg.api_name = parse_argument_name(pos, end);
             if (arg.api_name->empty())
@@ -53,8 +58,29 @@ namespace quxlang::parsers
             }
 
         }
+        else if (skip_symbol_if_is(pos, end, "%..."))
+        {
+            arg.is_pack = true;
+            if (seen_positional_pack)
+            {
+                throw std::logic_error("Only one positional variadic pack is allowed");
+            }
+            seen_positional_pack = true;
+            if (!skip_keyword_if_is(pos, end, "IGNORED"))
+            {
+                arg.name = parse_identifier(pos, end);
+                if (arg.name->empty())
+                {
+                    throw std::logic_error("Expected identifier after '%...', use '%...IGNORED' to accept a variadic pack without a name");
+                }
+            }
+        }
         else if (skip_symbol_if_is(pos, end, "%"))
         {
+            if (seen_positional_pack)
+            {
+                throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+            }
             if (!skip_keyword_if_is(pos, end, "IGNORED"))
             {
                 arg.name = parse_identifier(pos, end);

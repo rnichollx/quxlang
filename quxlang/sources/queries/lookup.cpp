@@ -103,6 +103,32 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
         co_return canonical_proc;
     }
+    else if (type.template type_is< pack_arg_type_ref >())
+    {
+        if (!context.type_is< instanciation_reference >())
+        {
+            throw std::logic_error("PACK_ARG_TYPE requires an instantiated function context");
+        }
+
+        auto const& ref = as< pack_arg_type_ref >(type);
+        constexpr_input index_input;
+        index_input.context = context;
+        index_input.expr = ref.index;
+        std::uint64_t const pack_index = co_await rpnx::querygraph::request< constexpr_u64_query >(index_input);
+
+        auto const pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(context));
+        auto const pack_it = pack_info.packs.find(ref.pack_name);
+        if (pack_it == pack_info.packs.end())
+        {
+            throw std::logic_error("Unknown positional pack '" + ref.pack_name + "'");
+        }
+        if (pack_index >= pack_it->second.size)
+        {
+            throw std::logic_error("PACK_ARG_TYPE index is out of range for positional pack '" + ref.pack_name + "'");
+        }
+
+        co_return pack_it->second.types.at(static_cast< std::vector< type_symbol >::size_type >(pack_index));
+    }
     else if (type.template type_is< freebound_identifier >())
     {
         std::optional< type_symbol > current_context = context;

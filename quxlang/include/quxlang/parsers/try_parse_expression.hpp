@@ -281,6 +281,56 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "PACK_SIZE"))
+        {
+            expression_pack_size expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after PACK_SIZE");
+            }
+            skip_whitespace_and_comments(pos, end);
+            expr.pack_name = parse_identifier(pos, end);
+            if (expr.pack_name.empty())
+            {
+                throw std::logic_error("Expected pack name in PACK_SIZE(<pack>)");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after PACK_SIZE(<pack>)");
+            }
+            *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "PACK_ARG"))
+        {
+            expression_pack_arg expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after PACK_ARG");
+            }
+            skip_whitespace_and_comments(pos, end);
+            expr.pack_name = parse_identifier(pos, end);
+            if (expr.pack_name.empty())
+            {
+                throw std::logic_error("Expected pack name in PACK_ARG(<pack>, <index>)");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after PACK_ARG pack name");
+            }
+            expr.index = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after PACK_ARG(<pack>, <index>)");
+            }
+            *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
         {
             expression_sizeof sz;

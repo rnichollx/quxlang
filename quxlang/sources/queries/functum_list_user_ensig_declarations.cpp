@@ -40,6 +40,7 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec 
             }
 
             arg.type = param.type;
+            arg.is_pack = param.is_pack;
 
             if (param.api_name.has_value())
             {

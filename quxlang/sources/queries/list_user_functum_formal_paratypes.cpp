@@ -37,6 +37,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
             parameter_type formal_parameter;
 
             formal_parameter.type = type.value();
+            formal_parameter.is_pack = param.is_pack;
 
             // TODO: do all symbol lookups in this context
             formal_parameter.default_value = param.default_expr;

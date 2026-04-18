@@ -241,6 +241,40 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "PACK_ARG_TYPE"))
+        {
+            pack_arg_type_ref result;
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after PACK_ARG_TYPE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.pack_name = parse_identifier(pos, end);
+            if (result.pack_name.empty())
+            {
+                throw std::logic_error("Expected pack name in PACK_ARG_TYPE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw std::logic_error("Expected ',' after PACK_ARG_TYPE pack name");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.index = parse_expression(ctx);
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after PACK_ARG_TYPE index");
+            }
+
+            output = std::move(result);
+        }
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = std::move(*int_kw);

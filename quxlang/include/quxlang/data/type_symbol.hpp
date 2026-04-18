@@ -104,10 +104,14 @@ namespace quxlang
 
     struct parameter_type
     {
+        /// Declared type for this formal parameter or positional pack element.
         type_symbol type;
+        /// Optional expression used when the argument is defaulted.
         std::optional< expression > default_value;
+        /// True when this formal positional parameter is a variadic pack.
+        bool is_pack = false;
 
-        RPNX_MEMBER_METADATA(parameter_type, type, default_value);
+        RPNX_MEMBER_METADATA(parameter_type, type, default_value, is_pack);
     };
 
     struct paratype
@@ -139,10 +143,14 @@ namespace quxlang
 
     struct argif
     {
+        /// Accepted type for this parameter or positional pack element.
         type_symbol type;
+        /// True when this parameter can be omitted and initialized from a default expression.
         bool is_defaulted = false;
+        /// True when this parameter is a variadic pack.
+        bool is_pack = false;
 
-        RPNX_MEMBER_METADATA(argif, type, is_defaulted);
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack);
     };
 
     // Interface type - used in things like overload resolution
@@ -398,6 +406,17 @@ namespace quxlang
         std::uint64_t snapshot_id = 0;
 
         RPNX_MEMBER_METADATA(static_snapshot_ref, functanoid, name, generation, snapshot_id);
+    };
+
+    /// Type expression that resolves to the concrete type of one argument in a positional pack.
+    struct pack_arg_type_ref
+    {
+        /// Source-level positional pack name to inspect.
+        std::string pack_name;
+        /// Constexpr expression that selects the zero-based pack element.
+        expression index;
+
+        RPNX_MEMBER_METADATA(pack_arg_type_ref, pack_name, index);
     };
 
     struct keyword_symbol

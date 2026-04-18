@@ -190,3 +190,162 @@
     ASSERT( x == 3 );
 }
 
+::pack_count FUNCTION(%a I32, %...b I32): I32
+{
+    RETURN PACK_SIZE(b) AS I32;
+}
+
+::pack_pick_second FUNCTION(%a I32, %...b I32): I32
+{
+    RETURN PACK_ARG(b, 1);
+}
+
+::pack_first FUNCTION(%...b AUTO): PACK_ARG_TYPE(b, 0)
+{
+    RETURN PACK_ARG(b, 0);
+}
+
+::pack_first_is_i32 FUNCTION(%...b AUTO): BOOL
+{
+    RETURN SAME_TYPES(PACK_ARG_TYPE(b, 0), I32);
+}
+
+::pack_arg_type_variable FUNCTION(%...b AUTO): I32
+{
+    VAR x PACK_ARG_TYPE(b, 0) := PACK_ARG(b, 0);
+    RETURN x;
+}
+
+::pack_enable_if_helper FUNCTION(%...b AUTO) ENABLE_IF(SAME_TYPES(PACK_ARG_TYPE(b, 0), I32)): I32
+{
+    RETURN 1;
+}
+
+::pack_enable_if_helper FUNCTION(%...b AUTO) ENABLE_IF(SAME_TYPES(PACK_ARG_TYPE(b, 0), I64)): I32
+{
+    RETURN 2;
+}
+
+::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 1 AS I32): I32
+{
+    RETURN 1;
+}
+
+::pack_size_enable_if_helper FUNCTION(%...b I32) ENABLE_IF(PACK_SIZE(b) == 2 AS I32): I32
+{
+    RETURN 2;
+}
+
+::pack_overload FUNCTION(%a I32): I32
+{
+    RETURN 1;
+}
+
+::pack_overload FUNCTION(%a I32, %...b I32): I32
+{
+    RETURN 2;
+}
+
+::pack_prefix FUNCTION(%a I32, %...b I32): I32
+{
+    RETURN 1;
+}
+
+::pack_prefix FUNCTION(%a I32, %b I32, %...c I32): I32
+{
+    RETURN 2;
+}
+
+::pack_hetero FUNCTION(%...b AUTO): BOOL
+{
+    RETURN SAME_TYPES(PACK_ARG_TYPE(b, 0), I32) && SAME_TYPES(PACK_ARG_TYPE(b, 1), I64);
+}
+
+::pack_same_type FUNCTION(%...b AUTO(t1)): I32
+{
+    RETURN PACK_SIZE(b) AS I32;
+}
+
+::pack_repeated_auto FUNCTION(%a AUTO(t1), %b AUTO(t1)): I32
+{
+    RETURN 1;
+}
+
+::pack_ambiguous_variadic FUNCTION(%...b AUTO(t1)): I32
+{
+    RETURN 1;
+}
+
+::pack_ambiguous_variadic FUNCTION(%...b AUTO(t2)): I32
+{
+    RETURN 2;
+}
+
+::pack_static_var_sum FUNCTION(%...b I32): I32
+{
+    VAR result I32 := 0;
+    STATIC_VAR i U64 := 0;
+    STATIC_WHILE (i < PACK_SIZE(b)) {
+        result := result + PACK_ARG(b, i);
+        STATIC_EVAL i++;
+    }
+    RETURN result;
+}
+
+::variadic_argument_pack_test STATIC_TEST
+{
+    ASSERT(pack_count(1) == 0);
+    ASSERT(pack_count(1, 2, 3) == 2);
+    ASSERT(pack_pick_second(1, 2, 7) == 7);
+    ASSERT(pack_first(4 AS I32, 5 AS I64) == 4);
+    ASSERT(pack_first_is_i32(4 AS I32, 5 AS I64) == TRUE);
+    ASSERT(pack_arg_type_variable(9 AS I32) == 9);
+    ASSERT(pack_enable_if_helper(0 AS I32) == 1);
+    ASSERT(pack_enable_if_helper(0 AS I64) == 2);
+    ASSERT(pack_size_enable_if_helper(1) == 1);
+    ASSERT(pack_size_enable_if_helper(1, 2) == 2);
+    ASSERT(pack_overload(1) == 1);
+    ASSERT(pack_overload(1, 2) == 2);
+    ASSERT(pack_prefix(1, 2) == 2);
+    ASSERT(pack_hetero(1 AS I32, 2 AS I64) == TRUE);
+    ASSERT(pack_same_type(1 AS I32, 2 AS I32) == 2);
+    ASSERT(pack_repeated_auto(1 AS I32, 2 AS I32) == 1);
+    ASSERT(pack_static_var_sum() == 0);
+    ASSERT(pack_static_var_sum(4) == 4);
+    ASSERT(pack_static_var_sum(1, 2, 3) == 6);
+}
+
+::pack_same_type_mismatch_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x I32 := pack_same_type(1 AS I32, 2 AS I64);
+}
+
+::pack_repeated_auto_mismatch_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x I32 := pack_repeated_auto(1 AS I32, 2 AS I64);
+}
+
+::pack_ambiguous_variadic_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x I32 := pack_ambiguous_variadic(1 AS I32);
+}
+
+::pack_arg_out_of_range FUNCTION(%...b I32): I32
+{
+    RETURN PACK_ARG(b, 1);
+}
+
+::pack_arg_type_out_of_range FUNCTION(%...b I32): PACK_ARG_TYPE(b, 1)
+{
+    RETURN 0;
+}
+
+::pack_arg_type_out_of_range_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x I32 := pack_arg_type_out_of_range(1);
+}
+
+::pack_direct_use FUNCTION(%...b I32): I32
+{
+    RETURN b;
+}

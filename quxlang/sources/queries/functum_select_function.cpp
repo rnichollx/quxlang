@@ -6,7 +6,58 @@
 #include "quxlang/operators.hpp"
 #include "quxlang/variant_utils.hpp"
 
+#include <algorithm>
+
 #include <quxlang/macros.hpp>
+
+namespace
+{
+    /// Returns the index of a selected interface's positional pack, if it has one.
+    auto positional_pack_index(quxlang::temploid_ensig const& ensig) -> std::optional< std::size_t >
+    {
+        std::optional< std::size_t > result;
+        for (std::size_t i = 0; i < ensig.interface.positional.size(); i++)
+        {
+            if (!ensig.interface.positional.at(i).is_pack)
+            {
+                if (result.has_value())
+                {
+                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                }
+                continue;
+            }
+            if (result.has_value())
+            {
+                throw std::logic_error("Only one positional variadic pack is supported");
+            }
+            result = i;
+        }
+        return result;
+    }
+
+    /// Returns true when the selected interface has a positional pack.
+    auto has_positional_pack(quxlang::temploid_ensig const& ensig) -> bool
+    {
+        return positional_pack_index(ensig).has_value();
+    }
+
+    /// Returns the number of ordinary positional parameters before a pack, or the full positional count.
+    auto fixed_positional_prefix_count(quxlang::temploid_ensig const& ensig) -> std::size_t
+    {
+        return positional_pack_index(ensig).value_or(ensig.interface.positional.size());
+    }
+
+    /// Returns the formal parameter used for a concrete expanded positional argument.
+    auto positional_formal_for(quxlang::temploid_ensig const& ensig, std::size_t argument_index) -> quxlang::argif const&
+    {
+        auto const pack_index = positional_pack_index(ensig);
+        if (pack_index.has_value() && argument_index >= *pack_index)
+        {
+            return ensig.interface.positional.at(*pack_index);
+        }
+        return ensig.interface.positional.at(argument_index);
+    }
+} // namespace
 
 
 rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::functum_select_function_impl(initialization_reference input)
@@ -120,8 +171,10 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         {
             constexpr_input cx_input;
             cx_input.expr = *o.enable_if;
-            // Use the parent of the functum symbol as context when available
-            cx_input.context = type_parent(input.initializee).value_or(context_reference{});
+            temploid_reference tr{.templexoid = input.initializee, .which = o};
+            instanciation_reference inst{.temploid = tr, .params = *candidate};
+            // Use the instantiated function context so pack type inspection can see the expanded parameters.
+            cx_input.context = inst;
             // Load instantiated named parameters into constexpr scoped definitions
             for (auto const& [n, t] : candidate->named)
             {
@@ -129,8 +182,6 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             }
             // Also load ensig template parameters (tempars) mapped during instantiation
             {
-                temploid_reference tr{.templexoid = input.initializee, .which = o};
-                instanciation_reference inst{.temploid = tr, .params = *candidate};
                 auto tempar_map = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(inst);
                 for (auto const& [name, t] : tempar_map.parameter_map)
                 {
@@ -211,8 +262,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
                 {
                     auto const& arg_type = input.parameters.positional.at(i);
-                    auto const& candidate_param = candidate.interface.positional.at(i).type;
-                    auto const& other_param = other.interface.positional.at(i).type;
+                    auto const& candidate_param = positional_formal_for(candidate, i).type;
+                    auto const& other_param = positional_formal_for(other, i).type;
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -246,6 +297,50 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         }
 
         best_match = std::move(undominated);
+    }
+
+    if (best_match.size() > 1)
+    {
+        std::vector< temploid_ensig > non_variadic;
+        for (auto const& item : best_match)
+        {
+            if (!has_positional_pack(item))
+            {
+                non_variadic.push_back(item);
+            }
+        }
+        if (!non_variadic.empty())
+        {
+            best_match = std::move(non_variadic);
+        }
+    }
+
+    if (best_match.size() > 1)
+    {
+        std::size_t best_fixed_prefix = 0;
+        bool saw_variadic = false;
+        for (auto const& item : best_match)
+        {
+            if (!has_positional_pack(item))
+            {
+                continue;
+            }
+            saw_variadic = true;
+            best_fixed_prefix = std::max(best_fixed_prefix, fixed_positional_prefix_count(item));
+        }
+
+        if (saw_variadic)
+        {
+            std::vector< temploid_ensig > largest_fixed_prefix;
+            for (auto const& item : best_match)
+            {
+                if (has_positional_pack(item) && fixed_positional_prefix_count(item) == best_fixed_prefix)
+                {
+                    largest_fixed_prefix.push_back(item);
+                }
+            }
+            best_match = std::move(largest_fixed_prefix);
+        }
     }
 
     if (best_match.size() > 1)

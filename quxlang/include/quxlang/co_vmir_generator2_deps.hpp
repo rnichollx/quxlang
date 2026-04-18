@@ -15,10 +15,12 @@
 #include <quxlang/queries/class_layout.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
+#include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/function_declaration.hpp>
+#include <quxlang/queries/function_pack_info.hpp>
 #include <quxlang/queries/function_param_names.hpp>
 #include <quxlang/queries/functum_overloads.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
@@ -44,10 +46,12 @@ namespace quxlang
         class_layout_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
+        constexpr_u64_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,
         function_declaration_query,
+        function_pack_info_query,
         function_param_names_query,
         functum_overloads_query,
         global_is_antestatal_static_query,
@@ -68,10 +72,12 @@ namespace quxlang
         class_layout_query,
         constexpr_bool_query,
         constexpr_eval_v3_query,
+        constexpr_u64_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,
         function_declaration_query,
+        function_pack_info_query,
         function_param_names_query,
         functum_overloads_query,
         global_is_antestatal_static_query,

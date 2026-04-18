@@ -6,6 +6,7 @@
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/exists.hpp>
+#include <quxlang/queries/function_pack_info.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/instanciation_tempar_map.hpp>
 #include <quxlang/queries/machine_info.hpp>
@@ -17,7 +18,7 @@
 
 namespace quxlang
 {
-    using lookup_spec = rpnx::querygraph::query_handler_spec< lookup_query, rpnx::typelist< constexpr_u64_query, exists_query, instanciation_query, instanciation_tempar_map_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query > >;
+    using lookup_spec = rpnx::querygraph::query_handler_spec< lookup_query, rpnx::typelist< constexpr_u64_query, exists_query, function_pack_info_query, instanciation_query, instanciation_tempar_map_query, lookup_query, machine_info_query, module_ast_query, symbol_type_query > >;
 
     rpnx::querygraph::coroutine< lookup_spec > lookup_impl(contextual_type_reference input);
 } // namespace quxlang

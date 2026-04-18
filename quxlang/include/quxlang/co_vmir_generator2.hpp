@@ -25,10 +25,12 @@
 #include "quxlang/queries/class_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
+#include "quxlang/queries/constexpr_u64.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/function_builtin.hpp"
 #include "quxlang/queries/function_declaration.hpp"
+#include "quxlang/queries/function_pack_info.hpp"
 #include "quxlang/queries/function_param_names.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
@@ -74,6 +76,7 @@ namespace quxlang
         struct codegen_literal;
         struct codegen_local;
         struct codegen_argument;
+        struct codegen_pack;
         struct codegen_static;
         struct codegen_static_scope;
 
@@ -127,6 +130,17 @@ namespace quxlang
             RPNX_MEMBER_METADATA(codegen_literal, type, value);
         };
 
+        /// Expanded local parameter metadata for one source-level positional pack.
+        struct codegen_pack
+        {
+            /// Expanded local values for each concrete positional argument captured by this pack.
+            std::vector< value_index > values;
+            /// Concrete accepted parameter types for each captured positional argument.
+            std::vector< type_symbol > types;
+
+            RPNX_MEMBER_METADATA(codegen_pack, values, types);
+        };
+
         using codegen_value = rpnx::variant< codegen_binding, codegen_literal, codegen_local >;
 
         struct codegen_static
@@ -166,6 +180,8 @@ namespace quxlang
 
             /// Scoped typedef and static definitions visible to constexpr routine generation.
             std::map< std::string, scoped_definition_v3 > scoped_definitions;
+            /// Visible positional variadic packs for the current function body.
+            std::map< std::string, codegen_pack > packs;
             /// Static objects tracked by stable static-local symbol.
             std::map< static_local_ref, codegen_static > statics;
 
@@ -683,10 +699,18 @@ namespace quxlang
                 auto const& selected_function = as< temploid_reference >(routine);
                 for (auto const& arg : selected_function.which.interface.positional)
                 {
+                    if (arg.is_pack)
+                    {
+                        throw std::logic_error("Cannot form a procedure pointer to an uninstantiated variadic function");
+                    }
                     proc_type.signature.params.positional.push_back(arg.type);
                 }
                 for (auto const& [name, arg] : selected_function.which.interface.named)
                 {
+                    if (arg.is_pack)
+                    {
+                        throw std::logic_error("Cannot form a procedure pointer to an uninstantiated variadic function");
+                    }
                     proc_type.signature.params.named[name] = arg.type;
                 }
 
@@ -1043,6 +1067,33 @@ namespace quxlang
             return temp;
         }
 
+        /// Converts a local value lookup result into the reference form expected by expression reads.
+        auto materialize_lookup_reference(block_index idx, value_index lookup) -> value_index
+        {
+            auto lookup_type = this->current_type(idx, lookup);
+
+            if (!is_ref(lookup_type))
+            {
+                lookup = create_reference(idx, lookup, make_mref(lookup_type));
+            }
+            else
+            {
+                lookup = copy_refernece_internal(idx, lookup);
+
+                lookup_type = this->current_type(idx, lookup);
+
+                auto const& lookup_type_ref = as< ptrref_type >(lookup_type);
+
+                if (lookup_type_ref.qual == qualifier::write)
+                {
+                    lookup = cast_ptrref(idx, lookup, make_mref(remove_ref(lookup_type)));
+                }
+            }
+
+            assert(!type_is_contextual(this->current_type(idx, lookup)));
+            return lookup;
+        }
+
         // Look up a type/class symbol in the current codegen context.
         // Uses co_lookup_symbol to respect local tempar type definitions.
         // Errors if the symbol resolves to a value binding or does not refer to a class.
@@ -1220,30 +1271,7 @@ namespace quxlang
                 auto lookup = this->local_value_direct_lookup(idx, name);
                 if (lookup)
                 {
-                    auto lookup_type = this->current_type(idx, lookup.value());
-                    // co_yield rpnx::querygraph::debug_message("lookup {} -> {} type={}", name, lookup.value(), to_string(lookup_type));
-
-                    if (!is_ref(lookup_type))
-                    {
-                        lookup = create_reference(idx, *lookup, make_mref(lookup_type));
-                    }
-                    else
-                    {
-                        lookup = copy_refernece_internal(idx, *lookup);
-
-                        lookup_type = this->current_type(idx, *lookup);
-
-                        auto const& lookup_type_ref = as< ptrref_type >(lookup_type);
-
-                        if (lookup_type_ref.qual == qualifier::write)
-                        {
-                            lookup = cast_ptrref(idx, *lookup, make_mref(remove_ref(lookup_type)));
-                        }
-                    }
-
-                    assert(!type_is_contextual(lookup_type));
-
-                    co_return lookup;
+                    co_return this->materialize_lookup_reference(idx, *lookup);
                 }
                 else
                 {
@@ -1271,6 +1299,10 @@ namespace quxlang
                         std::map< static_local_ref, static_snapshot_ref > remapped;
                         auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*static_symbol, remapped, false);
                         co_return this->create_antestatal_reference(idx, type_symbol(snapshot_symbol), binding.type, false);
+                    }
+                    if (this->state.packs.contains(name))
+                    {
+                        throw std::logic_error("Cannot use positional pack '" + name + "' directly; use PACK_SIZE, PACK_ARG, or PACK_ARG_TYPE.");
                     }
                 }
             }
@@ -2492,6 +2524,49 @@ namespace quxlang
             co_return this->create_antestatal_reference(bidx, type_symbol(snapshot_symbol), binding.type, false);
         }
 
+        /// Generates a numeric literal for a positional pack's compile-time size.
+        auto co_generate(block_index& bidx, expression_pack_size expr) -> co_type< value_index >
+        {
+            (void)bidx;
+            auto const pack_it = this->state.packs.find(expr.pack_name);
+            if (pack_it != this->state.packs.end())
+            {
+                co_return this->create_numeric_literal(std::to_string(pack_it->second.values.size()));
+            }
+
+            if (this->ctx.template type_is< instanciation_reference >())
+            {
+                auto pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(this->ctx.template get_as< instanciation_reference >());
+                auto const info_it = pack_info.packs.find(expr.pack_name);
+                if (info_it != pack_info.packs.end())
+                {
+                    co_return this->create_numeric_literal(std::to_string(info_it->second.size));
+                }
+            }
+
+            {
+                throw std::logic_error("Unknown positional pack '" + expr.pack_name + "'");
+            }
+        }
+
+        /// Generates a reference to one concrete parameter captured by a positional pack.
+        auto co_generate(block_index& bidx, expression_pack_arg expr) -> co_type< value_index >
+        {
+            auto const pack_it = this->state.packs.find(expr.pack_name);
+            if (pack_it == this->state.packs.end())
+            {
+                throw std::logic_error("Unknown positional pack '" + expr.pack_name + "'");
+            }
+
+            std::uint64_t const index = co_await this->co_constexpr_u64(bidx, expr.index);
+            if (index >= pack_it->second.values.size())
+            {
+                throw std::logic_error("PACK_ARG index is out of range for positional pack '" + expr.pack_name + "'");
+            }
+
+            co_return this->materialize_lookup_reference(bidx, pack_it->second.values.at(static_cast< std::vector< value_index >::size_type >(index)));
+        }
+
         auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
@@ -2788,6 +2863,10 @@ namespace quxlang
                     bool has_template_params = false;
                     for (auto const& arg : selected_overload.interface.positional)
                     {
+                        if (arg.is_pack)
+                        {
+                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                        }
                         if (is_template(arg.type))
                         {
                             has_template_params = true;
@@ -2796,6 +2875,10 @@ namespace quxlang
                     }
                     for (auto const& [_, arg] : selected_overload.interface.named)
                     {
+                        if (arg.is_pack)
+                        {
+                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                        }
                         if (is_template(arg.type))
                         {
                             has_template_params = true;
@@ -2815,6 +2898,10 @@ namespace quxlang
                     selected_inst.temploid = selected_function;
                     for (auto const& arg : selected_overload.interface.positional)
                     {
+                        if (arg.is_pack)
+                        {
+                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                        }
                         selected_inst.params.positional.push_back(arg.type);
                     }
                     for (auto const& [name, arg] : selected_overload.interface.named)
@@ -2982,6 +3069,48 @@ namespace quxlang
             }
             auto ce_result = co_await rpnx::querygraph::request< constexpr_bool_query >(ce_input);
             co_return ce_result;
+        }
+
+        /// Evaluates an expression as a constexpr U64 in the current instantiated function context.
+        auto co_constexpr_u64(block_index&, expression const& expr) -> co_type< std::uint64_t >
+        {
+            if (!this->state.statics.empty())
+            {
+                auto eval_result = co_await this->co_eval_static_expression(expr, type_symbol(int_type{.bits = 64, .has_sign = false}), static_eval_access::readonly_view);
+                auto result_it = eval_result.values.find(constexpr_primary_result_id);
+                if (result_it == eval_result.values.end())
+                {
+                    throw compiler_bug("static u64 evaluation did not produce a primary result");
+                }
+                auto const& value = constexpr_value_as_antestatal(result_it->second);
+                if (!typeis< antestatal_primitive >(value))
+                {
+                    throw compiler_bug("static u64 evaluation did not produce a primitive result");
+                }
+                auto [intval, ok] = bytemath::le_to_u< std::uint64_t >(as< antestatal_primitive >(value).value);
+                if (!ok)
+                {
+                    throw compiler_bug("static u64 evaluation produced invalid integer bytes");
+                }
+                co_return intval;
+            }
+
+            auto ce_input = constexpr_input{.context = ctx, .expr = expr};
+            for (auto const& [name, def] : this->state.scoped_definitions)
+            {
+                if (def.template type_is< scoped_typedef >())
+                {
+                    ce_input.scoped_definitions[name] = def.template get_as< scoped_typedef >().type;
+                    continue;
+                }
+                if (def.template type_is< scoped_static >())
+                {
+                    ce_input.scoped_static_symbols[name] = def.template get_as< scoped_static >().symbol;
+                    continue;
+                }
+                throw rpnx::unimplemented();
+            }
+            co_return co_await rpnx::querygraph::request< constexpr_u64_query >(ce_input);
         }
 
         /// Converts result ID 0 from a static evaluation into a native bool.
@@ -5013,28 +5142,9 @@ namespace quxlang
                 this->state.top_level_lookups["RETURN"] = return_valueidx;
             }
 
-            auto arg_names = co_await rpnx::querygraph::request< function_param_names_query >(inst.temploid);
-
-            std::size_t positional_index = 0;
-            for (auto const& param_name : arg_names.positional)
+            auto parameter_local_type = [](type_symbol param_type) -> type_symbol
             {
-                type_symbol const& param_type = inst.params.positional.at(positional_index);
-                if (param_name.has_value())
-                {
-                    auto param_idx = this->create_local_value(param_type);
-                    this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
-                    this->state.top_level_lookups[*param_name] = param_idx;
-                    positional_index++;
-                }
-            }
-            for (auto const& [api_name, param_type] : inst.params.named)
-            {
-                std::optional< std::string > arg_name;
-                if (arg_names.named.contains(api_name))
-                {
-                    arg_name = arg_names.named.at(api_name);
-                }
-                auto local_type = param_type;
+                auto local_type = std::move(param_type);
                 if (typeis< nvalue_slot >(local_type))
                 {
                     local_type = type_symbol(as< nvalue_slot >(local_type).target);
@@ -5043,6 +5153,112 @@ namespace quxlang
                 {
                     local_type = as< dvalue_slot >(local_type).target;
                 }
+                return local_type;
+            };
+
+            auto declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);
+            if (declaration.has_value())
+            {
+                std::size_t positional_index = 0;
+                std::set< std::string > handled_named_parameters;
+                for (auto const& param : declaration->header.call_parameters)
+                {
+                    if (param.api_name.has_value())
+                    {
+                        auto const& api_name = param.api_name.value();
+                        handled_named_parameters.insert(api_name);
+                        auto const& param_type = inst.params.named.at(api_name);
+                        auto arg_idx = this->create_local_value(parameter_local_type(param_type));
+                        this->state.params.named[api_name] = {
+                            .type = param_type,
+                            .local_index = get_local_index(arg_idx),
+                        };
+
+                        if (param.name.has_value())
+                        {
+                            this->state.top_level_lookups[param.name.value()] = arg_idx;
+                            this->state.top_level_lookups_weak[api_name] = arg_idx;
+                        }
+                        else
+                        {
+                            this->state.top_level_lookups[api_name] = arg_idx;
+                        }
+                        continue;
+                    }
+
+                    if (!param.is_pack)
+                    {
+                        auto const& param_type = inst.params.positional.at(positional_index);
+                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
+                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        if (param.name.has_value())
+                        {
+                            this->state.top_level_lookups[param.name.value()] = param_idx;
+                        }
+                        positional_index++;
+                        continue;
+                    }
+
+                    codegen_pack pack;
+                    while (positional_index < inst.params.positional.size())
+                    {
+                        auto const& param_type = inst.params.positional.at(positional_index);
+                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
+                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        pack.values.push_back(param_idx);
+                        pack.types.push_back(param_type);
+                        positional_index++;
+                    }
+
+                    if (param.name.has_value())
+                    {
+                        this->state.packs[param.name.value()] = std::move(pack);
+                    }
+                }
+
+                for (auto const& [api_name, param_type] : inst.params.named)
+                {
+                    if (handled_named_parameters.contains(api_name))
+                    {
+                        continue;
+                    }
+                    auto arg_idx = this->create_local_value(parameter_local_type(param_type));
+                    this->state.params.named[api_name] = {
+                        .type = param_type,
+                        .local_index = get_local_index(arg_idx),
+                    };
+                    this->state.top_level_lookups[api_name] = arg_idx;
+                }
+
+                if (positional_index != inst.params.positional.size())
+                {
+                    throw compiler_bug("Function argument generation did not consume all positional arguments");
+                }
+                co_return;
+            }
+
+            auto arg_names = co_await rpnx::querygraph::request< function_param_names_query >(inst.temploid);
+
+            std::size_t positional_index = 0;
+            for (auto const& param_name : arg_names.positional)
+            {
+                type_symbol const& param_type = inst.params.positional.at(positional_index);
+                auto param_idx = this->create_local_value(parameter_local_type(param_type));
+                this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                if (param_name.has_value())
+                {
+                    this->state.top_level_lookups[*param_name] = param_idx;
+                }
+                positional_index++;
+            }
+            for (auto const& [api_name, param_type] : inst.params.named)
+            {
+                std::optional< std::string > arg_name;
+                if (arg_names.named.contains(api_name))
+                {
+                    arg_name = arg_names.named.at(api_name);
+                }
+                auto local_type = parameter_local_type(param_type);
                 auto arg_idx = this->create_local_value(local_type);
                 this->state.params.named[api_name] = {
                     .type = param_type,

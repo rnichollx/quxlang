@@ -96,6 +96,11 @@ namespace quxlang
             return result;
         }
 
+        auto operator()(pack_arg_type_ref const&)
+        {
+            return std::set< std::string >{};
+        }
+
 
 
     };

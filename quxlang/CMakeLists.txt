@@ -223,6 +223,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/function_declaration_spec.hpp
         include/quxlang/queries/specs/function_ensig_init_with_spec.hpp
         include/quxlang/queries/specs/function_instanciation_spec.hpp
+        include/quxlang/queries/specs/function_pack_info_spec.hpp
         include/quxlang/queries/specs/function_param_names_spec.hpp
         include/quxlang/queries/specs/function_positional_parameter_names_spec.hpp
         include/quxlang/queries/specs/function_primitive_spec.hpp
@@ -337,6 +338,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/function_declaration.cpp
         sources/queries/function_ensig_init_with.cpp
         sources/queries/function_instanciation.cpp
+        sources/queries/function_pack_info.cpp
         sources/queries/function_param_names.cpp
         sources/queries/function_positional_parameter_names.cpp
         sources/queries/function_primitive.cpp

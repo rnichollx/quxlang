@@ -111,6 +111,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< function_declaration_spec >(function_declaration_impl);
     m_graph.register_handler_function< function_ensig_init_with_spec >(function_ensig_init_with_impl);
     m_graph.register_handler_function< function_instanciation_spec >(function_instanciation_impl);
+    m_graph.register_handler_function< function_pack_info_spec >(function_pack_info_impl);
     m_graph.register_handler_function< function_param_names_spec >(function_param_names_impl);
     m_graph.register_handler_function< function_positional_parameter_names_spec >(function_positional_parameter_names_impl);
     m_graph.register_handler_function< function_primitive_spec >(function_primitive_impl);

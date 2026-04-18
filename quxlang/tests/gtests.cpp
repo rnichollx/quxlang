@@ -236,6 +236,23 @@ TEST(parsing, parse_function_args)
     bool ok2 = args[1].type == quxlang::type_symbol(quxlang::int_type{64, true});
     ASSERT_TRUE(ok1);
     ASSERT_TRUE(ok2);
+
+    auto variadic_args = parse_function_args_text("(%a I32, %...b I32)");
+    ASSERT_EQ(variadic_args.size(), 2);
+    ASSERT_EQ(variadic_args[0].name, "a");
+    ASSERT_FALSE(variadic_args[0].is_pack);
+    ASSERT_EQ(variadic_args[1].name, "b");
+    ASSERT_TRUE(variadic_args[1].is_pack);
+    ASSERT_EQ(variadic_args[1].type, quxlang::type_symbol(quxlang::int_type{32, true}));
+
+    auto ignored_pack_args = parse_function_args_text("(%...IGNORED I32)");
+    ASSERT_EQ(ignored_pack_args.size(), 1);
+    ASSERT_FALSE(ignored_pack_args[0].name.has_value());
+    ASSERT_TRUE(ignored_pack_args[0].is_pack);
+
+    EXPECT_THROW(parse_function_args_text("(%...a I32, %b I32)"), std::logic_error);
+    EXPECT_THROW(parse_function_args_text("(%...a I32, %...b I32)"), std::logic_error);
+    EXPECT_THROW(parse_function_args_text("(@...a I32)"), std::logic_error);
 }
 
 TEST(parsing, parse_basic_types)
@@ -248,8 +265,23 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
     ASSERT_TRUE(parse_type_symbol("STORAGE(I64, I32)") == parse_type_symbol("STORAGE(I32, I64)"));
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
+    ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
+}
+
+TEST(parsing, parse_pack_expressions)
+{
+    using namespace quxlang;
+
+    auto size_expr = parse_expression_text("PACK_SIZE(b)");
+    ASSERT_TRUE(size_expr.type_is< expression_pack_size >());
+    ASSERT_EQ(size_expr.get_as< expression_pack_size >().pack_name, "b");
+
+    auto arg_expr = parse_expression_text("PACK_ARG(b, 0)");
+    ASSERT_TRUE(arg_expr.type_is< expression_pack_arg >());
+    ASSERT_EQ(arg_expr.get_as< expression_pack_arg >().pack_name, "b");
+    ASSERT_EQ(arg_expr.get_as< expression_pack_arg >().index, expression(expression_numeric_literal{"0"}));
 }
 
 TEST(parsing, type_symbol_parenthesized_postfix)
@@ -1451,6 +1483,26 @@ TEST(quxlang, datatype_struct_equality_builtin_presence)
     EXPECT_FALSE(datatype_ne.empty());
     EXPECT_TRUE(nondatatype_eq.empty());
     EXPECT_TRUE(nondatatype_ne.empty());
+}
+
+TEST(quxlang, positional_pack_invalid_body_generation)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    auto expect_compile_failure = [&](std::string const& function_name)
+    {
+        auto func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{I32}");
+        func_name = quxlang::with_context(func_name, mainmodule);
+        auto tempname = temp_output_file();
+        EXPECT_THROW(c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), tempname), std::logic_error);
+    };
+
+    expect_compile_failure("pack_arg_out_of_range");
+    expect_compile_failure("pack_direct_use");
 }
 
 TEST(quxlang, storage_type_lookup)
