@@ -19,6 +19,9 @@
 
 RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
 
+/// Function-local compile-time storage class for STATIC and STATIC_VAR declarations.
+RPNX_ENUM(quxlang, function_static_kind, std::uint16_t, constant, mutable_);
+
 namespace quxlang
 {
     struct function_expression_statement;
@@ -33,21 +36,25 @@ namespace quxlang
     struct function_destroy_statement;
     struct function_runtime_statement;
     struct function_return_statement;
+    struct function_static_eval_statement;
+    struct function_static_if_statement;
+    struct function_static_while_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement >;
 
 
     struct function_var_statement
     {
         std::string name;
         type_symbol type;
-        // TODO: support named initializers
-        std::vector< expression > initializers;
+        std::vector< expression_arg > initializers;
 
         std::optional< expression > equals_initializer;
+        /// Storage class for function-local STATIC/STATIC_VAR declarations; null for VAR.
+        std::optional< function_static_kind > static_kind;
 
-        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer);
+        QUX_AST_METADATA(function_var_statement, name, type, initializers, equals_initializer, static_kind);
     };
 
     struct function_unimplemented_statement
@@ -91,6 +98,14 @@ namespace quxlang
         QUX_AST_METADATA(function_expression_statement, expr);
     };
 
+    struct function_static_eval_statement
+    {
+        /// Expression evaluated immediately during VMIR generation.
+        expression expr;
+
+        QUX_AST_METADATA(function_static_eval_statement, expr);
+    };
+
     struct function_if_statement
     {
         expression condition;
@@ -100,6 +115,18 @@ namespace quxlang
         QUX_AST_METADATA(function_if_statement, condition, then_block, else_block);
     };
 
+    struct function_static_if_statement
+    {
+        /// Compile-time condition evaluated before choosing which block to generate.
+        expression condition;
+        /// Block generated when condition evaluates to true.
+        function_block then_block;
+        /// Optional STATIC_ELSE block generated when condition evaluates to false.
+        std::optional< function_block > else_block;
+
+        QUX_AST_METADATA(function_static_if_statement, condition, then_block, else_block);
+    };
+
 
     struct function_while_statement
     {
@@ -107,6 +134,16 @@ namespace quxlang
         function_block loop_block;
 
         QUX_AST_METADATA(function_while_statement, condition, loop_block);
+    };
+
+    struct function_static_while_statement
+    {
+        /// Compile-time condition re-evaluated before each generated iteration.
+        expression condition;
+        /// Block generated once per true compile-time condition result.
+        function_block loop_block;
+
+        QUX_AST_METADATA(function_static_while_statement, condition, loop_block);
     };
 
     struct function_return_statement

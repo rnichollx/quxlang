@@ -33,6 +33,8 @@ namespace quxlang
             void set_source_index(source_index source_index);
             void set_constexpr_result_global_symbol(std::optional< type_symbol > symbol);
             void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value);
+            /// Adds an antestatal root with explicit mutability for constexpr localdata/static evaluation.
+            void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value, bool is_mutable);
 
             std::set< type_symbol > const & missing_functanoids();
             std::set< type_symbol > const & missing_antestatal_globals();
@@ -44,6 +46,8 @@ namespace quxlang
 
             constexpr_result get_cr_value();
             antestatal_value get_cr_antestatal_value();
+            /// Returns every antestatal result materialized by constexpr_set_result2, keyed by result ID.
+            std::map< std::uint64_t, antestatal_value > get_cr_antestatal_values();
         };
     } // namespace vmir2
 } // namespace quxlang

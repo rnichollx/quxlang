@@ -23,6 +23,10 @@ namespace quxlang::parsers
         std::set< std::string > keyword_tags;
         if (!skip_keyword_if_is(pos, end, "VAR"))
         {
+            if (skip_keyword_if_is(pos, end, "STATIC_VAR"))
+            {
+                throw std::logic_error("STATIC_VAR is only allowed inside function bodies");
+            }
             if (skip_keyword_if_is(pos, end, "STATIC"))
             {
                 keyword_tags.insert("STATIC");

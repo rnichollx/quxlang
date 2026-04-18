@@ -93,8 +93,10 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< class_trivially_destructible_spec >(class_trivially_destructible_impl);
     m_graph.register_handler_function< constexpr_bool_spec >(constexpr_bool_impl);
     m_graph.register_handler_function< constexpr_eval_antestatal_spec >(constexpr_eval_antestatal_impl);
+    m_graph.register_handler_function< constexpr_eval_v3_spec >(constexpr_eval_v3_impl);
     m_graph.register_handler_function< constexpr_eval_spec >(constexpr_eval_impl);
     m_graph.register_handler_function< constexpr_routine_antestatal_spec >(constexpr_routine_antestatal_impl);
+    m_graph.register_handler_function< constexpr_routine_v3_spec >(constexpr_routine_v3_impl);
     m_graph.register_handler_function< constexpr_routine_spec >(constexpr_routine_impl);
     m_graph.register_handler_function< constexpr_u64_spec >(constexpr_u64_impl);
     m_graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);

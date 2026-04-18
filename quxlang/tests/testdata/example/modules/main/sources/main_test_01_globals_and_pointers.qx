@@ -112,3 +112,155 @@
    x := STATIC_CHOOSE( foolib::imported_function() != 42 , 10 , 20 );
    ASSERT( x == 20 );
 }
+
+::static_counter_probe FUNCTION(@counter MUT& I32, @value BOOL) : BOOL
+{
+   counter++;
+   RETURN value;
+}
+
+::static_var_loop_expansion_test STATIC_TEST
+{
+   VAR foo I32 := 0;
+   STATIC_VAR x I32 := 1;
+   STATIC_WHILE (x < 5) {
+      foo++;
+      STATIC_EVAL x++;
+   }
+   ASSERT(foo == 4);
+}
+
+::static_if_selected_branch_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 0;
+   STATIC_IF (FALSE) {
+      STATIC_EVAL x := 99;
+   } STATIC_ELSE {
+      STATIC_EVAL x++;
+   }
+   VAR y I32 := SNAPSHOT(x);
+   ASSERT(y == 1);
+}
+
+::static_if_condition_mutation_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 0;
+   STATIC_IF (static_counter_probe(@counter x, @value TRUE)) {
+      STATIC_EVAL x++;
+   } STATIC_ELSE {
+      STATIC_EVAL x := 99;
+   }
+   VAR y I32 := SNAPSHOT(x);
+   ASSERT(y == 2);
+}
+
+::static_default_and_call_initializers_test STATIC_TEST
+{
+   STATIC x I32;
+   STATIC y I32 :(@OTHER 7);
+   ASSERT(x == 0);
+   ASSERT(y == 7);
+}
+
+::static_snapshot_read_after_mutation_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 1;
+   VAR before I32 := SNAPSHOT(x);
+   STATIC_EVAL x++;
+   VAR after I32 := SNAPSHOT(x);
+   ASSERT(before == 1);
+   ASSERT(after == 2);
+}
+
+::runtime_if_static_generation_order_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 0;
+   IF (TRUE) {
+      STATIC_EVAL x++;
+   } ELSE {
+      STATIC_EVAL x++;
+   }
+   VAR y I32 := SNAPSHOT(x);
+   ASSERT(y == 2);
+}
+
+::runtime_while_static_generation_once_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 0;
+   VAR i I32 := 0;
+   WHILE (i < 2) {
+      STATIC_EVAL x++;
+      i++;
+   }
+   VAR y I32 := SNAPSHOT(x);
+   ASSERT(y == 1);
+}
+
+::static_constant_mutation_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC x I32 := 0;
+   STATIC_EVAL x++;
+}
+
+::static_choose_readonly_static_view_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC_VAR x I32 := 0;
+   VAR y I32 := STATIC_CHOOSE(static_counter_probe(@counter x, @value TRUE), 1, 2);
+}
+
+::static_var_regular_var_snapshots_from_address_test STATIC_TEST
+{
+   // This test verifies that when a STATIC_VAR is captured at runtime, the complete
+   // state of static values is snapshotted and that subsequent mutations to the static
+   // value do not affect the captured snapshot.
+   // It also tests that at each snapshot capture, the pointers to static variables
+   // are updated to point to the current value of the static variable.
+
+   STATIC_VAR x I32 := 0;
+   STATIC_VAR x_ptr CONST->I32 := x<-;
+
+   VAR y CONST->I32 := SNAPSHOT(x)<-;
+   STATIC_EVAL x++;
+   VAR z CONST->I32 := SNAPSHOT(x_ptr);
+
+   STATIC_EVAL x++;
+
+   ASSERT(SNAPSHOT(x) == 2);
+   ASSERT(y-> == 0);
+   ASSERT(z-> == 1);
+}
+
+::static_var_runtime_access_without_snapshot_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC_VAR x I32 := 0;
+   VAR y I32 := x;
+}
+
+::static_snapshot_expression_does_not_authorize_later_access_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC_VAR x I32 := 0;
+   SNAPSHOT(x);
+   VAR y I32 := x;
+}
+
+::static_var_runtime_access_with_snapshot_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 3;
+   VAR y I32 := SNAPSHOT(x);
+   ASSERT(y == 3);
+}
+
+::static_const_pointer_to_mutable_without_snapshot_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC_VAR x I32 := 4;
+   STATIC ptr CONST->I32 := x<-;
+   VAR y CONST->I32 := ptr;
+}
+
+::static_const_pointer_to_mutable_with_snapshot_test STATIC_TEST
+{
+   STATIC_VAR x I32 := 4;
+   STATIC ptr CONST->I32 := x<-;
+   VAR y CONST->I32 := SNAPSHOT(ptr);
+   ASSERT(y-> == 4);
+}

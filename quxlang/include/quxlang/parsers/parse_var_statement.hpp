@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
+#include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
 
 namespace quxlang::parsers
 {
@@ -15,14 +16,23 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (!skip_keyword_if_is(pos, end, "VAR"))
+        function_var_statement var_statement;
+
+        bool const is_var = skip_keyword_if_is(pos, end, "VAR");
+        if (!is_var && skip_keyword_if_is(pos, end, "STATIC_VAR"))
         {
-            throw std::logic_error("Expected 'VAR'");
+            var_statement.static_kind = function_static_kind::mutable_;
+        }
+        else if (!is_var && skip_keyword_if_is(pos, end, "STATIC"))
+        {
+            var_statement.static_kind = function_static_kind::constant;
+        }
+        else if (!is_var)
+        {
+            throw std::logic_error("Expected 'VAR', 'STATIC', or 'STATIC_VAR'");
         }
 
         skip_whitespace_and_comments(pos, end);
-
-        function_var_statement var_statement;
 
         var_statement.name = parse_identifier(pos, end);
 
@@ -42,8 +52,8 @@ namespace quxlang::parsers
                     break;
                 }
 
-                expression expr = parse_expression(ctx);
-                var_statement.initializers.push_back(std::move(expr));
+                expression_arg arg = parse_expression_arg(ctx);
+                var_statement.initializers.push_back(std::move(arg));
 
                 if (skip_symbol_if_is(pos, end, ","))
                 {

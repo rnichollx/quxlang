@@ -205,8 +205,10 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/class_trivially_destructible_spec.hpp
         include/quxlang/queries/specs/constexpr_bool_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp
+        include/quxlang/queries/specs/constexpr_eval_v3_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_spec.hpp
         include/quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp
+        include/quxlang/queries/specs/constexpr_routine_v3_spec.hpp
         include/quxlang/queries/specs/constexpr_routine_spec.hpp
         include/quxlang/queries/specs/constexpr_u64_spec.hpp
         include/quxlang/queries/specs/convertible_by_call_spec.hpp

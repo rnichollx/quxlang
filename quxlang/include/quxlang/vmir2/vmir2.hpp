@@ -3,6 +3,8 @@
 #define QUXLANG_VMIR2_VMIR2_HEADER_GUARD
 
 #include <cstdint>
+#include <map>
+#include <quxlang/data/antestatal.hpp>
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
@@ -21,6 +23,9 @@ RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, nam
 
 RPNX_ENUM(quxlang::vmir2, slot_stage, std::uint16_t, dead, partial, full);
 RPNX_ENUM(quxlang::vmir2, conversion_class, std::uint16_t, checked, partial, assume);
+
+/// Controls whether constexpr_set_result2 materializes a value slot or the object behind a reference slot.
+RPNX_ENUM(quxlang::vmir2, constexpr_result_target_mode, std::uint8_t, value, referenced_object);
 
 namespace quxlang
 {
@@ -566,8 +571,14 @@ namespace quxlang
 
         struct constexpr_set_result2
         {
+            /// Local whose value or referenced object should be materialized as an antestatal result.
             local_index target;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_set_result2, target);
+            /// Result key; zero is the primary expression result and nonzero IDs return updated statics.
+            std::uint64_t result_id = 0;
+            /// Selects whether target is the object itself or a reference to the object to materialize.
+            constexpr_result_target_mode target_mode = constexpr_result_target_mode::value;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_set_result2, target, result_id, target_mode);
         };
 
         struct load_const_value
@@ -1050,6 +1061,18 @@ namespace quxlang
             RPNX_MEMBER_METADATA(executable_block, entry_state, instructions, terminator, dbg_name);
         };
 
+        struct localdata_entry
+        {
+            /// Type of the antestatal localdata root.
+            type_symbol type;
+            /// Initial value loaded into the constexpr interpreter for this root.
+            antestatal_value value;
+            /// Whether stores through references to this root are permitted.
+            bool is_mutable = false;
+
+            RPNX_MEMBER_METADATA(localdata_entry, type, value, is_mutable);
+        };
+
         struct functanoid_routine3
         {
             std::vector< local_type > local_types;
@@ -1057,8 +1080,10 @@ namespace quxlang
             std::vector< executable_block > blocks;
             std::map< block_index, std::string > block_names;
             std::map< type_symbol, type_symbol > non_trivial_dtors;
+            /// Immutable function-local static snapshots carried by this routine.
+            std::map< static_snapshot_ref, localdata_entry > static_snapshots;
 
-            RPNX_MEMBER_METADATA(functanoid_routine3, local_types, parameters, blocks, block_names, non_trivial_dtors);
+            RPNX_MEMBER_METADATA(functanoid_routine3, local_types, parameters, blocks, block_names, non_trivial_dtors, static_snapshots);
         };
 
         struct state_transition

@@ -24,6 +24,7 @@
 #include "quxlang/queries/class_field_list.hpp"
 #include "quxlang/queries/class_layout.hpp"
 #include "quxlang/queries/constexpr_bool.hpp"
+#include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/function_builtin.hpp"
@@ -73,6 +74,17 @@ namespace quxlang
         struct codegen_literal;
         struct codegen_local;
         struct codegen_argument;
+        struct codegen_static;
+        struct codegen_static_scope;
+
+        /// Mutability policy used when generating a temporary constexpr evaluation routine.
+        enum class static_eval_access : std::uint8_t
+        {
+            /// STATIC_VAR bindings are mutable and returned through their nonzero result IDs.
+            mutable_view,
+            /// All visible statics are exposed as read-only snapshots with no mutation results.
+            readonly_view,
+        };
 
         struct codegen_block
         {
@@ -117,6 +129,26 @@ namespace quxlang
 
         using codegen_value = rpnx::variant< codegen_binding, codegen_literal, codegen_local >;
 
+        struct codegen_static
+        {
+            /// Declared static object type.
+            type_symbol type;
+            /// Current generation-time antestatal value.
+            constexpr_value value;
+            /// Result ID for mutable constexpr updates, or nullopt for read-only statics.
+            std::optional< std::uint64_t > mutation_result_id;
+
+            RPNX_MEMBER_METADATA(codegen_static, type, value, mutation_result_id);
+        };
+
+        struct codegen_static_scope
+        {
+            /// Visible static names for one generated function block, mapped to static generations.
+            std::map< std::string, static_local_ref > bindings;
+
+            RPNX_MEMBER_METADATA(codegen_static_scope, bindings);
+        };
+
         struct codegen_state
         {
             std::vector< codegen_value > genvalues{codegen_binding{.attached_symbol = void_type(), .bound_value = value_index(0)}};
@@ -132,7 +164,21 @@ namespace quxlang
             std::optional< instanciation_reference > functanoid_type;
             std::optional< source_location > current_source_location;
 
-            std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > scoped_definitions;
+            /// Scoped typedef and static definitions visible to constexpr routine generation.
+            std::map< std::string, scoped_definition_v3 > scoped_definitions;
+            /// Static objects tracked by stable static-local symbol.
+            std::map< static_local_ref, codegen_static > statics;
+
+            /// Stack of generated block scopes that own visible static names.
+            std::vector< codegen_static_scope > static_scopes;
+            /// Next nonzero result ID assigned to a STATIC_VAR binding.
+            std::uint64_t next_static_result_id = 1;
+            /// Next declaration generation to assign for each static local name.
+            std::map< std::string, std::uint64_t > next_static_generation;
+            /// Next immutable runtime-read snapshot ID to assign.
+            std::uint64_t next_static_snapshot_id = 1;
+            /// Immutable snapshot localdata emitted into the current routine.
+            std::map< static_snapshot_ref, vmir2::localdata_entry > static_snapshots;
         };
 
         codegen_state state;
@@ -206,7 +252,50 @@ namespace quxlang
 
         auto set_scoped_definitions(std::map< std::string, rpnx::variant< constexpr_result, type_symbol > > defs) -> void
         {
+            this->state.scoped_definitions.clear();
+            for (auto& [name, def] : defs)
+            {
+                if (def.template type_is< type_symbol >())
+                {
+                    this->state.scoped_definitions[std::move(name)] = scoped_typedef{.type = std::move(def.template get_as< type_symbol >())};
+                    continue;
+                }
+                throw rpnx::unimplemented();
+            }
+        }
+
+        /// Configures scoped typedef and static definitions for constexpr v3 routine generation.
+        auto set_scoped_definitions_v3(std::map< std::string, scoped_definition_v3 > defs) -> void
+        {
             this->state.scoped_definitions = std::move(defs);
+        }
+
+        /// Configures function-local static localdata visible while generating a constexpr routine.
+        auto set_static_eval_context(std::map< static_local_ref, constexpr_static > inputs, std::map< std::string, static_local_ref > scoped_symbols, bool emit_results, bool) -> void
+        {
+            this->state.statics.clear();
+            for (auto& [symbol, input] : inputs)
+            {
+                if (!emit_results)
+                {
+                    input.mutation_result_id.reset();
+                }
+                this->state.statics[std::move(symbol)] = codegen_static{.type = std::move(input.type), .value = std::move(input.value), .mutation_result_id = input.mutation_result_id};
+            }
+            for (auto& [name, symbol] : scoped_symbols)
+            {
+                this->state.scoped_definitions[std::move(name)] = scoped_static{.symbol = std::move(symbol)};
+            }
+        }
+
+        /// Configures function-local static localdata visible while generating a constexpr v3 routine.
+        auto set_static_eval_context_v3(std::map< static_local_ref, constexpr_static > inputs) -> void
+        {
+            this->state.statics.clear();
+            for (auto& [symbol, input] : inputs)
+            {
+                this->state.statics[std::move(symbol)] = codegen_static{.type = std::move(input.type), .value = std::move(input.value), .mutation_result_id = input.mutation_result_id};
+            }
         }
 
         auto co_generate_constexpr_eval(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
@@ -232,27 +321,70 @@ namespace quxlang
             co_return get_result();
         }
 
-        auto co_generate_constexpr_eval_antestatal(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
+        /// Generates a constexpr v3 routine that can return primary and static mutation results.
+        auto co_generate_constexpr_eval_v3(expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_routine_v3_result >
         {
             assert(this->state.blocks.empty());
             this->state.blocks.push_back(codegen_block{});
             auto current_block = block_index(0);
             auto location_scope = this->scoped_source_location(get_location(expr));
-            std::string type_str = to_string(type);
             std::string expr_str = to_string(expr);
-            auto result_val = co_await this->co_generate_typed_expr(current_block, expr, type);
-            assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
-            assert(result_val != value_index(0));
-            vmir2::constexpr_set_result2 csr;
-            assert(this->current_type(current_block, result_val) == type);
-            csr.target = get_local_index(result_val);
-            this->emit(current_block, csr);
+            std::optional< type_symbol > deduced_type;
+            if (expected_result_type.has_value())
+            {
+                value_index result_val;
+                if (typeis< auto_temploidic >(*expected_result_type))
+                {
+                    result_val = co_await this->co_generate_expr(current_block, expr);
+                    deduced_type = this->current_type(current_block, result_val);
+                }
+                else
+                {
+                    result_val = co_await this->co_generate_typed_expr(current_block, expr, *expected_result_type);
+                }
+                assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+                assert(result_val != value_index(0));
+                vmir2::constexpr_set_result2 csr;
+                if (!deduced_type.has_value())
+                {
+                    assert(this->current_type(current_block, result_val) == *expected_result_type);
+                }
+                csr.target = get_local_index(result_val);
+                csr.result_id = constexpr_primary_result_id;
+                this->emit(current_block, csr);
+            }
+            else
+            {
+                co_await this->co_generate_void_expr(current_block, expr);
+            }
+
+            for (auto const& [symbol, input] : this->state.statics)
+            {
+                if (!input.mutation_result_id.has_value())
+                {
+                    continue;
+                }
+                auto ref = this->create_local_value(make_mref(input.type));
+                this->emit(current_block, vmir2::get_antestatal_ref{.symbol = type_symbol(symbol), .target_ref = get_local_index(ref)});
+                this->emit(current_block, vmir2::constexpr_set_result2{
+                                              .target = get_local_index(ref),
+                                              .result_id = *input.mutation_result_id,
+                                              .target_mode = vmir2::constexpr_result_target_mode::referenced_object,
+                                          });
+            }
 
             this->generate_return(current_block);
 
             co_await co_generate_dtor_references();
 
-            co_return get_result();
+            co_return constexpr_routine_v3_result{.routine = get_result(), .deduced_type = std::move(deduced_type)};
+        }
+
+        /// Generates a legacy antestatal constexpr routine by adapting to the v3 generator.
+        auto co_generate_constexpr_eval_antestatal(expression expr, type_symbol type) -> co_type< vmir2::functanoid_routine3 >
+        {
+            auto result = co_await this->co_generate_constexpr_eval_v3(std::move(expr), std::move(type));
+            co_return std::move(result.routine);
         }
 
         bool local_alive(block_index bidx, local_index idx)
@@ -729,6 +861,120 @@ namespace quxlang
             return std::nullopt;
         }
 
+        /// Returns the innermost visible static-local symbol for a source name.
+        auto find_visible_static_binding(std::string const& name) const -> std::optional< static_local_ref >
+        {
+            for (auto scope_it = this->state.static_scopes.rbegin(); scope_it != this->state.static_scopes.rend(); ++scope_it)
+            {
+                auto it = scope_it->bindings.find(name);
+                if (it != scope_it->bindings.end())
+                {
+                    return it->second;
+                }
+            }
+            return std::nullopt;
+        }
+
+        /// Returns true when a stable static-local symbol is tracked by this generator.
+        auto has_static_binding(static_local_ref const& symbol) const -> bool
+        {
+            return this->state.statics.contains(symbol);
+        }
+
+        /// Emits GET_ANTESTATAL_REF and returns a local reference with the requested mutability.
+        auto create_antestatal_reference(block_index& bidx, type_symbol symbol, type_symbol type, bool is_mutable) -> value_index
+        {
+            auto ref_type = is_mutable ? make_mref(type) : make_cref(type);
+            auto ref = this->create_local_value(ref_type);
+            this->emit(bidx, vmir2::get_antestatal_ref{.symbol = std::move(symbol), .target_ref = get_local_index(ref)});
+            return ref;
+        }
+
+        /// Rewrites function-local static references inside a snapshot pointer graph.
+        auto rewrite_antestatal_access_for_snapshot(antestatal_access access, std::map< static_local_ref, static_snapshot_ref >& remapped, bool allow_mutable_static_targets) -> antestatal_access
+        {
+            if (typeis< antestatal_access_global >(access))
+            {
+                auto& global = as< antestatal_access_global >(access);
+                if (typeis< static_local_ref >(global.symbol))
+                {
+                    auto const& local_symbol = as< static_local_ref >(global.symbol);
+                    if (has_static_binding(local_symbol))
+                    {
+                        global.symbol = type_symbol(create_ordinary_snapshot_for_binding(local_symbol, remapped, allow_mutable_static_targets));
+                    }
+                }
+                return access;
+            }
+            if (typeis< antestatal_access_field >(access))
+            {
+                auto& field = as< antestatal_access_field >(access);
+                field.object = rewrite_antestatal_access_for_snapshot(std::move(field.object), remapped, allow_mutable_static_targets);
+                return access;
+            }
+            if (typeis< antestatal_access_array_element >(access))
+            {
+                auto& element = as< antestatal_access_array_element >(access);
+                element.array = rewrite_antestatal_access_for_snapshot(std::move(element.array), remapped, allow_mutable_static_targets);
+                return access;
+            }
+            return access;
+        }
+
+        /// Copies an antestatal value while remapping function-local static pointer targets.
+        auto rewrite_antestatal_value_for_snapshot(antestatal_value value, std::map< static_local_ref, static_snapshot_ref >& remapped, bool allow_mutable_static_targets) -> antestatal_value
+        {
+            if (typeis< antestatal_ptrref >(value))
+            {
+                auto& ptr = as< antestatal_ptrref >(value);
+                ptr.target = rewrite_antestatal_access_for_snapshot(std::move(ptr.target), remapped, allow_mutable_static_targets);
+                return value;
+            }
+            if (typeis< antestatal_array >(value))
+            {
+                auto& arr = as< antestatal_array >(value);
+                for (auto& element : arr.elements)
+                {
+                    element = rewrite_antestatal_value_for_snapshot(std::move(element), remapped, allow_mutable_static_targets);
+                }
+                return value;
+            }
+            if (typeis< antestatal_struct >(value))
+            {
+                auto& st = as< antestatal_struct >(value);
+                for (auto& [_, field] : st.fields)
+                {
+                    field = rewrite_antestatal_value_for_snapshot(std::move(field), remapped, allow_mutable_static_targets);
+                }
+                return value;
+            }
+            return value;
+        }
+
+        /// Creates immutable localdata for a runtime read of a function-local static binding.
+        auto create_ordinary_snapshot_for_binding(static_local_ref const& symbol, std::map< static_local_ref, static_snapshot_ref >& remapped, bool allow_mutable_static_targets) -> static_snapshot_ref
+        {
+            auto const& binding = this->state.statics.at(symbol);
+            if (binding.mutation_result_id.has_value() && !allow_mutable_static_targets)
+            {
+                throw std::logic_error("cannot use mutable function-local static outside constexpr context without SNAPSHOT: " + symbol.name);
+            }
+            if (auto it = remapped.find(symbol); it != remapped.end())
+            {
+                return it->second;
+            }
+
+            static_snapshot_ref snapshot_symbol{.functanoid = this->ctx, .name = symbol.name, .generation = symbol.generation, .snapshot_id = this->state.next_static_snapshot_id++};
+            remapped[symbol] = snapshot_symbol;
+            auto snapshot_value = rewrite_antestatal_value_for_snapshot(constexpr_value_as_antestatal(binding.value), remapped, allow_mutable_static_targets);
+            this->state.static_snapshots[snapshot_symbol] = vmir2::localdata_entry{
+                .type = binding.type,
+                .value = std::move(snapshot_value),
+                .is_mutable = false,
+            };
+            return snapshot_symbol;
+        }
+
         auto create_binding(value_index bindval, type_symbol bind_type)
         {
             assert(!type_is_contextual(bind_type));
@@ -1004,18 +1250,27 @@ namespace quxlang
                     if (this->state.scoped_definitions.contains(name))
                     {
                         auto const& def = this->state.scoped_definitions.at(name);
-                        if (def.template type_is< type_symbol >())
+                        if (def.template type_is< scoped_typedef >())
                         {
-                            auto def_type = def.template get_as< type_symbol >();
+                            auto def_type = def.template get_as< scoped_typedef >().type;
                             assert(!type_is_contextual(def_type));
                             auto binding = this->create_binding(value_index(0), def_type);
                             co_return binding;
                         }
-                        else
+                        if (def.template type_is< scoped_static >())
                         {
-                            // CONSTEXPR declaration
-                            throw rpnx::unimplemented();
+                            auto const& symbol = def.template get_as< scoped_static >().symbol;
+                            auto const& input = this->state.statics.at(symbol);
+                            co_return this->create_antestatal_reference(idx, type_symbol(symbol), input.type, input.mutation_result_id.has_value());
                         }
+                        throw rpnx::unimplemented();
+                    }
+                    if (auto static_symbol = this->find_visible_static_binding(name); static_symbol.has_value())
+                    {
+                        auto const& binding = this->state.statics.at(*static_symbol);
+                        std::map< static_local_ref, static_snapshot_ref > remapped;
+                        auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*static_symbol, remapped, false);
+                        co_return this->create_antestatal_reference(idx, type_symbol(snapshot_symbol), binding.type, false);
                     }
                 }
             }
@@ -2223,6 +2478,20 @@ namespace quxlang
             co_return value_opt.value();
         }
 
+        auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
+        {
+            auto symbol = this->find_visible_static_binding(expr.name);
+            if (!symbol.has_value())
+            {
+                throw std::logic_error("SNAPSHOT requires a visible function-local static: " + expr.name);
+            }
+
+            std::map< static_local_ref, static_snapshot_ref > remapped;
+            auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(*symbol, remapped, true);
+            auto const& binding = this->state.statics.at(*symbol);
+            co_return this->create_antestatal_reference(bidx, type_symbol(snapshot_symbol), binding.type, false);
+        }
+
         auto co_generate(block_index& bidx, expression_sizeof szof) -> co_type< value_index >
         {
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
@@ -2690,11 +2959,131 @@ namespace quxlang
 
         auto co_constexpr_bool(block_index&, expression const& expr) -> co_type< bool >
         {
-            // TODO: Add carried context support
+            if (!this->state.statics.empty())
+            {
+                auto eval_result = co_await this->co_eval_static_expression(expr, type_symbol(bool_type{}), static_eval_access::readonly_view);
+                co_return static_eval_result_as_bool(eval_result);
+            }
+
             auto ce_input = constexpr_input{.context = ctx, .expr = expr};
-            ce_input.scoped_definitions = this->state.scoped_definitions;
+            for (auto const& [name, def] : this->state.scoped_definitions)
+            {
+                if (def.template type_is< scoped_typedef >())
+                {
+                    ce_input.scoped_definitions[name] = def.template get_as< scoped_typedef >().type;
+                    continue;
+                }
+                if (def.template type_is< scoped_static >())
+                {
+                    ce_input.scoped_static_symbols[name] = def.template get_as< scoped_static >().symbol;
+                    continue;
+                }
+                throw rpnx::unimplemented();
+            }
             auto ce_result = co_await rpnx::querygraph::request< constexpr_bool_query >(ce_input);
             co_return ce_result;
+        }
+
+        /// Converts result ID 0 from a static evaluation into a native bool.
+        auto static_eval_result_as_bool(constexpr_result_v3 const& result) const -> bool
+        {
+            auto result_it = result.values.find(constexpr_primary_result_id);
+            if (result_it == result.values.end())
+            {
+                throw compiler_bug("static bool evaluation did not produce a primary result");
+            }
+            auto const& value = constexpr_value_as_antestatal(result_it->second);
+            if (!typeis< antestatal_primitive >(value))
+            {
+                throw compiler_bug("static bool evaluation did not produce a primitive result");
+            }
+            auto const& data = as< antestatal_primitive >(value).value;
+            if (data == std::vector{std::byte{0}})
+            {
+                return false;
+            }
+            if (data == std::vector{std::byte{1}})
+            {
+                return true;
+            }
+            throw compiler_bug("static bool evaluation produced invalid bool bytes");
+        }
+
+        /// Builds a constexpr query input using the currently visible static bindings.
+        auto build_static_eval_input(expression expr, std::optional< type_symbol > expected_result_type, static_eval_access access) -> constexpr_input_v3
+        {
+            constexpr_input_v3 input;
+            input.expr = std::move(expr);
+            input.context = this->ctx;
+            input.expected_result_type = std::move(expected_result_type);
+            input.scoped_definitions = this->state.scoped_definitions;
+
+            for (auto const& [symbol, binding] : this->state.statics)
+            {
+                auto mutation_result_id = access == static_eval_access::mutable_view ? binding.mutation_result_id : std::nullopt;
+                input.statics[symbol] = constexpr_static{
+                    .type = binding.type,
+                    .value = binding.value,
+                    .mutation_result_id = mutation_result_id,
+                };
+            }
+            for (auto const& scope : this->state.static_scopes)
+            {
+                for (auto const& [name, symbol] : scope.bindings)
+                {
+                    input.scoped_definitions[name] = scoped_static{.symbol = symbol};
+                }
+            }
+            return input;
+        }
+
+        /// Applies returned nonzero result IDs to mutable function-local static bindings.
+        auto apply_static_eval_mutations(std::map< std::uint64_t, constexpr_value > const& result_values) -> void
+        {
+            for (auto& [_, binding] : this->state.statics)
+            {
+                if (!binding.mutation_result_id.has_value())
+                {
+                    continue;
+                }
+                if (auto result_it = result_values.find(*binding.mutation_result_id); result_it != result_values.end())
+                {
+                    binding.value = result_it->second;
+                }
+            }
+        }
+
+        /// Evaluates an expression immediately with the selected static mutability policy.
+        auto co_eval_static_expression(expression expr, std::optional< type_symbol > expected_result_type, static_eval_access access) -> co_type< constexpr_result_v3 >
+        {
+            bool const require_primary_result = expected_result_type.has_value();
+            auto input = build_static_eval_input(std::move(expr), std::move(expected_result_type), access);
+            auto result = co_await rpnx::querygraph::request< constexpr_eval_v3_query >(input);
+            if (require_primary_result && !result.values.contains(constexpr_primary_result_id))
+            {
+                throw compiler_bug("static evaluation did not produce a primary result");
+            }
+            if (access == static_eval_access::mutable_view)
+            {
+                apply_static_eval_mutations(result.values);
+            }
+            co_return result;
+        }
+
+        /// Reuses constructor-call expression generation for STATIC/STATIC_VAR initialization.
+        auto make_static_initializer_expression(function_var_statement const& st, type_symbol resolved_type) -> expression
+        {
+            expression_call call;
+            call.callee = expression_symbol_reference{.symbol = std::move(resolved_type)};
+            for (auto const& init : st.initializers)
+            {
+                call.args.push_back(init);
+            }
+            if (st.equals_initializer.has_value())
+            {
+                call.args.push_back(expression_arg{.name = std::string("OTHER"), .value = *st.equals_initializer});
+            }
+            return call;
         }
 
         auto co_generate(block_index& bidx, expression_rightarrow expr) -> co_type< value_index >
@@ -3298,6 +3687,44 @@ namespace quxlang
             co_return;
         }
 
+        /// Generates STATIC_EVAL by evaluating its expression during generation.
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_eval_statement const& st) -> co_type< void >
+        {
+            (void)current_block;
+            co_await this->co_eval_static_expression(st.expr, std::nullopt, static_eval_access::mutable_view);
+            co_return;
+        }
+
+        /// Generates only the selected STATIC_IF branch after evaluating its condition.
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_if_statement const& st) -> co_type< void >
+        {
+            auto eval_result = co_await this->co_eval_static_expression(st.condition, type_symbol(bool_type{}), static_eval_access::mutable_view);
+            if (this->static_eval_result_as_bool(eval_result))
+            {
+                co_await this->co_generate_function_block(current_block, st.then_block, "static_if_then");
+            }
+            else if (st.else_block.has_value())
+            {
+                co_await this->co_generate_function_block(current_block, *st.else_block, "static_if_else");
+            }
+            co_return;
+        }
+
+        /// Repeats STATIC_WHILE generation while its condition evaluates to true.
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_static_while_statement const& st) -> co_type< void >
+        {
+            while (true)
+            {
+                auto eval_result = co_await this->co_eval_static_expression(st.condition, type_symbol(bool_type{}), static_eval_access::mutable_view);
+                if (!this->static_eval_result_as_bool(eval_result))
+                {
+                    break;
+                }
+                co_await this->co_generate_function_block(current_block, st.loop_block, "static_while_body");
+            }
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_while_statement const& st) -> co_type< void >
         {
             block_index condition_block = this->generate_subblock(current_block, "while_condition");
@@ -3431,8 +3858,55 @@ namespace quxlang
             this->block(to).lookup_values[name] = this->block(from).lookup_values.at(name);
         }
 
+        /// Evaluates and records a function-local STATIC or STATIC_VAR declaration.
+        [[nodiscard]] auto co_generate_static_var_statement(block_index& current_block, function_var_statement const& st) -> co_type< void >
+        {
+            if (this->state.static_scopes.empty())
+            {
+                throw compiler_bug("STATIC/STATIC_VAR used without a static scope");
+            }
+            if (this->find_visible_static_binding(st.name).has_value())
+            {
+                throw std::logic_error("duplicate visible static local: " + st.name);
+            }
+            if (this->local_value_direct_lookup(current_block, st.name).has_value())
+            {
+                throw std::logic_error("static local conflicts with visible runtime local: " + st.name);
+            }
+
+            type_symbol var_type = (co_await rpnx::querygraph::request< lookup_query >({.context = ctx, .type = st.type})).value();
+            auto initializer = this->make_static_initializer_expression(st, var_type);
+            auto eval_result = co_await this->co_eval_static_expression(std::move(initializer), var_type, static_eval_access::mutable_view);
+
+            auto generation = ++this->state.next_static_generation[st.name];
+            auto state_symbol = static_local_ref{.functanoid = this->ctx, .name = st.name, .generation = generation};
+            std::optional< std::uint64_t > mutation_result_id;
+            QUXLANG_COMPILER_BUG_IF(!st.static_kind.has_value(), "Static local generator received non-static VAR");
+            if (*st.static_kind == function_static_kind::mutable_)
+            {
+                mutation_result_id = this->state.next_static_result_id++;
+            }
+            auto primary_result_it = eval_result.values.find(constexpr_primary_result_id);
+            QUXLANG_COMPILER_BUG_IF(primary_result_it == eval_result.values.end(), "Static initializer did not produce a primary result");
+
+            codegen_static binding{
+                .type = var_type,
+                .value = primary_result_it->second,
+                .mutation_result_id = mutation_result_id,
+            };
+            this->state.statics[state_symbol] = std::move(binding);
+            this->state.static_scopes.back().bindings[st.name] = state_symbol;
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_var_statement const& st) -> co_type< void >
         {
+            if (st.static_kind.has_value())
+            {
+                co_await this->co_generate_static_var_statement(current_block, st);
+                co_return;
+            }
+
             std::string type_str = quxlang::to_string(st.type);
             std::string context_str = quxlang::to_string(ctx);
             type_symbol var_type = (co_await rpnx::querygraph::request< lookup_query >({.context = ctx, .type = st.type})).value();
@@ -3454,11 +3928,17 @@ namespace quxlang
             this->generate_jump(current_block, new_expr_block);
             current_block = new_expr_block;
 
-            // TODO: Function var statement needs named constructor support
             for (auto const& init : st.initializers)
             {
-                auto init_idx = co_await co_generate_expr(new_expr_block, init);
-                args.positional.push_back(init_idx);
+                auto init_idx = co_await co_generate_expr(new_expr_block, init.value);
+                if (init.name.has_value())
+                {
+                    args.named[*init.name] = init_idx;
+                }
+                else
+                {
+                    args.positional.push_back(init_idx);
+                }
             }
 
             if (st.equals_initializer.has_value())
@@ -4280,6 +4760,7 @@ namespace quxlang
             }
             result.local_types = state.locals;
             result.parameters = state.params;
+            result.static_snapshots = state.static_snapshots;
 
             return result;
         }
@@ -4437,6 +4918,7 @@ namespace quxlang
         [[nodiscard]] auto co_generate_function_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
         {
             assert(!this->state.blocks.at(current_block).terminator.has_value());
+            this->state.static_scopes.emplace_back();
             auto new_block = this->generate_subblock(current_block, block_from + "_block_new");
 
             assert(!this->state.blocks.at(new_block).terminator.has_value());
@@ -4460,6 +4942,7 @@ namespace quxlang
             assert(this->state.blocks.at(current_block).terminator.has_value());
             current_block = after_block;
             assert(!this->state.blocks.at(after_block).terminator.has_value());
+            this->state.static_scopes.pop_back();
             co_return;
         }
 

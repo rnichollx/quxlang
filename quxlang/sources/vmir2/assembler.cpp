@@ -557,6 +557,14 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::constexpr_set_result2 inst)
     {
         std::string result = "CE_SETRESULT_ANTESTATAL %" + std::to_string(inst.target);
+        if (inst.result_id != 0 || inst.target_mode != vmir2::constexpr_result_target_mode::value)
+        {
+            result += ", #" + std::to_string(inst.result_id);
+            if (inst.target_mode == vmir2::constexpr_result_target_mode::referenced_object)
+            {
+                result += ", REF_OBJECT";
+            }
+        }
         return result;
     }
     std::string assembler::to_string_internal(vmir2::jump inst)

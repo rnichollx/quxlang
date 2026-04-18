@@ -4,14 +4,14 @@
 #define QUXLANG_QUERIES_SPECS_CONSTEXPR_U64_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/constexpr_u64.hpp>
-#include <quxlang/queries/constexpr_eval.hpp>
+#include <quxlang/queries/constexpr_eval_v3.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
 namespace quxlang
 {
-    using constexpr_u64_spec = rpnx::querygraph::query_handler_spec< constexpr_u64_query, rpnx::typelist< constexpr_eval_query > >;
+    using constexpr_u64_spec = rpnx::querygraph::query_handler_spec< constexpr_u64_query, rpnx::typelist< constexpr_eval_v3_query > >;
 
     rpnx::querygraph::coroutine< constexpr_u64_spec > constexpr_u64_impl(constexpr_input input);
 } // namespace quxlang

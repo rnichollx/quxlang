@@ -5,6 +5,7 @@
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
+#include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
@@ -75,6 +76,20 @@ namespace
     {
         return quxlang::compiler_querygraph(bundle, "x64", bundle.targets.at("x64").target_output_config,
                                             quxlang::tests::current_test_graph_dump_path());
+    }
+
+    /// Builds an I32 constexpr value with the requested low byte.
+    auto test_i32_value(std::byte low_byte) -> quxlang::constexpr_value
+    {
+        return quxlang::antestatal_value(quxlang::antestatal_primitive{.value = {low_byte, std::byte{0}, std::byte{0}, std::byte{0}}});
+    }
+
+    /// Checks that a constexpr value is the expected I32 primitive.
+    auto assert_i32_value(quxlang::constexpr_value const& value, std::byte low_byte) -> void
+    {
+        auto const& antestatal = quxlang::constexpr_value_as_antestatal(value);
+        ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(antestatal));
+        ASSERT_EQ(quxlang::as< quxlang::antestatal_primitive >(antestatal).value, (std::vector{low_byte, std::byte{0}, std::byte{0}, std::byte{0}}));
     }
 } // namespace
 
@@ -237,6 +252,109 @@ TEST(querygraph_queries, option_number_and_bool_values_are_constexpr_literals)
 
     ASSERT_EQ(answer, 7);
     ASSERT_TRUE(enabled);
+}
+
+TEST(querygraph_queries, constexpr_eval_v3_discards_primary_result_when_no_type_expected)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(quxlang::constexpr_input_v3{
+        .expr = quxlang::expression_value_keyword{"TRUE"},
+        .context = context,
+        .expected_result_type = std::nullopt,
+    });
+
+    ASSERT_FALSE(result.values.contains(quxlang::constexpr_primary_result_id));
+    ASSERT_FALSE(result.deduced_type.has_value());
+}
+
+TEST(querygraph_queries, constexpr_eval_v3_auto_reports_deduced_primary_type)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(quxlang::constexpr_input_v3{
+        .expr = quxlang::expression_value_keyword{"TRUE"},
+        .context = context,
+        .expected_result_type = quxlang::auto_temploidic{},
+    });
+
+    ASSERT_TRUE(result.values.contains(quxlang::constexpr_primary_result_id));
+    ASSERT_EQ(result.deduced_type, std::optional< quxlang::type_symbol >(quxlang::bool_type{}));
+}
+
+TEST(querygraph_queries, constexpr_eval_v3_scoped_typedef_resolves_type_expression)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+
+    quxlang::constexpr_input_v3 input{
+        .expr = quxlang::expression_same_types{.lhs_type = quxlang::freebound_identifier{"T"}, .rhs_type = i32},
+        .context = context,
+        .expected_result_type = quxlang::bool_type{},
+    };
+    input.scoped_definitions["T"] = quxlang::scoped_typedef{.type = i32};
+
+    auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(input);
+    ASSERT_TRUE(result.values.contains(quxlang::constexpr_primary_result_id));
+    auto const& value = quxlang::constexpr_value_as_antestatal(result.values.at(quxlang::constexpr_primary_result_id));
+    ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(value));
+    ASSERT_EQ(quxlang::as< quxlang::antestatal_primitive >(value).value, (std::vector{std::byte{1}}));
+}
+
+TEST(querygraph_queries, constexpr_eval_v3_scoped_static_resolves_localdata)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+    auto static_symbol = quxlang::static_local_ref{.functanoid = context, .name = "x", .generation = 1};
+
+    quxlang::constexpr_input_v3 input{
+        .expr = quxlang::expression_symbol_reference{quxlang::freebound_identifier{"x"}},
+        .context = context,
+        .expected_result_type = i32,
+    };
+    input.scoped_definitions["x"] = quxlang::scoped_static{.symbol = static_symbol};
+    input.statics[static_symbol] = quxlang::constexpr_static{
+        .type = i32,
+        .value = test_i32_value(std::byte{7}),
+        .mutation_result_id = std::nullopt,
+    };
+
+    auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(input);
+    ASSERT_TRUE(result.values.contains(quxlang::constexpr_primary_result_id));
+    assert_i32_value(result.values.at(quxlang::constexpr_primary_result_id), std::byte{7});
+}
+
+TEST(querygraph_queries, constexpr_eval_v3_static_mutation_result_id_returns_static_value)
+{
+    auto bundle = make_single_main_source_bundle("::main VAR I32;");
+    auto graph = make_x64_graph(bundle);
+    auto context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+    auto static_symbol = quxlang::static_local_ref{.functanoid = context, .name = "x", .generation = 1};
+
+    quxlang::constexpr_input_v3 input{
+        .expr = quxlang::expression_value_keyword{"TRUE"},
+        .context = context,
+        .expected_result_type = std::nullopt,
+    };
+    input.statics[static_symbol] = quxlang::constexpr_static{
+        .type = i32,
+        .value = test_i32_value(std::byte{9}),
+        .mutation_result_id = 17,
+    };
+
+    auto result = graph.make_request< quxlang::constexpr_eval_v3_query >(input);
+    ASSERT_FALSE(result.values.contains(quxlang::constexpr_primary_result_id));
+    ASSERT_TRUE(result.values.contains(17));
+    assert_i32_value(result.values.at(17), std::byte{9});
 }
 
 TEST(querygraph_queries, option_number_uses_default_when_unconfigured)

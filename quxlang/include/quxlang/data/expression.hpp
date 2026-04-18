@@ -33,6 +33,7 @@ namespace quxlang
     struct expression_multibind;
 
     struct expression_static_choose;
+    struct expression_snapshot;
 
 
 
@@ -336,6 +337,14 @@ namespace quxlang
         expression false_expr;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_static_choose, condition, true_expr, false_expr);
+    };
+
+    struct expression_snapshot
+    {
+        /// Visible function-local static name to freeze for this runtime expression.
+        std::string name;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_snapshot, name);
     };
 
     struct expression_choose

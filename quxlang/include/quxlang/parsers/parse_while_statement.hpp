@@ -40,6 +40,36 @@ namespace quxlang::parsers
         return output;
     }
 
+    /// Parses a STATIC_WHILE statement whose condition and body execute during generation.
+    inline function_static_while_statement parse_static_while_statement(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_keyword_if_is(pos, end, "STATIC_WHILE"))
+        {
+            throw std::logic_error("Expected 'STATIC_WHILE'");
+        }
+        function_static_while_statement output;
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, "("))
+        {
+            throw std::logic_error("Expected '(' after STATIC_WHILE");
+        }
+        output.condition = parse_expression(ctx);
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ")"))
+        {
+            throw std::logic_error("Expected ')' after STATIC_WHILE condition");
+        }
+        skip_whitespace_and_comments(pos, end);
+        output.loop_block = parse_function_block(ctx);
+        output.location = ctx.get_location_optional(begin, pos);
+        return output;
+    }
+
 } // namespace quxlang::parsers
 
 #endif // PARSE_WHILE_STATEMENT_HPP

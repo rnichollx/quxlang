@@ -16,6 +16,33 @@
 
 namespace quxlang::parsers
 {
+    /// Parses a STATIC_EVAL statement and stores its expression for generation-time evaluation.
+    /// STATIC_EVAL is used to mutate constexpr/compile time variables for generation loops,
+    /// e.g. using STATIC_WHILE.
+    inline function_static_eval_statement parse_static_eval_statement(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_keyword_if_is(pos, end, "STATIC_EVAL"))
+        {
+            throw std::logic_error("Expected 'STATIC_EVAL'");
+        }
+
+        skip_whitespace_and_comments(pos, end);
+        function_static_eval_statement st;
+        st.expr = parse_expression(ctx);
+        skip_whitespace_and_comments(pos, end);
+        if (!skip_symbol_if_is(pos, end, ";"))
+        {
+            throw std::logic_error("Expected ';' after STATIC_EVAL expression");
+        }
+        st.location = ctx.get_location_optional(begin, pos);
+        return st;
+    }
+
     inline std::optional< function_statement > try_parse_statement(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -59,9 +86,17 @@ namespace quxlang::parsers
         {
             return parse_if_statement(ctx);
         }
-        else if (kw == "VAR")
+        else if (kw == "STATIC_IF")
+        {
+            return parse_static_if_statement(ctx);
+        }
+        else if (kw == "VAR" || kw == "STATIC" || kw == "STATIC_VAR")
         {
             return parse_var_statement(ctx);
+        }
+        else if (kw == "STATIC_EVAL")
+        {
+            return parse_static_eval_statement(ctx);
         }
         else if (kw == "RETURN")
         {
@@ -70,6 +105,10 @@ namespace quxlang::parsers
         else if (kw == "WHILE")
         {
             return parse_while_statement(ctx);
+        }
+        else if (kw == "STATIC_WHILE")
+        {
+            return parse_static_while_statement(ctx);
         }
         if (kw == "ASSERT")
         {

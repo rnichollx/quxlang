@@ -263,6 +263,24 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "SNAPSHOT"))
+        {
+            expression_snapshot expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after SNAPSHOT");
+            }
+            skip_whitespace_and_comments(pos, end);
+            expr.name = parse_identifier(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after SNAPSHOT(<name>)");
+            }
+            *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
         {
             expression_sizeof sz;

@@ -6,9 +6,11 @@
 #include "quxlang/manipulators/merge_entity.hpp"
 
 #include "quxlang/cow.hpp"
+#include "quxlang/exception.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 
 
+#include <quxlang/data/antestatal.hpp>
 #include <quxlang/data/type_symbol.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
@@ -26,6 +28,7 @@
 #include <quxlang/queries/module_sources.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include "graph_dump_test_utils.hpp"
+#include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
 
 #include "rpnx/serialization4.hpp"
 
@@ -61,6 +64,25 @@ std::filesystem::path temp_output_file()
     fname += ".txt";
     return tempdir / fname;
 }
+
+namespace
+{
+    auto test_i32_type() -> quxlang::type_symbol
+    {
+        return quxlang::int_type{32, true};
+    }
+
+    auto test_i32_value(std::byte low_byte) -> quxlang::antestatal_value
+    {
+        return quxlang::antestatal_primitive{.value = {low_byte, std::byte{0}, std::byte{0}, std::byte{0}}};
+    }
+
+    auto expect_i32_value(quxlang::antestatal_value const& value, std::byte low_byte) -> void
+    {
+        ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(value));
+        ASSERT_EQ(quxlang::as< quxlang::antestatal_primitive >(value).value, (std::vector{low_byte, std::byte{0}, std::byte{0}, std::byte{0}}));
+    }
+} // namespace
 
 static quxlang::parsers::parsing_context test_parsing_context(std::string const& input)
 {
@@ -337,6 +359,60 @@ TEST(parsing, parse_global_static_variable_declaration)
     ASSERT_TRUE(variable_decl.init_args.empty());
 }
 
+TEST(parsing, parse_function_local_static_statements)
+{
+    std::string test_string = R"QX(
+::foo STATIC_TEST
+{
+  STATIC a I32;
+  STATIC b I32 :(@OTHER 7);
+  STATIC c I32 := 8;
+  STATIC_VAR d I32;
+  STATIC_VAR e I32 :(@OTHER 9);
+  STATIC_VAR f I32 := 10;
+  STATIC_EVAL d++;
+  VAR g I32 := SNAPSHOT(d);
+  STATIC_IF (TRUE) {
+  } STATIC_ELSE STATIC_IF (FALSE) {
+  } STATIC_ELSE {
+  }
+  STATIC_WHILE (FALSE) {
+  }
+}
+)QX";
+
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& statements = test.definition.body.statements;
+
+    ASSERT_GE(statements.size(), 10);
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(0)).static_kind, std::optional{quxlang::function_static_kind::constant});
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(1)).static_kind, std::optional{quxlang::function_static_kind::constant});
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(2)).static_kind, std::optional{quxlang::function_static_kind::constant});
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(3)).static_kind, std::optional{quxlang::function_static_kind::mutable_});
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(4)).static_kind, std::optional{quxlang::function_static_kind::mutable_});
+    ASSERT_EQ(quxlang::as< quxlang::function_var_statement >(statements.at(5)).static_kind, std::optional{quxlang::function_static_kind::mutable_});
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_static_eval_statement >(statements.at(6)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_var_statement >(statements.at(7)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::expression_snapshot >(*quxlang::as< quxlang::function_var_statement >(statements.at(7)).equals_initializer));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_static_if_statement >(statements.at(8)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_static_while_statement >(statements.at(9)));
+}
+
+TEST(parsing, reject_static_else_mismatch)
+{
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { STATIC_IF (TRUE) { } ELSE { } }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo STATIC_TEST { IF (TRUE) { } STATIC_ELSE { } }"), std::logic_error);
+}
+
+TEST(parsing, reject_global_and_class_static_var)
+{
+    EXPECT_THROW(parse_file_text("::foo STATIC_VAR I32;"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::foo CLASS { .bar STATIC_VAR I32; }"), std::logic_error);
+}
+
 TEST(mangling, name_mangling_new)
 {
     quxlang::absolute_module_reference module{"main"};
@@ -523,6 +599,99 @@ TEST(source_locations, vmir_instruction_and_terminator_locations_print_automatic
 
     quxlang::vmir2::assembler typed_comment_source_assembler(routine, quxlang::vmir2::source_index(file_index, bundle));
     ASSERT_EQ(typed_comment_source_assembler.to_string(located_typed_comment_instruction), "ACCESS_FIELD %0, %1, x @@ foo/bar.qx:2:1,2:5 // type1=I32 type2=I32");
+}
+
+TEST(vmir_constexpr_interpreter, localdata_get_antestatal_ref_sets_result_zero)
+{
+    auto symbol = quxlang::type_symbol(quxlang::static_local_ref{.functanoid = quxlang::void_type{}, .name = "x", .generation = 1});
+    auto i32 = test_i32_type();
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(i32)},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
+            quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(1), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_constexpr_antestatal_global(symbol, i32, test_i32_value(std::byte{7}), false);
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    expect_i32_value(interp.get_cr_antestatal_value(), std::byte{7});
+}
+
+TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
+{
+    auto symbol = quxlang::type_symbol(quxlang::static_local_ref{.functanoid = quxlang::void_type{}, .name = "x", .generation = 2});
+    auto i32 = test_i32_type();
+
+    auto make_routine = [&]()
+    {
+        quxlang::vmir2::functanoid_routine3 routine;
+        routine.local_types = {
+            quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+            quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+            quxlang::vmir2::local_type{.type = i32},
+            quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+        };
+        routine.blocks.push_back(quxlang::vmir2::executable_block{
+            .instructions = {
+                quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
+                quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "9"},
+                quxlang::vmir2::store_to_ref{.from_value = quxlang::vmir2::local_index(2), .to_reference = quxlang::vmir2::local_index(1)},
+                quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(3)},
+                quxlang::vmir2::constexpr_set_result2{
+                    .target = quxlang::vmir2::local_index(3),
+                    .result_id = 17,
+                    .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object,
+                },
+            },
+            .terminator = quxlang::vmir2::ret{},
+        });
+        return routine;
+    };
+
+    quxlang::vmir2::ir2_constexpr_interpreter immutable_interp;
+    immutable_interp.add_constexpr_antestatal_global(symbol, i32, test_i32_value(std::byte{3}), false);
+    immutable_interp.add_functanoid3(quxlang::void_type{}, make_routine());
+    EXPECT_THROW(immutable_interp.exec3(quxlang::void_type{}), quxlang::constexpr_logic_execution_error);
+
+    quxlang::vmir2::ir2_constexpr_interpreter mutable_interp;
+    mutable_interp.add_constexpr_antestatal_global(symbol, i32, test_i32_value(std::byte{3}), true);
+    mutable_interp.add_functanoid3(quxlang::void_type{}, make_routine());
+    mutable_interp.exec3(quxlang::void_type{});
+
+    auto result_values = mutable_interp.get_cr_antestatal_values();
+    ASSERT_TRUE(result_values.contains(17));
+    expect_i32_value(result_values.at(17), std::byte{9});
+}
+
+TEST(vmir_constexpr_interpreter, missing_static_localdata_is_compiler_bug)
+{
+    auto symbol = quxlang::type_symbol(quxlang::static_snapshot_ref{.functanoid = quxlang::void_type{}, .name = "x", .generation = 1, .snapshot_id = 3});
+    auto i32 = test_i32_type();
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(i32)},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    EXPECT_THROW(interp.add_functanoid3(quxlang::void_type{}, routine), quxlang::compiler_bug);
 }
 
 TEST(parsing, parse_pun_expression)

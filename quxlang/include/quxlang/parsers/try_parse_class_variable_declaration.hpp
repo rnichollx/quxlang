@@ -40,6 +40,11 @@ namespace quxlang::parsers
 
         skip_whitespace(trial.iter_pos, trial.iter_end);
 
+        if (skip_keyword_if_is(trial.iter_pos, trial.iter_end, "STATIC_VAR"))
+        {
+            throw std::logic_error("STATIC_VAR is only allowed inside function bodies");
+        }
+
         if (!skip_keyword_if_is(trial.iter_pos, trial.iter_end, "VAR"))
         {
             return std::nullopt;

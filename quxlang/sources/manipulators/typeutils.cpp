@@ -114,6 +114,11 @@ namespace quxlang
             return "STATIC_CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
         }
 
+        std::string operator()(expression_snapshot const& expr) const
+        {
+            return "SNAPSHOT(" + expr.name + ")";
+        }
+
         std::string operator()(expression_choose const& expr) const
         {
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
@@ -280,6 +285,10 @@ namespace quxlang
         std::string operator()(instanciation_reference const&) const;
         std::string operator()(string_literal_reference const&) const;
         std::string operator()(array_initializer_type const&) const;
+        /// Formats an internal function-local static storage symbol.
+        std::string operator()(static_local_ref const&) const;
+        /// Formats an internal function-local static snapshot symbol.
+        std::string operator()(static_snapshot_ref const&) const;
 
       public:
         type_symbol_stringifier() = default;
@@ -394,6 +403,18 @@ namespace quxlang
         bool operator()(array_initializer_type const& ref) const
         {
             return false;
+        }
+
+        /// Returns true when the static local owner contains template parameters.
+        bool operator()(static_local_ref const& ref) const
+        {
+            return is_template(ref.functanoid);
+        }
+
+        /// Returns true when the snapshot owner contains template parameters.
+        bool operator()(static_snapshot_ref const& ref) const
+        {
+            return is_template(ref.functanoid);
         }
 
         bool operator()(procedure_type const& ref) const
@@ -632,6 +653,14 @@ namespace quxlang
         {
             return as< submember >(input).of;
         }
+        else if (input.template type_is< static_local_ref >())
+        {
+            return as< static_local_ref >(input).functanoid;
+        }
+        else if (input.template type_is< static_snapshot_ref >())
+        {
+            return as< static_snapshot_ref >(input).functanoid;
+        }
         else
         {
             return std::nullopt;
@@ -688,6 +717,18 @@ namespace quxlang
             {
                 p = with_context(p, context);
             }
+            return output;
+        }
+        else if (ref.template type_is< static_local_ref >())
+        {
+            static_local_ref output = as< static_local_ref >(ref);
+            output.functanoid = with_context(output.functanoid, context);
+            return output;
+        }
+        else if (ref.template type_is< static_snapshot_ref >())
+        {
+            static_snapshot_ref output = as< static_snapshot_ref >(ref);
+            output.functanoid = with_context(output.functanoid, context);
             return output;
         }
         else
@@ -996,6 +1037,18 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(array_initializer_type const& ai) const
     {
         return "__ARRAY_INITIALIZER( " + to_string(ai.element_type) + ", " + std::to_string(ai.count) + " )";
+    }
+
+    /// Formats an internal function-local static storage symbol.
+    std::string type_symbol_stringifier::operator()(static_local_ref const& ref) const
+    {
+        return to_string_as_postfix_receiver(ref.functanoid) + "::__STATIC_LOCAL(" + ref.name + ", " + std::to_string(ref.generation) + ")";
+    }
+
+    /// Formats an internal function-local static snapshot symbol.
+    std::string type_symbol_stringifier::operator()(static_snapshot_ref const& ref) const
+    {
+        return to_string_as_postfix_receiver(ref.functanoid) + "::__STATIC_SNAPSHOT(" + ref.name + ", " + std::to_string(ref.generation) + ", " + std::to_string(ref.snapshot_id) + ")";
     }
 
     std::string type_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -1886,6 +1939,18 @@ namespace quxlang
                 auto val_ret = val.signature.return_type.value_or(type_symbol(void_type{}));
                 return check(tmpl_ret, val_ret, false);
             }
+
+            /// Matches static local symbols by name, generation, and owning functanoid.
+            bool check_impl(static_local_ref const& tmpl, static_local_ref const& val, bool conv)
+            {
+                return tmpl.name == val.name && tmpl.generation == val.generation && check(tmpl.functanoid, val.functanoid, false);
+            }
+
+            /// Matches snapshot symbols by name, generation, snapshot ID, and owning functanoid.
+            bool check_impl(static_snapshot_ref const& tmpl, static_snapshot_ref const& val, bool conv)
+            {
+                return tmpl.name == val.name && tmpl.generation == val.generation && tmpl.snapshot_id == val.snapshot_id && check(tmpl.functanoid, val.functanoid, false);
+            }
         };
         bool template_matcher::check(invotype template_ct, invotype match_ct, bool conv)
         {
@@ -2307,6 +2372,14 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             {
                 value.size = strip_source_locations(std::move(value.size));
                 value.align = strip_source_locations(std::move(value.align));
+            }
+            else if constexpr (std::is_same_v< value_type, static_local_ref >)
+            {
+                value.functanoid = strip_source_locations(std::move(value.functanoid));
+            }
+            else if constexpr (std::is_same_v< value_type, static_snapshot_ref >)
+            {
+                value.functanoid = strip_source_locations(std::move(value.functanoid));
             }
         });
     return ref;

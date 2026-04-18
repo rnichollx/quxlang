@@ -8,6 +8,7 @@
 #include <quxlang/queries/class_field_list.hpp>
 #include <quxlang/queries/class_layout.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
+#include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -43,6 +44,7 @@ namespace quxlang
             class_field_list_query,
             class_layout_query,
             constexpr_bool_query,
+            constexpr_eval_v3_query,
             functanoid_return_type_query,
             functanoid_sigtype_query,
             function_builtin_query,

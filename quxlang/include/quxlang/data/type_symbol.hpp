@@ -372,6 +372,34 @@ namespace quxlang
         RPNX_MEMBER_METADATA(array_initializer_type, element_type, count);
     };
 
+    /// Represents a __STATIC_LOCAL symbol for stable function-local static storage.
+    struct static_local_ref
+    {
+        /// Function or generated routine that owns this function-local static.
+        type_symbol functanoid;
+        /// Source-level static name captured by this local symbol.
+        std::string name;
+        /// Declaration occurrence for this name, used to distinguish shadowed/generated locals.
+        std::uint64_t generation = 0;
+
+        RPNX_MEMBER_METADATA(static_local_ref, functanoid, name, generation);
+    };
+
+    /// Represents a __STATIC_SNAPSHOT symbol for immutable runtime reads of static locals.
+    struct static_snapshot_ref
+    {
+        /// Function or generated routine that owns the source static.
+        type_symbol functanoid;
+        /// Source-level static name captured by this snapshot symbol.
+        std::string name;
+        /// Declaration occurrence for this name.
+        std::uint64_t generation = 0;
+        /// Snapshot occurrence for a particular immutable read/generation point.
+        std::uint64_t snapshot_id = 0;
+
+        RPNX_MEMBER_METADATA(static_snapshot_ref, functanoid, name, generation, snapshot_id);
+    };
+
     struct keyword_symbol
     {
         std::string name;

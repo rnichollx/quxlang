@@ -42,10 +42,16 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::optional< type_symbol > constexpr_result_type;
     std::optional< type_symbol > constexpr_result_type_value;
     std::optional< type_symbol > constexpr_result_global_symbol;
+    /// Declared type for each global or localdata antestatal root known to this evaluation.
     std::map< type_symbol, type_symbol > constexpr_antestatal_global_types;
+    /// Initial antestatal value for each global or localdata root known to this evaluation.
     std::map< type_symbol, antestatal_value > constexpr_antestatal_global_values;
+    /// Mutability policy for each global or localdata root known to this evaluation.
+    std::map< type_symbol, bool > constexpr_antestatal_global_mutable;
     std::weak_ptr< local > constexpr_result_root;
     std::optional< antestatal_value > constexpr_result_antestatal;
+    /// Materialized constexpr_set_result2 outputs keyed by result ID.
+    std::map< std::uint64_t, antestatal_value > constexpr_result_antestatal_values;
     std::optional< source_index > printer_source_index;
 
     std::set< type_symbol > missing_functanoids_val;
@@ -407,7 +413,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     void init_storage(std::shared_ptr< local > local_value, type_symbol type);
     void begin_lifetime_tree(std::shared_ptr< local > const& object);
-    void set_readonly_tree(std::shared_ptr< local > const& object, bool readonly);
+    void set_readonly_tree(std::shared_ptr< local > const& object);
     bool has_constexpr_antestatal_global(type_symbol const& symbol) const;
     void mark_missing_antestatal_global(type_symbol const& symbol);
     void collect_missing_antestatal_globals(antestatal_value const& value, std::optional< type_symbol > type = std::nullopt);
@@ -1674,8 +1680,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& local_ptr = get_current_frame().local_values.at(csr.target);
     auto target_type = get_local_type(csr.target);
-    constexpr_result_root = local_ptr;
-    this->constexpr_result_antestatal = materialize_antestatal_value(local_ptr, target_type);
+
+    std::shared_ptr< local > materialize_from = local_ptr;
+    type_symbol materialize_type = target_type;
+    if (csr.target_mode == vmir2::constexpr_result_target_mode::referenced_object)
+    {
+        if (!is_ref(target_type))
+        {
+            throw constexpr_logic_execution_error("CE_SETRESULT_ANTESTATAL referenced_object requires a reference target");
+        }
+        if (local_ptr == nullptr || !local_ptr->alive() || !local_ptr->ref.has_value() || !local_ptr->ref->pointer_target.has_value())
+        {
+            throw constexpr_logic_execution_error("CE_SETRESULT_ANTESTATAL referenced_object requires a live object reference");
+        }
+        materialize_from = local_ptr->ref->pointer_target->lock();
+        if (materialize_from == nullptr || !materialize_from->alive())
+        {
+            throw constexpr_logic_execution_error("CE_SETRESULT_ANTESTATAL referenced_object points at an invalid object");
+        }
+        materialize_type = remove_ref(target_type);
+    }
+
+    constexpr_result_root = materialize_from;
+    auto value = materialize_antestatal_value(materialize_from, materialize_type);
+    this->constexpr_result_antestatal_values[csr.result_id] = value;
+    if (csr.result_id == 0)
+    {
+        this->constexpr_result_antestatal = std::move(value);
+    }
     consume_local(csr.target);
     constexpr_result_root.reset();
 }
@@ -2625,28 +2657,67 @@ void quxlang::vmir2::ir2_constexpr_interpreter::set_constexpr_result_global_symb
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value)
 {
+    add_constexpr_antestatal_global(std::move(symbol), std::move(type), std::move(value), false);
+}
+
+/// Adds an antestatal root with explicit mutability for constexpr localdata/static evaluation.
+void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value, bool is_mutable)
+{
     auto const symbol_copy = symbol;
     auto const type_copy = type;
 
     this->implementation->constexpr_antestatal_global_types[std::move(symbol)] = std::move(type);
     this->implementation->collect_missing_antestatal_globals(value, type_copy);
     this->implementation->constexpr_antestatal_global_values[symbol_copy] = std::move(value);
+    this->implementation->constexpr_antestatal_global_mutable[symbol_copy] = is_mutable;
     this->implementation->missing_antestatal_globals_val.erase(symbol_copy);
 
     auto root_it = this->implementation->antestatal_global_roots.find(symbol_copy);
-    if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr && !root_it->second->alive())
+    if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
     {
         this->implementation->initialize_local_from_antestatal_value(root_it->second, type_copy, this->implementation->constexpr_antestatal_global_values.at(symbol_copy));
-        this->implementation->set_readonly_tree(root_it->second, true);
-    }
-    else if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
-    {
-        this->implementation->set_readonly_tree(root_it->second, true);
+        if (!is_mutable)
+        {
+            this->implementation->set_readonly_tree(root_it->second);
+        }
     }
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr, functanoid_routine3 func)
 {
+    auto preload_localdata = [&](auto const& localdata)
+    {
+        for (auto const& [symbol, entry] : localdata)
+        {
+            auto type_erased_symbol = type_symbol(symbol);
+            this->implementation->constexpr_antestatal_global_types[type_erased_symbol] = entry.type;
+            this->implementation->constexpr_antestatal_global_values[type_erased_symbol] = entry.value;
+            this->implementation->constexpr_antestatal_global_mutable[type_erased_symbol] = entry.is_mutable;
+            this->implementation->missing_antestatal_globals_val.erase(type_erased_symbol);
+        }
+    };
+
+    auto initialize_localdata = [&](auto const& localdata)
+    {
+        for (auto const& [symbol, entry] : localdata)
+        {
+            auto type_erased_symbol = type_symbol(symbol);
+            this->implementation->collect_missing_antestatal_globals(entry.value, entry.type);
+            auto root_it = this->implementation->antestatal_global_roots.find(type_erased_symbol);
+            if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
+            {
+                this->implementation->initialize_local_from_antestatal_value(root_it->second, entry.type, entry.value);
+                if (!entry.is_mutable)
+                {
+                    this->implementation->set_readonly_tree(root_it->second);
+                }
+            }
+        }
+    };
+
+    preload_localdata(func.static_snapshots);
+    initialize_localdata(func.static_snapshots);
+
     // Track missing dtors
     for (auto const& dtor : func.non_trivial_dtors)
     {
@@ -2681,6 +2752,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
             else if (typeis< vmir2::get_antestatal_ref >(instr))
             {
                 auto const& gar = instr.get_as< vmir2::get_antestatal_ref >();
+                if (this->implementation->has_constexpr_antestatal_global(gar.symbol))
+                {
+                    continue;
+                }
+                if (typeis< static_local_ref >(gar.symbol) || typeis< static_snapshot_ref >(gar.symbol))
+                {
+                    throw compiler_bug("missing static localdata for " + quxlang::to_string(gar.symbol));
+                }
                 this->implementation->mark_missing_antestatal_global(gar.symbol);
             }
         }
@@ -2731,11 +2810,21 @@ quxlang::constexpr_result quxlang::vmir2::ir2_constexpr_interpreter::get_cr_valu
 
 quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::get_cr_antestatal_value()
 {
+    if (this->implementation->constexpr_result_antestatal_values.contains(0))
+    {
+        return this->implementation->constexpr_result_antestatal_values.at(0);
+    }
     if (!this->implementation->constexpr_result_antestatal.has_value())
     {
         throw std::logic_error("expected antestatal constexpr result");
     }
     return *this->implementation->constexpr_result_antestatal;
+}
+
+/// Returns every antestatal result materialized by constexpr_set_result2, keyed by result ID.
+std::map< std::uint64_t, quxlang::antestatal_value > quxlang::vmir2::ir2_constexpr_interpreter::get_cr_antestatal_values()
+{
+    return this->implementation->constexpr_result_antestatal_values;
 }
 
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()
@@ -3508,26 +3597,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     begin_lifetime(object);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_readonly_tree(std::shared_ptr< local > const& object, bool readonly)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::set_readonly_tree(std::shared_ptr< local > const& object)
 {
     if (!object)
     {
         return;
     }
 
-    object->readonly = readonly;
+    object->readonly = true;
 
     for (auto const& [_, member] : object->struct_members)
     {
-        set_readonly_tree(member, readonly);
+        set_readonly_tree(member);
     }
     for (auto const& member : object->array_members)
     {
-        set_readonly_tree(member, readonly);
+        set_readonly_tree(member);
     }
     if (object->stored_object)
     {
-        set_readonly_tree(object->stored_object, readonly);
+        set_readonly_tree(object->stored_object);
     }
 }
 
@@ -3857,6 +3946,10 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     bool const has_data = has_constexpr_antestatal_global(symbol);
     if (!has_data)
     {
+        if (typeis< static_local_ref >(symbol) || typeis< static_snapshot_ref >(symbol))
+        {
+            throw compiler_bug("missing static localdata for " + quxlang::to_string(symbol));
+        }
         mark_missing_antestatal_global(symbol);
     }
 
@@ -3890,7 +3983,11 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
         if (data_it != constexpr_antestatal_global_values.end())
         {
             initialize_local_from_antestatal_value(root, global_type, data_it->second);
-            set_readonly_tree(root, true);
+            bool const is_mutable = constexpr_antestatal_global_mutable.contains(symbol) && constexpr_antestatal_global_mutable.at(symbol);
+            if (!is_mutable)
+            {
+                set_readonly_tree(root);
+            }
         }
     }
 
