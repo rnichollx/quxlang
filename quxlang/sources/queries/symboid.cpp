@@ -32,6 +32,10 @@ namespace
 
     auto template_parameter_name(quxlang::declared_parameter const& param) -> std::optional< std::string >
     {
+        if (param.name.has_value())
+        {
+            return param.name;
+        }
         if (param.api_name.has_value())
         {
             return param.api_name;
@@ -130,7 +134,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                         break;
                     }
 
-                    ensig.interface.positional.push_back(argif{.type = *canonical_arg});
+                    ensig.interface.positional.push_back(argif{.type = *canonical_arg, .requires_static_value = arg.kind == template_parameter_kind::value});
                 }
 
                 for (auto const& [name, arg] : tmpl.m_template_args.named)
@@ -147,7 +151,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                     }
 
                     auto declared_name = template_parameter_name(arg).value_or(name);
-                    ensig.interface.named[declared_name] = argif{.type = *canonical_arg};
+                    ensig.interface.named[declared_name] = argif{.type = *canonical_arg, .requires_static_value = arg.kind == template_parameter_kind::value};
                 }
 
                 if (valid && ensig == inst.temploid.which)

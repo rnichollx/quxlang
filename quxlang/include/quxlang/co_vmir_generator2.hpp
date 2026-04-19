@@ -346,6 +346,7 @@ namespace quxlang
             auto location_scope = this->scoped_source_location(get_location(expr));
             std::string expr_str = to_string(expr);
             std::optional< type_symbol > deduced_type;
+            std::optional< type_symbol > type_binding_result;
             if (expected_result_type.has_value())
             {
                 value_index result_val;
@@ -371,7 +372,16 @@ namespace quxlang
             }
             else
             {
-                co_await this->co_generate_void_expr(current_block, expr);
+                auto result_val = co_await this->co_generate_void_expr(current_block, expr);
+                auto result_type = this->current_type(current_block, result_val);
+                if (typeis< attached_type_reference >(result_type))
+                {
+                    auto const& attached = as< attached_type_reference >(result_type);
+                    if (typeis< void_type >(attached.carrying_type))
+                    {
+                        type_binding_result = attached.attached_symbol;
+                    }
+                }
             }
 
             for (auto const& [symbol, input] : this->state.statics)
@@ -393,7 +403,7 @@ namespace quxlang
 
             co_await co_generate_dtor_references();
 
-            co_return constexpr_routine_v3_result{.routine = get_result(), .deduced_type = std::move(deduced_type)};
+            co_return constexpr_routine_v3_result{.routine = get_result(), .deduced_type = std::move(deduced_type), .type_binding_result = std::move(type_binding_result)};
         }
 
         /// Generates a legacy antestatal constexpr routine by adapting to the v3 generator.
@@ -530,7 +540,7 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = instatype_from_invotype(calltype), .adaptations = adaptations};
 
             // co_yield rpnx::querygraph::debug_message("co_gen_call_functum initialization params: ({})", quxlang::to_string(functanoid_unnormalized));
             //  Get call type
@@ -691,7 +701,7 @@ namespace quxlang
             if (typeis< instanciation_reference >(routine))
             {
                 auto const& functanoid = as< instanciation_reference >(routine);
-                proc_type.signature.params = functanoid.params;
+                proc_type.signature.params = invotype_from_instatype(functanoid.params);
                 proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
             }
             else if (typeis< temploid_reference >(routine))
@@ -752,7 +762,7 @@ namespace quxlang
 
         auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = calltype, .adaptations = adaptations};
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = instatype_from_invotype(calltype), .adaptations = adaptations};
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
@@ -799,13 +809,13 @@ namespace quxlang
                 }
 
                 auto arg_expr_index = expression_args.named.at(name);
-                invocation_args.named[name] = co_await create_arg_value(arg_expr_index, arg_accepted_type);
+                invocation_args.named[name] = co_await create_arg_value(arg_expr_index, parameter_instantiation_type(arg_accepted_type));
             }
 
             std::size_t positional_write = 0;
             for (std::size_t i = 0; i < what.params.positional.size(); i++)
             {
-                auto arg_accepted_type = what.params.positional.at(i);
+                auto arg_accepted_type = parameter_instantiation_type(what.params.positional.at(i));
                 auto arg_expr_index = expression_args.positional.at(positional_write++);
                 invocation_args.positional.push_back(co_await create_arg_value(arg_expr_index, arg_accepted_type));
             }
@@ -1289,6 +1299,12 @@ namespace quxlang
                         {
                             auto const& symbol = def.template get_as< scoped_static >().symbol;
                             auto const& input = this->state.statics.at(symbol);
+                            if (!input.mutation_result_id.has_value())
+                            {
+                                std::map< static_local_ref, static_snapshot_ref > remapped;
+                                auto snapshot_symbol = this->create_ordinary_snapshot_for_binding(symbol, remapped, false);
+                                co_return this->create_antestatal_reference(idx, type_symbol(snapshot_symbol), input.type, false);
+                            }
                             co_return this->create_antestatal_reference(idx, type_symbol(symbol), input.type, input.mutation_result_id.has_value());
                         }
                         throw rpnx::unimplemented();
@@ -1397,7 +1413,7 @@ namespace quxlang
 
             auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{
                 .initializee = ctor,
-                .parameters = calltype,
+                .parameters = instatype_from_invotype(calltype),
                 .adaptations = allowed_adaptations::destination_rebinding,
             });
 
@@ -1602,14 +1618,14 @@ namespace quxlang
 
                 auto arg_expr_index = expression_args.named.at(name);
 
-                auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
+                auto arg_index = co_await create_arg_value(arg_expr_index, parameter_instantiation_type(arg_accepted_type));
 
                 invocation_args.named[name] = arg_index;
             }
 
             for (std::size_t i = 0; i < call_args_types.positional.size(); i++)
             {
-                auto arg_accepted_type = call_args_types.positional.at(i);
+                auto arg_accepted_type = parameter_instantiation_type(call_args_types.positional.at(i));
 
                 auto arg_expr_index = expression_args.positional.at(i);
 
@@ -1812,7 +1828,7 @@ namespace quxlang
             auto member = selection->templexoid.cast_ptr< submember >();
             assert(member);
 
-            auto const& call = instanciation->params;
+            auto call = invotype_from_instatype(instanciation->params);
 
             if (member->name == "OPERATOR??")
             {
@@ -2902,11 +2918,11 @@ namespace quxlang
                         {
                             throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
                         }
-                        selected_inst.params.positional.push_back(arg.type);
+                        selected_inst.params.positional.push_back(make_type_instantiation(arg.type));
                     }
                     for (auto const& [name, arg] : selected_overload.interface.named)
                     {
-                        selected_inst.params.named[name] = arg.type;
+                        selected_inst.params.named[name] = make_type_instantiation(arg.type);
                     }
                     co_return co_await co_gen_get_procedure_ptr(bidx, selected_inst, "DEFAULT");
                 }
@@ -3489,7 +3505,7 @@ namespace quxlang
             invotype lhs_param_info{.named = {{"THIS", lhs_type}, {"OTHER", rhs_type}}};
             invotype rhs_param_info{.named = {{"THIS", rhs_type}, {"OTHER", lhs_type}}};
 
-            auto lhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_function, .parameters = lhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
+            auto lhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = lhs_function, .parameters = instatype_from_invotype(lhs_param_info), .adaptations = allowed_adaptations::destination_rebinding});
 
             if (lhs_exists_and_callable_with)
             {
@@ -3497,7 +3513,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, lhs_function, lhs_args);
             }
 
-            auto rhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_function, .parameters = rhs_param_info, .adaptations = allowed_adaptations::destination_rebinding});
+            auto rhs_exists_and_callable_with = co_await rpnx::querygraph::request< instanciation_query >(initialization_reference{.initializee = rhs_function, .parameters = instatype_from_invotype(rhs_param_info), .adaptations = allowed_adaptations::destination_rebinding});
 
             if (rhs_exists_and_callable_with)
             {
@@ -5116,6 +5132,43 @@ namespace quxlang
             return this->state.blocks.at(block).terminator.has_value();
         }
 
+        auto co_apply_instantiation_scope(instanciation_reference const& inst) -> co_type< void >
+        {
+            auto inst_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
+            if (inst_kind != symbol_kind::template_)
+            {
+                co_return;
+            }
+
+            auto scoped_bindings = instantiation_scope_for(inst);
+            for (auto& [name, definition] : scoped_bindings.scoped_definitions)
+            {
+                this->state.scoped_definitions[std::move(name)] = std::move(definition);
+            }
+            for (auto& [symbol, binding] : scoped_bindings.statics)
+            {
+                this->state.statics[std::move(symbol)] = codegen_static{
+                    .type = std::move(binding.type),
+                    .value = std::move(binding.value),
+                    .mutation_result_id = std::nullopt,
+                };
+            }
+        }
+
+        auto co_apply_context_instantiation_scopes(type_symbol context) -> co_type< void >
+        {
+            std::optional< type_symbol > current_context = std::move(context);
+            while (current_context.has_value())
+            {
+                if (typeis< instanciation_reference >(*current_context))
+                {
+                    co_await co_apply_instantiation_scope(as< instanciation_reference >(*current_context));
+                }
+                current_context = type_parent(*current_context);
+            }
+            co_return;
+        }
+
         auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
@@ -5126,6 +5179,8 @@ namespace quxlang
 
             // This function should be called before generating any blocks.
             assert(this->state.blocks.empty());
+
+            co_await co_apply_context_instantiation_scopes(inst);
 
             // TODO: Support AUTO return types
             auto sig = co_await rpnx::querygraph::request< functanoid_sigtype_query >(inst);
@@ -5167,7 +5222,7 @@ namespace quxlang
                     {
                         auto const& api_name = param.api_name.value();
                         handled_named_parameters.insert(api_name);
-                        auto const& param_type = inst.params.named.at(api_name);
+                        auto const& param_type = parameter_instantiation_type(inst.params.named.at(api_name));
                         auto arg_idx = this->create_local_value(parameter_local_type(param_type));
                         this->state.params.named[api_name] = {
                             .type = param_type,
@@ -5188,7 +5243,7 @@ namespace quxlang
 
                     if (!param.is_pack)
                     {
-                        auto const& param_type = inst.params.positional.at(positional_index);
+                        auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
                         auto param_idx = this->create_local_value(parameter_local_type(param_type));
                         this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
                         if (param.name.has_value())
@@ -5202,7 +5257,7 @@ namespace quxlang
                     codegen_pack pack;
                     while (positional_index < inst.params.positional.size())
                     {
-                        auto const& param_type = inst.params.positional.at(positional_index);
+                        auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
                         auto param_idx = this->create_local_value(parameter_local_type(param_type));
                         this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
                         pack.values.push_back(param_idx);
@@ -5216,12 +5271,13 @@ namespace quxlang
                     }
                 }
 
-                for (auto const& [api_name, param_type] : inst.params.named)
+                for (auto const& [api_name, param] : inst.params.named)
                 {
                     if (handled_named_parameters.contains(api_name))
                     {
                         continue;
                     }
+                    auto const& param_type = parameter_instantiation_type(param);
                     auto arg_idx = this->create_local_value(parameter_local_type(param_type));
                     this->state.params.named[api_name] = {
                         .type = param_type,
@@ -5242,7 +5298,7 @@ namespace quxlang
             std::size_t positional_index = 0;
             for (auto const& param_name : arg_names.positional)
             {
-                type_symbol const& param_type = inst.params.positional.at(positional_index);
+                type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
                 auto param_idx = this->create_local_value(parameter_local_type(param_type));
                 this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
                 if (param_name.has_value())
@@ -5251,8 +5307,9 @@ namespace quxlang
                 }
                 positional_index++;
             }
-            for (auto const& [api_name, param_type] : inst.params.named)
+            for (auto const& [api_name, param] : inst.params.named)
             {
+                auto const& param_type = parameter_instantiation_type(param);
                 std::optional< std::string > arg_name;
                 if (arg_names.named.contains(api_name))
                 {

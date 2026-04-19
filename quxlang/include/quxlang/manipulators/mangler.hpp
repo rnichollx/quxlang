@@ -7,14 +7,44 @@
 
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/constexpr_types.hpp>
 
 namespace quxlang
 {
     std::string mangle_internal(std::string const& str);
     std::string mangle_internal(type_symbol const& qt);
     std::string mangle_internal(argif const& arg);
+    std::string mangle_parameter_instantiation(parameter_instantiation const& param);
 
     std::string mangle(type_symbol const& func);
+
+    inline std::string mangle_constexpr_value(constexpr_value const& value)
+    {
+        auto const& antestatal = constexpr_value_as_antestatal(value);
+        if (typeis< antestatal_primitive >(antestatal))
+        {
+            std::string output = "P";
+            for (auto byte : as< antestatal_primitive >(antestatal).value)
+            {
+                auto raw = static_cast< unsigned >(byte);
+                output += "0123456789ABCDEF"[raw >> 4];
+                output += "0123456789ABCDEF"[raw & 0x0F];
+            }
+            return output;
+        }
+        return "X";
+    }
+
+    inline std::string mangle_parameter_instantiation(parameter_instantiation const& param)
+    {
+        if (param.template type_is< parameter_type_instantiation >())
+        {
+            return mangle_internal(param.template get_as< parameter_type_instantiation >().type);
+        }
+
+        auto const& value = param.template get_as< parameter_value_instantiation >();
+        return "V" + mangle_internal(value.type) + mangle_constexpr_value(value.value);
+    }
 
     inline std::string mangle_internal(std::string const& str)
     {
@@ -177,14 +207,34 @@ namespace quxlang
             for (auto const& p : as< initialization_reference >(qt).parameters.positional)
             {
                 out += "AP";
-                out += mangle_internal(p);
+                out += mangle_parameter_instantiation(p);
             }
             for (auto const& p : as< initialization_reference >(qt).parameters.named)
             {
                 out += "AN";
                 out += p.first;
                 out += "A";
-                out += mangle_internal(p.second);
+                out += mangle_parameter_instantiation(p.second);
+            }
+            out += "E";
+            return out;
+        }
+        else if (qt.template type_is< instanciation_reference >())
+        {
+            auto const& inst = as< instanciation_reference >(qt);
+            std::string out = mangle_internal(type_symbol(inst.temploid));
+            out += "I";
+            for (auto const& p : inst.params.positional)
+            {
+                out += "AP";
+                out += mangle_parameter_instantiation(p);
+            }
+            for (auto const& p : inst.params.named)
+            {
+                out += "AN";
+                out += p.first;
+                out += "A";
+                out += mangle_parameter_instantiation(p.second);
             }
             out += "E";
             return out;

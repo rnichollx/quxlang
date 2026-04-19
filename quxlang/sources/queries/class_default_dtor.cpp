@@ -13,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::class_default_dtor_spec > quxlang::class_d
 
     initialization_reference init;
     init.initializee = dtor_symbol;
-    init.parameters = invotype{.named{{"THIS", dvalue_slot{input}}}};
+    init.parameters = instatype_from_invotype(invotype{.named{{"THIS", dvalue_slot{input}}}});
     init.adaptations = allowed_adaptations::destination_rebinding;
 
     auto dtor_inst = co_await rpnx::querygraph::request< functum_initialize_query >(init);

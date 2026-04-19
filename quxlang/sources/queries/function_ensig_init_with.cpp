@@ -91,10 +91,10 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
         co_return std::nullopt;
     }
 
-    invotype result;
+    instatype result;
     temploid_instanciation_parameter_set deduced_templates;
 
-    for (auto const& [name, type] : preargs.named)
+    for (auto const& [name, argument] : preargs.named)
     {
         auto it = os.interface.named.find(name);
         if (it == os.interface.named.end())
@@ -102,7 +102,12 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
             co_return std::nullopt;
         }
 
-        auto preargument_type = type;
+        if (argument.template type_is< parameter_value_instantiation >())
+        {
+            co_return std::nullopt;
+        }
+
+        auto preargument_type = parameter_instantiation_type(argument);
         auto param_type = it->second;
         if (param_type.is_pack)
         {
@@ -123,12 +128,18 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
         {
             co_return std::nullopt;
         }
-        result.named[name] = *argument_type;
+        result.named[name] = make_type_instantiation(*argument_type);
     }
 
     for (std::size_t i = 0; i < preargs.positional.size(); i++)
     {
-        auto arg_type = preargs.positional.at(i);
+        auto const& argument = preargs.positional.at(i);
+        if (argument.template type_is< parameter_value_instantiation >())
+        {
+            co_return std::nullopt;
+        }
+
+        auto arg_type = parameter_instantiation_type(argument);
         auto const& param_type = positional_formal_for(os.interface, pack_index, i);
         auto argument_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >({.from = arg_type, .to = param_type.type, .adaptations = input.adaptations});
         if (!argument_type)
@@ -140,7 +151,7 @@ rpnx::querygraph::coroutine< quxlang::function_ensig_init_with_spec > quxlang::f
         {
             co_return std::nullopt;
         }
-        result.positional.push_back(*argument_type);
+        result.positional.push_back(make_type_instantiation(*argument_type));
     }
 
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

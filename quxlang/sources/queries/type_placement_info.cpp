@@ -59,6 +59,13 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     {
         co_return type_placement_info{.size = 1, .alignment = 1};
     }
+    else if (type.template type_is< array_type >())
+    {
+        auto const& array = as< array_type >(type);
+        auto element_placement = co_await rpnx::querygraph::request< type_placement_info_query >(array.element_type);
+        auto element_count = expr_u64(array.element_count);
+        co_return type_placement_info{.size = element_placement.size * element_count, .alignment = element_placement.alignment};
+    }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {
         co_return type_placement_info{.size = 8, .alignment = 8};

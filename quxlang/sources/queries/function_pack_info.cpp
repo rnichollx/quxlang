@@ -61,7 +61,7 @@ namespace quxlang
                 {
                     std::uint64_t const positional_index = expanded_positional_index + pack_index;
                     entry.positional_indices.push_back(positional_index);
-                    entry.types.push_back(input.params.positional.at(static_cast< std::vector< type_symbol >::size_type >(positional_index)));
+                    entry.types.push_back(parameter_instantiation_type(input.params.positional.at(static_cast< std::vector< type_symbol >::size_type >(positional_index))));
                 }
                 result.packs[param.name.value()] = std::move(entry);
             }

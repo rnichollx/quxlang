@@ -151,14 +151,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             co_yield rpnx::querygraph::debug_message("  {}", ss.str());
         }
 
-        std::optional< invotype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
+        std::optional< instatype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
 
         if (candidate && typeis< submember >(input.initializee))
         {
             auto const& member = as< submember >(input.initializee);
             if (member.name == "CONSTRUCTOR" && candidate->named.contains("OTHER"))
             {
-                auto const& other_type = candidate->named.at("OTHER");
+                auto const& other_type = parameter_instantiation_type(candidate->named.at("OTHER"));
                 if (!is_ref(other_type) && other_type == member.of)
                 {
                     candidate.reset();
@@ -178,7 +178,10 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             // Load instantiated named parameters into constexpr scoped definitions
             for (auto const& [n, t] : candidate->named)
             {
-                cx_input.scoped_definitions[n] = t;
+                if (t.template type_is< parameter_type_instantiation >())
+                {
+                    cx_input.scoped_definitions[n] = parameter_instantiation_type(t);
+                }
             }
             // Also load ensig template parameters (tempars) mapped during instantiation
             {
@@ -236,8 +239,9 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 bool other_better = false;
                 bool candidate_better = false;
 
-                for (auto const& [name, arg_type] : input.parameters.named)
+                for (auto const& [name, arg] : input.parameters.named)
                 {
+                    auto const& arg_type = parameter_instantiation_type(arg);
                     auto const& candidate_param = candidate.interface.named.at(name).type;
                     auto const& other_param = other.interface.named.at(name).type;
 
@@ -261,7 +265,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
                 for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
                 {
-                    auto const& arg_type = input.parameters.positional.at(i);
+                    auto const& arg_type = parameter_instantiation_type(input.parameters.positional.at(i));
                     auto const& candidate_param = positional_formal_for(candidate, i).type;
                     auto const& other_param = positional_formal_for(other, i).type;
 

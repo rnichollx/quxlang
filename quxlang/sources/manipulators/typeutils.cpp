@@ -2,7 +2,9 @@
 
 #include "quxlang/manipulators/typeutils.hpp"
 
+#include "quxlang/bytemath.hpp"
 #include "quxlang/data/codegen_types.hpp"
+#include "quxlang/data/constexpr_types.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
@@ -12,6 +14,8 @@
 namespace quxlang
 {
     struct array_type;
+
+    std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value);
 
     struct expression_stringifier
     {
@@ -504,14 +508,14 @@ namespace quxlang
         {
             for (auto& p : type.params.positional)
             {
-                if (is_template(p))
+                if (is_template(parameter_instantiation_type(p)))
                 {
                     return true;
                 }
             }
             for (auto& p : type.params.named)
             {
-                if (is_template(p.second))
+                if (is_template(parameter_instantiation_type(p.second)))
                 {
                     return true;
                 }
@@ -554,12 +558,18 @@ namespace quxlang
             }
             for (auto& p : ref.parameters.positional)
             {
-                if (is_template(p))
+                if (is_template(parameter_instantiation_type(p)))
                 {
                     return true;
                 }
             }
-            // TODO: Support named parameters here
+            for (auto const& [_, param] : ref.parameters.named)
+            {
+                if (is_template(parameter_instantiation_type(param)))
+                {
+                    return true;
+                }
+            }
             return false;
         }
 
@@ -730,9 +740,31 @@ namespace quxlang
         {
             initialization_reference output = as< initialization_reference >(ref);
             output.initializee = with_context(output.initializee, context);
+            if (!output.context.has_value())
+            {
+                output.context = context;
+            }
             for (auto& p : output.parameters.positional)
             {
-                p = with_context(p, context);
+                if (p.template type_is< parameter_type_instantiation >())
+                {
+                    p.template get_as< parameter_type_instantiation >().type = with_context(p.template get_as< parameter_type_instantiation >().type, context);
+                }
+                else
+                {
+                    p.template get_as< parameter_value_instantiation >().type = with_context(p.template get_as< parameter_value_instantiation >().type, context);
+                }
+            }
+            for (auto& [_, p] : output.parameters.named)
+            {
+                if (p.template type_is< parameter_type_instantiation >())
+                {
+                    p.template get_as< parameter_type_instantiation >().type = with_context(p.template get_as< parameter_type_instantiation >().type, context);
+                }
+                else
+                {
+                    p.template get_as< parameter_value_instantiation >().type = with_context(p.template get_as< parameter_value_instantiation >().type, context);
+                }
             }
             return output;
         }
@@ -881,21 +913,40 @@ namespace quxlang
         std::string output = to_string_as_postfix_receiver(ref.initializee);
         output += " #(";
         bool first = true;
-        append_named_arguments_in_print_order(output, first, ref.parameters.named, [&](auto const& entry) {
-            auto const& [name, type] = entry;
-            output += "@" + name + " " + to_string(type);
-        });
-        for (auto& p : ref.parameters.positional)
+        if (!ref.arguments.empty())
         {
-            if (first)
+            for (auto const& arg : ref.arguments)
             {
+                if (!first)
+                {
+                    output += ", ";
+                }
                 first = false;
+                if (arg.name.has_value())
+                {
+                    output += "@" + *arg.name + " ";
+                }
+                output += to_string(arg.value);
             }
-            else
+        }
+        else
+        {
+            append_named_arguments_in_print_order(output, first, ref.parameters.named, [&](auto const& entry) {
+                auto const& [name, param] = entry;
+                output += "@" + name + " " + to_string(param);
+            });
+            for (auto const& param : ref.parameters.positional)
             {
-                output += ", ";
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    output += ", ";
+                }
+                output += to_string(param);
             }
-            output += rpnx::apply_visitor< std::string >(p, *this);
         }
         output += ")";
         return output;
@@ -917,17 +968,23 @@ namespace quxlang
         bool first = true;
         append_named_arguments_in_print_order(output, first, sel.which.interface.named, [&](auto const& entry) {
             auto const& [name, param] = entry;
+            auto const& actual = ref.params.named.at(name);
             output += "@" + name + " " + to_string(param.type);
-            if (ref.params.named.at(name) != param.type)
+            if (actual.template type_is< parameter_value_instantiation >())
             {
-                output += ": " + to_string(ref.params.named.at(name));
+                auto const& value = actual.template get_as< parameter_value_instantiation >();
+                output += "=" + constexpr_parameter_value_to_string(value.type, value.value);
+            }
+            else if (parameter_instantiation_type(actual) != param.type)
+            {
+                output += ": " + to_string(parameter_instantiation_type(actual));
             }
         });
         std::size_t actual_positional_index = 0;
         for (std::size_t i = 0; i < sel.which.interface.positional.size(); i++)
         {
             auto const& param = sel.which.interface.positional.at(i);
-            auto append_one = [&](type_symbol const& accepted_type)
+            auto append_one = [&](parameter_instantiation const& actual)
             {
                 if (first)
                 {
@@ -938,9 +995,14 @@ namespace quxlang
                     output += ", ";
                 }
                 output += to_string(param.type);
-                if (accepted_type != param.type)
+                if (actual.template type_is< parameter_value_instantiation >())
                 {
-                    output += ": " + to_string(accepted_type);
+                    auto const& value = actual.template get_as< parameter_value_instantiation >();
+                    output += "=" + constexpr_parameter_value_to_string(value.type, value.value);
+                }
+                else if (parameter_instantiation_type(actual) != param.type)
+                {
+                    output += ": " + to_string(parameter_instantiation_type(actual));
                 }
             };
 
@@ -1542,6 +1604,68 @@ namespace quxlang
         return output;
     }
 
+    std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value)
+    {
+        auto const& antestatal = constexpr_value_as_antestatal(value);
+        if (typeis< bool_type >(type) && typeis< antestatal_primitive >(antestatal))
+        {
+            auto const& data = as< antestatal_primitive >(antestatal).value;
+            if (data == std::vector{std::byte{0}})
+            {
+                return "FALSE";
+            }
+            if (data == std::vector{std::byte{1}})
+            {
+                return "TRUE";
+            }
+        }
+        if ((typeis< int_type >(type) || typeis< byte_type >(type)) && typeis< antestatal_primitive >(antestatal))
+        {
+            auto [value_u64, ok] = bytemath::le_to_u< std::uint64_t >(as< antestatal_primitive >(antestatal).value);
+            if (ok)
+            {
+                return std::to_string(value_u64);
+            }
+        }
+        return "<constexpr>";
+    }
+
+    std::string to_string(parameter_instantiation const& ref)
+    {
+        if (ref.template type_is< parameter_type_instantiation >())
+        {
+            return to_string(ref.template get_as< parameter_type_instantiation >().type);
+        }
+
+        auto const& value = ref.template get_as< parameter_value_instantiation >();
+        return to_string(value.type) + "=" + constexpr_parameter_value_to_string(value.type, value.value);
+    }
+
+    std::string to_string(instatype const& ref)
+    {
+        std::string output;
+        bool first = true;
+        output += "INSTATYPE(";
+        append_named_arguments_in_print_order(output, first, ref.named, [&](auto const& entry) {
+            auto const& [name, arg] = entry;
+            output += "@" + name + " " + to_string(arg);
+        });
+        for (auto const& arg : ref.positional)
+        {
+            if (first)
+            {
+                first = false;
+            }
+            else
+            {
+                output += ", ";
+            }
+            output += to_string(arg);
+        }
+        output += ")";
+        return output;
+    }
+
     std::string to_string(intertype const& ref)
     {
         std::string output;
@@ -1848,6 +1972,22 @@ namespace quxlang
                     return false;
                 }
 
+                auto check_parameter = [&](parameter_instantiation const& tmpl_param, parameter_instantiation const& val_param) -> bool
+                {
+                    if (tmpl_param.template type_is< parameter_value_instantiation >() || val_param.template type_is< parameter_value_instantiation >())
+                    {
+                        if (!tmpl_param.template type_is< parameter_value_instantiation >() || !val_param.template type_is< parameter_value_instantiation >())
+                        {
+                            return false;
+                        }
+                        auto const& tmpl_value = tmpl_param.template get_as< parameter_value_instantiation >();
+                        auto const& val_value = val_param.template get_as< parameter_value_instantiation >();
+                        return check(tmpl_value.type, val_value.type, conv) && tmpl_value.value == val_value.value;
+                    }
+
+                    return check(tmpl_param.template get_as< parameter_type_instantiation >().type, val_param.template get_as< parameter_type_instantiation >().type, conv);
+                };
+
                 if (tmpl.params.named.size() != val.params.named.size())
                 {
                     return false;
@@ -1855,7 +1995,8 @@ namespace quxlang
 
                 for (auto const& [name, type] : tmpl.params.named)
                 {
-                    if (!check(type, val.params.named.at(name), conv))
+                    auto val_it = val.params.named.find(name);
+                    if (val_it == val.params.named.end() || !check_parameter(type, val_it->second))
                     {
                         return false;
                     }
@@ -1868,7 +2009,7 @@ namespace quxlang
 
                 for (size_t i = 0; i < tmpl.params.positional.size(); i++)
                 {
-                    if (!check(tmpl.params.positional[i], val.params.positional[i], conv))
+                    if (!check_parameter(tmpl.params.positional[i], val.params.positional[i]))
                     {
                         return false;
                     }
@@ -1886,7 +2027,7 @@ namespace quxlang
                     return false;
                 }
 
-                return check(tmpl.parameters, val.parameters, false);
+                return tmpl.parameters == val.parameters && tmpl.arguments == val.arguments;
             }
 
             bool check_impl(void_type const&, void_type const&, bool conv)
@@ -2317,6 +2458,32 @@ namespace
         return inv;
     }
 
+    auto strip_instatype_locations(quxlang::instatype inst) -> quxlang::instatype
+    {
+        auto strip_parameter = [](quxlang::parameter_instantiation param) {
+            if (param.template type_is< quxlang::parameter_type_instantiation >())
+            {
+                auto& item = param.template get_as< quxlang::parameter_type_instantiation >();
+                item.type = quxlang::strip_source_locations(std::move(item.type));
+                return param;
+            }
+            auto& item = param.template get_as< quxlang::parameter_value_instantiation >();
+            item.type = quxlang::strip_source_locations(std::move(item.type));
+            return param;
+        };
+
+        for (auto& item : inst.positional)
+        {
+            item = strip_parameter(std::move(item));
+        }
+        for (auto& [name, item] : inst.named)
+        {
+            (void)name;
+            item = strip_parameter(std::move(item));
+        }
+        return inst;
+    }
+
     auto strip_argif_locations(quxlang::argif arg) -> quxlang::argif
     {
         arg.type = quxlang::strip_source_locations(std::move(arg.type));
@@ -2403,7 +2570,15 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, initialization_reference >)
             {
                 value.initializee = strip_source_locations(std::move(value.initializee));
-                value.parameters = strip_invotype_locations(std::move(value.parameters));
+                if (value.context.has_value())
+                {
+                    value.context = strip_source_locations(std::move(*value.context));
+                }
+                for (auto& arg : value.arguments)
+                {
+                    arg.value = strip_source_locations(std::move(arg.value));
+                }
+                value.parameters = strip_instatype_locations(std::move(value.parameters));
             }
             else if constexpr (std::is_same_v< value_type, temploid_reference >)
             {
@@ -2413,13 +2588,13 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, ensig_initialization >)
             {
                 value.ensig = strip_source_locations(std::move(value.ensig));
-                value.params = strip_invotype_locations(std::move(value.params));
+                value.params = strip_instatype_locations(std::move(value.params));
             }
             else if constexpr (std::is_same_v< value_type, instanciation_reference >)
             {
                 value.temploid.templexoid = strip_source_locations(std::move(value.temploid.templexoid));
                 value.temploid.which = strip_source_locations(std::move(value.temploid.which));
-                value.params = strip_invotype_locations(std::move(value.params));
+                value.params = strip_instatype_locations(std::move(value.params));
             }
             else if constexpr (std::is_same_v< value_type, attached_type_reference >)
             {

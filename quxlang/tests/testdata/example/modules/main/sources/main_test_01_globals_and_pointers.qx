@@ -22,7 +22,7 @@
 
 ::antestatal_static_proc STATIC CONST -> PROCEDURE(I32, I32: I32) := foo<-;
 
-::global_tmpl TEMPLATE( @foo AUTO(t) ) VAR t := 1;
+::global_tmpl TEMPLATE( @foo TYPE AUTO(t) ) VAR t := 1;
 
 
 ::mutable_global_and_template_global_test STATIC_TEST
@@ -48,7 +48,7 @@
 }
 
 
-::templated_holder TEMPLATE(AUTO(t)) CLASS
+::templated_holder TEMPLATE(TYPE AUTO(t)) CLASS
 {
   .value VAR t;
 }
@@ -62,6 +62,28 @@
   holder.value := 9;
 
   ASSERT(holder.value == 9);
+}
+
+::value_template_holder TEMPLATE(@count:value_count VALUE U64) CLASS
+{
+  .stored VAR U64;
+
+  .fill FUNCTION(): U64
+  {
+    VAR values [value_count]U64;
+    VAR local U64 := value_count;
+    values[0] := local;
+    values[1] := local + 1;
+    .stored := value_count;
+    RETURN values[1];
+  }
+}
+
+::value_template_argument_test STATIC_TEST
+{
+  VAR holder value_template_holder#(@count 4);
+  ASSERT(holder.fill() == 5);
+  ASSERT(holder.stored == 4);
 }
 
 ::postincrement_array_iterator_store_test STATIC_TEST

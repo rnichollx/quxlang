@@ -22,6 +22,28 @@ namespace quxlang::parsers
     type_symbol parse_type_symbol(parsing_context& ctx);
     argif parse_argif(parsing_context& ctx);
 
+    inline auto parse_initialization_expression_arg(parsing_context& ctx) -> expression_arg
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+        expression_arg result;
+
+        if (skip_symbol_if_is(pos, end, "@"))
+        {
+            result.name = parse_argument_name(pos, end);
+            if (result.name->empty())
+            {
+                throw std::logic_error("Expected identifier after '@' in instanciation argument");
+            }
+            skip_whitespace_and_comments(pos, end);
+        }
+
+        result.value = parse_expression(ctx);
+        result.location = ctx.get_location_optional(begin, pos);
+        return result;
+    }
+
     inline std::optional< type_symbol > try_parse_type_symbol(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -521,17 +543,7 @@ namespace quxlang::parsers
         next_arg:
             skip_whitespace_and_comments(pos, end);
 
-            if (skip_symbol_if_is(pos, end, "@"))
-            {
-                std::string param_name = parse_argument_name(pos, end);
-                skip_whitespace(pos, end);
-                QUXLANG_DEBUG(remaining = std::string(pos, end);)
-                param_set.parameters.named[std::move(param_name)] = parse_type_symbol(ctx);
-            }
-            else
-            {
-                param_set.parameters.positional.push_back(parse_type_symbol(ctx));
-            }
+            param_set.arguments.push_back(parse_initialization_expression_arg(ctx));
 
             skip_whitespace_and_comments(pos, end);
             if (skip_symbol_if_is(pos, end, ")"))
@@ -574,11 +586,11 @@ namespace quxlang::parsers
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
                     skip_whitespace(pos, end);
-                    param_set.params.named[param_name] = parse_type_symbol(ctx);
+                    param_set.params.named[param_name] = make_type_instantiation(parse_type_symbol(ctx));
                 }
                 else
                 {
-                    param_set.params.named[param_name] = seltype.type;
+                    param_set.params.named[param_name] = make_type_instantiation(seltype.type);
                 }
                 param_set.temploid.which.interface.named[std::move(param_name)] = std::move(seltype);
             }
@@ -589,11 +601,11 @@ namespace quxlang::parsers
                 if (skip_symbol_if_is(pos, end, ":"))
                 {
                     skip_whitespace(pos, end);
-                    param_set.params.positional.push_back(parse_type_symbol(ctx));
+                    param_set.params.positional.push_back(make_type_instantiation(parse_type_symbol(ctx)));
                 }
                 else
                 {
-                    param_set.params.positional.push_back(seltype.type);
+                    param_set.params.positional.push_back(make_type_instantiation(seltype.type));
                 }
                 param_set.temploid.which.interface.positional.push_back(std::move(seltype));
             }

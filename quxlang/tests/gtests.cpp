@@ -22,6 +22,8 @@
 #include <quxlang/parsers/try_parse_class.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_sources.hpp>
@@ -342,9 +344,74 @@ TEST(typeutils, named_arguments_print_in_stable_order)
     auto receiver = type_symbol(freebound_identifier{"foo"});
     temploid_reference temploid{.templexoid = receiver, .which = temploid_ensig{.interface = interface}};
 
-    ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = inv})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
+    ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = quxlang::instatype_from_invotype(inv)})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
     ASSERT_EQ(to_string(type_symbol(temploid)), "foo#[@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ]");
-    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = inv})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
+}
+
+TEST(typeutils, value_template_arguments_print_with_equals)
+{
+    using namespace quxlang;
+
+    auto i32 = type_symbol(int_type{32, true});
+    auto receiver = type_symbol(freebound_identifier{"foo"});
+    auto value = constexpr_value(test_i32_value(std::byte{4}));
+    temploid_reference named_temploid{
+        .templexoid = receiver,
+        .which = temploid_ensig{.interface = intertype{.named = {{"foo", argif{.type = i32, .requires_static_value = true}}}}},
+    };
+    instatype named_params{.named = {{"foo", parameter_value_instantiation{.type = i32, .value = value}}}};
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = named_temploid, .params = named_params})), "foo#{@foo I32=4}");
+
+    temploid_reference positional_temploid{
+        .templexoid = receiver,
+        .which = temploid_ensig{.interface = intertype{.positional = {argif{.type = i32, .requires_static_value = true}}}},
+    };
+    instatype positional_params{.positional = {parameter_value_instantiation{.type = i32, .value = value}}};
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = positional_temploid, .params = positional_params})), "foo#{I32=4}");
+}
+
+TEST(parsing, parse_new_template_parameter_kinds)
+{
+    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @U TYPE AUTO(u), @N VALUE I32) CLASS {}");
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
+
+    ASSERT_EQ(tmpl.m_template_args.named.at("T").kind, quxlang::template_parameter_kind::type);
+    ASSERT_EQ(tmpl.m_template_args.named.at("T").type, quxlang::type_symbol(quxlang::type_temploidic{"T"}));
+    ASSERT_EQ(tmpl.m_template_args.named.at("U").kind, quxlang::template_parameter_kind::type);
+    ASSERT_EQ(tmpl.m_template_args.named.at("U").type, parse_type_symbol("AUTO(u)"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("N").kind, quxlang::template_parameter_kind::value);
+    ASSERT_EQ(tmpl.m_template_args.named.at("N").type, parse_type_symbol("I32"));
+
+    auto local_file = parse_file_text("::local_name TEMPLATE(@api:local VALUE I32) CLASS {}");
+    auto const& local_decl = quxlang::as< quxlang::global_subdeclaroid >(local_file.declarations.front());
+    auto const& local_tmpl = quxlang::as< quxlang::ast2_template_declaration >(local_decl.decl);
+    ASSERT_EQ(local_tmpl.m_template_args.named.at("api").name, std::optional< std::string >{"local"});
+    ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::value);
+
+    EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(TYPE) CLASS {}"));
+    EXPECT_THROW(parse_file_text("::old TEMPLATE(@T AUTO) CLASS {}"), std::logic_error);
+}
+
+TEST(parsing, initialization_reference_arguments_are_expressions)
+{
+    using namespace quxlang;
+
+    auto positional = parse_type_symbol("foo#(I32)");
+    ASSERT_TRUE(typeis< initialization_reference >(positional));
+    auto const& positional_init = as< initialization_reference >(positional);
+    ASSERT_EQ(positional_init.arguments.size(), 1);
+    ASSERT_EQ(positional_init.parameters.size(), 0);
+    ASSERT_TRUE(typeis< expression_symbol_reference >(positional_init.arguments.front().value));
+
+    auto named = parse_type_symbol("foo#(@N 1)");
+    ASSERT_TRUE(typeis< initialization_reference >(named));
+    auto const& named_init = as< initialization_reference >(named);
+    ASSERT_EQ(named_init.arguments.size(), 1);
+    ASSERT_EQ(named_init.arguments.front().name, std::optional< std::string >{"N"});
+    ASSERT_TRUE(typeis< expression_numeric_literal >(named_init.arguments.front().value));
 }
 
 TEST(parsing, parse_global_constexpr_variable_declaration)
@@ -460,8 +527,8 @@ TEST(mangling, name_mangling_new)
 
     quxlang::initialization_reference param_set{subentity3, {}};
 
-    param_set.parameters.positional.push_back(quxlang::int_type{32, true});
-    param_set.parameters.positional.push_back(quxlang::int_type{32, true});
+    param_set.parameters.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
+    param_set.parameters.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
@@ -1096,6 +1163,28 @@ TEST(quxlang, compiler_graph_resolves_main_source_bundle)
     ASSERT_EQ(module.files.at("main.qx").get().contents, "::main VAR I32;");
 }
 
+TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::holder TEMPLATE(@count:value_count VALUE U64) CLASS { .values VAR [value_count]U64; }");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    auto holder = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = parse_type_symbol("MODULE(main)"),
+        .type = parse_type_symbol("MODULE(main)::holder#(@count 4)"),
+    });
+    ASSERT_TRUE(holder.has_value());
+
+    auto fields = graph.make_request< quxlang::class_field_list_query >(*holder);
+    ASSERT_EQ(fields.size(), 1);
+    ASSERT_EQ(fields.front().name, "values");
+    ASSERT_TRUE(quxlang::typeis< quxlang::array_type >(fields.front().type));
+
+    auto const& array = quxlang::as< quxlang::array_type >(fields.front().type);
+    ASSERT_EQ(array.element_type, parse_type_symbol("U64"));
+    ASSERT_EQ(array.element_count, quxlang::expression(quxlang::expression_numeric_literal{.value = "4"}));
+}
+
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
@@ -1257,28 +1346,28 @@ TEST(quxlang, byte_and_u8_are_not_implicitly_interchangeable)
 
     auto u8_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
-        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"OTHER", byte}}},
+        .parameters = quxlang::instatype_from_invotype(quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"OTHER", byte}}}),
         .adaptations = quxlang::allowed_adaptations::source_rebinding,
     };
     EXPECT_FALSE(c.get_instanciation(u8_ctor, std::nullopt).has_value());
 
     auto byte_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
-        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"OTHER", u8}}},
+        .parameters = quxlang::instatype_from_invotype(quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"OTHER", u8}}}),
         .adaptations = quxlang::allowed_adaptations::source_rebinding,
     };
     EXPECT_FALSE(c.get_instanciation(byte_ctor, std::nullopt).has_value());
 
     auto explicit_u8_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = u8, .name = "CONSTRUCTOR"},
-        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"EXPLICIT", byte}}},
+        .parameters = quxlang::instatype_from_invotype(quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(u8)}, {"EXPLICIT", byte}}}),
         .adaptations = quxlang::allowed_adaptations::destination_rebinding,
     };
     EXPECT_TRUE(c.get_instanciation(explicit_u8_ctor, std::nullopt).has_value());
 
     auto explicit_byte_ctor = quxlang::initialization_reference{
         .initializee = quxlang::submember{.of = byte, .name = "CONSTRUCTOR"},
-        .parameters = quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"EXPLICIT", u8}}},
+        .parameters = quxlang::instatype_from_invotype(quxlang::invotype{.named = {{"THIS", quxlang::create_nslot(byte)}, {"EXPLICIT", u8}}}),
         .adaptations = quxlang::allowed_adaptations::destination_rebinding,
     };
     EXPECT_TRUE(c.get_instanciation(explicit_byte_ctor, std::nullopt).has_value());

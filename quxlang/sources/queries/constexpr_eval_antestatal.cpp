@@ -215,6 +215,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         result.values[id] = constexpr_value(std::move(value));
     }
     result.deduced_type = std::move(routine_result.deduced_type);
+    result.type_binding_result = std::move(routine_result.type_binding_result);
     co_return result;
 }
 

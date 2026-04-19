@@ -287,7 +287,7 @@ namespace quxlang::vmir2
             for (std::size_t index = 0; index < inv.args.positional.size(); index++)
             {
                 auto const arg_idx = inv.args.positional[index];
-                auto const& arg_inst_type = ivk_func_inst.params.positional.at(index);
+                auto const& arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.positional.at(index));
                 if (arg_inst_type.template type_is< nvalue_slot >())
                 {
                     output(arg_idx);
@@ -307,7 +307,7 @@ namespace quxlang::vmir2
                 }
                 else
                 {
-                    arg_inst_type = ivk_func_inst.params.named.at(name);
+                    arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.named.at(name));
                 }
 
                 if (arg_inst_type.template type_is< nvalue_slot >())

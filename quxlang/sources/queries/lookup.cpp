@@ -3,10 +3,33 @@
 #include <quxlang/queries/specs/lookup_spec.hpp>
 #include <quxlang/macros.hpp>
 
+#include "quxlang/data/constexpr_types.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/manipulators/typeutils.hpp"
 
+
+namespace quxlang
+{
+    auto apply_context_instantiation_scopes(type_symbol context, constexpr_input& input) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< void >
+    {
+        std::optional< type_symbol > current_context = std::move(context);
+        while (current_context.has_value())
+        {
+            if (typeis< instanciation_reference >(*current_context))
+            {
+                auto const& inst = as< instanciation_reference >(*current_context);
+                auto inst_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
+                if (inst_kind == symbol_kind::template_)
+                {
+                    merge_instantiation_scope_bindings(instantiation_scope_for(inst), input);
+                }
+            }
+            current_context = type_parent(*current_context);
+        }
+        co_return;
+    }
+}
 
 rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(contextual_type_reference input)
 {
@@ -292,6 +315,8 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
         initialization_reference output;
         output.adaptations = param_set.adaptations;
+        output.context = param_set.context.value_or(context);
+        output.arguments = param_set.arguments;
 
         auto callee_canonical = co_await rpnx::querygraph::request< lookup_query >({
                                                                 .context = context,
@@ -306,24 +331,42 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
         for (auto& p : param_set.parameters.positional)
         {
-            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = p});
+            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = parameter_instantiation_type(p)});
             if (!param_canonical.has_value())
             {
                 co_return std::nullopt;
             }
 
-            output.parameters.positional.push_back(param_canonical.value());
+            if (p.template type_is< parameter_value_instantiation >())
+            {
+                auto value = p.template get_as< parameter_value_instantiation >();
+                value.type = param_canonical.value();
+                output.parameters.positional.push_back(std::move(value));
+            }
+            else
+            {
+                output.parameters.positional.push_back(make_type_instantiation(param_canonical.value()));
+            }
         }
 
         for (auto const& [name, p] : param_set.parameters.named)
         {
-            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = p});
+            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >({.context = context, .type = parameter_instantiation_type(p)});
             if (!param_canonical.has_value())
             {
                 co_return std::nullopt;
             }
 
-            output.parameters.named[name] = param_canonical.value();
+            if (p.template type_is< parameter_value_instantiation >())
+            {
+                auto value = p.template get_as< parameter_value_instantiation >();
+                value.type = param_canonical.value();
+                output.parameters.named[name] = std::move(value);
+            }
+            else
+            {
+                output.parameters.named[name] = make_type_instantiation(param_canonical.value());
+            }
         }
 
         auto initializee_kind = co_await rpnx::querygraph::request< symbol_type_query >(output.initializee);
@@ -339,6 +382,58 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
         assert(!type_is_contextual(output));
 
+        co_return output;
+    }
+    else if (type.template type_is< instanciation_reference >())
+    {
+        auto const& inst = as< instanciation_reference >(type);
+        instanciation_reference output = inst;
+
+        auto templexoid_canonical = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+            .context = context,
+            .type = inst.temploid.templexoid,
+        });
+        if (!templexoid_canonical.has_value())
+        {
+            co_return std::nullopt;
+        }
+        output.temploid.templexoid = *templexoid_canonical;
+
+        for (auto& param : output.params.positional)
+        {
+            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = parameter_instantiation_type(param)});
+            if (!param_canonical.has_value())
+            {
+                co_return std::nullopt;
+            }
+            if (param.template type_is< parameter_value_instantiation >())
+            {
+                param.template get_as< parameter_value_instantiation >().type = *param_canonical;
+            }
+            else
+            {
+                param = make_type_instantiation(*param_canonical);
+            }
+        }
+
+        for (auto& [_, param] : output.params.named)
+        {
+            auto param_canonical = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = parameter_instantiation_type(param)});
+            if (!param_canonical.has_value())
+            {
+                co_return std::nullopt;
+            }
+            if (param.template type_is< parameter_value_instantiation >())
+            {
+                param.template get_as< parameter_value_instantiation >().type = *param_canonical;
+            }
+            else
+            {
+                param = make_type_instantiation(*param_canonical);
+            }
+        }
+
+        assert(!type_is_contextual(output));
         co_return output;
     }
     else if (type.template type_is< int_type >())
@@ -368,6 +463,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         constexpr_input ce_input;
         ce_input.context = context;
         ce_input.expr = arry.element_count;
+        co_await apply_context_instantiation_scopes(context, ce_input);
         // TODO: support non-64bit platforms
         std::uint64_t element_count = co_await rpnx::querygraph::request< constexpr_u64_query >(ce_input);
         array_type result_type;
@@ -421,7 +517,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         {
             co_yield rpnx::querygraph::debug_message("{}", str);
         }
-        throw std::logic_error("unreachable/unimplemented");
+        throw std::logic_error(str);
     }
 
     throw std::logic_error("unreachable code reached in lookup resolver");

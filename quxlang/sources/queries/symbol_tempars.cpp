@@ -83,13 +83,13 @@ namespace quxlang
 
             for (auto const& param : val.params.positional)
             {
-                auto arg_result = get_symbol_tempars(param);
+                auto arg_result = get_symbol_tempars(parameter_instantiation_type(param));
                 merge_set(result, arg_result);
             }
 
             for (auto const& [_, param] : val.params.named)
             {
-                auto arg_result = get_symbol_tempars(param);
+                auto arg_result = get_symbol_tempars(parameter_instantiation_type(param));
                 merge_set(result, arg_result);
             }
 

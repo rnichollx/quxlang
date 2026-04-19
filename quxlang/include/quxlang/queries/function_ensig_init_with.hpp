@@ -13,7 +13,7 @@ namespace quxlang
     {
         static constexpr auto query_id = "function_ensig_init_with";
         using input_type = ensig_initialization;
-        using output_type = std::optional< invotype >;
+        using output_type = std::optional< instatype >;
     };
 } // namespace quxlang
 

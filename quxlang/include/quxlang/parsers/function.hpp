@@ -30,6 +30,12 @@ namespace quxlang::parsers
                     return std::string(keyword);
                 }
             }
+            if (keyword_end != pos)
+            {
+                auto result = std::string(pos, keyword_end);
+                pos = keyword_end;
+                return result;
+            }
             throw std::logic_error("Expected identifier or keyword");
         }
 

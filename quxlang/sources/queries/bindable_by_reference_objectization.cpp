@@ -238,7 +238,7 @@ rpnx::querygraph::coroutine< quxlang::bindable_by_reference_objectization_spec >
 
         auto init = initialization_reference{
             .initializee = constructor_functum,
-            .parameters = {.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = to}}}},
+            .parameters = instatype_from_invotype(invotype{.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = to}}}}),
             .adaptations = allowed_adaptations::none,
         };
 

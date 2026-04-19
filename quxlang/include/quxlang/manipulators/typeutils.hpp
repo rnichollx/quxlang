@@ -21,6 +21,8 @@ namespace quxlang
     std::string to_string(type_symbol const& ref);
 
     std::string to_string(invotype const& ref);
+    std::string to_string(instatype const& ref);
+    std::string to_string(parameter_instantiation const& ref);
     std::string to_string(vmir2::routine_parameters const& ref);
     std::string to_string(intertype const& ref);
     std::string to_string(argif const& ref);

@@ -14,6 +14,51 @@ namespace quxlang::parsers
 {
     declaroid parse_declaroid(parsing_context& ctx);
 
+    inline auto parse_template_parameter_kind(parsing_context& ctx) -> template_parameter_kind
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+
+        if (skip_keyword_if_is(pos, end, "TYPE"))
+        {
+            return template_parameter_kind::type;
+        }
+        if (skip_keyword_if_is(pos, end, "VALUE"))
+        {
+            return template_parameter_kind::value;
+        }
+
+        throw std::logic_error("Expected TYPE or VALUE in template parameter");
+    }
+
+    inline auto default_template_type(declared_parameter const& arg) -> type_symbol
+    {
+        std::string name;
+        if (arg.name.has_value())
+        {
+            name = *arg.name;
+        }
+        else if (arg.api_name.has_value())
+        {
+            name = *arg.api_name;
+        }
+        return type_temploidic{.name = std::move(name)};
+    }
+
+    inline auto parse_template_parameter_type(parsing_context& ctx, declared_parameter const& arg) -> type_symbol
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+
+        skip_whitespace_and_comments(pos, end);
+        auto lookahead = pos;
+        if (arg.kind == template_parameter_kind::type && (skip_symbol_if_is(lookahead, end, ",") || skip_symbol_if_is(lookahead, end, ")")))
+        {
+            return default_template_type(arg);
+        }
+        return parse_type_symbol(ctx);
+    }
+
     inline std::optional< quxlang::ast2_template_declaration > try_parse_template(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
@@ -55,7 +100,8 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
-            arg.type = parse_type_symbol(ctx);
+            arg.kind = parse_template_parameter_kind(ctx);
+            arg.type = parse_template_parameter_type(ctx, arg);
 
             if (ct->m_template_args.named.contains(*arg.api_name))
             {
@@ -66,7 +112,8 @@ namespace quxlang::parsers
         }
         else
         {
-            arg.type = parse_type_symbol(ctx);
+            arg.kind = parse_template_parameter_kind(ctx);
+            arg.type = parse_template_parameter_type(ctx, arg);
             ct->m_template_args.positional.push_back(std::move(arg));
         }
         skip_whitespace_and_comments(pos, end);

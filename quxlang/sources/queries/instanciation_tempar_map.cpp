@@ -81,7 +81,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         // TODO: should the selection reference be decontextualized early?
         // TODO: Handle defaulted parameter logic if needed?
 
-        type_symbol instanciation_arg = input.params.positional.at(i);
+        type_symbol instanciation_arg = parameter_instantiation_type(input.params.positional.at(i));
         assert(!is_contextual(instanciation_arg));
         std::string instanciation_arg_str = to_string(instanciation_arg);
 
@@ -99,7 +99,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
             throw std::logic_error("Unknown named parameter '" + name + "' for instanciation.");
         }
         auto const& template_arg = it->second;
-        type_symbol instanciation_arg = arg_val;
+        type_symbol instanciation_arg = parameter_instantiation_type(arg_val);
         assert(!is_contextual(instanciation_arg));
         auto match_results = match_template(template_arg.type, instanciation_arg);
         assert(match_results.has_value());

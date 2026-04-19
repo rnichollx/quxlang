@@ -35,6 +35,7 @@ RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_co
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
+RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
 
 namespace quxlang
 {
@@ -167,10 +168,11 @@ namespace quxlang
     {
         std::optional< std::string > api_name;
         std::optional< std::string > name;
+        template_parameter_kind kind = template_parameter_kind::type;
         type_symbol type;
         std::optional< expression > default_value;
 
-        RPNX_MEMBER_METADATA(declared_parameter, api_name, name, type, default_value);
+        RPNX_MEMBER_METADATA(declared_parameter, api_name, name, kind, type, default_value);
     };
 
     struct declared_parameters
@@ -237,9 +239,9 @@ namespace quxlang
         /// True when this parameter is a variadic pack.
         bool is_pack = false;
         /// True when this argument interface accepts a static value
-        bool is_static_value = false;
+        bool requires_static_value = false;
 
-        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, is_static_value);
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, requires_static_value);
     };
 
     // Interface type - used in things like overload resolution
@@ -253,6 +255,8 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
+
+
 
 
 
@@ -419,14 +423,7 @@ namespace quxlang
         RPNX_EMPTY_METADATA(value_expression_reference);
     };
 
-    struct initialization_reference
-    {
-        type_symbol initializee;
-        invotype parameters;
-        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(initialization_reference, initializee, parameters, adaptations);
-    };
 
     struct temploid_reference
     {
@@ -435,33 +432,104 @@ namespace quxlang
         RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
     };
 
+
+
+    struct parameter_type_instantiation
+    {
+        type_symbol type;
+
+        RPNX_MEMBER_METADATA(parameter_type_instantiation, type);
+    };
+
+    struct parameter_value_instantiation
+    {
+        type_symbol type;
+        constexpr_value value;
+
+        RPNX_MEMBER_METADATA(parameter_value_instantiation, type, value);
+    };
+
+    using parameter_instantiation = rpnx::variant< parameter_type_instantiation, parameter_value_instantiation >;
+
+    struct instatype
+    {
+        std::map< std::string, parameter_instantiation > named;
+        std::vector< parameter_instantiation > positional;
+
+        inline auto size() const
+        {
+            return positional.size() + named.size();
+        }
+
+        RPNX_MEMBER_METADATA(instatype, named, positional);
+    };
+
+    inline auto parameter_instantiation_type(parameter_instantiation const& param) -> type_symbol const&
+    {
+        if (param.template type_is< parameter_type_instantiation >())
+        {
+            return param.template get_as< parameter_type_instantiation >().type;
+        }
+        return param.template get_as< parameter_value_instantiation >().type;
+    }
+
+    inline auto make_type_instantiation(type_symbol type) -> parameter_instantiation
+    {
+        return parameter_type_instantiation{.type = std::move(type)};
+    }
+
+    inline auto instatype_from_invotype(invotype input) -> instatype
+    {
+        instatype output;
+        for (auto& [name, type] : input.named)
+        {
+            output.named[std::move(name)] = make_type_instantiation(std::move(type));
+        }
+        for (auto& type : input.positional)
+        {
+            output.positional.push_back(make_type_instantiation(std::move(type)));
+        }
+        return output;
+    }
+
+    inline auto invotype_from_instatype(instatype const& input) -> invotype
+    {
+        invotype output;
+        for (auto const& [name, param] : input.named)
+        {
+            output.named[name] = parameter_instantiation_type(param);
+        }
+        for (auto const& param : input.positional)
+        {
+            output.positional.push_back(parameter_instantiation_type(param));
+        }
+        return output;
+    }
+
     struct ensig_initialization
     {
         temploid_ensig ensig;
-        invotype params;
+        instatype params;
         allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
         RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations);
     };
 
-    struct type_instantiation
+    struct initialization_reference
     {
-        type_symbol type;
+        type_symbol initializee;
+        std::optional< type_symbol > context;
+        std::vector< expression_arg > arguments;
+        instatype parameters;
+        allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
-        RPNX_MEMBER_METADATA(type_instantiation, type);
-    };
-
-    struct value_instantiation
-    {
-        constexpr_value value;
-
-        RPNX_MEMBER_METADATA(value_instantiation, value);
+        RPNX_MEMBER_METADATA(initialization_reference, initializee, context, arguments, parameters, adaptations);
     };
 
     struct instanciation_reference
     {
         temploid_reference temploid;
-        invotype params;
+        instatype params;
         RPNX_MEMBER_METADATA(instanciation_reference, temploid, params);
     };
 

@@ -254,7 +254,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
 
         auto init = initialization_reference{
             .initializee = constructor_functum,
-            .parameters = {.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = destination_value_type}}}},
+            .parameters = instatype_from_invotype(invotype{.named = {{"OTHER", probe.type}, {"THIS", nvalue_slot{.target = destination_value_type}}}}),
             .adaptations = allowed_adaptations::source_rebinding,
         };
 
