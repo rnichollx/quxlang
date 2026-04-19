@@ -6,6 +6,7 @@
 #include <quxlang/data/lookup_chain.hpp>
 #include <quxlang/data/numeric_literal.hpp>
 #include <quxlang/data/symbol_type.hpp>
+#include <quxlang/cow.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/variant.hpp>
 #include <quxlang/variant_utils.hpp>
@@ -13,6 +14,7 @@
 #include <quxlang/data/fwd.hpp>
 
 #include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -40,6 +42,86 @@ namespace quxlang
     std::optional< qualifier > qualifier_template_match(qualifier to_qual, qualifier from_qual);
 
     std::optional< qualifier > qualifier_template_match_noconv(qualifier template_qual, qualifier match_qual);
+
+    struct antestatal_struct;
+    struct antestatal_array;
+    struct antestatal_ptrref;
+    struct antestatal_primitive;
+
+    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct >;
+
+    struct antestatal_access_global;
+    struct antestatal_access_field;
+    struct antestatal_access_array_element;
+    struct antestatal_nullptr;
+
+    using antestatal_access = rpnx::variant< antestatal_nullptr, antestatal_access_global, antestatal_access_array_element, antestatal_access_field >;
+
+    struct antestatal_nullptr
+    {
+        RPNX_EMPTY_METADATA(antestatal_nullptr);
+    };
+
+    struct antestatal_access_global
+    {
+        type_symbol symbol;
+
+        RPNX_MEMBER_METADATA(antestatal_access_global, symbol);
+    };
+
+    struct antestatal_access_field
+    {
+        antestatal_access object;
+        std::string field_name;
+
+        RPNX_MEMBER_METADATA(antestatal_access_field, object, field_name);
+    };
+
+    struct antestatal_access_array_element
+    {
+        antestatal_access array;
+        std::uint64_t index = 0;
+
+        RPNX_MEMBER_METADATA(antestatal_access_array_element, array, index);
+    };
+
+    struct antestatal_ptrref
+    {
+        antestatal_access target;
+
+        RPNX_MEMBER_METADATA(antestatal_ptrref, target);
+    };
+
+    struct antestatal_primitive
+    {
+        std::vector< std::byte > value;
+
+        RPNX_MEMBER_METADATA(antestatal_primitive, value);
+    };
+
+    struct antestatal_struct
+    {
+        std::map< std::string, antestatal_value > fields;
+
+        RPNX_MEMBER_METADATA(antestatal_struct, fields);
+    };
+
+    struct antestatal_array
+    {
+        std::vector< antestatal_value > elements;
+
+        RPNX_MEMBER_METADATA(antestatal_array, elements);
+    };
+
+    struct constexpr_result
+    {
+        cow< type_symbol > type;
+        cow< std::vector< std::byte > > value;
+
+        RPNX_MEMBER_METADATA(constexpr_result, type, value);
+    };
+
+    using constexpr_value = rpnx::variant< antestatal_value >;
 
     struct void_type
     {
@@ -154,8 +236,10 @@ namespace quxlang
         bool is_defaulted = false;
         /// True when this parameter is a variadic pack.
         bool is_pack = false;
+        /// True when this argument interface accepts a static value
+        bool is_static_value = false;
 
-        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack);
+        RPNX_MEMBER_METADATA(argif, type, is_defaulted, is_pack, is_static_value);
     };
 
     // Interface type - used in things like overload resolution
@@ -169,6 +253,8 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(intertype, positional, named);
     };
+
+
 
     // Ensig is the portion #[...]
     struct temploid_ensig
@@ -240,6 +326,13 @@ namespace quxlang
         expression element_count;
 
         RPNX_MEMBER_METADATA(array_type, element_type, element_count);
+    };
+    struct expression_arg
+    {
+        std::optional< std::string > name;
+        expression value;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_arg, name, value);
     };
 
     struct auto_temploidic
@@ -349,6 +442,20 @@ namespace quxlang
         allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
 
         RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations);
+    };
+
+    struct type_instantiation
+    {
+        type_symbol type;
+
+        RPNX_MEMBER_METADATA(type_instantiation, type);
+    };
+
+    struct value_instantiation
+    {
+        constexpr_value value;
+
+        RPNX_MEMBER_METADATA(value_instantiation, value);
     };
 
     struct instanciation_reference
@@ -645,13 +752,7 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_value_keyword, keyword);
     };
 
-    struct expression_arg
-    {
-        std::optional< std::string > name;
-        expression value;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_arg, name, value);
-    };
 
     struct call_initializer
     {

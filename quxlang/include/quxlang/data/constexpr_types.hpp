@@ -3,8 +3,6 @@
 #ifndef QUXLANG_DATA_CONSTEXPR_TYPES_HEADER_GUARD
 #define QUXLANG_DATA_CONSTEXPR_TYPES_HEADER_GUARD
 
-#include <quxlang/data/antestatal.hpp>
-#include <quxlang/data/constexpr.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
@@ -18,9 +16,6 @@ namespace quxlang
 {
     /// Reserved constexpr result ID used for the evaluated expression value.
     inline constexpr std::uint64_t constexpr_primary_result_id = 0;
-
-    /// Value returned by the constexpr v3 evaluator.
-    using constexpr_value = rpnx::variant< antestatal_value >;
 
     /// Returns the antestatal payload stored in a constexpr v3 value.
     inline auto constexpr_value_as_antestatal(constexpr_value const& value) -> antestatal_value const&

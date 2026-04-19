@@ -3,7 +3,6 @@
 #ifndef QUXLANG_DATA_CODEGEN_TYPES_HEADER_GUARD
 #define QUXLANG_DATA_CODEGEN_TYPES_HEADER_GUARD
 
-#include "quxlang/data/constexpr.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
 #include "quxlang/vmir2/vmir2.hpp"

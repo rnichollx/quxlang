@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_CONSTEXPR_EVAL_ANTESTATAL_HEADER_GUARD
 #define QUXLANG_QUERIES_CONSTEXPR_EVAL_ANTESTATAL_HEADER_GUARD
 
-#include <quxlang/data/antestatal.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/constexpr_types.hpp>
 
 namespace quxlang

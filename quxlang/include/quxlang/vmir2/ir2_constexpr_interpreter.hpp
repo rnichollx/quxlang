@@ -5,9 +5,7 @@
 
 #include "quxlang/data/class_layout.hpp"
 #include <quxlang/data/basic_types.hpp>
-#include "quxlang/data/constexpr.hpp"
 #include "quxlang/data/constexpr_types.hpp"
-#include "quxlang/data/antestatal.hpp"
 #include "vmir2.hpp"
 #include <map>
 #include <optional>

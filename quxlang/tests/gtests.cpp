@@ -10,7 +10,6 @@
 #include "quxlang/manipulators/mangler.hpp"
 
 
-#include <quxlang/data/antestatal.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_expression.hpp>

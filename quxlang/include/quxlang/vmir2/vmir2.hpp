@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <map>
-#include <quxlang/data/antestatal.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>

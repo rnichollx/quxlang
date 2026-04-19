@@ -141,7 +141,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/compilation_result.hpp
         include/quxlang/parsers/context.hpp
         include/quxlang/co_vmir_generator2_deps.hpp
-        include/quxlang/data/antestatal.hpp
+        include/quxlang/data/basic_types.hpp
 
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
