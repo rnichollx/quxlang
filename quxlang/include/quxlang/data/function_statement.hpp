@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_FUNCTION_STATEMENT_HEADER_GUARD
 
 #include "quxlang/ast2/source_location.hpp"
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/function_return_statement.hpp"
 #include "quxlang/data/statements.hpp"
 #include "rpnx/variant.hpp"

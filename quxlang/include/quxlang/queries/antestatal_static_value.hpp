@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_ANTESTATAL_STATIC_VALUE_HEADER_GUARD
 
 #include <quxlang/data/antestatal.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {

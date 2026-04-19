@@ -5,8 +5,7 @@
 
 #include <quxlang/data/antestatal.hpp>
 #include <quxlang/data/constexpr.hpp>
-#include <quxlang/data/expression.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 

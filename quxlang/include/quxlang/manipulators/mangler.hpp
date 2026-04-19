@@ -6,7 +6,7 @@
 
 
 #include "quxlang/data/canonical_resolved_function_chain.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {

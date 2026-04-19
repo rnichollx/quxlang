@@ -1,7 +1,7 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/symbol_tempars_spec.hpp>
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
 
 

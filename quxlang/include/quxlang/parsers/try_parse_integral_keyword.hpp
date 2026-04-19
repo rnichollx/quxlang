@@ -4,7 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_INTEGRAL_KEYWORD_HEADER_GUARD
 
 #include <optional>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/ctype.hpp>
 
 namespace quxlang::parsers

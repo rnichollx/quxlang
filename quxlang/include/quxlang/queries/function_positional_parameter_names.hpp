@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_FUNCTION_POSITIONAL_PARAMETER_NAMES_HEADER_GUARD
 #define QUXLANG_QUERIES_FUNCTION_POSITIONAL_PARAMETER_NAMES_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <optional>
 #include <vector>
 #include <string>

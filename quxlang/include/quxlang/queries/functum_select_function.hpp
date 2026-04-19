@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_FUNCTUM_SELECT_FUNCTION_HEADER_GUARD
 #define QUXLANG_QUERIES_FUNCTUM_SELECT_FUNCTION_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <optional>
 
 

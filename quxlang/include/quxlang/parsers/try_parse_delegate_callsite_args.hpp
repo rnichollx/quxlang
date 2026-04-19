@@ -2,7 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
-#include <quxlang/data/expression.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>
 

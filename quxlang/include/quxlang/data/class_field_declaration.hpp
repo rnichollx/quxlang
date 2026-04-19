@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_CLASS_FIELD_DECLARATION_HEADER_GUARD
 
 #include "contextual_type_reference.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 namespace quxlang
 {
     struct class_field_declaration

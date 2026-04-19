@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_TEMPLOID_INSTANCIATION_PARAMETER_SET_HEADER_GUARD
 #define QUXLANG_DATA_TEMPLOID_INSTANCIATION_PARAMETER_SET_HEADER_GUARD
 #include <map>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {

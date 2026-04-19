@@ -2,7 +2,7 @@
 
 #include <quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp>
 #include <quxlang/macros.hpp>
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"

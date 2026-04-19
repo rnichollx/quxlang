@@ -4,7 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_RETURN_TYPE_HEADER_GUARD
 
 #include <optional>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 
 namespace quxlang::parsers

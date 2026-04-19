@@ -4,7 +4,7 @@
 #define QUXLANG_MANIPULATORS_TYPEUTILS_HEADER_GUARD
 
 #include "quxlang/data/fwd.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
 #include "quxlang/variant_utils.hpp"
 

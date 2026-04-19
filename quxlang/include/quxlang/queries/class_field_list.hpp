@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_CLASS_FIELD_LIST_HEADER_GUARD
 #define QUXLANG_QUERIES_CLASS_FIELD_LIST_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/class_field_declaration.hpp>
 #include <vector>
 

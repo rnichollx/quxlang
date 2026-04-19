@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_BUILTIN_FUNCTIONS_HEADER_GUARD
 #define QUXLANG_DATA_BUILTIN_FUNCTIONS_HEADER_GUARD
 
-#include "type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 #include <rpnx/macros.hpp>
 namespace quxlang

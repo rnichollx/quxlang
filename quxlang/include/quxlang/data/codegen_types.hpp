@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_CODEGEN_TYPES_HEADER_GUARD
 
 #include "quxlang/data/constexpr.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/uint64_base.hpp"

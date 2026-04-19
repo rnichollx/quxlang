@@ -9,7 +9,7 @@
 #include "parse_whitespace_and_comments.hpp"
 #include "symbol.hpp"
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/keyword.hpp>
 
 #include <utility>

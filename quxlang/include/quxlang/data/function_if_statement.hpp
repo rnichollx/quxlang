@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_FUNCTION_IF_STATEMENT_HEADER_GUARD
 #define QUXLANG_DATA_FUNCTION_IF_STATEMENT_HEADER_GUARD
 
-#include "expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 #include "quxlang/data/function_block.hpp"
 

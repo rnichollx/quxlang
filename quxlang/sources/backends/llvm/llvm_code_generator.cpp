@@ -4,7 +4,7 @@
 #include "quxlang/compiler.hpp"
 #include "quxlang/data/code_relocation.hpp"
 #include "quxlang/data/llvm_proxy_types.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
 #include "quxlang/manipulators/qmanip.hpp"
 #include "quxlang/manipulators/vm_type_alignment.hpp"

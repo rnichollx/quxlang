@@ -3,7 +3,7 @@
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/data/codegen_types.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
 #include "quxlang/vmir2/vmir2.hpp"

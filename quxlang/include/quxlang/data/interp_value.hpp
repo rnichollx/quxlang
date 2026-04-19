@@ -3,8 +3,7 @@
 #ifndef QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 #define QUXLANG_DATA_INTERP_VALUE_HEADER_GUARD
 
-#include "expression.hpp"
-#include "type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include <rpnx/variant.hpp>
 
 namespace quxlang

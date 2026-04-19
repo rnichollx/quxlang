@@ -3,7 +3,7 @@
 #ifndef QUXLANG_MANIPULATORS_EXPRESSION_STRINGIFIER_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_EXPRESSION_STRINGIFIER_HEADER_GUARD
 
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/numeric_literal.hpp"
 #include <string>
 

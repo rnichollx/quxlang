@@ -3,8 +3,7 @@
 #ifndef QUXLANG_DATA_FUNCTION_DELEGATE_HEADER_GUARD
 #define QUXLANG_DATA_FUNCTION_DELEGATE_HEADER_GUARD
 
-#include "expression.hpp"
-#include "type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include <rpnx/compare.hpp>
 
 namespace quxlang

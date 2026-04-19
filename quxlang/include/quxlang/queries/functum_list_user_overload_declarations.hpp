@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_FUNCTUM_LIST_USER_OVERLOAD_DECLARATIONS_HEADER_GUARD
 #define QUXLANG_QUERIES_FUNCTUM_LIST_USER_OVERLOAD_DECLARATIONS_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <vector>
 

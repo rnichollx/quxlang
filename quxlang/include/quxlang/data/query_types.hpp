@@ -13,7 +13,7 @@
 #include <quxlang/data/symbol_type.hpp>
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>
 #include <quxlang/data/type_placement_info.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 
 #include <quxlang/data/argument_adaptation_types.hpp>

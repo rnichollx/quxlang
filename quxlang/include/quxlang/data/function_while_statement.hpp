@@ -4,7 +4,7 @@
 #define QUXLANG_DATA_FUNCTION_WHILE_STATEMENT_HEADER_GUARD
 
 
-#include "expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include <compare>
 #include "quxlang/data/function_block.hpp"
 

@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_USER_SWAP_EXISTS_HEADER_GUARD
 #define QUXLANG_QUERIES_USER_SWAP_EXISTS_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 
 namespace quxlang

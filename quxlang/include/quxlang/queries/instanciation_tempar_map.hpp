@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_INSTANCIATION_TEMPAR_MAP_HEADER_GUARD
 
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 
 namespace quxlang

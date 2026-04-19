@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_FUNCTUM_LIST_USER_ENSIG_DECLARATIONS_HEADER_GUARD
 
 #include <quxlang/data/tempar_types.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <vector>
 
 

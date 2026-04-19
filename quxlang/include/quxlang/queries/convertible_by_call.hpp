@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_CONVERTIBLE_BY_CALL_HEADER_GUARD
 
 #include <quxlang/data/convertibility_types.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <optional>
 
 

@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_ARGUMENT_INITIALIZE_BY_INTRINSIC_HEADER_GUARD
 
 #include <quxlang/data/argument_adaptation_types.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <optional>
 
 

@@ -3,7 +3,7 @@
 #ifndef QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 #include <optional>
 #include <utility>

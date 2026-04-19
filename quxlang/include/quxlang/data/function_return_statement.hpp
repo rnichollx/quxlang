@@ -3,7 +3,7 @@
 #ifndef QUXLANG_DATA_FUNCTION_RETURN_STATEMENT_HEADER_GUARD
 #define QUXLANG_DATA_FUNCTION_RETURN_STATEMENT_HEADER_GUARD
 
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include <optional>
 
 namespace quxlang

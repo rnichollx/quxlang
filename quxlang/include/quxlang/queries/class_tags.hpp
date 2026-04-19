@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_CLASS_TAGS_HEADER_GUARD
 
 #include <quxlang/data/class_tags_types.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 
 namespace quxlang

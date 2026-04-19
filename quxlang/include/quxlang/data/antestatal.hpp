@@ -13,7 +13,7 @@
 #ifndef QUXLANG_ANTESTATAL_HPP
 #define QUXLANG_ANTESTATAL_HPP
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 #include <rpnx/macros.hpp>
 #include <rpnx/variant.hpp>

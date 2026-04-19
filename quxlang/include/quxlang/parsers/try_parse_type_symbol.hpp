@@ -5,7 +5,7 @@
 
 #include <optional>
 #include <utility>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/context.hpp>
 #include <quxlang/parsers/function.hpp>

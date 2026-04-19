@@ -10,7 +10,7 @@
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_placement_info.hpp"
 #include "quxlang/exception.hpp"

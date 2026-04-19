@@ -5,7 +5,7 @@
 
 #include <cstddef>
 #include <quxlang/cow.hpp>
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <rpnx/macros.hpp>
 #include <vector>
 

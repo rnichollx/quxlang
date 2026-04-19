@@ -4,7 +4,7 @@
 #define QUXLANG_VMIR2_IR2_CONSTEXPR_INTERPRETER_HEADER_GUARD
 
 #include "quxlang/data/class_layout.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/constexpr.hpp"
 #include "quxlang/data/constexpr_types.hpp"
 #include "quxlang/data/antestatal.hpp"

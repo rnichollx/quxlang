@@ -5,7 +5,7 @@
 
 #include "lookup_chain.hpp"
 #include "quxlang/data/lookup_type.hpp"
-#include "quxlang/data/type_symbol.hpp"
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {

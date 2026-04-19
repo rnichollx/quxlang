@@ -1,7 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp>
-#include "quxlang/data/expression.hpp"
+#include <quxlang/data/basic_types.hpp>
 #include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "rpnx/unimplemented.hpp"

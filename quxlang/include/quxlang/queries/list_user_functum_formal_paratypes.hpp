@@ -3,7 +3,7 @@
 #ifndef QUXLANG_QUERIES_LIST_USER_FUNCTUM_FORMAL_PARATYPES_HEADER_GUARD
 #define QUXLANG_QUERIES_LIST_USER_FUNCTUM_FORMAL_PARATYPES_HEADER_GUARD
 
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 #include <vector>
 
 

@@ -4,7 +4,7 @@
 #define QUXLANG_QUERIES_ASM_PROCEDURE_FROM_SYMBOL_HEADER_GUARD
 
 #include "quxlang/asm/asm.hpp"
-#include <quxlang/data/type_symbol.hpp>
+#include <quxlang/data/basic_types.hpp>
 
 namespace quxlang
 {
