@@ -261,11 +261,26 @@
   CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots + 1, count);
 }
 
+::constexpr_alloc_live_trivial_free_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  PLACE AT(slot_ptr->) I32 := 5;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+}
+
 ::constexpr_alloc_live_nontrivial_free_test STATIC_TEST EXPECT_FAIL
 {
   VAR slot_ptr -> STORAGE(buz) := CONSTEXPR_ALLOC#(buz)();
   PLACE AT(slot_ptr->) buz;
   CONSTEXPR_DEALLOC#(buz)(slot_ptr);
+}
+
+::constexpr_multialloc_live_trivial_free_test STATIC_TEST EXPECT_FAIL
+{
+  VAR count SZ := 1;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  PLACE AT(slots->) BYTE := 1;
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
 }
 
 ::constexpr_alloc_use_after_free_pun_test STATIC_TEST EXPECT_FAIL

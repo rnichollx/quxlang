@@ -779,11 +779,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
-                std::cout << " - Expected before state: " << ir_printer->to_string(expected_state) << std::endl;
-                std::cout << " - Actual before state: " << ir_printer->to_string(current_statemap) << std::endl;
-
                 if (current_statemap != expected_state)
                 {
+                    std::cout << " - Expected before state: " << ir_printer->to_string(expected_state) << std::endl;
+                    std::cout << " - Actual before state: " << ir_printer->to_string(current_statemap) << std::endl;
                     for (auto const& [index, states] : state_diff)
                     {
                         std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer->to_string(index, states.second) << ", got " << ir_printer->to_string(index, states.first) << std::endl;
@@ -1670,18 +1669,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::ensure_allocation_storage_can_be_freed(constexpr_allocation& allocation)
 {
-    auto has_nontrivial_destructor = [&](type_symbol const& object_type) -> bool
-    {
-        for (auto const& frame : stack)
-        {
-            if (frame.ir3->non_trivial_dtors.contains(object_type))
-            {
-                return true;
-            }
-        }
-        return false;
-    };
-
     for (auto const& storage_local : allocation.elements)
     {
         if (!storage_local || !storage_local->stored_object || !storage_local->stored_object->alive())
@@ -1689,12 +1676,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             continue;
         }
 
-        auto const& object = storage_local->stored_object;
-        auto const object_type = storage_local->storage_active_type.value_or(object->storage_projection_type.value_or(type_symbol{}));
-        if (object->dtor.has_value() || has_nontrivial_destructor(object_type))
-        {
-            throw constexpr_logic_execution_error("freeing a live nontrivial object during constexpr execution is not allowed");
-        }
+        throw constexpr_logic_execution_error("freeing a live object during constexpr execution is not allowed");
     }
 }
 
