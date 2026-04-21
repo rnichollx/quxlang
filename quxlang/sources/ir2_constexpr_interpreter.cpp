@@ -789,7 +789,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                     }
                 }
                 assert(current_statemap == expected_state);
+
             }
+
         }
 
         std::size_t stack_size1 = stack.size();
@@ -801,10 +803,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
 
-        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-        {
-            std::cout << std::endl;
-        }
+
         return;
     }
 
