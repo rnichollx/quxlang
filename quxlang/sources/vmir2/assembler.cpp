@@ -367,6 +367,26 @@ namespace quxlang::vmir2
         return "STORAGE_PUN %" + std::to_string(inst.from_storage) + " AS " + quxlang::to_string(inst.as_type) + " -> %" + std::to_string(inst.to_reference);
     }
 
+    std::string assembler::to_string_internal(vmir2::constexpr_alloc inst)
+    {
+        return "CONSTEXPR_ALLOC " + quxlang::to_string(inst.storage_type) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::constexpr_alloc_multiple inst)
+    {
+        return "CONSTEXPR_ALLOC_MULTIPLE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.count) + " -> %" + std::to_string(inst.result);
+    }
+
+    std::string assembler::to_string_internal(vmir2::constexpr_dealloc inst)
+    {
+        return "CONSTEXPR_DEALLOC " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer);
+    }
+
+    std::string assembler::to_string_internal(vmir2::constexpr_dealloc_multiple inst)
+    {
+        return "CONSTEXPR_DEALLOC_MULTIPLE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.count);
+    }
+
     std::string assembler::to_string_internal(vmir2::get_global_storage inst)
     {
         return "GET_GLOBAL_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);

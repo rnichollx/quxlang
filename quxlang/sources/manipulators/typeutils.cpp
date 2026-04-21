@@ -270,6 +270,7 @@ namespace quxlang
         std::string operator()(aligned_storage const& ref) const;
         std::string operator()(readonly_constant const& ref) const;
         std::string operator()(freebound_identifier const& ref) const;
+        std::string operator()(builtin_symbol const& ref) const;
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
         std::string operator()(initialization_reference const& ref) const;
@@ -502,6 +503,11 @@ namespace quxlang
         bool operator()(freebound_identifier const& ref) const
         {
             return false; // Freebound identifiers are not templates
+        }
+
+        bool operator()(builtin_symbol const&) const
+        {
+            return false;
         }
 
         bool operator()(instanciation_reference const& type)
@@ -960,6 +966,29 @@ namespace quxlang
 
         output += "#{";
 
+        if (typeis< builtin_symbol >(sel.templexoid))
+        {
+            bool first = true;
+            append_named_arguments_in_print_order(output, first, ref.params.named, [&](auto const& entry) {
+                auto const& [name, actual] = entry;
+                output += "@" + name + " " + to_string(parameter_instantiation_type(actual));
+            });
+            for (auto const& actual : ref.params.positional)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    output += ", ";
+                }
+                output += to_string(parameter_instantiation_type(actual));
+            }
+            output += "}";
+            return output;
+        }
+
         // TODO: consider if keep this
         if (false) // (sel.which.builtin)
         {
@@ -1076,6 +1105,10 @@ namespace quxlang
         }
     }
     std::string type_symbol_stringifier::operator()(freebound_identifier const& ref) const
+    {
+        return ref.name;
+    }
+    std::string type_symbol_stringifier::operator()(builtin_symbol const& ref) const
     {
         return ref.name;
     }
@@ -1920,6 +1953,11 @@ namespace quxlang
             bool check_impl(freebound_identifier const& template_val, freebound_identifier const& match_val, bool conv)
             {
                 throw compiler_bug("can't use a freebound identifier as a template parameter");
+            }
+
+            bool check_impl(builtin_symbol const& tmpl, builtin_symbol const& val, bool conv)
+            {
+                return tmpl.name == val.name;
             }
 
             bool check_impl(ptrref_type const& template_val, ptrref_type const& match_val, bool conv)

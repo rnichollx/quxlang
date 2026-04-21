@@ -310,20 +310,22 @@ namespace quxlang::bytemath
 
             while (*this > 0)
             {
+                auto const byte = std::uint8_t(data[data.size() - 1]);
                 result <<= 4;
-                result += I(std::uint8_t(data[data.size() - 1]) & 0xF0);
+                result += I((byte & 0xF0) >> 4);
                 result <<= 4;
-                result += I(std::uint8_t(data[data.size()]) & 0xF);
+                result += I(byte & 0x0F);
 
                 data = detail::le_shift_down_raw(std::move(data), 8);
             }
 
             while (*this < 0)
             {
+                auto const byte = std::uint8_t(data[data.size() - 1]);
                 result <<= 4;
-                result -= I(std::uint8_t(data[data.size() - 1]) & 0xF0);
+                result -= I((byte & 0xF0) >> 4);
                 result <<= 4;
-                result -= I(std::uint8_t(data[data.size()]) & 0xF);
+                result -= I(byte & 0x0F);
 
                 data = detail::le_shift_down_raw(std::move(data), 8);
             }

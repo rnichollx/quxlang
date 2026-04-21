@@ -419,6 +419,24 @@ namespace quxlang::vmir2
             consume(spn.from_storage);
             output(spn.to_reference);
         }
+        void apply_internal(vmir2::constexpr_alloc const& cal)
+        {
+            output(cal.result);
+        }
+        void apply_internal(vmir2::constexpr_alloc_multiple const& cal)
+        {
+            consume(cal.count);
+            output(cal.result);
+        }
+        void apply_internal(vmir2::constexpr_dealloc const& cdl)
+        {
+            consume(cdl.pointer);
+        }
+        void apply_internal(vmir2::constexpr_dealloc_multiple const& cdl)
+        {
+            consume(cdl.pointer);
+            consume(cdl.count);
+        }
         void apply_internal(vmir2::get_global_storage const& ggs)
         {
             output(ggs.target_ref);

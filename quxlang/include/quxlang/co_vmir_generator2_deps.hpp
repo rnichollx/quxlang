@@ -31,6 +31,7 @@
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/type_is_implicitly_datatype.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
@@ -62,6 +63,7 @@ namespace quxlang
         module_options_map_query,
         symboid_query,
         symbol_type_query,
+        template_builtin_query,
         type_placement_info_query,
         uintpointer_type_query,
         variable_type_query >;
@@ -88,6 +90,7 @@ namespace quxlang
         module_options_map_query,
         symboid_query,
         symbol_type_query,
+        template_builtin_query,
         type_placement_info_query,
         uintpointer_type_query,
         variable_type_query,

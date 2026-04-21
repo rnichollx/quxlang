@@ -6,23 +6,23 @@
 #include <quxlang/co_vmir_generator2.hpp>
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
+#include <quxlang/queries/template_builtin.hpp>
 
-namespace
+#include <string>
+
+rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::builtin_vm_procedure3_impl(instanciation_reference input)
 {
-    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    auto parse_type_symbol_text = [](std::string const& text) -> type_symbol
     {
-        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
-        auto result = quxlang::parsers::parse_type_symbol(ctx);
+        auto ctx = parsers::make_unlocated_parsing_context(text);
+        auto result = parsers::parse_type_symbol(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
             throw std::logic_error("Input not fully parsed");
         }
         return result;
-    }
-}
+    };
 
-rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::builtin_vm_procedure3_impl(instanciation_reference input)
-{
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
 
     auto ctor_match = parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
@@ -79,6 +79,28 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
     {
         auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
         co_return result;
+    }
+
+    if (typeis< instanciation_reference >(input.temploid.templexoid))
+    {
+        auto const& parent_functum = as< instanciation_reference >(input.temploid.templexoid);
+        if (co_await rpnx::querygraph::request< template_builtin_query >(parent_functum.temploid))
+        {
+            if (!typeis< builtin_symbol >(parent_functum.temploid.templexoid))
+            {
+                throw compiler_bug("builtin template selection did not have a builtin_symbol parent");
+            }
+
+            auto const& builtin = as< builtin_symbol >(parent_functum.temploid.templexoid);
+            auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
+            if (!allocator_kind.has_value())
+            {
+                throw compiler_bug("builtin template selection had no allocator kind");
+            }
+
+            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+            co_return co_await gen.co_generate_builtin_constexpr_allocator(input, parent_functum, *allocator_kind);
+        }
     }
 
     if (typeis< submember >(input.temploid.templexoid))

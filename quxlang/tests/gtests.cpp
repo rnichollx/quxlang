@@ -27,6 +27,8 @@
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/template_builtin.hpp>
+#include <quxlang/queries/templex_select_template.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
@@ -569,6 +571,39 @@ TEST(collector_tester, function_call)
     ASSERT_TRUE(expr.template type_is< quxlang::expression_call >());
     ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
 };
+
+TEST(parsing, constexpr_allocator_call_expression)
+{
+    auto expr = parse_expression_text("CONSTEXPR_ALLOC#(I32)()");
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_call >());
+
+    auto const& call = expr.get_as< quxlang::expression_call >();
+    ASSERT_TRUE(call.callee.template type_is< quxlang::expression_symbol_reference >());
+
+    auto const& callee = call.callee.get_as< quxlang::expression_symbol_reference >();
+    ASSERT_TRUE(callee.symbol.template type_is< quxlang::initialization_reference >());
+
+    auto const& init = callee.symbol.get_as< quxlang::initialization_reference >();
+    ASSERT_TRUE(init.initializee.template type_is< quxlang::freebound_identifier >());
+    EXPECT_EQ(init.initializee.get_as< quxlang::freebound_identifier >().name, "CONSTEXPR_ALLOC");
+    ASSERT_EQ(init.arguments.size(), 1);
+    EXPECT_TRUE(call.args.empty());
+}
+
+TEST(parsing, constexpr_allocator_storage_statements)
+{
+    EXPECT_NO_THROW(parse_file_text(R"QX(
+::constexpr_allocator_parse_smoke FUNCTION(): VOID
+{
+  VAR count SZ := 2;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  PLACE AT((slots + 1)->) BYTE := 9;
+  ASSERT((PUN ((slots + 1)->) AS BYTE) == 9);
+  DESTROY AT((slots + 1)->) BYTE;
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
+}
+)QX"));
+}
 
 TEST(parsing, parse_bitwise_inverse_postfix)
 {
@@ -1115,6 +1150,21 @@ namespace
             return m_graph.make_request< quxlang::lookup_query >(std::move(input));
         }
 
+        auto get_templex_select_template(quxlang::initialization_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::templex_select_template_query >(std::move(input));
+        }
+
+        auto get_template_builtin(quxlang::temploid_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::template_builtin_query >(std::move(input));
+        }
+
+        auto get_symbol_type(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::symbol_type_query >(std::move(input));
+        }
+
       private:
         mutable quxlang::compiler_querygraph m_graph;
     };
@@ -1608,6 +1658,55 @@ TEST(quxlang, storage_type_lookup)
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_EQ(quxlang::to_string(*resolved), "STORAGE(MODULE(main)::buz, MODULE(main)::yak)");
+}
+
+TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    auto parsed = parse_expression_text("CONSTEXPR_ALLOC#(I32)");
+    ASSERT_TRUE(parsed.type_is< quxlang::expression_symbol_reference >());
+    auto input = parsed.get_as< quxlang::expression_symbol_reference >().symbol;
+    ASSERT_TRUE(input.type_is< quxlang::initialization_reference >());
+
+    auto resolved = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = input,
+    }, std::nullopt);
+
+    ASSERT_TRUE(resolved.has_value());
+    ASSERT_TRUE(resolved->type_is< quxlang::instanciation_reference >());
+    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#{I32}");
+    EXPECT_EQ(c.get_symbol_type(*resolved, std::nullopt), quxlang::symbol_kind::functum);
+
+    auto overloads = c.get_functum_builtin_overloads(*resolved, std::nullopt);
+    ASSERT_EQ(overloads.size(), 1);
+    auto const& overload = *overloads.begin();
+    EXPECT_TRUE(overload.interface.positional.empty());
+    EXPECT_TRUE(overload.interface.named.empty());
+
+    auto canonical_callee = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = as< quxlang::initialization_reference >(input).initializee,
+    }, std::nullopt);
+    ASSERT_TRUE(canonical_callee.has_value());
+
+    auto canonical_select_input = as< quxlang::initialization_reference >(input);
+    canonical_select_input.context = mainmodule;
+    canonical_select_input.initializee = *canonical_callee;
+
+    auto selected_template = c.get_templex_select_template(std::move(canonical_select_input), std::nullopt);
+    ASSERT_TRUE(selected_template.has_value());
+    EXPECT_EQ(c.get_symbol_type(*selected_template, std::nullopt), quxlang::symbol_kind::template_);
+    EXPECT_TRUE(c.get_template_builtin(*selected_template, std::nullopt));
+    EXPECT_FALSE(c.get_function_builtin(*selected_template, std::nullopt));
+
+    auto selected = quxlang::as< quxlang::instanciation_reference >(*resolved).temploid;
+    EXPECT_EQ(selected, *selected_template);
 }
 
 TEST(quxlang, storage_type_validation)

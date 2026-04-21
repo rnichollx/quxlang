@@ -4,15 +4,16 @@
 #define QUXLANG_QUERIES_SPECS_TEMPLEX_INITIALIZE_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/templex_initialize.hpp>
-#include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_instanciation.hpp>
+#include <quxlang/queries/templex_select_template.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
 namespace quxlang
 {
-    using templex_initialize_spec = rpnx::querygraph::query_handler_spec< templex_initialize_query, rpnx::typelist< symbol_type_query, template_instanciation_query > >;
+    using templex_initialize_spec =
+        rpnx::querygraph::query_handler_spec< templex_initialize_query, rpnx::typelist< template_instanciation_query, templex_select_template_query > >;
 
     rpnx::querygraph::coroutine< templex_initialize_spec > templex_initialize_impl(initialization_reference input);
 } // namespace quxlang

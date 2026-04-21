@@ -2,6 +2,7 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
+#include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/iter_parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
@@ -32,7 +33,10 @@ namespace quxlang::parsers
 
         if (!keywords::subentity_keywords.contains(kw))
         {
-            return {};
+            if (!is_builtin_allocator_name(kw))
+            {
+                return {};
+            }
         }
         result = kw;
 

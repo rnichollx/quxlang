@@ -65,6 +65,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     {
         co_return int_type{.bits = machine_info.pointer_size_bytes() * 8, .has_sign = false};
     }
+    else if (type.template type_is< builtin_symbol >())
+    {
+        co_return type;
+    }
     else if (type.template type_is< ptrref_type >())
     {
         ptrref_type const& ptr = as< ptrref_type >(type);
@@ -226,6 +230,12 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             {
                 co_yield rpnx::querygraph::debug_message("New context: {}", quxlang::to_string(current_context.value_or(void_type{})));
             }
+        }
+
+        auto builtin_kind = co_await rpnx::querygraph::request< symbol_type_query >(builtin_symbol{fb.name});
+        if (builtin_kind == symbol_kind::templex)
+        {
+            co_return builtin_symbol{fb.name};
         }
 
         std::string str = "Could not find '" + fb.name + "'";

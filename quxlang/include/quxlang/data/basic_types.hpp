@@ -20,6 +20,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <rpnx/compare.hpp>
@@ -33,6 +34,7 @@ RPNX_ENUM(quxlang, pointer_class, std::uint16_t, instance, array, machine, ref);
 RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring);
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
+RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple);
 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
@@ -324,6 +326,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(freebound_identifier, name);
     };
 
+    struct builtin_symbol
+    {
+        std::string name;
+
+        RPNX_MEMBER_METADATA(builtin_symbol, name);
+    };
+
     struct array_type
     {
         type_symbol element_type;
@@ -604,6 +613,32 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(keyword_symbol, name);
     };
+
+    inline auto builtin_allocator_kind_from_name(std::string_view name) -> std::optional< builtin_allocator_kind >
+    {
+        if (name == "CONSTEXPR_ALLOC")
+        {
+            return builtin_allocator_kind::constexpr_alloc;
+        }
+        if (name == "CONSTEXPR_ALLOC_MULTIPLE")
+        {
+            return builtin_allocator_kind::constexpr_alloc_multiple;
+        }
+        if (name == "CONSTEXPR_DEALLOC")
+        {
+            return builtin_allocator_kind::constexpr_dealloc;
+        }
+        if (name == "CONSTEXPR_DEALLOC_MULTIPLE")
+        {
+            return builtin_allocator_kind::constexpr_dealloc_multiple;
+        }
+        return std::nullopt;
+    }
+
+    inline auto is_builtin_allocator_name(std::string_view name) -> bool
+    {
+        return builtin_allocator_kind_from_name(name).has_value();
+    }
 
     struct storage
     {

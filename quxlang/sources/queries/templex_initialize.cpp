@@ -4,12 +4,18 @@
 
 rpnx::querygraph::coroutine< quxlang::templex_initialize_spec > quxlang::templex_initialize_impl(initialization_reference input)
 {
-    auto initializee_kind = co_await rpnx::querygraph::request< symbol_type_query >(input.initializee);
-
-    if (initializee_kind != symbol_kind::templex && initializee_kind != symbol_kind::template_)
+    auto selection = co_await rpnx::querygraph::request< templex_select_template_query >(input);
+    if (!selection)
     {
-        throw std::logic_error("templex_initialize called on a non-templexoid template input");
+        QUX_WHY("No matching template found");
+        co_return std::nullopt;
     }
 
-    co_return co_await rpnx::querygraph::request< template_instanciation_query >(input);
+    co_return co_await rpnx::querygraph::request< template_instanciation_query >(initialization_reference{
+        .initializee = *selection,
+        .context = input.context,
+        .arguments = input.arguments,
+        .parameters = input.parameters,
+        .adaptations = input.adaptations,
+    });
 }

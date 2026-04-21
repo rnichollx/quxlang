@@ -304,6 +304,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/builtin_dtor_vm_procedure3.cpp
         sources/queries/builtin_move_ctor_vm_procedure3.cpp
         sources/queries/builtin_swap_vm_procedure3.cpp
+        sources/queries/builtin_template_instanciation.cpp
         sources/queries/builtin_vm_procedure3.cpp
         sources/queries/class_builtin.cpp
         sources/queries/class_default_ctor.cpp
@@ -329,6 +330,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/convertible_by_call.cpp
         sources/queries/declaroids.cpp
         sources/queries/ensig_argument_initialize.cpp
+        sources/queries/ensig_initialize.cpp
         sources/queries/ensig_tempars.cpp
         sources/queries/exists.cpp
         sources/queries/extern_linksymbol.cpp
@@ -380,8 +382,12 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/symboid_subdeclaroids.cpp
         sources/queries/symbol_tempars.cpp
         sources/queries/symbol_type.cpp
+        sources/queries/template_builtin.cpp
         sources/queries/template_instanciation.cpp
+        sources/queries/templex_builtins.cpp
+        sources/queries/templex_builtin_templates.cpp
         sources/queries/templex_initialize.cpp
+        sources/queries/templex_select_template.cpp
         sources/queries/type_is_antestatal.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_placement_info.cpp

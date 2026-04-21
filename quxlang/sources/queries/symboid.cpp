@@ -4,50 +4,13 @@
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
-namespace
+#include <optional>
+#include <string>
+
+rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
-    auto template_parameter_name(quxlang::type_symbol const& param) -> std::optional< std::string >
+    auto selected_template_decl_to_symboid = [](declaroid const& decl) -> ast2_symboid
     {
-        using namespace quxlang;
-
-        if (typeis< auto_temploidic >(param))
-        {
-            auto const& name = as< auto_temploidic >(param).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-        else if (typeis< type_temploidic >(param))
-        {
-            auto const& name = as< type_temploidic >(param).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-
-        return std::nullopt;
-    }
-
-    auto template_parameter_name(quxlang::declared_parameter const& param) -> std::optional< std::string >
-    {
-        if (param.name.has_value())
-        {
-            return param.name;
-        }
-        if (param.api_name.has_value())
-        {
-            return param.api_name;
-        }
-
-        return template_parameter_name(param.type);
-    }
-
-    auto selected_template_decl_to_symboid(quxlang::declaroid const& decl) -> quxlang::ast2_symboid
-    {
-        using namespace quxlang;
-
         if (typeis< ast2_class_declaration >(decl))
         {
             return as< ast2_class_declaration >(decl);
@@ -82,12 +45,40 @@ namespace
         {
             throw compiler_bug("Unsupported selected template declaroid");
         }
-    }
-}
+    };
 
+    auto template_parameter_name = [](declared_parameter const& param) -> std::optional< std::string >
+    {
+        if (param.name.has_value())
+        {
+            return param.name;
+        }
+        if (param.api_name.has_value())
+        {
+            return param.api_name;
+        }
 
-rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
-{
+        auto const& param_type = param.type;
+        if (typeis< auto_temploidic >(param_type))
+        {
+            auto const& name = as< auto_temploidic >(param_type).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+        else if (typeis< type_temploidic >(param_type))
+        {
+            auto const& name = as< type_temploidic >(param_type).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+
+        return std::nullopt;
+    };
+
     if (typeis< initialization_reference >(input))
     {
         auto const& init = as< initialization_reference >(input);
@@ -106,6 +97,12 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
 
         if (temploid_kind == symbol_kind::template_)
         {
+            if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid))
+            {
+                functum builtin_functum;
+                co_return builtin_functum;
+            }
+
             auto const& sym = co_await rpnx::querygraph::request< symboid_query >(inst.temploid.templexoid);
             if (!typeis< ast2_templex >(sym))
             {

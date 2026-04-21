@@ -155,6 +155,165 @@
   ASSERT(storage_buz_helper() == 10);
 }
 
+::constexpr_alloc_i32_helper FUNCTION(): I32
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  VAR placed_ptr ->I32 := PLACE AT(slot_ptr->) I32 := 123;
+  ASSERT(placed_ptr??);
+  ASSERT((PUN (slot_ptr->) AS I32) == 123);
+  DESTROY AT(slot_ptr->) I32;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  RETURN 123;
+}
+
+::constexpr_alloc_i32_test STATIC_TEST
+{
+  ASSERT(constexpr_alloc_i32_helper() == 123);
+}
+
+::constexpr_alloc_buz_helper FUNCTION(): I32
+{
+  VAR slot_ptr -> STORAGE(buz) := CONSTEXPR_ALLOC#(buz)();
+  VAR placed_ptr ->buz := PLACE AT(slot_ptr->) buz;
+  ASSERT(placed_ptr??);
+  ASSERT(buz_x(PUN (slot_ptr->) AS buz) == 9);
+  DESTROY AT(slot_ptr->) buz;
+  CONSTEXPR_DEALLOC#(buz)(slot_ptr);
+  RETURN 9;
+}
+
+::constexpr_alloc_buz_test STATIC_TEST
+{
+  ASSERT(constexpr_alloc_buz_helper() == 9);
+}
+
+::constexpr_multialloc_helper FUNCTION(): I32
+{
+  VAR count SZ := 3;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  VAR first ->BYTE := PLACE AT(slots->) BYTE := 7;
+  VAR second ->BYTE := PLACE AT((slots + 1)->) BYTE := 9;
+  VAR third ->BYTE := PLACE AT((slots + 2)->) BYTE := 11;
+  ASSERT(first??);
+  ASSERT(second??);
+  ASSERT(third??);
+  ASSERT((PUN (slots->) AS BYTE) == 7);
+  ASSERT((PUN ((slots + 1)->) AS BYTE) == 9);
+  ASSERT((PUN ((slots + 2)->) AS BYTE) == 11);
+  DESTROY AT((slots + 2)->) BYTE;
+  DESTROY AT((slots + 1)->) BYTE;
+  DESTROY AT(slots->) BYTE;
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
+  RETURN 27;
+}
+
+::constexpr_multialloc_test STATIC_TEST
+{
+  ASSERT(constexpr_multialloc_helper() == 27);
+}
+
+::constexpr_multialloc_zero_count_test STATIC_TEST
+{
+  VAR count SZ := 0;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
+}
+
+::byte_storage_buffer CLASS
+{
+  .data VAR =>> STORAGE(BYTE);
+  .count VAR SZ;
+}
+
+::constexpr_multialloc_container_test STATIC_TEST
+{
+  VAR buffer byte_storage_buffer;
+  buffer.count := 2;
+  buffer.data := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(buffer.count);
+  PLACE AT(buffer.data->) BYTE := 4;
+  PLACE AT((buffer.data + 1)->) BYTE := 8;
+  ASSERT((PUN (buffer.data->) AS BYTE) == 4);
+  ASSERT((PUN ((buffer.data + 1)->) AS BYTE) == 8);
+  DESTROY AT((buffer.data + 1)->) BYTE;
+  DESTROY AT(buffer.data->) BYTE;
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(buffer.data, buffer.count);
+}
+
+::constexpr_alloc_double_free_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  VAR copy_ptr -> STORAGE(I32) := slot_ptr;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  CONSTEXPR_DEALLOC#(I32)(copy_ptr);
+}
+
+::constexpr_multialloc_wrong_count_test STATIC_TEST EXPECT_FAIL
+{
+  VAR count SZ := 2;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, 3);
+}
+
+::constexpr_multialloc_interior_free_test STATIC_TEST EXPECT_FAIL
+{
+  VAR count SZ := 2;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots + 1, count);
+}
+
+::constexpr_alloc_live_nontrivial_free_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(buz) := CONSTEXPR_ALLOC#(buz)();
+  PLACE AT(slot_ptr->) buz;
+  CONSTEXPR_DEALLOC#(buz)(slot_ptr);
+}
+
+::constexpr_alloc_use_after_free_pun_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  PLACE AT(slot_ptr->) I32 := 5;
+  DESTROY AT(slot_ptr->) I32;
+  VAR freed_ptr -> STORAGE(I32) := slot_ptr;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  ASSERT((PUN (freed_ptr->) AS I32) == 5);
+}
+
+::constexpr_alloc_use_after_free_place_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  VAR freed_ptr -> STORAGE(I32) := slot_ptr;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  PLACE AT(freed_ptr->) I32 := 7;
+}
+
+::constexpr_alloc_use_after_free_destroy_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  PLACE AT(slot_ptr->) I32 := 5;
+  DESTROY AT(slot_ptr->) I32;
+  VAR freed_ptr -> STORAGE(I32) := slot_ptr;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  DESTROY AT(freed_ptr->) I32;
+}
+
+::constexpr_alloc_use_after_free_load_store_test STATIC_TEST EXPECT_FAIL
+{
+  VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#(I32)();
+  VAR value_ptr ->I32 := PLACE AT(slot_ptr->) I32 := 5;
+  DESTROY AT(slot_ptr->) I32;
+  CONSTEXPR_DEALLOC#(I32)(slot_ptr);
+  value_ptr-> := 9;
+}
+
+::constexpr_alloc_use_after_free_pointer_ops_test STATIC_TEST EXPECT_FAIL
+{
+  VAR count SZ := 2;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  VAR freed_slots =>> STORAGE(BYTE) := slots;
+  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
+  freed_slots++;
+}
+
 ::aligned_storage_buz_helper FUNCTION(): I32
 {
   VAR slot ALIGNED_STORAGE(4, 4);
@@ -186,4 +345,3 @@
 {
   b.foo();
 }
-

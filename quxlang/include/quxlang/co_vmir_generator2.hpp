@@ -4338,6 +4338,70 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_generate_builtin_constexpr_allocator(instanciation_reference const& functanoid, instanciation_reference const& allocator_functum, builtin_allocator_kind allocator_kind) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(functanoid));
+            assert(!type_is_contextual(allocator_functum));
+            if (!typeis< builtin_symbol >(allocator_functum.temploid.templexoid) || allocator_functum.params.named.size() != 0 || allocator_functum.params.positional.size() != 1)
+            {
+                throw compiler_bug("constexpr allocator builtin generation expects one instantiated builtin type parameter");
+            }
+
+            auto const allocated_type = parameter_instantiation_type(allocator_functum.params.positional.front());
+            auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
+
+            co_await co_generate_arg_info(functanoid);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            switch (allocator_kind)
+            {
+            case builtin_allocator_kind::constexpr_alloc:
+            {
+                auto result = this->create_local_value(ptrref_type{.target = storage_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+                this->emit(current_block, vmir2::constexpr_alloc{
+                                          .storage_type = storage_type,
+                                          .result = get_local_index(result),
+                                      });
+                co_await this->co_return_value(current_block, result);
+                break;
+            }
+            case builtin_allocator_kind::constexpr_alloc_multiple:
+            {
+                auto result = this->create_local_value(ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});
+                this->emit(current_block, vmir2::constexpr_alloc_multiple{
+                                          .storage_type = storage_type,
+                                          .count = this->state.params.positional.at(0).local_index,
+                                          .result = get_local_index(result),
+                                      });
+                co_await this->co_return_value(current_block, result);
+                break;
+            }
+            case builtin_allocator_kind::constexpr_dealloc:
+            {
+                this->emit(current_block, vmir2::constexpr_dealloc{
+                                          .storage_type = storage_type,
+                                          .pointer = this->state.params.positional.at(0).local_index,
+                                      });
+                co_await co_generate_builtin_return(current_block);
+                break;
+            }
+            case builtin_allocator_kind::constexpr_dealloc_multiple:
+            {
+                this->emit(current_block, vmir2::constexpr_dealloc_multiple{
+                                          .storage_type = storage_type,
+                                          .pointer = this->state.params.positional.at(0).local_index,
+                                          .count = this->state.params.positional.at(1).local_index,
+                                      });
+                co_await co_generate_builtin_return(current_block);
+                break;
+            }
+            }
+
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
         auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));

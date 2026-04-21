@@ -221,6 +221,12 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return 1;
     }
 
+    if (typeis< numeric_literal_reference >(from) && typeis< int_type >(to))
+    {
+        auto const& int_to = as< int_type >(to);
+        co_return int_to.has_sign ? 3 : 2;
+    }
+
     if (is_template(to))
     {
         for (auto const& probe : enumerate_source_forms(from, input.adaptations))

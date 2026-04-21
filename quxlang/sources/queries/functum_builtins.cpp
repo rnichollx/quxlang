@@ -1,6 +1,7 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/functum_builtins_spec.hpp>
+#include <quxlang/queries/template_builtin.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -24,20 +25,6 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     std::optional< ast2_class_declaration > class_ent;
 
-    if (!typeis< submember >(functum))
-    {
-        co_return {};
-    }
-
-    ptrref_type byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
-
-    submember const& as_submember = as< submember >(functum);
-    type_symbol const& parent = as_submember.of;
-
-    std::string const& name = as_submember.name;
-
-    auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
-
     std::set< builtin_function_info > allowed_operations;
 
     auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type)
@@ -59,6 +46,64 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     {
         allowed_operations.insert(make_overload(positionals, named, return_type));
     };
+
+    auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+
+    if (typeis< instanciation_reference >(functum))
+    {
+        auto const& inst = as< instanciation_reference >(functum);
+        if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid) && inst.params.named.empty() && inst.params.positional.size() == 1)
+        {
+            if (!typeis< builtin_symbol >(inst.temploid.templexoid))
+            {
+                throw compiler_bug("builtin template selection did not have a builtin_symbol parent");
+            }
+
+            auto const& builtin = as< builtin_symbol >(inst.temploid.templexoid);
+            auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
+            if (!allocator_kind.has_value())
+            {
+                throw compiler_bug("builtin template selection had no allocator kind");
+            }
+
+            auto const allocated_type = parameter_instantiation_type(inst.params.positional.front());
+            auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
+            auto const single_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
+            auto const multi_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});
+
+            switch (*allocator_kind)
+            {
+            case builtin_allocator_kind::constexpr_alloc:
+                add_overload({}, {}, single_ptr_type);
+                break;
+            case builtin_allocator_kind::constexpr_alloc_multiple:
+                add_overload({uintptr_type}, {}, multi_ptr_type);
+                break;
+            case builtin_allocator_kind::constexpr_dealloc:
+                add_overload({single_ptr_type}, {}, void_type{});
+                break;
+            case builtin_allocator_kind::constexpr_dealloc_multiple:
+                add_overload({multi_ptr_type, uintptr_type}, {}, void_type{});
+                break;
+            }
+
+            co_return allowed_operations;
+        }
+    }
+
+    if (!typeis< submember >(functum))
+    {
+        co_return {};
+    }
+
+    ptrref_type byte_ptr_type = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+
+    submember const& as_submember = as< submember >(functum);
+    type_symbol const& parent = as_submember.of;
+
+    std::string const& name = as_submember.name;
+
+    auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(parent);
 
     if (parent_kind == symbol_kind::global_variable)
     {
@@ -96,7 +141,6 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         add_overload({}, {{"THIS", parent}}, bool_type{});
     }
 
-    auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
     auto sintptr_type = co_await rpnx::querygraph::request< sintpointer_type_query >({});
 
     if (name == "OPERATOR[]" && parent.type_is< array_type >())

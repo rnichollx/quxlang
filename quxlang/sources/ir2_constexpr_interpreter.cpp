@@ -133,6 +133,16 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         }
     };
 
+    struct constexpr_allocation
+    {
+        builtin_allocator_kind kind;
+        type_symbol storage_type;
+        std::uint64_t count = 0;
+        bool freed = false;
+        std::shared_ptr< local > root;
+        std::vector< std::shared_ptr< local > > elements;
+    };
+
     struct object_base
     {
         std::weak_ptr< object > member_of;
@@ -198,6 +208,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::map< type_symbol, std::shared_ptr< local > > antestatal_global_roots;
     std::map< type_symbol, std::shared_ptr< local > > global_initguards;
     std::map< type_symbol, std::shared_ptr< local > > m_procedures;
+    std::vector< constexpr_allocation > constexpr_allocations;
+    std::map< local*, std::size_t > constexpr_allocation_lookup;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
     type_symbol load_indirect_callable_symbol(local_index slot, bool consume);
@@ -349,6 +361,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::storage_init_start const& sis);
     void exec_instr_val(vmir2::storage_deinit_start const& sds);
     void exec_instr_val(vmir2::storage_pun const& spn);
+    void exec_instr_val(vmir2::constexpr_alloc const& cal);
+    void exec_instr_val(vmir2::constexpr_alloc_multiple const& cal);
+    void exec_instr_val(vmir2::constexpr_dealloc const& cal);
+    void exec_instr_val(vmir2::constexpr_dealloc_multiple const& cal);
     void exec_instr_val(vmir2::get_global_storage const& ggs);
     void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
@@ -453,6 +469,11 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::int64_t pointer_offset_in_array(std::shared_ptr< local > array, pointer_impl ptr);
     pointer_impl pointer_arith(pointer_impl input, std::int64_t offset, type_symbol type);
     std::partial_ordering pointer_compare(pointer_impl a, pointer_impl b);
+    constexpr_allocation& register_constexpr_allocation(constexpr_allocation allocation);
+    constexpr_allocation& allocation_for_pointer(pointer_impl const& ptr);
+    void invalidate_local_tree(std::shared_ptr< local > const& object);
+    void ensure_allocation_storage_can_be_freed(constexpr_allocation& allocation);
+    void do_constexpr_dealloc(type_symbol storage_type, pointer_impl ptr, std::optional< std::uint64_t > count);
 
     std::uint64_t consume_u64(local_index slot);
     std::shared_ptr< local > consume_local(local_index slot);
@@ -1424,6 +1445,10 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     {
         throw constexpr_logic_execution_error(instruction_name + " expects a live storage reference");
     }
+    if (pointer_invalidated(storage_ref_slot->ref.value()))
+    {
+        throw constexpr_logic_execution_error(instruction_name + " on invalid storage");
+    }
 
     auto storage_local = storage_ref_slot->ref.value().pointer_target.value().lock();
     if (!storage_local || !storage_local->alive())
@@ -1494,13 +1519,31 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("storage deinit start on empty storage");
     }
 
-    auto& target_slot = get_current_frame().local_values[sds.target_value];
-    if (target_slot != nullptr)
+    if (get_current_frame().local_values[sds.target_value] != nullptr)
     {
         throw compiler_bug("storage deinit target slot already allocated");
     }
 
-    target_slot = storage_local->stored_object;
+    auto target_slot = create_local_value(sds.target_value, false);
+    auto const& stored_object = storage_local->stored_object;
+    target_slot->data = stored_object->data;
+    target_slot->negative = stored_object->negative;
+    target_slot->stage = slot_stage::full;
+    target_slot->readonly = stored_object->readonly;
+    target_slot->procedure = stored_object->procedure;
+    target_slot->ref = stored_object->ref;
+    target_slot->member_of = stored_object->member_of;
+    target_slot->initializer_of = stored_object->initializer_of;
+    target_slot->array_init_member_of = stored_object->array_init_member_of;
+    target_slot->antestatal_static_symbol = stored_object->antestatal_static_symbol;
+    target_slot->dtor = stored_object->dtor;
+    target_slot->array_members = stored_object->array_members;
+    target_slot->struct_members = stored_object->struct_members;
+    target_slot->delegates = stored_object->delegates;
+    target_slot->stored_object = stored_object;
+    target_slot->storage_owner = storage_local;
+    target_slot->storage_active_type = stored_object->storage_active_type;
+    target_slot->storage_projection_type = object_type;
     target_slot->storage_destroy_delegate = true;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::storage_pun const& spn)
@@ -1509,6 +1552,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (!storage_ref_slot || !storage_ref_slot->alive() || !storage_ref_slot->ref.has_value())
     {
         throw constexpr_logic_execution_error("storage_pun expects a live storage reference");
+    }
+    if (pointer_invalidated(storage_ref_slot->ref.value()))
+    {
+        throw constexpr_logic_execution_error("storage_pun on invalid storage");
     }
 
     auto storage_local = storage_ref_slot->ref.value().pointer_target.value().lock();
@@ -1530,6 +1577,259 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto out_ref = output_local(spn.to_reference);
     out_ref->ref = pointer_impl{.pointer_target = storage_local->stored_object};
 }
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constexpr_allocation& quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::register_constexpr_allocation(constexpr_allocation allocation)
+{
+    auto const index = constexpr_allocations.size();
+    constexpr_allocations.push_back(std::move(allocation));
+    auto& stored = constexpr_allocations.back();
+    if (stored.root)
+    {
+        constexpr_allocation_lookup[stored.root.get()] = index;
+    }
+    for (auto const& element : stored.elements)
+    {
+        if (element)
+        {
+            constexpr_allocation_lookup[element.get()] = index;
+        }
+    }
+    return stored;
+}
+
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::constexpr_allocation& quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::allocation_for_pointer(pointer_impl const& ptr)
+{
+    local* key = nullptr;
+    if (ptr.pointer_target.has_value())
+    {
+        auto target = ptr.pointer_target.value().lock();
+        if (!target)
+        {
+            throw constexpr_logic_execution_error("constexpr allocator pointer refers to invalid storage");
+        }
+        key = target.get();
+    }
+    else if (ptr.one_past_the_end.has_value())
+    {
+        auto target = ptr.one_past_the_end.value().lock();
+        if (!target)
+        {
+            throw constexpr_logic_execution_error("constexpr allocator pointer refers to invalid storage");
+        }
+        key = target.get();
+    }
+    else
+    {
+        throw constexpr_logic_execution_error("nullptr cannot be freed by constexpr allocator");
+    }
+
+    auto it = constexpr_allocation_lookup.find(key);
+    if (it == constexpr_allocation_lookup.end())
+    {
+        throw constexpr_logic_execution_error("pointer was not produced by a constexpr allocator");
+    }
+    return constexpr_allocations.at(it->second);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::invalidate_local_tree(std::shared_ptr< local > const& object)
+{
+    if (!object)
+    {
+        return;
+    }
+
+    for (auto const& [_, member] : object->struct_members)
+    {
+        invalidate_local_tree(member);
+    }
+    for (auto const& member : object->array_members)
+    {
+        invalidate_local_tree(member);
+    }
+    if (object->stored_object)
+    {
+        auto stored = object->stored_object;
+        object->stored_object = nullptr;
+        invalidate_local_tree(stored);
+    }
+
+    if (object->storage_owner.has_value())
+    {
+        auto owner = object->storage_owner.value().lock();
+        if (owner != nullptr && owner->stored_object == object)
+        {
+            owner->stored_object = nullptr;
+            owner->storage_active_type = std::nullopt;
+        }
+    }
+
+    object->stage = slot_stage::dead;
+    object->storage_initiated = false;
+    object->storage_active_type = std::nullopt;
+    object->antestatal_static_symbol = std::nullopt;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::ensure_allocation_storage_can_be_freed(constexpr_allocation& allocation)
+{
+    auto has_nontrivial_destructor = [&](type_symbol const& object_type) -> bool
+    {
+        for (auto const& frame : stack)
+        {
+            if (frame.ir3->non_trivial_dtors.contains(object_type))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    for (auto const& storage_local : allocation.elements)
+    {
+        if (!storage_local || !storage_local->stored_object || !storage_local->stored_object->alive())
+        {
+            continue;
+        }
+
+        auto const& object = storage_local->stored_object;
+        auto const object_type = storage_local->storage_active_type.value_or(object->storage_projection_type.value_or(type_symbol{}));
+        if (object->dtor.has_value() || has_nontrivial_destructor(object_type))
+        {
+            throw constexpr_logic_execution_error("freeing a live nontrivial object during constexpr execution is not allowed");
+        }
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_constexpr_dealloc(type_symbol storage_type, pointer_impl ptr, std::optional< std::uint64_t > count)
+{
+    auto& allocation = allocation_for_pointer(ptr);
+
+    if (allocation.freed)
+    {
+        throw constexpr_logic_execution_error("constexpr allocator detected a double free");
+    }
+    if (allocation.storage_type != storage_type)
+    {
+        throw constexpr_logic_execution_error("constexpr allocator deallocation type does not match the allocation type");
+    }
+
+    bool const expects_multiple = count.has_value();
+    bool const allocation_is_multiple = allocation.kind == builtin_allocator_kind::constexpr_alloc_multiple;
+    if (expects_multiple != allocation_is_multiple)
+    {
+        throw constexpr_logic_execution_error("constexpr allocator deallocation used the wrong allocator family");
+    }
+
+    if (!expects_multiple)
+    {
+        if (ptr.one_past_the_end.has_value())
+        {
+            throw constexpr_logic_execution_error("constexpr allocator single-object free requires the original base pointer");
+        }
+        auto const target = ptr.pointer_target.value().lock();
+        if (target != allocation.root)
+        {
+            throw constexpr_logic_execution_error("constexpr allocator single-object free rejected an interior pointer");
+        }
+    }
+    else
+    {
+        if (*count != allocation.count)
+        {
+            throw constexpr_logic_execution_error("constexpr allocator multi-object free used the wrong element count");
+        }
+
+        if (allocation.count == 0)
+        {
+            if (!ptr.one_past_the_end.has_value() || ptr.one_past_the_end.value().lock() != allocation.root)
+            {
+                throw constexpr_logic_execution_error("constexpr allocator zero-count free requires the original allocation pointer");
+            }
+        }
+        else
+        {
+            if (ptr.one_past_the_end.has_value())
+            {
+                throw constexpr_logic_execution_error("constexpr allocator multi-object free requires the original base pointer");
+            }
+            auto const target = ptr.pointer_target.value().lock();
+            if (target != allocation.elements.front())
+            {
+                throw constexpr_logic_execution_error("constexpr allocator multi-object free rejected an interior pointer");
+            }
+        }
+    }
+
+    ensure_allocation_storage_can_be_freed(allocation);
+    allocation.freed = true;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_alloc const& cal)
+{
+    auto storage_local = create_object(cal.storage_type);
+    begin_lifetime(storage_local);
+
+    register_constexpr_allocation(constexpr_allocation{
+        .kind = builtin_allocator_kind::constexpr_alloc,
+        .storage_type = cal.storage_type,
+        .count = 1,
+        .root = storage_local,
+        .elements = {storage_local},
+    });
+
+    auto result = output_local(cal.result);
+    result->ref = pointer_impl{.pointer_target = storage_local};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_alloc_multiple const& cal)
+{
+    auto const count = consume_u64(cal.count);
+    auto root = create_object(cal.storage_type);
+    root->array_members.clear();
+    root->array_members.reserve(static_cast< std::size_t >(count));
+
+    std::vector< std::shared_ptr< local > > elements;
+    elements.reserve(static_cast< std::size_t >(count));
+    for (std::uint64_t i = 0; i < count; ++i)
+    {
+        auto element = create_object(cal.storage_type);
+        begin_lifetime(element);
+        element->member_of = root;
+        root->array_members.push_back(element);
+        elements.push_back(std::move(element));
+    }
+    begin_lifetime(root);
+
+    register_constexpr_allocation(constexpr_allocation{
+        .kind = builtin_allocator_kind::constexpr_alloc_multiple,
+        .storage_type = cal.storage_type,
+        .count = count,
+        .root = root,
+        .elements = elements,
+    });
+
+    auto result = output_local(cal.result);
+    if (count == 0)
+    {
+        result->ref = pointer_impl{.one_past_the_end = root};
+    }
+    else
+    {
+        result->ref = pointer_impl{.pointer_target = root->array_members.front()};
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_dealloc const& cal)
+{
+    auto ptr = load_as_pointer(cal.pointer, true);
+    do_constexpr_dealloc(cal.storage_type, ptr, std::nullopt);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_dealloc_multiple const& cal)
+{
+    auto ptr = load_as_pointer(cal.pointer, true);
+    auto const count = consume_u64(cal.count);
+    do_constexpr_dealloc(cal.storage_type, ptr, count);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_storage const& ggs)
 {
     do_get_global_storage(ggs.symbol, ggs.target_ref);
@@ -1762,6 +2062,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
         throw std::logic_error("pointer missing value?");
     }
+    if (pointer_invalidated(ptr->ref.value()))
+    {
+        throw constexpr_logic_execution_error("dereference pointer to invalid storage location");
+    }
 
     auto pointer_target = ptr->ref.value().pointer_target.value().lock();
 
@@ -1783,6 +2087,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
     }
     assert(slot->ref.has_value());
+    if (pointer_invalidated(*slot->ref))
+    {
+        throw constexpr_logic_execution_error("Error executing <load_from_ref>: accessing deallocated storage");
+    }
 
     auto load_from_ptr = slot->ref->pointer_target.value().lock();
     slot = nullptr;
@@ -1951,6 +2259,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (to_ptr.pointer_target.value().expired())
     {
         throw constexpr_logic_execution_error("Error executing <store_to_ref>: storing into deallocated storage");
+    }
+    if (is_ref(from_type) && pointer_invalidated(from_ptr))
+    {
+        throw constexpr_logic_execution_error("Error executing <store_to_ref>: loading from invalidated storage");
+    }
+    if (pointer_invalidated(to_ptr))
+    {
+        throw constexpr_logic_execution_error("Error executing <store_to_ref>: storing into invalidated storage");
     }
 
     auto& from_ptr_target = *from_ptr.pointer_target.value().lock();
@@ -2900,6 +3216,47 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::pointer_invalidated(pointer_impl ptr)
 {
+    auto allocation_index_for_local = [&](std::shared_ptr< local > target) -> std::optional< std::size_t >
+    {
+        while (target != nullptr)
+        {
+            auto direct_it = constexpr_allocation_lookup.find(target.get());
+            if (direct_it != constexpr_allocation_lookup.end())
+            {
+                return direct_it->second;
+            }
+
+            if (target->storage_owner.has_value())
+            {
+                auto owner = target->storage_owner.value().lock();
+                if (owner != nullptr)
+                {
+                    target = std::move(owner);
+                    continue;
+                }
+            }
+
+            if (target->member_of.has_value())
+            {
+                auto owner = target->member_of.value().lock();
+                if (owner != nullptr)
+                {
+                    target = std::move(owner);
+                    continue;
+                }
+            }
+
+            break;
+        }
+        return std::nullopt;
+    };
+
+    auto points_into_freed_allocation = [&](std::shared_ptr< local > const& target) -> bool
+    {
+        auto allocation_index = allocation_index_for_local(target);
+        return allocation_index.has_value() && constexpr_allocations.at(*allocation_index).freed;
+    };
+
     if (ptr.invalidated)
     {
         return true;
@@ -2915,6 +3272,10 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             return true;
         }
+        if (points_into_freed_allocation(ptr.pointer_target.value().lock()))
+        {
+            return true;
+        }
     }
 
     if (ptr.one_past_the_end.has_value())
@@ -2924,6 +3285,10 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             return true;
         }
         if (!ptr.one_past_the_end.value().lock()->storage_initiated)
+        {
+            return true;
+        }
+        if (points_into_freed_allocation(ptr.one_past_the_end.value().lock()))
         {
             return true;
         }
@@ -3465,7 +3830,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::create_local_value(vmir2::local_index local_idx, bool set_alive)
 {
-    assert(!set_alive);
     auto& frame = get_current_frame();
 
     auto result_type = frame.ir3->local_types.at(local_idx).type;
@@ -3769,6 +4133,10 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     if (!ptr_ref.has_value())
     {
         throw constexpr_logic_execution_error("nullptr dereference");
+    }
+    if (pointer_invalidated(*ptr_ref))
+    {
+        throw constexpr_logic_execution_error("dereferencing invalidated pointer or reference");
     }
 
     auto ptr_target = ptr_ref.value().pointer_target.value().lock();
@@ -4977,8 +5345,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto ptr = load_as_pointer(par.from, true);
 
     // quxlang::bytemath::le_sint multiplier;
-
-    auto val = consume_local_as_data(par.offset);
 
     auto const& offset_type = get_local_type(par.offset);
 

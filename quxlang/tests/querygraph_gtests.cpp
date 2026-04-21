@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
@@ -118,6 +119,27 @@ TEST(querygraph_queries, machine_info_returns_injected_output_info)
     ASSERT_EQ(resolved.cpu_type, quxlang::cpu::x86_64);
     ASSERT_EQ(resolved.os_type, quxlang::os::linux);
     ASSERT_EQ(resolved.binary_type, quxlang::binary::elf);
+}
+
+TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::type_symbol numeric_literal = quxlang::numeric_literal_reference{};
+    quxlang::type_symbol unsigned_integer = quxlang::int_type{.bits = 64, .has_sign = false};
+    quxlang::type_symbol signed_integer = quxlang::int_type{.bits = 64, .has_sign = true};
+
+    ASSERT_TRUE(graph.make_request< quxlang::argument_adaptation_is_better_fit_query >(quxlang::argument_adaptation_better_fit_input{
+        .from = numeric_literal,
+        .better_to = unsigned_integer,
+        .worse_to = signed_integer,
+    }));
+    ASSERT_FALSE(graph.make_request< quxlang::argument_adaptation_is_better_fit_query >(quxlang::argument_adaptation_better_fit_input{
+        .from = numeric_literal,
+        .better_to = signed_integer,
+        .worse_to = unsigned_integer,
+    }));
 }
 
 TEST(querygraph_queries, module_source_name_uses_configured_target)

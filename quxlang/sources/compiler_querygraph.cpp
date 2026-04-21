@@ -75,6 +75,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< builtin_dtor_vm_procedure3_spec >(builtin_dtor_vm_procedure3_impl);
     m_graph.register_handler_function< builtin_move_ctor_vm_procedure3_spec >(builtin_move_ctor_vm_procedure3_impl);
     m_graph.register_handler_function< builtin_swap_vm_procedure3_spec >(builtin_swap_vm_procedure3_impl);
+    m_graph.register_handler_function< builtin_template_instanciation_spec >(builtin_template_instanciation_impl);
     m_graph.register_handler_function< builtin_vm_procedure3_spec >(builtin_vm_procedure3_impl);
     m_graph.register_handler_function< class_builtin_spec >(class_builtin_impl);
     m_graph.register_handler_function< class_default_ctor_spec >(class_default_ctor_impl);
@@ -102,6 +103,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< convertible_by_call_spec >(convertible_by_call_impl);
     m_graph.register_handler_function< declaroids_spec >(declaroids_impl);
     m_graph.register_handler_function< ensig_argument_initialize_spec >(ensig_argument_initialize_impl);
+    m_graph.register_handler_function< ensig_initialize_spec >(ensig_initialize_impl);
     m_graph.register_handler_function< ensig_tempars_spec >(ensig_tempars_impl);
     m_graph.register_handler_function< exists_spec >(exists_impl);
     m_graph.register_handler_function< extern_linksymbol_spec >(extern_linksymbol_impl);
@@ -153,8 +155,12 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);
     m_graph.register_handler_function< symbol_tempars_spec >(symbol_tempars_impl);
     m_graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
+    m_graph.register_handler_function< template_builtin_spec >(template_builtin_impl);
     m_graph.register_handler_function< template_instanciation_spec >(template_instanciation_impl);
+    m_graph.register_handler_function< templex_builtins_spec >(templex_builtins_impl);
+    m_graph.register_handler_function< templex_builtin_templates_spec >(templex_builtin_templates_impl);
     m_graph.register_handler_function< templex_initialize_spec >(templex_initialize_impl);
+    m_graph.register_handler_function< templex_select_template_spec >(templex_select_template_impl);
     m_graph.register_handler_function< type_is_antestatal_spec >(type_is_antestatal_impl);
     m_graph.register_handler_function< type_is_implicitly_datatype_spec >(type_is_implicitly_datatype_impl);
     m_graph.register_handler_function< type_placement_info_spec >(type_placement_info_impl);

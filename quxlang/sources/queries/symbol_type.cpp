@@ -15,6 +15,41 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         co_return symbol_kind::pseudotype;
     }
 
+    if (!(co_await rpnx::querygraph::request< templex_builtins_query >(input)).empty())
+    {
+        co_return symbol_kind::templex;
+    }
+
+    if (typeis< builtin_symbol >(input))
+    {
+        co_return symbol_kind::noexist;
+    }
+
+    if (typeis<temploid_reference>(input))
+    {
+       temploid_reference const & temploid = as<temploid_reference>(input);
+
+       auto const & templexoid = temploid.templexoid;
+       auto templexoid_type = co_await rpnx::querygraph::request< symbol_type_query >(templexoid);
+
+       if (templexoid_type == symbol_kind::templex)
+       {
+         co_return symbol_kind::template_;
+       }
+       else if (templexoid_type == symbol_kind::functum)
+       {
+         co_return symbol_kind::function;
+       }
+       else if (templexoid_type == symbol_kind::noexist)
+       {
+         co_return symbol_kind::noexist;
+       }
+       else
+       {
+         throw rpnx::unimplemented();
+       }
+    }
+
     auto functions = co_await rpnx::querygraph::request< functum_overloads_query >(input);
     if (functions.size() > 0)
     {
@@ -155,32 +190,5 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
           throw rpnx::unimplemented();
        }
     }
-    else if (typeis<temploid_reference>(input))
-    {
-       temploid_reference const & temploid = as<temploid_reference>(input);
-
-       auto const & templexoid = temploid.templexoid;
-
-       auto templexoid_type = co_await rpnx::querygraph::request< symbol_type_query >(templexoid);
-
-       if (templexoid_type == symbol_kind::templex)
-       {
-         co_return symbol_kind::template_;
-       }
-       else if (templexoid_type == symbol_kind::functum)
-       {
-         co_return symbol_kind::function;
-       }
-       else if (templexoid_type == symbol_kind::noexist)
-       {
-         co_return symbol_kind::noexist;
-       }
-       else
-       {
-         throw rpnx::unimplemented();
-       }
-
-    }
-
     throw rpnx::unimplemented();
 }

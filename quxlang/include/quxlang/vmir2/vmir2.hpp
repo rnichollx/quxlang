@@ -53,6 +53,10 @@ namespace quxlang
         struct storage_init_start;
         struct storage_deinit_start;
         struct storage_pun;
+        struct constexpr_alloc;
+        struct constexpr_alloc_multiple;
+        struct constexpr_dealloc;
+        struct constexpr_dealloc_multiple;
         struct get_global_storage;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
@@ -147,6 +151,10 @@ namespace quxlang
             storage_init_start,
             storage_deinit_start,
             storage_pun,
+            constexpr_alloc,
+            constexpr_alloc_multiple,
+            constexpr_dealloc,
+            constexpr_dealloc_multiple,
             get_global_storage,
             get_antestatal_ref,
             initguard_global_get_ref,
@@ -286,6 +294,40 @@ namespace quxlang
             local_index to_reference;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(storage_pun, from_storage, as_type, to_reference);
+        };
+
+        struct constexpr_alloc
+        {
+            type_symbol storage_type;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_alloc, storage_type, result);
+        };
+
+        struct constexpr_alloc_multiple
+        {
+            type_symbol storage_type;
+            local_index count;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_alloc_multiple, storage_type, count, result);
+        };
+
+        struct constexpr_dealloc
+        {
+            type_symbol storage_type;
+            local_index pointer;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_dealloc, storage_type, pointer);
+        };
+
+        struct constexpr_dealloc_multiple
+        {
+            type_symbol storage_type;
+            local_index pointer;
+            local_index count;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_dealloc_multiple, storage_type, pointer, count);
         };
 
         struct get_global_storage

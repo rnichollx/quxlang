@@ -29,6 +29,7 @@
 #include <quxlang/queries/specs/builtin_dtor_vm_procedure3_spec.hpp>
 #include <quxlang/queries/specs/builtin_move_ctor_vm_procedure3_spec.hpp>
 #include <quxlang/queries/specs/builtin_swap_vm_procedure3_spec.hpp>
+#include <quxlang/queries/specs/builtin_template_instanciation_spec.hpp>
 #include <quxlang/queries/specs/builtin_vm_procedure3_spec.hpp>
 #include <quxlang/queries/specs/class_builtin_spec.hpp>
 #include <quxlang/queries/specs/class_default_ctor_spec.hpp>
@@ -56,6 +57,7 @@
 #include <quxlang/queries/specs/convertible_by_call_spec.hpp>
 #include <quxlang/queries/specs/declaroids_spec.hpp>
 #include <quxlang/queries/specs/ensig_argument_initialize_spec.hpp>
+#include <quxlang/queries/specs/ensig_initialize_spec.hpp>
 #include <quxlang/queries/specs/ensig_tempars_spec.hpp>
 #include <quxlang/queries/specs/exists_spec.hpp>
 #include <quxlang/queries/specs/extern_linksymbol_spec.hpp>
@@ -107,8 +109,12 @@
 #include <quxlang/queries/specs/symboid_subdeclaroids_spec.hpp>
 #include <quxlang/queries/specs/symbol_tempars_spec.hpp>
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
+#include <quxlang/queries/specs/template_builtin_spec.hpp>
 #include <quxlang/queries/specs/template_instanciation_spec.hpp>
+#include <quxlang/queries/specs/templex_builtins_spec.hpp>
+#include <quxlang/queries/specs/templex_builtin_templates_spec.hpp>
 #include <quxlang/queries/specs/templex_initialize_spec.hpp>
+#include <quxlang/queries/specs/templex_select_template_spec.hpp>
 #include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
 #include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
 #include <quxlang/queries/specs/type_placement_info_spec.hpp>
