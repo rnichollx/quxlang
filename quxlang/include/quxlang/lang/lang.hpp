@@ -84,7 +84,7 @@ namespace quxlang
             // clang-format on
 
             // Initialize the set of English keywords
-            all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "VAR", "FUNCTION", "CLASS", "MODULE", "STRUCT", "I", "U"};
+            all_keywords = {"IF", "FOR", "LOOP", "AFTER", "ELSE", "RETURN", "BREAK", "CONTINUE", "VAR", "FUNCTION", "CLASS", "MODULE", "STRUCT", "DOC", "I", "U"};
 
             for (const auto& keyword : kw_values)
             {

@@ -50,8 +50,9 @@ namespace quxlang
         declaroid decl;
         std::string name;
         std::optional<expression> include_if;
+        std::optional< std::string > doc;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(member_subdeclaroid, name, decl, include_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(member_subdeclaroid, name, decl, include_if, doc);
     };
 
     struct global_subdeclaroid
@@ -59,8 +60,9 @@ namespace quxlang
         declaroid decl;
         std::string name;
         std::optional<expression> include_if;
+        std::optional< std::string > doc;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(global_subdeclaroid, name, decl, include_if, doc);
     };
 
 

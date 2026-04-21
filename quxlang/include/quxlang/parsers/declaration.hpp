@@ -7,6 +7,7 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 
 #include <quxlang/parsers/declaration.hpp>
+#include <quxlang/parsers/doc.hpp>
 #include <quxlang/parsers/include_if.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
@@ -69,6 +70,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
 
         auto ifl = try_parse_include_if(ctx);
+        auto doc = try_parse_single_doc(ctx);
 
         auto decl = parse_declaroid(ctx);
 
@@ -78,6 +80,7 @@ namespace quxlang::parsers
                 .decl = std::move(decl),
                 .name = std::move(name),
                 .include_if = std::move(ifl),
+                .doc = std::move(doc),
                 .location = ctx.get_location_optional(begin, pos)};
         }
         else
@@ -86,6 +89,7 @@ namespace quxlang::parsers
                 .decl = std::move(decl),
                 .name = std::move(name),
                 .include_if = std::move(ifl),
+                .doc = std::move(doc),
                 .location = ctx.get_location_optional(begin, pos)};
         }
 

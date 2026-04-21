@@ -116,6 +116,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/interp_value.hpp
         include/quxlang/parsers/declaration.hpp
+        include/quxlang/parsers/doc.hpp
         include/quxlang/data/variants.hpp
         include/quxlang/parsers/include_if.hpp
         include/quxlang/parsers/expression/target.hpp

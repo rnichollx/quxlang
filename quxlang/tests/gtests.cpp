@@ -224,6 +224,36 @@ TEST(parsing, functum_combining)
     // ASSERT_EQ(file.globals[1].first, "foo");
 }
 
+TEST(parsing, declaration_doc_block)
+{
+    std::string test_string = "::foo DOC <$\n    asdf jlk\n    the quick brown fox jumped over the fence\n    $> FUNCTION(%a I32, %b I32) { }";
+
+    auto file = parse_file_text(test_string);
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaroid >();
+    ASSERT_TRUE(global.doc.has_value());
+    EXPECT_EQ(*global.doc, "\nasdf jlk\nthe quick brown fox jumped over the fence\n");
+}
+
+TEST(parsing, declaration_doc_block_after_include_if)
+{
+    std::string test_string = "::foo INCLUDE_IF(ARCH_X64) DOC <$x$> FUNCTION() { }";
+
+    auto file = parse_file_text(test_string);
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& global = file.declarations[0].get_as< quxlang::global_subdeclaroid >();
+    ASSERT_TRUE(global.include_if.has_value());
+    ASSERT_TRUE(global.doc.has_value());
+    EXPECT_EQ(*global.doc, "x");
+}
+
+TEST(parsing, declaration_rejects_multiple_doc_blocks)
+{
+    EXPECT_THROW(parse_file_text("::foo DOC <$x$> DOC <$y$> FUNCTION() { }"), std::logic_error);
+}
+
 TEST(parsing, parse_function_args)
 {
     std::string test_string = "(%a I32, %b I64, %c -> I32)";
