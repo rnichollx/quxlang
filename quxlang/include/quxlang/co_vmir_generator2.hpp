@@ -4537,6 +4537,279 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto uintany_work_type(type_symbol const& value_type) -> type_symbol
+        {
+            if (value_type.type_is< byte_type >())
+            {
+                return int_type{.bits = 16, .has_sign = false};
+            }
+            if (!value_type.type_is< int_type >())
+            {
+                throw std::logic_error("UINTANY serialization requires an unsigned integer value");
+            }
+
+            auto const& int_value_type = value_type.get_as< int_type >();
+            if (int_value_type.has_sign)
+            {
+                throw std::logic_error("UINTANY serialization requires an unsigned integer value");
+            }
+
+            if (int_value_type.bits < 16)
+            {
+                return int_type{.bits = 16, .has_sign = false};
+            }
+            return value_type;
+        }
+
+        auto load_reference_value(block_index& current_block, value_index ref, type_symbol const& value_type) -> value_index
+        {
+            auto value = this->create_local_value(value_type);
+            this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(ref), .to_value = get_local_index(value)});
+            return value;
+        }
+
+        auto load_zero_value(block_index& current_block, type_symbol const& value_type) -> value_index
+        {
+            auto value = this->create_local_value(value_type);
+            this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(value)});
+            return value;
+        }
+
+        auto co_construct_copy(block_index& current_block, value_index value, type_symbol const& value_type) -> co_type< value_index >
+        {
+            auto copy = this->create_local_value(value_type);
+            auto ctor = submember{.of = value_type, .name = "CONSTRUCTOR"};
+            co_await co_gen_call_functum(current_block, ctor, codegen_invocation_args{.named = {{"OTHER", value}, {"THIS", copy}}}, allowed_adaptations::source_rebinding);
+            co_return copy;
+        }
+
+        auto convert_value(block_index& current_block, value_index value, type_symbol const& target_type) -> value_index
+        {
+            if (this->current_type(current_block, value) == target_type)
+            {
+                return value;
+            }
+
+            auto converted = this->create_local_value(target_type);
+            this->emit(current_block, vmir2::iconv{.from = get_local_index(value), .to = get_local_index(converted), .convtype = vmir2::conversion_class::partial});
+            return converted;
+        }
+
+        auto create_small_uint_value(block_index& current_block, std::uint64_t value, type_symbol const& target_type) -> value_index
+        {
+            auto result = this->create_local_value(target_type);
+            vmir2::load_const_int instr;
+            instr.value = std::to_string(value);
+            instr.target = get_local_index(result);
+            this->emit(current_block, instr);
+            return result;
+        }
+
+        auto co_store_local_value(block_index& current_block, value_index local, value_index value, type_symbol const& value_type) -> co_type< void >
+        {
+            auto local_ref = this->create_reference(current_block, local, make_mref(value_type));
+            co_await co_generate_binary(current_block, ":=", local_ref, value);
+            co_return;
+        }
+
+        auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
+        {
+            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Missing varuint OUTPUT_ITERATOR argument");
+            }
+
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", *outit_ref);
+            auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+            co_await co_generate_binary(current_block, ":=", outit_deref, byte_value);
+            co_return;
+        }
+
+        auto co_read_input_byte(block_index& current_block) -> co_type< value_index >
+        {
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing varuint INPUT_ITERATOR argument");
+            }
+
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
+            auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+            co_return load_reference_value(current_block, input_deref, byte_type{});
+        }
+
+        auto co_generate_builtin_serialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto value_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"VALUE"});
+            if (!value_ref.has_value())
+            {
+                throw compiler_bug("Missing varuint VALUE argument");
+            }
+
+            auto value_ref_type = parameter_instantiation_type(func.params.named.at("VALUE"));
+            if (!value_ref_type.type_is< ptrref_type >() || value_ref_type.get_as< ptrref_type >().ptr_class != pointer_class::ref)
+            {
+                throw compiler_bug("varuint VALUE argument must be a reference");
+            }
+
+            auto value_type = value_ref_type.get_as< ptrref_type >().target;
+            auto work_type = uintany_work_type(value_type);
+            auto input_value = load_reference_value(current_block, *value_ref, value_type);
+            auto remaining = convert_value(current_block, input_value, work_type);
+
+            auto condition_block = this->generate_subblock(current_block, "varuint_serialize_condition");
+            auto continue_block = this->generate_subblock(current_block, "varuint_serialize_continue");
+            auto final_block = this->generate_subblock(current_block, "varuint_serialize_final");
+
+            this->generate_jump(current_block, condition_block);
+
+            auto condition_value = load_reference_value(condition_block, this->create_reference(condition_block, remaining, make_cref(work_type)), work_type);
+            auto condition_128 = create_small_uint_value(condition_block, 128, work_type);
+            auto is_final_byte = co_await co_generate_binary(condition_block, "<", condition_value, condition_128);
+            this->generate_branch(is_final_byte, condition_block, final_block, continue_block);
+
+            auto continue_value = co_await co_construct_copy(continue_block, remaining, work_type);
+            auto continue_128_for_payload = create_small_uint_value(continue_block, 128, work_type);
+            auto payload = co_await co_generate_binary(continue_block, "%", continue_value, continue_128_for_payload);
+            auto continue_128_for_tag = create_small_uint_value(continue_block, 128, work_type);
+            auto continued_payload = co_await co_generate_binary(continue_block, "#||", payload, continue_128_for_tag);
+            auto continued_byte = convert_value(continue_block, continued_payload, byte_type{});
+            co_await co_emit_output_byte(continue_block, continued_byte);
+
+            auto continue_value_for_quotient = co_await co_construct_copy(continue_block, remaining, work_type);
+            auto continue_128_for_quotient = create_small_uint_value(continue_block, 128, work_type);
+            auto quotient = co_await co_generate_binary(continue_block, "/", continue_value_for_quotient, continue_128_for_quotient);
+            auto next_remaining = quotient;
+            if (offset_long_encodings)
+            {
+                auto one = create_small_uint_value(continue_block, 1, work_type);
+                next_remaining = co_await co_generate_binary(continue_block, "-", quotient, one);
+            }
+            co_await co_store_local_value(continue_block, remaining, next_remaining, work_type);
+            this->generate_jump(continue_block, condition_block);
+
+            auto final_value = co_await co_construct_copy(final_block, remaining, work_type);
+            auto final_byte = convert_value(final_block, final_value, byte_type{});
+            co_await co_emit_output_byte(final_block, final_byte);
+
+            auto outit_ref = co_await this->co_lookup_symbol(final_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Missing varuint OUTPUT_ITERATOR argument");
+            }
+
+            co_await co_return_value(final_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_serialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            co_return co_await co_generate_builtin_serialize_varuint(func, true);
+        }
+
+        auto co_generate_builtin_serialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            co_return co_await co_generate_builtin_serialize_varuint(func, false);
+        }
+
+        auto co_generate_builtin_deserialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto value_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"VALUE"});
+            if (!value_ref.has_value())
+            {
+                throw compiler_bug("Missing varuint VALUE argument");
+            }
+
+            auto value_ref_type = parameter_instantiation_type(func.params.named.at("VALUE"));
+            if (!value_ref_type.type_is< ptrref_type >() || value_ref_type.get_as< ptrref_type >().ptr_class != pointer_class::ref)
+            {
+                throw compiler_bug("varuint VALUE argument must be a reference");
+            }
+
+            auto value_type = value_ref_type.get_as< ptrref_type >().target;
+            auto work_type = uintany_work_type(value_type);
+            auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+
+            auto accum = load_zero_value(current_block, work_type);
+            auto shift = load_zero_value(current_block, uintptr_type);
+
+            auto loop_block = this->generate_subblock(current_block, "varuint_deserialize_loop");
+            auto continue_block = this->generate_subblock(current_block, "varuint_deserialize_continue");
+            auto final_block = this->generate_subblock(current_block, "varuint_deserialize_final");
+
+            this->generate_jump(current_block, loop_block);
+
+            auto byte_value = co_await co_read_input_byte(loop_block);
+            auto byte_as_work = convert_value(loop_block, byte_value, work_type);
+            auto mask_127 = create_small_uint_value(loop_block, 127, work_type);
+            auto byte_payload_value = co_await co_construct_copy(loop_block, byte_as_work, work_type);
+            auto payload_value = co_await co_generate_binary(loop_block, "#&&", byte_payload_value, mask_127);
+            auto shift_value = co_await co_construct_copy(loop_block, shift, uintptr_type);
+            auto shifted_payload = co_await co_generate_binary(loop_block, "#++", payload_value, shift_value);
+            auto accum_value = co_await co_construct_copy(loop_block, accum, work_type);
+            auto accum_with_payload = co_await co_generate_binary(loop_block, "+", accum_value, shifted_payload);
+            co_await co_store_local_value(loop_block, accum, accum_with_payload, work_type);
+
+            auto mask_128 = create_small_uint_value(loop_block, 128, work_type);
+            auto byte_continuation_value = co_await co_construct_copy(loop_block, byte_as_work, work_type);
+            auto continuation_value = co_await co_generate_binary(loop_block, "#&&", byte_continuation_value, mask_128);
+            auto zero_value = load_zero_value(loop_block, work_type);
+            auto has_continuation = co_await co_generate_binary(loop_block, "!=", continuation_value, zero_value);
+            this->generate_branch(has_continuation, loop_block, continue_block, final_block);
+
+            auto old_shift = co_await co_construct_copy(continue_block, shift, uintptr_type);
+            auto seven = create_small_uint_value(continue_block, 7, uintptr_type);
+            auto next_shift = co_await co_generate_binary(continue_block, "+", old_shift, seven);
+            co_await co_store_local_value(continue_block, shift, next_shift, uintptr_type);
+
+            if (offset_long_encodings)
+            {
+                auto one_value = create_small_uint_value(continue_block, 1, work_type);
+                auto shift_for_offset = co_await co_construct_copy(continue_block, shift, uintptr_type);
+                auto offset_add = co_await co_generate_binary(continue_block, "#++", one_value, shift_for_offset);
+                auto accum_before_offset = co_await co_construct_copy(continue_block, accum, work_type);
+                auto accum_with_offset = co_await co_generate_binary(continue_block, "+", accum_before_offset, offset_add);
+                co_await co_store_local_value(continue_block, accum, accum_with_offset, work_type);
+            }
+            this->generate_jump(continue_block, loop_block);
+
+            auto final_accum = co_await co_construct_copy(final_block, accum, work_type);
+            auto final_value = convert_value(final_block, final_accum, value_type);
+            this->emit(final_block, vmir2::store_to_ref{.from_value = get_local_index(final_value), .to_reference = get_local_index(*value_ref)});
+
+            auto input_iter = co_await this->co_lookup_symbol(final_block, freebound_identifier{"INPUT_ITERATOR"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing varuint INPUT_ITERATOR argument");
+            }
+
+            co_await co_return_value(final_block, *input_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            co_return co_await co_generate_builtin_deserialize_varuint(func, true);
+        }
+
+        auto co_generate_builtin_deserialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            co_return co_await co_generate_builtin_deserialize_varuint(func, false);
+        }
+
         auto co_generate_builtin_serialize(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -5454,6 +5727,10 @@ namespace quxlang
 
                 for (auto const& [api_name, param] : inst.params.named)
                 {
+                    if (api_name == "RETURN")
+                    {
+                        continue;
+                    }
                     if (handled_named_parameters.contains(api_name))
                     {
                         continue;
@@ -5490,6 +5767,10 @@ namespace quxlang
             }
             for (auto const& [api_name, param] : inst.params.named)
             {
+                if (api_name == "RETURN")
+                {
+                    continue;
+                }
                 auto const& param_type = parameter_instantiation_type(param);
                 std::optional< std::string > arg_name;
                 if (arg_names.named.contains(api_name))

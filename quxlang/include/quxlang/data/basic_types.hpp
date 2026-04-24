@@ -652,6 +652,11 @@ namespace quxlang
         return builtin_allocator_kind_from_name(name).has_value();
     }
 
+    inline auto is_builtin_global_functum_name(std::string_view name) -> bool
+    {
+        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128";
+    }
+
     struct storage
     {
         std::set< type_symbol > storable_types;

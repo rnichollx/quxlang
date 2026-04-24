@@ -12,6 +12,86 @@
    ASSERT( output[3] ==  0 );
 }
 
+::uintany_serialize_test STATIC_TEST
+{
+   VAR output [3]BYTE;
+   VAR value U64 := 70000;
+
+   SERIALIZE_UINTANY(@VALUE value, @OUTPUT_ITERATOR output[& 0]);
+
+   ASSERT( output[0] == BYTE(@OTHER 240) );
+   ASSERT( output[1] == BYTE(@OTHER 161) );
+   ASSERT( output[2] == BYTE(@OTHER 3) );
+}
+
+::uintany_deserialize_test STATIC_TEST
+{
+   VAR input [3]BYTE;
+   input[0] := BYTE(@OTHER 128);
+   input[1] := BYTE(@OTHER 128);
+   input[2] := BYTE(@OTHER 0);
+
+   VAR value U64 := 0;
+
+   DESERIALIZE_UINTANY(@VALUE value, @INPUT_ITERATOR input[& 0]);
+
+   ASSERT( value == U64(@OTHER 16512) );
+}
+
+::uintany_roundtrip_test STATIC_TEST
+{
+   VAR output [2]BYTE;
+   VAR original U16 := 200;
+   VAR roundtrip U16 := 0;
+
+   SERIALIZE_UINTANY(@VALUE original, @OUTPUT_ITERATOR output[& 0]);
+   DESERIALIZE_UINTANY(@VALUE roundtrip, @INPUT_ITERATOR output[& 0]);
+
+   ASSERT( output[0] == BYTE(@OTHER 200) );
+   ASSERT( output[1] == BYTE(@OTHER 0) );
+   ASSERT( roundtrip == original );
+}
+
+::leb128_serialize_test STATIC_TEST
+{
+   VAR output [3]BYTE;
+   VAR value U64 := 70000;
+
+   SERIALIZE_LEB128(@VALUE value, @OUTPUT_ITERATOR output[& 0]);
+
+   ASSERT( output[0] == BYTE(@OTHER 240) );
+   ASSERT( output[1] == BYTE(@OTHER 162) );
+   ASSERT( output[2] == BYTE(@OTHER 4) );
+}
+
+::leb128_deserialize_test STATIC_TEST
+{
+   VAR input [3]BYTE;
+   input[0] := BYTE(@OTHER 128);
+   input[1] := BYTE(@OTHER 128);
+   input[2] := BYTE(@OTHER 1);
+
+   VAR value U64 := 0;
+
+   DESERIALIZE_LEB128(@VALUE value, @INPUT_ITERATOR input[& 0]);
+
+   ASSERT( value == U64(@OTHER 16384) );
+}
+
+::leb128_roundtrip_test STATIC_TEST
+{
+   VAR output [2]BYTE;
+   VAR original U16 := 200;
+   VAR roundtrip U16 := 0;
+
+   SERIALIZE_LEB128(@VALUE original, @OUTPUT_ITERATOR output[& 0]);
+   DESERIALIZE_LEB128(@VALUE roundtrip, @INPUT_ITERATOR output[& 0]);
+
+   ASSERT( output[0] == BYTE(@OTHER 200) );
+   ASSERT( output[1] == BYTE(@OTHER 1) );
+   ASSERT( roundtrip == original );
+}
+
 ::serialization_probe CLASS
 {
    .a VAR I16;

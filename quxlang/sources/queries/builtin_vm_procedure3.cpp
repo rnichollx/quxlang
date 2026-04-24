@@ -103,6 +103,28 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
 
+    if (typeis< builtin_symbol >(input.temploid.templexoid))
+    {
+        auto const& builtin = as< builtin_symbol >(input.temploid.templexoid);
+        co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+        if (builtin.name == "SERIALIZE_UINTANY")
+        {
+            co_return co_await gen.co_generate_builtin_serialize_uintany(input);
+        }
+        if (builtin.name == "DESERIALIZE_UINTANY")
+        {
+            co_return co_await gen.co_generate_builtin_deserialize_uintany(input);
+        }
+        if (builtin.name == "SERIALIZE_LEB128")
+        {
+            co_return co_await gen.co_generate_builtin_serialize_leb128(input);
+        }
+        if (builtin.name == "DESERIALIZE_LEB128")
+        {
+            co_return co_await gen.co_generate_builtin_deserialize_leb128(input);
+        }
+    }
+
     if (typeis< submember >(input.temploid.templexoid))
     {
         co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);

@@ -22,6 +22,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
 
     if (typeis< builtin_symbol >(input))
     {
+        if (is_builtin_global_functum_name(as< builtin_symbol >(input).name))
+        {
+            co_return symbol_kind::functum;
+        }
         co_return symbol_kind::noexist;
     }
 

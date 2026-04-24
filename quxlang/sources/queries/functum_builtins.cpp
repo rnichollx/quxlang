@@ -49,6 +49,20 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
     auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
+    if (typeis< builtin_symbol >(functum))
+    {
+        auto const& builtin = as< builtin_symbol >(functum);
+        if (builtin.name == "SERIALIZE_UINTANY" || builtin.name == "SERIALIZE_LEB128")
+        {
+            add_overload({}, {{"VALUE", make_cref(auto_temploidic{.name = "__uint_type"})}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
+        }
+        else if (builtin.name == "DESERIALIZE_UINTANY" || builtin.name == "DESERIALIZE_LEB128")
+        {
+            add_overload({}, {{"VALUE", make_mref(auto_temploidic{.name = "__uint_type"})}, {"INPUT_ITERATOR", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
+        }
+        co_return allowed_operations;
+    }
+
     if (typeis< instanciation_reference >(functum))
     {
         auto const& inst = as< instanciation_reference >(functum);
