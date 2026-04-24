@@ -60,6 +60,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     {
         co_return type;
     }
+    else if (type.type_is< constexpr_proxy >())
+    {
+        co_return type;
+    }
 
     else if (type.type_is< size_type >())
     {

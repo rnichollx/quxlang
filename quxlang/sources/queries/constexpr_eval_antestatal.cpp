@@ -184,6 +184,10 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 
     for (auto const& [symbol, localdata] : input.statics)
     {
+        if (!typeis< antestatal_value >(localdata.value))
+        {
+            throw std::logic_error("constexpr evaluation of function-local serialoid statics is not implemented yet: " + symbol.name);
+        }
         interp.add_constexpr_antestatal_global(type_symbol(symbol), localdata.type, constexpr_value_as_antestatal(localdata.value), localdata.mutation_result_id.has_value());
     }
     interp.add_functanoid3(void_type{}, ir3);
@@ -211,6 +215,10 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 
     constexpr_result_v3 result;
     for (auto& [id, value] : interp.get_cr_antestatal_values())
+    {
+        result.values[id] = constexpr_value(std::move(value));
+    }
+    for (auto& [id, value] : interp.get_cr_serialoid_values())
     {
         result.values[id] = constexpr_value(std::move(value));
     }

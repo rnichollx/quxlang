@@ -115,7 +115,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (name == "GET_REFERENCE")
         {
             auto is_antestatal_static = co_await rpnx::querygraph::request< global_is_antestatal_static_query >(parent);
-            auto ref_type = is_antestatal_static ? make_cref(variable_type) : make_mref(variable_type);
+            auto is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(parent);
+            auto ref_type = (is_antestatal_static || is_serialoid_static) ? make_cref(variable_type) : make_mref(variable_type);
             add_overload({}, {}, ref_type);
             co_return allowed_operations;
         }
@@ -130,6 +131,20 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (name == "CONSTRUCTOR")
     {
         co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+    }
+
+    if (typeis< constexpr_proxy >(parent))
+    {
+        if (name == "OPERATOR++" || name == "OPERATOR->")
+        {
+            add_overload({}, {{"THIS", make_mref(parent)}}, make_mref(parent));
+            co_return allowed_operations;
+        }
+        if (name == "OPERATOR:=")
+        {
+            add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", byte_type{}}}, void_type{});
+            co_return allowed_operations;
+        }
     }
 
     if (name == "OPERATOR??" && (parent.test< ptrref_type >(
@@ -399,13 +414,13 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         co_return (allowed_operations);
     }
 
-    if (name == "SERIALIZE" && co_await rpnx::querygraph::request< type_should_autogen_serialize_query >(parent))
+    if (name == "SERIALIZE" && (co_await rpnx::querygraph::request< functum_user_overloads_query >(input)).empty() && co_await rpnx::querygraph::request< type_should_autogen_serialize_query >(parent))
     {
         add_overload({}, {{"THIS", make_cref(parent)}, {"OUTPUT_ITERATOR", auto_temploidic{.name = "__out_iter"} }}, freebound_identifier{"__out_iter"});
     }
-    else if (name == "DESERIALIZE" && co_await rpnx::querygraph::request< type_should_autogen_deserialize_query >(parent))
+    else if (name == "DESERIALIZE" && (co_await rpnx::querygraph::request< functum_user_overloads_query >(input)).empty() && co_await rpnx::querygraph::request< type_should_autogen_deserialize_query >(parent))
     {
-        add_overload({}, {{"THIS", make_wref(parent)}, {"INPUT_ITER", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
+        add_overload({}, {{"THIS", make_wref(parent)}, {"INPUT_ITERATOR", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
     }
 
     co_return allowed_operations;

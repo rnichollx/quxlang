@@ -128,6 +128,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< functum_select_function_spec >(functum_select_function_impl);
     m_graph.register_handler_function< functum_user_overloads_spec >(functum_user_overloads_impl);
     m_graph.register_handler_function< global_is_antestatal_static_spec >(global_is_antestatal_static_impl);
+    m_graph.register_handler_function< global_is_serialoid_static_spec >(global_is_serialoid_static_impl);
     m_graph.register_handler_function< have_nontrivial_member_ctor_spec >(have_nontrivial_member_ctor_impl);
     m_graph.register_handler_function< have_nontrivial_member_dtor_spec >(have_nontrivial_member_dtor_impl);
     m_graph.register_handler_function< implicitly_convertible_to_spec >(implicitly_convertible_to_impl);
@@ -147,6 +148,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< procedure_linksymbol_spec >(procedure_linksymbol_impl);
     m_graph.register_handler_function< run_static_test_spec >(run_static_test_impl);
     m_graph.register_handler_function< run_static_tests_spec >(run_static_tests_impl);
+    m_graph.register_handler_function< serialoid_static_value_spec >(serialoid_static_value_impl);
     m_graph.register_handler_function< sintpointer_type_spec >(sintpointer_type_impl);
     m_graph.register_handler_function< source_file_id_spec >(source_file_id_impl);
     m_graph.register_handler_function< source_file_index_spec >(source_file_index_impl);
@@ -162,6 +164,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< templex_initialize_spec >(templex_initialize_impl);
     m_graph.register_handler_function< templex_select_template_spec >(templex_select_template_impl);
     m_graph.register_handler_function< type_is_antestatal_spec >(type_is_antestatal_impl);
+    m_graph.register_handler_function< type_is_serialoid_spec >(type_is_serialoid_impl);
     m_graph.register_handler_function< type_is_implicitly_datatype_spec >(type_is_implicitly_datatype_impl);
     m_graph.register_handler_function< type_placement_info_spec >(type_placement_info_impl);
     m_graph.register_handler_function< type_should_autogen_deserialize_spec >(type_should_autogen_deserialize_impl);

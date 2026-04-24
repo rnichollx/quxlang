@@ -7,5 +7,20 @@ rpnx::querygraph::coroutine< quxlang::user_deserialize_exists_spec > quxlang::us
 {
     auto deserialize_symbol = submember{.of = input, .name = "DESERIALIZE"};
     auto user_overloads = co_await rpnx::querygraph::request< functum_user_overloads_query >(deserialize_symbol);
-    co_return !user_overloads.empty();
+    if (!user_overloads.empty())
+    {
+        co_return true;
+    }
+
+    auto constructor_symbol = submember{.of = input, .name = "CONSTRUCTOR"};
+    auto constructor_overloads = co_await rpnx::querygraph::request< functum_user_overloads_query >(constructor_symbol);
+    for (auto const& overload : constructor_overloads)
+    {
+        if (overload.interface.named.contains("DESERIALIZE_INPUT_ITERATOR"))
+        {
+            co_return true;
+        }
+    }
+
+    co_return false;
 }

@@ -52,6 +52,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::optional< antestatal_value > constexpr_result_antestatal;
     /// Materialized constexpr_set_result2 outputs keyed by result ID.
     std::map< std::uint64_t, antestatal_value > constexpr_result_antestatal_values;
+    std::map< std::uint64_t, constexpr_serialoid > constexpr_result_serialoid_values;
     std::optional< source_index > printer_source_index;
 
     std::set< type_symbol > missing_functanoids_val;
@@ -111,6 +112,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< std::weak_ptr< local > > initializer_of;
         std::optional< std::weak_ptr< local > > array_init_member_of;
         std::optional< type_symbol > antestatal_static_symbol;
+        std::optional< std::uint64_t > constexpr_proxy_output_id;
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
         std::map< std::string, std::shared_ptr< local > > struct_members;
@@ -355,6 +357,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::cast_ptrref const& cst);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::constexpr_set_result2 const& csr);
+    void exec_instr_val(vmir2::constexpr_make_proxy const& cmp);
+    void exec_instr_val(vmir2::constexpr_output_byte const& cob);
     void exec_instr_val(vmir2::load_const_value const& lcv);
     void exec_instr_val(vmir2::make_pointer_to const& mpt);
     void exec_instr_val(vmir2::storage_init const& sin);
@@ -868,6 +872,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 8;
     }
 
+    if (typeis< constexpr_proxy >(type))
+    {
+        return 0;
+    }
+
     if (typeis< bool_type >(type))
     {
         return 1;
@@ -930,6 +939,10 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 1;
     }
     if (typeis< ptrref_type >(type) || typeis< procedure_type >(type))
+    {
+        return 1;
+    }
+    if (typeis< constexpr_proxy >(type))
     {
         return 1;
     }
@@ -1991,6 +2004,40 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     consume_local(csr.target);
     constexpr_result_root.reset();
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_make_proxy const& cmp)
+{
+    auto proxy = output_local(cmp.target);
+    proxy->constexpr_proxy_output_id = cmp.result_id;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_output_byte const& cob)
+{
+    auto proxy_slot = consume_local(cob.proxy);
+    auto value = use_data(cob.value);
+    consume_local(cob.value);
+    if (value.size() != 1)
+    {
+        throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a single-byte value");
+    }
+
+    std::shared_ptr< local > proxy_object = proxy_slot;
+    auto proxy_type = get_local_type(cob.proxy);
+    if (is_ref(proxy_type))
+    {
+        if (!proxy_slot->ref.has_value() || !proxy_slot->ref->pointer_target.has_value())
+        {
+            throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a valid constexpr proxy reference");
+        }
+        proxy_object = proxy_slot->ref->pointer_target->lock();
+    }
+    if (proxy_object == nullptr || !proxy_object->alive() || !proxy_object->constexpr_proxy_output_id.has_value())
+    {
+        throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a live constexpr proxy");
+    }
+
+    constexpr_result_serialoid_values[*proxy_object->constexpr_proxy_output_id].bytes.push_back(value.front());
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_value const& lcv)
@@ -3122,6 +3169,11 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::get_cr_ante
 std::map< std::uint64_t, quxlang::antestatal_value > quxlang::vmir2::ir2_constexpr_interpreter::get_cr_antestatal_values()
 {
     return this->implementation->constexpr_result_antestatal_values;
+}
+
+std::map< std::uint64_t, quxlang::constexpr_serialoid > quxlang::vmir2::ir2_constexpr_interpreter::get_cr_serialoid_values()
+{
+    return this->implementation->constexpr_result_serialoid_values;
 }
 
 std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()
@@ -5377,8 +5429,6 @@ std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexp
     {
         throw compiler_bug("Error in [use_data]: slot not alive");
     }
-
-    assert(slot_ptr && slot_ptr->ref);
 
     if (slot_ptr->ref.has_value())
     {

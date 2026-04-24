@@ -475,6 +475,15 @@ namespace quxlang::vmir2
         {
             consume(csr.target);
         }
+        void apply_internal(vmir2::constexpr_make_proxy const& cmp)
+        {
+            output(cmp.target);
+        }
+        void apply_internal(vmir2::constexpr_output_byte const& cob)
+        {
+            consume(cob.proxy);
+            consume(cob.value);
+        }
         void apply_internal(vmir2::load_const_value const& lcv)
         {
             output(lcv.target);

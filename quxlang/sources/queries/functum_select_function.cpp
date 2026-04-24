@@ -7,6 +7,7 @@
 #include "quxlang/variant_utils.hpp"
 
 #include <algorithm>
+#include <sstream>
 
 #include <quxlang/macros.hpp>
 
@@ -225,17 +226,19 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     {
         std::vector< temploid_ensig > undominated;
 
-        for (auto const& candidate : best_match)
+        for (std::size_t candidate_index = 0; candidate_index < best_match.size(); ++candidate_index)
         {
+            auto const& candidate = best_match.at(candidate_index);
             bool dominated = false;
 
-            for (auto const& other : best_match)
+            for (std::size_t other_index = 0; other_index < best_match.size(); ++other_index)
             {
-                if (candidate == other)
+                if (candidate_index == other_index)
                 {
                     continue;
                 }
 
+                auto const& other = best_match.at(other_index);
                 bool other_better = false;
                 bool candidate_better = false;
 
@@ -349,18 +352,21 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
     if (best_match.size() > 1)
     {
+        std::stringstream message;
+        message << "Ambiguous overload resolution for " << to_string(input) << " candidates:";
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
             co_yield rpnx::querygraph::debug_message(" Ambiguous overloads for {}:", to_string(input));
         }
         for (auto const& item : best_match)
         {
+            message << "\n  " << to_string(temploid_reference{.templexoid = input.initializee, .which = item});
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
                 co_yield rpnx::querygraph::debug_message("   Ambiguous candidate: {}", to_string(temploid_reference{.templexoid = input.initializee, .which = item}));
             }
         }
-        throw std::logic_error("Ambiguous overload resolution");
+        throw std::logic_error(message.str());
     }
     auto best_ref = temploid_reference{.templexoid = input.initializee, .which = best_match.front()};
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

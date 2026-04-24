@@ -1,0 +1,130 @@
+::static_structural_probe CLASS
+{
+  .a VAR I32;
+  .b VAR BOOL;
+}
+
+::static_structural_global STATIC static_structural_probe := static_structural_probe();
+
+::default_antestatal_static_class_test STATIC_TEST
+{
+  ASSERT(static_structural_global.a == 0);
+  ASSERT(static_structural_global.b == FALSE);
+}
+
+::ctor_serialoid_probe CLASS
+{
+  .value VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION(@OTHER BYTE)
+  {
+    .value := OTHER;
+  }
+
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    (output++)-> := .value;
+  }
+
+  .CONSTRUCTOR FUNCTION(@DESERIALIZE_INPUT_ITERATOR:input CONST=>> BYTE)
+  {
+    .value := input->;
+  }
+
+  .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input CONST=>> BYTE)
+  {
+    .value := BYTE(@OTHER 99);
+  }
+}
+
+::ctor_serialoid_static STATIC ctor_serialoid_probe := ctor_serialoid_probe(@OTHER BYTE(@OTHER 7));
+
+::serialoid_static_deserialize_constructor_preferred_test STATIC_TEST
+{
+  ASSERT(ctor_serialoid_static.value ==  7);
+}
+
+::fallback_serialoid_probe CLASS
+{
+  .value VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+    .value := BYTE(@OTHER 23);
+  }
+
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    (output++)-> := .value;
+  }
+
+  .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input AUTO(it_type))
+  {
+    .value := input->;
+  }
+}
+
+::fallback_serialoid_static STATIC fallback_serialoid_probe := fallback_serialoid_probe();
+
+::serialoid_static_default_ctor_deserialize_fallback_test STATIC_TEST
+{
+  ASSERT(fallback_serialoid_static.value == BYTE(@OTHER 23));
+}
+
+::bad_nonstatic_probe CLASS NONSTATIC
+{
+  .value VAR I32;
+}
+
+::bad_nonstatic_global STATIC bad_nonstatic_probe;
+
+::nonstatic_static_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR bad_value I32 := bad_nonstatic_global.value;
+}
+
+::bad_antestatal_probe CLASS ANTESTATAL
+{
+  .value VAR I32;
+
+  .DESTRUCTOR FUNCTION()
+  {
+  }
+}
+
+::bad_antestatal_global STATIC bad_antestatal_probe := bad_antestatal_probe();
+
+::explicit_antestatal_nontrivial_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR bad_value I32 := bad_antestatal_global.value;
+}
+
+::bad_serialoid_probe CLASS SERIALOID
+{
+  .ptr VAR -> I32;
+}
+
+::explicit_serialoid_without_support_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  STATIC bad bad_serialoid_probe;
+}
+
+::unconstructable_serialoid_probe CLASS SERIALOID NO_IMPLICIT_DEFAULT_CONSTRUCTOR
+{
+  .value VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION(@OTHER BYTE)
+  {
+    .value := OTHER;
+  }
+
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    (output++)-> := .value;
+  }
+
+  .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input CONST=>> BYTE)
+  {
+    .value := input->;
+  }
+}

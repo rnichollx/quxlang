@@ -587,6 +587,14 @@ namespace quxlang::vmir2
         }
         return result;
     }
+    std::string assembler::to_string_internal(vmir2::constexpr_make_proxy inst)
+    {
+        return "CE_MAKE_PROXY %" + std::to_string(inst.target) + ", #" + std::to_string(inst.result_id);
+    }
+    std::string assembler::to_string_internal(vmir2::constexpr_output_byte inst)
+    {
+        return "CE_OUTPUT_BYTE %" + std::to_string(inst.proxy) + ", %" + std::to_string(inst.value);
+    }
     std::string assembler::to_string_internal(vmir2::jump inst)
     {
         std::string result;

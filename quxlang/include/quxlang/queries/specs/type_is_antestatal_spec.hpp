@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/class_tags.hpp>
 #include <quxlang/queries/class_trivially_destructible.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
@@ -15,7 +16,7 @@
 
 namespace quxlang
 {
-    using type_is_antestatal_spec = rpnx::querygraph::query_handler_spec< type_is_antestatal_query, rpnx::typelist< class_field_list_query, class_trivially_destructible_query, symbol_type_query, type_is_antestatal_query, user_deserialize_exists_query, user_serialize_exists_query > >;
+    using type_is_antestatal_spec = rpnx::querygraph::query_handler_spec< type_is_antestatal_query, rpnx::typelist< class_field_list_query, class_tags_query, class_trivially_destructible_query, symbol_type_query, type_is_antestatal_query, user_deserialize_exists_query, user_serialize_exists_query > >;
 
     rpnx::querygraph::coroutine< type_is_antestatal_spec > type_is_antestatal_impl(type_symbol input);
 } // namespace quxlang

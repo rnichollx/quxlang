@@ -43,6 +43,8 @@ namespace quxlang
         struct cast_ptrref;
         struct constexpr_set_result;
         struct constexpr_set_result2;
+        struct constexpr_make_proxy;
+        struct constexpr_output_byte;
         struct load_const_value;
         struct load_const_int;
         struct make_pointer_to;
@@ -143,6 +145,8 @@ namespace quxlang
             cast_ptrref,
             constexpr_set_result,
             constexpr_set_result2,
+            constexpr_make_proxy,
+            constexpr_output_byte,
             load_const_int,
             load_const_value,
             make_pointer_to,
@@ -620,6 +624,22 @@ namespace quxlang
             constexpr_result_target_mode target_mode = constexpr_result_target_mode::value;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_set_result2, target, result_id, target_mode);
+        };
+
+        struct constexpr_make_proxy
+        {
+            local_index target;
+            std::uint64_t result_id = 0;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_make_proxy, target, result_id);
+        };
+
+        struct constexpr_output_byte
+        {
+            local_index proxy;
+            local_index value;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_output_byte, proxy, value);
         };
 
         struct load_const_value

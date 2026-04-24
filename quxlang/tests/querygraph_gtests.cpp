@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
@@ -10,6 +11,7 @@
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
+#include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name.hpp>
@@ -21,6 +23,8 @@
 #include <quxlang/queries/source_file_name.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_is_antestatal.hpp>
+#include <quxlang/queries/type_is_serialoid.hpp>
+#include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include "graph_dump_test_utils.hpp"
 
@@ -139,6 +143,33 @@ TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
         .from = numeric_literal,
         .better_to = signed_integer,
         .worse_to = unsigned_integer,
+    }));
+}
+
+TEST(querygraph_queries, temporary_source_prefers_temporary_reference_target)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::type_symbol byte_type = quxlang::byte_type{};
+    quxlang::type_symbol temporary_byte_ref = quxlang::make_tref(byte_type);
+    quxlang::type_symbol const_byte_ref = quxlang::make_cref(byte_type);
+
+    ASSERT_TRUE(graph.make_request< quxlang::argument_adaptation_is_better_fit_query >(quxlang::argument_adaptation_better_fit_input{
+        .from = temporary_byte_ref,
+        .better_to = temporary_byte_ref,
+        .worse_to = const_byte_ref,
+    }));
+    ASSERT_FALSE(graph.make_request< quxlang::argument_adaptation_is_better_fit_query >(quxlang::argument_adaptation_better_fit_input{
+        .from = temporary_byte_ref,
+        .better_to = const_byte_ref,
+        .worse_to = temporary_byte_ref,
+    }));
+    ASSERT_TRUE(graph.make_request< quxlang::argument_adaptation_is_better_fit_query >(quxlang::argument_adaptation_better_fit_input{
+        .from = temporary_byte_ref,
+        .better_to = temporary_byte_ref,
+        .worse_to = const_byte_ref,
+        .adaptations = quxlang::allowed_adaptations::none,
     }));
 }
 
@@ -505,6 +536,42 @@ TEST(querygraph_queries, type_is_antestatal_accepts_conservative_shapes)
     ASSERT_TRUE(graph.make_request< quxlang::type_is_antestatal_query >(proc_ptr));
 }
 
+TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_constructor)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::plain CLASS { .x VAR I32; }
+::explicit_antestatal CLASS ANTESTATAL { .x VAR I32; }
+::explicit_serialoid CLASS SERIALOID { .x VAR I32; }
+::default_serialoid CLASS {
+    .x VAR I32;
+    .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output =>> BYTE): =>> BYTE { RETURN output; }
+    .CONSTRUCTOR FUNCTION(@DESERIALIZE_INPUT_ITERATOR:input =>> BYTE) { }
+}
+::plain_static STATIC plain;
+::serial_static STATIC default_serialoid := default_serialoid();
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto plain = quxlang::type_symbol(quxlang::subsymbol{main, "plain"});
+    auto explicit_antestatal = quxlang::type_symbol(quxlang::subsymbol{main, "explicit_antestatal"});
+    auto explicit_serialoid = quxlang::type_symbol(quxlang::subsymbol{main, "explicit_serialoid"});
+    auto default_serialoid = quxlang::type_symbol(quxlang::subsymbol{main, "default_serialoid"});
+    auto plain_static = quxlang::type_symbol(quxlang::subsymbol{main, "plain_static"});
+    auto serial_static = quxlang::type_symbol(quxlang::subsymbol{main, "serial_static"});
+
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_antestatal_query >(plain));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_antestatal_query >(explicit_antestatal));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_antestatal_query >(explicit_serialoid));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_serialoid_query >(explicit_serialoid));
+
+    EXPECT_TRUE(graph.make_request< quxlang::user_deserialize_exists_query >(default_serialoid));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_antestatal_query >(default_serialoid));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_serialoid_query >(default_serialoid));
+
+    EXPECT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(plain_static));
+    EXPECT_TRUE(graph.make_request< quxlang::global_is_serialoid_static_query >(serial_static));
+}
+
 TEST(querygraph_queries, global_static_i32_is_antestatal_and_materializes_value)
 {
     auto bundle = make_single_main_source_bundle("::foo STATIC I32 := 4;");
@@ -528,4 +595,14 @@ TEST(querygraph_queries, nonstatic_global_is_not_antestatal_static)
     auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
 
     ASSERT_FALSE(graph.make_request< quxlang::global_is_antestatal_static_query >(foo));
+}
+
+TEST(querygraph_queries, nonstatic_static_global_is_rejected)
+{
+    auto bundle = make_single_main_source_bundle("::blocked CLASS NONSTATIC { .x VAR I32; } ::foo STATIC blocked;");
+    auto graph = make_x64_graph(bundle);
+    auto foo = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"});
+
+    EXPECT_THROW(graph.make_request< quxlang::global_is_antestatal_static_query >(foo), std::logic_error);
+    EXPECT_THROW(graph.make_request< quxlang::global_is_serialoid_static_query >(foo), std::logic_error);
 }

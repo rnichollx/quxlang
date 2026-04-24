@@ -70,6 +70,10 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     {
         co_return type_placement_info{.size = 8, .alignment = 8};
     }
+    else if (type.template type_is< constexpr_proxy >())
+    {
+        co_return type_placement_info{.size = 0, .alignment = 1};
+    }
     else if (type.template type_is< storage >())
     {
         type_placement_info result{.size = 0, .alignment = 1};

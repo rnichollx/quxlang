@@ -143,8 +143,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/context.hpp
         include/quxlang/co_vmir_generator2_deps.hpp
         include/quxlang/data/basic_types.hpp
-        include/quxlang/lexer.hpp
-
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
@@ -240,6 +238,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/functum_select_function_spec.hpp
         include/quxlang/queries/specs/functum_user_overloads_spec.hpp
         include/quxlang/queries/specs/global_is_antestatal_static_spec.hpp
+        include/quxlang/queries/specs/global_is_serialoid_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp
         include/quxlang/queries/specs/implicitly_convertible_to_spec.hpp
@@ -259,6 +258,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/run_static_test_spec.hpp
         include/quxlang/queries/specs/run_static_tests_spec.hpp
         include/quxlang/queries/specs/sintpointer_type_spec.hpp
+        include/quxlang/queries/specs/serialoid_static_value_spec.hpp
         include/quxlang/queries/specs/source_file_id_spec.hpp
         include/quxlang/queries/specs/source_file_index_spec.hpp
         include/quxlang/queries/specs/source_file_name_spec.hpp
@@ -269,6 +269,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/template_instanciation_spec.hpp
         include/quxlang/queries/specs/templex_initialize_spec.hpp
         include/quxlang/queries/specs/type_is_antestatal_spec.hpp
+        include/quxlang/queries/specs/type_is_serialoid_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
@@ -357,6 +358,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/functum_select_function.cpp
         sources/queries/functum_user_overloads.cpp
         sources/queries/global_is_antestatal_static.cpp
+        sources/queries/global_is_serialoid_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
         sources/queries/have_nontrivial_member_dtor.cpp
         sources/queries/implicitly_convertible_to.cpp
@@ -376,6 +378,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/procedure_linksymbol.cpp
         sources/queries/run_static_test.cpp
         sources/queries/run_static_tests.cpp
+        sources/queries/serialoid_static_value.cpp
         sources/queries/source_file_id.cpp
         sources/queries/source_file_index.cpp
         sources/queries/source_file_name.cpp
@@ -391,6 +394,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/templex_initialize.cpp
         sources/queries/templex_select_template.cpp
         sources/queries/type_is_antestatal.cpp
+        sources/queries/type_is_serialoid.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp

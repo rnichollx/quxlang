@@ -34,12 +34,15 @@
 #include "quxlang/queries/function_param_names.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
+#include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/lookup.hpp"
 #include "quxlang/queries/module_options_map.hpp"
+#include "quxlang/queries/serialoid_static_value.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
+#include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_placement_info.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/variable_type.hpp"
@@ -337,6 +340,18 @@ namespace quxlang
             co_return get_result();
         }
 
+        auto co_emit_constexpr_serialoid_result(block_index& current_block, value_index result_val, type_symbol value_type, std::uint64_t result_id) -> co_type< void >
+        {
+            auto proxy = this->create_local_value(constexpr_proxy{});
+            this->emit(current_block, vmir2::constexpr_make_proxy{
+                                          .target = get_local_index(proxy),
+                                          .result_id = result_id,
+                                      });
+            auto proxy_ref = this->create_reference(current_block, proxy, make_mref(type_symbol(constexpr_proxy{})));
+            auto serialize_functum = submember{.of = std::move(value_type), .name = "SERIALIZE"};
+            co_await this->co_gen_call_functum(current_block, serialize_functum, codegen_invocation_args{.named = {{"THIS", result_val}, {"OUTPUT_ITERATOR", proxy_ref}}});
+        }
+
         /// Generates a constexpr v3 routine that can return primary and static mutation results.
         auto co_generate_constexpr_eval_v3(expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_routine_v3_result >
         {
@@ -366,9 +381,17 @@ namespace quxlang
                 {
                     assert(this->current_type(current_block, result_val) == *expected_result_type);
                 }
-                csr.target = get_local_index(result_val);
-                csr.result_id = constexpr_primary_result_id;
-                this->emit(current_block, csr);
+                auto result_type = this->current_type(current_block, result_val);
+                if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
+                {
+                    co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_type, constexpr_primary_result_id);
+                }
+                else
+                {
+                    csr.target = get_local_index(result_val);
+                    csr.result_id = constexpr_primary_result_id;
+                    this->emit(current_block, csr);
+                }
             }
             else
             {
@@ -392,11 +415,18 @@ namespace quxlang
                 }
                 auto ref = this->create_local_value(make_mref(input.type));
                 this->emit(current_block, vmir2::get_antestatal_ref{.symbol = type_symbol(symbol), .target_ref = get_local_index(ref)});
-                this->emit(current_block, vmir2::constexpr_set_result2{
-                                              .target = get_local_index(ref),
-                                              .result_id = *input.mutation_result_id,
-                                              .target_mode = vmir2::constexpr_result_target_mode::referenced_object,
-                                          });
+                if (co_await rpnx::querygraph::request< type_is_serialoid_query >(input.type))
+                {
+                    co_await this->co_emit_constexpr_serialoid_result(current_block, ref, input.type, *input.mutation_result_id);
+                }
+                else
+                {
+                    this->emit(current_block, vmir2::constexpr_set_result2{
+                                                  .target = get_local_index(ref),
+                                                  .result_id = *input.mutation_result_id,
+                                                  .target_mode = vmir2::constexpr_result_target_mode::referenced_object,
+                                              });
+                }
             }
 
             this->generate_return(current_block);
@@ -4248,6 +4278,61 @@ namespace quxlang
 
             auto const& variable_decl = as< ast2_variable_declaration >(decl);
             auto storage_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"STORAGE"})).value();
+
+            if (co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol))
+            {
+                auto serialoid_value = co_await rpnx::querygraph::request< serialoid_static_value_query >(global_symbol);
+                auto data_value = this->create_local_value(readonly_constant{.kind = constant_kind::data});
+                this->emit(current_block, vmir2::load_const_value{
+                                              .target = get_local_index(data_value),
+                                              .value = std::move(serialoid_value.bytes),
+                                          });
+                auto begin_functum = submember{.of = type_symbol(readonly_constant{.kind = constant_kind::data}), .name = "BEGIN"};
+                auto input_iter = co_await this->co_gen_call_functum(current_block, begin_functum, codegen_invocation_args{.named = {{"THIS", data_value}}});
+
+                auto constructor = submember{.of = global_type, .name = "CONSTRUCTOR"};
+                invotype deserialize_ctor_call;
+                deserialize_ctor_call.named["THIS"] = nvalue_slot{.target = global_type};
+                deserialize_ctor_call.named["DESERIALIZE_INPUT_ITERATOR"] = ptrref_type{.target = byte_type{}, .ptr_class = pointer_class::array, .qual = qualifier::constant};
+                initialization_reference deserialize_ctor_probe{
+                    .initializee = constructor,
+                    .parameters = instatype_from_invotype(deserialize_ctor_call),
+                    .adaptations = allowed_adaptations::destination_rebinding,
+                };
+                auto deserialize_ctor = co_await rpnx::querygraph::request< instanciation_query >(deserialize_ctor_probe);
+
+                if (deserialize_ctor.has_value())
+                {
+                    auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, false);
+                    co_await this->co_gen_call_functum(current_block, constructor, codegen_invocation_args{.named = {{"THIS", storage_delegate}, {"DESERIALIZE_INPUT_ITERATOR", input_iter}}});
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+
+                invotype default_ctor_call;
+                default_ctor_call.named["THIS"] = nvalue_slot{.target = global_type};
+                initialization_reference default_ctor_probe{
+                    .initializee = constructor,
+                    .parameters = instatype_from_invotype(default_ctor_call),
+                    .adaptations = allowed_adaptations::destination_rebinding,
+                };
+                auto default_ctor = co_await rpnx::querygraph::request< instanciation_query >(default_ctor_probe);
+                if (!default_ctor.has_value())
+                {
+                    throw std::logic_error("serialoid STATIC requires a deserialize constructor or default constructor plus DESERIALIZE: " + quxlang::to_string(global_symbol));
+                }
+
+                auto initialized = co_await co_generate_place_expression_impl(current_block, storage_ref, global_type, std::nullopt, {});
+                auto object_ref = this->create_local_value(make_mref(global_type));
+                this->emit(current_block, vmir2::dereference_pointer{.from_pointer = get_local_index(initialized), .to_reference = get_local_index(object_ref)});
+                auto deserialize_functum = submember{.of = global_type, .name = "DESERIALIZE"};
+                co_await this->co_gen_call_functum(current_block, deserialize_functum, codegen_invocation_args{.named = {{"THIS", object_ref}, {"INPUT_ITERATOR", input_iter}}});
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             auto ignored = co_await co_generate_place_expression_impl(current_block, storage_ref, global_type, variable_decl.init_expr, variable_decl.init_args);
             (void)ignored;
 
@@ -4278,6 +4363,8 @@ namespace quxlang
                 co_await co_generate_dtor_references();
                 co_return get_result();
             }
+
+            bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
 
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
@@ -4312,7 +4399,7 @@ namespace quxlang
                                               .target_ref = get_local_index(storage_ref),
                                           });
 
-                auto result_ref = this->create_local_value(make_mref(global_type));
+                auto result_ref = this->create_local_value(is_serialoid_static ? make_cref(global_type) : make_mref(global_type));
                 this->emit(current_block, vmir2::storage_pun{
                                               .from_storage = get_local_index(storage_ref),
                                               .as_type = global_type,
@@ -4334,6 +4421,35 @@ namespace quxlang
 
             co_await emit_return_from_storage(initialized_block);
 
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_constexpr_proxy_passthrough(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            auto this_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
+            co_await this->co_return_value(current_block, this_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_constexpr_proxy_output_byte(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+            auto this_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
+            auto byte_value = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
+            this->emit(current_block, vmir2::constexpr_output_byte{
+                                          .proxy = get_local_index(this_ref),
+                                          .value = get_local_index(byte_value),
+                                      });
+            co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
         }
@@ -4632,7 +4748,7 @@ namespace quxlang
 
             auto current_block = block_index(0);
             auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
-            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
 
             if (!this_ref.has_value() || !input_iter.has_value())
             {
@@ -4657,7 +4773,7 @@ namespace quxlang
                 this->emit(current_block, str);
             }
 
-            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
             {
                 throw compiler_bug("Missing builtin DESERIALIZE iterator");
@@ -4679,7 +4795,7 @@ namespace quxlang
 
             auto current_block = block_index(0);
             auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
-            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
 
             if (!this_ref.has_value() || !input_iter.has_value())
             {
@@ -4744,7 +4860,7 @@ namespace quxlang
                 accum_ref = this->create_reference(current_block, accum, accum_mref_type);
                 co_await co_generate_binary(current_block, ":=", accum_ref, merged);
 
-                input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+                input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
                 if (!input_iter.has_value())
                 {
                     throw compiler_bug("Missing builtin DESERIALIZE iterator");
@@ -4770,7 +4886,7 @@ namespace quxlang
                 this->emit(current_block, str);
             }
 
-            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
             {
                 throw compiler_bug("Missing builtin DESERIALIZE iterator");
@@ -4789,7 +4905,7 @@ namespace quxlang
             this->generate_entry_block();
 
             auto current_block = block_index(0);
-            auto current_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITER"});
+            auto current_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
 
             if (!current_iter.has_value())
             {
@@ -4806,7 +4922,7 @@ namespace quxlang
                 }
                 auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
                 auto field_deserialize_functum = submember{.of = fld.type, .name = "DESERIALIZE"};
-                current_iter = co_await this->co_gen_call_functum(current_block, field_deserialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITER", *current_iter}}});
+                current_iter = co_await this->co_gen_call_functum(current_block, field_deserialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITERATOR", *current_iter}}});
             }
 
             co_await co_return_value(current_block, *current_iter);

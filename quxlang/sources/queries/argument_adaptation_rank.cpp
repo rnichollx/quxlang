@@ -198,6 +198,19 @@ namespace
 
         if (is_ref(to))
         {
+            if (is_temp_ref(from) && remove_ref(to) == remove_ref(from))
+            {
+                if (is_temp_ref(to))
+                {
+                    return 2;
+                }
+
+                if (is_const_ref(to))
+                {
+                    return 4;
+                }
+            }
+
             return 3;
         }
 

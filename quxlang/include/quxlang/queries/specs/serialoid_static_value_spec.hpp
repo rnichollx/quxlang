@@ -1,0 +1,24 @@
+// Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
+
+#ifndef QUXLANG_QUERIES_SPECS_SERIALOID_STATIC_VALUE_SPEC_HEADER_GUARD
+#define QUXLANG_QUERIES_SPECS_SERIALOID_STATIC_VALUE_SPEC_HEADER_GUARD
+
+#include <quxlang/queries/constexpr_eval_v3.hpp>
+#include <quxlang/queries/global_is_serialoid_static.hpp>
+#include <quxlang/queries/serialoid_static_value.hpp>
+#include <quxlang/queries/symboid.hpp>
+#include <quxlang/queries/variable_type.hpp>
+
+#include <new>
+#include <rpnx/querygraph/querygraph.hpp>
+
+namespace quxlang
+{
+    using serialoid_static_value_spec = rpnx::querygraph::query_handler_spec<
+        serialoid_static_value_query,
+        rpnx::typelist< constexpr_eval_v3_query, global_is_serialoid_static_query, symboid_query, variable_type_query > >;
+
+    rpnx::querygraph::coroutine< serialoid_static_value_spec > serialoid_static_value_impl(type_symbol input);
+} // namespace quxlang
+
+#endif // QUXLANG_QUERIES_SPECS_SERIALOID_STATIC_VALUE_SPEC_HEADER_GUARD

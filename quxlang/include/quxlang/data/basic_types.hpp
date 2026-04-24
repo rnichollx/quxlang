@@ -124,7 +124,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(constexpr_result, type, value);
     };
 
-    using constexpr_value = rpnx::variant< antestatal_value >;
+    struct constexpr_serialoid
+    {
+        std::vector< std::byte > bytes;
+
+        RPNX_MEMBER_METADATA(constexpr_serialoid, bytes);
+    };
+
+    using constexpr_value = rpnx::variant< antestatal_value, constexpr_serialoid >;
 
     struct void_type
     {
@@ -139,6 +146,11 @@ namespace quxlang
     struct initguard_lock_type
     {
         RPNX_EMPTY_METADATA(initguard_lock_type);
+    };
+
+    struct constexpr_proxy
+    {
+        RPNX_EMPTY_METADATA(constexpr_proxy);
     };
 
     struct intptr

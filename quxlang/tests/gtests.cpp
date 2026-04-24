@@ -158,6 +158,21 @@ TEST(parsing, parse_empty_class)
     ASSERT_TRUE(cl.has_value());
 }
 
+TEST(parsing, parse_static_classification_keywords)
+{
+    auto cl = try_parse_class_text("CLASS ANTESTATAL SERIALOID NONSTATIC { }");
+
+    ASSERT_TRUE(cl.has_value());
+    EXPECT_TRUE(cl->class_keywords.contains("ANTESTATAL"));
+    EXPECT_TRUE(cl->class_keywords.contains("SERIALOID"));
+    EXPECT_TRUE(cl->class_keywords.contains("NONSTATIC"));
+}
+
+TEST(parsing, constexpr_proxy_type_symbol_is_internal_only)
+{
+    EXPECT_THROW(parse_type_symbol("__CONSTEXPR_PROXY"), std::logic_error);
+}
+
 TEST(parsing, parse_class_with_variables)
 {
     std::string test_string = "CLASS { .a VAR I32; .b VAR I64; ::c VAR I32; }";
@@ -210,6 +225,14 @@ TEST(parsing, parse_class_explicit_constructor_keyword)
     auto cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_deserialize_input_iterator_argument_keyword)
+{
+    auto args = parse_function_args_text("(@DESERIALIZE_INPUT_ITERATOR =>> BYTE)");
+
+    ASSERT_EQ(args.size(), 1);
+    EXPECT_EQ(args.front().api_name, "DESERIALIZE_INPUT_ITERATOR");
 }
 
 TEST(parsing, functum_combining)
@@ -853,6 +876,39 @@ TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
     auto result_values = mutable_interp.get_cr_antestatal_values();
     ASSERT_TRUE(result_values.contains(17));
     expect_i32_value(result_values.at(17), std::byte{9});
+}
+
+TEST(vmir_constexpr_interpreter, constexpr_proxy_outputs_bytes_in_order)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::constexpr_proxy{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(quxlang::constexpr_proxy{})},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::constexpr_make_proxy{.target = quxlang::vmir2::local_index(1), .result_id = 23},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "17"},
+            quxlang::vmir2::constexpr_output_byte{.proxy = quxlang::vmir2::local_index(2), .value = quxlang::vmir2::local_index(3)},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(4)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(5), .value = "34"},
+            quxlang::vmir2::constexpr_output_byte{.proxy = quxlang::vmir2::local_index(4), .value = quxlang::vmir2::local_index(5)},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    auto outputs = interp.get_cr_serialoid_values();
+    ASSERT_TRUE(outputs.contains(23));
+    EXPECT_EQ(outputs.at(23).bytes, (std::vector{std::byte{17}, std::byte{34}}));
 }
 
 TEST(vmir_constexpr_interpreter, missing_static_localdata_is_compiler_bug)

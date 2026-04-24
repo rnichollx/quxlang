@@ -45,8 +45,6 @@ namespace quxlang::parsers
             }
 
             skip_whitespace_and_comments(pos, end);
-
-            break;
         }
 
         if (!skip_symbol_if_is(pos, end, "{"))

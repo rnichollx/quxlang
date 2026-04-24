@@ -1,6 +1,9 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/keywords.hpp>
 #include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
+
+#include <stdexcept>
 
 
 rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is_antestatal_impl(type_symbol input)
@@ -41,18 +44,27 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return false;
     }
 
-    if (co_await rpnx::querygraph::request< user_serialize_exists_query >(input))
+    auto tags = co_await rpnx::querygraph::request< class_tags_query >(input);
+    if (tags.contains(keywords::nonstatic))
     {
         co_return false;
     }
-
-    if (co_await rpnx::querygraph::request< user_deserialize_exists_query >(input))
+    if (tags.contains(keywords::serialoid))
+    {
+        co_return false;
+    }
+    bool const explicitly_antestatal = tags.contains(keywords::antestatal);
+    if (!explicitly_antestatal && co_await rpnx::querygraph::request< user_serialize_exists_query >(input) && co_await rpnx::querygraph::request< user_deserialize_exists_query >(input))
     {
         co_return false;
     }
 
     if (!(co_await rpnx::querygraph::request< class_trivially_destructible_query >(input)))
     {
+        if (explicitly_antestatal)
+        {
+            throw std::logic_error("ANTESTATAL type is not trivially destructible: " + quxlang::to_string(input));
+        }
         co_return false;
     }
 
@@ -61,6 +73,10 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
     {
         if (!(co_await rpnx::querygraph::request< type_is_antestatal_query >(field.type)))
         {
+            if (explicitly_antestatal)
+            {
+                throw std::logic_error("ANTESTATAL type has a non-antestatal field: " + quxlang::to_string(input));
+            }
             co_return false;
         }
     }

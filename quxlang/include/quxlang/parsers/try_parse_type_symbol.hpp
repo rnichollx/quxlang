@@ -103,6 +103,10 @@ namespace quxlang::parsers
         {
             output = byte_type{};
         }
+        else if (skip_keyword_if_is(pos, end, "__CONSTEXPR_PROXY"))
+        {
+            throw std::logic_error("__CONSTEXPR_PROXY is an internal implementation detail and cannot be named in source");
+        }
         else if (skip_keyword_if_is(pos, end, "PROCEDURE"))
         {
             procedure_type result;

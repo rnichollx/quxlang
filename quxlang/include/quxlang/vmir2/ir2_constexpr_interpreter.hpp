@@ -46,6 +46,7 @@ namespace quxlang
             antestatal_value get_cr_antestatal_value();
             /// Returns every antestatal result materialized by constexpr_set_result2, keyed by result ID.
             std::map< std::uint64_t, antestatal_value > get_cr_antestatal_values();
+            std::map< std::uint64_t, constexpr_serialoid > get_cr_serialoid_values();
         };
     } // namespace vmir2
 } // namespace quxlang

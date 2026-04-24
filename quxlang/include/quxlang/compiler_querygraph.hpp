@@ -82,6 +82,7 @@
 #include <quxlang/queries/specs/functum_select_function_spec.hpp>
 #include <quxlang/queries/specs/functum_user_overloads_spec.hpp>
 #include <quxlang/queries/specs/global_is_antestatal_static_spec.hpp>
+#include <quxlang/queries/specs/global_is_serialoid_static_spec.hpp>
 #include <quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp>
 #include <quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp>
 #include <quxlang/queries/specs/implicitly_convertible_to_spec.hpp>
@@ -101,6 +102,7 @@
 #include <quxlang/queries/specs/procedure_linksymbol_spec.hpp>
 #include <quxlang/queries/specs/run_static_test_spec.hpp>
 #include <quxlang/queries/specs/run_static_tests_spec.hpp>
+#include <quxlang/queries/specs/serialoid_static_value_spec.hpp>
 #include <quxlang/queries/specs/sintpointer_type_spec.hpp>
 #include <quxlang/queries/specs/source_file_id_spec.hpp>
 #include <quxlang/queries/specs/source_file_index_spec.hpp>
@@ -116,6 +118,7 @@
 #include <quxlang/queries/specs/templex_initialize_spec.hpp>
 #include <quxlang/queries/specs/templex_select_template_spec.hpp>
 #include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
+#include <quxlang/queries/specs/type_is_serialoid_spec.hpp>
 #include <quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp>
 #include <quxlang/queries/specs/type_placement_info_spec.hpp>
 #include <quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp>

@@ -16,6 +16,9 @@ namespace quxlang
         const std::string no_implicit_constructors = "NO_IMPLICIT_CONSTRUCTORS";
         const std::string no_implicit_assignment = "NO_IMPLICIT_ASSIGNMENT";
         const std::string no_implicit_copy = "NO_IMPLICIT_COPY";
+        const std::string antestatal = "ANTESTATAL";
+        const std::string serialoid = "SERIALOID";
+        const std::string nonstatic = "NONSTATIC";
 
 
         std::set< std::string > const class_keywords = {
@@ -25,6 +28,9 @@ namespace quxlang
             keywords::no_implicit_constructors,
             keywords::no_implicit_assignment,
             keywords::no_implicit_copy,
+            keywords::antestatal,
+            keywords::serialoid,
+            keywords::nonstatic,
         };
 
         inline std::set< std::string > get_subentity_keywords()

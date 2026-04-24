@@ -281,6 +281,7 @@ namespace quxlang
         std::string operator()(byte_type const& ref) const;
         std::string operator()(initguard_type const& ref) const;
         std::string operator()(initguard_lock_type const& ref) const;
+        std::string operator()(constexpr_proxy const& ref) const;
         std::string operator()(bool_type const& ref) const;
         std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
@@ -481,6 +482,11 @@ namespace quxlang
         }
 
         bool operator()(initguard_lock_type const&) const
+        {
+            return false;
+        }
+
+        bool operator()(constexpr_proxy const&) const
         {
             return false;
         }
@@ -1139,6 +1145,10 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(initguard_lock_type const& ref) const
     {
         return "INITGUARD_LOCK";
+    }
+    std::string type_symbol_stringifier::operator()(constexpr_proxy const& ref) const
+    {
+        return "__CONSTEXPR_PROXY";
     }
     std::string type_symbol_stringifier::operator()(value_expression_reference const& ref) const
     {
@@ -1899,6 +1909,11 @@ namespace quxlang
             }
 
             bool check_impl(initguard_lock_type const&, initguard_lock_type const&, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(constexpr_proxy const&, constexpr_proxy const&, bool conv)
             {
                 return true;
             }

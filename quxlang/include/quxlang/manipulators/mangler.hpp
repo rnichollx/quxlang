@@ -160,6 +160,10 @@ namespace quxlang
             output += mangle_internal(ptr.target);
             return output;
         }
+        else if (qt.template type_is< constexpr_proxy >())
+        {
+            return "KXP";
+        }
         else if (qt.template type_is< procedure_type >())
         {
             auto const& proc = as< procedure_type >(qt);

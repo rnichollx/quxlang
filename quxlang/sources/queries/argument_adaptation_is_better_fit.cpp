@@ -199,6 +199,19 @@ namespace
 
         if (is_ref(to))
         {
+            if (is_temp_ref(from) && remove_ref(to) == remove_ref(from))
+            {
+                if (is_temp_ref(to))
+                {
+                    return 2;
+                }
+
+                if (is_const_ref(to))
+                {
+                    return 4;
+                }
+            }
+
             return 3;
         }
 
@@ -226,7 +239,7 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_is_better_fit_spec > q
                                                                     });
     if (!worse_rank.has_value())
     {
-        co_return false;
+        co_return true;
     }
 
     co_return *better_rank < *worse_rank;

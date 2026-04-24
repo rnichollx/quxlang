@@ -37,6 +37,24 @@ namespace quxlang
         return as< antestatal_value >(value);
     }
 
+    inline auto constexpr_value_as_serialoid(constexpr_value const& value) -> constexpr_serialoid const&
+    {
+        if (!typeis< constexpr_serialoid >(value))
+        {
+            throw compiler_bug("constexpr value is not a serialoid value");
+        }
+        return as< constexpr_serialoid >(value);
+    }
+
+    inline auto constexpr_value_as_serialoid(constexpr_value& value) -> constexpr_serialoid&
+    {
+        if (!typeis< constexpr_serialoid >(value))
+        {
+            throw compiler_bug("constexpr value is not a serialoid value");
+        }
+        return as< constexpr_serialoid >(value);
+    }
+
     /// Function-local static object made visible to a constexpr v3 evaluation.
     struct constexpr_static
     {

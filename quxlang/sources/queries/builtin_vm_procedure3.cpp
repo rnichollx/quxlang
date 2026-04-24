@@ -120,6 +120,17 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
                 co_return co_await gen.co_generate_builtin_global_init(input);
             }
         }
+        if (typeis< constexpr_proxy >(sm.of))
+        {
+            if (sm.name == "OPERATOR++" || sm.name == "OPERATOR->")
+            {
+                co_return co_await gen.co_generate_builtin_constexpr_proxy_passthrough(input);
+            }
+            if (sm.name == "OPERATOR:=")
+            {
+                co_return co_await gen.co_generate_builtin_constexpr_proxy_output_byte(input);
+            }
+        }
         if (sm.name == "BEGIN")
         {
             co_return co_await gen.co_generate_builtin_access_member(input, "__start");
