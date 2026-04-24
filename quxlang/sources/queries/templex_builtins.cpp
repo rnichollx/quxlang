@@ -20,10 +20,11 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     }
 
     builtin_template_info info;
-    info.template_args.positional.push_back(declared_parameter{
+    info.template_args.named["T"] = declared_parameter{
+        .name = "T",
         .kind = template_parameter_kind::type,
-        .type = type_temploidic{"T"},
-    });
+        .type = type_temploidic{},
+    };
     results.push_back(std::move(info));
 
     co_return results;

@@ -557,6 +557,30 @@ namespace quxlang::parsers
             }
             goto next_arg;
         }
+        else if (skip_symbol_if_is(pos, end, "#"))
+        {
+            initialization_reference param_set;
+            param_set.initializee = std::move(output);
+
+            auto const arg_begin = pos;
+            auto arg_symbol = try_parse_type_symbol(ctx);
+            if (!arg_symbol.has_value())
+            {
+                throw std::logic_error("expected symbol after '#'");
+            }
+
+            expression_symbol_reference symbol_arg;
+            symbol_arg.symbol = std::move(*arg_symbol);
+
+            expression_arg arg;
+            arg.name = "T";
+            arg.value = std::move(symbol_arg);
+            arg.location = ctx.get_location_optional(arg_begin, pos);
+            param_set.arguments.push_back(std::move(arg));
+
+            output = std::move(param_set);
+            goto check_next;
+        }
         else if (skip_symbol_if_is(pos, end, "#{"))
         {
             QUXLANG_DEBUG(remaining = std::string(pos, end);)

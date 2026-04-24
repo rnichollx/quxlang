@@ -52,7 +52,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (typeis< instanciation_reference >(functum))
     {
         auto const& inst = as< instanciation_reference >(functum);
-        if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid) && inst.params.named.empty() && inst.params.positional.size() == 1)
+        auto type_argument = inst.params.named.find("T");
+        if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid) && type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
         {
             if (!typeis< builtin_symbol >(inst.temploid.templexoid))
             {
@@ -66,7 +67,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 throw compiler_bug("builtin template selection had no allocator kind");
             }
 
-            auto const allocated_type = parameter_instantiation_type(inst.params.positional.front());
+            auto const allocated_type = parameter_instantiation_type(type_argument->second);
             auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
             auto const single_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
             auto const multi_ptr_type = type_symbol(ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});

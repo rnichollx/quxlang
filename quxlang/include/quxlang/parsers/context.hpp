@@ -5,9 +5,11 @@
 #include "quxlang/ast2/source_location.hpp"
 #include "quxlang/data/compilation_result.hpp"
 
+#include "quxlang/parsers/lexer.hpp"
+
 namespace quxlang::parsers
 {
-    using parse_iterator = std::string::const_iterator;
+    struct lexer;
     struct parsing_context
     {
         std::uint64_t file_id = {};

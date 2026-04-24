@@ -405,17 +405,17 @@ TEST(typeutils, value_template_arguments_print_with_equals)
 
 TEST(parsing, parse_new_template_parameter_kinds)
 {
-    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @U TYPE AUTO(u), @N VALUE I32) CLASS {}");
+    auto file = parse_file_text("::foo TEMPLATE(@T TYPE, @u TYPE AUTO(u), @n VALUE I32) CLASS {}");
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     auto const& tmpl = quxlang::as< quxlang::ast2_template_declaration >(decl.decl);
 
     ASSERT_EQ(tmpl.m_template_args.named.at("T").kind, quxlang::template_parameter_kind::type);
     ASSERT_EQ(tmpl.m_template_args.named.at("T").type, quxlang::type_symbol(quxlang::type_temploidic{"T"}));
-    ASSERT_EQ(tmpl.m_template_args.named.at("U").kind, quxlang::template_parameter_kind::type);
-    ASSERT_EQ(tmpl.m_template_args.named.at("U").type, parse_type_symbol("AUTO(u)"));
-    ASSERT_EQ(tmpl.m_template_args.named.at("N").kind, quxlang::template_parameter_kind::value);
-    ASSERT_EQ(tmpl.m_template_args.named.at("N").type, parse_type_symbol("I32"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("u").kind, quxlang::template_parameter_kind::type);
+    ASSERT_EQ(tmpl.m_template_args.named.at("u").type, parse_type_symbol("AUTO(u)"));
+    ASSERT_EQ(tmpl.m_template_args.named.at("n").kind, quxlang::template_parameter_kind::value);
+    ASSERT_EQ(tmpl.m_template_args.named.at("n").type, parse_type_symbol("I32"));
 
     auto local_file = parse_file_text("::local_name TEMPLATE(@api:local VALUE I32) CLASS {}");
     auto const& local_decl = quxlang::as< quxlang::global_subdeclaroid >(local_file.declarations.front());
@@ -424,7 +424,8 @@ TEST(parsing, parse_new_template_parameter_kinds)
     ASSERT_EQ(local_tmpl.m_template_args.named.at("api").kind, quxlang::template_parameter_kind::value);
 
     EXPECT_NO_THROW(parse_file_text("::bar TEMPLATE(TYPE) CLASS {}"));
-    EXPECT_THROW(parse_file_text("::old TEMPLATE(@T AUTO) CLASS {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::reserved_u TEMPLATE(@U TYPE) CLASS {}"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::old TEMPLATE(@t AUTO) CLASS {}"), std::logic_error);
 }
 
 TEST(parsing, initialization_reference_arguments_are_expressions)
@@ -438,12 +439,28 @@ TEST(parsing, initialization_reference_arguments_are_expressions)
     ASSERT_EQ(positional_init.parameters.size(), 0);
     ASSERT_TRUE(typeis< expression_symbol_reference >(positional_init.arguments.front().value));
 
-    auto named = parse_type_symbol("foo#(@N 1)");
+    auto named = parse_type_symbol("foo#(@n 1)");
     ASSERT_TRUE(typeis< initialization_reference >(named));
     auto const& named_init = as< initialization_reference >(named);
     ASSERT_EQ(named_init.arguments.size(), 1);
-    ASSERT_EQ(named_init.arguments.front().name, std::optional< std::string >{"N"});
+    ASSERT_EQ(named_init.arguments.front().name, std::optional< std::string >{"n"});
     ASSERT_TRUE(typeis< expression_numeric_literal >(named_init.arguments.front().value));
+
+    auto named_t = parse_type_symbol("foo#(@T bar)");
+    ASSERT_TRUE(typeis< initialization_reference >(named_t));
+    auto const& named_t_init = as< initialization_reference >(named_t);
+    ASSERT_EQ(named_t_init.arguments.size(), 1);
+    ASSERT_EQ(named_t_init.arguments.front().name, std::optional< std::string >{"T"});
+    ASSERT_TRUE(typeis< expression_symbol_reference >(named_t_init.arguments.front().value));
+
+    auto shorthand_t = parse_type_symbol("foo#bar");
+    ASSERT_TRUE(typeis< initialization_reference >(shorthand_t));
+    auto const& shorthand_t_init = as< initialization_reference >(shorthand_t);
+    ASSERT_EQ(shorthand_t_init.arguments.size(), 1);
+    ASSERT_EQ(shorthand_t_init.arguments.front().name, std::optional< std::string >{"T"});
+    ASSERT_EQ(shorthand_t_init.arguments.front().value, named_t_init.arguments.front().value);
+
+    EXPECT_THROW(parse_type_symbol("foo#(@U 1)"), std::logic_error);
 }
 
 TEST(parsing, parse_global_constexpr_variable_declaration)
@@ -604,7 +621,7 @@ TEST(collector_tester, function_call)
 
 TEST(parsing, constexpr_allocator_call_expression)
 {
-    auto expr = parse_expression_text("CONSTEXPR_ALLOC#(I32)()");
+    auto expr = parse_expression_text("CONSTEXPR_ALLOC#I32()");
     ASSERT_TRUE(expr.template type_is< quxlang::expression_call >());
 
     auto const& call = expr.get_as< quxlang::expression_call >();
@@ -617,6 +634,8 @@ TEST(parsing, constexpr_allocator_call_expression)
     ASSERT_TRUE(init.initializee.template type_is< quxlang::freebound_identifier >());
     EXPECT_EQ(init.initializee.get_as< quxlang::freebound_identifier >().name, "CONSTEXPR_ALLOC");
     ASSERT_EQ(init.arguments.size(), 1);
+    ASSERT_TRUE(init.arguments.front().name.has_value());
+    EXPECT_EQ(*init.arguments.front().name, "T");
     EXPECT_TRUE(call.args.empty());
 }
 
@@ -626,11 +645,11 @@ TEST(parsing, constexpr_allocator_storage_statements)
 ::constexpr_allocator_parse_smoke FUNCTION(): VOID
 {
   VAR count SZ := 2;
-  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#(BYTE)(count);
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
   PLACE AT((slots + 1)->) BYTE := 9;
   ASSERT((PUN ((slots + 1)->) AS BYTE) == 9);
   DESTROY AT((slots + 1)->) BYTE;
-  CONSTEXPR_DEALLOC_MULTIPLE#(BYTE)(slots, count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
 }
 )QX"));
 }
@@ -1698,7 +1717,7 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto parsed = parse_expression_text("CONSTEXPR_ALLOC#(I32)");
+    auto parsed = parse_expression_text("CONSTEXPR_ALLOC#I32");
     ASSERT_TRUE(parsed.type_is< quxlang::expression_symbol_reference >());
     auto input = parsed.get_as< quxlang::expression_symbol_reference >().symbol;
     ASSERT_TRUE(input.type_is< quxlang::initialization_reference >());
@@ -1710,8 +1729,17 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_TRUE(resolved->type_is< quxlang::instanciation_reference >());
-    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#{I32}");
+    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#{@T I32}");
     EXPECT_EQ(c.get_symbol_type(*resolved, std::nullopt), quxlang::symbol_kind::functum);
+
+    auto explicit_form = parse_expression_text("CONSTEXPR_ALLOC#(@T I32)");
+    ASSERT_TRUE(explicit_form.type_is< quxlang::expression_symbol_reference >());
+    auto explicit_form_resolved = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = explicit_form.get_as< quxlang::expression_symbol_reference >().symbol,
+    }, std::nullopt);
+    ASSERT_TRUE(explicit_form_resolved.has_value());
+    EXPECT_EQ(*explicit_form_resolved, *resolved);
 
     auto overloads = c.get_functum_builtin_overloads(*resolved, std::nullopt);
     ASSERT_EQ(overloads.size(), 1);

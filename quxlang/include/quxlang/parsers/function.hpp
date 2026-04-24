@@ -16,7 +16,7 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end)
     {
-        static constexpr std::array< std::string_view, 9 > argument_keywords = {"THIS", "RETURN", "OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "OUTPUT_ITERATOR", "INPUT_ITER"};
+        static constexpr std::array< std::string_view, 10 > argument_keywords = {"T", "THIS", "RETURN", "OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "OUTPUT_ITERATOR", "INPUT_ITER"};
 
         auto identifier = parse_identifier(pos, end);
         if (identifier.empty())
@@ -29,12 +29,6 @@ namespace quxlang::parsers
                     pos = keyword_end;
                     return std::string(keyword);
                 }
-            }
-            if (keyword_end != pos)
-            {
-                auto result = std::string(pos, keyword_end);
-                pos = keyword_end;
-                return result;
             }
             throw std::logic_error("Expected identifier or keyword");
         }

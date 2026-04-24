@@ -4342,12 +4342,13 @@ namespace quxlang
         {
             assert(!type_is_contextual(functanoid));
             assert(!type_is_contextual(allocator_functum));
-            if (!typeis< builtin_symbol >(allocator_functum.temploid.templexoid) || allocator_functum.params.named.size() != 0 || allocator_functum.params.positional.size() != 1)
+            auto type_argument = allocator_functum.params.named.find("T");
+            if (!typeis< builtin_symbol >(allocator_functum.temploid.templexoid) || type_argument == allocator_functum.params.named.end() || allocator_functum.params.named.size() != 1 || !allocator_functum.params.positional.empty())
             {
-                throw compiler_bug("constexpr allocator builtin generation expects one instantiated builtin type parameter");
+                throw compiler_bug("constexpr allocator builtin generation expects one instantiated builtin @T type parameter");
             }
 
-            auto const allocated_type = parameter_instantiation_type(allocator_functum.params.positional.front());
+            auto const allocated_type = parameter_instantiation_type(type_argument->second);
             auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
 
             co_await co_generate_arg_info(functanoid);
