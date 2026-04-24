@@ -91,7 +91,9 @@ Will just build all targets.
 Currently, some layers are mostly working. If you run the quxlang_gtests func_gen test, the compiler should run several
 tests against the compiler API.
 
-What works:
+Known gaps and remaining work are tracked in [docs/TODO.md](docs/TODO.md).
+
+What works or mostly works:
 
 * Classes
 * Constructors / destructors (mostly)
@@ -108,15 +110,6 @@ What works:
 * Pointer arithmetic
 * Array and wildcard pointers
 * Using multiple modules together
-
-What doesn't work:
-
-* Compound assignments (e.g. `+=`, `-=`, etc.)
-* For loops
-* Non-constexpr codegen / linking
-* Floating point
-* Exceptions
-* Polymorphism / virtual functions
 
  
 ## Note regarding "Qux"
