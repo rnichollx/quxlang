@@ -384,28 +384,7 @@ namespace quxlang
         auto co_emit_proxy_output_byte(block_index& current_block, value_index proxy_ref, value_index byte_value) -> co_type< void >
         {
             auto consumed_proxy_ref = this->copy_refernece_internal(current_block, proxy_ref);
-            this->emit(current_block, vmir2::constexpr_output_byte{
-                                          .proxy = get_local_index(consumed_proxy_ref),
-                                          .value = get_local_index(byte_value),
-                                      });
-            co_return;
-        }
-
-        /// Materializes a byte literal in the current block and emits it through the constexpr output proxy.
-        auto co_emit_constexpr_byte_value(block_index& current_block, value_index proxy_ref, std::byte byte) -> co_type< void >
-        {
-            auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
-            co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
-            co_return;
-        }
-
-        /// Emits each byte in order through the constexpr output proxy.
-        auto co_emit_constexpr_bytes(block_index& current_block, value_index proxy_ref, std::vector< std::byte > const& bytes) -> co_type< void >
-        {
-            for (auto byte : bytes)
-            {
-                co_await co_emit_constexpr_byte_value(current_block, proxy_ref, byte);
-            }
+            co_await co_generate_binary(current_block, ":=", consumed_proxy_ref, byte_value);
             co_return;
         }
 
@@ -420,8 +399,17 @@ namespace quxlang
             auto const& literal_value = literal_slot.template get_as< codegen_literal >().value;
 
             auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
-            co_await co_emit_constexpr_bytes(current_block, proxy_ref, encode_uintany(literal_value.size()));
-            co_await co_emit_constexpr_bytes(current_block, proxy_ref, literal_value);
+            auto encoded_length = encode_uintany(literal_value.size());
+            for (auto byte : encoded_length)
+            {
+                auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
+                co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
+            }
+            for (auto byte : literal_value)
+            {
+                auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
+                co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
+            }
             co_return;
         }
 
@@ -1241,13 +1229,26 @@ namespace quxlang
             return value_index(this->state.genvalues.size() - 1);
         }
 
+        /// This is a very low level function, generally DO NOT USE IT
+        /// 99% of instruction output should be through intrinsic functions
         void emit(block_index& bidx, vmir2::vm_instruction val)
         {
             codegen_block& block = this->state.blocks.at(bidx);
             // val.from = get_local_index(val.from);
             // ... (do this for all relevant fields)
             this->apply_current_source_location(val);
-            vmir2::codegen_state_engine(this->state.blocks.at(bidx).current_state, this->state.locals, this->state.params).apply(val);
+            try
+            {
+                vmir2::codegen_state_engine(this->state.blocks.at(bidx).current_state, this->state.locals, this->state.params).apply(val);
+            }
+            catch (invalid_instruction_transition_error const& error)
+            {
+                vmir2::functanoid_routine3 partial_routine;
+                partial_routine.local_types = this->state.locals;
+                partial_routine.parameters = this->state.params;
+                auto instruction = vmir2::assembler(partial_routine).to_string(val);
+                throw invalid_instruction_transition_error(std::string(error.what()) + " while emitting " + instruction);
+            }
 
             state.blocks.at(bidx).instructions.push_back(val);
         }
@@ -1950,11 +1951,17 @@ namespace quxlang
 
         auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> co_type< void >
         {
+            /// THIS IS THE MAIN BIND POINT FOR NEW INSTRUCTIONS AND BUILTIN TYPES
+            /// DO NOT GENERATE NEW FUNCTIONS THAT ONLY OUTPUT ONE INSTRUCTION THEN RETURN
             if (auto intrinsic = this->intrinsic_instruction(what, args); intrinsic.has_value())
             {
                 this->emit(bidx, intrinsic.value());
                 co_return;
             }
+
+            // Generated routines are for COMPLEX operations only
+            // such as builtin SERIALIZE/DESERIALIZE operations that
+            // don't make sense to implement with a single instruction.
 
             std::string what_str = to_string(what);
             // std::string args_str = to_string(args);
@@ -2012,6 +2019,68 @@ namespace quxlang
         {
             std::string funcname = to_string(func);
 
+            {
+                auto instanciation = func.cast_ptr< instanciation_reference >();
+                auto allocator_functum = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< instanciation_reference >();
+                auto builtin = allocator_functum == nullptr ? nullptr : allocator_functum->temploid.templexoid.cast_ptr< builtin_symbol >();
+                auto allocator_kind = builtin == nullptr ? std::optional< builtin_allocator_kind >{} : builtin_allocator_kind_from_name(builtin->name);
+                if (allocator_kind.has_value())
+                {
+                    auto type_argument = allocator_functum->params.named.find("T");
+                    if (type_argument == allocator_functum->params.named.end() || allocator_functum->params.named.size() != 1 || !allocator_functum->params.positional.empty())
+                    {
+                        throw compiler_bug("constexpr allocator builtin intrinsic expects one instantiated @T type parameter");
+                    }
+
+                    auto const allocated_type = parameter_instantiation_type(type_argument->second);
+                    auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
+
+                    switch (*allocator_kind)
+                    {
+                    case builtin_allocator_kind::constexpr_alloc:
+                        if (!args.named.contains("RETURN") || args.size() != 1)
+                        {
+                            throw compiler_bug("CONSTEXPR_ALLOC intrinsic expects only a RETURN slot");
+                        }
+                        return vmir2::constexpr_alloc{
+                            .storage_type = storage_type,
+                            .result = get_local_index(args.named.at("RETURN")),
+                        };
+                    case builtin_allocator_kind::constexpr_alloc_multiple:
+                        if (!args.named.contains("RETURN") || args.positional.size() != 1 || args.size() != 2)
+                        {
+                            throw compiler_bug("CONSTEXPR_ALLOC_MULTIPLE intrinsic expects a count argument and RETURN slot");
+                        }
+                        return vmir2::constexpr_alloc_multiple{
+                            .storage_type = storage_type,
+                            .count = get_local_index(args.positional.at(0)),
+                            .result = get_local_index(args.named.at("RETURN")),
+                        };
+                    case builtin_allocator_kind::constexpr_dealloc:
+                        if (args.positional.size() != 1 || args.size() != 1)
+                        {
+                            throw compiler_bug("CONSTEXPR_DEALLOC intrinsic expects one pointer argument");
+                        }
+                        return vmir2::constexpr_dealloc{
+                            .storage_type = storage_type,
+                            .pointer = get_local_index(args.positional.at(0)),
+                        };
+                    case builtin_allocator_kind::constexpr_dealloc_multiple:
+                        if (args.positional.size() != 2 || args.size() != 2)
+                        {
+                            throw compiler_bug("CONSTEXPR_DEALLOC_MULTIPLE intrinsic expects pointer and count arguments");
+                        }
+                        return vmir2::constexpr_dealloc_multiple{
+                            .storage_type = storage_type,
+                            .pointer = get_local_index(args.positional.at(0)),
+                            .count = get_local_index(args.positional.at(1)),
+                        };
+                    }
+
+                    throw compiler_bug("Unhandled constexpr allocator intrinsic kind");
+                }
+            }
+
             auto is_arry_pointer = [](type_symbol const& type)
             {
                 if (type.type_is< ptrref_type >())
@@ -2057,6 +2126,40 @@ namespace quxlang
                 if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 2)
                 {
                     return vmir2::load_from_ref{.from_reference = get_local_index(args.named.at("OTHER")), .to_value = get_local_index(args.named.at("THIS"))};
+                }
+            }
+
+            if ((member->name == "OPERATOR++" || member->name == "OPERATOR->") && cls->template type_is< constexpr_proxy >())
+            {
+                if (call.named.contains("THIS") && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+                {
+                    return vmir2::copy_reference{
+                        .from_index = get_local_index(args.named.at("THIS")),
+                        .to_index = get_local_index(args.named.at("RETURN")),
+                    };
+                }
+            }
+
+            if (member->name == "OPERATOR:=" && cls->template type_is< constexpr_proxy >())
+            {
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+                {
+                    auto const& other_type = call.named.at("OTHER");
+                    if (typeis< byte_type >(other_type))
+                    {
+                        return vmir2::constexpr_output_byte{
+                            .proxy = get_local_index(args.named.at("THIS")),
+                            .value = get_local_index(args.named.at("OTHER")),
+                        };
+                    }
+                    if (typeis< constexpr_proxy >(other_type))
+                    {
+                        return vmir2::store_to_ref{
+                            .from_value = get_local_index(args.named.at("OTHER")),
+                            .to_reference = get_local_index(args.named.at("THIS")),
+                        };
+                    }
+                    throw compiler_bug("constexpr proxy assignment intrinsic requires BYTE or __CONSTEXPR_PROXY input, got: " + quxlang::to_string(other_type));
                 }
             }
 
@@ -4639,102 +4742,6 @@ namespace quxlang
             co_return get_result();
         }
 
-        /// Generates constexpr proxy ++ and -> builtins by returning the THIS reference unchanged.
-        auto co_generate_builtin_constexpr_proxy_passthrough(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
-        {
-            assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
-            auto this_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
-            co_await this->co_return_value(current_block, this_ref);
-            co_await co_generate_dtor_references();
-            co_return get_result();
-        }
-
-        /// Generates the constexpr proxy assignment builtin that appends OTHER as one byte to the proxy output buffer.
-        auto co_generate_builtin_constexpr_proxy_output_byte(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
-        {
-            assert(!type_is_contextual(func));
-            co_await co_generate_arg_info(func);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
-            auto this_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"})).value();
-            auto byte_value = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
-            this->emit(current_block, vmir2::constexpr_output_byte{
-                                          .proxy = get_local_index(this_ref),
-                                          .value = get_local_index(byte_value),
-                                      });
-            co_await co_generate_builtin_return(current_block);
-            co_await co_generate_dtor_references();
-            co_return get_result();
-        }
-
-        auto co_generate_builtin_constexpr_allocator(instanciation_reference const& functanoid, instanciation_reference const& allocator_functum, builtin_allocator_kind allocator_kind) -> co_type< quxlang::vmir2::functanoid_routine3 >
-        {
-            assert(!type_is_contextual(functanoid));
-            assert(!type_is_contextual(allocator_functum));
-            auto type_argument = allocator_functum.params.named.find("T");
-            if (!typeis< builtin_symbol >(allocator_functum.temploid.templexoid) || type_argument == allocator_functum.params.named.end() || allocator_functum.params.named.size() != 1 || !allocator_functum.params.positional.empty())
-            {
-                throw compiler_bug("constexpr allocator builtin generation expects one instantiated builtin @T type parameter");
-            }
-
-            auto const allocated_type = parameter_instantiation_type(type_argument->second);
-            auto const storage_type = type_symbol(storage{.storable_types = {allocated_type}});
-
-            co_await co_generate_arg_info(functanoid);
-            this->generate_entry_block();
-            block_index current_block = block_index(0);
-
-            switch (allocator_kind)
-            {
-            case builtin_allocator_kind::constexpr_alloc:
-            {
-                auto result = this->create_local_value(ptrref_type{.target = storage_type, .ptr_class = pointer_class::instance, .qual = qualifier::mut});
-                this->emit(current_block, vmir2::constexpr_alloc{
-                                          .storage_type = storage_type,
-                                          .result = get_local_index(result),
-                                      });
-                co_await this->co_return_value(current_block, result);
-                break;
-            }
-            case builtin_allocator_kind::constexpr_alloc_multiple:
-            {
-                auto result = this->create_local_value(ptrref_type{.target = storage_type, .ptr_class = pointer_class::array, .qual = qualifier::mut});
-                this->emit(current_block, vmir2::constexpr_alloc_multiple{
-                                          .storage_type = storage_type,
-                                          .count = this->state.params.positional.at(0).local_index,
-                                          .result = get_local_index(result),
-                                      });
-                co_await this->co_return_value(current_block, result);
-                break;
-            }
-            case builtin_allocator_kind::constexpr_dealloc:
-            {
-                this->emit(current_block, vmir2::constexpr_dealloc{
-                                          .storage_type = storage_type,
-                                          .pointer = this->state.params.positional.at(0).local_index,
-                                      });
-                co_await co_generate_builtin_return(current_block);
-                break;
-            }
-            case builtin_allocator_kind::constexpr_dealloc_multiple:
-            {
-                this->emit(current_block, vmir2::constexpr_dealloc_multiple{
-                                          .storage_type = storage_type,
-                                          .pointer = this->state.params.positional.at(0).local_index,
-                                          .count = this->state.params.positional.at(1).local_index,
-                                      });
-                co_await co_generate_builtin_return(current_block);
-                break;
-            }
-            }
-
-            co_await co_generate_dtor_references();
-            co_return get_result();
-        }
-
         auto co_generate_builtin_access_member(instanciation_reference const& func, std::string const& member_name) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -4861,10 +4868,17 @@ namespace quxlang
             auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
             {
-                throw compiler_bug("Missing varuint INPUT_ITERATOR argument");
+                throw compiler_bug("Missing INPUT_ITERATOR argument");
             }
 
-            auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
+            auto input_iter_arg = *input_iter;
+            auto input_iter_type = this->current_type(current_block, input_iter_arg);
+            if (!is_ref(input_iter_type))
+            {
+                input_iter_arg = this->create_reference(current_block, input_iter_arg, make_mref(input_iter_type));
+            }
+
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", input_iter_arg);
             auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
             co_return load_reference_value(current_block, input_deref, byte_type{});
         }
@@ -5151,20 +5165,22 @@ namespace quxlang
                 // (iter++)-> := copy_val_copy;
                 co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
 
-                copymutref = this->create_reference(current_block, copy_val, class_mreftype);
-                copy_val_copy = this->create_local_value(class_type);
+                if (i + 8 >= bits)
                 {
+                    continue;
+                }
+
+                {
+                    copymutref = this->create_reference(current_block, copy_val, class_mreftype);
+                    copy_val_copy = this->create_local_value(class_type);
                     vmir2::load_from_ref lfr;
                     lfr.from_reference = get_local_index(copymutref);
                     lfr.to_value = get_local_index(copy_val_copy);
                     this->emit(current_block, lfr);
                 }
 
-                // (val #-- 8)
                 auto eight = create_numeric_literal("8");
                 auto shifted_val = co_await co_generate_binary(current_block, "#--", copy_val_copy, eight);
-
-                // copyval := copyval #-- 8
                 copymutref = this->create_reference(current_block, copy_val, class_mreftype);
                 co_await co_generate_binary(current_block, ":=", copymutref, shifted_val);
             }
@@ -5264,16 +5280,7 @@ namespace quxlang
                 throw compiler_bug("Missing builtin DESERIALIZE arguments");
             }
 
-            auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
-            auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
-
-            auto byteval = this->create_local_value(byte_type{});
-            {
-                vmir2::load_from_ref lfr;
-                lfr.from_reference = get_local_index(input_deref);
-                lfr.to_value = get_local_index(byteval);
-                this->emit(current_block, lfr);
-            }
+            auto byteval = co_await co_read_input_byte(current_block);
 
             {
                 vmir2::store_to_ref str;
@@ -5321,27 +5328,12 @@ namespace quxlang
 
             for (std::size_t i = 0; i < rounded_bits; i += 8)
             {
-                auto incr = co_await co_generate_unary_postfix(current_block, "++", *input_iter);
-                auto input_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
+                auto byteval = co_await co_read_input_byte(current_block);
 
-                auto byteval = this->create_local_value(byte_type{});
+                value_index chunk = byteval;
+                if (!accum_type.type_is< byte_type >())
                 {
-                    vmir2::load_from_ref lfr;
-                    lfr.from_reference = get_local_index(input_deref);
-                    lfr.to_value = get_local_index(byteval);
-                    this->emit(current_block, lfr);
-                }
-
-                auto chunk = this->create_local_value(accum_type);
-                if (accum_type.type_is< byte_type >())
-                {
-                    vmir2::load_from_ref lfr;
-                    lfr.from_reference = get_local_index(input_deref);
-                    lfr.to_value = get_local_index(chunk);
-                    this->emit(current_block, lfr);
-                }
-                else
-                {
+                    chunk = this->create_local_value(accum_type);
                     vmir2::iconv icv;
                     icv.convtype = vmir2::conversion_class::partial;
                     icv.from = get_local_index(byteval);

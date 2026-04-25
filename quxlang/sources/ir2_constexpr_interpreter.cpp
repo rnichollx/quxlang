@@ -2343,6 +2343,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     to_ptr_target.ref = from_ptr_target.ref;
+    to_ptr_target.constexpr_proxy_output_id = from_ptr_target.constexpr_proxy_output_id;
 
     return;
 }

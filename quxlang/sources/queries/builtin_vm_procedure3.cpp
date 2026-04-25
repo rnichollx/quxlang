@@ -6,7 +6,6 @@
 #include <quxlang/co_vmir_generator2.hpp>
 
 #include <quxlang/parsers/parse_type_symbol.hpp>
-#include <quxlang/queries/template_builtin.hpp>
 
 #include <string>
 
@@ -75,34 +74,6 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
 
-    if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
-    {
-        auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
-        co_return result;
-    }
-
-    if (typeis< instanciation_reference >(input.temploid.templexoid))
-    {
-        auto const& parent_functum = as< instanciation_reference >(input.temploid.templexoid);
-        if (co_await rpnx::querygraph::request< template_builtin_query >(parent_functum.temploid))
-        {
-            if (!typeis< builtin_symbol >(parent_functum.temploid.templexoid))
-            {
-                throw compiler_bug("builtin template selection did not have a builtin_symbol parent");
-            }
-
-            auto const& builtin = as< builtin_symbol >(parent_functum.temploid.templexoid);
-            auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
-            if (!allocator_kind.has_value())
-            {
-                throw compiler_bug("builtin template selection had no allocator kind");
-            }
-
-            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
-            co_return co_await gen.co_generate_builtin_constexpr_allocator(input, parent_functum, *allocator_kind);
-        }
-    }
-
     if (typeis< builtin_symbol >(input.temploid.templexoid))
     {
         auto const& builtin = as< builtin_symbol >(input.temploid.templexoid);
@@ -142,16 +113,14 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
                 co_return co_await gen.co_generate_builtin_global_init(input);
             }
         }
-        if (typeis< constexpr_proxy >(sm.of))
+        if (typeis< constexpr_proxy >(sm.of) && (sm.name == "OPERATOR++" || sm.name == "OPERATOR->" || sm.name == "OPERATOR:="))
         {
-            if (sm.name == "OPERATOR++" || sm.name == "OPERATOR->")
-            {
-                co_return co_await gen.co_generate_builtin_constexpr_proxy_passthrough(input);
-            }
-            if (sm.name == "OPERATOR:=")
-            {
-                co_return co_await gen.co_generate_builtin_constexpr_proxy_output_byte(input);
-            }
+            throw compiler_bug("__CONSTEXPR_PROXY " + sm.name + " is a builtin intrinsic and has no generated VM procedure");
+        }
+        if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
+        {
+            auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
+            co_return result;
         }
         if (sm.name == "BEGIN")
         {

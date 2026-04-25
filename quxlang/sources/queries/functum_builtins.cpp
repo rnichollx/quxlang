@@ -157,6 +157,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
         if (name == "OPERATOR:=")
         {
+            add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{});
             add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", byte_type{}}}, void_type{});
             co_return allowed_operations;
         }
