@@ -37,6 +37,7 @@ namespace quxlang
         return as< antestatal_value >(value);
     }
 
+    /// Returns the serialoid byte payload stored in a constexpr v3 value without allowing the caller to mutate it.
     inline auto constexpr_value_as_serialoid(constexpr_value const& value) -> constexpr_serialoid const&
     {
         if (!typeis< constexpr_serialoid >(value))
@@ -46,6 +47,7 @@ namespace quxlang
         return as< constexpr_serialoid >(value);
     }
 
+    /// Returns the mutable serialoid byte payload stored in a constexpr v3 value so the caller can update the bytes in place.
     inline auto constexpr_value_as_serialoid(constexpr_value& value) -> constexpr_serialoid&
     {
         if (!typeis< constexpr_serialoid >(value))
@@ -53,6 +55,26 @@ namespace quxlang
             throw compiler_bug("constexpr value is not a serialoid value");
         }
         return as< constexpr_serialoid >(value);
+    }
+
+    /// Returns the string payload stored in a constexpr v3 value without allowing the caller to mutate it.
+    inline auto constexpr_value_as_string(constexpr_value const& value) -> constexpr_string const&
+    {
+        if (!typeis< constexpr_string >(value))
+        {
+            throw compiler_bug("constexpr value is not a string value");
+        }
+        return as< constexpr_string >(value);
+    }
+
+    /// Returns the mutable string payload stored in a constexpr v3 value so the caller can update the bytes in place.
+    inline auto constexpr_value_as_string(constexpr_value& value) -> constexpr_string&
+    {
+        if (!typeis< constexpr_string >(value))
+        {
+            throw compiler_bug("constexpr value is not a string value");
+        }
+        return as< constexpr_string >(value);
     }
 
     /// Function-local static object made visible to a constexpr v3 evaluation.

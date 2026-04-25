@@ -14,6 +14,52 @@
 
 namespace
 {
+    /// Returns true when the type symbol represents the compiler's readonly STRING_CONSTANT type.
+    auto is_string_constant_type(quxlang::type_symbol const& type) -> bool
+    {
+        return quxlang::typeis< quxlang::readonly_constant >(type) && quxlang::as< quxlang::readonly_constant >(type).kind == quxlang::constant_kind::string;
+    }
+
+    /// Decodes a STRINGLIKE serialization payload as UINTANY length followed by exactly that many string bytes.
+    auto decode_uintany_string(std::vector< std::byte > const& encoded) -> quxlang::constexpr_string
+    {
+        std::uint64_t length = 0;
+        std::uint64_t shift = 0;
+        std::size_t pos = 0;
+        while (pos < encoded.size())
+        {
+            auto byte_value = static_cast< std::uint64_t >(std::to_integer< std::uint8_t >(encoded.at(pos)));
+            pos++;
+
+            if (shift >= 64 || ((byte_value & 127U) << shift) >> shift != (byte_value & 127U))
+            {
+                throw std::logic_error("STRINGLIKE UINTANY length is too large");
+            }
+            length += (byte_value & 127U) << shift;
+
+            if ((byte_value & 128U) == 0)
+            {
+                if (encoded.size() - pos != length)
+                {
+                    throw std::logic_error("STRINGLIKE serialized string length does not match byte count");
+                }
+
+                quxlang::constexpr_string result;
+                result.bytes.insert(result.bytes.end(), encoded.begin() + static_cast< std::ptrdiff_t >(pos), encoded.end());
+                return result;
+            }
+
+            shift += 7;
+            if (shift >= 64)
+            {
+                throw std::logic_error("STRINGLIKE UINTANY length is too large");
+            }
+            length += std::uint64_t{1} << shift;
+        }
+
+        throw std::logic_error("STRINGLIKE serialized string is missing its UINTANY length terminator");
+    }
+
     /// Converts legacy constexpr input into the versioned constexpr v3 input shape.
     auto make_v3_input(quxlang::constexpr_input2 input) -> quxlang::constexpr_input_v3
     {
@@ -218,9 +264,17 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     {
         result.values[id] = constexpr_value(std::move(value));
     }
+    bool const expects_string_result = input.expected_result_type.has_value() && is_string_constant_type(*input.expected_result_type);
     for (auto& [id, value] : interp.get_cr_serialoid_values())
     {
-        result.values[id] = constexpr_value(std::move(value));
+        if (expects_string_result && id == constexpr_primary_result_id)
+        {
+            result.values[id] = constexpr_value(decode_uintany_string(value.bytes));
+        }
+        else
+        {
+            result.values[id] = constexpr_value(std::move(value));
+        }
     }
     result.deduced_type = std::move(routine_result.deduced_type);
     result.type_binding_result = std::move(routine_result.type_binding_result);

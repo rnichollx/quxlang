@@ -131,7 +131,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(constexpr_serialoid, bytes);
     };
 
-    using constexpr_value = rpnx::variant< antestatal_value, constexpr_serialoid >;
+    struct constexpr_string
+    {
+        std::vector< std::byte > bytes;
+
+        RPNX_MEMBER_METADATA(constexpr_string, bytes);
+    };
+
+    using constexpr_value = rpnx::variant< antestatal_value, constexpr_serialoid, constexpr_string >;
 
     struct void_type
     {

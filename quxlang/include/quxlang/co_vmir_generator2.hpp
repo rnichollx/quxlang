@@ -34,15 +34,18 @@
 #include "quxlang/queries/function_param_names.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
+#include "quxlang/queries/global_is_string_static.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/lookup.hpp"
 #include "quxlang/queries/module_options_map.hpp"
 #include "quxlang/queries/serialoid_static_value.hpp"
+#include "quxlang/queries/string_static_value.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
+#include "quxlang/queries/type_is_stringlike.hpp"
 #include "quxlang/queries/type_placement_info.hpp"
 #include "quxlang/queries/uintpointer_type.hpp"
 #include "quxlang/queries/variable_type.hpp"
@@ -340,6 +343,7 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Emits code that creates a constexpr output proxy for result_id and calls value_type.SERIALIZE with result_val as THIS.
         auto co_emit_constexpr_serialoid_result(block_index& current_block, value_index result_val, type_symbol value_type, std::uint64_t result_id) -> co_type< void >
         {
             auto proxy = this->create_local_value(constexpr_proxy{});
@@ -350,6 +354,178 @@ namespace quxlang
             auto proxy_ref = this->create_reference(current_block, proxy, make_mref(type_symbol(constexpr_proxy{})));
             auto serialize_functum = submember{.of = std::move(value_type), .name = "SERIALIZE"};
             co_await this->co_gen_call_functum(current_block, serialize_functum, codegen_invocation_args{.named = {{"THIS", result_val}, {"OUTPUT_ITERATOR", proxy_ref}}});
+        }
+
+        /// Encodes an unsigned integer using UINTANY: continuation bytes carry seven payload bits and store remaining / 128 minus one.
+        auto encode_uintany(std::uint64_t value) -> std::vector< std::byte >
+        {
+            std::vector< std::byte > result;
+            while (value >= 128)
+            {
+                result.push_back(static_cast< std::byte >((value % 128) | 128));
+                value = (value / 128) - 1;
+            }
+            result.push_back(static_cast< std::byte >(value));
+            return result;
+        }
+
+        /// Creates a constexpr output proxy local and returns a mutable reference to it for the requested result ID.
+        auto create_constexpr_proxy_ref(block_index& current_block, std::uint64_t result_id) -> value_index
+        {
+            auto proxy = this->create_local_value(constexpr_proxy{});
+            this->emit(current_block, vmir2::constexpr_make_proxy{
+                                          .target = get_local_index(proxy),
+                                          .result_id = result_id,
+                                      });
+            return this->create_reference(current_block, proxy, make_mref(type_symbol(constexpr_proxy{})));
+        }
+
+        /// Emits one byte through a constexpr proxy reference while preserving the caller's reference for later writes.
+        auto co_emit_proxy_output_byte(block_index& current_block, value_index proxy_ref, value_index byte_value) -> co_type< void >
+        {
+            auto consumed_proxy_ref = this->copy_refernece_internal(current_block, proxy_ref);
+            this->emit(current_block, vmir2::constexpr_output_byte{
+                                          .proxy = get_local_index(consumed_proxy_ref),
+                                          .value = get_local_index(byte_value),
+                                      });
+            co_return;
+        }
+
+        /// Materializes a byte literal in the current block and emits it through the constexpr output proxy.
+        auto co_emit_constexpr_byte_value(block_index& current_block, value_index proxy_ref, std::byte byte) -> co_type< void >
+        {
+            auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
+            co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
+            co_return;
+        }
+
+        /// Emits each byte in order through the constexpr output proxy.
+        auto co_emit_constexpr_bytes(block_index& current_block, value_index proxy_ref, std::vector< std::byte > const& bytes) -> co_type< void >
+        {
+            for (auto byte : bytes)
+            {
+                co_await co_emit_constexpr_byte_value(current_block, proxy_ref, byte);
+            }
+            co_return;
+        }
+
+        /// Emits a string literal result as UINTANY byte length followed by the literal's bytes.
+        auto co_emit_constexpr_string_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
+        {
+            auto const& literal_slot = this->state.genvalues.at(static_cast< std::uint64_t >(literal));
+            if (!literal_slot.template type_is< codegen_literal >())
+            {
+                throw compiler_bug("string literal result is not a codegen literal");
+            }
+            auto const& literal_value = literal_slot.template get_as< codegen_literal >().value;
+
+            auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
+            co_await co_emit_constexpr_bytes(current_block, proxy_ref, encode_uintany(literal_value.size()));
+            co_await co_emit_constexpr_bytes(current_block, proxy_ref, literal_value);
+            co_return;
+        }
+
+        /// Emits a STRING_CONSTANT result by calling BEGIN and END, counting the bytes, writing the count as UINTANY, and then writing each byte.
+        auto co_emit_constexpr_string_constant_result(block_index& current_block, value_index string_value, std::uint64_t result_id) -> co_type< void >
+        {
+            auto string_type = remove_ref(this->current_type(current_block, string_value));
+            if (!typeis< readonly_constant >(string_type) || as< readonly_constant >(string_type).kind != constant_kind::string)
+            {
+                throw compiler_bug("constexpr string constant result requires STRING_CONSTANT input");
+            }
+
+            /// Returns a fresh reference suitable for passing as THIS to STRING_CONSTANT methods.
+            auto create_string_this_ref = [&]() -> value_index
+            {
+                auto current_string_type = this->current_type(current_block, string_value);
+                if (is_ref(current_string_type))
+                {
+                    return this->copy_refernece_internal(current_block, string_value);
+                }
+                return this->create_reference(current_block, string_value, make_cref(string_type));
+            };
+
+            auto begin_functum = submember{.of = string_type, .name = "BEGIN"};
+            auto end_functum = submember{.of = string_type, .name = "END"};
+            auto begin_iter = co_await this->co_gen_call_functum(current_block, begin_functum, codegen_invocation_args{.named = {{"THIS", create_string_this_ref()}}});
+            auto end_iter = co_await this->co_gen_call_functum(current_block, end_functum, codegen_invocation_args{.named = {{"THIS", create_string_this_ref()}}});
+            auto iter_type = this->current_type(current_block, begin_iter);
+            auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+
+            auto count = load_zero_value(current_block, uintptr_type);
+            auto count_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
+
+            auto count_condition_block = this->generate_subblock(current_block, "constexpr_string_count_condition");
+            auto count_body_block = this->generate_subblock(current_block, "constexpr_string_count_body");
+            auto emit_length_block = this->generate_subblock(current_block, "constexpr_string_emit_length");
+            this->generate_jump(current_block, count_condition_block);
+
+            auto count_iter_value = co_await co_construct_copy(count_condition_block, count_iter, iter_type);
+            auto count_end_value = co_await co_construct_copy(count_condition_block, end_iter, iter_type);
+            auto count_has_more = co_await co_generate_binary(count_condition_block, "<", count_iter_value, count_end_value);
+            this->generate_branch(count_has_more, count_condition_block, count_body_block, emit_length_block);
+
+            auto count_ref = this->create_reference(count_body_block, count, make_mref(uintptr_type));
+            auto one = create_small_uint_value(count_body_block, 1, uintptr_type);
+            auto old_count = co_await co_construct_copy(count_body_block, count, uintptr_type);
+            auto next_count = co_await co_generate_binary(count_body_block, "+", old_count, one);
+            co_await co_store_local_value(count_body_block, count, next_count, uintptr_type);
+            (void)count_ref;
+            auto count_iter_ref = this->create_reference(count_body_block, count_iter, make_mref(iter_type));
+            co_await co_generate_unary_postfix(count_body_block, "++", count_iter_ref);
+            this->generate_jump(count_body_block, count_condition_block);
+
+            current_block = emit_length_block;
+            auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
+            auto count_cref = this->create_reference(current_block, count, make_cref(uintptr_type));
+            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", proxy_ref}}});
+
+            auto emit_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
+            auto emit_condition_block = this->generate_subblock(current_block, "constexpr_string_emit_condition");
+            auto emit_body_block = this->generate_subblock(current_block, "constexpr_string_emit_body");
+            auto done_block = this->generate_subblock(current_block, "constexpr_string_emit_done");
+            this->generate_jump(current_block, emit_condition_block);
+
+            auto emit_iter_value = co_await co_construct_copy(emit_condition_block, emit_iter, iter_type);
+            auto emit_end_value = co_await co_construct_copy(emit_condition_block, end_iter, iter_type);
+            auto emit_has_more = co_await co_generate_binary(emit_condition_block, "<", emit_iter_value, emit_end_value);
+            this->generate_branch(emit_has_more, emit_condition_block, emit_body_block, done_block);
+
+            auto emit_iter_ref = this->create_reference(emit_body_block, emit_iter, make_mref(iter_type));
+            auto current_byte_ref = co_await co_generate_unary_postfix(emit_body_block, "->", co_await co_generate_unary_postfix(emit_body_block, "++", emit_iter_ref));
+            auto current_byte = load_reference_value(emit_body_block, current_byte_ref, byte_type{});
+            co_await co_emit_proxy_output_byte(emit_body_block, proxy_ref, current_byte);
+            this->generate_jump(emit_body_block, emit_condition_block);
+
+            current_block = done_block;
+            co_return;
+        }
+
+        /// Emits the constexpr string result for a literal, STRING_CONSTANT, or STRINGLIKE value into the selected result buffer.
+        auto co_emit_constexpr_string_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
+        {
+            auto result_type = this->current_type(current_block, result_val);
+            auto result_value_type = remove_ref(result_type);
+
+            if (typeis< string_literal_reference >(result_type))
+            {
+                co_await co_emit_constexpr_string_literal_result(current_block, result_val, result_id);
+                co_return;
+            }
+
+            if (typeis< readonly_constant >(result_value_type) && as< readonly_constant >(result_value_type).kind == constant_kind::string)
+            {
+                co_await co_emit_constexpr_string_constant_result(current_block, result_val, result_id);
+                co_return;
+            }
+
+            if (co_await rpnx::querygraph::request< type_is_stringlike_query >(result_value_type))
+            {
+                co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_value_type, result_id);
+                co_return;
+            }
+
+            throw std::logic_error("constexpr string evaluation requires STRING_CONSTANT or STRINGLIKE input, got: " + quxlang::to_string(result_type));
         }
 
         /// Generates a constexpr v3 routine that can return primary and static mutation results.
@@ -365,32 +541,48 @@ namespace quxlang
             if (expected_result_type.has_value())
             {
                 value_index result_val;
-                if (typeis< auto_temploidic >(*expected_result_type))
+                if (typeis< readonly_constant >(*expected_result_type) && as< readonly_constant >(*expected_result_type).kind == constant_kind::string)
+                {
+                    result_val = co_await this->co_generate_expr(current_block, expr);
+                    co_await this->co_emit_constexpr_string_result(current_block, result_val, constexpr_primary_result_id);
+                }
+                else if (typeis< auto_temploidic >(*expected_result_type))
                 {
                     result_val = co_await this->co_generate_expr(current_block, expr);
                     deduced_type = this->current_type(current_block, result_val);
+                    assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+                    assert(result_val != value_index(0));
+                    vmir2::constexpr_set_result2 csr;
+                    auto result_type = this->current_type(current_block, result_val);
+                    if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
+                    {
+                        co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_type, constexpr_primary_result_id);
+                    }
+                    else
+                    {
+                        csr.target = get_local_index(result_val);
+                        csr.result_id = constexpr_primary_result_id;
+                        this->emit(current_block, csr);
+                    }
                 }
                 else
                 {
                     result_val = co_await this->co_generate_typed_expr(current_block, expr, *expected_result_type);
-                }
-                assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
-                assert(result_val != value_index(0));
-                vmir2::constexpr_set_result2 csr;
-                if (!deduced_type.has_value())
-                {
+                    assert(current_block == block_index(0) || this->state.blocks.at(0).terminator.has_value());
+                    assert(result_val != value_index(0));
+                    vmir2::constexpr_set_result2 csr;
                     assert(this->current_type(current_block, result_val) == *expected_result_type);
-                }
-                auto result_type = this->current_type(current_block, result_val);
-                if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
-                {
-                    co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_type, constexpr_primary_result_id);
-                }
-                else
-                {
-                    csr.target = get_local_index(result_val);
-                    csr.result_id = constexpr_primary_result_id;
-                    this->emit(current_block, csr);
+                    auto result_type = this->current_type(current_block, result_val);
+                    if (co_await rpnx::querygraph::request< type_is_serialoid_query >(result_type))
+                    {
+                        co_await this->co_emit_constexpr_serialoid_result(current_block, result_val, result_type, constexpr_primary_result_id);
+                    }
+                    else
+                    {
+                        csr.target = get_local_index(result_val);
+                        csr.result_id = constexpr_primary_result_id;
+                        this->emit(current_block, csr);
+                    }
                 }
             }
             else
@@ -1777,7 +1969,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >();
+            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >();
         }
 
         // This implements builtin operators for primitives,
@@ -1859,6 +2051,14 @@ namespace quxlang
             assert(member);
 
             auto call = invotype_from_instatype(instanciation->params);
+
+            if (member->name == "CONSTRUCTOR" && cls->template type_is< constexpr_proxy >())
+            {
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && args.size() == 2)
+                {
+                    return vmir2::load_from_ref{.from_reference = get_local_index(args.named.at("OTHER")), .to_value = get_local_index(args.named.at("THIS"))};
+                }
+            }
 
             if (member->name == "OPERATOR??")
             {
@@ -4279,6 +4479,19 @@ namespace quxlang
             auto const& variable_decl = as< ast2_variable_declaration >(decl);
             auto storage_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"STORAGE"})).value();
 
+            if (co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol))
+            {
+                auto string_value = co_await rpnx::querygraph::request< string_static_value_query >(global_symbol);
+                auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, false);
+                this->emit(current_block, vmir2::load_const_value{
+                                              .target = get_local_index(storage_delegate),
+                                              .value = std::move(string_value.bytes),
+                                          });
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             if (co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol))
             {
                 auto serialoid_value = co_await rpnx::querygraph::request< serialoid_static_value_query >(global_symbol);
@@ -4365,6 +4578,7 @@ namespace quxlang
             }
 
             bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
+            bool const is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol);
 
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
@@ -4399,7 +4613,7 @@ namespace quxlang
                                               .target_ref = get_local_index(storage_ref),
                                           });
 
-                auto result_ref = this->create_local_value(is_serialoid_static ? make_cref(global_type) : make_mref(global_type));
+                auto result_ref = this->create_local_value((is_serialoid_static || is_string_static) ? make_cref(global_type) : make_mref(global_type));
                 this->emit(current_block, vmir2::storage_pun{
                                               .from_storage = get_local_index(storage_ref),
                                               .as_type = global_type,
@@ -4425,6 +4639,7 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Generates constexpr proxy ++ and -> builtins by returning the THIS reference unchanged.
         auto co_generate_builtin_constexpr_proxy_passthrough(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -4437,6 +4652,7 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Generates the constexpr proxy assignment builtin that appends OTHER as one byte to the proxy output buffer.
         auto co_generate_builtin_constexpr_proxy_output_byte(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -4537,6 +4753,7 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Selects an unsigned integer type for UINTANY and LEB128 arithmetic, widening BYTE and narrow integers to at least 16 bits.
         auto uintany_work_type(type_symbol const& value_type) -> type_symbol
         {
             if (value_type.type_is< byte_type >())
@@ -4561,6 +4778,7 @@ namespace quxlang
             return value_type;
         }
 
+        /// Emits a load_from_ref instruction and returns the new local containing the referenced value.
         auto load_reference_value(block_index& current_block, value_index ref, type_symbol const& value_type) -> value_index
         {
             auto value = this->create_local_value(value_type);
@@ -4568,6 +4786,7 @@ namespace quxlang
             return value;
         }
 
+        /// Emits a zero-initialized local of the requested type and returns its value index.
         auto load_zero_value(block_index& current_block, type_symbol const& value_type) -> value_index
         {
             auto value = this->create_local_value(value_type);
@@ -4575,14 +4794,21 @@ namespace quxlang
             return value;
         }
 
+        /// Constructs a new local by invoking the type's normal copy constructor machinery on the source value.
         auto co_construct_copy(block_index& current_block, value_index value, type_symbol const& value_type) -> co_type< value_index >
         {
             auto copy = this->create_local_value(value_type);
             auto ctor = submember{.of = value_type, .name = "CONSTRUCTOR"};
-            co_await co_gen_call_functum(current_block, ctor, codegen_invocation_args{.named = {{"OTHER", value}, {"THIS", copy}}}, allowed_adaptations::source_rebinding);
+            auto other = value;
+            if (!is_ref(this->current_type(current_block, other)))
+            {
+                other = this->create_reference(current_block, other, make_cref(value_type));
+            }
+            co_await co_gen_call_functum(current_block, ctor, codegen_invocation_args{.named = {{"OTHER", other}, {"THIS", copy}}}, allowed_adaptations::source_rebinding);
             co_return copy;
         }
 
+        /// Returns the original value when it already has the target type, otherwise emits an integer conversion to the target type.
         auto convert_value(block_index& current_block, value_index value, type_symbol const& target_type) -> value_index
         {
             if (this->current_type(current_block, value) == target_type)
@@ -4595,6 +4821,7 @@ namespace quxlang
             return converted;
         }
 
+        /// Emits a small unsigned integer constant into a new local of the requested target type.
         auto create_small_uint_value(block_index& current_block, std::uint64_t value, type_symbol const& target_type) -> value_index
         {
             auto result = this->create_local_value(target_type);
@@ -4605,6 +4832,7 @@ namespace quxlang
             return result;
         }
 
+        /// Stores a value into an existing local by taking a mutable reference and using the ordinary assignment operator path.
         auto co_store_local_value(block_index& current_block, value_index local, value_index value, type_symbol const& value_type) -> co_type< void >
         {
             auto local_ref = this->create_reference(current_block, local, make_mref(value_type));
@@ -4612,6 +4840,7 @@ namespace quxlang
             co_return;
         }
 
+        /// Writes one byte through the OUTPUT_ITERATOR argument using the language-level ++, ->, and := iterator operations.
         auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
         {
             auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
@@ -4626,6 +4855,7 @@ namespace quxlang
             co_return;
         }
 
+        /// Reads one byte from the INPUT_ITERATOR argument using the language-level ++ and -> iterator operations.
         auto co_read_input_byte(block_index& current_block) -> co_type< value_index >
         {
             auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
@@ -4639,6 +4869,7 @@ namespace quxlang
             co_return load_reference_value(current_block, input_deref, byte_type{});
         }
 
+        /// Generates the shared unsigned variable-length integer serializer; offset_long_encodings selects UINTANY offset continuation semantics instead of plain LEB128.
         auto co_generate_builtin_serialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -4709,16 +4940,19 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Generates SERIALIZE_UINTANY, which writes UINTANY bytes to OUTPUT_ITERATOR and returns that iterator.
         auto co_generate_builtin_serialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_serialize_varuint(func, true);
         }
 
+        /// Generates SERIALIZE_LEB128, which writes unsigned LEB128 bytes to OUTPUT_ITERATOR and returns that iterator.
         auto co_generate_builtin_serialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_serialize_varuint(func, false);
         }
 
+        /// Generates the shared unsigned variable-length integer deserializer; offset_long_encodings selects UINTANY offset continuation semantics instead of plain LEB128.
         auto co_generate_builtin_deserialize_varuint(instanciation_reference const& func, bool offset_long_encodings) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
@@ -4800,11 +5034,13 @@ namespace quxlang
             co_return get_result();
         }
 
+        /// Generates DESERIALIZE_UINTANY, which reads UINTANY bytes from INPUT_ITERATOR into VALUE and returns that iterator.
         auto co_generate_builtin_deserialize_uintany(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_deserialize_varuint(func, true);
         }
 
+        /// Generates DESERIALIZE_LEB128, which reads unsigned LEB128 bytes from INPUT_ITERATOR into VALUE and returns that iterator.
         auto co_generate_builtin_deserialize_leb128(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
         {
             co_return co_await co_generate_builtin_deserialize_varuint(func, false);

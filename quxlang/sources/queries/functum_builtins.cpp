@@ -130,7 +130,8 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             auto is_antestatal_static = co_await rpnx::querygraph::request< global_is_antestatal_static_query >(parent);
             auto is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(parent);
-            auto ref_type = (is_antestatal_static || is_serialoid_static) ? make_cref(variable_type) : make_mref(variable_type);
+            auto is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(parent);
+            auto ref_type = (is_antestatal_static || is_serialoid_static || is_string_static) ? make_cref(variable_type) : make_mref(variable_type);
             add_overload({}, {}, ref_type);
             co_return allowed_operations;
         }

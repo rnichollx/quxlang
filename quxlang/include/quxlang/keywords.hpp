@@ -19,6 +19,7 @@ namespace quxlang
         const std::string antestatal = "ANTESTATAL";
         const std::string serialoid = "SERIALOID";
         const std::string nonstatic = "NONSTATIC";
+        const std::string stringlike = "STRINGLIKE";
 
 
         std::set< std::string > const class_keywords = {
@@ -31,6 +32,7 @@ namespace quxlang
             keywords::antestatal,
             keywords::serialoid,
             keywords::nonstatic,
+            keywords::stringlike,
         };
 
         inline std::set< std::string > get_subentity_keywords()

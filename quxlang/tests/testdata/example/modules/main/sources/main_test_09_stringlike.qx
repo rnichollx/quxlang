@@ -1,0 +1,133 @@
+::literal_string_static STATIC STRING_CONSTANT := "hello";
+::copied_string_static STATIC STRING_CONSTANT := literal_string_static;
+
+::fixed_stringlike CLASS STRINGLIKE
+{
+  .which VAR BYTE;
+
+  .CONSTRUCTOR FUNCTION(@OTHER BYTE)
+  {
+    .which := OTHER;
+  }
+
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output &AUTO(it_type))
+  {
+    IF (.which == BYTE(@OTHER 0))
+    {
+      VAR len U64 := 0;
+      output := SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
+      RETURN output;
+    }
+    ELSE
+    {
+      VAR len U64 := 3;
+      SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
+      (output++)-> := 'f';
+      (output++)-> := 'o';
+      (output++)-> := 'o';
+    }
+  }
+}
+
+::stringlike_string_static STATIC STRING_CONSTANT := fixed_stringlike(@OTHER BYTE(@OTHER 1));
+::empty_stringlike_string_static STATIC STRING_CONSTANT := fixed_stringlike(@OTHER BYTE(@OTHER 0));
+
+::string_constant_literal_static_test STATIC_TEST
+{
+  VAR it CONST=>> BYTE := literal_string_static.BEGIN();
+  ASSERT((it++)-> == 'h');
+  ASSERT((it++)-> == 'e');
+  ASSERT((it++)-> == 'l');
+  ASSERT((it++)-> == 'l');
+  ASSERT((it++)-> == 'o');
+  ASSERT(it == literal_string_static.END());
+}
+
+::string_constant_copy_static_test STATIC_TEST
+{
+  VAR it CONST=>> BYTE := copied_string_static.BEGIN();
+  ASSERT((it++)-> == 'h');
+  ASSERT((it++)-> == 'e');
+  ASSERT((it++)-> == 'l');
+  ASSERT((it++)-> == 'l');
+  ASSERT((it++)-> == 'o');
+  ASSERT(it == copied_string_static.END());
+}
+
+::stringlike_static_string_constant_test STATIC_TEST
+{
+  VAR it CONST=>> BYTE := stringlike_string_static.BEGIN();
+  ASSERT((it++)-> == 'f');
+  ASSERT((it++)-> == 'o');
+  ASSERT((it++)-> == 'o');
+  ASSERT(it == stringlike_string_static.END());
+}
+
+::empty_stringlike_static_string_constant_test STATIC_TEST
+{
+  ASSERT(empty_stringlike_string_static.BEGIN() == empty_stringlike_string_static.END());
+}
+
+::bad_stringlike_no_serialize CLASS STRINGLIKE
+{
+}
+
+::bad_stringlike_no_serialize_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  STATIC bad STRING_CONSTANT := bad_stringlike_no_serialize();
+  ASSERT(bad.BEGIN() == bad.END());
+}
+
+::bad_stringlike_too_short CLASS STRINGLIKE
+{
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    VAR len U64 := 2;
+    SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
+    (output++)-> := 'x';
+  }
+}
+
+::bad_stringlike_too_short_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  STATIC bad STRING_CONSTANT := bad_stringlike_too_short();
+  ASSERT(bad.BEGIN() == bad.END());
+}
+
+::bad_stringlike_trailing CLASS STRINGLIKE
+{
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    VAR len U64 := 1;
+    SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
+    (output++)-> := 'x';
+    (output++)-> := 'y';
+  }
+}
+
+::bad_stringlike_trailing_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  STATIC bad STRING_CONSTANT := bad_stringlike_trailing();
+  ASSERT(bad.BEGIN() == bad.END());
+}
+
+::bad_stringlike_malformed CLASS STRINGLIKE
+{
+  .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
+  {
+    (output++)-> := BYTE(@OTHER 128);
+  }
+}
+
+::bad_stringlike_malformed_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  STATIC bad STRING_CONSTANT := bad_stringlike_malformed();
+  ASSERT(bad.BEGIN() == bad.END());
+}
+
+::runtime_stringlike_to_string_constant_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR probe fixed_stringlike := fixed_stringlike(@OTHER BYTE(@OTHER 1));
+  VAR value STRING_CONSTANT := probe;
+  ASSERT(value.BEGIN() == value.END());
+}

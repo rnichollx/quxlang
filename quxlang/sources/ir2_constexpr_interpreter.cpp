@@ -2014,29 +2014,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_output_byte const& cob)
 {
-    auto proxy_slot = consume_local(cob.proxy);
+    auto proxy_slot = get_current_frame().local_values[cob.proxy];
+    if (proxy_slot == nullptr || !proxy_slot->alive())
+    {
+        throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a live constexpr proxy reference slot");
+    }
     auto value = use_data(cob.value);
-    consume_local(cob.value);
     if (value.size() != 1)
     {
         throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a single-byte value");
     }
 
-    std::shared_ptr< local > proxy_object = proxy_slot;
     auto proxy_type = get_local_type(cob.proxy);
-    if (is_ref(proxy_type))
+    if (!is_ref(proxy_type))
     {
-        if (!proxy_slot->ref.has_value() || !proxy_slot->ref->pointer_target.has_value())
-        {
-            throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a valid constexpr proxy reference");
-        }
-        proxy_object = proxy_slot->ref->pointer_target->lock();
+        throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a constexpr proxy reference");
     }
+    if (!proxy_slot->ref.has_value() || !proxy_slot->ref->pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a valid constexpr proxy reference");
+    }
+    auto proxy_object = proxy_slot->ref->pointer_target->lock();
     if (proxy_object == nullptr || !proxy_object->alive() || !proxy_object->constexpr_proxy_output_id.has_value())
     {
         throw constexpr_logic_execution_error("CE_OUTPUT_BYTE requires a live constexpr proxy");
     }
 
+    consume_local(cob.proxy);
+    consume_local(cob.value);
     constexpr_result_serialoid_values[*proxy_object->constexpr_proxy_output_id].bytes.push_back(value.front());
 }
 
@@ -2045,9 +2050,24 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto& frame = get_current_frame();
     auto target_type = get_local_type(lcv.target);
     auto output_obj = output(lcv.target);
-    auto target_data = constdata(lcv.value);
+    if (!output_obj->struct_members.contains("__start") || !output_obj->struct_members.contains("__end"))
+    {
+        auto storage_owner = output_obj->storage_owner;
+        auto storage_projection_type = output_obj->storage_projection_type;
+        auto storage_destroy_delegate = output_obj->storage_destroy_delegate;
+        init_storage(output_obj, target_type);
+        output_obj->storage_owner = std::move(storage_owner);
+        output_obj->storage_projection_type = std::move(storage_projection_type);
+        output_obj->storage_destroy_delegate = storage_destroy_delegate;
+    }
+    auto const_data_bytes = lcv.value;
+    if (const_data_bytes.empty())
+    {
+        const_data_bytes.push_back(std::byte{0});
+    }
+    auto target_data = constdata(const_data_bytes);
     auto start_ptr_impl = make_pointer_to(target_data->array_members.at(0));
-    auto end_ptr_impl = pointer_arith(start_ptr_impl, lcv.value.size(), void_type{});
+    auto end_ptr_impl = lcv.value.empty() ? start_ptr_impl : pointer_arith(start_ptr_impl, lcv.value.size(), void_type{});
     auto start_ptr_object = output_obj->struct_members["__start"];
     auto end_ptr_object = output_obj->struct_members["__end"];
     begin_lifetime(start_ptr_object);
@@ -2135,6 +2155,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto target_slot = output_local(lfr.to_value);
     target_slot->data = load_from.data;
     target_slot->ref = load_from.ref;
+    target_slot->constexpr_proxy_output_id = load_from.constexpr_proxy_output_id;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {

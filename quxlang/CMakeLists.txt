@@ -205,6 +205,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/class_trivially_destructible_spec.hpp
         include/quxlang/queries/specs/constexpr_bool_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp
+        include/quxlang/queries/specs/constexpr_eval_string_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_v3_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_spec.hpp
         include/quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp
@@ -239,6 +240,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/functum_user_overloads_spec.hpp
         include/quxlang/queries/specs/global_is_antestatal_static_spec.hpp
         include/quxlang/queries/specs/global_is_serialoid_static_spec.hpp
+        include/quxlang/queries/specs/global_is_string_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp
         include/quxlang/queries/specs/implicitly_convertible_to_spec.hpp
@@ -262,6 +264,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/source_file_id_spec.hpp
         include/quxlang/queries/specs/source_file_index_spec.hpp
         include/quxlang/queries/specs/source_file_name_spec.hpp
+        include/quxlang/queries/specs/string_static_value_spec.hpp
         include/quxlang/queries/specs/symboid_spec.hpp
         include/quxlang/queries/specs/symboid_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
@@ -270,6 +273,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/templex_initialize_spec.hpp
         include/quxlang/queries/specs/type_is_antestatal_spec.hpp
         include/quxlang/queries/specs/type_is_serialoid_spec.hpp
+        include/quxlang/queries/specs/type_is_stringlike_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
         include/quxlang/queries/specs/type_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
@@ -326,6 +330,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/class_trivially_destructible.cpp
         sources/queries/constexpr_bool.cpp
         sources/queries/constexpr_eval_antestatal.cpp
+        sources/queries/constexpr_eval_string.cpp
         sources/queries/constexpr_eval.cpp
         sources/queries/constexpr_routine_antestatal.cpp
         sources/queries/constexpr_routine.cpp
@@ -359,6 +364,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/functum_user_overloads.cpp
         sources/queries/global_is_antestatal_static.cpp
         sources/queries/global_is_serialoid_static.cpp
+        sources/queries/global_is_string_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
         sources/queries/have_nontrivial_member_dtor.cpp
         sources/queries/implicitly_convertible_to.cpp
@@ -382,6 +388,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/source_file_id.cpp
         sources/queries/source_file_index.cpp
         sources/queries/source_file_name.cpp
+        sources/queries/string_static_value.cpp
         sources/queries/sintpointer_type.cpp
         sources/queries/symboid.cpp
         sources/queries/symboid_subdeclaroids.cpp
@@ -395,6 +402,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/templex_select_template.cpp
         sources/queries/type_is_antestatal.cpp
         sources/queries/type_is_serialoid.cpp
+        sources/queries/type_is_stringlike.cpp
         sources/queries/type_is_implicitly_datatype.cpp
         sources/queries/type_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp

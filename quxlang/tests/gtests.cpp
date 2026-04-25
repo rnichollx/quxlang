@@ -23,13 +23,22 @@
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/constexpr_bool.hpp>
+#include <quxlang/queries/convertible_by_call.hpp>
+#include <quxlang/queries/ensig_argument_initialize.hpp>
+#include <quxlang/queries/function_builtin.hpp>
+#include <quxlang/queries/functum_builtin_overloads.hpp>
+#include <quxlang/queries/functum_user_overloads.hpp>
+#include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/templex_select_template.hpp>
 #include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/vm_procedure3.hpp>
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
 
@@ -160,12 +169,13 @@ TEST(parsing, parse_empty_class)
 
 TEST(parsing, parse_static_classification_keywords)
 {
-    auto cl = try_parse_class_text("CLASS ANTESTATAL SERIALOID NONSTATIC { }");
+    auto cl = try_parse_class_text("CLASS ANTESTATAL SERIALOID NONSTATIC STRINGLIKE { }");
 
     ASSERT_TRUE(cl.has_value());
     EXPECT_TRUE(cl->class_keywords.contains("ANTESTATAL"));
     EXPECT_TRUE(cl->class_keywords.contains("SERIALOID"));
     EXPECT_TRUE(cl->class_keywords.contains("NONSTATIC"));
+    EXPECT_TRUE(cl->class_keywords.contains("STRINGLIKE"));
 }
 
 TEST(parsing, constexpr_proxy_type_symbol_is_internal_only)
@@ -909,6 +919,28 @@ TEST(vmir_constexpr_interpreter, constexpr_proxy_outputs_bytes_in_order)
     auto outputs = interp.get_cr_serialoid_values();
     ASSERT_TRUE(outputs.contains(23));
     EXPECT_EQ(outputs.at(23).bytes, (std::vector{std::byte{17}, std::byte{34}}));
+}
+
+TEST(vmir_constexpr_interpreter, constexpr_output_byte_rejects_proxy_object)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::constexpr_proxy{}},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::constexpr_make_proxy{.target = quxlang::vmir2::local_index(1), .result_id = 23},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "17"},
+            quxlang::vmir2::constexpr_output_byte{.proxy = quxlang::vmir2::local_index(1), .value = quxlang::vmir2::local_index(2)},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    EXPECT_THROW(interp.exec3(quxlang::void_type{}), quxlang::constexpr_logic_execution_error);
 }
 
 TEST(vmir_constexpr_interpreter, missing_static_localdata_is_compiler_bug)

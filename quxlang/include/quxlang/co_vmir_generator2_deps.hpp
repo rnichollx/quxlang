@@ -25,6 +25,7 @@
 #include <quxlang/queries/functum_overloads.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
+#include <quxlang/queries/global_is_string_static.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
@@ -32,11 +33,13 @@
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/serialoid_static_value.hpp>
+#include <quxlang/queries/string_static_value.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/type_is_implicitly_datatype.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
+#include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 
@@ -60,6 +63,7 @@ namespace quxlang
         functum_overloads_query,
         global_is_antestatal_static_query,
         global_is_serialoid_static_query,
+        global_is_string_static_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
         lookup_query,
@@ -67,10 +71,12 @@ namespace quxlang
         module_options_map_query,
         symboid_query,
         serialoid_static_value_query,
+        string_static_value_query,
         symbol_type_query,
         template_builtin_query,
         type_placement_info_query,
         type_is_serialoid_query,
+        type_is_stringlike_query,
         uintpointer_type_query,
         variable_type_query >;
 
@@ -90,6 +96,7 @@ namespace quxlang
         functum_overloads_query,
         global_is_antestatal_static_query,
         global_is_serialoid_static_query,
+        global_is_string_static_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
         lookup_query,
@@ -97,10 +104,12 @@ namespace quxlang
         module_options_map_query,
         symboid_query,
         serialoid_static_value_query,
+        string_static_value_query,
         symbol_type_query,
         template_builtin_query,
         type_placement_info_query,
         type_is_serialoid_query,
+        type_is_stringlike_query,
         uintpointer_type_query,
         variable_type_query,
         builtin_assignment_vm_procedure3_query,

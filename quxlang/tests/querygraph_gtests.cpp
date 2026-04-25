@@ -24,6 +24,7 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
+#include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include "graph_dump_test_utils.hpp"
@@ -570,6 +571,23 @@ TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_con
 
     EXPECT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(plain_static));
     EXPECT_TRUE(graph.make_request< quxlang::global_is_serialoid_static_query >(serial_static));
+}
+
+TEST(querygraph_queries, type_is_stringlike_requires_class_tag)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::plain CLASS { .x VAR I32; }
+::textish CLASS STRINGLIKE { .x VAR I32; }
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto plain = quxlang::type_symbol(quxlang::subsymbol{main, "plain"});
+    auto textish = quxlang::type_symbol(quxlang::subsymbol{main, "textish"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_stringlike_query >(plain));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_stringlike_query >(textish));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_stringlike_query >(i32));
 }
 
 TEST(querygraph_queries, global_static_i32_is_antestatal_and_materializes_value)

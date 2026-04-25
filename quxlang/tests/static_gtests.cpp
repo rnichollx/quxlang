@@ -5,6 +5,8 @@
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_file.hpp>
+#include <quxlang/queries/list_static_tests.hpp>
+#include <quxlang/queries/run_static_test.hpp>
 #include <quxlang/source_loader.hpp>
 
 #include "graph_dump_test_utils.hpp"
