@@ -54,43 +54,6 @@
 
 }
 
-::string CLASS
-{
-   .data VAR =>> BYTE;
-   .length VAR SZ;
-   .capacity VAR SZ;
-
-
-   .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
-   {
-      VAR len SZ := OTHER.END() - OTHER.BEGIN();
-      .length := len;
-      RUNTIME CONSTEXPR {
-      // Need to implement constexpr allocator.
-      //  .data = CONSTEXPR_ALLOC(BYTE, len);
-      } ELSE {
-        // Native runtime, need to write standard library allocator first
-        UNIMPLEMENTED;
-      }
-   }
-
-   .push_back FUNCTION( @val BYTE )
-   {
-     IF ( .capacity > .length )
-     {
-        PLACE AT(.data + .length) BYTE := val;
-        .length++;
-     } ELSE {
-        UNIMPLEMENTED;
-     }
-   }
-
-   .pop_back FUNCTION()
-   {
-      DESTROY AT(.data + .length - 1) BYTE;
-      .length--;
-   }
-}
 
 
 
@@ -198,10 +161,11 @@
   ASSERT(second??);
   ASSERT(third??);
   ASSERT((PUN (slots->) AS BYTE) == 7);
-  ASSERT((PUN ((slots + 1)->) AS BYTE) == 9);
+  ASSERT((PUN slots[1] AS BYTE) == 9);
   ASSERT((PUN ((slots + 2)->) AS BYTE) == 11);
+  ASSERT((slots[&1] - slots) == 1);
   DESTROY AT((slots + 2)->) BYTE;
-  DESTROY AT((slots + 1)->) BYTE;
+  DESTROY AT(slots[1]) BYTE;
   DESTROY AT(slots->) BYTE;
   CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
   RETURN 27;

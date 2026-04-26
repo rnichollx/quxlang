@@ -219,6 +219,18 @@ TEST(parsing, parse_class_constructor)
     ASSERT_TRUE(cl.has_value());
 }
 
+TEST(parsing, parse_class_bracket_operators)
+{
+    auto cl = try_parse_class_text("CLASS { .OPERATOR[] FUNCTION(@OTHER SZ): BYTE { RETURN 0; } .OPERATOR[&] FUNCTION(@OTHER SZ): =>> BYTE { UNIMPLEMENTED; } }");
+
+    ASSERT_TRUE(cl.has_value());
+    ASSERT_EQ(cl->declarations.size(), 2);
+    ASSERT_TRUE(cl->declarations.at(0).type_is< quxlang::member_subdeclaroid >());
+    ASSERT_TRUE(cl->declarations.at(1).type_is< quxlang::member_subdeclaroid >());
+    EXPECT_EQ(cl->declarations.at(0).get_as< quxlang::member_subdeclaroid >().name, "OPERATOR[]");
+    EXPECT_EQ(cl->declarations.at(1).get_as< quxlang::member_subdeclaroid >().name, "OPERATOR[&]");
+}
+
 TEST(parsing, parse_class_constructor_delegates)
 {
     std::string test_string = "CLASS { .CONSTRUCTOR FUNCTION(%a I32) :> .x:(1) { } }";
@@ -364,6 +376,8 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     ASSERT_EQ(parse_type_symbol("CONST& (foo::bar)"), const_foo_bar);
     ASSERT_EQ(parse_type_symbol("(CONST& foo)::bar"), type_symbol(subsymbol{.of = const_foo, .name = "bar"}));
     ASSERT_EQ(parse_type_symbol("(CONST& foo)::.bar"), type_symbol(submember{.of = const_foo, .name = "bar"}));
+    ASSERT_EQ(parse_type_symbol("(CONST& foo)::.OPERATOR[]"), type_symbol(submember{.of = const_foo, .name = "OPERATOR[]"}));
+    ASSERT_EQ(parse_type_symbol("(CONST& foo)::.OPERATOR[&]"), type_symbol(submember{.of = const_foo, .name = "OPERATOR[&]"}));
 
     auto expect_round_trip = [](type_symbol const& symbol, std::string const& expected) {
         auto printed = to_string(symbol);
@@ -374,6 +388,8 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     expect_round_trip(const_foo_bar, "CONST& foo::bar");
     expect_round_trip(type_symbol(subsymbol{.of = const_foo, .name = "bar"}), "(CONST& foo)::bar");
     expect_round_trip(type_symbol(submember{.of = const_foo, .name = "bar"}), "(CONST& foo)::.bar");
+    expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[]"}), "(CONST& foo)::.OPERATOR[]");
+    expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[&]"}), "(CONST& foo)::.OPERATOR[&]");
 
     ASSERT_TRUE(typeis< instanciation_reference >(parse_type_symbol("foo #{bar}")));
 }
@@ -679,9 +695,10 @@ TEST(parsing, constexpr_allocator_storage_statements)
 {
   VAR count SZ := 2;
   VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
-  PLACE AT((slots + 1)->) BYTE := 9;
-  ASSERT((PUN ((slots + 1)->) AS BYTE) == 9);
-  DESTROY AT((slots + 1)->) BYTE;
+  PLACE AT(slots[1]) BYTE := 9;
+  ASSERT((PUN slots[1] AS BYTE) == 9);
+  ASSERT((slots[&1] - slots) == 1);
+  DESTROY AT(slots[1]) BYTE;
   CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
 }
 )QX"));

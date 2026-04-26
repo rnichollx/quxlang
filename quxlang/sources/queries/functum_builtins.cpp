@@ -194,13 +194,29 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
+    if ((name == "OPERATOR[]" || name == "OPERATOR[&]") && parent.type_is< ptrref_type >())
+    {
+        auto const& ptr = parent.get_as< ptrref_type >();
+        if (ptr.ptr_class == pointer_class::array)
+        {
+            if (name == "OPERATOR[]")
+            {
+                add_overload({uintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual});
+                add_overload({sintptr_type}, {{"THIS", parent}}, ptrref_type{.target = ptr.target, .ptr_class = pointer_class::ref, .qual = ptr.qual});
+            }
+            else
+            {
+                add_overload({uintptr_type}, {{"THIS", parent}}, parent);
+                add_overload({sintptr_type}, {{"THIS", parent}}, parent);
+            }
+        }
+    }
+
     if (parent.type_is< readonly_constant >() && (name == "BEGIN" || name == "END"))
     {
         add_overload({}, {{"THIS", make_cref(parent)}}, byte_ptr_type);
         co_return allowed_operations;
     }
-
-    // TODO: Add support for OPERATOR[] and OPERATOR[&] for array pointers
 
     if (name.starts_with("OPERATOR"))
     {

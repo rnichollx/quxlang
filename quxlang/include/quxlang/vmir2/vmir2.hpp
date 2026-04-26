@@ -32,6 +32,7 @@ namespace quxlang
     {
         struct access_field;
         struct access_array;
+        struct access_pointer;
         struct ret;
         struct invoke;
         struct invoke_indirect;
@@ -206,6 +207,7 @@ namespace quxlang
             destroy,
             end_lifetime,
             access_array,
+            access_pointer,
             to_bool,
             to_bool_not,
             increment,
@@ -548,6 +550,14 @@ namespace quxlang
             local_index index_index = local_index(0);
             local_index store_index = local_index(0);
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(access_array, base_index, index_index, store_index);
+        };
+
+        struct access_pointer
+        {
+            local_index base_index = local_index(0);
+            local_index index_index = local_index(0);
+            local_index store_index = local_index(0);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(access_pointer, base_index, index_index, store_index);
         };
 
         struct invoke

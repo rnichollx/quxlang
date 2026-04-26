@@ -43,7 +43,31 @@ namespace quxlang::parsers
         if (kw == "OPERATOR")
         {
             skip_whitespace(pos, end);
-            auto sym = parse_symbol(pos, end);
+            std::string sym;
+            if (pos != end && *pos == '[')
+            {
+                ++pos;
+                if (pos != end && *pos == '&')
+                {
+                    ++pos;
+                    sym = "[&";
+                }
+                else
+                {
+                    sym = "[";
+                }
+
+                if (pos == end || *pos != ']')
+                {
+                    throw std::logic_error("Expected ']' after operator '['");
+                }
+                ++pos;
+                sym += "]";
+            }
+            else
+            {
+                sym = parse_symbol(pos, end);
+            }
             if (sym.empty())
             {
                 throw std::logic_error("Expected operator symbol");

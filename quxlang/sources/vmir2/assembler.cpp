@@ -522,6 +522,13 @@ namespace quxlang::vmir2
         return result;
     }
 
+    std::string assembler::to_string_internal(vmir2::access_pointer inst)
+    {
+        std::string result;
+        result += "ACCESS_POINTER %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.index_index) + ", %" + std::to_string(inst.store_index);
+        return result;
+    }
+
     std::string assembler::to_string_internal(vmir2::invoke inst)
     {
         return "INVOKE " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);

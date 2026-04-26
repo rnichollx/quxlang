@@ -279,6 +279,12 @@ namespace quxlang::vmir2
             consume(aca.index_index);
             output(aca.store_index);
         }
+        void apply_internal(vmir2::access_pointer const& acp)
+        {
+            consume(acp.base_index);
+            consume(acp.index_index);
+            output(acp.store_index);
+        }
         void apply_internal(vmir2::invoke const& inv)
         {
             check_state_valid();

@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/keyword.hpp>
+#include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/symbol.hpp>
 
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
@@ -31,7 +32,7 @@ namespace quxlang::parsers
         {
             return std::nullopt;
         }
-        std::string name = parse_identifier(trial.iter_pos, trial.iter_end);
+        std::string name = parse_subentity(trial.iter_pos, trial.iter_end);
 
         if (name.empty())
         {

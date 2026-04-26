@@ -346,6 +346,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::to_bool const& lcz);
     void exec_instr_val(vmir2::to_bool_not const& acf);
     void exec_instr_val(vmir2::access_array const& aca);
+    void exec_instr_val(vmir2::access_pointer const& acp);
     void exec_instr_val(vmir2::invoke const& inv);
     void exec_instr_val(vmir2::invoke_indirect const& inv);
     void exec_instr_val(vmir2::get_procedure_ptr const& gpp);
@@ -1420,6 +1421,43 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     begin_lifetime(field);
 
     parent_ref_slot = nullptr;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::access_pointer const& acp)
+{
+    auto ptr = load_as_pointer(acp.base_index, true);
+
+    auto const& offset_type = get_local_type(acp.index_index);
+    if (!offset_type.type_is< int_type >())
+    {
+        throw compiler_bug("Error in [access_pointer]: index is not an integer");
+    }
+
+    auto offset_val = consume_local_as_data(acp.index_index);
+    auto [offset, ok] = bytemath::le_int_fixed_to_unlimited(get_fixed_int_options(offset_type), offset_val).to_int< std::int64_t >();
+    assert(ok);
+
+    auto ref_type = get_local_type(acp.store_index);
+    if (!is_ref(ref_type))
+    {
+        throw compiler_bug("Attempt to index pointer into non-reference type");
+    }
+
+    pointer_impl new_ptr = pointer_arith(ptr, offset, ref_type);
+    if (!new_ptr.pointer_target.has_value())
+    {
+        throw constexpr_logic_execution_error("Array pointer index out of bounds in constexpr execution");
+    }
+
+    auto& field = get_current_frame().local_values[acp.store_index];
+    if (field != nullptr)
+    {
+        throw compiler_bug("trying to load pointer index into existing slot");
+    }
+
+    create_local_value(acp.store_index, false);
+    field->ref = new_ptr;
+    begin_lifetime(field);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::invoke const& inv)
@@ -5408,26 +5446,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw compiler_bug("Error in [pointer_arith]: offset is not an integer");
     }
 
-    auto const& offset_int = offset_type.get_as< int_type >();
-
-    // TODO: Handle signed offsets
-    if (offset_int.has_sign)
-    {
-        throw rpnx::unimplemented();
-    }
     auto offset_val = consume_local_as_data(par.offset);
 
     std::int64_t offset = 0;
     bool ok = false;
+    auto offset_unlimited = bytemath::le_int_fixed_to_unlimited(get_fixed_int_options(offset_type), offset_val);
 
     if (par.multiplier == -1)
     {
-        auto offset_val_s = bytemath::unlimited_int_signed_sub_le(bytemath::sle_int_unlimited{{std::byte(0)}, false}, bytemath::sle_int_unlimited{offset_val, false});
+        auto offset_val_s = bytemath::unlimited_int_signed_sub_le(bytemath::sle_int_unlimited{0}, std::move(offset_unlimited));
         std::tie(offset, ok) = offset_val_s.to_int< std::int64_t >();
     }
     else
     {
-        std::tie(offset, ok) = bytemath::sle_int_unlimited{offset_val, false}.to_int< std::int64_t >();
+        std::tie(offset, ok) = offset_unlimited.to_int< std::int64_t >();
     }
     // TODO: Handle !ok
 
@@ -5465,8 +5497,27 @@ std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexp
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pointer_diff const& pdf)
 {
-    // Stub implementation for pointer_diff
-    throw rpnx::unimplemented();
+    auto from = load_as_pointer(pdf.from, true);
+    auto to = load_as_pointer(pdf.to, true);
+
+    auto from_array = pointer_memberof(from);
+    auto to_array = pointer_memberof(to);
+    if (!from_array.has_value() || !to_array.has_value() || from_array->lock() != to_array->lock())
+    {
+        throw constexpr_logic_execution_error("pointer difference requires pointers into the same array");
+    }
+
+    auto array = from_array->lock();
+    auto diff = pointer_offset_in_array(array, from) - pointer_offset_in_array(array, to);
+    auto result_type = get_local_type(pdf.result);
+    auto byte_result = bytemath::unlimited_to_fixed(get_fixed_int_options(result_type), bytemath::sle_int_unlimited{diff});
+    if (byte_result.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error("overflow in pointer difference");
+    }
+
+    auto result = output_local(pdf.result);
+    local_set_data(result, std::move(byte_result.data_bytes));
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::array_init_start const& ais)
 {

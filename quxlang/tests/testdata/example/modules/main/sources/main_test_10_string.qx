@@ -1,0 +1,131 @@
+
+::string CLASS
+  STRINGLIKE
+{
+   .data VAR =>>STORAGE(BYTE);
+   .length VAR SZ;
+   .capacity VAR SZ;
+
+   .CONSTRUCTOR FUNCTION()
+   {
+   }
+
+   .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
+   {
+      VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
+      RUNTIME CONSTEXPR {
+        // Need to implement constexpr allocator.
+        .data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(len);
+        .capacity := len;
+        WHILE ( .length < len )
+        {
+           PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
+           .length++;
+        }
+      } ELSE {
+        // Native runtime, need to write standard library allocator first
+        UNIMPLEMENTED;
+      }
+   }
+
+   .push_back FUNCTION( @val BYTE )
+   {
+     IF ( .capacity > .length )
+     {
+        PLACE AT(.data[.length]) BYTE := val;
+        .length++;
+     } ELSE {
+        .reserve(@capacity .capacity*2);
+     }
+   }
+
+   .reserve FUNCTION( @capacity SZ )
+   {
+      VAR original_capacity SZ := .capacity;
+      IF ( .capacity < capacity )
+      {
+         VAR new_data =>>STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(capacity);
+         VAR i SZ := 0;
+         WHILE ( i < .length )
+         {
+            PLACE AT(new_data[i]) BYTE := PUN .data[i] AS BYTE;
+            i++;
+         }
+         IF ( original_capacity > 0 )
+         {
+            CONSTEXPR_DEALLOC_MULTIPLE#BYTE(.data, original_capacity);
+         }
+         .data := new_data;
+         .capacity := capacity;
+      }
+   }
+
+   .pop_back FUNCTION()
+   {
+      DESTROY AT(.data + .length - 1) BYTE;
+      .length--;
+   }
+
+   .OPERATOR+ FUNCTION(@OTHER CONST& string): string
+   {
+     VAR result string;
+
+     VAR total_length SZ := .length + OTHER.length;
+
+        result.reserve(@capacity total_length);
+
+        VAR i SZ := 0;
+        WHILE ( i < .length )
+        {
+           VAR current BYTE := PUN .data[i] AS BYTE;
+           result.push_back(@val BYTE(@OTHER current));
+           i++;
+        }
+        i := 0;
+        WHILE (i < OTHER.length )
+        {
+           VAR current BYTE := PUN OTHER.data[i] AS BYTE;
+           result.push_back(@val BYTE(@OTHER current));
+           i++;
+        }
+
+        RETURN result;
+   }
+
+   .OPERATOR== FUNCTION(@OTHER CONST& string): BOOL
+   {
+      IF ( .length != OTHER.length )
+      {
+         RETURN false;
+      }
+      VAR i SZ := 0;
+      WHILE ( i < .length )
+      {
+         IF ( THIS[i] != OTHER[i] )
+         {
+            RETURN false;
+         }
+         i++;
+      }
+      RETURN true;
+   }
+
+   .OPERATOR[] FUNCTION(@OTHER SZ):  BYTE
+   {
+      IF ( OTHER >= .length )
+     {
+         ASSERT(false);
+      }
+      VAR result BYTE := PUN .data[OTHER] AS BYTE;
+      RETURN result;
+   }
+}
+
+::string_tests STATIC_TEST
+{
+  VAR str1 string := "Hello, " AS string;
+  VAR str2 string := "world!" AS string;
+  VAR str3 string := str1 + str2;
+
+  ASSERT(str3 == "Hello, world!");
+}

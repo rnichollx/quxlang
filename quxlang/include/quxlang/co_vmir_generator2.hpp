@@ -2297,6 +2297,34 @@ namespace quxlang
                         return aca;
                     }
                 }
+                else if (cls->template type_is< ptrref_type >())
+                {
+                    auto const& ptr = cls->as< ptrref_type >();
+                    if (ptr.ptr_class == pointer_class::array && call.named.contains("THIS") && call.positional.size() == 1 && args.size() == 3)
+                    {
+                        auto this_slot_id = args.named.at("THIS");
+                        auto index_slot_id = args.positional.at(0);
+                        auto return_slot_id = args.named.at("RETURN");
+
+                        if (member->name == "OPERATOR[]")
+                        {
+                            vmir2::access_pointer acp{};
+                            acp.base_index = get_local_index(this_slot_id);
+                            acp.index_index = get_local_index(index_slot_id);
+                            acp.store_index = get_local_index(return_slot_id);
+
+                            return acp;
+                        }
+
+                        vmir2::pointer_arith par{};
+                        par.from = get_local_index(this_slot_id);
+                        par.multiplier = 1;
+                        par.offset = get_local_index(index_slot_id);
+                        par.result = get_local_index(return_slot_id);
+
+                        return par;
+                    }
+                }
             }
 
             if (member->name == "CONSTRUCTOR")

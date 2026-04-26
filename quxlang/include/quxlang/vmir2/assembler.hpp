@@ -58,6 +58,7 @@ namespace quxlang::vmir2
 
         std::string to_string_internal(vmir2::access_field inst);
         std::string to_string_internal(vmir2::access_array inst);
+        std::string to_string_internal(vmir2::access_pointer inst);
         std::string to_string_internal(vmir2::invoke inst);
         std::string to_string_internal(vmir2::invoke_indirect inst);
         std::string to_string_internal(vmir2::get_procedure_ptr inst);
