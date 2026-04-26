@@ -485,7 +485,7 @@ if (BUILD_TESTING)
     target_compile_definitions(quxlang_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     target_compile_definitions(quxlang_static_gtests PRIVATE QUXLANG_TESTS_TESTDDATA_PATH="${QUXLANG_TESTS_TESTDATA_PATH}")
     gtest_discover_tests(quxlang_math_gtests)
-    gtest_discover_tests(quxlang_gtests)
+    gtest_discover_tests(quxlang_gtests DISCOVERY_TIMEOUT 30)
     gtest_discover_tests(quxlang_static_gtests DISCOVERY_TIMEOUT 30)
 endif ()
 

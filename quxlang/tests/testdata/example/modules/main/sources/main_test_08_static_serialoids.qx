@@ -71,7 +71,7 @@
   ASSERT(fallback_serialoid_static.value == BYTE(@OTHER 23));
 }
 
-::autogen_serialoid_probe CLASS
+::autogen_serialoid_probe CLASS SERIALOID
 {
   .first VAR BYTE;
   .second VAR BOOL;
