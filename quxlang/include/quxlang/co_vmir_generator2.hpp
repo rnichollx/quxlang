@@ -678,6 +678,13 @@ namespace quxlang
                 co_return val;
             }
 
+            if (is_ref(target_type) && remove_ref(value_type) != remove_ref(target_type))
+            {
+                auto target_value_type = remove_ref(target_type);
+                auto converted_value = co_await co_gen_construct_with_target_type(bidx, val, target_value_type, adaptations);
+                co_return create_reference(bidx, converted_value, target_type);
+            }
+
             co_return co_await co_gen_construct_with_target_type(bidx, val, target_type, adaptations);
         }
 
@@ -4875,16 +4882,12 @@ namespace quxlang
             co_return;
         }
 
+
         /// Writes one byte through the OUTPUT_ITERATOR argument using the language-level ++, ->, and := iterator operations.
         auto co_emit_output_byte(block_index& current_block, value_index byte_value) -> co_type< void >
         {
-            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
-            if (!outit_ref.has_value())
-            {
-                throw compiler_bug("Missing varuint OUTPUT_ITERATOR argument");
-            }
-
-            auto incr = co_await co_generate_unary_postfix(current_block, "++", *outit_ref);
+            auto outit_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"})).value();
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_ref);
             auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
             co_await co_generate_binary(current_block, ":=", outit_deref, byte_value);
             co_return;
@@ -5164,12 +5167,8 @@ namespace quxlang
                 }
 
                 // iter++
-                auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
-                if (!outit_ref.has_value())
-                {
-                    throw std::logic_error("Cannot find __out_iter in serialize");
-                }
-                auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_ref.value());
+                auto outit_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"})).value();
+                auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_ref);
 
                 // (iter++)->
                 auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
@@ -5245,7 +5244,8 @@ namespace quxlang
                 this->emit(current_block, lfr);
             }
 
-            auto incr = co_await co_generate_unary_postfix(current_block, "++", *outit_ref);
+            auto outit_mut_ref = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"})).value();
+            auto incr = co_await co_generate_unary_postfix(current_block, "++", outit_mut_ref);
             auto outit_deref = co_await co_generate_unary_postfix(current_block, "->", incr);
             co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
 

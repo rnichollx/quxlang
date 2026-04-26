@@ -1,6 +1,6 @@
 
 ::string CLASS
-  STRINGLIKE
+  STRINGLIKE SERIALOID
 {
    .data VAR =>>STORAGE(BYTE);
    .length VAR SZ;
@@ -96,36 +96,59 @@
    {
       IF ( .length != OTHER.length )
       {
-         RETURN false;
+         RETURN FALSE;
       }
       VAR i SZ := 0;
       WHILE ( i < .length )
       {
          IF ( THIS[i] != OTHER[i] )
          {
-            RETURN false;
+            RETURN FALSE;
          }
          i++;
       }
-      RETURN true;
+      RETURN TRUE;
    }
 
-   .OPERATOR[] FUNCTION(@OTHER SZ):  BYTE
+   .OPERATOR[] FUNCTION(%index SZ):  BYTE
    {
-      IF ( OTHER >= .length )
+      IF ( index >= .length )
      {
-         ASSERT(false);
+         ASSERT(FALSE);
       }
-      VAR result BYTE := PUN .data[OTHER] AS BYTE;
+      VAR result BYTE := PUN .data[index] AS BYTE;
       RETURN result;
+   }
+
+   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:out AUTO(it)): it
+   {
+     out := SERIALIZE_UINTANY(@OUTPUT_ITERATOR out, @VALUE .length);
+     VAR i SZ := 0;
+    WHILE ( i < .length )
+    {
+       out++ -> := THIS[i];
+       i++;
+    }
+    RETURN out;
+
    }
 }
 
 ::string_tests STATIC_TEST
 {
-  VAR str1 string := "Hello, " AS string;
-  VAR str2 string := "world!" AS string;
+  VAR str1 string := "Hello, ";
+  VAR str2 string := "world!";
   VAR str3 string := str1 + str2;
 
   ASSERT(str3 == "Hello, world!");
+
+  ASSERT(str3 == static_string);
 }
+
+::get_static_string FUNCTION(): string
+{
+   RETURN ("Hello, " AS string) + ("world!" AS string);
+}
+
+
+::static_string STATIC STRING_CONSTANT := get_static_string();

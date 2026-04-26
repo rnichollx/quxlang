@@ -26,10 +26,16 @@ namespace quxlang
     };
 
     struct compilation_error
+        : public std::exception
     {
         std::vector< trace_frame > traceback;
 
         rpnx::variant< syntax_error, semantic_error > structured_error;
+
+        virtual char const * what() const noexcept override
+        {
+            return "compilation error";
+        }
 
         RPNX_MEMBER_METADATA(compilation_error, traceback, structured_error);
     };

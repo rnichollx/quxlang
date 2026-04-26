@@ -220,5 +220,10 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
         co_return input.to;
     }
 
+    if (typeis< readonly_constant >(input.to) && as< readonly_constant >(input.to).kind == constant_kind::string && typeis< string_literal_reference >(from))
+    {
+        co_return input.to;
+    }
+
     co_return std::nullopt;
 }

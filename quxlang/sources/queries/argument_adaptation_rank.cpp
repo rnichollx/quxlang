@@ -240,6 +240,11 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return int_to.has_sign ? 3 : 2;
     }
 
+    if (typeis< string_literal_reference >(from) && typeis< readonly_constant >(to) && as< readonly_constant >(to).kind == constant_kind::string)
+    {
+        co_return 2;
+    }
+
     if (is_template(to))
     {
         for (auto const& probe : enumerate_source_forms(from, input.adaptations))

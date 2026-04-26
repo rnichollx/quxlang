@@ -92,6 +92,73 @@
    ASSERT( roundtrip == original );
 }
 
+::nontrivial_output_iterator CLASS
+{
+   .data VAR =>> BYTE;
+   .index VAR SZ;
+
+   .CONSTRUCTOR FUNCTION(@buffer =>> BYTE)
+   {
+      .data := buffer;
+      .index := 0;
+   }
+
+   .CONSTRUCTOR FUNCTION(@OTHER CONST& nontrivial_output_iterator)
+   {
+      .data := OTHER.data;
+      .index := OTHER.index;
+   }
+
+   .OPERATOR++ FUNCTION(): nontrivial_output_iterator
+   {
+      VAR result nontrivial_output_iterator := THIS;
+      .index++;
+      RETURN result;
+   }
+
+   .OPERATOR-> FUNCTION(): MUT& BYTE
+   {
+      RETURN .data[.index];
+   }
+}
+
+::nontrivial_output_iterator_serialize_test STATIC_TEST
+{
+   VAR uintany_output [3]BYTE;
+   VAR uintany_iter nontrivial_output_iterator := nontrivial_output_iterator(@buffer uintany_output[& 0]);
+   VAR uintany_value U64 := 70000;
+   VAR uintany_end nontrivial_output_iterator := SERIALIZE_UINTANY(@VALUE uintany_value, @OUTPUT_ITERATOR uintany_iter);
+
+   ASSERT(uintany_iter.index == 0);
+   ASSERT(uintany_end.index == 3);
+   ASSERT(uintany_output[0] == BYTE(@OTHER 240));
+   ASSERT(uintany_output[1] == BYTE(@OTHER 161));
+   ASSERT(uintany_output[2] == BYTE(@OTHER 3));
+
+   VAR leb128_output [3]BYTE;
+   VAR leb128_iter nontrivial_output_iterator := nontrivial_output_iterator(@buffer leb128_output[& 0]);
+   VAR leb128_value U64 := 70000;
+   VAR leb128_end nontrivial_output_iterator := SERIALIZE_LEB128(@VALUE leb128_value, @OUTPUT_ITERATOR leb128_iter);
+
+   ASSERT(leb128_iter.index == 0);
+   ASSERT(leb128_end.index == 3);
+   ASSERT(leb128_output[0] == BYTE(@OTHER 240));
+   ASSERT(leb128_output[1] == BYTE(@OTHER 162));
+   ASSERT(leb128_output[2] == BYTE(@OTHER 4));
+
+   VAR int_output [4]BYTE;
+   VAR int_iter nontrivial_output_iterator := nontrivial_output_iterator(@buffer int_output[& 0]);
+   VAR int_value I32 := 255;
+   VAR int_end nontrivial_output_iterator := int_value.SERIALIZE(@OUTPUT_ITERATOR int_iter);
+
+   ASSERT(int_iter.index == 0);
+   ASSERT(int_end.index == 4);
+   ASSERT(int_output[0] == 255);
+   ASSERT(int_output[1] == 0);
+   ASSERT(int_output[2] == 0);
+   ASSERT(int_output[3] == 0);
+}
+
 ::serialization_probe CLASS
 {
    .a VAR I16;
