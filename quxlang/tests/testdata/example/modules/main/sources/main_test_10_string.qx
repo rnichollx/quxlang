@@ -14,7 +14,6 @@
    {
       VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
       RUNTIME CONSTEXPR {
-        // Need to implement constexpr allocator.
         .data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(len);
         .capacity := len;
         WHILE ( .length < len )
@@ -28,19 +27,23 @@
       }
    }
 
-   .push_back FUNCTION( @val BYTE )
+   .push_back FUNCTION( @value BYTE )
    {
-     IF ( .capacity > .length )
+     IF ( .capacity <= .length )
      {
-        PLACE AT(.data[.length]) BYTE := val;
-        .length++;
-     } ELSE {
         .reserve(@capacity .capacity*2);
      }
+     PLACE AT(.data[.length]) BYTE := value;
+     .length++;
+
    }
 
    .reserve FUNCTION( @capacity SZ )
    {
+      RUNTIME NATIVE
+      {
+         UNIMPLEMENTED;
+      }
       VAR original_capacity SZ := .capacity;
       IF ( .capacity < capacity )
       {
@@ -78,14 +81,14 @@
         WHILE ( i < .length )
         {
            VAR current BYTE := PUN .data[i] AS BYTE;
-           result.push_back(@val BYTE(@OTHER current));
+           result.push_back(@value BYTE(@OTHER current));
            i++;
         }
         i := 0;
         WHILE (i < OTHER.length )
         {
            VAR current BYTE := PUN OTHER.data[i] AS BYTE;
-           result.push_back(@val BYTE(@OTHER current));
+           result.push_back(@value BYTE(@OTHER current));
            i++;
         }
 
