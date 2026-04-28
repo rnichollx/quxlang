@@ -218,6 +218,25 @@
    ASSERT(y == 1);
 }
 
+::runtime_for_loop_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } LOOP {
+      sum := sum + i;
+   };
+   ASSERT(sum == 10);
+}
+
+::runtime_for_posttest_loop_test STATIC_TEST
+{
+   VAR count I32 := 0;
+   VAR i I32 := 0;
+   FOR POSTTEST(i < 3) STEP { i++; } LOOP {
+      count++;
+   };
+   ASSERT(count == 4);
+}
+
 ::static_constant_mutation_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
    STATIC x I32 := 0;

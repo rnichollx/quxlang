@@ -597,6 +597,38 @@ TEST(parsing, parse_function_local_static_statements)
     ASSERT_TRUE(quxlang::typeis< quxlang::function_static_while_statement >(statements.at(9)));
 }
 
+TEST(parsing, parse_for_statement_clauses)
+{
+    std::string test_string = R"QX(
+::foo STATIC_TEST
+{
+  FOR INIT { VAR i I32 := 0; } TEST(i < 4) STEP { i++; } LOOP {
+  };
+  FOR VALUE(v) IN(values) LOOP {
+  }
+}
+)QX";
+
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& statements = test.definition.body.statements;
+
+    ASSERT_EQ(statements.size(), 2);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(0)));
+    auto const& counted_for = quxlang::as< quxlang::function_for_statement >(statements.at(0));
+    ASSERT_TRUE(counted_for.init_block.has_value());
+    ASSERT_TRUE(counted_for.test_condition.has_value());
+    ASSERT_TRUE(counted_for.step_block.has_value());
+    ASSERT_EQ(counted_for.loop_block.statements.size(), 0);
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(1)));
+    auto const& iter_for = quxlang::as< quxlang::function_for_statement >(statements.at(1));
+    ASSERT_EQ(iter_for.value_name, std::optional< std::string >{"v"});
+    ASSERT_TRUE(iter_for.in_expr.has_value());
+}
+
 TEST(parsing, reject_static_else_mismatch)
 {
     EXPECT_THROW(parse_file_text("::foo STATIC_TEST { STATIC_IF (TRUE) { } ELSE { } }"), std::logic_error);

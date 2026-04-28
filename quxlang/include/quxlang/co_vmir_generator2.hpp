@@ -4260,6 +4260,115 @@ namespace quxlang
             co_return;
         }
 
+        [[nodiscard]] auto co_generate_for_clause_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
+        {
+            for (auto const& statement : block.statements)
+            {
+                if (this->state.blocks.at(current_block).terminator.has_value())
+                {
+                    throw std::logic_error("FOR " + block_from + " block terminated before all statements were generated");
+                }
+                co_await co_generate_fblock_statement(current_block, statement);
+            }
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_for_statement const& st) -> co_type< void >
+        {
+            bool const has_unsupported_clause = st.iter_name.has_value() || st.value_name.has_value() || st.index_name.has_value() || st.item_name.has_value() || st.in_expr.has_value() || st.start_expr.has_value() || st.end_expr.has_value() || st.limit_expr.has_value() || st.filter_expr.has_value() || st.by_expr.has_value() || st.from_expr.has_value() || st.to_expr.has_value() || st.until_expr.has_value();
+            if (has_unsupported_clause)
+            {
+                throw std::logic_error("FOR iterator and sequence clauses are parsed but not yet implemented");
+            }
+
+            auto outer_lookup_values = this->block(current_block).lookup_values;
+            this->state.static_scopes.emplace_back();
+
+            if (st.init_block.has_value())
+            {
+                co_await this->co_generate_for_clause_block(current_block, *st.init_block, "init");
+            }
+            if (st.eval_block.has_value())
+            {
+                co_await this->co_generate_for_clause_block(current_block, *st.eval_block, "eval");
+            }
+
+            block_index body_block = this->generate_subblock(current_block, "for_body");
+            block_index after_block = this->generate_subblock(current_block, "for_after");
+            block_index next_iteration_block = body_block;
+
+            if (st.test_condition.has_value())
+            {
+                block_index condition_block = this->generate_subblock(current_block, "for_condition");
+                next_iteration_block = condition_block;
+                this->generate_jump(current_block, condition_block);
+                auto cond = co_await co_generate_bool_expr(condition_block, *st.test_condition);
+                {
+                    auto condition_location_scope = this->scoped_source_location(get_location(*st.test_condition));
+                    this->generate_branch(cond, condition_block, body_block, after_block);
+                }
+            }
+            else
+            {
+                this->generate_jump(current_block, body_block);
+            }
+
+            co_await co_generate_function_block(body_block, st.loop_block, "for_loop");
+
+            if (st.posttest_condition.has_value())
+            {
+                block_index posttest_block = this->generate_subblock(body_block, "for_posttest");
+                this->generate_jump(body_block, posttest_block);
+                block_index posttest_true_block = next_iteration_block;
+                if (st.step_block.has_value())
+                {
+                    posttest_true_block = this->generate_subblock(posttest_block, "for_step");
+                }
+                auto cond = co_await co_generate_bool_expr(posttest_block, *st.posttest_condition);
+                {
+                    auto condition_location_scope = this->scoped_source_location(get_location(*st.posttest_condition));
+                    this->generate_branch(cond, posttest_block, posttest_true_block, after_block);
+                }
+                if (st.step_block.has_value())
+                {
+                    co_await co_generate_function_block(posttest_true_block, *st.step_block, "for_step");
+                    posttest_true_block = this->resolve_open_block(posttest_true_block);
+                    if (this->state.blocks.at(posttest_true_block).terminator.has_value())
+                    {
+                        throw std::logic_error("Cannot jump from a block that already has a terminator");
+                    }
+                    this->set_terminator(posttest_true_block, vmir2::jump{.target = next_iteration_block});
+                }
+            }
+            else if (st.step_block.has_value())
+            {
+                block_index step_block = this->generate_subblock(body_block, "for_step");
+                this->generate_jump(body_block, step_block);
+                co_await co_generate_function_block(step_block, *st.step_block, "for_step");
+                step_block = this->resolve_open_block(step_block);
+                if (this->state.blocks.at(step_block).terminator.has_value())
+                {
+                    throw std::logic_error("Cannot jump from a block that already has a terminator");
+                }
+                this->set_terminator(step_block, vmir2::jump{.target = next_iteration_block});
+            }
+            else
+            {
+                body_block = this->resolve_open_block(body_block);
+                if (this->state.blocks.at(body_block).terminator.has_value())
+                {
+                    throw std::logic_error("Cannot jump from a block that already has a terminator");
+                }
+                this->set_terminator(body_block, vmir2::jump{.target = next_iteration_block});
+            }
+
+            current_block = after_block;
+            this->block(current_block).lookup_values = std::move(outer_lookup_values);
+            this->state.static_scopes.pop_back();
+
+            co_return;
+        }
+
         auto generate_branch(value_index condition, block_index from, block_index true_branch, block_index false_branch) -> void
         {
             if (this->state.blocks.at(from).terminator.has_value())

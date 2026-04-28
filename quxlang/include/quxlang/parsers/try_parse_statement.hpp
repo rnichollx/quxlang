@@ -3,6 +3,7 @@
 #define QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
+#include <quxlang/parsers/parse_for_statement.hpp>
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
@@ -105,6 +106,10 @@ namespace quxlang::parsers
         else if (kw == "WHILE")
         {
             return parse_while_statement(ctx);
+        }
+        else if (kw == "FOR")
+        {
+            return parse_for_statement(ctx);
         }
         else if (kw == "STATIC_WHILE")
         {

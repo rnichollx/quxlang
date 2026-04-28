@@ -29,6 +29,7 @@ namespace quxlang
     struct function_if_statement;
 
     struct function_while_statement;
+    struct function_for_statement;
     struct function_assert_statement;
     struct function_var_statement;
     struct function_unimplemented_statement;
@@ -41,7 +42,7 @@ namespace quxlang
     struct function_static_while_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement >;
 
 
     struct function_var_statement
@@ -134,6 +135,34 @@ namespace quxlang
         function_block loop_block;
 
         QUX_AST_METADATA(function_while_statement, condition, loop_block);
+    };
+
+    struct function_for_statement
+    {
+        std::optional< function_block > init_block;
+        std::optional< function_block > eval_block;
+        std::optional< expression > test_condition;
+        std::optional< expression > posttest_condition;
+        std::optional< function_block > step_block;
+
+        std::optional< std::string > iter_name;
+        std::optional< std::string > value_name;
+        std::optional< std::string > index_name;
+        std::optional< std::string > item_name;
+
+        std::optional< expression > in_expr;
+        std::optional< expression > start_expr;
+        std::optional< expression > end_expr;
+        std::optional< expression > limit_expr;
+        std::optional< expression > filter_expr;
+        std::optional< expression > by_expr;
+        std::optional< expression > from_expr;
+        std::optional< expression > to_expr;
+        std::optional< expression > until_expr;
+
+        function_block loop_block;
+
+        QUX_AST_METADATA(function_for_statement, init_block, eval_block, test_condition, posttest_condition, step_block, iter_name, value_name, index_name, item_name, in_expr, start_expr, end_expr, limit_expr, filter_expr, by_expr, from_expr, to_expr, until_expr, loop_block);
     };
 
     struct function_static_while_statement

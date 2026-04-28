@@ -61,7 +61,6 @@ coverage:
 
 - [ ] Floating point numbers
 - [ ] Atomic operations
-- [ ] Non-antestatal static constants
 - [ ] For loops
 - [ ] Compound assignments
 - [ ] Exceptions and unwinding
