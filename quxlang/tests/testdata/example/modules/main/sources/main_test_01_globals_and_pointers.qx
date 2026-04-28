@@ -237,6 +237,80 @@
    ASSERT(count == 4);
 }
 
+::runtime_while_break_continue_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   VAR i I32 := 0;
+   WHILE (i < 8) {
+      i++;
+      IF (i == 2) {
+         CONTINUE;
+      }
+      IF (i == 5) {
+         BREAK;
+      }
+      sum := sum + i;
+   }
+   ASSERT(sum == 8);
+}
+
+::runtime_for_break_continue_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } LOOP {
+      IF (i == 2) {
+         CONTINUE;
+      }
+      IF (i == 5) {
+         BREAK;
+      }
+      sum := sum + i;
+   };
+   ASSERT(sum == 8);
+}
+
+::runtime_for_sequence_to_loop_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR FROM(0 AS I32) TO(10) BY(2) VALUE(i) LOOP {
+      sum := sum + i;
+   };
+   ASSERT(sum == 30);
+}
+
+::runtime_for_sequence_until_loop_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR VALUE(i) FROM(0 AS I32) UNTIL(5) LOOP {
+      sum := sum + i;
+   };
+   ASSERT(sum == 10);
+}
+
+::runtime_for_sequence_filter_loop_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) VALUE(i) LOOP {
+      sum := sum + i;
+   };
+   ASSERT(sum == 12);
+}
+
+::runtime_for_sequence_break_continue_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR FROM(0 AS I32) TO(8) VALUE(i) LOOP {
+      IF (i == 2) {
+         CONTINUE;
+      }
+      IF (i == 5) {
+         BREAK;
+      }
+      sum := sum + i;
+   };
+   ASSERT(sum == 8);
+}
+
 ::static_constant_mutation_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
    STATIC x I32 := 0;

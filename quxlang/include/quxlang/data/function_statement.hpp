@@ -40,9 +40,11 @@ namespace quxlang
     struct function_static_eval_statement;
     struct function_static_if_statement;
     struct function_static_while_statement;
+    struct function_break_statement;
+    struct function_continue_statement;
 
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement >;
 
 
     struct function_var_statement
@@ -173,6 +175,16 @@ namespace quxlang
         function_block loop_block;
 
         QUX_AST_METADATA(function_static_while_statement, condition, loop_block);
+    };
+
+    struct function_break_statement
+    {
+        QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(function_break_statement);
+    };
+
+    struct function_continue_statement
+    {
+        QUXLANG_WITH_SOURCE_LOCATION_EMPTY_METADATA(function_continue_statement);
     };
 
     struct function_return_statement

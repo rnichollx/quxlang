@@ -605,6 +605,10 @@ TEST(parsing, parse_for_statement_clauses)
   FOR INIT { VAR i I32 := 0; } TEST(i < 4) STEP { i++; } LOOP {
   };
   FOR VALUE(v) IN(values) LOOP {
+    CONTINUE;
+    BREAK;
+  }
+  FOR FROM(0 AS I32) TO(10) BY(2) FILTER(i != 4) VALUE(i) LOOP {
   }
 }
 )QX";
@@ -615,7 +619,7 @@ TEST(parsing, parse_for_statement_clauses)
     auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
-    ASSERT_EQ(statements.size(), 2);
+    ASSERT_EQ(statements.size(), 3);
     ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(0)));
     auto const& counted_for = quxlang::as< quxlang::function_for_statement >(statements.at(0));
     ASSERT_TRUE(counted_for.init_block.has_value());
@@ -627,6 +631,17 @@ TEST(parsing, parse_for_statement_clauses)
     auto const& iter_for = quxlang::as< quxlang::function_for_statement >(statements.at(1));
     ASSERT_EQ(iter_for.value_name, std::optional< std::string >{"v"});
     ASSERT_TRUE(iter_for.in_expr.has_value());
+    ASSERT_EQ(iter_for.loop_block.statements.size(), 2);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_continue_statement >(iter_for.loop_block.statements.at(0)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_break_statement >(iter_for.loop_block.statements.at(1)));
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(2)));
+    auto const& sequence_for = quxlang::as< quxlang::function_for_statement >(statements.at(2));
+    ASSERT_EQ(sequence_for.value_name, std::optional< std::string >{"i"});
+    ASSERT_TRUE(sequence_for.from_expr.has_value());
+    ASSERT_TRUE(sequence_for.to_expr.has_value());
+    ASSERT_TRUE(sequence_for.by_expr.has_value());
+    ASSERT_TRUE(sequence_for.filter_expr.has_value());
 }
 
 TEST(parsing, reject_static_else_mismatch)

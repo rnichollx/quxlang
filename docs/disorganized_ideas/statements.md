@@ -45,6 +45,8 @@ FOR ... LOOP {
   * `STEP { ... }` block executed after each iteration of the loop. This executes after the `LOOP` body and any 
     `TEST` condition.
   * `POSTTEST(x)`: similar to `TEST`, but the condition is checked after each iteration of the loop body.
+  * `BREAK;` exits the innermost runtime `WHILE` or `FOR` loop.
+  * `CONTINUE;` skips the rest of the innermost runtime loop body and continues at that loop's next iteration step.
 
 Each round of iteration looks like either:
 
@@ -80,8 +82,8 @@ FOR INIT{ VAR i := 0; } TEST(i < 10) STEP{ i++; } LOOP {
  * `START(x)` sets the start iterator of the loop.
  * `END(x)` sets the end iterator of the loop.
  * `LIMIT(x)` like `END`, but uses `<` instead of `!=`.
- * `FILTER(x)` skips iterations where `x` is false, without ending the loop. Equivalent to 
-    ` ... LOOP { IF (filter_condition!!) { CONTINUE; } }`.
+ * `FILTER(x)` skips iterations where `x` is false, without ending the loop. This has the same control-flow effect as
+   executing `CONTINUE;` before the loop body.
  * `BY(x)` the number to add to the iterator during a step. Exclusive with `STEP`.
 
 Note: If a combination of both `TEST(c)`/`POSTTEST(c)` and either `END(v)` or `LIMIT(v)` are specified, the `END` or
@@ -185,6 +187,7 @@ Sequence for loops are similar, but only support producing a value, not an item.
 * `TO(x)` sets the end value of the loop, inclusive.
 * `UNTIL(x)` like `TO`, but exclusive.
 * `BY(x)` the amount to add to the loop variable each iteration. Exclusive with `STEP`.
+* `FILTER(x)` skips iterations where `x` is false, using the same step path as `CONTINUE;`.
 
 Note: If the end value might be skipped over, consider using `TEST` instead of `TO` or `UNTIL`.
 

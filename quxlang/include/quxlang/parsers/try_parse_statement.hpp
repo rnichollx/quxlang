@@ -103,6 +103,28 @@ namespace quxlang::parsers
         {
             return parse_return_statement(ctx);
         }
+        else if (skip_keyword_if_is(pos, end, "BREAK"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::logic_error("Expected ';' after BREAK statement");
+            }
+            function_break_statement st;
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
+        else if (skip_keyword_if_is(pos, end, "CONTINUE"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::logic_error("Expected ';' after CONTINUE statement");
+            }
+            function_continue_statement st;
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
         else if (kw == "WHILE")
         {
             return parse_while_statement(ctx);
