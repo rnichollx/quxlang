@@ -766,6 +766,27 @@ namespace quxlang::vmir2
         return "IMOD %" + std::to_string(mod.a) + ", %" + std::to_string(mod.b) + ", %" + std::to_string(mod.result);
     }
 
+    std::string assembler::to_string_internal(vmir2::mut_int_add op)
+    {
+        return "MUT_IADD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_int_sub op)
+    {
+        return "MUT_ISUB %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_int_mul op)
+    {
+        return "MUT_IMUL %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_int_div op)
+    {
+        return "MUT_IDIV %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_int_mod op)
+    {
+        return "MUT_IMOD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+
     // Bitwise operations
     std::string assembler::to_string_internal(vmir2::bitwise_and op)
     {
@@ -818,6 +839,54 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::bitwise_inverse op)
     {
         return "BITWISE_INVERSE %" + std::to_string(op.value) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_and op)
+    {
+        return "MUT_BITWISE_AND %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_or op)
+    {
+        return "MUT_BITWISE_OR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_xor op)
+    {
+        return "MUT_BITWISE_XOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_nand op)
+    {
+        return "MUT_BITWISE_NAND %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_nor op)
+    {
+        return "MUT_BITWISE_NOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_nxor op)
+    {
+        return "MUT_BITWISE_NXOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_implies op)
+    {
+        return "MUT_BITWISE_IMPLIES %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_implied op)
+    {
+        return "MUT_BITWISE_IMPLIED %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_shift_up op)
+    {
+        return "MUT_BITWISE_SHIFT_UP %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_shift_down op)
+    {
+        return "MUT_BITWISE_SHIFT_DOWN %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_rotate_up op)
+    {
+        return "MUT_BITWISE_ROTATE_UP %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_bitwise_rotate_down op)
+    {
+        return "MUT_BITWISE_ROTATE_DOWN %" + std::to_string(op.target) + ", %" + std::to_string(op.amount);
     }
     std::string assembler::to_string_internal(vmir2::load_const_zero inst)
     {

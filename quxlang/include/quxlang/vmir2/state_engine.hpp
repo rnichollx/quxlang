@@ -542,6 +542,31 @@ namespace quxlang::vmir2
             consume(mod.b);
             output(mod.result);
         }
+        void apply_internal(vmir2::mut_int_add const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_int_sub const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_int_mul const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_int_div const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_int_mod const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
         // Bitwise operations state transitions
         void apply_internal(vmir2::bitwise_and const& op)
         {
@@ -619,6 +644,66 @@ namespace quxlang::vmir2
         {
             consume(op.value);
             output(op.result);
+        }
+        void apply_internal(vmir2::mut_bitwise_and const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_or const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_xor const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_nand const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_nor const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_nxor const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_implies const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_implied const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_bitwise_shift_up const& op)
+        {
+            consume(op.target);
+            consume(op.amount);
+        }
+        void apply_internal(vmir2::mut_bitwise_shift_down const& op)
+        {
+            consume(op.target);
+            consume(op.amount);
+        }
+        void apply_internal(vmir2::mut_bitwise_rotate_up const& op)
+        {
+            consume(op.target);
+            consume(op.amount);
+        }
+        void apply_internal(vmir2::mut_bitwise_rotate_down const& op)
+        {
+            consume(op.target);
+            consume(op.amount);
         }
         void apply_internal(vmir2::store_to_ref const& str)
         {

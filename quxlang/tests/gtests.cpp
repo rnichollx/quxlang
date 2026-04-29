@@ -837,6 +837,36 @@ TEST(parsing, parse_extended_logical_operators)
     }
 }
 
+TEST(parsing, parse_compound_assignment_operators)
+{
+    for (std::string const& test_string : {
+             "a += b",
+             "a -= b",
+             "a *= b",
+             "a /= b",
+             "a %= b",
+             "a #&&= b",
+             "a #||= b",
+             "a #^^= b",
+             "a #&!= b",
+             "a #|!= b",
+             "a #^!= b",
+             "a #^>= b",
+             "a #^<= b",
+             "a #++= b",
+             "a #--= b",
+             "a #+%= b",
+             "a #-%= b",
+         })
+    {
+        auto ctx = test_parsing_context(test_string);
+        quxlang::expression expr = quxlang::parsers::parse_expression(ctx);
+
+        ASSERT_TRUE(expr.template type_is< quxlang::expression_binary >());
+        ASSERT_EQ(ctx.iter_pos, ctx.iter_end);
+    }
+}
+
 TEST(source_locations, source_location_string_format)
 {
     ASSERT_EQ(quxlang::to_string(quxlang::source_location{.file_id = 0, .begin_index = 2, .end_index = std::optional< std::size_t >{6}}), "@@(0, 2, 6)");

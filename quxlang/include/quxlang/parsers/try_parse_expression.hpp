@@ -9,6 +9,7 @@
 #include <utility>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
+#include <quxlang/operators.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
@@ -43,7 +44,8 @@ namespace quxlang::parsers
         template < typename It >
         bool binary_operator_v3(It& pos, It end, std::array< expression*, 10 >& operator_bindings, expression*& value_binding)
         {
-            static std::map< std::string, int > operators_map = {
+            static const std::map< std::string, int > operators_map = [] {
+                std::map< std::string, int > result = {
                 // clang-format off
 
                 // Base operators
@@ -91,7 +93,13 @@ namespace quxlang::parsers
                 {"#+%", 8}, // bitwise up-rotate
                 {"#-%", 8}  // bitwise down-rotate
                 // clang-format on
-            };
+                };
+                for (auto const& compound_assignment : compound_assignment_operators)
+                {
+                    result[compound_assignment.first] = 0;
+                }
+                return result;
+            }();
 
             std::string sym = peek_symbol(pos, end);
             auto it = operators_map.find(sym);

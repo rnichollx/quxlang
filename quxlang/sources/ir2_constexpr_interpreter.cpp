@@ -256,12 +256,15 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     };
 
     using fixed_int_binary_op = bytemath::int_result (*)(bytemath::fixed_int_options, std::vector< std::byte >, std::vector< std::byte >);
+    using mut_bitwise_binary_op = std::uint8_t (*)(std::uint8_t, std::uint8_t);
 
     std::size_t get_type_size(const type_symbol& type);
     std::size_t get_type_alignment(type_symbol type);
     bytemath::fixed_int_options get_fixed_int_options(type_symbol const& type) const;
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
     void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
+    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, fixed_int_binary_op op);
+    void exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, mut_bitwise_binary_op op, bool invert);
 
     std::shared_ptr< local > output(local_index slot);
 
@@ -384,6 +387,11 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::int_mul const& mul);
     void exec_instr_val(vmir2::int_div const& div);
     void exec_instr_val(vmir2::int_mod const& mod);
+    void exec_instr_val(vmir2::mut_int_add const& op);
+    void exec_instr_val(vmir2::mut_int_sub const& op);
+    void exec_instr_val(vmir2::mut_int_mul const& op);
+    void exec_instr_val(vmir2::mut_int_div const& op);
+    void exec_instr_val(vmir2::mut_int_mod const& op);
     void exec_instr_val(vmir2::store_to_ref const& str);
     void exec_instr_val(vmir2::load_const_int const& lci);
     void exec_instr_val(vmir2::cmp_eq const& ceq);
@@ -413,6 +421,18 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::bitwise_rotate_up const& op);
     void exec_instr_val(vmir2::bitwise_rotate_down const& op);
     void exec_instr_val(vmir2::bitwise_inverse const& op);
+    void exec_instr_val(vmir2::mut_bitwise_and const& op);
+    void exec_instr_val(vmir2::mut_bitwise_or const& op);
+    void exec_instr_val(vmir2::mut_bitwise_xor const& op);
+    void exec_instr_val(vmir2::mut_bitwise_nand const& op);
+    void exec_instr_val(vmir2::mut_bitwise_nor const& op);
+    void exec_instr_val(vmir2::mut_bitwise_nxor const& op);
+    void exec_instr_val(vmir2::mut_bitwise_implies const& op);
+    void exec_instr_val(vmir2::mut_bitwise_implied const& op);
+    void exec_instr_val(vmir2::mut_bitwise_shift_up const& op);
+    void exec_instr_val(vmir2::mut_bitwise_shift_down const& op);
+    void exec_instr_val(vmir2::mut_bitwise_rotate_up const& op);
+    void exec_instr_val(vmir2::mut_bitwise_rotate_down const& op);
     void exec_instr_val(vmir2::defer_nontrivial_dtor const& dntd);
     void exec_instr_val(vmir2::struct_init_start const& sdn);
     void exec_instr_val(vmir2::struct_init_finish const& scn);
@@ -1062,6 +1082,65 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     result_data = std::move(res.data_bytes);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, fixed_int_binary_op op)
+{
+    char const* instruction_name = fixed_int_instruction_name(instruction);
+
+    require_valid_input_precondition(target_slot);
+    require_valid_input_precondition(value_slot);
+
+    std::shared_ptr< local > target_ref = consume_local(target_slot);
+    std::shared_ptr< local > value_local = consume_local(value_slot);
+    if (!target_ref->ref.has_value())
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target is not a reference");
+    }
+    if (pointer_invalidated(*target_ref->ref))
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target reference is invalid");
+    }
+
+    auto target_value = target_ref->ref->pointer_target.value().lock();
+    if (!target_value)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target reference is invalid");
+    }
+
+    auto& target_data = target_value->data;
+    auto& value_data = value_local->data;
+
+    if (target_data.size() != value_data.size())
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+    }
+
+    type_symbol target_type = remove_ref(get_local_type(target_slot));
+    type_symbol value_type = get_local_type(value_slot);
+    if (target_type != value_type)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+    }
+
+    bytemath::fixed_int_options opts = get_fixed_int_options(target_type);
+    std::size_t expected_size = (opts.bits + 7) / 8;
+    if (target_data.size() != expected_size)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+    }
+
+    bytemath::int_result res = op(opts, target_data, value_data);
+    if (res.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
+    }
+    if (res.data_bytes.size() != expected_size)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": bytemath returned unexpected result size");
+    }
+
+    local_set_data(target_value, std::move(res.data_bytes));
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output(local_index slot)
@@ -2304,6 +2383,27 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     exec_fixed_int_binary_op(fixed_int_instruction::mod, mod.a, mod.b, mod.result, &bytemath::fixed_int_mod_le);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_add const& op)
+{
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::add, op.target, op.value, &bytemath::fixed_int_add_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_sub const& op)
+{
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::sub, op.target, op.value, &bytemath::fixed_int_sub_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mul const& op)
+{
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::mul, op.target, op.value, &bytemath::fixed_int_mul_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_div const& op)
+{
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::div, op.target, op.value, &bytemath::fixed_int_div_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mod const& op)
+{
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::mod, op.target, op.value, &bytemath::fixed_int_mod_le);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::store_to_ref const& str)
 {
     auto from_type = get_local_type(str.from_value);
@@ -2617,6 +2717,20 @@ static void bitwise_byte_op(std::vector< std::byte >& out, std::vector< std::byt
     }
 }
 
+static void mut_bitwise_byte_op(std::vector< std::byte >& target, std::vector< std::byte > const& b, auto fn)
+{
+    if (b.size() > target.size())
+    {
+        target.resize(b.size(), std::byte{0});
+    }
+    for (std::size_t i = 0; i < target.size(); ++i)
+    {
+        std::uint8_t av = static_cast< std::uint8_t >(target[i]);
+        std::uint8_t bv = (i < b.size()) ? static_cast< std::uint8_t >(b[i]) : 0;
+        target[i] = static_cast< std::byte >(fn(av, bv) & 0xFF);
+    }
+}
+
 static void bitwise_not_inplace(std::vector< std::byte >& v)
 {
     for (auto& by : v)
@@ -2782,6 +2896,54 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     set_data(op.result, std::move(out));
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, mut_bitwise_binary_op op, bool invert)
+{
+    auto target = load_from_reference(target_slot, true);
+    auto value = consume_local_as_data(value_slot);
+    auto target_type = remove_ref(get_local_type(target_slot));
+    std::size_t bits = get_bit_width_for_type(target_type);
+
+    mut_bitwise_byte_op(target->data, value, op);
+    if (invert)
+    {
+        bitwise_not_inplace(target->data);
+    }
+    local_set_data(target, truncate_to_bits(std::move(target->data), bits));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_and const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, false);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_or const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, false);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_xor const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, false);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nand const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, true);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nor const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, true);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nxor const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, true);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implies const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >((~av) | bv); }, false);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implied const& op)
+{
+    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >(av | (~bv)); }, false);
+}
+
 static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
 {
     auto [v, ok] = quxlang::bytemath::le_to_u< std::uint64_t >(data);
@@ -2945,6 +3107,124 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     value = truncate_to_bits(std::move(value), bits);
     value.resize(bytes_for_bits(bits), std::byte{0});
     set_data(op.result, std::move(value));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_shift_up const& op)
+{
+    auto target = load_from_reference(op.target, true);
+    auto amount_bytes = consume_local_as_data(op.amount);
+    auto target_type = remove_ref(get_local_type(op.target));
+
+    std::size_t bits = get_bit_width_for_type(target_type);
+    if (bits == 0)
+    {
+        local_set_data(target, {});
+        return;
+    }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    bytemath::fixed_int_options opts{};
+    opts.bits = bits;
+    opts.overflow_undefined = true;
+
+    auto shifted = bytemath::fixed_int_shift_up_le(opts, std::move(target->data), amt);
+    if (shifted.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
+    }
+    local_set_data(target, std::move(shifted.data_bytes));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_shift_down const& op)
+{
+    auto target = load_from_reference(op.target, true);
+    auto amount_bytes = consume_local_as_data(op.amount);
+    auto target_type = remove_ref(get_local_type(op.target));
+
+    std::size_t bits = get_bit_width_for_type(target_type);
+    if (bits == 0)
+    {
+        local_set_data(target, {});
+        return;
+    }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes);
+    bytemath::fixed_int_options opts{};
+    opts.bits = bits;
+    opts.overflow_undefined = true;
+
+    auto shifted = bytemath::fixed_int_shift_down_le(opts, std::move(target->data), amt);
+    if (shifted.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error("undefined behavior, shift amount overflow");
+    }
+    local_set_data(target, std::move(shifted.data_bytes));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_rotate_up const& op)
+{
+    auto target = load_from_reference(op.target, true);
+    auto amount_bytes = consume_local_as_data(op.amount);
+    auto target_type = remove_ref(get_local_type(op.target));
+
+    std::size_t bits = get_bit_width_for_type(target_type);
+    if (bits == 0)
+    {
+        local_set_data(target, {});
+        return;
+    }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes) % bits;
+    if (amt == 0)
+    {
+        auto out = truncate_to_bits(std::move(target->data), bits);
+        out.resize(bytes_for_bits(bits), std::byte{0});
+        local_set_data(target, std::move(out));
+        return;
+    }
+
+    auto value = std::move(target->data);
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(amt));
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(bits - amt));
+    up = truncate_to_bits(std::move(up), bits);
+    down = truncate_to_bits(std::move(down), bits);
+    auto combined = bit_or_vec(std::move(up), down);
+    combined = truncate_to_bits(std::move(combined), bits);
+    combined.resize(bytes_for_bits(bits), std::byte{0});
+    local_set_data(target, std::move(combined));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_rotate_down const& op)
+{
+    auto target = load_from_reference(op.target, true);
+    auto amount_bytes = consume_local_as_data(op.amount);
+    auto target_type = remove_ref(get_local_type(op.target));
+
+    std::size_t bits = get_bit_width_for_type(target_type);
+    if (bits == 0)
+    {
+        local_set_data(target, {});
+        return;
+    }
+
+    std::uint64_t amt = bytes_to_u64(amount_bytes) % bits;
+    if (amt == 0)
+    {
+        auto out = truncate_to_bits(std::move(target->data), bits);
+        out.resize(bytes_for_bits(bits), std::byte{0});
+        local_set_data(target, std::move(out));
+        return;
+    }
+
+    auto value = std::move(target->data);
+    auto down = quxlang::bytemath::detail::le_shift_down_raw(value, static_cast< std::size_t >(amt));
+    auto up = quxlang::bytemath::detail::le_shift_up_raw(value, static_cast< std::size_t >(bits - amt));
+    down = truncate_to_bits(std::move(down), bits);
+    up = truncate_to_bits(std::move(up), bits);
+    auto combined = bit_or_vec(std::move(down), up);
+    combined = truncate_to_bits(std::move(combined), bits);
+    combined.resize(bytes_for_bits(bits), std::byte{0});
+    local_set_data(target, std::move(combined));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::pcmp_eq const& ceq)

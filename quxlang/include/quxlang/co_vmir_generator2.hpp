@@ -2066,6 +2066,44 @@ namespace quxlang
             return false;
         }
 
+        template < typename Inst >
+        bool implement_mut_binary_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, submember const& member, invotype const& call, codegen_invocation_args const& args)
+        {
+            if (member.name != "OPERATOR" + operator_str)
+            {
+                return false;
+            }
+            if (!call.named.contains("THIS") || !call.named.contains("OTHER") || args.size() != 2)
+            {
+                return false;
+            }
+
+            Inst instr{};
+            instr.target = get_local_index(args.named.at("THIS"));
+            instr.value = get_local_index(args.named.at("OTHER"));
+            out = instr;
+            return true;
+        }
+
+        template < typename Inst >
+        bool implement_mut_shift_instruction(std::optional< vmir2::vm_instruction >& out, std::string const& operator_str, submember const& member, invotype const& call, codegen_invocation_args const& args)
+        {
+            if (member.name != "OPERATOR" + operator_str)
+            {
+                return false;
+            }
+            if (!call.named.contains("THIS") || !call.named.contains("OTHER") || args.size() != 2)
+            {
+                return false;
+            }
+
+            Inst instr{};
+            instr.target = get_local_index(args.named.at("THIS"));
+            instr.amount = get_local_index(args.named.at("OTHER"));
+            out = instr;
+            return true;
+        }
+
         std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, codegen_invocation_args args)
         {
             std::string funcname = to_string(func);
@@ -2585,6 +2623,26 @@ namespace quxlang
                 {
                     return instr;
                 }
+                if (implement_mut_binary_instruction< vmir2::mut_int_add >(instr, "+=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_sub >(instr, "-=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_mul >(instr, "*=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_div >(instr, "/=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_mod >(instr, "%=", *member, call, args))
+                {
+                    return instr;
+                }
                 if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
                 {
                     return instr;
@@ -2642,6 +2700,38 @@ namespace quxlang
                 {
                     return instr;
                 }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_and >(instr, "#&&=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_or >(instr, "#||=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_xor >(instr, "#^^=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implies >(instr, "#^>=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implied >(instr, "#^<=", *member, call, args))
+                {
+                    return instr;
+                }
 
                 // Bitwise shifts and rotates for integers (amount is uintptr)
                 if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
@@ -2676,6 +2766,22 @@ namespace quxlang
                     bi.result = get_local_index(args.named.at("RETURN"));
                     return bi;
                 }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_up >(instr, "#++=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_down >(instr, "#--=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_up >(instr, "#+%=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_down >(instr, "#-%=", *member, call, args))
+                {
+                    return instr;
+                }
 
                 // Unary bitwise inverse for integers (suffix, non-RHS)
                 if (member->name == "OPERATOR#!!" && call.named.contains("THIS") && call.size() == 1)
@@ -2689,6 +2795,26 @@ namespace quxlang
             else if (cls->template type_is< byte_type >())
             {
                 std::optional< vmir2::vm_instruction > instr;
+                if (implement_mut_binary_instruction< vmir2::mut_int_add >(instr, "+=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_sub >(instr, "-=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_mul >(instr, "*=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_div >(instr, "/=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_int_mod >(instr, "%=", *member, call, args))
+                {
+                    return instr;
+                }
                 if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
                 {
                     return instr;
@@ -2730,6 +2856,38 @@ namespace quxlang
                 {
                     return instr;
                 }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_and >(instr, "#&&=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_or >(instr, "#||=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_xor >(instr, "#^^=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implies >(instr, "#^>=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implied >(instr, "#^<=", *member, call, args))
+                {
+                    return instr;
+                }
                 // Shifts and rotates for bytes
                 if (member->name == "OPERATOR#++" && call.named.contains("THIS") && call.named.contains("OTHER") && call.size() == 2)
                 {
@@ -2762,6 +2920,22 @@ namespace quxlang
                     bi.amount = get_local_index(args.named.at("OTHER"));
                     bi.result = get_local_index(args.named.at("RETURN"));
                     return bi;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_up >(instr, "#++=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_shift_down >(instr, "#--=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_up >(instr, "#+%=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_shift_instruction< vmir2::mut_bitwise_rotate_down >(instr, "#-%=", *member, call, args))
+                {
+                    return instr;
                 }
                 // Unary bitwise inverse for bytes
                 if (member->name == "OPERATOR#!!" && call.named.contains("THIS") && call.size() == 1)

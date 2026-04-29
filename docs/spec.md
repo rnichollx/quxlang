@@ -507,6 +507,12 @@ Assigns the value of the right operand into the object designated by the left op
 
 Swaps the values of the two operands.
 
+### Compound Assignment Operators
+
+Arithmetic compound assignments `+=`, `-=`, `*=`, `/=`, and `%=` evaluate the left operand once and invoke the matching mutating operator overload, such as `OPERATOR+=`, on that target.
+
+Bitwise compound assignments `#&&=`, `#||=`, `#^^=`, `#&!=`, `#|!=`, `#^!=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` follow the same rule using their matching mutating bitwise operator overload.
+
 ## Bitwise Operators
 
 ### Operator `#&&`

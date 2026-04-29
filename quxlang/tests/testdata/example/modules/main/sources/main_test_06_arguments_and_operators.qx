@@ -41,6 +41,57 @@
   ASSERT(i == 6);
 }
 
+::compound_assignment_operators_test STATIC_TEST
+{
+   VAR a I32 := 10;
+   a += 5;
+   ASSERT(a == 15);
+   a -= 3;
+   ASSERT(a == 12);
+   a *= 2;
+   ASSERT(a == 24);
+   a /= 4;
+   ASSERT(a == 6);
+   a %= 4;
+   ASSERT(a == 2);
+
+   VAR b BYTE := 6;
+   b #&&= 3;
+   ASSERT(b == 2);
+   b := 6;
+   b #||= 3;
+   ASSERT(b == 7);
+   b := 6;
+   b #^^= 3;
+   ASSERT(b == 5);
+   b := 6;
+   b #&!= 3;
+   ASSERT(b == 253);
+   b := 6;
+   b #|!= 3;
+   ASSERT(b == 248);
+   b := 6;
+   b #^!= 3;
+   ASSERT(b == 250);
+   b := 6;
+   b #^>= 3;
+   ASSERT(b == 251);
+   b := 6;
+   b #^<= 3;
+   ASSERT(b == 254);
+
+   b := 1;
+   b #++= 3;
+   ASSERT(b == 8);
+   b #--= 1;
+   ASSERT(b == 4);
+   b := 129;
+   b #+%= 1;
+   ASSERT(b == 3);
+   b #-%= 1;
+   ASSERT(b == 129);
+}
+
 
 ::bitwise_operators_test STATIC_TEST
 {

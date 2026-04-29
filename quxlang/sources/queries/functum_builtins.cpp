@@ -232,6 +232,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
+        bool is_compound_assignment_operator = compound_assignment_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
         bool is_assignment_operator = operator_name == ":=";
         bool is_compare_operator = compare_operators.contains(operator_name);
@@ -262,7 +263,28 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
 
         if (is_int_type || is_byte_type)
         {
-            if (is_arithmetic_operator)
+            if (is_compound_assignment_operator)
+            {
+                if (!is_rhs)
+                {
+                    auto const base_operator = compound_assignment_operators.at(operator_name);
+                    static const std::set< std::string > bitwise_shift_operators = {"#++", "#--"};
+                    static const std::set< std::string > bitwise_rotate_operators = {"#+%", "#-%"};
+                    if (arithmetic_operators.contains(base_operator))
+                    {
+                        add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", parent}}, void_type{});
+                    }
+                    else if (bitwise_shift_operators.contains(base_operator) || bitwise_rotate_operators.contains(base_operator))
+                    {
+                        add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", uintptr_type}}, void_type{});
+                    }
+                    else
+                    {
+                        add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", parent}}, void_type{});
+                    }
+                }
+            }
+            else if (is_arithmetic_operator)
             {
                 add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
             }

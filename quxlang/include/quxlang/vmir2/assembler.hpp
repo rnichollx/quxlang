@@ -103,6 +103,11 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::int_mul mul);
         std::string to_string_internal(vmir2::int_div div);
         std::string to_string_internal(vmir2::int_mod mod);
+        std::string to_string_internal(vmir2::mut_int_add op);
+        std::string to_string_internal(vmir2::mut_int_sub op);
+        std::string to_string_internal(vmir2::mut_int_mul op);
+        std::string to_string_internal(vmir2::mut_int_div op);
+        std::string to_string_internal(vmir2::mut_int_mod op);
 
         // Bitwise operators
         std::string to_string_internal(vmir2::bitwise_and op);
@@ -118,6 +123,18 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::bitwise_rotate_up op);
         std::string to_string_internal(vmir2::bitwise_rotate_down op);
         std::string to_string_internal(vmir2::bitwise_inverse op);
+        std::string to_string_internal(vmir2::mut_bitwise_and op);
+        std::string to_string_internal(vmir2::mut_bitwise_or op);
+        std::string to_string_internal(vmir2::mut_bitwise_xor op);
+        std::string to_string_internal(vmir2::mut_bitwise_nand op);
+        std::string to_string_internal(vmir2::mut_bitwise_nor op);
+        std::string to_string_internal(vmir2::mut_bitwise_nxor op);
+        std::string to_string_internal(vmir2::mut_bitwise_implies op);
+        std::string to_string_internal(vmir2::mut_bitwise_implied op);
+        std::string to_string_internal(vmir2::mut_bitwise_shift_up op);
+        std::string to_string_internal(vmir2::mut_bitwise_shift_down op);
+        std::string to_string_internal(vmir2::mut_bitwise_rotate_up op);
+        std::string to_string_internal(vmir2::mut_bitwise_rotate_down op);
         std::string to_string_internal(vmir2::cmp_eq inst);
         std::string to_string_internal(vmir2::cmp_ne inst);
         std::string to_string_internal(vmir2::cmp_lt inst);

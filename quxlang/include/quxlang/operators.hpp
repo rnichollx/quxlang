@@ -3,6 +3,7 @@
 #ifndef QUXLANG_OPERATORS_HEADER_GUARD
 #define QUXLANG_OPERATORS_HEADER_GUARD
 
+#include <map>
 #include <set>
 #include <string>
 namespace quxlang
@@ -23,6 +24,26 @@ namespace quxlang
     static std::set< std::string > const pointer_arithmetic_operators = {"+", "-"};
 
     static std::set<std::string> const incdec_operators = {"++", "--"};
+
+    static std::map< std::string, std::string > const compound_assignment_operators = {
+        {"+=", "+"},
+        {"-=", "-"},
+        {"*=", "*"},
+        {"/=", "/"},
+        {"%=", "%"},
+        {"#&&=", "#&&"},
+        {"#||=", "#||"},
+        {"#^^=", "#^^"},
+        {"#&!=", "#&!"},
+        {"#|!=", "#|!"},
+        {"#^!=", "#^!"},
+        {"#^>=", "#^>"},
+        {"#^<=", "#^<"},
+        {"#++=", "#++"},
+        {"#--=", "#--"},
+        {"#+%=", "#+%"},
+        {"#-%=", "#-%"},
+    };
 
 
 

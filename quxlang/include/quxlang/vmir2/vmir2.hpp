@@ -89,6 +89,11 @@ namespace quxlang
         struct int_div;
         struct int_mod;
         struct int_sub;
+        struct mut_int_add;
+        struct mut_int_sub;
+        struct mut_int_mul;
+        struct mut_int_div;
+        struct mut_int_mod;
 
         struct cmp_lt;
         struct cmp_ge;
@@ -116,6 +121,18 @@ namespace quxlang
         struct bitwise_rotate_up;
         struct bitwise_rotate_down;
         struct bitwise_inverse;
+        struct mut_bitwise_and;
+        struct mut_bitwise_or;
+        struct mut_bitwise_xor;
+        struct mut_bitwise_nand;
+        struct mut_bitwise_nor;
+        struct mut_bitwise_nxor;
+        struct mut_bitwise_implies;
+        struct mut_bitwise_implied;
+        struct mut_bitwise_shift_up;
+        struct mut_bitwise_shift_down;
+        struct mut_bitwise_rotate_up;
+        struct mut_bitwise_rotate_down;
 
         struct struct_init_start;
         struct struct_init_finish;
@@ -174,6 +191,11 @@ namespace quxlang
             int_div,
             int_mod,
             int_sub,
+            mut_int_add,
+            mut_int_sub,
+            mut_int_mul,
+            mut_int_div,
+            mut_int_mod,
             iconv,
             bitwise_and,
             bitwise_or,
@@ -188,6 +210,18 @@ namespace quxlang
             bitwise_rotate_up,
             bitwise_rotate_down,
             bitwise_inverse,
+            mut_bitwise_and,
+            mut_bitwise_or,
+            mut_bitwise_xor,
+            mut_bitwise_nand,
+            mut_bitwise_nor,
+            mut_bitwise_nxor,
+            mut_bitwise_implies,
+            mut_bitwise_implied,
+            mut_bitwise_shift_up,
+            mut_bitwise_shift_down,
+            mut_bitwise_rotate_up,
+            mut_bitwise_rotate_down,
             cmp_lt,
             cmp_ge,
             cmp_eq,
@@ -747,6 +781,41 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(int_mod, a, b, result);
         };
 
+        struct mut_int_add
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_add, target, value);
+        };
+
+        struct mut_int_sub
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_sub, target, value);
+        };
+
+        struct mut_int_mul
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mul, target, value);
+        };
+
+        struct mut_int_div
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_div, target, value);
+        };
+
+        struct mut_int_mod
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mod, target, value);
+        };
+
         struct iconv
         {
             local_index from;
@@ -846,6 +915,79 @@ namespace quxlang
             local_index value;
             local_index result;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(bitwise_inverse, value, result);
+        };
+
+        struct mut_bitwise_and
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_and, target, value);
+        };
+        struct mut_bitwise_or
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_or, target, value);
+        };
+        struct mut_bitwise_xor
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_xor, target, value);
+        };
+        struct mut_bitwise_nand
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nand, target, value);
+        };
+        struct mut_bitwise_nor
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nor, target, value);
+        };
+        struct mut_bitwise_nxor
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nxor, target, value);
+        };
+        struct mut_bitwise_implies
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implies, target, value);
+        };
+        struct mut_bitwise_implied
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implied, target, value);
+        };
+        struct mut_bitwise_shift_up
+        {
+            local_index target;
+            local_index amount;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_up, target, amount);
+        };
+        struct mut_bitwise_shift_down
+        {
+            local_index target;
+            local_index amount;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_shift_down, target, amount);
+        };
+        struct mut_bitwise_rotate_up
+        {
+            local_index target;
+            local_index amount;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_up, target, amount);
+        };
+        struct mut_bitwise_rotate_down
+        {
+            local_index target;
+            local_index amount;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_rotate_down, target, amount);
         };
 
         struct cmp_eq

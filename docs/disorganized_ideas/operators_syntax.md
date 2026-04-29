@@ -21,6 +21,8 @@
 
 * `:=` Copy-assigns a value.
 * `:<` Move-assigns a value.
+* `+=`, `-=`, `*=`, `/=`, `%=` perform arithmetic and mutate the left operand in place.
+* `#&&=`, `#||=`, `#^^=`, `#&!=`, `#|!=`, `#^!=`, `#^>=`, `#^<=`, `#++=`, `#--=`, `#+%=`, and `#-%=` perform the matching bitwise operation and mutate the left operand in place.
 
 ## Logical Operators
 

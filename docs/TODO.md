@@ -62,7 +62,7 @@ coverage:
 - [ ] Floating point numbers
 - [ ] Atomic operations
 - [ ] For loops
-- [ ] Compound assignments
+- [x] Compound assignments
 - [ ] Exceptions and unwinding
 - [ ] Polymorphism / virtual functions
 - [ ] Lambda functions / closures
