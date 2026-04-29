@@ -4,6 +4,7 @@
 #define QUXLANG_PARSERS_PARSE_WHILE_STATEMENT_HEADER_GUARD
 #include <quxlang/data/function_while_statement.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
+#include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_expression.hpp>
 
@@ -23,6 +24,7 @@ namespace quxlang::parsers
             throw std::logic_error("Expected 'WHILE'");
         }
         function_while_statement output;
+        output.label_name = try_parse_label_reference(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {

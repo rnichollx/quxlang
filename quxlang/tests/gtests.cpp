@@ -644,6 +644,56 @@ TEST(parsing, parse_for_statement_clauses)
     ASSERT_TRUE(sequence_for.filter_expr.has_value());
 }
 
+TEST(parsing, parse_labeled_control_flow_statements)
+{
+    std::string test_string = R"QX(
+::foo STATIC_TEST
+{
+  LABEL :entry;
+  GOTO :entry;
+  LABEL :done {
+    BREAK :done;
+  }
+  WHILE :outer (TRUE) {
+    CONTINUE :outer;
+    BREAK :outer;
+  }
+  FOR :seq FROM(0 AS I32) TO(10) VALUE(i) LOOP {
+    CONTINUE :seq;
+  }
+}
+)QX";
+
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& statements = test.definition.body.statements;
+
+    ASSERT_EQ(statements.size(), 5);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_label_statement >(statements.at(0)));
+    ASSERT_EQ(quxlang::as< quxlang::function_label_statement >(statements.at(0)).name, "entry");
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_goto_statement >(statements.at(1)));
+    ASSERT_EQ(quxlang::as< quxlang::function_goto_statement >(statements.at(1)).target, "entry");
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_label_block_statement >(statements.at(2)));
+    auto const& label_block = quxlang::as< quxlang::function_label_block_statement >(statements.at(2));
+    ASSERT_EQ(label_block.name, "done");
+    ASSERT_EQ(label_block.block.statements.size(), 1);
+    ASSERT_EQ(quxlang::as< quxlang::function_break_statement >(label_block.block.statements.front()).label_name, std::optional< std::string >{"done"});
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_while_statement >(statements.at(3)));
+    auto const& while_statement = quxlang::as< quxlang::function_while_statement >(statements.at(3));
+    ASSERT_EQ(while_statement.label_name, std::optional< std::string >{"outer"});
+    ASSERT_EQ(quxlang::as< quxlang::function_continue_statement >(while_statement.loop_block.statements.at(0)).label_name, std::optional< std::string >{"outer"});
+    ASSERT_EQ(quxlang::as< quxlang::function_break_statement >(while_statement.loop_block.statements.at(1)).label_name, std::optional< std::string >{"outer"});
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_for_statement >(statements.at(4)));
+    auto const& for_statement = quxlang::as< quxlang::function_for_statement >(statements.at(4));
+    ASSERT_EQ(for_statement.label_name, std::optional< std::string >{"seq"});
+    ASSERT_EQ(quxlang::as< quxlang::function_continue_statement >(for_statement.loop_block.statements.front()).label_name, std::optional< std::string >{"seq"});
+}
+
 TEST(parsing, reject_static_else_mismatch)
 {
     EXPECT_THROW(parse_file_text("::foo STATIC_TEST { STATIC_IF (TRUE) { } ELSE { } }"), std::logic_error);

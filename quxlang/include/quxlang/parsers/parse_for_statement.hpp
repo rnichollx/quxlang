@@ -7,6 +7,7 @@
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/parse_identifier.hpp>
+#include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 
 #include <optional>
@@ -84,6 +85,7 @@ namespace quxlang::parsers
         }
 
         function_for_statement output;
+        output.label_name = try_parse_label_reference(ctx);
 
         while (true)
         {

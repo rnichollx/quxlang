@@ -58,6 +58,7 @@
 #include <assert.h>
 #include <quxlang/macros.hpp>
 #include <set>
+#include <string_view>
 
 namespace quxlang
 {
@@ -171,10 +172,37 @@ namespace quxlang
 
         struct loop_control_targets
         {
+            std::optional< std::string > label_name;
             block_index break_target;
             block_index continue_target;
 
-            RPNX_MEMBER_METADATA(loop_control_targets, break_target, continue_target);
+            RPNX_MEMBER_METADATA(loop_control_targets, label_name, break_target, continue_target);
+        };
+
+        struct break_control_targets
+        {
+            std::string label_name;
+            block_index break_target;
+
+            RPNX_MEMBER_METADATA(break_control_targets, label_name, break_target);
+        };
+
+        struct goto_label_target
+        {
+            block_index target;
+            bool declared = false;
+            std::optional< source_location > location;
+
+            RPNX_MEMBER_METADATA(goto_label_target, target, declared, location);
+        };
+
+        struct pending_goto_fixup
+        {
+            block_index source;
+            std::string target;
+            std::optional< source_location > location;
+
+            RPNX_MEMBER_METADATA(pending_goto_fixup, source, target, location);
         };
 
         struct codegen_state
@@ -203,6 +231,12 @@ namespace quxlang
             std::vector< codegen_static_scope > static_scopes;
             /// Stack of runtime loop targets for BREAK and CONTINUE statements.
             std::vector< loop_control_targets > loop_controls;
+            /// Stack of labeled runtime blocks and loops for labeled BREAK statements.
+            std::vector< break_control_targets > break_controls;
+            /// Point-label targets used by GOTO statements.
+            std::map< std::string, goto_label_target > goto_labels;
+            /// GOTO statements whose point label has not been declared yet.
+            std::map< std::string, std::vector< pending_goto_fixup > > pending_gotos;
             /// Next nonzero result ID assigned to a STATIC_VAR binding.
             std::uint64_t next_static_result_id = 1;
             /// Next declaration generation to assign for each static local name.
@@ -4210,35 +4244,227 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_break_statement const&) -> co_type< void >
+        [[nodiscard]] auto find_labeled_break_target(std::string const& label_name) const -> std::optional< block_index >
         {
-            if (this->state.loop_controls.empty())
+            for (auto it = this->state.break_controls.rbegin(); it != this->state.break_controls.rend(); ++it)
+            {
+                if (it->label_name == label_name)
+                {
+                    return it->break_target;
+                }
+            }
+            return std::nullopt;
+        }
+
+        [[nodiscard]] auto find_labeled_continue_target(std::string const& label_name) const -> std::optional< block_index >
+        {
+            for (auto it = this->state.loop_controls.rbegin(); it != this->state.loop_controls.rend(); ++it)
+            {
+                if (it->label_name.has_value() && *it->label_name == label_name)
+                {
+                    return it->continue_target;
+                }
+            }
+            return std::nullopt;
+        }
+
+        auto set_exact_jump_terminator(block_index& from, block_index target, std::string_view action) -> void
+        {
+            from = this->resolve_open_block(from);
+            if (this->state.blocks.at(from).terminator.has_value())
+            {
+                throw std::logic_error("Cannot " + std::string(action) + " from a block that already has a terminator");
+            }
+            this->set_terminator(from, vmir2::jump{.target = target});
+        }
+
+        [[nodiscard]] auto goto_live_state_compatible(vmir2::slot_state const& source, vmir2::slot_state const& target) const -> bool
+        {
+            if (source.stage != target.stage || source.storage_valid != target.storage_valid)
+            {
+                return false;
+            }
+            if (source.delegate_of != target.delegate_of || source.destroy_delegate != target.destroy_delegate || source.array_delegate_of_initializer != target.array_delegate_of_initializer)
+            {
+                return false;
+            }
+            if (source.delegates.has_value() || target.delegates.has_value() || source.nontrivial_dtor.has_value() || target.nontrivial_dtor.has_value())
+            {
+                return false;
+            }
+            return true;
+        }
+
+        auto validate_goto_transition(block_index source, block_index target, std::string const& label_name, std::optional< source_location > const&) const -> void
+        {
+            auto const& source_state = this->state.blocks.at(source).current_state;
+            auto const& target_state = this->state.blocks.at(target).entry_state;
+
+            for (auto const& [idx, target_slot] : target_state)
+            {
+                if (!target_slot.alive())
+                {
+                    continue;
+                }
+                auto source_it = source_state.find(idx);
+                if (source_it == source_state.end() || !source_it->second.alive())
+                {
+                    throw invalid_goto_error("Invalid GOTO :" + label_name + ": target requires live slot " + std::to_string(idx));
+                }
+                if (!this->goto_live_state_compatible(source_it->second, target_slot))
+                {
+                    throw invalid_goto_error("Invalid GOTO :" + label_name + ": target slot " + std::to_string(idx) + " has incompatible live state");
+                }
+            }
+        }
+
+        auto get_or_create_goto_label_target(std::string const& label_name, block_index current_block) -> block_index
+        {
+            auto target_it = this->state.goto_labels.find(label_name);
+            if (target_it != this->state.goto_labels.end())
+            {
+                return target_it->second.target;
+            }
+
+            auto target = this->generate_subblock(current_block, "goto_label_" + label_name);
+            this->state.goto_labels.emplace(label_name, goto_label_target{.target = target});
+            return target;
+        }
+
+        auto validate_pending_gotos(std::string const& label_name) -> void
+        {
+            auto pending_it = this->state.pending_gotos.find(label_name);
+            if (pending_it == this->state.pending_gotos.end())
+            {
+                return;
+            }
+            auto target = this->state.goto_labels.at(label_name).target;
+            for (auto const& pending : pending_it->second)
+            {
+                this->validate_goto_transition(pending.source, target, label_name, pending.location);
+            }
+            this->state.pending_gotos.erase(pending_it);
+        }
+
+        auto validate_no_pending_gotos() -> void
+        {
+            if (this->state.pending_gotos.empty())
+            {
+                return;
+            }
+            auto const& [label_name, pending] = *this->state.pending_gotos.begin();
+            (void)pending;
+            throw invalid_goto_error("Invalid GOTO :" + label_name + ": target label was not declared");
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_break_statement const& st) -> co_type< void >
+        {
+            std::optional< block_index > target;
+            if (st.label_name.has_value())
+            {
+                target = this->find_labeled_break_target(*st.label_name);
+                if (!target.has_value())
+                {
+                    throw std::logic_error("BREAK used with unknown label: " + *st.label_name);
+                }
+            }
+            else if (!this->state.loop_controls.empty())
+            {
+                target = this->state.loop_controls.back().break_target;
+            }
+            else
             {
                 throw std::logic_error("BREAK used outside a runtime loop");
             }
-            auto target = this->state.loop_controls.back().break_target;
+            this->set_exact_jump_terminator(current_block, *target, "break");
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_continue_statement const& st) -> co_type< void >
+        {
+            std::optional< block_index > target;
+            if (st.label_name.has_value())
+            {
+                target = this->find_labeled_continue_target(*st.label_name);
+                if (!target.has_value())
+                {
+                    throw std::logic_error("CONTINUE used with unknown loop label: " + *st.label_name);
+                }
+            }
+            else if (!this->state.loop_controls.empty())
+            {
+                target = this->state.loop_controls.back().continue_target;
+            }
+            else
+            {
+                throw std::logic_error("CONTINUE used outside a runtime loop");
+            }
+            this->set_exact_jump_terminator(current_block, *target, "continue");
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_goto_statement const& st) -> co_type< void >
+        {
+            auto target = this->get_or_create_goto_label_target(st.target, current_block);
             current_block = this->resolve_open_block(current_block);
             if (this->state.blocks.at(current_block).terminator.has_value())
             {
-                throw std::logic_error("Cannot break from a block that already has a terminator");
+                throw std::logic_error("Cannot goto from a block that already has a terminator");
+            }
+
+            auto const& label = this->state.goto_labels.at(st.target);
+            if (label.declared)
+            {
+                this->validate_goto_transition(current_block, target, st.target, st.location);
+            }
+            else
+            {
+                this->state.pending_gotos[st.target].push_back(pending_goto_fixup{.source = current_block, .target = st.target, .location = st.location});
             }
             this->set_terminator(current_block, vmir2::jump{.target = target});
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_continue_statement const&) -> co_type< void >
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_label_statement const& st) -> co_type< void >
         {
-            if (this->state.loop_controls.empty())
+            auto target = this->get_or_create_goto_label_target(st.name, current_block);
+            auto& label = this->state.goto_labels.at(st.name);
+            if (label.declared)
             {
-                throw std::logic_error("CONTINUE used outside a runtime loop");
+                throw invalid_goto_error("Duplicate LABEL :" + st.name);
             }
-            auto target = this->state.loop_controls.back().continue_target;
-            current_block = this->resolve_open_block(current_block);
-            if (this->state.blocks.at(current_block).terminator.has_value())
+
+            auto label_state = this->state.blocks.at(current_block).current_state;
+            auto label_lookup_values = this->state.blocks.at(current_block).lookup_values;
+            if (!this->state.blocks.at(current_block).terminator.has_value())
             {
-                throw std::logic_error("Cannot continue from a block that already has a terminator");
+                this->set_terminator(current_block, vmir2::jump{.target = target});
             }
-            this->set_terminator(current_block, vmir2::jump{.target = target});
+
+            auto& target_block = this->state.blocks.at(target);
+            target_block.entry_state = std::move(label_state);
+            target_block.current_state = target_block.entry_state;
+            target_block.lookup_values = std::move(label_lookup_values);
+            label.declared = true;
+            label.location = st.location;
+            this->validate_pending_gotos(st.name);
+
+            current_block = target;
+            co_return;
+        }
+
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_label_block_statement const& st) -> co_type< void >
+        {
+            block_index body_block = this->generate_subblock(current_block, "label_block_body");
+            block_index after_block = this->generate_subblock(current_block, "label_block_after");
+
+            this->generate_jump(current_block, body_block);
+            this->state.break_controls.push_back(break_control_targets{.label_name = st.name, .break_target = after_block});
+            co_await co_generate_function_block(body_block, st.block, "label_block");
+            this->state.break_controls.pop_back();
+            this->generate_jump(body_block, after_block);
+
+            current_block = after_block;
             co_return;
         }
 
@@ -4295,8 +4521,16 @@ namespace quxlang
                 this->generate_branch(cond, condition_block, body_block, after_block);
             }
 
-            this->state.loop_controls.push_back(loop_control_targets{.break_target = after_block, .continue_target = condition_block});
+            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = condition_block});
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
+            }
             co_await co_generate_function_block(body_block, st.loop_block, "while_statement");
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.pop_back();
+            }
             this->state.loop_controls.pop_back();
             this->generate_jump(body_block, condition_block);
 
@@ -4398,8 +4632,16 @@ namespace quxlang
                 }
             }
 
-            this->state.loop_controls.push_back(loop_control_targets{.break_target = after_block, .continue_target = step_block});
+            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = step_block});
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
+            }
             co_await co_generate_function_block(body_block, st.loop_block, "for_sequence_loop");
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.pop_back();
+            }
             this->state.loop_controls.pop_back();
             this->generate_jump(body_block, step_block);
 
@@ -4496,8 +4738,16 @@ namespace quxlang
                 }
             }
 
-            this->state.loop_controls.push_back(loop_control_targets{.break_target = after_block, .continue_target = continue_target});
+            this->state.loop_controls.push_back(loop_control_targets{.label_name = st.label_name, .break_target = after_block, .continue_target = continue_target});
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.push_back(break_control_targets{.label_name = *st.label_name, .break_target = after_block});
+            }
             co_await co_generate_function_block(body_block, st.loop_block, "for_loop");
+            if (st.label_name.has_value())
+            {
+                this->state.break_controls.pop_back();
+            }
             this->state.loop_controls.pop_back();
 
             body_block = this->resolve_open_block(body_block);
@@ -5912,6 +6162,7 @@ namespace quxlang
                 // TODO: Check if default return is allowed.
                 this->generate_return(current_block);
             }
+            this->validate_no_pending_gotos();
 
             co_return;
         }
@@ -6062,7 +6313,7 @@ namespace quxlang
             {
                 if (this->state.blocks.at(new_block).terminator.has_value())
                 {
-                    break;
+                    new_block = this->generate_subblock(new_block, block_from + "_block_unreachable");
                 }
                 co_await co_generate_fblock_statement(new_block, statement);
             }
@@ -6389,6 +6640,7 @@ namespace quxlang
                 this->generate_return(current_block);
             }
 
+            this->validate_no_pending_gotos();
             co_await co_generate_dtors();
 
             co_return get_result();

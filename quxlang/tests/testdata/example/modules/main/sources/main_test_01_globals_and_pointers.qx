@@ -311,6 +311,120 @@
    ASSERT(sum == 8);
 }
 
+::runtime_labeled_for_control_test STATIC_TEST
+{
+   VAR sum I32 := 0;
+   FOR :outer FROM(0 AS I32) TO(4) VALUE(i) LOOP {
+      FOR :inner FROM(0 AS I32) TO(4) VALUE(j) LOOP {
+         IF (j == 1) {
+            CONTINUE :outer;
+         }
+         sum := sum + 1;
+      }
+   };
+   ASSERT(sum == 5);
+
+   FOR :stop FROM(0 AS I32) TO(4) VALUE(i) LOOP {
+      FOR FROM(0 AS I32) TO(4) VALUE(j) LOOP {
+         BREAK :stop;
+      }
+      sum := sum + 100;
+   };
+   ASSERT(sum == 5);
+}
+
+::runtime_labeled_while_control_test STATIC_TEST
+{
+   VAR i I32 := 0;
+   VAR sum I32 := 0;
+   WHILE :outer (i < 5) {
+      i++;
+      VAR j I32 := 0;
+      WHILE :inner (j < 3) {
+         j++;
+         CONTINUE :outer;
+      }
+      sum++;
+   }
+   ASSERT(sum == 0);
+}
+
+::runtime_labeled_block_break_test STATIC_TEST
+{
+   VAR x I32 := 0;
+   LABEL :done {
+      x := 1;
+      BREAK :done;
+      x := 99;
+   }
+   ASSERT(x == 1);
+}
+
+::runtime_forward_goto_test STATIC_TEST
+{
+   VAR x I32 := 0;
+   GOTO :skip;
+   x := 99;
+   LABEL :skip;
+   ASSERT(x == 0);
+}
+
+::runtime_backward_goto_test STATIC_TEST
+{
+   VAR x I32 := 0;
+   LABEL :again;
+   x++;
+   IF (x < 3) {
+      GOTO :again;
+   }
+   ASSERT(x == 3);
+}
+
+::runtime_goto_out_of_block_test STATIC_TEST
+{
+   VAR x I32 := 0;
+   {
+      VAR y I32 := 1;
+      x := y;
+      GOTO :after;
+   }
+   LABEL :after;
+   ASSERT(x == 1);
+}
+
+::missing_break_label_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   BREAK :missing;
+}
+
+::continue_to_labeled_block_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   LABEL :block {
+      CONTINUE :block;
+   }
+}
+
+::missing_goto_label_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   GOTO :missing;
+}
+
+::duplicate_goto_label_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   LABEL :same;
+   LABEL :same;
+}
+
+::goto_skipped_constructor_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   GOTO :inside;
+   {
+      VAR y I32 := 1;
+      LABEL :inside;
+      ASSERT(y == 1);
+   }
+}
+
 ::static_constant_mutation_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
    STATIC x I32 := 0;

@@ -4,6 +4,7 @@
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
 #include <quxlang/parsers/parse_for_statement.hpp>
+#include <quxlang/parsers/parse_label_reference.hpp>
 #include <quxlang/parsers/parse_return_statement.hpp>
 #include <quxlang/parsers/parse_var_statement.hpp>
 #include <quxlang/parsers/parse_while_statement.hpp>
@@ -105,23 +106,57 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "BREAK"))
         {
+            auto label_name = try_parse_label_reference(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
                 throw std::logic_error("Expected ';' after BREAK statement");
             }
             function_break_statement st;
+            st.label_name = std::move(label_name);
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
         }
         else if (skip_keyword_if_is(pos, end, "CONTINUE"))
         {
+            auto label_name = try_parse_label_reference(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
                 throw std::logic_error("Expected ';' after CONTINUE statement");
             }
             function_continue_statement st;
+            st.label_name = std::move(label_name);
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
+        else if (skip_keyword_if_is(pos, end, "GOTO"))
+        {
+            auto target = parse_label_reference(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw std::logic_error("Expected ';' after GOTO statement");
+            }
+            function_goto_statement st;
+            st.target = std::move(target);
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
+        else if (skip_keyword_if_is(pos, end, "LABEL"))
+        {
+            auto name = parse_label_reference(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, ";"))
+            {
+                function_label_statement st;
+                st.name = std::move(name);
+                st.location = ctx.get_location_optional(begin, pos);
+                return std::optional< function_statement >{std::move(st)};
+            }
+            function_label_block_statement st;
+            st.name = std::move(name);
+            st.block = parse_function_block(ctx);
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
         }

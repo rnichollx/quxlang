@@ -47,6 +47,8 @@ FOR ... LOOP {
   * `POSTTEST(x)`: similar to `TEST`, but the condition is checked after each iteration of the loop body.
   * `BREAK;` exits the innermost runtime `WHILE` or `FOR` loop.
   * `CONTINUE;` skips the rest of the innermost runtime loop body and continues at that loop's next iteration step.
+  * `BREAK :label;` exits the nearest enclosing loop or `LABEL :label { ... }` block with that label.
+  * `CONTINUE :label;` continues the nearest enclosing loop with that label.
 
 Each round of iteration looks like either:
 
@@ -59,7 +61,7 @@ Each round of iteration looks like either:
 
 
 A loop of the form `WHILE(x) { ... }` is equivalent to `FOR TEST(x) LOOP { ... };`. Quxlang does not have a
-dedicated "do-while" loop, but the equilvaent is availble using a `POSTTEST` condition in a `FOR` loop e.g.:
+dedicated "do-while" loop, but the equivalent is available using a `POSTTEST` condition in a `FOR` loop e.g.:
  `FOR POSTTEST(x) LOOP { ... };`.
   
 
@@ -69,6 +71,33 @@ Example:
 FOR INIT{ VAR i := 0; } TEST(i < 10) STEP{ i++; } LOOP {
    ...
 };
+```
+
+Labeled loops use a symbolic label immediately after the loop keyword:
+
+```quxlang
+FOR :outer FROM(0 AS I32) TO(10) VALUE(i) LOOP {
+   BREAK :outer;
+};
+
+WHILE :again (condition) {
+   CONTINUE :again;
+}
+```
+
+Point labels are `GOTO` targets:
+
+```quxlang
+GOTO :target;
+LABEL :target;
+```
+
+Block labels are breakable blocks, but are not `GOTO` targets:
+
+```quxlang
+LABEL :done {
+   BREAK :done;
+}
 ```
 
 ### Iteration For-Loops

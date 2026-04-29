@@ -96,5 +96,13 @@ namespace quxlang
         {
         }
     };
+
+    class invalid_goto_error : public std::logic_error
+    {
+      public:
+        invalid_goto_error(std::string what_arg) : std::logic_error(what_arg)
+        {
+        }
+    };
 } // namespace quxlang
 #endif // EXCEPTION_HPP
