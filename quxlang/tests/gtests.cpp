@@ -45,6 +45,10 @@
 #include "rpnx/serialization4.hpp"
 
 
+#include <bit>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 #include <random>
 #include <variant>
 
@@ -346,6 +350,9 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
+    ASSERT_TRUE(parse_type_symbol("F32") == type_symbol(float_type{.bits = 32, .exponent_bits = 8}));
+    ASSERT_TRUE(parse_type_symbol("F64") == type_symbol(float_type{.bits = 64, .exponent_bits = 11}));
+    ASSERT_TRUE(parse_type_symbol("F16E5") == type_symbol(float_type{.bits = 16, .exponent_bits = 5}));
 }
 
 TEST(parsing, parse_pack_expressions)
@@ -1142,6 +1149,17 @@ TEST(parsing, parse_partial_cast_expression)
     ASSERT_TRUE(expr.has_value());
     ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
     ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().keyword.value(), "PARTIAL");
+}
+
+TEST(parsing, parse_approximate_cast_expression)
+{
+    std::string test_string = "x AS APPROXIMATE F32";
+
+    auto expr = try_parse_expression_text(test_string);
+
+    ASSERT_TRUE(expr.has_value());
+    ASSERT_TRUE(expr->template type_is< quxlang::expression_typecast >());
+    ASSERT_EQ(expr->template get_as< quxlang::expression_typecast >().keyword.value(), "APPROXIMATE");
 }
 
 TEST(parsing, reject_internal_tempar_name_in_expression)
@@ -2020,6 +2038,200 @@ TEST(quxlang, storage_type_validation)
 }
 
 #include <quxlang/fixed_bytemath.hpp>
+
+namespace
+{
+    std::vector< std::byte > f32_bytes_from_bits(std::uint32_t bits)
+    {
+        return {
+            std::byte{static_cast< unsigned char >(bits & 0xFF)},
+            std::byte{static_cast< unsigned char >((bits >> 8) & 0xFF)},
+            std::byte{static_cast< unsigned char >((bits >> 16) & 0xFF)},
+            std::byte{static_cast< unsigned char >((bits >> 24) & 0xFF)},
+        };
+    }
+
+    std::vector< std::byte > f32_bytes_from_native(float value)
+    {
+        return f32_bytes_from_bits(std::bit_cast< std::uint32_t >(value));
+    }
+
+    std::vector< std::byte > canonical_f32_bytes_from_native(float value)
+    {
+        quxlang::bytemath::fixed_float_options opt{.bits = 32, .exponent_bits = 8};
+        if (std::isnan(value))
+        {
+            return quxlang::bytemath::fixed_float_nan(opt).data_bytes;
+        }
+        return f32_bytes_from_native(value);
+    }
+
+    float native_from_f32_bits(std::uint32_t bits)
+    {
+        return std::bit_cast< float >(bits);
+    }
+
+    void expect_f32_native_result(
+        char const* operation,
+        std::uint32_t lhs_bits,
+        std::uint32_t rhs_bits,
+        quxlang::bytemath::float_result (*fixed_operation)(
+            quxlang::bytemath::fixed_float_options,
+            std::vector< std::byte >,
+            std::vector< std::byte >),
+        float (*native_operation)(float, float))
+    {
+        quxlang::bytemath::fixed_float_options opt{.bits = 32, .exponent_bits = 8};
+        auto lhs_bytes = f32_bytes_from_bits(lhs_bits);
+        auto rhs_bytes = f32_bytes_from_bits(rhs_bits);
+        auto fixed_result = fixed_operation(opt, lhs_bytes, rhs_bytes);
+        ASSERT_FALSE(fixed_result.result_is_undefined) << operation;
+
+        float native_lhs = native_from_f32_bits(lhs_bits);
+        float native_rhs = native_from_f32_bits(rhs_bits);
+        auto expected = canonical_f32_bytes_from_native(native_operation(native_lhs, native_rhs));
+        ASSERT_EQ(fixed_result.data_bytes, expected) << operation << " lhs=0x" << std::hex << lhs_bits << " rhs=0x" << rhs_bits;
+    }
+}
+
+TEST(fixed_bytemath, fixed_float_round_trip_and_arithmetic)
+{
+  using namespace quxlang::bytemath;
+
+  fixed_float_options opt{.bits = 32, .exponent_bits = 8};
+
+  auto one_half = fixed_float_from_decimal_string(opt, "1.5");
+  auto two = fixed_float_from_decimal_string(opt, "2.0");
+  ASSERT_FALSE(one_half.result_is_undefined);
+  ASSERT_FALSE(two.result_is_undefined);
+
+  auto sum = fixed_float_add_le(opt, one_half.data_bytes, two.data_bytes);
+  ASSERT_FALSE(sum.result_is_undefined);
+  auto three_half = fixed_float_from_decimal_string(opt, "3.5");
+  ASSERT_TRUE(fixed_float_qux_eq_le(opt, sum.data_bytes, three_half.data_bytes).result);
+
+  auto product = fixed_float_mul_le(opt, one_half.data_bytes, two.data_bytes);
+  ASSERT_FALSE(product.result_is_undefined);
+  auto three = fixed_float_from_decimal_string(opt, "3.0");
+  ASSERT_TRUE(fixed_float_qux_eq_le(opt, product.data_bytes, three.data_bytes).result);
+
+  fixed_float_options wide_opt{.bits = 128, .exponent_bits = 15};
+  auto wide_one_half = fixed_float_from_decimal_string(wide_opt, "1.5");
+  auto wide_two = fixed_float_from_decimal_string(wide_opt, "2.0");
+  auto wide_sum = fixed_float_add_le(wide_opt, wide_one_half.data_bytes, wide_two.data_bytes);
+  auto wide_three_half = fixed_float_from_decimal_string(wide_opt, "3.5");
+  ASSERT_TRUE(fixed_float_qux_eq_le(wide_opt, wide_sum.data_bytes, wide_three_half.data_bytes).result);
+
+  auto zero = fixed_float_from_decimal_string(opt, "0.0");
+  auto negative_zero = fixed_float_zero(opt, true);
+  ASSERT_TRUE(fixed_float_qux_lt_le(opt, negative_zero.data_bytes, zero.data_bytes).result);
+  ASSERT_FALSE(fixed_float_ieee_lt_le(opt, negative_zero.data_bytes, zero.data_bytes).result);
+  auto divide_by_zero = fixed_float_div_le(opt, one_half.data_bytes, zero.data_bytes);
+  ASSERT_FALSE(divide_by_zero.result_is_undefined);
+  ASSERT_TRUE(fixed_float_ieee_gt_le(opt, divide_by_zero.data_bytes, three.data_bytes).result);
+  auto nan = fixed_float_div_le(opt, zero.data_bytes, zero.data_bytes);
+  ASSERT_FALSE(nan.result_is_undefined);
+  auto noncanonical_nan = pack_fixed_float_bits(opt, true, fixed_float_max_exponent_raw(opt), std::vector< std::byte >{std::byte{1}});
+  ASSERT_TRUE(fixed_float_qux_eq_le(opt, nan.data_bytes, fixed_float_nan(opt).data_bytes).result);
+  ASSERT_TRUE(fixed_float_qux_eq_le(opt, noncanonical_nan, fixed_float_nan(opt).data_bytes).result);
+  ASSERT_EQ(fixed_float_qux_compare_le(opt, noncanonical_nan, fixed_float_nan(opt).data_bytes), 0);
+  ASSERT_FALSE(fixed_float_ieee_eq_le(opt, nan.data_bytes, nan.data_bytes).result);
+  ASSERT_TRUE(fixed_float_ieee_ne_le(opt, nan.data_bytes, nan.data_bytes).result);
+
+  fixed_float_options narrow_opt{.bits = 10, .exponent_bits = 5};
+  auto narrow_one = fixed_float_from_decimal_string(narrow_opt, "1.0");
+  auto padded_narrow_one = narrow_one.data_bytes;
+  padded_narrow_one.back() |= std::byte{0xFC};
+  ASSERT_TRUE(fixed_float_qux_eq_le(narrow_opt, padded_narrow_one, narrow_one.data_bytes).result);
+  ASSERT_EQ(fixed_float_canonicalize_nan_le(narrow_opt, padded_narrow_one), narrow_one.data_bytes);
+
+  auto exact_half = fixed_float_from_decimal_string(opt, "0.5", true);
+  ASSERT_TRUE(exact_half.result_is_exact);
+  auto inexact_two_fifths = fixed_float_from_decimal_string(opt, "0.4", true);
+  ASSERT_FALSE(inexact_two_fifths.result_is_exact);
+
+  fixed_int_options i32_opt{.has_sign = true, .bits = 32};
+  auto exactly_representable_int = fixed_float_from_int_le(opt, i32_opt, f32_bytes_from_bits(16777216), true);
+  auto inexact_int = fixed_float_from_int_le(opt, i32_opt, f32_bytes_from_bits(16777217), true);
+  ASSERT_TRUE(exactly_representable_int.result_is_exact);
+  ASSERT_FALSE(inexact_int.result_is_exact);
+}
+
+TEST(fixed_bytemath, fixed_float_f32_arithmetic_matches_native_float_bits)
+{
+  using namespace quxlang::bytemath;
+
+  ASSERT_TRUE(std::numeric_limits< float >::is_iec559);
+
+  auto native_add = [](float a, float b) -> float { return a + b; };
+  auto native_sub = [](float a, float b) -> float { return a - b; };
+  auto native_mul = [](float a, float b) -> float { return a * b; };
+  auto native_div = [](float a, float b) -> float { return a / b; };
+
+  using test_case = std::pair< std::uint32_t, std::uint32_t >;
+  std::vector< test_case > add_cases = {
+      {0x00000000u, 0x00000000u}, // +0 + +0
+      {0x00000000u, 0x80000000u}, // +0 + -0
+      {0x80000000u, 0x80000000u}, // -0 + -0
+      {0x3FC00000u, 0x40100000u}, // 1.5 + 2.25
+      {0x3F800000u, 0xBF800000u}, // 1 + -1
+      {0xBF800000u, 0x3F800000u}, // -1 + 1
+      {0x7F800000u, 0xFF800000u}, // +inf + -inf
+      {0x7FC00000u, 0x3F800000u}, // canonical NaN + 1
+      {0xFFC00001u, 0x3F800000u}, // non-canonical NaN + 1
+  };
+
+  std::vector< test_case > sub_cases = {
+      {0x00000000u, 0x00000000u}, // +0 - +0
+      {0x00000000u, 0x80000000u}, // +0 - -0
+      {0x80000000u, 0x00000000u}, // -0 - +0
+      {0x3F800000u, 0x3F800000u}, // 1 - 1
+      {0xBF800000u, 0xBF800000u}, // -1 - -1
+      {0x40100000u, 0x3FC00000u}, // 2.25 - 1.5
+      {0xFF800000u, 0xFF800000u}, // -inf - -inf
+      {0x7FC00000u, 0x3F800000u}, // canonical NaN - 1
+      {0xFFC00001u, 0x3F800000u}, // non-canonical NaN - 1
+  };
+
+  std::vector< test_case > mul_cases = {
+      {0x00000000u, 0xBF800000u}, // +0 * -1
+      {0x80000000u, 0xBF800000u}, // -0 * -1
+      {0x3FC00000u, 0x40100000u}, // 1.5 * 2.25
+      {0x7F800000u, 0x00000000u}, // +inf * +0
+      {0x7FC00000u, 0x3F800000u}, // canonical NaN * 1
+      {0xFFC00001u, 0x3F800000u}, // non-canonical NaN * 1
+  };
+
+  std::vector< test_case > div_cases = {
+      {0x00000000u, 0x3F800000u}, // +0 / 1
+      {0x00000000u, 0xBF800000u}, // +0 / -1
+      {0x80000000u, 0xBF800000u}, // -0 / -1
+      {0x3F800000u, 0x00000000u}, // 1 / +0
+      {0x3F800000u, 0x80000000u}, // 1 / -0
+      {0x00000000u, 0x00000000u}, // +0 / +0
+      {0x7F800000u, 0x7F800000u}, // +inf / +inf
+      {0x3FC00000u, 0x40100000u}, // 1.5 / 2.25
+      {0x7FC00000u, 0x3F800000u}, // canonical NaN / 1
+      {0xFFC00001u, 0x3F800000u}, // non-canonical NaN / 1
+  };
+
+  for (auto const& [lhs, rhs] : add_cases)
+  {
+      expect_f32_native_result("add", lhs, rhs, fixed_float_add_le, native_add);
+  }
+  for (auto const& [lhs, rhs] : sub_cases)
+  {
+      expect_f32_native_result("sub", lhs, rhs, fixed_float_sub_le, native_sub);
+  }
+  for (auto const& [lhs, rhs] : mul_cases)
+  {
+      expect_f32_native_result("mul", lhs, rhs, fixed_float_mul_le, native_mul);
+  }
+  for (auto const& [lhs, rhs] : div_cases)
+  {
+      expect_f32_native_result("div", lhs, rhs, fixed_float_div_le, native_div);
+  }
+}
 
 TEST(fixed_bytemath, unlimited_to_fixed_overflow_undefined) {
   using namespace quxlang::bytemath;

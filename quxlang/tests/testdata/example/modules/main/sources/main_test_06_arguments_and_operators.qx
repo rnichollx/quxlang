@@ -92,6 +92,65 @@
    ASSERT(b == 129);
 }
 
+::floating_point_operators_test STATIC_TEST
+{
+   VAR a F32 := 1.5;
+   VAR b F32 := 2.25;
+   ASSERT((a + b) == 3.75);
+   ASSERT((b - a) == 0.75);
+   ASSERT((a * 2.0) == 3.0);
+   ASSERT((b / 1.5) == 1.5);
+   ASSERT(a < b);
+   ASSERT(b >= a);
+
+   a += 0.5;
+   ASSERT(a == 2.0);
+   a *= 3.0;
+   ASSERT(a == 6.0);
+   a -= 1.0;
+   ASSERT(a == 5.0);
+   a /= 2.0;
+   ASSERT(a == 2.5);
+
+   VAR c F64 := 4.0;
+   ASSERT((c / 2.0) == 2.0);
+
+   VAR d F16E5 := 1.5;
+   ASSERT((d + 0.5) == 2.0);
+
+   VAR approximate_literal F32 := 0.4 AS APPROXIMATE F32;
+   ASSERT(approximate_literal > 0.0);
+
+   VAR exact_from_int F32 := 42 AS I16;
+   ASSERT(exact_from_int == 42.0);
+
+   VAR approximate_from_int F32 := (16777217 AS I32) AS APPROXIMATE F32;
+   ASSERT(approximate_from_int == 16777216.0);
+
+   VAR zero F32 := 0.0;
+   VAR minus_one F32 := zero - 1.0;
+   VAR negative_zero F32 := zero * minus_one;
+   ASSERT(zero != negative_zero);
+   ASSERT(negative_zero < zero);
+   ASSERT(zero > negative_zero);
+   ASSERT(IEEE_EQUALS(zero, negative_zero));
+   ASSERT(IEEE_NOTEQUALS(zero, negative_zero) == FALSE);
+   ASSERT(IEEE_LESS(zero, negative_zero) == FALSE);
+   ASSERT(IEEE_GREATER(negative_zero, zero) == FALSE);
+
+   VAR infinity F32 := 1.0 / zero;
+   ASSERT(IEEE_GREATER(infinity, b));
+
+   VAR nan F32 := zero / zero;
+   ASSERT(nan == nan);
+   ASSERT(nan <= nan);
+   ASSERT(nan >= nan);
+   ASSERT(IEEE_EQUALS(nan, nan) == FALSE);
+   ASSERT(IEEE_NOTEQUALS(nan, nan));
+   ASSERT(IEEE_LESS(nan, zero) == FALSE);
+   ASSERT(IEEE_GREATER(nan, zero) == FALSE);
+}
+
 
 ::bitwise_operators_test STATIC_TEST
 {

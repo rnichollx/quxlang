@@ -412,6 +412,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(int_type, bits, has_sign);
     };
 
+    struct float_type
+    {
+        std::size_t bits = 0;
+        std::size_t exponent_bits = 0;
+
+        RPNX_MEMBER_METADATA(float_type, bits, exponent_bits);
+    };
+
     struct byte_type
     {
         RPNX_EMPTY_METADATA(byte_type);
@@ -661,7 +669,7 @@ namespace quxlang
 
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
-        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128";
+        return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
     }
 
     struct storage

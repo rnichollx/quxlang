@@ -60,6 +60,11 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         {
             add_overload({}, {{"VALUE", make_mref(auto_temploidic{.name = "__uint_type"})}, {"INPUT_ITERATOR", auto_temploidic{.name = "__in_iter"} }}, freebound_identifier{"__in_iter"});
         }
+        else if (builtin.name == "IEEE_EQUALS" || builtin.name == "IEEE_NOTEQUALS" || builtin.name == "IEEE_LESS" || builtin.name == "IEEE_GREATER")
+        {
+            auto float_arg = auto_temploidic{.name = "__float_type"};
+            add_overload({float_arg, float_arg}, {}, bool_type{});
+        }
         co_return allowed_operations;
     }
 
@@ -228,6 +233,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             is_rhs = true;
         }
         bool is_int_type = typeis< int_type >(parent);
+        bool is_float_type = typeis< float_type >(parent);
         bool is_byte_type = typeis< byte_type >(parent);
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
@@ -238,7 +244,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
-        bool is_regular_primitive_type = is_int_type || is_bool_type || is_pointer_type || is_byte_type;
+        bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type;
         if (is_swap_operator && is_regular_primitive_type)
         {
             if (is_rhs)
@@ -330,6 +336,29 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
+        if (is_float_type)
+        {
+            if (is_compound_assignment_operator)
+            {
+                if (!is_rhs)
+                {
+                    auto const base_operator = compound_assignment_operators.at(operator_name);
+                    if (base_operator == "+" || base_operator == "-" || base_operator == "*" || base_operator == "/")
+                    {
+                        add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", parent}}, void_type{});
+                    }
+                }
+            }
+            else if (is_arithmetic_operator && operator_name != "%")
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, parent);
+            }
+            else if (is_compare_operator)
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+            }
+        }
+
         if (is_assignment_operator)
         {
             if (is_rhs)
@@ -351,7 +380,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             }
         }
 
-        if ((is_int_type || is_byte_type) && compare_operators.contains(operator_name))
+        if ((is_int_type || is_float_type || is_byte_type) && compare_operators.contains(operator_name))
         {
             add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
         }

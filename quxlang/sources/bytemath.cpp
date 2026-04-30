@@ -155,6 +155,10 @@ namespace quxlang::bytemath
         {
             return {std::vector< std::byte >{std::byte{0}}, std::move(a)};
         }
+        if (b.size() == 1 && b[0] == std::byte{1})
+        {
+            return {std::move(a), std::vector< std::byte >{std::byte{0}}};
+        }
 
         if (!detail::le_comp_less_raw(a, b))
         {
@@ -167,10 +171,10 @@ namespace quxlang::bytemath
             for (std::size_t shift = t + 1; shift-- > 0;)
             {
                 // binary search d in [0..255]
-                std::uint8_t lo = 0, hi = 255, best = 0;
+                std::int32_t lo = 0, hi = 255, best = 0;
                 while (lo <= hi)
                 {
-                    std::uint8_t mid = std::uint8_t((lo + hi) >> 1);
+                    std::int32_t mid = (lo + hi) >> 1;
 
                     // compute b * mid
                     std::vector< std::byte > prod;
@@ -178,7 +182,7 @@ namespace quxlang::bytemath
                     std::uint16_t carry = 0;
                     for (std::size_t j = 0; j < m; ++j)
                     {
-                        std::uint16_t v = std::uint16_t(detail::le_get_raw(b, j)) * mid + carry;
+                        std::uint16_t v = static_cast< std::uint16_t >(std::uint16_t(detail::le_get_raw(b, j)) * mid + carry);
                         prod.push_back(static_cast< std::byte >(v & 0xFF));
                         carry = v >> 8;
                     }
@@ -198,8 +202,6 @@ namespace quxlang::bytemath
                     }
                     else
                     {
-                        if (mid == 0)
-                            break;
                         hi = mid - 1;
                     }
                 }
@@ -212,7 +214,7 @@ namespace quxlang::bytemath
                     std::uint16_t carry = 0;
                     for (std::size_t j = 0; j < m; ++j)
                     {
-                        std::uint16_t v = std::uint16_t(detail::le_get_raw(b, j)) * best + carry;
+                        std::uint16_t v = static_cast< std::uint16_t >(std::uint16_t(detail::le_get_raw(b, j)) * best + carry);
                         prod.push_back(static_cast< std::byte >(v & 0xFF));
                         carry = v >> 8;
                     }
@@ -224,7 +226,7 @@ namespace quxlang::bytemath
                     a = detail::unlimited_int_unsigned_sub_le_raw(std::move(a), std::move(to_sub));
                 }
 
-                q_big[t - shift] = best;
+                q_big[t - shift] = static_cast< std::uint8_t >(best);
             }
 
             // build little-endian quotient

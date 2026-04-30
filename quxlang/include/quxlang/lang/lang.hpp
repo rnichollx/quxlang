@@ -59,6 +59,7 @@ namespace quxlang
                 "CHECKED",
                 "ASSUME",
                 "PARTIAL",
+                "APPROXIMATE",
                 "THIS",
                 "NULLPTR",
                 "UNSPECIFIED",

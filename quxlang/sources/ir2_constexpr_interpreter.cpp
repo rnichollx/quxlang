@@ -255,15 +255,29 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         mod,
     };
 
+    enum class fixed_float_instruction : std::uint8_t {
+        add,
+        sub,
+        mul,
+        div,
+    };
+
     using fixed_int_binary_op = bytemath::int_result (*)(bytemath::fixed_int_options, std::vector< std::byte >, std::vector< std::byte >);
+    using fixed_float_binary_op = bytemath::float_result (*)(bytemath::fixed_float_options, std::vector< std::byte >, std::vector< std::byte >);
+    using fixed_float_compare_op = bytemath::bool_result (*)(bytemath::fixed_float_options, std::vector< std::byte >, std::vector< std::byte >);
     using mut_bitwise_binary_op = std::uint8_t (*)(std::uint8_t, std::uint8_t);
 
     std::size_t get_type_size(const type_symbol& type);
     std::size_t get_type_alignment(type_symbol type);
     bytemath::fixed_int_options get_fixed_int_options(type_symbol const& type) const;
+    bytemath::fixed_float_options get_fixed_float_options(type_symbol const& type) const;
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
+    char const* fixed_float_instruction_name(fixed_float_instruction instruction) const;
     void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
     void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, fixed_int_binary_op op);
+    void exec_fixed_float_binary_op(fixed_float_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_binary_op op);
+    void exec_mut_fixed_float_binary_op(fixed_float_instruction instruction, local_index target_slot, local_index value_slot, fixed_float_binary_op op);
+    void exec_fixed_float_compare_op(char const* instruction_name, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_compare_op op);
     void exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, mut_bitwise_binary_op op, bool invert);
 
     std::shared_ptr< local > output(local_index slot);
@@ -364,6 +378,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_make_proxy const& cmp);
     void exec_instr_val(vmir2::constexpr_output_byte const& cob);
     void exec_instr_val(vmir2::load_const_value const& lcv);
+    void exec_instr_val(vmir2::canonicalize_float const& cpf);
+    void exec_instr_val(vmir2::get_value_byte const& gvb);
+    void exec_instr_val(vmir2::set_value_byte const& svb);
     void exec_instr_val(vmir2::make_pointer_to const& mpt);
     void exec_instr_val(vmir2::storage_init const& sin);
     void exec_instr_val(vmir2::storage_init_start const& sis);
@@ -392,12 +409,26 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::mut_int_mul const& op);
     void exec_instr_val(vmir2::mut_int_div const& op);
     void exec_instr_val(vmir2::mut_int_mod const& op);
+    void exec_instr_val(vmir2::float_add const& op);
+    void exec_instr_val(vmir2::float_sub const& op);
+    void exec_instr_val(vmir2::float_mul const& op);
+    void exec_instr_val(vmir2::float_div const& op);
+    void exec_instr_val(vmir2::mut_float_add const& op);
+    void exec_instr_val(vmir2::mut_float_sub const& op);
+    void exec_instr_val(vmir2::mut_float_mul const& op);
+    void exec_instr_val(vmir2::mut_float_div const& op);
+    void exec_instr_val(vmir2::float_from_int const& op);
     void exec_instr_val(vmir2::store_to_ref const& str);
     void exec_instr_val(vmir2::load_const_int const& lci);
+    void exec_instr_val(vmir2::load_const_float const& lcf);
     void exec_instr_val(vmir2::cmp_eq const& ceq);
     void exec_instr_val(vmir2::cmp_ne const& cne);
     void exec_instr_val(vmir2::cmp_lt const& clt);
     void exec_instr_val(vmir2::cmp_ge const& cge);
+    void exec_instr_val(vmir2::float_ieee_eq const& op);
+    void exec_instr_val(vmir2::float_ieee_ne const& op);
+    void exec_instr_val(vmir2::float_ieee_lt const& op);
+    void exec_instr_val(vmir2::float_ieee_gt const& op);
     void exec_instr_val(vmir2::pcmp_eq const& ceq);
     void exec_instr_val(vmir2::pcmp_ne const& cne);
     void exec_instr_val(vmir2::pcmp_lt const& clt);
@@ -883,6 +914,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return (type.get_as< int_type >().bits + 7) / 8;
     }
 
+    if (typeis< float_type >(type))
+    {
+        return (type.get_as< float_type >().bits + 7) / 8;
+    }
+
     if (typeis< byte_type >(type))
     {
         return 1;
@@ -951,6 +987,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         auto sz = get_type_size(type);
         return std::min< std::size_t >(sz, 8);
     }
+    if (typeis< float_type >(type))
+    {
+        auto sz = get_type_size(type);
+        return std::min< std::size_t >(sz, 8);
+    }
     if (typeis< initguard_type >(type) || typeis< initguard_lock_type >(type))
     {
         return 8;
@@ -1011,6 +1052,17 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
     return opts;
 }
 
+quxlang::bytemath::fixed_float_options quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_fixed_float_options(type_symbol const& type) const
+{
+    if (!type.type_is< float_type >())
+    {
+        throw std::runtime_error("expected primitive floating point type");
+    }
+
+    auto const& float_type_info = type.get_as< float_type >();
+    return bytemath::fixed_float_options{.bits = float_type_info.bits, .exponent_bits = float_type_info.exponent_bits};
+}
+
 char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fixed_int_instruction_name(fixed_int_instruction instruction) const
 {
     switch (instruction)
@@ -1028,6 +1080,23 @@ char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     }
 
     throw compiler_bug("unknown fixed integer instruction");
+}
+
+char const* quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::fixed_float_instruction_name(fixed_float_instruction instruction) const
+{
+    switch (instruction)
+    {
+    case fixed_float_instruction::add:
+        return "FADD";
+    case fixed_float_instruction::sub:
+        return "FSUB";
+    case fixed_float_instruction::mul:
+        return "FMUL";
+    case fixed_float_instruction::div:
+        return "FDIV";
+    }
+
+    throw compiler_bug("unknown fixed floating point instruction");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op)
@@ -1141,6 +1210,142 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     local_set_data(target_value, std::move(res.data_bytes));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_float_binary_op(fixed_float_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_binary_op op)
+{
+    char const* instruction_name = fixed_float_instruction_name(instruction);
+
+    require_valid_input_precondition(a_slot);
+    require_valid_input_precondition(b_slot);
+    require_valid_output_precondition(result_slot);
+
+    std::shared_ptr< local > a_local = consume_local(a_slot);
+    std::shared_ptr< local > b_local = consume_local(b_slot);
+    std::shared_ptr< local > result_local = output_local(result_slot);
+
+    auto& a_data = a_local->data;
+    auto& b_data = b_local->data;
+    auto& result_data = result_local->data;
+
+    if (a_data.size() != b_data.size())
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+    }
+
+    type_symbol a_type = get_local_type(a_slot);
+    type_symbol b_type = get_local_type(b_slot);
+    type_symbol result_type = get_local_type(result_slot);
+
+    if (a_type != b_type || a_type != result_type)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+    }
+
+    bytemath::fixed_float_options opts = get_fixed_float_options(a_type);
+    std::size_t expected_size = (opts.bits + 7) / 8;
+
+    if (a_data.size() != expected_size)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+    }
+
+    result_data.resize(expected_size, std::byte{0});
+
+    bytemath::float_result res = op(opts, a_data, b_data);
+    if (res.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
+    }
+
+    if (res.data_bytes.size() != expected_size)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": bytemath returned unexpected result size");
+    }
+
+    result_data = std::move(res.data_bytes);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_float_binary_op(fixed_float_instruction instruction, local_index target_slot, local_index value_slot, fixed_float_binary_op op)
+{
+    char const* instruction_name = fixed_float_instruction_name(instruction);
+
+    require_valid_input_precondition(target_slot);
+    require_valid_input_precondition(value_slot);
+
+    std::shared_ptr< local > target_ref = consume_local(target_slot);
+    std::shared_ptr< local > value_local = consume_local(value_slot);
+    if (!target_ref->ref.has_value())
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target is not a reference");
+    }
+    if (pointer_invalidated(*target_ref->ref))
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target reference is invalid");
+    }
+
+    auto target_value = target_ref->ref->pointer_target.value().lock();
+    if (!target_value)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": target reference is invalid");
+    }
+
+    auto& target_data = target_value->data;
+    auto& value_data = value_local->data;
+
+    if (target_data.size() != value_data.size())
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+    }
+
+    type_symbol target_type = remove_ref(get_local_type(target_slot));
+    type_symbol value_type = get_local_type(value_slot);
+    if (target_type != value_type)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+    }
+
+    bytemath::fixed_float_options opts = get_fixed_float_options(target_type);
+    std::size_t expected_size = (opts.bits + 7) / 8;
+    if (target_data.size() != expected_size)
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+    }
+
+    bytemath::float_result res = op(opts, target_data, value_data);
+    if (res.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
+    }
+    if (res.data_bytes.size() != expected_size)
+    {
+        throw compiler_bug(std::string(instruction_name) + ": bytemath returned unexpected result size");
+    }
+
+    local_set_data(target_value, std::move(res.data_bytes));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_fixed_float_compare_op(char const* instruction_name, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_compare_op op)
+{
+    require_valid_input_precondition(a_slot);
+    require_valid_input_precondition(b_slot);
+    require_valid_output_precondition(result_slot);
+
+    auto a_type = get_local_type(a_slot);
+    auto b_type = get_local_type(b_slot);
+    if (a_type != b_type || !a_type.type_is< float_type >())
+    {
+        throw std::runtime_error(std::string(instruction_name) + ": operands must have the same floating point type");
+    }
+
+    auto a_data = consume_local_as_data(a_slot);
+    auto b_data = consume_local_as_data(b_slot);
+    auto result = op(get_fixed_float_options(a_type), std::move(a_data), std::move(b_data));
+    if (result.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error(std::string("error executing ") + instruction_name + ": undefined behavior");
+    }
+    set_data(result_slot, {std::byte(result.result ? 1 : 0)});
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output(local_index slot)
@@ -2194,6 +2399,85 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     begin_lifetime(output_obj);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::canonicalize_float const& cpf)
+{
+    auto source_type = get_local_type(cpf.source);
+    auto result_type = get_local_type(cpf.result);
+    if (source_type != result_type || !source_type.type_is< float_type >())
+    {
+        throw constexpr_logic_execution_error("FCANON requires matching floating point source and result types");
+    }
+
+    auto source_data = consume_local_as_data(cpf.source);
+    auto result = output_local(cpf.result);
+    local_set_data(result, bytemath::fixed_float_canonicalize_nan_le(get_fixed_float_options(source_type), std::move(source_data)));
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_value_byte const& gvb)
+{
+    auto reference_type = get_local_type(gvb.source_reference);
+    if (!is_ref(reference_type))
+    {
+        throw constexpr_logic_execution_error("GET_BYTE requires a reference source");
+    }
+
+    auto source_ref = consume_local(gvb.source_reference);
+    if (!source_ref->ref.has_value() || pointer_invalidated(*source_ref->ref))
+    {
+        throw constexpr_logic_execution_error("GET_BYTE requires a valid reference source");
+    }
+
+    auto source = source_ref->ref->pointer_target.value().lock();
+    if (!source || !source->alive())
+    {
+        throw constexpr_logic_execution_error("GET_BYTE source is not alive");
+    }
+    if (gvb.offset >= source->data.size())
+    {
+        throw constexpr_logic_execution_error("GET_BYTE offset is out of bounds");
+    }
+
+    auto result = output_local(gvb.result);
+    local_set_data(result, {source->data.at(static_cast< std::size_t >(gvb.offset))});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::set_value_byte const& svb)
+{
+    auto reference_type = get_local_type(svb.target_reference);
+    auto value_type = get_local_type(svb.value);
+    if (!is_ref(reference_type) || !value_type.type_is< byte_type >())
+    {
+        throw constexpr_logic_execution_error("SET_BYTE requires a reference target and BYTE value");
+    }
+
+    auto target_ref = consume_local(svb.target_reference);
+    auto value = consume_local_as_data(svb.value);
+    if (value.size() != 1)
+    {
+        throw constexpr_logic_execution_error("SET_BYTE value must be exactly one byte");
+    }
+    if (!target_ref->ref.has_value() || pointer_invalidated(*target_ref->ref))
+    {
+        throw constexpr_logic_execution_error("SET_BYTE requires a valid reference target");
+    }
+
+    auto target = target_ref->ref->pointer_target.value().lock();
+    if (!target || !target->alive())
+    {
+        throw constexpr_logic_execution_error("SET_BYTE target is not alive");
+    }
+    if (target->readonly)
+    {
+        throw constexpr_logic_execution_error("SET_BYTE target is read-only");
+    }
+    if (svb.offset >= target->data.size())
+    {
+        throw constexpr_logic_execution_error("SET_BYTE offset is out of bounds");
+    }
+
+    target->data.at(static_cast< std::size_t >(svb.offset)) = value.front();
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::make_pointer_to const& mpt)
 {
     auto& frame = get_current_frame();
@@ -2404,6 +2688,70 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     exec_mut_fixed_int_binary_op(fixed_int_instruction::mod, op.target, op.value, &bytemath::fixed_int_mod_le);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_add const& op)
+{
+    exec_fixed_float_binary_op(fixed_float_instruction::add, op.a, op.b, op.result, &bytemath::fixed_float_add_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_sub const& op)
+{
+    exec_fixed_float_binary_op(fixed_float_instruction::sub, op.a, op.b, op.result, &bytemath::fixed_float_sub_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_mul const& op)
+{
+    exec_fixed_float_binary_op(fixed_float_instruction::mul, op.a, op.b, op.result, &bytemath::fixed_float_mul_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_div const& op)
+{
+    exec_fixed_float_binary_op(fixed_float_instruction::div, op.a, op.b, op.result, &bytemath::fixed_float_div_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_float_add const& op)
+{
+    exec_mut_fixed_float_binary_op(fixed_float_instruction::add, op.target, op.value, &bytemath::fixed_float_add_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_float_sub const& op)
+{
+    exec_mut_fixed_float_binary_op(fixed_float_instruction::sub, op.target, op.value, &bytemath::fixed_float_sub_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_float_mul const& op)
+{
+    exec_mut_fixed_float_binary_op(fixed_float_instruction::mul, op.target, op.value, &bytemath::fixed_float_mul_le);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_float_div const& op)
+{
+    exec_mut_fixed_float_binary_op(fixed_float_instruction::div, op.target, op.value, &bytemath::fixed_float_div_le);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_from_int const& op)
+{
+    require_valid_input_precondition(op.source);
+    require_valid_output_precondition(op.result);
+
+    auto source_type = get_local_type(op.source);
+    auto result_type = get_local_type(op.result);
+    if (!result_type.type_is< float_type >() || (!source_type.type_is< int_type >() && !source_type.type_is< byte_type >()))
+    {
+        throw std::runtime_error("ITOF requires an integer source and floating point result");
+    }
+
+    auto source_data = consume_local_as_data(op.source);
+    auto result_local = output_local(op.result);
+    auto result = bytemath::fixed_float_from_int_le(get_fixed_float_options(result_type), get_fixed_int_options(source_type), std::move(source_data), op.require_exact);
+    if (result.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error("error executing ITOF: undefined behavior");
+    }
+    if (op.require_exact && !result.result_is_exact)
+    {
+        throw constexpr_logic_execution_error("error executing ITOF: integer cannot be exactly represented by floating point type; use APPROXIMATE");
+    }
+    if (!op.require_exact && bytemath::unpack_fixed_float(get_fixed_float_options(result_type), result.data_bytes).kind == bytemath::fixed_float_kind::infinity)
+    {
+        throw constexpr_logic_execution_error("error executing ITOF: integer is outside the finite floating point range");
+    }
+
+    local_set_data(result_local, std::move(result.data_bytes));
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::store_to_ref const& str)
 {
     auto from_type = get_local_type(str.from_value);
@@ -2591,8 +2939,54 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     return;
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::load_const_float const& lcf)
+{
+    auto floatval = output_local(lcf.target);
+
+    type_symbol float_type_v = get_current_frame().ir3->local_types.at(lcf.target).type;
+    if (float_type_v.type_is< nvalue_slot >())
+    {
+        float_type_v = float_type_v.get_as< nvalue_slot >().target;
+    }
+    if (!float_type_v.type_is< float_type >())
+    {
+        throw compiler_bug("Expected FLOAT type for load_const_float");
+    }
+
+    auto opts = get_fixed_float_options(float_type_v);
+    auto result = bytemath::fixed_float_from_decimal_string(opts, lcf.value, lcf.require_exact);
+    if (result.result_is_undefined)
+    {
+        throw constexpr_logic_execution_error("error executing INIT_FLOAT: undefined behavior");
+    }
+    if (lcf.require_exact && !result.result_is_exact)
+    {
+        throw constexpr_logic_execution_error("error executing INIT_FLOAT: numeric literal cannot be exactly represented by floating point type; use APPROXIMATE");
+    }
+    if (result.data_bytes.size() != get_type_size(float_type_v))
+    {
+        throw compiler_bug("INIT_FLOAT: bytemath returned unexpected result size");
+    }
+    floatval->data = std::move(result.data_bytes);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_eq const& ceq)
 {
+    auto a_type = get_local_type(ceq.a);
+    if (a_type.type_is< float_type >())
+    {
+        auto b_type = get_local_type(ceq.b);
+        if (a_type != b_type)
+        {
+            throw std::runtime_error("FCMP_EQ: type mismatch among operands");
+        }
+        auto a = consume_local_as_data(ceq.a);
+        auto b = consume_local_as_data(ceq.b);
+        auto result = bytemath::fixed_float_qux_eq_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
+        set_data(ceq.result, {std::byte(result.result ? 1 : 0)});
+        return;
+    }
+
     auto a = consume_local_as_data(ceq.a);
     auto b = consume_local_as_data(ceq.b);
 
@@ -2610,6 +3004,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ne const& cne)
 {
+    auto a_type = get_local_type(cne.a);
+    if (a_type.type_is< float_type >())
+    {
+        auto b_type = get_local_type(cne.b);
+        if (a_type != b_type)
+        {
+            throw std::runtime_error("FCMP_NE: type mismatch among operands");
+        }
+        auto a = consume_local_as_data(cne.a);
+        auto b = consume_local_as_data(cne.b);
+        auto result = bytemath::fixed_float_qux_eq_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
+        set_data(cne.result, {std::byte(result.result ? 0 : 1)});
+        return;
+    }
+
     auto a = consume_local_as_data(cne.a);
     auto b = consume_local_as_data(cne.b);
 
@@ -2626,6 +3035,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_lt const& clt)
 {
+    auto a_type = get_local_type(clt.a);
+    if (a_type.type_is< float_type >())
+    {
+        auto b_type = get_local_type(clt.b);
+        if (a_type != b_type)
+        {
+            throw std::runtime_error("FCMP_LT: type mismatch among operands");
+        }
+        auto a = consume_local_as_data(clt.a);
+        auto b = consume_local_as_data(clt.b);
+        auto result = bytemath::fixed_float_qux_lt_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
+        set_data(clt.result, {std::byte(result.result ? 1 : 0)});
+        return;
+    }
+
     auto a = consume_local_as_data(clt.a);
     auto b = consume_local_as_data(clt.b);
 
@@ -2658,6 +3082,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cmp_ge const& cge)
 {
+    auto a_type = get_local_type(cge.a);
+    if (a_type.type_is< float_type >())
+    {
+        auto b_type = get_local_type(cge.b);
+        if (a_type != b_type)
+        {
+            throw std::runtime_error("FCMP_GE: type mismatch among operands");
+        }
+        auto a = consume_local_as_data(cge.a);
+        auto b = consume_local_as_data(cge.b);
+        auto result = bytemath::fixed_float_qux_ge_le(get_fixed_float_options(a_type), std::move(a), std::move(b));
+        set_data(cge.result, {std::byte(result.result ? 1 : 0)});
+        return;
+    }
+
     auto a = consume_local_as_data(cge.a);
     auto b = consume_local_as_data(cge.b);
 
@@ -2683,6 +3122,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     set_data(cge.result, {std::byte(1)});
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_eq const& op)
+{
+    exec_fixed_float_compare_op("IEEE_FEQ", op.a, op.b, op.result, &bytemath::fixed_float_ieee_eq_le);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_ne const& op)
+{
+    exec_fixed_float_compare_op("IEEE_FNE", op.a, op.b, op.result, &bytemath::fixed_float_ieee_ne_le);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_lt const& op)
+{
+    exec_fixed_float_compare_op("IEEE_FLT", op.a, op.b, op.result, &bytemath::fixed_float_ieee_lt_le);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_ieee_gt const& op)
+{
+    exec_fixed_float_compare_op("IEEE_FGT", op.a, op.b, op.result, &bytemath::fixed_float_ieee_gt_le);
 }
 
 // ===== Bitwise operations handlers =====

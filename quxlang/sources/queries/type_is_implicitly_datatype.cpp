@@ -5,8 +5,8 @@
 
 rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang::type_is_implicitly_datatype_impl(type_symbol input)
 {
-    // Check if the type is an int_type, byte_type, or bool_type
-    if (typeis< int_type >(input) || typeis< byte_type >(input) || typeis< bool_type >(input))
+    // Check if the type is an int_type, float_type, byte_type, or bool_type
+    if (typeis< int_type >(input) || typeis< float_type >(input) || typeis< byte_type >(input) || typeis< bool_type >(input))
     {
         co_return true;
     }

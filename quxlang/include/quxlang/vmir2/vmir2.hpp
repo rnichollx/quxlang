@@ -48,6 +48,10 @@ namespace quxlang
         struct constexpr_output_byte;
         struct load_const_value;
         struct load_const_int;
+        struct load_const_float;
+        struct canonicalize_float;
+        struct get_value_byte;
+        struct set_value_byte;
         struct make_pointer_to;
         struct move_value;
         struct load_from_ref;
@@ -94,11 +98,24 @@ namespace quxlang
         struct mut_int_mul;
         struct mut_int_div;
         struct mut_int_mod;
+        struct float_add;
+        struct float_sub;
+        struct float_mul;
+        struct float_div;
+        struct mut_float_add;
+        struct mut_float_sub;
+        struct mut_float_mul;
+        struct mut_float_div;
+        struct float_from_int;
 
         struct cmp_lt;
         struct cmp_ge;
         struct cmp_eq;
         struct cmp_ne;
+        struct float_ieee_eq;
+        struct float_ieee_ne;
+        struct float_ieee_lt;
+        struct float_ieee_gt;
         struct pcmp_lt;
         struct pcmp_ge;
         struct pcmp_eq;
@@ -166,7 +183,11 @@ namespace quxlang
             constexpr_make_proxy,
             constexpr_output_byte,
             load_const_int,
+            load_const_float,
             load_const_value,
+            canonicalize_float,
+            get_value_byte,
+            set_value_byte,
             make_pointer_to,
             load_from_ref,
             storage_init,
@@ -196,6 +217,15 @@ namespace quxlang
             mut_int_mul,
             mut_int_div,
             mut_int_mod,
+            float_add,
+            float_sub,
+            float_mul,
+            float_div,
+            mut_float_add,
+            mut_float_sub,
+            mut_float_mul,
+            mut_float_div,
+            float_from_int,
             iconv,
             bitwise_and,
             bitwise_or,
@@ -226,6 +256,10 @@ namespace quxlang
             cmp_ge,
             cmp_eq,
             cmp_ne,
+            float_ieee_eq,
+            float_ieee_ne,
+            float_ieee_lt,
+            float_ieee_gt,
             pcmp_lt,
             pcmp_ge,
             pcmp_eq,
@@ -694,6 +728,32 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_value, target, value);
         };
 
+        struct canonicalize_float
+        {
+            local_index source;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(canonicalize_float, source, result);
+        };
+
+        struct get_value_byte
+        {
+            local_index source_reference;
+            std::uint64_t offset = 0;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_value_byte, source_reference, offset, result);
+        };
+
+        struct set_value_byte
+        {
+            local_index target_reference;
+            std::uint64_t offset = 0;
+            local_index value;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(set_value_byte, target_reference, offset, value);
+        };
+
         // Converts a pointer into a reference to the pointed-to value
         struct dereference_pointer
         {
@@ -725,6 +785,14 @@ namespace quxlang
             local_index target;
             std::string value;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_int, target, value);
+        };
+
+        struct load_const_float
+        {
+            local_index target;
+            std::string value;
+            bool require_exact = true;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_const_float, target, value, require_exact);
         };
 
         struct load_const_bool
@@ -814,6 +882,74 @@ namespace quxlang
             local_index target;
             local_index value;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mod, target, value);
+        };
+
+        struct float_add
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_add, a, b, result);
+        };
+
+        struct float_sub
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_sub, a, b, result);
+        };
+
+        struct float_mul
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_mul, a, b, result);
+        };
+
+        struct float_div
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_div, a, b, result);
+        };
+
+        struct mut_float_add
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_float_add, target, value);
+        };
+
+        struct mut_float_sub
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_float_sub, target, value);
+        };
+
+        struct mut_float_mul
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_float_mul, target, value);
+        };
+
+        struct mut_float_div
+        {
+            local_index target;
+            local_index value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_float_div, target, value);
+        };
+
+        struct float_from_int
+        {
+            local_index source;
+            local_index result;
+            bool require_exact = true;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_from_int, source, result, require_exact);
         };
 
         struct iconv
@@ -1020,6 +1156,38 @@ namespace quxlang
             local_index b;
             local_index result;
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(cmp_ne, a, b, result);
+        };
+
+        struct float_ieee_eq
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_ieee_eq, a, b, result);
+        };
+
+        struct float_ieee_ne
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_ieee_ne, a, b, result);
+        };
+
+        struct float_ieee_lt
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_ieee_lt, a, b, result);
+        };
+
+        struct float_ieee_gt
+        {
+            local_index a;
+            local_index b;
+            local_index result;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_ieee_gt, a, b, result);
         };
 
         struct pcmp_ne

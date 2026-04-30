@@ -55,6 +55,23 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
 
         co_return result;
     }
+    else if (type.template type_is< float_type >())
+    {
+        float_type float_kw = as< float_type >(type);
+
+        int sz = 1;
+        while (sz * 8 < float_kw.bits)
+        {
+            sz *= 2;
+        }
+
+        type_placement_info result;
+        result.size = sz;
+        result.alignment = sz;
+        result.alignment = std::min< std::uint64_t >(result.alignment, machine_info.max_int_align());
+
+        co_return result;
+    }
     else if (type.template type_is< byte_type >() || type.template type_is< bool_type >())
     {
         co_return type_placement_info{.size = 1, .alignment = 1};

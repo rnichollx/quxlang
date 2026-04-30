@@ -16,7 +16,7 @@ namespace quxlang::parsers
     template < typename It >
     std::string parse_argument_name(It& pos, It end)
     {
-        static constexpr std::array< std::string_view, 12 > argument_keywords = {
+        static constexpr std::array< std::string_view, 13 > argument_keywords = {
             "T",
             "THIS",
             "RETURN",
@@ -26,6 +26,7 @@ namespace quxlang::parsers
             "CHECKED",
             "ASSUME",
             "PARTIAL",
+            "APPROXIMATE",
             "OUTPUT_ITERATOR",
             "INPUT_ITERATOR",
             "DESERIALIZE_INPUT_ITERATOR",

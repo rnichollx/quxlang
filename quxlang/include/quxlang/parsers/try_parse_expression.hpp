@@ -10,6 +10,7 @@
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/operators.hpp>
+#include <quxlang/parsers/iter_parse_number.hpp>
 #include <quxlang/parsers/parse_int.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
@@ -473,10 +474,11 @@ namespace quxlang::parsers
             *value_bind_point = std::move(place_expr);
             have_anything = true;
         }
-        else if (auto num_str = parse_int(pos, end); !num_str.empty())
+        else if (auto number_end = iter_parse_number(pos, end); number_end != pos)
         {
             expression_numeric_literal num;
-            num.value = std::move(num_str);
+            num.value = std::string(pos, number_end);
+            pos = number_end;
             *value_bind_point = std::move(num);
             have_anything = true;
             skip_whitespace_and_comments(pos, end);
@@ -547,7 +549,7 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "PARTIAL", "ASSUME", "CHECKED"}); kw)
+            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE"}); kw)
             {
                 tc.keyword = *kw;
                 skip_whitespace_and_comments(pos, end);
@@ -557,7 +559,7 @@ namespace quxlang::parsers
             auto to_type = try_parse_type_symbol(ctx);
             if (!to_type)
             {
-                throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED)");
+                throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED/APPROXIMATE)");
             }
             tc.to_type = std::move(*to_type);
 

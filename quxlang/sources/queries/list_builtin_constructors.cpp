@@ -107,7 +107,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
     }
 
-    if (typeis_oneof< int_type, bool_type, readonly_constant, byte_type >(input))
+    if (typeis_oneof< int_type, float_type, bool_type, readonly_constant, byte_type >(input))
     {
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
         if (typeis< byte_type >(input))
@@ -193,6 +193,26 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
             {
                 add_overload({}, {{"THIS", create_nslot(input)}, {"EXPLICIT", type_symbol(byte_type{})}}, void_type{});
             }
+        }
+        else if (typeis< float_type >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+            add_overload({}, {{"THIS", create_nslot(input)}, {"APPROXIMATE", numeric_literal_reference{}}}, void_type{});
+
+            auto const& float_info = input.as< float_type >();
+            std::size_t const precision_bits = float_info.bits - float_info.exponent_bits;
+            auto integral_template = auto_temploidic{.name = "__int_type"};
+            auto integral_guard_type = type_symbol(freebound_identifier{.name = "__int_type"});
+            auto exact_integer_guard = static_choose_expr(
+                is_integral_expr(integral_guard_type),
+                static_choose_expr(
+                    is_signed_expr(integral_guard_type),
+                    binary_expr("<=", bits_expr(integral_guard_type), int_literal_expr(precision_bits + 1)),
+                    binary_expr("<=", bits_expr(integral_guard_type), int_literal_expr(precision_bits))),
+                false_expr());
+
+            add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", integral_template}}, void_type{}, std::move(exact_integer_guard), -1);
+            add_overload({}, {{"THIS", create_nslot(input)}, {"APPROXIMATE", integral_template}}, void_type{}, is_integral_expr(integral_guard_type), -1);
         }
         add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
     }
@@ -285,7 +305,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    if (typeis< int_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
+    if (typeis< int_type >(input) || typeis< float_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
     {
         co_return result;
     }

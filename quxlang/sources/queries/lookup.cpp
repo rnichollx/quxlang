@@ -48,7 +48,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
     auto current_module = get_root_module(context).value_or(void_type{});
 
-    if (type.type_is< byte_type >())
+    if (type.type_is< byte_type >() || type.type_is< float_type >())
     {
         co_return type;
     }
@@ -450,7 +450,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         assert(!type_is_contextual(output));
         co_return output;
     }
-    else if (type.template type_is< int_type >())
+    else if (type.template type_is< int_type >() || type.template type_is< float_type >())
     {
         assert(!type_is_contextual(type));
         co_return type;

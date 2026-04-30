@@ -138,6 +138,48 @@
   ASSERT(y == 300);
 }
 
+::float_inexact_literal_requires_approximate_test STATIC_TEST EXPECT_FAIL
+{
+  VAR x F32 := 0.4;
+}
+
+::float_inexact_integer_requires_approximate_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 16777217;
+  VAR y F32 := x;
+}
+
+::float_precision_bits_convertible_test STATIC_TEST
+{
+  VAR x1 I25;
+  VAR x2 U24;
+
+  VAR f F32;
+
+  f := x1;
+  f := x2;
+
+  ASSERT(f == 0);
+}
+
+::float_precision_unsigned_not_convertible_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x U25;
+  VAR f F32;
+
+  f := x;
+  ASSERT(f == 0);
+}
+
+::float_precision_signed_not_convertible_test STATIC_TEST  EXPECT_COMPILATION_FAILURE
+{
+  VAR x I26;
+  VAR f F32;
+
+  f := x;
+  ASSERT(f == 0);
+}
+
 ::same_width_signed_to_unsigned_implicitly_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR x I32 := 300;

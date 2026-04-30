@@ -494,6 +494,21 @@ namespace quxlang::vmir2
         {
             output(lcv.target);
         }
+        void apply_internal(vmir2::canonicalize_float const& cpf)
+        {
+            consume(cpf.source);
+            output(cpf.result);
+        }
+        void apply_internal(vmir2::get_value_byte const& gvb)
+        {
+            consume(gvb.source_reference);
+            output(gvb.result);
+        }
+        void apply_internal(vmir2::set_value_byte const& svb)
+        {
+            consume(svb.target_reference);
+            consume(svb.value);
+        }
         void apply_internal(vmir2::make_pointer_to const& mpt)
         {
             readonly(mpt.of_index);
@@ -566,6 +581,55 @@ namespace quxlang::vmir2
         {
             consume(op.target);
             consume(op.value);
+        }
+        void apply_internal(vmir2::float_add const& add)
+        {
+            consume(add.a);
+            consume(add.b);
+            output(add.result);
+        }
+        void apply_internal(vmir2::float_sub const& sub)
+        {
+            consume(sub.a);
+            consume(sub.b);
+            output(sub.result);
+        }
+        void apply_internal(vmir2::float_mul const& mul)
+        {
+            consume(mul.a);
+            consume(mul.b);
+            output(mul.result);
+        }
+        void apply_internal(vmir2::float_div const& div)
+        {
+            consume(div.a);
+            consume(div.b);
+            output(div.result);
+        }
+        void apply_internal(vmir2::mut_float_add const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_float_sub const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_float_mul const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::mut_float_div const& op)
+        {
+            consume(op.target);
+            consume(op.value);
+        }
+        void apply_internal(vmir2::float_from_int const& op)
+        {
+            consume(op.source);
+            output(op.result);
         }
         // Bitwise operations state transitions
         void apply_internal(vmir2::bitwise_and const& op)
@@ -714,6 +778,10 @@ namespace quxlang::vmir2
         {
             output(lci.target);
         }
+        void apply_internal(vmir2::load_const_float const& lcf)
+        {
+            output(lcf.target);
+        }
         void apply_internal(vmir2::cmp_eq const& cmp)
         {
             consume(cmp.a);
@@ -733,6 +801,30 @@ namespace quxlang::vmir2
             output(cmp.result);
         }
         void apply_internal(vmir2::cmp_ne const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::float_ieee_eq const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::float_ieee_ne const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::float_ieee_lt const& cmp)
+        {
+            consume(cmp.a);
+            consume(cmp.b);
+            output(cmp.result);
+        }
+        void apply_internal(vmir2::float_ieee_gt const& cmp)
         {
             consume(cmp.a);
             consume(cmp.b);

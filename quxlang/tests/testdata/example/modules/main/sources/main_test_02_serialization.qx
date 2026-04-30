@@ -202,6 +202,23 @@
    y.DESERIALIZE( @INPUT_ITERATOR int_output[& 0] );
    ASSERT( y == x );
 
+   VAR nan_input [4]BYTE;
+   nan_input[0] := 1;
+   nan_input[1] := 0;
+   nan_input[2] := 128;
+   nan_input[3] := 255;
+   VAR nan F32 := 0.0;
+   nan.DESERIALIZE( @INPUT_ITERATOR nan_input[& 0] );
+   ASSERT( nan == nan );
+   ASSERT( IEEE_EQUALS(nan, nan) == FALSE );
+
+   VAR nan_output [4]BYTE;
+   nan.SERIALIZE( @OUTPUT_ITERATOR nan_output[& 0] );
+   ASSERT( nan_output[0] == 0 );
+   ASSERT( nan_output[1] == 0 );
+   ASSERT( nan_output[2] == 192 );
+   ASSERT( nan_output[3] == 127 );
+
    VAR probe serialization_probe;
    probe.a := I16(@OTHER 4660);
    probe.b := TRUE;

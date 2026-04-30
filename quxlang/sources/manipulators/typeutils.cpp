@@ -277,6 +277,7 @@ namespace quxlang
         std::string operator()(absolute_module_reference const& ref) const;
         std::string operator()(attached_type_reference const& ref) const;
         std::string operator()(int_type const& ref) const;
+        std::string operator()(float_type const& ref) const;
 
         std::string operator()(byte_type const& ref) const;
         std::string operator()(initguard_type const& ref) const;
@@ -605,6 +606,11 @@ namespace quxlang
         }
 
         bool operator()(int_type const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(float_type const& ref) const
         {
             return false;
         }
@@ -1130,6 +1136,18 @@ namespace quxlang
     {
         return (ref.has_sign ? "I" : "U") + std::to_string(ref.bits);
     }
+    std::string type_symbol_stringifier::operator()(float_type const& ref) const
+    {
+        if (ref.bits == 32 && ref.exponent_bits == 8)
+        {
+            return "F32";
+        }
+        if (ref.bits == 64 && ref.exponent_bits == 11)
+        {
+            return "F64";
+        }
+        return "F" + std::to_string(ref.bits) + "E" + std::to_string(ref.exponent_bits);
+    }
     std::string type_symbol_stringifier::operator()(bool_type const& ref) const
     {
         return "BOOL";
@@ -1415,7 +1433,7 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }
 
@@ -1603,7 +1621,7 @@ namespace quxlang
 
         std::string template_type_str = quxlang::to_string(template_type);
         std::string type_str = quxlang::to_string(type);
-        assert(typeis< int_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
         return std::nullopt;
     }
 
@@ -2089,6 +2107,11 @@ namespace quxlang
             }
 
             bool check_impl(quxlang::int_type const& tmpl, quxlang::int_type const& val, bool conv)
+            {
+                return tmpl == val;
+            }
+
+            bool check_impl(quxlang::float_type const& tmpl, quxlang::float_type const& val, bool conv)
             {
                 return tmpl == val;
             }

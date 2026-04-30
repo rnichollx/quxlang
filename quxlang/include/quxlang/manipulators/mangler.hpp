@@ -203,6 +203,11 @@ namespace quxlang
                 return "U" + std::to_string(i.bits);
             }
         }
+        else if (qt.template type_is< float_type >())
+        {
+            auto const& f = as< float_type >(qt);
+            return "F" + std::to_string(f.bits) + "E" + std::to_string(f.exponent_bits);
+        }
         else if (qt.template type_is< initialization_reference >())
         {
             std::string out = mangle_internal(as< initialization_reference >(qt).initializee);

@@ -74,6 +74,10 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::load_const_bool inst);
         std::string to_string_internal(vmir2::load_const_zero inst);
         std::string to_string_internal(vmir2::load_const_int inst);
+        std::string to_string_internal(vmir2::load_const_float inst);
+        std::string to_string_internal(vmir2::canonicalize_float inst);
+        std::string to_string_internal(vmir2::get_value_byte inst);
+        std::string to_string_internal(vmir2::set_value_byte inst);
         std::string to_string_internal(vmir2::make_pointer_to inst);
         std::string to_string_internal(vmir2::storage_init inst);
         std::string to_string_internal(vmir2::storage_init_start inst);
@@ -108,6 +112,19 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::mut_int_mul op);
         std::string to_string_internal(vmir2::mut_int_div op);
         std::string to_string_internal(vmir2::mut_int_mod op);
+        std::string to_string_internal(vmir2::float_add add);
+        std::string to_string_internal(vmir2::float_sub sub);
+        std::string to_string_internal(vmir2::float_mul mul);
+        std::string to_string_internal(vmir2::float_div div);
+        std::string to_string_internal(vmir2::mut_float_add op);
+        std::string to_string_internal(vmir2::mut_float_sub op);
+        std::string to_string_internal(vmir2::mut_float_mul op);
+        std::string to_string_internal(vmir2::mut_float_div op);
+        std::string to_string_internal(vmir2::float_from_int op);
+        std::string to_string_internal(vmir2::float_ieee_eq op);
+        std::string to_string_internal(vmir2::float_ieee_ne op);
+        std::string to_string_internal(vmir2::float_ieee_lt op);
+        std::string to_string_internal(vmir2::float_ieee_gt op);
 
         // Bitwise operators
         std::string to_string_internal(vmir2::bitwise_and op);

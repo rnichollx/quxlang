@@ -56,13 +56,13 @@ coverage:
 - [x] `INCLUDE_IF` / `ENABLE_IF`-style conditional availability
 - [x] Static-test expected-failure handling for compilation failures and runtime
       assertion failures
+- [x] For loops
+- [x] Compound assignments
+- [x] Floating point numbers
 
 ## Remaining language features
 
-- [ ] Floating point numbers
 - [ ] Atomic operations
-- [ ] For loops
-- [x] Compound assignments
 - [ ] Exceptions and unwinding
 - [ ] Polymorphism / virtual functions
 - [ ] Lambda functions / closures

@@ -234,6 +234,17 @@ TEST(ByteMathDiv, DivideByOne)
     EXPECT_EQ(le_to_string_raw(result), "12345");
 }
 
+TEST(ByteMathDiv, DivideMaxDigitByOne)
+{
+    std::vector< std::byte > a{std::byte{254}, std::byte{255}};
+    std::vector< std::byte > b{std::byte{1}};
+
+    auto [quotient, remainder] = le_unsigned_divmod_raw(a, b);
+
+    EXPECT_EQ(quotient, a);
+    EXPECT_EQ(remainder, std::vector< std::byte >{std::byte{0}});
+}
+
 TEST(ByteMathDiv, DivideZero)
 {
     auto a = string_to_le_raw("0");

@@ -2027,7 +2027,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >();
+            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >();
         }
 
         // This implements builtin operators for primitives,
@@ -2167,6 +2167,40 @@ namespace quxlang
                     }
 
                     throw compiler_bug("Unhandled constexpr allocator intrinsic kind");
+                }
+            }
+
+            {
+                auto instanciation = func.cast_ptr< instanciation_reference >();
+                auto builtin = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< builtin_symbol >();
+                if (builtin != nullptr && (builtin->name == "IEEE_EQUALS" || builtin->name == "IEEE_NOTEQUALS" || builtin->name == "IEEE_LESS" || builtin->name == "IEEE_GREATER"))
+                {
+                    auto call = invotype_from_instatype(instanciation->params);
+                    if (call.positional.size() != 2 || !call.named.empty() || args.positional.size() != 2 || !args.named.contains("RETURN") || args.size() != 3)
+                    {
+                        throw compiler_bug(builtin->name + " intrinsic expects two positional arguments and a RETURN slot");
+                    }
+                    if (call.positional.at(0) != call.positional.at(1) || !typeis< float_type >(call.positional.at(0)))
+                    {
+                        throw std::logic_error(builtin->name + " requires two floating point arguments of the same type");
+                    }
+
+                    auto const a = get_local_index(args.positional.at(0));
+                    auto const b = get_local_index(args.positional.at(1));
+                    auto const result = get_local_index(args.named.at("RETURN"));
+                    if (builtin->name == "IEEE_EQUALS")
+                    {
+                        return vmir2::float_ieee_eq{.a = a, .b = b, .result = result};
+                    }
+                    if (builtin->name == "IEEE_NOTEQUALS")
+                    {
+                        return vmir2::float_ieee_ne{.a = a, .b = b, .result = result};
+                    }
+                    if (builtin->name == "IEEE_LESS")
+                    {
+                        return vmir2::float_ieee_lt{.a = a, .b = b, .result = result};
+                    }
+                    return vmir2::float_ieee_gt{.a = a, .b = b, .result = result};
                 }
             }
 
@@ -2419,7 +2453,7 @@ namespace quxlang
             if (member->name == "CONSTRUCTOR")
             {
                 std::optional< std::string > ctor_input_name;
-                for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL"})
+                for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "APPROXIMATE"})
                 {
                     if (call.named.contains(candidate_name))
                     {
@@ -2480,6 +2514,33 @@ namespace quxlang
                         }
                         result.target = get_local_index(args.named.at("THIS"));
 
+                        return result;
+                    }
+                    else if (cls->template type_is< float_type >() && other.type_is< numeric_literal_reference >())
+                    {
+                        auto const& other_slot = this->state.genvalues.at(other_slot_id);
+
+                        assert(other_slot.template type_is< codegen_literal >());
+
+                        auto const& other_literal = other_slot.template get_as< codegen_literal >();
+                        auto const& other_slot_value = other_literal.value;
+
+                        vmir2::load_const_float result;
+                        for (auto byte : other_slot_value)
+                        {
+                            result.value.push_back(static_cast< char >(byte));
+                        }
+                        result.target = get_local_index(args.named.at("THIS"));
+                        result.require_exact = *ctor_input_name != "APPROXIMATE";
+
+                        return result;
+                    }
+                    else if (cls->template type_is< float_type >() && typeis_oneof< int_type, byte_type >(other))
+                    {
+                        vmir2::float_from_int result;
+                        result.source = get_local_index(other_slot_id);
+                        result.result = get_local_index(args.named.at("THIS"));
+                        result.require_exact = *ctor_input_name != "APPROXIMATE";
                         return result;
                     }
                     else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && typeis_oneof< int_type, byte_type >(other))
@@ -2562,7 +2623,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -2790,6 +2851,66 @@ namespace quxlang
                     inv.value = get_local_index(args.named.at("THIS"));
                     inv.result = get_local_index(args.named.at("RETURN"));
                     return inv;
+                }
+            }
+            else if (cls->template type_is< float_type >())
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::float_add >(instr, "+", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::float_sub >(instr, "-", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::float_mul >(instr, "*", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::float_div >(instr, "/", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_float_add >(instr, "+=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_float_sub >(instr, "-=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_float_mul >(instr, "*=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_float_div >(instr, "/=", *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                {
+                    return instr;
                 }
             }
             else if (cls->template type_is< byte_type >())
@@ -5804,6 +5925,10 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_serialize_bool(func);
             }
+            if (class_type.type_is< float_type >())
+            {
+                co_return co_await this->co_generate_builtin_serialize_float(func);
+            }
             co_return co_await this->co_generate_builtin_serialize_struct(func);
         }
 
@@ -5820,6 +5945,10 @@ namespace quxlang
             if (class_type.type_is< bool_type >())
             {
                 co_return co_await this->co_generate_builtin_deserialize_bool(func);
+            }
+            if (class_type.type_is< float_type >())
+            {
+                co_return co_await this->co_generate_builtin_deserialize_float(func);
             }
             co_return co_await this->co_generate_builtin_deserialize_struct(func);
         }
@@ -5949,6 +6078,46 @@ namespace quxlang
             co_await co_generate_binary(current_block, ":=", outit_deref, byteval);
 
             outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE iterator");
+            }
+
+            co_await co_return_value(current_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_serialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+            QUXLANG_COMPILER_BUG_IF(!class_type.type_is< float_type >(), "Expected float type for float serialization");
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            if (!this_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE THIS");
+            }
+
+            auto raw_value = load_reference_value(current_block, *this_ref, class_type);
+            auto canonical_value = this->create_local_value(class_type);
+            this->emit(current_block, vmir2::canonicalize_float{.source = get_local_index(raw_value), .result = get_local_index(canonical_value)});
+
+            std::size_t const byte_count = (class_type.as< float_type >().bits + 7) / 8;
+            for (std::size_t i = 0; i < byte_count; ++i)
+            {
+                auto canonical_ref = this->create_reference(current_block, canonical_value, make_cref(class_type));
+                auto byte_value = this->create_local_value(byte_type{});
+                this->emit(current_block, vmir2::get_value_byte{.source_reference = get_local_index(canonical_ref), .offset = i, .result = get_local_index(byte_value)});
+                co_await co_emit_output_byte(current_block, byte_value);
+            }
+
+            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
             if (!outit_ref.has_value())
             {
                 throw compiler_bug("Missing builtin SERIALIZE iterator");
@@ -6115,6 +6284,46 @@ namespace quxlang
             }
 
             input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE iterator");
+            }
+
+            co_await co_return_value(current_block, *input_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_float(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            auto class_type = func.temploid.templexoid.get_as< submember >().of;
+            QUXLANG_COMPILER_BUG_IF(!class_type.type_is< float_type >(), "Expected float type for float deserialization");
+
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            auto current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            if (!this_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE THIS");
+            }
+
+            auto raw_value = load_zero_value(current_block, class_type);
+            std::size_t const byte_count = (class_type.as< float_type >().bits + 7) / 8;
+            for (std::size_t i = 0; i < byte_count; ++i)
+            {
+                auto byte_value = co_await co_read_input_byte(current_block);
+                auto raw_ref = this->create_reference(current_block, raw_value, make_mref(class_type));
+                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(raw_ref), .offset = i, .value = get_local_index(byte_value)});
+            }
+
+            auto canonical_value = this->create_local_value(class_type);
+            this->emit(current_block, vmir2::canonicalize_float{.source = get_local_index(raw_value), .result = get_local_index(canonical_value)});
+            this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(canonical_value), .to_reference = get_local_index(*this_ref)});
+
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
             if (!input_iter.has_value())
             {
                 throw compiler_bug("Missing builtin DESERIALIZE iterator");

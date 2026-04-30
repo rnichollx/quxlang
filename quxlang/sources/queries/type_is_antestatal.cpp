@@ -18,7 +18,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return co_await rpnx::querygraph::request< type_is_antestatal_query >(as< dvalue_slot >(input).target);
     }
 
-    if (typeis< int_type >(input) || typeis< bool_type >(input) || typeis< byte_type >(input))
+    if (typeis< int_type >(input) || typeis< float_type >(input) || typeis< bool_type >(input) || typeis< byte_type >(input))
     {
         co_return true;
     }

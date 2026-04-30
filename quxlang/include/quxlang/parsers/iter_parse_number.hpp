@@ -22,7 +22,7 @@ namespace quxlang::parsers
 
         bool havedot = false;
 
-        while (pos != end && is_digit(*pos) || (*pos == '.' && !havedot))
+        while (pos != end && (is_digit(*pos) || (*pos == '.' && !havedot)))
         {
             if (*pos == '.')
             {

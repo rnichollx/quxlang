@@ -215,7 +215,7 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
         from = as< attached_type_reference >(from).carrying_type;
     }
 
-    if (typeis< int_type >(input.to) && typeis< numeric_literal_reference >(from))
+    if ((typeis< int_type >(input.to) || typeis< float_type >(input.to)) && typeis< numeric_literal_reference >(from))
     {
         co_return input.to;
     }

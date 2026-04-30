@@ -301,6 +301,10 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (auto float_kw = try_parse_float_keyword(pos, end); float_kw)
+        {
+            output = std::move(*float_kw);
+        }
         else if (auto int_kw = try_parse_integral_keyword(pos, end); int_kw)
         {
             output = std::move(*int_kw);

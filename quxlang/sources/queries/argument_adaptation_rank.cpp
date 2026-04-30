@@ -240,6 +240,11 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return int_to.has_sign ? 3 : 2;
     }
 
+    if (typeis< numeric_literal_reference >(from) && typeis< float_type >(to))
+    {
+        co_return 4;
+    }
+
     if (typeis< string_literal_reference >(from) && typeis< readonly_constant >(to) && as< readonly_constant >(to).kind == constant_kind::string)
     {
         co_return 2;

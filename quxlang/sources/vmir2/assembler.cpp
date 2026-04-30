@@ -720,6 +720,22 @@ namespace quxlang::vmir2
     {
         return "INIT_INT %" + std::to_string(inst.target) + ", " + inst.value;
     }
+    std::string assembler::to_string_internal(vmir2::load_const_float inst)
+    {
+        return std::string(inst.require_exact ? "INIT_FLOAT_EXACT %" : "INIT_FLOAT_APPROX %") + std::to_string(inst.target) + ", " + inst.value;
+    }
+    std::string assembler::to_string_internal(vmir2::canonicalize_float inst)
+    {
+        return "FCANON %" + std::to_string(inst.source) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::get_value_byte inst)
+    {
+        return "GET_BYTE %" + std::to_string(inst.source_reference) + ", " + std::to_string(inst.offset) + ", %" + std::to_string(inst.result);
+    }
+    std::string assembler::to_string_internal(vmir2::set_value_byte inst)
+    {
+        return "SET_BYTE %" + std::to_string(inst.target_reference) + ", " + std::to_string(inst.offset) + ", %" + std::to_string(inst.value);
+    }
 
     std::string assembler::to_string_internal(vmir2::make_pointer_to inst)
     {
@@ -785,6 +801,59 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::mut_int_mod op)
     {
         return "MUT_IMOD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+
+    std::string assembler::to_string_internal(vmir2::float_add add)
+    {
+        return "FADD %" + std::to_string(add.a) + ", %" + std::to_string(add.b) + ", %" + std::to_string(add.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_sub sub)
+    {
+        return "FSUB %" + std::to_string(sub.a) + ", %" + std::to_string(sub.b) + ", %" + std::to_string(sub.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_mul mul)
+    {
+        return "FMUL %" + std::to_string(mul.a) + ", %" + std::to_string(mul.b) + ", %" + std::to_string(mul.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_div div)
+    {
+        return "FDIV %" + std::to_string(div.a) + ", %" + std::to_string(div.b) + ", %" + std::to_string(div.result);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_float_add op)
+    {
+        return "MUT_FADD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_float_sub op)
+    {
+        return "MUT_FSUB %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_float_mul op)
+    {
+        return "MUT_FMUL %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::mut_float_div op)
+    {
+        return "MUT_FDIV %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+    }
+    std::string assembler::to_string_internal(vmir2::float_from_int op)
+    {
+        return std::string(op.require_exact ? "ITOF_EXACT %" : "ITOF_APPROX %") + std::to_string(op.source) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_ieee_eq op)
+    {
+        return "IEEE_FEQ %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_ieee_ne op)
+    {
+        return "IEEE_FNE %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_ieee_lt op)
+    {
+        return "IEEE_FLT %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
+    }
+    std::string assembler::to_string_internal(vmir2::float_ieee_gt op)
+    {
+        return "IEEE_FGT %" + std::to_string(op.a) + ", %" + std::to_string(op.b) + ", %" + std::to_string(op.result);
     }
 
     // Bitwise operations
