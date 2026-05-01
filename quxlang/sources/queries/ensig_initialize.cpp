@@ -62,17 +62,12 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
 
     auto const pack_index = positional_pack_index(ensig.interface);
     auto const fixed_positional_count = pack_index.value_or(ensig.interface.positional.size());
-    if ((!pack_index.has_value() && ensig.interface.positional.size() != preargs.positional.size()) || (pack_index.has_value() && preargs.positional.size() < fixed_positional_count))
+    if ((!pack_index.has_value() && preargs.positional.size() > ensig.interface.positional.size()) || (pack_index.has_value() && preargs.positional.size() < fixed_positional_count))
     {
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
             co_yield rpnx::querygraph::debug_message("Positional size mismatch: {} vs {}", to_string(ensig.interface), to_string(preargs));
         }
-        co_return std::nullopt;
-    }
-
-    if (ensig.interface.named.size() != preargs.named.size())
-    {
         co_return std::nullopt;
     }
 
@@ -130,6 +125,15 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         co_return make_type_instantiation(*initialized_type);
     };
 
+    auto defaulted_parameter = [](argif const& formal) -> parameter_instantiation
+    {
+        if (formal.requires_static_value)
+        {
+            throw std::logic_error("Defaulted static-value parameters are not supported");
+        }
+        return make_type_instantiation(formal.type);
+    };
+
     for (auto const& [name, argument] : preargs.named)
     {
         auto it = ensig.interface.named.find(name);
@@ -146,6 +150,19 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         result.named[name] = std::move(*initialized);
     }
 
+    for (auto const& [name, formal] : ensig.interface.named)
+    {
+        if (result.named.contains(name))
+        {
+            continue;
+        }
+        if (!formal.is_defaulted)
+        {
+            co_return std::nullopt;
+        }
+        result.named[name] = defaulted_parameter(formal);
+    }
+
     for (std::size_t i = 0; i < preargs.positional.size(); i++)
     {
         auto const& formal = positional_formal_for(ensig.interface, pack_index, i);
@@ -155,6 +172,19 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             co_return std::nullopt;
         }
         result.positional.push_back(std::move(*initialized));
+    }
+
+    if (!pack_index.has_value())
+    {
+        for (std::size_t i = preargs.positional.size(); i < ensig.interface.positional.size(); i++)
+        {
+            auto const& formal = ensig.interface.positional.at(i);
+            if (!formal.is_defaulted)
+            {
+                co_return std::nullopt;
+            }
+            result.positional.push_back(defaulted_parameter(formal));
+        }
     }
 
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

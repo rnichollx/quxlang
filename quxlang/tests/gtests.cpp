@@ -319,6 +319,13 @@ TEST(parsing, parse_function_args)
     ASSERT_TRUE(ok1);
     ASSERT_TRUE(ok2);
 
+    auto defaulted_args = parse_function_args_text("(%a I32 DEFAULT(42), @named I32 DEFAULT(7))");
+    ASSERT_EQ(defaulted_args.size(), 2);
+    ASSERT_TRUE(defaulted_args[0].default_expr.has_value());
+    ASSERT_TRUE(typeis< quxlang::expression_numeric_literal >(*defaulted_args[0].default_expr));
+    ASSERT_TRUE(defaulted_args[1].default_expr.has_value());
+    ASSERT_TRUE(typeis< quxlang::expression_numeric_literal >(*defaulted_args[1].default_expr));
+
     auto variadic_args = parse_function_args_text("(%a I32, %...b I32)");
     ASSERT_EQ(variadic_args.size(), 2);
     ASSERT_EQ(variadic_args[0].name, "a");

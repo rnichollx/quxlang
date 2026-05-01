@@ -41,6 +41,28 @@
   ASSERT(i == 6);
 }
 
+::default_expr_context_value VAR I32 := 7;
+
+::defaulted_positional_helper FUNCTION(%a I32, %b I32 DEFAULT(default_expr_context_value)): I32
+{
+  RETURN a + b;
+}
+
+::defaulted_named_helper FUNCTION(@x I32 DEFAULT(11), @y I32): I32
+{
+  RETURN x + y;
+}
+
+::defaulted_argument_test STATIC_TEST
+{
+  VAR default_expr_context_value I32 := 100;
+
+  ASSERT(defaulted_positional_helper(5) == 12);
+  ASSERT(defaulted_positional_helper(5, 6) == 11);
+  ASSERT(defaulted_named_helper(@y 3) == 14);
+  ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
+}
+
 ::compound_assignment_operators_test STATIC_TEST
 {
    VAR a I32 := 10;

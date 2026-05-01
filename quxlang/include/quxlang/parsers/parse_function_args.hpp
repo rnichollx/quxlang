@@ -3,6 +3,7 @@
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #include <quxlang/macros.hpp>
+#include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
@@ -107,6 +108,25 @@ namespace quxlang::parsers
         QUXLANG_DEBUG_NAMED_VALUE(remaining_after_name, std::string(pos, end));
 
         arg_type = parse_type_symbol(ctx);
+
+        skip_whitespace_and_comments(pos, end);
+
+        if (skip_keyword_if_is(pos, end, "DEFAULT"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after DEFAULT");
+            }
+
+            arg.default_expr = parse_expression(ctx);
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after default parameter expression");
+            }
+        }
 
         result.push_back(std::move(arg));
 

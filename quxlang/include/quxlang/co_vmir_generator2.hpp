@@ -280,6 +280,62 @@ namespace quxlang
             return source_location_scope(*this, location);
         }
 
+        class declaration_context_scope
+        {
+          public:
+            declaration_context_scope(co_vmir_generator2& owner, block_index lookup_block, type_symbol declaration_context) :
+                owner(owner),
+                lookup_block(lookup_block),
+                previous_context(owner.ctx),
+                previous_block_lookups(std::move(owner.state.blocks.at(lookup_block).lookup_values)),
+                previous_top_level_lookups(std::move(owner.state.top_level_lookups)),
+                previous_top_level_lookups_weak(std::move(owner.state.top_level_lookups_weak)),
+                previous_packs(std::move(owner.state.packs)),
+                previous_scoped_definitions(owner.state.scoped_definitions),
+                previous_statics(owner.state.statics),
+                previous_static_scopes(owner.state.static_scopes)
+            {
+                owner.ctx = std::move(declaration_context);
+                owner.state.blocks.at(lookup_block).lookup_values.clear();
+                owner.state.top_level_lookups.clear();
+                owner.state.top_level_lookups_weak.clear();
+                owner.state.packs.clear();
+                owner.state.static_scopes.clear();
+            }
+
+            declaration_context_scope(declaration_context_scope const&) = delete;
+            declaration_context_scope& operator=(declaration_context_scope const&) = delete;
+
+            ~declaration_context_scope()
+            {
+                owner.ctx = std::move(previous_context);
+                owner.state.blocks.at(lookup_block).lookup_values = std::move(previous_block_lookups);
+                owner.state.top_level_lookups = std::move(previous_top_level_lookups);
+                owner.state.top_level_lookups_weak = std::move(previous_top_level_lookups_weak);
+                owner.state.packs = std::move(previous_packs);
+                owner.state.scoped_definitions = std::move(previous_scoped_definitions);
+                owner.state.statics = std::move(previous_statics);
+                owner.state.static_scopes = std::move(previous_static_scopes);
+            }
+
+          private:
+            co_vmir_generator2& owner;
+            block_index lookup_block;
+            type_symbol previous_context;
+            std::map< std::string, value_index > previous_block_lookups;
+            std::map< std::string, value_index > previous_top_level_lookups;
+            std::map< std::string, value_index > previous_top_level_lookups_weak;
+            std::map< std::string, codegen_pack > previous_packs;
+            std::map< std::string, scoped_definition_v3 > previous_scoped_definitions;
+            std::map< static_local_ref, codegen_static > previous_statics;
+            std::vector< codegen_static_scope > previous_static_scopes;
+        };
+
+        auto scoped_declaration_context(block_index lookup_block, type_symbol declaration_context) -> declaration_context_scope
+        {
+            return declaration_context_scope(*this, lookup_block, std::move(declaration_context));
+        }
+
         void apply_current_source_location(vmir2::vm_instruction& instruction)
         {
             if (!this->state.current_source_location.has_value() || vmir2::get_location(instruction).has_value())
@@ -1863,9 +1919,8 @@ namespace quxlang
         {
             auto const& call_args_types = what.params;
 
-            // TODO: Support defaulted parameters.
-
             codegen_invocation_args invocation_args;
+            auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
 
             auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
             {
@@ -1887,10 +1942,48 @@ namespace quxlang
                 co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, adaptations);
             };
 
+            auto generate_default_expr = [&](expression const& expr) -> co_type< value_index >
+            {
+                auto declaration_context = type_parent(what.temploid.templexoid).value_or(void_type{});
+                auto context_scope = this->scoped_declaration_context(bidx, std::move(declaration_context));
+                co_await this->co_apply_context_instantiation_scopes(what);
+                co_return co_await this->co_generate_expr(bidx, expr);
+            };
+
+            std::map< std::string, expression const* > named_defaults;
+            std::vector< expression const* > positional_defaults;
+            if (function_decl_opt.has_value())
+            {
+                for (auto const& param : function_decl_opt->header.call_parameters)
+                {
+                    if (param.api_name.has_value())
+                    {
+                        if (param.default_expr.has_value())
+                        {
+                            named_defaults[param.api_name.value()] = &*param.default_expr;
+                        }
+                        continue;
+                    }
+                    positional_defaults.push_back(param.default_expr.has_value() ? &*param.default_expr : nullptr);
+                }
+            }
+
             for (auto const& [name, arg_accepted_type] : call_args_types.named)
             {
-
-                auto arg_expr_index = expression_args.named.at(name);
+                value_index arg_expr_index(0);
+                if (auto it = expression_args.named.find(name); it != expression_args.named.end())
+                {
+                    arg_expr_index = it->second;
+                }
+                else
+                {
+                    auto default_it = named_defaults.find(name);
+                    if (default_it == named_defaults.end())
+                    {
+                        throw std::logic_error("Missing argument @" + name + " and no default expression is available");
+                    }
+                    arg_expr_index = co_await generate_default_expr(*default_it->second);
+                }
 
                 auto arg_index = co_await create_arg_value(arg_expr_index, parameter_instantiation_type(arg_accepted_type));
 
@@ -1901,7 +1994,19 @@ namespace quxlang
             {
                 auto arg_accepted_type = parameter_instantiation_type(call_args_types.positional.at(i));
 
-                auto arg_expr_index = expression_args.positional.at(i);
+                value_index arg_expr_index(0);
+                if (i < expression_args.positional.size())
+                {
+                    arg_expr_index = expression_args.positional.at(i);
+                }
+                else
+                {
+                    if (i >= positional_defaults.size() || positional_defaults.at(i) == nullptr)
+                    {
+                        throw std::logic_error("Missing positional argument and no default expression is available");
+                    }
+                    arg_expr_index = co_await generate_default_expr(*positional_defaults.at(i));
+                }
 
                 auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
                 invocation_args.positional.push_back(arg_index);
