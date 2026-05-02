@@ -9,7 +9,7 @@
   ptrptr_incr(@ptr ppx);
 }
 
-::ptrptr_incr FUNCTION(@ptr CONST -> MUT-> I32)
+::ptrptr_incr FUNCTION(@ptr CONST-> MUT-> I32)
 {
   ptr-> -> ++;
 }
@@ -187,11 +187,12 @@
 ::static_snapshot_read_after_mutation_test STATIC_TEST
 {
    STATIC_VAR x I32 := 1;
-   VAR before I32 := SNAPSHOT(x);
+   STATIC_VAR z -> I32 := x<-;
+   VAR before CONST->I32 := SNAPSHOT(z);
    STATIC_EVAL x++;
-   VAR after I32 := SNAPSHOT(x);
-   ASSERT(before == 1);
-   ASSERT(after == 2);
+   VAR after CONST->I32 := SNAPSHOT(z);
+   ASSERT(before-> == 1);
+   ASSERT(after-> == 2);
 }
 
 ::runtime_if_static_generation_order_test STATIC_TEST
@@ -210,7 +211,7 @@
 {
    STATIC_VAR x I32 := 0;
    VAR i I32 := 0;
-   WHILE (i < 2) {
+   WHILE (i < 5) {
       STATIC_EVAL x++;
       i++;
    }
@@ -272,7 +273,8 @@
 ::runtime_for_sequence_to_loop_test STATIC_TEST
 {
    VAR sum I32 := 0;
-   FOR FROM(0 AS I32) TO(10) BY(2) VALUE(i) LOOP {
+   VAR two I32 := 2;
+   FOR VALUE(i) FROM(0 AS I32) TO(10) BY(two) LOOP {
       sum := sum + i;
    };
    ASSERT(sum == 30);
@@ -290,7 +292,7 @@
 ::runtime_for_sequence_filter_loop_test STATIC_TEST
 {
    VAR sum I32 := 0;
-   FOR FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) VALUE(i) LOOP {
+   FOR VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) LOOP {
       sum := sum + i;
    };
    ASSERT(sum == 12);

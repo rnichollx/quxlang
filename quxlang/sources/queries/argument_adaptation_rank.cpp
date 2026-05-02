@@ -3,7 +3,9 @@
 #include <quxlang/queries/specs/argument_adaptation_rank_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
-#include <array>
+#include <optional>
+#include <stdexcept>
+#include <vector>
 
 namespace
 {
@@ -37,28 +39,6 @@ namespace
         }
 
         throw std::logic_error("unreachable allowed_adaptations");
-    }
-
-    auto allows_class_conversions(quxlang::allowed_adaptations adaptations) -> bool
-    {
-        using quxlang::allowed_adaptations;
-
-        switch (adaptations)
-        {
-        case allowed_adaptations::class_conversions:
-        case allowed_adaptations::destination_rebinding:
-            return true;
-        case allowed_adaptations::source_rebinding:
-        case allowed_adaptations::none:
-            return false;
-        }
-
-        throw std::logic_error("unreachable allowed_adaptations");
-    }
-
-    auto allows_destination_rebinding(quxlang::allowed_adaptations adaptations) -> bool
-    {
-        return adaptations == quxlang::allowed_adaptations::destination_rebinding;
     }
 
     void append_source_form(std::vector< source_form >& forms, quxlang::type_symbol type, source_form_kind kind)
@@ -108,11 +88,6 @@ namespace
         }
 
         return forms;
-    }
-
-    auto is_class_conversion_reference_target(quxlang::type_symbol const& to) -> bool
-    {
-        return quxlang::is_temp_ref(to) || quxlang::is_const_ref(to);
     }
 
     auto template_probe_rank(quxlang::type_symbol const& from, quxlang::type_symbol const& adapted_type, source_form_kind kind) -> std::optional< std::size_t >
@@ -217,7 +192,6 @@ namespace
         return 5;
     }
 } // namespace
-
 
 rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::argument_adaptation_rank_impl(argument_init_input input)
 {

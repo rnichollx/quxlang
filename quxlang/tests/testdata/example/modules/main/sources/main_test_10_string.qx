@@ -127,13 +127,27 @@
    {
      out := SERIALIZE_UINTANY(@OUTPUT_ITERATOR out, @VALUE .length);
      VAR i SZ := 0;
-    WHILE ( i < .length )
-    {
+     WHILE ( i < .length )
+     {
        out++ -> := THIS[i];
        i++;
-    }
-    RETURN out;
+     }
+     RETURN out;
+   }
 
+   .DESERIALIZE FUNCTION(@INPUT_ITERATOR:input AUTO(it)): it
+   {
+     VAR len SZ := 0;
+     input := DESERIALIZE_UINTANY(@INPUT_ITERATOR input, @VALUE len);
+     .length := 0;
+     .reserve(@capacity len);
+     VAR i SZ := 0;
+     WHILE ( i < len )
+     {
+       .push_back(@value (input++)->);
+       i++;
+     }
+     RETURN input;
    }
 }
 
@@ -153,5 +167,5 @@
    RETURN ("Hello, " AS string) + ("world!" AS string);
 }
 
-
-::static_string STATIC STRING_CONSTANT := get_static_string();
+::static_string_object STATIC string := get_static_string();
+::static_string STATIC STRING_CONSTANT := static_string_object;

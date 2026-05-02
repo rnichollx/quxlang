@@ -3,7 +3,8 @@
 #include <quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
-#include <array>
+#include <stdexcept>
+#include <vector>
 
 namespace
 {
@@ -115,96 +116,7 @@ namespace
         return quxlang::is_temp_ref(to) || quxlang::is_const_ref(to);
     }
 
-    auto template_probe_rank(quxlang::type_symbol const& from, quxlang::type_symbol const& adapted_type, source_form_kind kind) -> std::optional< std::size_t >
-    {
-        using namespace quxlang;
-
-        if (!is_ref(from))
-        {
-            if (kind == source_form_kind::exact)
-            {
-                return 3;
-            }
-
-            if (!is_ref(adapted_type))
-            {
-                return std::nullopt;
-            }
-
-            if (kind == source_form_kind::temporary_materialization)
-            {
-                return 4;
-            }
-
-            if (kind == source_form_kind::const_rebinding)
-            {
-                return 6;
-            }
-
-            return std::nullopt;
-        }
-
-        if (kind == source_form_kind::exact)
-        {
-            if (!is_ref(adapted_type))
-            {
-                return std::nullopt;
-            }
-
-            if (adapted_type == from)
-            {
-                return 2;
-            }
-
-            return 4;
-        }
-
-        if (kind == source_form_kind::objectization)
-        {
-            if (is_ref(adapted_type))
-            {
-                return std::nullopt;
-            }
-
-            return 6;
-        }
-
-        if (is_ref(adapted_type))
-        {
-            return 4;
-        }
-
-        return std::nullopt;
-    }
-
-    auto direct_binding_rank(quxlang::type_symbol const& from, quxlang::type_symbol const& to) -> std::optional< std::size_t >
-    {
-        using namespace quxlang;
-
-        if (!is_ref(from))
-        {
-            if (is_temp_ref(to) && remove_ref(to) == from)
-            {
-                return 2;
-            }
-
-            if (is_const_ref(to) && remove_ref(to) == from)
-            {
-                return 5;
-            }
-
-            return std::nullopt;
-        }
-
-        if (is_ref(to))
-        {
-            return 3;
-        }
-
-        return 5;
-    }
 } // namespace
-
 
 rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_spec > quxlang::argument_initialize_by_class_conversion_impl(argument_init_input input)
 {
