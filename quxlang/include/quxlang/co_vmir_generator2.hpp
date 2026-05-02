@@ -26,12 +26,14 @@
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
+#include "quxlang/queries/functanoid_deduced_return_type.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/function_builtin.hpp"
 #include "quxlang/queries/function_declaration.hpp"
 #include "quxlang/queries/function_pack_info.hpp"
 #include "quxlang/queries/function_param_names.hpp"
+#include "quxlang/queries/function_primitive.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
 #include "quxlang/queries/global_is_string_static.hpp"
@@ -218,6 +220,8 @@ namespace quxlang
             std::map< std::string, value_index > top_level_lookups_weak;
             type_symbol context;
             std::optional< instanciation_reference > functanoid_type;
+            std::optional< type_symbol > declared_return_type;
+            std::optional< type_symbol > deduced_return_type;
             std::optional< source_location > current_source_location;
 
             /// Scoped typedef and static definitions visible to constexpr routine generation.
@@ -366,6 +370,7 @@ namespace quxlang
 
         template < typename T >
         using co_type = typename CoroutineBaseType::template cosubroutine< T >;
+        using handler_spec = typename CoroutineBaseType::spec_type;
 
       public:
         co_vmir_generator2(output_info machine_info, type_symbol ctx) : ctx(std::move(ctx)), machine_info(std::move(machine_info))
@@ -6730,6 +6735,15 @@ namespace quxlang
 
                 co_await co_generate_builtin_return(current_block);
             }
+            else if (st.expr.has_value() && this->state.declared_return_type.has_value() && is_template(*this->state.declared_return_type))
+            {
+                value_index expr_index = co_await co_generate_expr(current_block, st.expr.value());
+                type_symbol expr_type = this->current_type(current_block, expr_index);
+                type_symbol deduced_return_type = this->deduce_return_type_from_expression(*this->state.declared_return_type, expr_type);
+                co_await co_publish_deduced_return_type(deduced_return_type);
+                this->create_return_parameter(std::move(deduced_return_type));
+                co_await co_return_value(current_block, expr_index);
+            }
             else
             {
 
@@ -6896,6 +6910,97 @@ namespace quxlang
             co_return;
         }
 
+        auto create_return_parameter(type_symbol return_type) -> value_index
+        {
+            if (this->state.params.named.contains("RETURN"))
+            {
+                throw std::logic_error("RETURN parameter is already defined");
+            }
+
+            type_symbol return_parameter_type = create_nslot(return_type);
+            value_index return_valueidx = this->create_local_value(std::move(return_type));
+            local_index return_local_index = get_local_index(return_valueidx);
+
+            this->state.params.named["RETURN"] = {
+                .type = std::move(return_parameter_type),
+                .local_index = return_local_index,
+            };
+            this->state.top_level_lookups["RETURN"] = return_valueidx;
+
+            vmir2::slot_state return_slot_state;
+            return_slot_state.stage = vmir2::slot_stage::dead;
+            return_slot_state.storage_valid = true;
+            for (codegen_block& block : this->state.blocks)
+            {
+                block.entry_state[return_local_index] = return_slot_state;
+                block.current_state[return_local_index] = return_slot_state;
+            }
+
+            return return_valueidx;
+        }
+
+        auto co_lookup_declared_return_type(instanciation_reference const& inst) -> co_type< type_symbol >
+        {
+            std::optional< builtin_function_info > primitive = co_await rpnx::querygraph::request< function_primitive_query >(inst.temploid);
+            if (primitive.has_value())
+            {
+                type_symbol return_type = primitive->return_type;
+                if (is_contextual(return_type) || is_template(return_type))
+                {
+                    contextual_type_reference lookup_input{.context = inst, .type = std::move(return_type)};
+                    std::optional< type_symbol > lookup_result = co_await rpnx::querygraph::request< lookup_query >(lookup_input);
+                    if (!lookup_result.has_value())
+                    {
+                        throw compiler_bug("Primitive function return type could not be resolved");
+                    }
+                    co_return lookup_result.value();
+                }
+                co_return return_type;
+            }
+
+            std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);
+            if (!declaration.has_value())
+            {
+                throw std::logic_error("No function declaration");
+            }
+
+            type_symbol declared_return_type = declaration->definition.return_type.value_or(type_symbol(void_type{}));
+            contextual_type_reference lookup_input{.context = inst, .type = std::move(declared_return_type)};
+            std::optional< type_symbol > lookup_result = co_await rpnx::querygraph::request< lookup_query >(lookup_input);
+            if (!lookup_result.has_value())
+            {
+                throw compiler_bug("Function return type could not be resolved");
+            }
+            co_return lookup_result.value();
+        }
+
+        auto co_publish_deduced_return_type(type_symbol return_type) -> co_type< void >
+        {
+            this->state.deduced_return_type = return_type;
+
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< functanoid_deduced_return_type >())
+            {
+                co_yield rpnx::querygraph::subquery_result< functanoid_deduced_return_type >(std::monostate{}, std::move(return_type));
+            }
+            else
+            {
+                (void)return_type;
+            }
+
+            co_return;
+        }
+
+        auto deduce_return_type_from_expression(type_symbol declared_return_type, type_symbol expression_type) -> type_symbol
+        {
+            std::optional< template_match_results > match = match_template(declared_return_type, expression_type);
+            if (match.has_value())
+            {
+                return match->type;
+            }
+
+            throw std::logic_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));
+        }
+
         auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
         {
             QUXLANG_DEBUG_VALUE(quxlang::to_string(func));
@@ -6909,19 +7014,12 @@ namespace quxlang
 
             co_await co_apply_context_instantiation_scopes(inst);
 
-            // TODO: Support AUTO return types
-            auto sig = co_await rpnx::querygraph::request< functanoid_sigtype_query >(inst);
+            type_symbol return_type = co_await co_lookup_declared_return_type(inst);
+            this->state.declared_return_type = return_type;
 
-            type_symbol return_type = sig.return_type.value_or(void_type()); // co_await rpnx::querygraph::request< functanoid_return_type_query >(inst);
-
-            if (!typeis< void_type >(return_type))
+            if (!is_template(return_type) && !typeis< void_type >(return_type))
             {
-                type_symbol return_parameter_type = create_nslot(return_type);
-                type_symbol const& return_local_type = return_type;
-                this->state.params.named["RETURN"].type = return_parameter_type;
-                auto return_valueidx = this->create_local_value(return_local_type);
-                this->state.params.named["RETURN"].local_index = get_local_index(return_valueidx);
-                this->state.top_level_lookups["RETURN"] = return_valueidx;
+                this->create_return_parameter(std::move(return_type));
             }
 
             auto parameter_local_type = [](type_symbol param_type) -> type_symbol

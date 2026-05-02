@@ -77,6 +77,38 @@
   RETURN a + 1;
 }
 
+::deduced_auto_return FUNCTION(%a AUTO(t1)) : AUTO
+{
+  RETURN a;
+}
+
+::deduced_const_ref_return FUNCTION(%a MUT& I32) : CONST& AUTO
+{
+  RETURN a;
+}
+
+::deduced_auto_ref_return FUNCTION(%a MUT& I32) : AUTO& AUTO
+{
+  RETURN a;
+}
+
+::fibbonachi FUNCTION(@n AUTO): AUTO
+{
+  IF (n <= 1)
+  {
+    RETURN n;
+  }
+  RETURN fibbonachi(@n n - 1) + fibbonachi(@n n - 2);
+}
+
+::self_recursive_auto_return_test STATIC_TEST
+{
+  ASSERT( fibbonachi(@n 0 AS I32) == 0 );
+  ASSERT( fibbonachi(@n 1 AS I32) == 1 );
+  ASSERT( fibbonachi(@n 5 AS I32) == 5 );
+  ASSERT( fibbonachi(@n 10 AS I64) == 55 );
+}
+
 ::yip FUNCTION(): I32
 {
   VAR x I32;
@@ -89,6 +121,15 @@
   ASSERT( boq() == 5 );
   ASSERT( boq(10) == 15 );
   ASSERT( yip() == 8 );
+  ASSERT( deduced_auto_return(11 AS I32) == 11 );
+
+  VAR ref_source I32 := 12;
+  VAR const_ref CONST& I32 := deduced_const_ref_return(ref_source);
+  VAR mut_ref MUT& I32 := deduced_auto_ref_return(ref_source);
+
+  ASSERT( const_ref == 12 );
+  mut_ref := 13;
+  ASSERT( ref_source == 13 );
 }
 
 ::type_expression_bits_sizeof_test STATIC_TEST

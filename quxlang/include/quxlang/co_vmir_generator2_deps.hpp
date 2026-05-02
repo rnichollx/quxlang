@@ -22,6 +22,7 @@
 #include <quxlang/queries/function_declaration.hpp>
 #include <quxlang/queries/function_pack_info.hpp>
 #include <quxlang/queries/function_param_names.hpp>
+#include <quxlang/queries/function_primitive.hpp>
 #include <quxlang/queries/functum_overloads.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
@@ -60,6 +61,7 @@ namespace quxlang
         function_declaration_query,
         function_pack_info_query,
         function_param_names_query,
+        function_primitive_query,
         functum_overloads_query,
         global_is_antestatal_static_query,
         global_is_serialoid_static_query,
@@ -93,6 +95,7 @@ namespace quxlang
         function_declaration_query,
         function_pack_info_query,
         function_param_names_query,
+        function_primitive_query,
         functum_overloads_query,
         global_is_antestatal_static_query,
         global_is_serialoid_static_query,

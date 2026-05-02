@@ -333,6 +333,11 @@ namespace quxlang::parsers
             auto_temploidic tref;
 
             skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "&"))
+            {
+                return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+            }
+
             if (skip_symbol_if_is(pos, end, "("))
             {
                 skip_whitespace_and_comments(pos, end);
@@ -437,15 +442,6 @@ namespace quxlang::parsers
                 throw std::logic_error("Expected && after DESTROY");
             }
             return dvalue_slot{parse_type_symbol(ctx)};
-        }
-        else if (skip_keyword_if_is(pos, end, "AUTO"))
-        {
-            if (!skip_symbol_if_is(pos, end, "&"))
-            {
-                // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after DESTROY");
-            }
-            return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
         }
         else if (skip_keyword_if_is(pos, end, "SZ"))
         {
