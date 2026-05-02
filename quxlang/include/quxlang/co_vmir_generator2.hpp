@@ -364,6 +364,10 @@ namespace quxlang
 
         void set_terminator(block_index idx, vmir2::vm_terminator terminator)
         {
+            if (this->state.blocks.at(idx).terminator.has_value())
+            {
+                throw compiler_bug("Attempted to replace block terminator");
+            }
             this->apply_current_source_location(terminator);
             this->state.blocks.at(idx).terminator = std::move(terminator);
         }
@@ -4673,16 +4677,6 @@ namespace quxlang
             return std::nullopt;
         }
 
-        auto set_exact_jump_terminator(block_index& from, block_index target, std::string_view action) -> void
-        {
-            from = this->resolve_open_block(from);
-            if (this->state.blocks.at(from).terminator.has_value())
-            {
-                throw std::logic_error("Cannot " + std::string(action) + " from a block that already has a terminator");
-            }
-            this->set_terminator(from, vmir2::jump{.target = target});
-        }
-
         [[nodiscard]] auto goto_live_state_compatible(vmir2::slot_state const& source, vmir2::slot_state const& target) const -> bool
         {
             if (source.stage != target.stage || source.storage_valid != target.storage_valid)
@@ -4781,7 +4775,7 @@ namespace quxlang
             {
                 throw std::logic_error("BREAK used outside a runtime loop");
             }
-            this->set_exact_jump_terminator(current_block, *target, "break");
+            this->generate_jump(current_block, *target, "break");
             co_return;
         }
 
@@ -4804,19 +4798,13 @@ namespace quxlang
             {
                 throw std::logic_error("CONTINUE used outside a runtime loop");
             }
-            this->set_exact_jump_terminator(current_block, *target, "continue");
+            this->generate_jump(current_block, *target, "continue");
             co_return;
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_goto_statement const& st) -> co_type< void >
         {
             auto target = this->get_or_create_goto_label_target(st.target, current_block);
-            current_block = this->resolve_open_block(current_block);
-            if (this->state.blocks.at(current_block).terminator.has_value())
-            {
-                throw std::logic_error("Cannot goto from a block that already has a terminator");
-            }
-
             auto const& label = this->state.goto_labels.at(st.target);
             if (label.declared)
             {
@@ -4826,7 +4814,7 @@ namespace quxlang
             {
                 this->state.pending_gotos[st.target].push_back(pending_goto_fixup{.source = current_block, .target = st.target, .location = st.location});
             }
-            this->set_terminator(current_block, vmir2::jump{.target = target});
+            this->generate_jump(current_block, target, "goto");
             co_return;
         }
 
@@ -4841,10 +4829,7 @@ namespace quxlang
 
             auto label_state = this->state.blocks.at(current_block).current_state;
             auto label_lookup_values = this->state.blocks.at(current_block).lookup_values;
-            if (!this->state.blocks.at(current_block).terminator.has_value())
-            {
-                this->set_terminator(current_block, vmir2::jump{.target = target});
-            }
+            this->generate_jump(current_block, target);
 
             auto& target_block = this->state.blocks.at(target);
             target_block.entry_state = std::move(label_state);
@@ -4944,14 +4929,10 @@ namespace quxlang
             co_return;
         }
 
-        [[nodiscard]] auto co_generate_for_clause_block(block_index& current_block, function_block const& block, std::string block_from) -> co_type< void >
+        [[nodiscard]] auto co_generate_for_clause_block(block_index& current_block, function_block const& block) -> co_type< void >
         {
             for (auto const& statement : block.statements)
             {
-                if (this->state.blocks.at(current_block).terminator.has_value())
-                {
-                    throw std::logic_error("FOR " + block_from + " block terminated before all statements were generated");
-                }
                 co_await co_generate_fblock_statement(current_block, statement);
             }
             co_return;
@@ -5080,11 +5061,11 @@ namespace quxlang
 
             if (st.init_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.init_block, "init");
+                co_await this->co_generate_for_clause_block(current_block, *st.init_block);
             }
             if (st.eval_block.has_value())
             {
-                co_await this->co_generate_for_clause_block(current_block, *st.eval_block, "eval");
+                co_await this->co_generate_for_clause_block(current_block, *st.eval_block);
             }
 
             block_index after_block = this->generate_subblock(current_block, "for_after");
@@ -5155,11 +5136,7 @@ namespace quxlang
             }
             this->state.loop_controls.pop_back();
 
-            body_block = this->resolve_open_block(body_block);
-            if (!this->state.blocks.at(body_block).terminator.has_value())
-            {
-                this->set_terminator(body_block, vmir2::jump{.target = continue_target});
-            }
+            this->generate_jump(body_block, continue_target);
 
             if (posttest_block.has_value())
             {
@@ -5175,12 +5152,7 @@ namespace quxlang
             {
                 block_index generated_step_block = *step_block;
                 co_await co_generate_function_block(generated_step_block, *st.step_block, "for_step");
-                generated_step_block = this->resolve_open_block(generated_step_block);
-                if (this->state.blocks.at(generated_step_block).terminator.has_value())
-                {
-                    throw std::logic_error("Cannot jump from a block that already has a terminator");
-                }
-                this->set_terminator(generated_step_block, vmir2::jump{.target = next_iteration_block});
+                this->generate_jump(generated_step_block, next_iteration_block);
             }
 
             current_block = after_block;
@@ -5654,11 +5626,6 @@ namespace quxlang
             auto lock_value = create_local_value(initguard_lock_type{});
             auto initialized_block = this->generate_subblock(entry_block, "global_already_initialized");
             auto acquire_block = this->generate_subblock(entry_block, "global_acquired");
-
-            if (this->state.blocks.at(entry_block).terminator.has_value())
-            {
-                throw compiler_bug("Expected no terminator in global GET_REFERENCE entry block");
-            }
 
             this->set_terminator(entry_block, vmir2::initguard_try_acquire{
                 .symbol = global_symbol,
@@ -6650,11 +6617,8 @@ namespace quxlang
 
             co_await co_generate_function_block(current_block, function_decl.definition.body, "body");
 
-            if (this->state.blocks.at(current_block).terminator.has_value() == false)
-            {
-                // TODO: Check if default return is allowed.
-                this->generate_return(current_block);
-            }
+            // TODO: Check if default return is allowed.
+            this->generate_return(current_block);
             this->validate_no_pending_gotos();
 
             co_return;
@@ -6731,6 +6695,7 @@ namespace quxlang
                     auto expr_index = co_await co_generate_expr(current_block, st.expr.value());
 
                     co_await co_return_value(current_block, expr_index);
+                    co_return;
                 }
 
                 co_await co_generate_builtin_return(current_block);
@@ -6820,10 +6785,7 @@ namespace quxlang
                 co_await co_generate_fblock_statement(new_block, statement);
             }
 
-            if (!this->state.blocks.at(new_block).terminator.has_value())
-            {
-                this->generate_jump(new_block, after_block);
-            }
+            this->generate_fallthrough_jump(new_block, after_block);
 
             assert(this->state.blocks.at(current_block).terminator.has_value());
             current_block = after_block;
@@ -6832,40 +6794,25 @@ namespace quxlang
             co_return;
         }
 
-        // Follow chains of jump terminators to find the effective open block
-        // where further code can be emitted. If a block ends with a jump to
-        // another block, walk the chain until a block without a terminator or
-        // with a non-jump terminator is reached.
-        block_index resolve_open_block(block_index blk)
+        void generate_jump(block_index from, block_index to, std::string_view action = "jump")
         {
-            // Guard against degenerate long chains; rely on vector bounds.
-            while (this->state.blocks.at(blk).terminator.has_value())
-            {
-                auto const& term = *this->state.blocks.at(blk).terminator;
-                if (term.template type_is< vmir2::jump >())
-                {
-                    blk = term.template get_as< vmir2::jump >().target;
-                    continue;
-                }
-                break; // Non-jump terminator; cannot append further.
-            }
-            return blk;
-        }
-
-        void generate_jump(block_index& from, block_index& to)
-        {
-            // If 'from' currently ends in a chain of jumps, append from its open tail.
-            from = resolve_open_block(from);
-            to = resolve_open_block(to);
-
             auto& from_block = this->state.blocks.at(from);
             if (from_block.terminator.has_value())
             {
-                throw std::logic_error("Cannot jump from a block that already has a terminator");
+                throw std::logic_error("Cannot " + std::string(action) + " from a block that already has a terminator");
             }
 
             vmir2::jump jump_instruction{.target = to};
             this->set_terminator(from, jump_instruction);
+        }
+
+        void generate_fallthrough_jump(block_index from, block_index to)
+        {
+            if (this->state.blocks.at(from).terminator.has_value())
+            {
+                return;
+            }
+            this->generate_jump(from, to);
         }
 
         bool has_terminator(block_index const& block) const
@@ -7221,10 +7168,7 @@ namespace quxlang
             block_index current_block(0);
             co_await co_generate_function_block(current_block, test.definition.body, "static_test_body");
 
-            if (this->state.blocks.at(current_block).terminator.has_value() == false)
-            {
-                this->generate_return(current_block);
-            }
+            this->generate_return(current_block);
 
             this->validate_no_pending_gotos();
             co_await co_generate_dtors();
