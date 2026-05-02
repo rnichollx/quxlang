@@ -14,9 +14,11 @@
 
 namespace quxlang
 {
-    using serialoid_static_value_spec = rpnx::querygraph::query_handler_spec<
-        serialoid_static_value_query,
-        rpnx::typelist< constexpr_eval_v3_query, global_is_serialoid_static_query, symboid_query, variable_type_query > >;
+    struct serialoid_static_value_spec
+    {
+        using query = serialoid_static_value_query;
+        using dependencies = rpnx::typelist< constexpr_eval_v3_query, global_is_serialoid_static_query, symboid_query, variable_type_query >;
+    };
 
     rpnx::querygraph::coroutine< serialoid_static_value_spec > serialoid_static_value_impl(type_symbol input);
 } // namespace quxlang

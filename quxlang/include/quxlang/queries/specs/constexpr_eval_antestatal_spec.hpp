@@ -19,9 +19,11 @@
 
 namespace quxlang
 {
-    using constexpr_eval_antestatal_spec = rpnx::querygraph::query_handler_spec<
-        constexpr_eval_antestatal_query,
-        rpnx::typelist< constexpr_eval_v3_query > >;
+    struct constexpr_eval_antestatal_spec
+    {
+        using query = constexpr_eval_antestatal_query;
+        using dependencies = rpnx::typelist< constexpr_eval_v3_query >;
+    };
 
     rpnx::querygraph::coroutine< constexpr_eval_antestatal_spec > constexpr_eval_antestatal_impl(constexpr_input2 input);
 } // namespace quxlang

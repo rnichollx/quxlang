@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using bindable_by_temporary_materialization_spec = rpnx::querygraph::query_handler_spec< bindable_by_temporary_materialization_query, rpnx::typelist<  > >;
+    struct bindable_by_temporary_materialization_spec
+    {
+        using query = bindable_by_temporary_materialization_query;
+        using dependencies = rpnx::typelist<  >;
+    };
 
     rpnx::querygraph::coroutine< bindable_by_temporary_materialization_spec > bindable_by_temporary_materialization_impl(implicitly_convertible_to_input input);
 } // namespace quxlang

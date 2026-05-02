@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using functum_exists_and_is_callable_with_spec = rpnx::querygraph::query_handler_spec< functum_exists_and_is_callable_with_query, rpnx::typelist< functum_initialize_query > >;
+    struct functum_exists_and_is_callable_with_spec
+    {
+        using query = functum_exists_and_is_callable_with_query;
+        using dependencies = rpnx::typelist< functum_initialize_query >;
+    };
 
     rpnx::querygraph::coroutine< functum_exists_and_is_callable_with_spec > functum_exists_and_is_callable_with_impl(initialization_reference input);
 } // namespace quxlang

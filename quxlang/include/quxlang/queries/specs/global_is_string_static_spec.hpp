@@ -13,9 +13,11 @@
 
 namespace quxlang
 {
-    using global_is_string_static_spec = rpnx::querygraph::query_handler_spec<
-        global_is_string_static_query,
-        rpnx::typelist< symboid_query, symbol_type_query, variable_type_query > >;
+    struct global_is_string_static_spec
+    {
+        using query = global_is_string_static_query;
+        using dependencies = rpnx::typelist< symboid_query, symbol_type_query, variable_type_query >;
+    };
 
     /// Returns true when the symbol is a global STATIC variable whose declared type is STRING_CONSTANT.
     rpnx::querygraph::coroutine< global_is_string_static_spec > global_is_string_static_impl(type_symbol input);

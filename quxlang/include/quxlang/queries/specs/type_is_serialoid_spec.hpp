@@ -17,9 +17,11 @@
 
 namespace quxlang
 {
-    using type_is_serialoid_spec = rpnx::querygraph::query_handler_spec<
-        type_is_serialoid_query,
-        rpnx::typelist< class_tags_query, symbol_type_query, type_is_implicitly_datatype_query, type_should_autogen_deserialize_query, type_should_autogen_serialize_query, user_deserialize_exists_query, user_serialize_exists_query > >;
+    struct type_is_serialoid_spec
+    {
+        using query = type_is_serialoid_query;
+        using dependencies = rpnx::typelist< class_tags_query, symbol_type_query, type_is_implicitly_datatype_query, type_should_autogen_deserialize_query, type_should_autogen_serialize_query, user_deserialize_exists_query, user_serialize_exists_query >;
+    };
 
     rpnx::querygraph::coroutine< type_is_serialoid_spec > type_is_serialoid_impl(type_symbol input);
 } // namespace quxlang

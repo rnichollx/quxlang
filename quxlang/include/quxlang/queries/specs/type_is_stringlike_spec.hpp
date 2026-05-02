@@ -12,9 +12,11 @@
 
 namespace quxlang
 {
-    using type_is_stringlike_spec = rpnx::querygraph::query_handler_spec<
-        type_is_stringlike_query,
-        rpnx::typelist< class_tags_query, symbol_type_query > >;
+    struct type_is_stringlike_spec
+    {
+        using query = type_is_stringlike_query;
+        using dependencies = rpnx::typelist< class_tags_query, symbol_type_query >;
+    };
 
     /// Returns true when the input symbol is a class declaration carrying the STRINGLIKE tag.
     rpnx::querygraph::coroutine< type_is_stringlike_spec > type_is_stringlike_impl(type_symbol input);

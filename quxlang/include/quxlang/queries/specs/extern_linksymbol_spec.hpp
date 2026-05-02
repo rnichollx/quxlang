@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using extern_linksymbol_spec = rpnx::querygraph::query_handler_spec< extern_linksymbol_query, rpnx::typelist<  > >;
+    struct extern_linksymbol_spec
+    {
+        using query = extern_linksymbol_query;
+        using dependencies = rpnx::typelist<  >;
+    };
 
     rpnx::querygraph::coroutine< extern_linksymbol_spec > extern_linksymbol_impl(ast2_extern input);
 } // namespace quxlang

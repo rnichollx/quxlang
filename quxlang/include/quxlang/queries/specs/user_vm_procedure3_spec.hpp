@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using user_vm_procedure3_spec = rpnx::querygraph::query_handler_spec< user_vm_procedure3_query, co_vmir_generator2_query_deps >;
+    struct user_vm_procedure3_spec
+    {
+        using query = user_vm_procedure3_query;
+        using dependencies = co_vmir_generator2_query_deps;
+    };
 
     rpnx::querygraph::coroutine< user_vm_procedure3_spec > user_vm_procedure3_impl(instanciation_reference input);
 } // namespace quxlang

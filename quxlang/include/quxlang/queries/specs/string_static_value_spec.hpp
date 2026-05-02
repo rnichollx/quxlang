@@ -14,9 +14,11 @@
 
 namespace quxlang
 {
-    using string_static_value_spec = rpnx::querygraph::query_handler_spec<
-        string_static_value_query,
-        rpnx::typelist< constexpr_eval_string_query, global_is_string_static_query, lookup_query, symboid_query > >;
+    struct string_static_value_spec
+    {
+        using query = string_static_value_query;
+        using dependencies = rpnx::typelist< constexpr_eval_string_query, global_is_string_static_query, lookup_query, symboid_query >;
+    };
 
     /// Computes the constexpr byte contents for a STATIC STRING_CONSTANT global initializer.
     rpnx::querygraph::coroutine< string_static_value_spec > string_static_value_impl(type_symbol input);

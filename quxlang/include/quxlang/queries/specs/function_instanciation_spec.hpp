@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using function_instanciation_spec = rpnx::querygraph::query_handler_spec< function_instanciation_query, rpnx::typelist< function_ensig_init_with_query, symbol_type_query > >;
+    struct function_instanciation_spec
+    {
+        using query = function_instanciation_query;
+        using dependencies = rpnx::typelist< function_ensig_init_with_query, symbol_type_query >;
+    };
 
     rpnx::querygraph::coroutine< function_instanciation_spec > function_instanciation_impl(initialization_reference input);
 } // namespace quxlang

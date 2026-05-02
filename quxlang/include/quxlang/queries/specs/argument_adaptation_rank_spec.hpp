@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using argument_adaptation_rank_spec = rpnx::querygraph::query_handler_spec< argument_adaptation_rank_query, rpnx::typelist< argument_initialize_by_class_conversion_query, bindable_query > >;
+    struct argument_adaptation_rank_spec
+    {
+        using query = argument_adaptation_rank_query;
+        using dependencies = rpnx::typelist< argument_initialize_by_class_conversion_query, bindable_query >;
+    };
 
     rpnx::querygraph::coroutine< argument_adaptation_rank_spec > argument_adaptation_rank_impl(argument_init_input input);
 } // namespace quxlang

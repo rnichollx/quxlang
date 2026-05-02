@@ -14,7 +14,11 @@
 
 namespace quxlang
 {
-    using asm_procedure_from_symbol_spec = rpnx::querygraph::query_handler_spec< asm_procedure_from_symbol_query, rpnx::typelist< extern_linksymbol_query, lookup_query, procedure_linksymbol_query, symboid_query > >;
+    struct asm_procedure_from_symbol_spec
+    {
+        using query = asm_procedure_from_symbol_query;
+        using dependencies = rpnx::typelist< extern_linksymbol_query, lookup_query, procedure_linksymbol_query, symboid_query >;
+    };
 
     rpnx::querygraph::coroutine< asm_procedure_from_symbol_spec > asm_procedure_from_symbol_impl(type_symbol input);
 } // namespace quxlang

@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using builtin_default_ctor_vm_procedure3_spec = rpnx::querygraph::query_handler_spec< builtin_default_ctor_vm_procedure3_query, co_vmir_generator2_query_deps >;
+    struct builtin_default_ctor_vm_procedure3_spec
+    {
+        using query = builtin_default_ctor_vm_procedure3_query;
+        using dependencies = co_vmir_generator2_query_deps;
+    };
 
     rpnx::querygraph::coroutine< builtin_default_ctor_vm_procedure3_spec > builtin_default_ctor_vm_procedure3_impl(instanciation_reference input);
 } // namespace quxlang

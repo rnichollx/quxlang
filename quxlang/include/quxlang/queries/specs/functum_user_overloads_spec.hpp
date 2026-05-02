@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using functum_user_overloads_spec = rpnx::querygraph::query_handler_spec< functum_user_overloads_query, rpnx::typelist< functum_map_user_formal_ensigs_query > >;
+    struct functum_user_overloads_spec
+    {
+        using query = functum_user_overloads_query;
+        using dependencies = rpnx::typelist< functum_map_user_formal_ensigs_query >;
+    };
 
     rpnx::querygraph::coroutine< functum_user_overloads_spec > functum_user_overloads_impl(type_symbol input);
 } // namespace quxlang

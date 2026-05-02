@@ -16,7 +16,11 @@
 
 namespace quxlang
 {
-    using functum_select_function_spec = rpnx::querygraph::query_handler_spec< functum_select_function_query, rpnx::typelist< argument_adaptation_is_better_fit_query, constexpr_bool_query, function_ensig_init_with_query, functum_overloads_query, instanciation_tempar_map_query, symbol_type_query > >;
+    struct functum_select_function_spec
+    {
+        using query = functum_select_function_query;
+        using dependencies = rpnx::typelist< argument_adaptation_is_better_fit_query, constexpr_bool_query, function_ensig_init_with_query, functum_overloads_query, instanciation_tempar_map_query, symbol_type_query >;
+    };
 
     rpnx::querygraph::coroutine< functum_select_function_spec > functum_select_function_impl(initialization_reference input);
 } // namespace quxlang

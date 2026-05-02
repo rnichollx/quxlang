@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using symbol_tempars_spec = rpnx::querygraph::query_handler_spec< symbol_tempars_query, rpnx::typelist<  > >;
+    struct symbol_tempars_spec
+    {
+        using query = symbol_tempars_query;
+        using dependencies = rpnx::typelist<  >;
+    };
 
     rpnx::querygraph::coroutine< symbol_tempars_spec > symbol_tempars_impl(type_symbol input);
 } // namespace quxlang

@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using class_trivially_destructible_spec = rpnx::querygraph::query_handler_spec< class_trivially_destructible_query, rpnx::typelist< class_default_dtor_query > >;
+    struct class_trivially_destructible_spec
+    {
+        using query = class_trivially_destructible_query;
+        using dependencies = rpnx::typelist< class_default_dtor_query >;
+    };
 
     rpnx::querygraph::coroutine< class_trivially_destructible_spec > class_trivially_destructible_impl(type_symbol input);
 } // namespace quxlang

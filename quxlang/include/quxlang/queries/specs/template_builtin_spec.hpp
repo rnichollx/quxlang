@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using template_builtin_spec = rpnx::querygraph::query_handler_spec< template_builtin_query, rpnx::typelist< templex_builtin_templates_query > >;
+    struct template_builtin_spec
+    {
+        using query = template_builtin_query;
+        using dependencies = rpnx::typelist< templex_builtin_templates_query >;
+    };
 
     rpnx::querygraph::coroutine< template_builtin_spec > template_builtin_impl(temploid_reference input);
 } // namespace quxlang

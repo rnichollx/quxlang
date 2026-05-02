@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using user_default_dtor_exists_spec = rpnx::querygraph::query_handler_spec< user_default_dtor_exists_query, rpnx::typelist< function_ensig_init_with_query, functum_overloads_query > >;
+    struct user_default_dtor_exists_spec
+    {
+        using query = user_default_dtor_exists_query;
+        using dependencies = rpnx::typelist< function_ensig_init_with_query, functum_overloads_query >;
+    };
 
     rpnx::querygraph::coroutine< user_default_dtor_exists_spec > user_default_dtor_exists_impl(type_symbol input);
 } // namespace quxlang

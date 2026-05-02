@@ -14,7 +14,11 @@
 
 namespace quxlang
 {
-    using module_options_map_spec = rpnx::querygraph::query_handler_spec< module_options_map_query, rpnx::typelist< module_option_strings_map_query, lookup_query, symbol_type_query > >;
+    struct module_options_map_spec
+    {
+        using query = module_options_map_query;
+        using dependencies = rpnx::typelist< module_option_strings_map_query, lookup_query, symbol_type_query >;
+    };
 
     rpnx::querygraph::coroutine< module_options_map_spec > module_options_map_impl(std::monostate input);
 } // namespace quxlang

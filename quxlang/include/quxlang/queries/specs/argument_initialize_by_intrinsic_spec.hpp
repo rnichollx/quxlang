@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using argument_initialize_by_intrinsic_spec = rpnx::querygraph::query_handler_spec< argument_initialize_by_intrinsic_query, rpnx::typelist<  > >;
+    struct argument_initialize_by_intrinsic_spec
+    {
+        using query = argument_initialize_by_intrinsic_query;
+        using dependencies = rpnx::typelist<  >;
+    };
 
     rpnx::querygraph::coroutine< argument_initialize_by_intrinsic_spec > argument_initialize_by_intrinsic_impl(argument_init_input input);
 } // namespace quxlang

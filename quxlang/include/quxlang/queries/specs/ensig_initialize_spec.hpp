@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using ensig_initialize_spec = rpnx::querygraph::query_handler_spec< ensig_initialize_query, rpnx::typelist< ensig_argument_initialize_query > >;
+    struct ensig_initialize_spec
+    {
+        using query = ensig_initialize_query;
+        using dependencies = rpnx::typelist< ensig_argument_initialize_query >;
+    };
 
     rpnx::querygraph::coroutine< ensig_initialize_spec > ensig_initialize_impl(ensig_initialization input);
 } // namespace quxlang

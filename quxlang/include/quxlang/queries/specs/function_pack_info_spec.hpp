@@ -12,7 +12,11 @@
 namespace quxlang
 {
     /// Query handler specification for deriving positional pack metadata.
-    using function_pack_info_spec = rpnx::querygraph::query_handler_spec< function_pack_info_query, rpnx::typelist< function_declaration_query > >;
+    struct function_pack_info_spec
+    {
+        using query = function_pack_info_query;
+        using dependencies = rpnx::typelist< function_declaration_query >;
+    };
 
     /// Computes source pack-to-expanded-parameter mappings for an instantiated function.
     rpnx::querygraph::coroutine< function_pack_info_spec > function_pack_info_impl(instanciation_reference input);

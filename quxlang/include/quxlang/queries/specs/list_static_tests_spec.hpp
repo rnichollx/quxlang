@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using list_static_tests_spec = rpnx::querygraph::query_handler_spec< list_static_tests_query, rpnx::typelist< constexpr_bool_query, symboid_subdeclaroids_query, list_static_tests_query > >;
+    struct list_static_tests_spec
+    {
+        using query = list_static_tests_query;
+        using dependencies = rpnx::typelist< constexpr_bool_query, symboid_subdeclaroids_query, list_static_tests_query >;
+    };
 
     rpnx::querygraph::coroutine< list_static_tests_spec > list_static_tests_impl(type_symbol input);
 } // namespace quxlang

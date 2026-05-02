@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using function_param_names_spec = rpnx::querygraph::query_handler_spec< function_param_names_query, rpnx::typelist< function_builtin_query, function_declaration_query > >;
+    struct function_param_names_spec
+    {
+        using query = function_param_names_query;
+        using dependencies = rpnx::typelist< function_builtin_query, function_declaration_query >;
+    };
 
     rpnx::querygraph::coroutine< function_param_names_spec > function_param_names_impl(temploid_reference input);
 } // namespace quxlang

@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using class_requires_gen_default_dtor_spec = rpnx::querygraph::query_handler_spec< class_requires_gen_default_dtor_query, rpnx::typelist< have_nontrivial_member_dtor_query, user_default_dtor_exists_query > >;
+    struct class_requires_gen_default_dtor_spec
+    {
+        using query = class_requires_gen_default_dtor_query;
+        using dependencies = rpnx::typelist< have_nontrivial_member_dtor_query, user_default_dtor_exists_query >;
+    };
 
     rpnx::querygraph::coroutine< class_requires_gen_default_dtor_spec > class_requires_gen_default_dtor_impl(type_symbol input);
 } // namespace quxlang

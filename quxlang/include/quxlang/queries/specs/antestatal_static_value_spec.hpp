@@ -14,7 +14,11 @@
 
 namespace quxlang
 {
-    using antestatal_static_value_spec = rpnx::querygraph::query_handler_spec< antestatal_static_value_query, rpnx::typelist< constexpr_eval_antestatal_query, global_is_antestatal_static_query, symboid_query, variable_type_query > >;
+    struct antestatal_static_value_spec
+    {
+        using query = antestatal_static_value_query;
+        using dependencies = rpnx::typelist< constexpr_eval_antestatal_query, global_is_antestatal_static_query, symboid_query, variable_type_query >;
+    };
 
     rpnx::querygraph::coroutine< antestatal_static_value_spec > antestatal_static_value_impl(type_symbol input);
 } // namespace quxlang

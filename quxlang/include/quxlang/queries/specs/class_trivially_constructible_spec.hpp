@@ -11,7 +11,11 @@
 
 namespace quxlang
 {
-    using class_trivially_constructible_spec = rpnx::querygraph::query_handler_spec< class_trivially_constructible_query, rpnx::typelist< class_default_ctor_query > >;
+    struct class_trivially_constructible_spec
+    {
+        using query = class_trivially_constructible_query;
+        using dependencies = rpnx::typelist< class_default_ctor_query >;
+    };
 
     rpnx::querygraph::coroutine< class_trivially_constructible_spec > class_trivially_constructible_impl(type_symbol input);
 } // namespace quxlang

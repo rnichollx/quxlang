@@ -16,7 +16,11 @@
 
 namespace quxlang
 {
-    using type_is_antestatal_spec = rpnx::querygraph::query_handler_spec< type_is_antestatal_query, rpnx::typelist< class_field_list_query, class_tags_query, class_trivially_destructible_query, symbol_type_query, type_is_antestatal_query, user_deserialize_exists_query, user_serialize_exists_query > >;
+    struct type_is_antestatal_spec
+    {
+        using query = type_is_antestatal_query;
+        using dependencies = rpnx::typelist< class_field_list_query, class_tags_query, class_trivially_destructible_query, symbol_type_query, type_is_antestatal_query, user_deserialize_exists_query, user_serialize_exists_query >;
+    };
 
     rpnx::querygraph::coroutine< type_is_antestatal_spec > type_is_antestatal_impl(type_symbol input);
 } // namespace quxlang

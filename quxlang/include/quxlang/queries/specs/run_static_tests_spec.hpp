@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using run_static_tests_spec = rpnx::querygraph::query_handler_spec< run_static_tests_query, rpnx::typelist< list_static_tests_query, run_static_test_query > >;
+    struct run_static_tests_spec
+    {
+        using query = run_static_tests_query;
+        using dependencies = rpnx::typelist< list_static_tests_query, run_static_test_query >;
+    };
 
     rpnx::querygraph::coroutine< run_static_tests_spec > run_static_tests_impl(type_symbol input);
 } // namespace quxlang

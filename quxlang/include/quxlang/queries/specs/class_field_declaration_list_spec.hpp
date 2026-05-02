@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using class_field_declaration_list_spec = rpnx::querygraph::query_handler_spec< class_field_declaration_list_query, rpnx::typelist< class_builtin_query, symboid_query > >;
+    struct class_field_declaration_list_spec
+    {
+        using query = class_field_declaration_list_query;
+        using dependencies = rpnx::typelist< class_builtin_query, symboid_query >;
+    };
 
     rpnx::querygraph::coroutine< class_field_declaration_list_spec > class_field_declaration_list_impl(type_symbol input);
 } // namespace quxlang

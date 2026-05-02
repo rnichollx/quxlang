@@ -16,7 +16,11 @@
 
 namespace quxlang
 {
-    using symboid_spec = rpnx::querygraph::query_handler_spec< symboid_query, rpnx::typelist< declaroids_query, instanciation_query, lookup_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query > >;
+    struct symboid_spec
+    {
+        using query = symboid_query;
+        using dependencies = rpnx::typelist< declaroids_query, instanciation_query, lookup_query, module_ast_query, symbol_type_query, symboid_query, template_builtin_query >;
+    };
 
     rpnx::querygraph::coroutine< symboid_spec > symboid_impl(type_symbol input);
 } // namespace quxlang

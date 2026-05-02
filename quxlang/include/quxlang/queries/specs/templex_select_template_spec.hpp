@@ -16,9 +16,11 @@
 
 namespace quxlang
 {
-    using templex_select_template_spec =
-        rpnx::querygraph::query_handler_spec< templex_select_template_query,
-                                              rpnx::typelist< constexpr_eval_v3_query, lookup_query, symboid_query, symbol_type_query, templex_builtins_query > >;
+    struct templex_select_template_spec
+    {
+        using query = templex_select_template_query;
+        using dependencies = rpnx::typelist< constexpr_eval_v3_query, lookup_query, symboid_query, symbol_type_query, templex_builtins_query >;
+    };
 
     rpnx::querygraph::coroutine< templex_select_template_spec > templex_select_template_impl(initialization_reference input);
 } // namespace quxlang

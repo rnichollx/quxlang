@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using source_file_index_spec = rpnx::querygraph::query_handler_spec< source_file_index_query, rpnx::typelist< source_bundle_query > >;
+    struct source_file_index_spec
+    {
+        using query = source_file_index_query;
+        using dependencies = rpnx::typelist< source_bundle_query >;
+    };
 
     rpnx::querygraph::coroutine< source_file_index_spec > source_file_index_impl(std::monostate input);
 } // namespace quxlang

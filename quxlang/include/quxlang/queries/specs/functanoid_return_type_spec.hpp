@@ -13,7 +13,11 @@
 
 namespace quxlang
 {
-    using functanoid_return_type_spec = rpnx::querygraph::query_handler_spec< functanoid_return_type_query, rpnx::typelist< function_declaration_query, function_primitive_query, lookup_query > >;
+    struct functanoid_return_type_spec
+    {
+        using query = functanoid_return_type_query;
+        using dependencies = rpnx::typelist< function_declaration_query, function_primitive_query, lookup_query >;
+    };
 
     rpnx::querygraph::coroutine< functanoid_return_type_spec > functanoid_return_type_impl(instanciation_reference input);
 } // namespace quxlang

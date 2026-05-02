@@ -18,9 +18,11 @@
 
 namespace quxlang
 {
-    using constexpr_eval_v3_spec = rpnx::querygraph::query_handler_spec<
-        constexpr_eval_v3_query,
-        rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, variable_type_query, vm_procedure3_query > >;
+    struct constexpr_eval_v3_spec
+    {
+        using query = constexpr_eval_v3_query;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, variable_type_query, vm_procedure3_query >;
+    };
 
     /// Evaluates a constexpr v3 expression and returns all requested result IDs.
     rpnx::querygraph::coroutine< constexpr_eval_v3_spec > constexpr_eval_v3_impl(constexpr_input_v3 input);

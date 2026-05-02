@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using class_layout_spec = rpnx::querygraph::query_handler_spec< class_layout_query, rpnx::typelist< class_field_list_query, type_placement_info_query > >;
+    struct class_layout_spec
+    {
+        using query = class_layout_query;
+        using dependencies = rpnx::typelist< class_field_list_query, type_placement_info_query >;
+    };
 
     rpnx::querygraph::coroutine< class_layout_spec > class_layout_impl(type_symbol input);
 } // namespace quxlang

@@ -15,7 +15,11 @@
 
 namespace quxlang
 {
-    using instanciation_spec = rpnx::querygraph::query_handler_spec< instanciation_query, rpnx::typelist< function_instanciation_query, functum_initialize_query, symbol_type_query, template_instanciation_query, templex_initialize_query > >;
+    struct instanciation_spec
+    {
+        using query = instanciation_query;
+        using dependencies = rpnx::typelist< function_instanciation_query, functum_initialize_query, symbol_type_query, template_instanciation_query, templex_initialize_query >;
+    };
 
     rpnx::querygraph::coroutine< instanciation_spec > instanciation_impl(initialization_reference input);
 } // namespace quxlang

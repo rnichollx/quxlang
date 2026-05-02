@@ -10,7 +10,11 @@
 
 namespace quxlang
 {
-    using instanciation_tempar_map_spec = rpnx::querygraph::query_handler_spec< instanciation_tempar_map_query, rpnx::typelist<  > >;
+    struct instanciation_tempar_map_spec
+    {
+        using query = instanciation_tempar_map_query;
+        using dependencies = rpnx::typelist<  >;
+    };
 
     rpnx::querygraph::coroutine< instanciation_tempar_map_spec > instanciation_tempar_map_impl(instanciation_reference input);
 } // namespace quxlang

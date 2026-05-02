@@ -15,9 +15,11 @@
 
 namespace quxlang
 {
-    using global_is_serialoid_static_spec = rpnx::querygraph::query_handler_spec<
-        global_is_serialoid_static_query,
-        rpnx::typelist< class_tags_query, symboid_query, symbol_type_query, type_is_serialoid_query, variable_type_query > >;
+    struct global_is_serialoid_static_spec
+    {
+        using query = global_is_serialoid_static_query;
+        using dependencies = rpnx::typelist< class_tags_query, symboid_query, symbol_type_query, type_is_serialoid_query, variable_type_query >;
+    };
 
     rpnx::querygraph::coroutine< global_is_serialoid_static_spec > global_is_serialoid_static_impl(type_symbol input);
 } // namespace quxlang

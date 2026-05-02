@@ -16,8 +16,11 @@
 
 namespace quxlang
 {
-    using template_instanciation_spec = rpnx::querygraph::query_handler_spec< template_instanciation_query,
-                                                                               rpnx::typelist< builtin_template_instanciation_query, constexpr_eval_v3_query, ensig_initialize_query, lookup_query, symbol_type_query, symboid_query, template_builtin_query > >;
+    struct template_instanciation_spec
+    {
+        using query = template_instanciation_query;
+        using dependencies = rpnx::typelist< builtin_template_instanciation_query, constexpr_eval_v3_query, ensig_initialize_query, lookup_query, symbol_type_query, symboid_query, template_builtin_query >;
+    };
 
     rpnx::querygraph::coroutine< template_instanciation_spec > template_instanciation_impl(initialization_reference input);
 } // namespace quxlang

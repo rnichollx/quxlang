@@ -38,9 +38,10 @@
 
 namespace quxlang
 {
-    using run_static_test_spec = rpnx::querygraph::query_handler_spec<
-        run_static_test_query,
-        rpnx::typelist<
+    struct run_static_test_spec
+    {
+        using query = run_static_test_query;
+        using dependencies = rpnx::typelist<
             antestatal_static_value_query,
             class_default_dtor_query,
             class_field_list_query,
@@ -68,7 +69,8 @@ namespace quxlang
             type_placement_info_query,
             uintpointer_type_query,
             variable_type_query,
-            vm_procedure3_query > >;
+            vm_procedure3_query >;
+    };
 
     rpnx::querygraph::coroutine< run_static_test_spec > run_static_test_impl(type_symbol input);
 } // namespace quxlang

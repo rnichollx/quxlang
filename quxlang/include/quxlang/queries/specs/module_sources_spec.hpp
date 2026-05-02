@@ -12,7 +12,11 @@
 
 namespace quxlang
 {
-    using module_sources_spec = rpnx::querygraph::query_handler_spec< module_sources_query, rpnx::typelist< source_bundle_query, module_source_name_query > >;
+    struct module_sources_spec
+    {
+        using query = module_sources_query;
+        using dependencies = rpnx::typelist< source_bundle_query, module_source_name_query >;
+    };
 
     rpnx::querygraph::coroutine< module_sources_spec > module_sources_impl(std::string input);
 } // namespace quxlang
