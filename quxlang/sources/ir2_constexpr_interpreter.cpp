@@ -1719,7 +1719,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto offset_val = consume_local_as_data(acp.index_index);
     auto [offset, ok] = bytemath::le_int_fixed_to_unlimited(get_fixed_int_options(offset_type), offset_val).to_int< std::int64_t >();
-    assert(ok);
+    if (!ok)
+    {
+        throw constexpr_logic_execution_error("access_pointer index overflow in constexpr execution");
+    }
 
     auto ref_type = get_local_type(acp.store_index);
     if (!is_ref(ref_type))
@@ -6200,9 +6203,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         std::tie(offset, ok) = offset_unlimited.to_int< std::int64_t >();
     }
-    // TODO: Handle !ok
 
-    assert(ok);
+    if (!ok)
+    {
+        throw constexpr_logic_execution_error("pointer_arith offset overflow in constexpr execution");
+    }
 
     type_symbol const& ptrref_type = get_local_type(par.result);
     pointer_impl new_ptr = pointer_arith(ptr, offset, ptrref_type);
