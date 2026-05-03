@@ -301,6 +301,48 @@ namespace quxlang::parsers
 
             output = std::move(result);
         }
+        else if (skip_keyword_if_is(pos, end, "DECLTYPE"))
+        {
+            decltype_type_ref result;
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after DECLTYPE");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.symbol = parse_type_symbol(ctx);
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after DECLTYPE symbol");
+            }
+
+            output = std::move(result);
+        }
+        else if (skip_keyword_if_is(pos, end, "TYPEOF"))
+        {
+            typeof_type_ref result;
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after TYPEOF");
+            }
+
+            skip_whitespace_and_comments(pos, end);
+            result.expr = parse_expression(ctx);
+
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after TYPEOF expression");
+            }
+
+            output = std::move(result);
+        }
         else if (auto float_kw = try_parse_float_keyword(pos, end); float_kw)
         {
             output = std::move(*float_kw);

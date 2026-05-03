@@ -29,6 +29,63 @@ namespace quxlang
         }
         co_return;
     }
+
+    auto declared_parameter_type_from_context(type_symbol context, std::string const& name) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
+    {
+        std::optional< type_symbol > current_context = std::move(context);
+        while (current_context.has_value())
+        {
+            if (typeis< instanciation_reference >(*current_context))
+            {
+                auto const& inst = as< instanciation_reference >(*current_context);
+                auto declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);
+                if (declaration.has_value())
+                {
+                    std::size_t positional_index = 0;
+                    for (auto const& param : declaration->header.call_parameters)
+                    {
+                        if (param.api_name.has_value())
+                        {
+                            if (param.api_name.value() == name || (param.name.has_value() && param.name.value() == name))
+                            {
+                                auto it = inst.params.named.find(param.api_name.value());
+                                if (it == inst.params.named.end())
+                                {
+                                    co_return std::nullopt;
+                                }
+                                co_return parameter_instantiation_type(it->second);
+                            }
+                            continue;
+                        }
+
+                        if (param.is_pack)
+                        {
+                            if (param.name.has_value() && param.name.value() == name)
+                            {
+                                throw std::logic_error("DECLTYPE cannot name a positional pack; use PACK_ARG_TYPE for pack elements.");
+                            }
+                            positional_index = inst.params.positional.size();
+                            continue;
+                        }
+
+                        if (param.name.has_value() && param.name.value() == name)
+                        {
+                            if (positional_index >= inst.params.positional.size())
+                            {
+                                co_return std::nullopt;
+                            }
+                            co_return parameter_instantiation_type(inst.params.positional.at(positional_index));
+                        }
+                        positional_index++;
+                    }
+                }
+            }
+
+            current_context = type_parent(*current_context);
+        }
+
+        co_return std::nullopt;
+    }
 }
 
 rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(contextual_type_reference input)
@@ -159,6 +216,50 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         }
 
         co_return pack_it->second.types.at(static_cast< std::vector< type_symbol >::size_type >(pack_index));
+    }
+    else if (type.template type_is< decltype_type_ref >())
+    {
+        auto const& ref = as< decltype_type_ref >(type);
+
+        if (ref.symbol.template type_is< freebound_identifier >())
+        {
+            auto const& name = as< freebound_identifier >(ref.symbol).name;
+            auto parameter_type = co_await declared_parameter_type_from_context(context, name);
+            if (parameter_type.has_value())
+            {
+                co_return *parameter_type;
+            }
+        }
+
+        auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = ref.symbol});
+        if (!canonical_symbol.has_value())
+        {
+            co_return std::nullopt;
+        }
+
+        auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
+        if (kind != symbol_kind::global_variable)
+        {
+            throw std::logic_error("DECLTYPE requires a value symbol");
+        }
+
+        auto declaration = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
+        if (!declaration.template type_is< ast2_variable_declaration >())
+        {
+            throw std::logic_error("DECLTYPE target variable is not declared as a variable");
+        }
+
+        auto declared_type = as< ast2_variable_declaration >(declaration).type;
+        auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = *canonical_symbol, .type = declared_type});
+        if (!resolved.has_value())
+        {
+            co_return std::nullopt;
+        }
+        co_return *resolved;
+    }
+    else if (type.template type_is< typeof_type_ref >())
+    {
+        throw std::logic_error("TYPEOF requires a function generation context for expression type resolution");
     }
     else if (type.template type_is< freebound_identifier >())
     {

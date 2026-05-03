@@ -445,6 +445,24 @@ namespace quxlang::parsers
             *value_bind_point = std::move(expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "FORWARD"))
+        {
+            expression_forward expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw std::logic_error("Expected '(' after FORWARD");
+            }
+            skip_whitespace_and_comments(pos, end);
+            expr.symbol = parse_type_symbol(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw std::logic_error("Expected ')' after FORWARD symbol");
+            }
+            *value_bind_point = std::move(expr);
+            have_anything = true;
+        }
         else if (skip_keyword_if_is(pos, end, "SIZEOF"))
         {
             expression_sizeof sz;

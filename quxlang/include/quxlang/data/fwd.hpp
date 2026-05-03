@@ -51,9 +51,11 @@ namespace quxlang
     struct static_local_ref;
     struct static_snapshot_ref;
     struct pack_arg_type_ref;
+    struct decltype_type_ref;
+    struct typeof_type_ref;
     struct function_block;
 
-    using type_symbol = rpnx::variant< void_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage, aligned_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref >;
+    using type_symbol = rpnx::variant< void_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_reference, string_literal_reference, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage, aligned_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref, decltype_type_ref, typeof_type_ref >;
 
     struct expression_multiply;
     struct expression_modulus;
@@ -93,9 +95,10 @@ namespace quxlang
     struct expression_snapshot;
     struct expression_pack_size;
     struct expression_pack_arg;
+    struct expression_forward;
     struct expression_lambda;
 
-    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_same_types, expression_typecast, expression_pun, expression_place, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_lambda >;
+    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_same_types, expression_typecast, expression_pun, expression_place, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_forward, expression_lambda >;
 
     struct call_initializer;
     struct array_initializer;

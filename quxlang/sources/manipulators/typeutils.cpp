@@ -134,6 +134,11 @@ namespace quxlang
             return "PACK_ARG(" + expr.pack_name + ", " + expr_to_string(expr.index) + ")";
         }
 
+        std::string operator()(expression_forward const& expr) const
+        {
+            return "FORWARD(" + to_string(expr.symbol) + ")";
+        }
+
         std::string operator()(expression_choose const& expr) const
         {
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
@@ -334,6 +339,8 @@ namespace quxlang
         std::string operator()(static_snapshot_ref const&) const;
         /// Formats a pack argument type query.
         std::string operator()(pack_arg_type_ref const&) const;
+        std::string operator()(decltype_type_ref const&) const;
+        std::string operator()(typeof_type_ref const&) const;
 
       public:
         type_symbol_stringifier() = default;
@@ -464,6 +471,16 @@ namespace quxlang
         }
 
         bool operator()(pack_arg_type_ref const& ref) const
+        {
+            return false;
+        }
+
+        bool operator()(decltype_type_ref const& ref) const
+        {
+            return is_template(ref.symbol);
+        }
+
+        bool operator()(typeof_type_ref const&) const
         {
             return false;
         }
@@ -831,6 +848,16 @@ namespace quxlang
             return output;
         }
         else if (ref.template type_is< pack_arg_type_ref >())
+        {
+            return ref;
+        }
+        else if (ref.template type_is< decltype_type_ref >())
+        {
+            decltype_type_ref output = as< decltype_type_ref >(ref);
+            output.symbol = with_context(output.symbol, context);
+            return output;
+        }
+        else if (ref.template type_is< typeof_type_ref >())
         {
             return ref;
         }
@@ -1252,6 +1279,14 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(pack_arg_type_ref const& ref) const
     {
         return "PACK_ARG_TYPE(" + ref.pack_name + ", " + to_string(ref.index) + ")";
+    }
+    std::string type_symbol_stringifier::operator()(decltype_type_ref const& ref) const
+    {
+        return "DECLTYPE(" + to_string(ref.symbol) + ")";
+    }
+    std::string type_symbol_stringifier::operator()(typeof_type_ref const& ref) const
+    {
+        return "TYPEOF(" + to_string(ref.expr) + ")";
     }
 
     std::string type_symbol_stringifier::operator()(auto_temploidic const& val) const
@@ -2313,6 +2348,16 @@ namespace quxlang
             {
                 return tmpl == val;
             }
+
+            bool check_impl(decltype_type_ref const& tmpl, decltype_type_ref const& val, bool conv)
+            {
+                return check(tmpl.symbol, val.symbol, false);
+            }
+
+            bool check_impl(typeof_type_ref const& tmpl, typeof_type_ref const& val, bool conv)
+            {
+                return tmpl == val;
+            }
         };
         bool template_matcher::check(invotype template_ct, invotype match_ct, bool conv)
         {
@@ -2616,6 +2661,10 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.index = strip_source_locations(std::move(value.index));
             }
+            else if constexpr (std::is_same_v< value_type, expression_forward >)
+            {
+                value.symbol = strip_source_locations(std::move(value.symbol));
+            }
             else if constexpr (std::is_same_v< value_type, expression_lambda >)
             {
                 for (auto& capture : value.captures)
@@ -2829,6 +2878,14 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, pack_arg_type_ref >)
             {
                 value.index = strip_source_locations(std::move(value.index));
+            }
+            else if constexpr (std::is_same_v< value_type, decltype_type_ref >)
+            {
+                value.symbol = strip_source_locations(std::move(value.symbol));
+            }
+            else if constexpr (std::is_same_v< value_type, typeof_type_ref >)
+            {
+                value.expr = strip_source_locations(std::move(value.expr));
             }
         });
     return ref;

@@ -117,6 +117,10 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             throw compiler_bug("__CONSTEXPR_PROXY " + sm.name + " is a builtin intrinsic and has no generated VM procedure");
         }
+        if (sm.name == "CONSTRUCTOR" && typeis< array_type >(sm.of))
+        {
+            co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
+        }
         if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
         {
             auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);

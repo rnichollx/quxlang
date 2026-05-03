@@ -360,6 +360,14 @@ namespace quxlang
             }
             return false;
         }
+        else if (ref.type_is< decltype_type_ref >())
+        {
+            return type_is_contextual(as< decltype_type_ref >(ref).symbol);
+        }
+        else if (ref.type_is< typeof_type_ref >())
+        {
+            return true;
+        }
         else if (auto parent = type_parent(ref); !parent.has_value())
         {
             return false;

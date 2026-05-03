@@ -92,6 +92,22 @@
   RETURN a;
 }
 
+::forward_ref_value FUNCTION(%a AUTO& AUTO): I32
+{
+  RETURN FORWARD(a);
+}
+
+::decltype_parameter_return FUNCTION(%a AUTO& AUTO): DECLTYPE(a)
+{
+  RETURN FORWARD(a);
+}
+
+::typeof_side_effect_probe FUNCTION(@target WRITE& I32): I32
+{
+  target := 44;
+  RETURN 7;
+}
+
 ::fibbonachi FUNCTION(@n AUTO): AUTO
 {
   IF (n <= 1)
@@ -229,6 +245,25 @@
 
     x := include_if_helper( 0 AS I64 );
     ASSERT( x == 3 );
+}
+
+::forward_decltype_typeof_test STATIC_TEST
+{
+  VAR x I32 := 12;
+
+  ASSERT(SAME_TYPES(DECLTYPE(x), I32));
+  ASSERT(SAME_TYPES(TYPEOF(x), MUT& I32));
+  ASSERT(SAME_TYPES(TYPEOF(typeof_side_effect_probe(@target x)), I32));
+  ASSERT(x == 12);
+  ASSERT(forward_ref_value(x) == 12);
+  VAR y I32 := decltype_parameter_return(x);
+  ASSERT(y == 12);
+}
+
+::forward_non_reference_value_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 12;
+  VAR y I32 := FORWARD(x);
 }
 
 ::pack_count FUNCTION(%a I32, %...b I32): I32

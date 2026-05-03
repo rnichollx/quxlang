@@ -55,6 +55,23 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         return expression_numeric_literal{.value = std::to_string(value)};
     };
 
+    auto numeric_literal_is_zero = [](expression const& expr) -> bool
+    {
+        if (!expr.template type_is< expression_numeric_literal >())
+        {
+            return false;
+        }
+        auto const& value = expr.template get_as< expression_numeric_literal >().value;
+        for (char ch : value)
+        {
+            if (ch != '0')
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+
     auto bits_expr = [](type_symbol of_type) -> expression
     {
         return expression_bits{.of_type = std::move(of_type)};
@@ -297,6 +314,21 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                 materialized_target = as< nvalue_slot >(materialized_target).target;
             }
             add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", materialized_target}}, void_type{});
+        }
+    }
+
+    if (typeis< array_type >(input))
+    {
+        auto const& array = input.get_as< array_type >();
+        if (!numeric_literal_is_zero(array.element_count))
+        {
+            builtin_function_info bl_info;
+            bl_info.overload.interface.named["THIS"] = argif{.type = create_nslot(input)};
+            bl_info.overload.interface.positional.push_back(argif{.type = type_temploidic{}, .is_pack = true});
+            bl_info.overload.enable_if = expression_value_keyword{.keyword = "TRUE"};
+            bl_info.overload.priority = 0;
+            bl_info.return_type = void_type{};
+            result.insert(std::move(bl_info));
         }
     }
 

@@ -379,6 +379,23 @@ TEST(parsing, parse_pack_expressions)
     ASSERT_EQ(arg_expr.get_as< expression_pack_arg >().index, expression(expression_numeric_literal{"0"}));
 }
 
+TEST(parsing, parse_forward_decltype_typeof)
+{
+    auto decltype_ref = parse_type_symbol("DECLTYPE(x)");
+    ASSERT_TRUE(decltype_ref.type_is< quxlang::decltype_type_ref >());
+    EXPECT_EQ(decltype_ref.get_as< quxlang::decltype_type_ref >().symbol, parse_type_symbol("x"));
+
+    auto typeof_ref = parse_type_symbol("TYPEOF(x + 1)");
+    ASSERT_TRUE(typeof_ref.type_is< quxlang::typeof_type_ref >());
+
+    auto forward_expr = parse_expression_text("FORWARD(x)");
+    ASSERT_TRUE(forward_expr.type_is< quxlang::expression_forward >());
+    EXPECT_EQ(forward_expr.get_as< quxlang::expression_forward >().symbol, parse_type_symbol("x"));
+
+    EXPECT_THROW(parse_type_symbol("DECLTYPE(x + 1)"), std::logic_error);
+    EXPECT_THROW(parse_expression_text("FORWARD(x + 1)"), std::logic_error);
+}
+
 TEST(parsing, type_symbol_parenthesized_postfix)
 {
     using namespace quxlang::parsers;

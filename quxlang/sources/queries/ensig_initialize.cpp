@@ -6,6 +6,8 @@
 #include <quxlang/macros.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 
+#include <limits>
+
 rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_initialize_impl(ensig_initialization input)
 {
     auto const& ensig = input.ensig;
@@ -60,8 +62,62 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         return true;
     };
 
+    auto parse_array_count = [](expression const& expr) -> std::optional< std::size_t >
+    {
+        if (!expr.template type_is< expression_numeric_literal >())
+        {
+            return std::nullopt;
+        }
+
+        std::size_t result = 0;
+        auto const& value = expr.template get_as< expression_numeric_literal >().value;
+        for (char ch : value)
+        {
+            if (ch < '0' || ch > '9')
+            {
+                return std::nullopt;
+            }
+            std::size_t const digit = static_cast< std::size_t >(ch - '0');
+            if (result > (std::numeric_limits< std::size_t >::max() - digit) / 10)
+            {
+                return std::nullopt;
+            }
+            result = result * 10 + digit;
+        }
+        return result;
+    };
+
+    auto array_positional_constructor_count = [&](intertype const& interface) -> std::optional< std::size_t >
+    {
+        if (interface.positional.size() != 1 || !interface.positional.front().is_pack)
+        {
+            return std::nullopt;
+        }
+        auto const this_it = interface.named.find("THIS");
+        if (this_it == interface.named.end())
+        {
+            return std::nullopt;
+        }
+        auto const& this_type = this_it->second.type;
+        if (!this_type.template type_is< nvalue_slot >())
+        {
+            return std::nullopt;
+        }
+        auto const& target = this_type.template get_as< nvalue_slot >().target;
+        if (!target.template type_is< array_type >())
+        {
+            return std::nullopt;
+        }
+        return parse_array_count(target.template get_as< array_type >().element_count);
+    };
+
     auto const pack_index = positional_pack_index(ensig.interface);
     auto const fixed_positional_count = pack_index.value_or(ensig.interface.positional.size());
+    auto const array_positional_count = array_positional_constructor_count(ensig.interface);
+    if (array_positional_count.has_value() && preargs.positional.size() != *array_positional_count)
+    {
+        co_return std::nullopt;
+    }
     if ((!pack_index.has_value() && preargs.positional.size() > ensig.interface.positional.size()) || (pack_index.has_value() && preargs.positional.size() < fixed_positional_count))
     {
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

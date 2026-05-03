@@ -5895,7 +5895,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto array_init = object->array_init_member_of.value().lock();
 
         array_init->init_count++;
-        object->array_init_member_of = std::nullopt;
     }
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::end_lifetime(std::shared_ptr< local > object)
@@ -6296,7 +6295,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 {
     auto& frame = get_current_frame();
 
-    auto array = frame.local_values[ais.on_value];
+    auto& array = frame.local_values[ais.on_value];
+    if (array == nullptr)
+    {
+        array = create_object(get_local_type(ais.on_value));
+    }
 
     auto initializer = output_local(ais.initializer);
 
@@ -6308,7 +6311,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     initializer->initializer_of = array;
-    assert(array != nullptr);
     auto delgs = invocation_args{};
     array->stage = slot_stage::partial;
     delgs.named["INIT"] = ais.initializer;
@@ -6467,13 +6469,31 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     array->delegates = {};
 
+    auto is_array_init_member_alias = [&](std::shared_ptr< local > const& local_value) -> bool
+    {
+        if (!local_value)
+        {
+            return false;
+        }
+        if (local_value->array_init_member_of.has_value() && local_value->array_init_member_of.value().lock() == initializer)
+        {
+            return true;
+        }
+        return local_value->member_of.has_value() && local_value->member_of.value().lock() == array;
+    };
     for (auto& [idx, local] : get_current_frame().local_values)
     {
-        if (local && local->array_init_member_of.has_value() && local->array_init_member_of.value().lock() == initializer)
+        if (is_array_init_member_alias(local))
         {
-            local->array_init_member_of.reset();
-            assert(local->member_of.value().lock() == array);
             local = nullptr;
+        }
+    }
+
+    for (auto& member : array->array_members)
+    {
+        if (member && member->array_init_member_of.has_value() && member->array_init_member_of.value().lock() == initializer)
+        {
+            member->array_init_member_of.reset();
         }
     }
     begin_lifetime(array);

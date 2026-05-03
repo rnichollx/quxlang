@@ -19,6 +19,44 @@
     ASSERT( x[2].val == 5 );
 }
 
+::array_positional_element_cls CLASS
+{
+  .val VAR I32;
+
+  .CONSTRUCTOR FUNCTION(@OTHER I32)
+  {
+     .val := OTHER;
+  }
+}
+
+::array_positional_constructor_test STATIC_TEST
+{
+    VAR x [3]I32 :(1, 2, 3);
+
+    ASSERT( x[0] == 1 );
+    ASSERT( x[1] == 2 );
+    ASSERT( x[2] == 3 );
+
+    VAR y [2]array_positional_element_cls :(4, 7);
+    ASSERT( y[0].val == 4 );
+    ASSERT( y[1].val == 7 );
+}
+
+::array_zero_length_positional_default_test STATIC_TEST
+{
+    VAR x [0]I32 :();
+}
+
+::array_positional_too_many_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x [2]I32 :(1, 2, 3);
+}
+
+::array_positional_too_few_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR x [3]I32 :(1, 2);
+}
+
 ::array_literal_helper FUNCTION() {
    UNIMPLEMENTED;
 

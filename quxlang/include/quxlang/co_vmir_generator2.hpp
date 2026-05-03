@@ -1481,6 +1481,148 @@ namespace quxlang
             return lookup;
         }
 
+        auto get_value_index(local_index local) -> value_index
+        {
+            for (std::size_t i = 1; i < this->state.genvalues.size(); i++)
+            {
+                auto const& value = this->state.genvalues.at(i);
+                if (value.template type_is< codegen_local >() && value.template get_as< codegen_local >().local_index == local)
+                {
+                    return value_index(i);
+                }
+            }
+            throw compiler_bug("No codegen value found for local index");
+        }
+
+        auto declared_type_of_local_value(value_index lookup) -> type_symbol
+        {
+            while (this->state.genvalues.at(lookup).template type_is< codegen_binding >())
+            {
+                lookup = this->state.genvalues.at(lookup).template get_as< codegen_binding >().bound_value;
+            }
+
+            local_index local = get_local_index(lookup);
+            for (auto const& parameter : this->state.params.positional)
+            {
+                if (parameter.local_index == local)
+                {
+                    return parameter.type;
+                }
+            }
+            for (auto const& [_, parameter] : this->state.params.named)
+            {
+                if (parameter.local_index == local)
+                {
+                    return parameter.type;
+                }
+            }
+            return this->state.locals.at(local).type;
+        }
+
+        auto co_lookup_declared_symbol_type(block_index idx, type_symbol symbol) -> co_type< type_symbol >
+        {
+            if (symbol.template type_is< freebound_identifier >())
+            {
+                auto const& name = symbol.template get_as< freebound_identifier >().name;
+                auto local = this->local_value_direct_lookup(idx, name);
+                if (local.has_value())
+                {
+                    co_return declared_type_of_local_value(*local);
+                }
+            }
+
+            auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(symbol)});
+            if (!canonical_symbol.has_value())
+            {
+                throw std::logic_error("DECLTYPE target symbol could not be resolved");
+            }
+
+            auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
+            if (kind != symbol_kind::global_variable)
+            {
+                throw std::logic_error("DECLTYPE requires a value symbol");
+            }
+
+            auto sym = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
+            if (!sym.template type_is< ast2_variable_declaration >())
+            {
+                throw std::logic_error("DECLTYPE target variable is not declared as a variable");
+            }
+
+            auto declared_type = sym.template get_as< ast2_variable_declaration >().type;
+            auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = *canonical_symbol, .type = declared_type});
+            if (!resolved.has_value())
+            {
+                throw std::logic_error("DECLTYPE target type could not be resolved");
+            }
+            co_return *resolved;
+        }
+
+        auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
+        {
+            if (type.template type_is< decltype_type_ref >())
+            {
+                co_return co_await this->co_lookup_declared_symbol_type(idx, type.template get_as< decltype_type_ref >().symbol);
+            }
+            if (type.template type_is< typeof_type_ref >())
+            {
+                codegen_state saved_state = this->state;
+                block_index const saved_idx = idx;
+                try
+                {
+                    auto value = co_await this->co_generate_expr(idx, type.template get_as< typeof_type_ref >().expr);
+                    type_symbol result = this->current_type(idx, value);
+                    this->state = std::move(saved_state);
+                    idx = saved_idx;
+                    co_return result;
+                }
+                catch (...)
+                {
+                    this->state = std::move(saved_state);
+                    idx = saved_idx;
+                    throw;
+                }
+            }
+            if (type.template type_is< ptrref_type >())
+            {
+                auto ref = type.template get_as< ptrref_type >();
+                ref.target = co_await this->co_resolve_type_symbol(idx, std::move(ref.target));
+                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(ref)});
+                if (!resolved.has_value())
+                {
+                    throw std::logic_error("Type could not be resolved");
+                }
+                co_return *resolved;
+            }
+            if (type.template type_is< array_type >())
+            {
+                auto array = type.template get_as< array_type >();
+                array.element_type = co_await this->co_resolve_type_symbol(idx, std::move(array.element_type));
+                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(array)});
+                if (!resolved.has_value())
+                {
+                    throw std::logic_error("Array type could not be resolved");
+                }
+                co_return *resolved;
+            }
+            if (type.template type_is< storage >())
+            {
+                storage result;
+                for (auto item : type.template get_as< storage >().storable_types)
+                {
+                    result.storable_types.insert(co_await this->co_resolve_type_symbol(idx, std::move(item)));
+                }
+                co_return result;
+            }
+
+            auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(type)});
+            if (!resolved.has_value())
+            {
+                throw std::logic_error("Type could not be resolved");
+            }
+            co_return *resolved;
+        }
+
         // Look up a type/class symbol in the current codegen context.
         // Uses co_lookup_symbol to respect local tempar type definitions.
         // Errors if the symbol resolves to a value binding or does not refer to a class.
@@ -1945,6 +2087,66 @@ namespace quxlang
              */
         }
 
+        auto co_gen_inline_array_positional_ctor(block_index& current_block, instanciation_reference const& func, codegen_invocation_args const& args) -> co_type< void >
+        {
+            if (!typeis< submember >(func.temploid.templexoid))
+            {
+                throw compiler_bug("Expected array constructor functum to be a submember");
+            }
+
+            submember const& member = as< submember >(func.temploid.templexoid);
+            if (member.name != "CONSTRUCTOR" || !typeis< array_type >(member.of))
+            {
+                throw compiler_bug("Expected array constructor functum");
+            }
+
+            array_type const& array = as< array_type >(member.of);
+            type_symbol element_type = array.element_type;
+            if (!array.element_count.type_is< expression_numeric_literal >())
+            {
+                throw std::logic_error("Array size must be a numeric literal");
+            }
+
+            std::string const& array_size = as< expression_numeric_literal >(array.element_count).value;
+            auto ule = bytemath::detail::string_to_le_raw(array_size);
+            bytemath::fixed_int_options opts;
+            opts.bits = 64;
+            opts.has_sign = false;
+            opts.overflow_undefined = true;
+            auto [res, ok] = bytemath::unlimited_to_int< std::uint64_t >(opts, ule);
+            if (!ok)
+            {
+                throw std::logic_error("Array size is too large");
+            }
+
+            if (args.positional.size() != static_cast< std::size_t >(res))
+            {
+                throw std::logic_error("Array positional constructor argument count does not match array length");
+            }
+
+            array_initializer_type init_type;
+            init_type.count = res;
+            init_type.element_type = element_type;
+
+            value_index initializer = create_local_value(init_type);
+            this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(args.named.at("THIS")), .initializer = get_local_index(initializer)});
+
+            type_symbol constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+            for (value_index argument : args.positional)
+            {
+                value_index element = this->create_local_value(element_type);
+                this->emit(current_block, vmir2::array_init_element{.initializer = get_local_index(initializer), .target = get_local_index(element)});
+
+                codegen_invocation_args element_args;
+                element_args.named["THIS"] = element;
+                element_args.named["OTHER"] = argument;
+                co_await this->co_gen_call_functum(current_block, constructor, element_args);
+            }
+
+            this->emit(current_block, vmir2::array_init_finish{.initializer = get_local_index(initializer)});
+            co_return;
+        }
+
         auto create_numeric_literal(std::string str)
         {
             if (auto it = this->state.codegen_numeric_literals.find(str); it != this->state.codegen_numeric_literals.end())
@@ -2191,6 +2393,16 @@ namespace quxlang
             {
                 this->emit(bidx, intrinsic.value());
                 co_return;
+            }
+
+            if (typeis< submember >(what.temploid.templexoid))
+            {
+                submember const& member = as< submember >(what.temploid.templexoid);
+                if (member.name == "CONSTRUCTOR" && typeis< array_type >(member.of) && !args.positional.empty())
+                {
+                    co_await this->co_gen_inline_array_positional_ctor(bidx, what, args);
+                    co_return;
+                }
             }
 
             // Generated routines are for COMPLEX operations only
@@ -3416,6 +3628,35 @@ namespace quxlang
             co_return value_opt.value();
         }
 
+        auto co_generate(block_index& bidx, expression_forward expr) -> co_type< value_index >
+        {
+            if (!expr.symbol.template type_is< freebound_identifier >())
+            {
+                throw std::logic_error("FORWARD requires a symbol");
+            }
+
+            auto const& name = expr.symbol.template get_as< freebound_identifier >().name;
+            auto value = this->local_value_direct_lookup(bidx, name);
+            if (!value.has_value())
+            {
+                throw std::logic_error("FORWARD requires a visible local or parameter symbol");
+            }
+
+            auto declared_type = this->declared_type_of_local_value(*value);
+            if (!is_ref(declared_type))
+            {
+                throw std::logic_error("FORWARD currently requires a reference-typed symbol");
+            }
+
+            auto current = this->current_type(bidx, *value);
+            if (!is_ref(current))
+            {
+                throw std::logic_error("FORWARD target is not currently a reference");
+            }
+
+            co_return this->copy_refernece_internal(bidx, *value);
+        }
+
         auto co_generate(block_index& bidx, expression_snapshot expr) -> co_type< value_index >
         {
             auto symbol = this->find_visible_static_binding(expr.name);
@@ -3686,6 +3927,11 @@ namespace quxlang
         {
             auto resolve_type_expr = [&](type_symbol const& sym) -> co_type< type_symbol >
             {
+                if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >())
+                {
+                    co_return co_await this->co_resolve_type_symbol(bidx, sym);
+                }
+
                 auto type_opt = co_await this->co_lookup_symbol(bidx, sym);
                 if (!type_opt.has_value())
                 {
@@ -4348,6 +4594,13 @@ namespace quxlang
                     else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
                     {
                         co_await this->co_analyze_lambda_expression(analysis, value.index);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_forward >)
+                    {
+                        if (value.symbol.template type_is< freebound_identifier >())
+                        {
+                            this->add_lambda_capture(analysis, value.symbol.template get_as< freebound_identifier >().name);
+                        }
                     }
                     else if constexpr (std::is_same_v< value_type, expression_lambda >)
                     {
@@ -5076,7 +5329,7 @@ namespace quxlang
 
         auto co_generate_place_expression(block_index& bidx, expression const& at_expr, type_symbol const& parsed_type, std::optional< expression > const& assign_init, std::vector< expression_arg > const& args_in) -> co_type< value_index >
         {
-            auto target_type = co_await co_lookup_typeclass(bidx, parsed_type);
+            auto target_type = co_await this->co_resolve_type_symbol(bidx, parsed_type);
             auto storage_ref = co_await co_generate_expr(bidx, at_expr);
             co_return co_await co_generate_place_expression_impl(bidx, storage_ref, target_type, assign_init, args_in);
         }
@@ -5087,7 +5340,7 @@ namespace quxlang
             // Bare AS prefers EXPLICIT and falls back to OTHER to preserve existing @OTHER-based casts.
             auto arg_val = co_await co_generate_expr(bidx, input.expr);
 
-            type_symbol target_class = co_await co_lookup_typeclass(bidx, input.to_type);
+            type_symbol target_class = co_await this->co_resolve_type_symbol(bidx, input.to_type);
 
             if (input.keyword.has_value())
             {
@@ -5112,7 +5365,7 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_pun input) -> co_type< value_index >
         {
             auto storage_ref = co_await co_generate_expr(bidx, input.value);
-            auto target_type = co_await co_lookup_typeclass(bidx, input.as_type);
+            auto target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
             auto storage_ref_type = co_await co_expect_storage_reference(bidx, storage_ref, false, target_type);
             auto result_ref = create_local_value(ptrref_type{.target = target_type, .ptr_class = pointer_class::ref, .qual = storage_ref_type.qual});
             this->emit(bidx, vmir2::storage_pun{.from_storage = get_local_index(storage_ref), .as_type = target_type, .to_reference = get_local_index(result_ref)});
@@ -5888,7 +6141,7 @@ namespace quxlang
                 throw std::logic_error("static local conflicts with visible runtime local: " + st.name);
             }
 
-            type_symbol var_type = (co_await rpnx::querygraph::request< lookup_query >({.context = ctx, .type = st.type})).value();
+            type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
             auto initializer = this->make_static_initializer_expression(st, var_type);
             auto eval_result = co_await this->co_eval_static_expression(std::move(initializer), var_type, static_eval_access::mutable_view);
 
@@ -5923,7 +6176,7 @@ namespace quxlang
 
             std::string type_str = quxlang::to_string(st.type);
             std::string context_str = quxlang::to_string(ctx);
-            type_symbol var_type = (co_await rpnx::querygraph::request< lookup_query >({.context = ctx, .type = st.type})).value();
+            type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
 
             block_index new_expr_block = this->generate_subblock(current_block, "var_new");
             block_index after_block = this->generate_subblock(current_block, "var_after");
@@ -7671,16 +7924,33 @@ namespace quxlang
             auto arg_names = co_await rpnx::querygraph::request< function_param_names_query >(inst.temploid);
 
             std::size_t positional_index = 0;
-            for (auto const& param_name : arg_names.positional)
+            for (std::size_t interface_index = 0; interface_index < inst.temploid.which.interface.positional.size(); interface_index++)
             {
+                auto const& interface_param = inst.temploid.which.interface.positional.at(interface_index);
+                if (interface_param.is_pack)
+                {
+                    while (positional_index < inst.params.positional.size())
+                    {
+                        type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
+                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
+                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        positional_index++;
+                    }
+                    continue;
+                }
+
                 type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
                 auto param_idx = this->create_local_value(parameter_local_type(param_type));
                 this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
-                if (param_name.has_value())
+                if (interface_index < arg_names.positional.size() && arg_names.positional.at(interface_index).has_value())
                 {
-                    this->state.top_level_lookups[*param_name] = param_idx;
+                    this->state.top_level_lookups[*arg_names.positional.at(interface_index)] = param_idx;
                 }
                 positional_index++;
+            }
+            if (positional_index != inst.params.positional.size())
+            {
+                throw compiler_bug("Builtin function argument generation did not consume all positional arguments");
             }
             for (auto const& [api_name, param] : inst.params.named)
             {
@@ -8350,6 +8620,31 @@ namespace quxlang
 
             this->emit(current_block, vmir2::array_init_start{.on_value = get_local_index(thisidx_value), .initializer = get_local_index(initiailizer)});
 
+            if (!func.params.positional.empty())
+            {
+                if (func.params.positional.size() != static_cast< std::size_t >(res))
+                {
+                    throw std::logic_error("Array positional constructor argument count does not match array length");
+                }
+
+                auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};
+                for (std::size_t i = 0; i < func.params.positional.size(); i++)
+                {
+                    auto element = this->create_local_value(element_type);
+                    this->emit(current_block, vmir2::array_init_element{.initializer = get_local_index(initiailizer), .target = get_local_index(element)});
+
+                    auto const& parameter = this->state.params.positional.at(i);
+                    auto argument = this->get_value_index(parameter.local_index);
+                    codegen_invocation_args args;
+                    args.named["THIS"] = element;
+                    args.named["OTHER"] = argument;
+                    co_await this->co_gen_call_functum(current_block, constructor, args);
+                }
+
+                this->emit(current_block, vmir2::array_init_finish{.initializer = get_local_index(initiailizer)});
+                co_return;
+            }
+
             auto init_loop_condition_block = this->generate_subblock(current_block, "array_copy_condition_ctor_loop");
             auto init_loop_block = this->generate_subblock(current_block, "array_copy_ctor_loop");
             auto init_loop_done = this->generate_subblock(current_block, "array_copy_ctor_loop_done");
@@ -8407,7 +8702,7 @@ namespace quxlang
                 co_return;
             }
 
-            auto target_type = co_await co_lookup_typeclass(current_block, st.type);
+            auto target_type = co_await this->co_resolve_type_symbol(current_block, st.type);
             auto ignored = co_await co_generate_place_expression_impl(current_block, storage_ref, target_type, st.assign_init, st.args);
             (void)ignored;
             co_return;
@@ -8425,7 +8720,7 @@ namespace quxlang
                 co_return;
             }
 
-            auto target_type = co_await co_lookup_typeclass(current_block, st.type);
+            auto target_type = co_await this->co_resolve_type_symbol(current_block, st.type);
             auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, target_type, true);
 
             if (st.args.empty())

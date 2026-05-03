@@ -641,6 +641,22 @@ namespace quxlang
         RPNX_MEMBER_METADATA(pack_arg_type_ref, pack_name, index);
     };
 
+    struct decltype_type_ref
+    {
+        /// Symbol whose declared type should be resolved.
+        type_symbol symbol;
+
+        RPNX_MEMBER_METADATA(decltype_type_ref, symbol);
+    };
+
+    struct typeof_type_ref
+    {
+        /// Expression whose expression type should be resolved.
+        expression expr;
+
+        RPNX_MEMBER_METADATA(typeof_type_ref, expr);
+    };
+
     struct keyword_symbol
     {
         std::string name;
@@ -1105,6 +1121,14 @@ namespace quxlang
         expression index;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_pack_arg, pack_name, index);
+    };
+
+    struct expression_forward
+    {
+        /// Symbol to forward with its declared reference type.
+        type_symbol symbol;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_forward, symbol);
     };
 
     struct expression_choose
