@@ -81,17 +81,25 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
                 }
 
                 auto const& param_type = param.type;
-                if (typeis< auto_temploidic >(param_type))
-                {
-                    auto const& name = as< auto_temploidic >(param_type).name;
-                    if (!name.empty())
-                    {
-                        return name;
-                    }
-                }
-                else if (typeis< type_temploidic >(param_type))
-                {
-                    auto const& name = as< type_temploidic >(param_type).name;
+        if (typeis< auto_temploidic >(param_type))
+        {
+            auto const& name = as< auto_temploidic >(param_type).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+        else if (typeis< decay_temploidic >(param_type))
+        {
+            auto const& name = as< decay_temploidic >(param_type).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
+        else if (typeis< type_temploidic >(param_type))
+        {
+            auto const& name = as< type_temploidic >(param_type).name;
                     if (!name.empty())
                     {
                         return name;

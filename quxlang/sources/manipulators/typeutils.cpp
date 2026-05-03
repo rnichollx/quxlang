@@ -5,6 +5,7 @@
 #include "quxlang/bytemath.hpp"
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/constexpr_types.hpp"
+#include "quxlang/data/function_statement.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/expression_stringifier.hpp"
@@ -136,6 +137,30 @@ namespace quxlang
         std::string operator()(expression_choose const& expr) const
         {
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
+        }
+
+        std::string operator()(expression_lambda const& expr) const
+        {
+            std::string result = "-<";
+            if (expr.has_explicit_capture_list)
+            {
+                result += " [";
+                for (std::size_t i = 0; i < expr.captures.size(); i++)
+                {
+                    if (i != 0)
+                    {
+                        result += ", ";
+                    }
+                    if (expr.captures.at(i).mode == lambda_capture_mode::value)
+                    {
+                        result += "=";
+                    }
+                    result += expr.captures.at(i).name;
+                }
+                result += "]";
+            }
+            result += " <lambda>";
+            return result;
         }
 
         std::string operator()(expression_multibind const& brkts) const
@@ -292,6 +317,7 @@ namespace quxlang
         std::string operator()(thistype const&) const;
         std::string operator()(numeric_literal_reference const&) const;
         std::string operator()(auto_temploidic const&) const;
+        std::string operator()(decay_temploidic const&) const;
         std::string operator()(type_temploidic const&) const;
         std::string operator()(temploid_reference const&) const;
         std::string operator()(function_arg const&) const;
@@ -394,6 +420,7 @@ namespace quxlang
     bool is_template(type_symbol const& ref);
 
     std::string to_string(expression const& expr);
+    type_symbol decay_template_match_type(type_symbol const& type);
 
     struct is_template_visitor
     {
@@ -646,6 +673,11 @@ namespace quxlang
         }
 
         bool operator()(auto_temploidic const&) const
+        {
+            return true;
+        }
+
+        bool operator()(decay_temploidic const&) const
         {
             return true;
         }
@@ -1226,6 +1258,14 @@ namespace quxlang
     {
         return "AUTO(" + val.name + ")";
     }
+    std::string type_symbol_stringifier::operator()(decay_temploidic const& val) const
+    {
+        if (val.name.empty())
+        {
+            return "DECAY";
+        }
+        return "DECAY(" + val.name + ")";
+    }
     std::string type_symbol_stringifier::operator()(type_temploidic const& val) const
     {
         return "TT(" + val.name + ")";
@@ -1292,6 +1332,20 @@ namespace quxlang
                 output.matches[name] = type;
             }
             output.type = type;
+            results = std::move(output);
+            return results;
+        }
+
+        if (typeis< decay_temploidic >(template_type))
+        {
+            template_match_results output;
+            auto name = as< decay_temploidic >(template_type).name;
+            type_symbol decayed_type = decay_template_match_type(type);
+            if (!name.empty())
+            {
+                output.matches[name] = decayed_type;
+            }
+            output.type = std::move(decayed_type);
             results = std::move(output);
             return results;
         }
@@ -1464,6 +1518,21 @@ namespace quxlang
                 output.matches[name] = *type_target;
             }
             output.type = *type_target;
+            results = std::move(output);
+            return results;
+        }
+
+        if (typeis< decay_temploidic >(template_type))
+        {
+            template_match_results output;
+            auto name = as< decay_temploidic >(template_type).name;
+            type_symbol decayed_type = decay_template_match_type(type);
+
+            if (!name.empty())
+            {
+                output.matches[name] = decayed_type;
+            }
+            output.type = std::move(decayed_type);
             results = std::move(output);
             return results;
         }
@@ -1896,6 +1965,19 @@ namespace quxlang
         throw compiler_bug("should be unreachable");
     }
 
+    type_symbol decay_template_match_type(type_symbol const& type)
+    {
+        if (typeis< ptrref_type >(type))
+        {
+            ptrref_type const& ref = as< ptrref_type >(type);
+            if (ref.ptr_class == pointer_class::ref && ref.qual == qualifier::temp)
+            {
+                return ref.target;
+            }
+        }
+        return type;
+    }
+
 } // namespace quxlang
 
 namespace quxlang
@@ -1937,6 +2019,11 @@ namespace quxlang
             }
 
             bool check_impl(auto_temploidic const& template_val, auto_temploidic const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(decay_temploidic const& template_val, decay_temploidic const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
             }
@@ -2337,6 +2424,21 @@ namespace quxlang
                     return true;
                 }
             }
+            if (typeis< decay_temploidic >(template_val))
+            {
+                auto const& template_ref = as< decay_temploidic >(template_val);
+                type_symbol decayed_type = decay_template_match_type(match_val);
+
+                if (results.matches.find(template_ref.name) != results.matches.end())
+                {
+                    return results.matches[template_ref.name] == decayed_type;
+                }
+                else
+                {
+                    results.matches[template_ref.name] = std::move(decayed_type);
+                    return true;
+                }
+            }
             if (typeis< type_temploidic >(template_val))
             {
                 auto const& template_ref = as< type_temploidic >(template_val);
@@ -2513,6 +2615,26 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
             {
                 value.index = strip_source_locations(std::move(value.index));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_lambda >)
+            {
+                for (auto& capture : value.captures)
+                {
+                    capture.location = std::nullopt;
+                }
+                for (auto& parameter : value.parameters)
+                {
+                    parameter.location = std::nullopt;
+                    parameter.type = strip_source_locations(std::move(parameter.type));
+                    if (parameter.default_expr.has_value())
+                    {
+                        parameter.default_expr = strip_source_locations(std::move(*parameter.default_expr));
+                    }
+                }
+                if (value.return_type.has_value())
+                {
+                    value.return_type = strip_source_locations(std::move(*value.return_type));
+                }
             }
         });
     return expr;

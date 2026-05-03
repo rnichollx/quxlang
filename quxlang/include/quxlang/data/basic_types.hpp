@@ -38,6 +38,7 @@ RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, conste
 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
+RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
 
 namespace quxlang
 {
@@ -371,6 +372,12 @@ namespace quxlang
     {
         std::string name;
         RPNX_MEMBER_METADATA(auto_temploidic, name);
+    };
+
+    struct decay_temploidic
+    {
+        std::string name;
+        RPNX_MEMBER_METADATA(decay_temploidic, name);
     };
 
     struct type_temploidic
@@ -885,6 +892,87 @@ namespace quxlang
         std::string keyword;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_value_keyword, keyword);
+    };
+
+    struct lambda_capture
+    {
+        std::string name;
+        lambda_capture_mode mode = lambda_capture_mode::reference;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(lambda_capture, name, mode);
+    };
+
+    struct ast2_function_parameter
+    {
+        /// Local source name for this parameter, or nullopt for an ignored parameter.
+        std::optional< std::string > name;
+        /// External call-site name for named parameters.
+        std::optional< std::string > api_name;
+        /// Declared parameter type or positional pack element type.
+        type_symbol type;
+        /// Optional default expression for omitted arguments.
+        std::optional< expression > default_expr;
+        /// True when this positional parameter is a variadic pack.
+        bool is_pack = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack);
+    };
+
+    struct lambda_body
+    {
+        cow< function_block > block;
+
+        lambda_body() = default;
+
+        auto get() const -> function_block const&
+        {
+            return block.get();
+        }
+
+        auto tie() const
+        {
+            return std::tie(block);
+        }
+
+        auto tie()
+        {
+            return std::tie(block);
+        }
+
+        auto serialize_interface() const
+        {
+            return tie();
+        }
+
+        auto deserialize_interface()
+        {
+            return tie();
+        }
+
+        static constexpr auto strings()
+        {
+            return std::vector< std::string >{"block"};
+        }
+
+        static constexpr std::string class_name()
+        {
+            return "lambda_body";
+        }
+
+        auto operator<=>(lambda_body const& other) const -> std::strong_ordering;
+
+        bool operator==(lambda_body const& other) const;
+    };
+
+    struct expression_lambda
+    {
+        std::vector< lambda_capture > captures;
+        bool has_explicit_capture_list = false;
+        std::vector< ast2_function_parameter > parameters;
+        std::optional< type_symbol > return_type;
+        lambda_body body;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_lambda, captures, has_explicit_capture_list, parameters, return_type, body);
     };
 
 

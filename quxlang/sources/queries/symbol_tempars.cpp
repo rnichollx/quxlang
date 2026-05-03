@@ -51,6 +51,11 @@ namespace quxlang
             return {input.name};
         }
 
+        std::set< std::string > operator()(quxlang::decay_temploidic const& input)
+        {
+            return {input.name};
+        }
+
         std::set< std::string > operator()(quxlang::temploid_reference const& input)
         {
             std::set< std::string > result;

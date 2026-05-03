@@ -59,13 +59,13 @@ coverage:
 - [x] For loops
 - [x] Compound assignments
 - [x] Floating point numbers
+- [x] Lambda functions / closures
 
 ## Remaining language features
 
 - [ ] Atomic operations
 - [ ] Exceptions and unwinding
-- [ ] Polymorphism / virtual functions
-- [ ] Lambda functions / closures
+- [ ] Polymorphism / virtual functions 
 - [ ] Coroutines
 - [ ] Array literal initializers
 

@@ -1,0 +1,91 @@
+::lambda_no_capture_call FUNCTION(): I32
+{
+  RETURN (-< :I32 = 7)();
+}
+
+::lambda_implicit_reference_capture_call FUNCTION(): I32
+{
+  VAR x I32 := 4;
+  RETURN (-< = x)();
+}
+
+::lambda_call_after_mutation FUNCTION(%f AUTO(fn), %x MUT& I32): I32
+{
+  x := 9;
+  RETURN f();
+}
+
+::lambda_explicit_reference_capture_call FUNCTION(): I32
+{
+  VAR x I32 := 4;
+  RETURN lambda_call_after_mutation(-< [x] = x, x);
+}
+
+::lambda_explicit_value_capture_call FUNCTION(): I32
+{
+  VAR x I32 := 4;
+  RETURN lambda_call_after_mutation(-< [=x] = x, x);
+}
+
+::lambda_nested_capture_bubbling_call FUNCTION(): I32
+{
+  VAR x I32 := 5;
+  RETURN (-< = (-< = x)())();
+}
+
+::lambda_static_path_sensitive_capture_call FUNCTION(): I32
+{
+  VAR x I32 := 6;
+  RETURN (-<
+  {
+    STATIC_IF(FALSE)
+    {
+      RETURN missing_symbol;
+    }
+    STATIC_ELSE
+    {
+      RETURN x;
+    }
+  })();
+}
+
+::lambda_unlisted_capture_rejected_call FUNCTION(): I32
+{
+  VAR x I32 := 1;
+  RETURN (-< [] = x)();
+}
+
+::lambda_no_capture_call_test STATIC_TEST
+{
+  ASSERT(lambda_no_capture_call() == 7);
+}
+
+::lambda_implicit_reference_capture_test STATIC_TEST
+{
+  ASSERT(lambda_implicit_reference_capture_call() == 4);
+}
+
+::lambda_explicit_reference_capture_test STATIC_TEST
+{
+  ASSERT(lambda_explicit_reference_capture_call() == 9);
+}
+
+::lambda_explicit_value_capture_test STATIC_TEST
+{
+  ASSERT(lambda_explicit_value_capture_call() == 4);
+}
+
+::lambda_nested_capture_bubbling_test STATIC_TEST
+{
+  ASSERT(lambda_nested_capture_bubbling_call() == 5);
+}
+
+::lambda_static_path_sensitive_capture_test STATIC_TEST
+{
+  ASSERT(lambda_static_path_sensitive_capture_call() == 6);
+}
+
+::lambda_unlisted_capture_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  ASSERT(lambda_unlisted_capture_rejected_call() == 1);
+}

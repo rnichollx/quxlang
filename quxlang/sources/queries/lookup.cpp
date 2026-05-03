@@ -467,6 +467,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     {
         co_return type;
     }
+    else if (typeis< decay_temploidic >(type))
+    {
+        co_return type;
+    }
     else if (typeis< type_temploidic >(type))
     {
         co_return type;

@@ -1,11 +1,26 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/class_field_declaration_list_spec.hpp>
+#include <quxlang/data/lambda_types.hpp>
 
 rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlang::class_field_declaration_list_impl(type_symbol input)
 {
 
     std::string name = quxlang::to_string(input);
+
+    if (auto lambda = parse_lambda_closure_symbol(input); lambda.has_value())
+    {
+        auto captures = co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+        std::vector< class_field_declaration > output;
+        for (std::size_t i = 0; i < captures.size(); i++)
+        {
+            output.push_back(class_field_declaration{
+                .name = lambda_capture_field_name(i),
+                .type = captures.at(i),
+            });
+        }
+        co_return output;
+    }
 
     if (input.template type_is< readonly_constant >())
     {

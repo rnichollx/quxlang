@@ -1561,6 +1561,38 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto field = output_local(acf.store_index);
     auto& field_slot = ref_to_ptr->struct_members.at(acf.field_name);
 
+    type_symbol base_type = get_local_type(acf.base_index);
+    type_symbol base_object_type = quxlang::remove_ref(base_type);
+    auto layout_it = class_layouts.find(base_object_type);
+    if (layout_it == class_layouts.end())
+    {
+        throw compiler_bug("access field of object with no class layout");
+    }
+
+    std::optional< type_symbol > field_type;
+    for (class_field_info const& field_info : layout_it->second.fields)
+    {
+        if (field_info.name == acf.field_name)
+        {
+            field_type = field_info.type;
+            break;
+        }
+    }
+    if (!field_type.has_value())
+    {
+        throw compiler_bug("access field of object that does not have field in layout");
+    }
+
+    if (typeis< ptrref_type >(*field_type) && as< ptrref_type >(*field_type).ptr_class == pointer_class::ref)
+    {
+        if (!field_slot->ref.has_value())
+        {
+            throw compiler_bug("reference-typed field does not hold a reference");
+        }
+        field->ref = field_slot->ref;
+        return;
+    }
+
     field->ref = pointer_impl{.pointer_target = field_slot};
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::swap const& swp)
@@ -4549,7 +4581,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (slot == nullptr)
     {
-        throw compiler_bug("this shouldn't be possible");
+        slot = create_local_value(sdn.on_value, false);
     }
 
     slot->stage = slot_stage::partial;
@@ -4569,10 +4601,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             throw compiler_bug("it shouldn't be possible to have a field slot pre-initialized, something is wrong with codegen");
         }
 
-        if (!is_ref(field_type))
-        {
-            create_local_value(index, false);
-        }
+        create_local_value(index, false);
 
         slot->struct_members[name] = field_slot;
         field_slot->member_of = slot;

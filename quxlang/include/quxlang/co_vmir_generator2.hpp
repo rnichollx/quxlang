@@ -10,6 +10,7 @@
 #include "quxlang/data/codegen_types.hpp"
 #include "quxlang/data/compilation_result.hpp"
 #include "quxlang/data/contextual_type_reference.hpp"
+#include "quxlang/data/lambda_types.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/machine.hpp"
 #include "quxlang/data/type_placement_info.hpp"
@@ -40,6 +41,10 @@
 #include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
+#include "quxlang/queries/lambda_capture_set.hpp"
+#include "quxlang/queries/lambda_environment.hpp"
+#include "quxlang/queries/lambda_operator.hpp"
+#include "quxlang/queries/lambda_possible_captures.hpp"
 #include "quxlang/queries/lookup.hpp"
 #include "quxlang/queries/module_options_map.hpp"
 #include "quxlang/queries/serialoid_static_value.hpp"
@@ -207,6 +212,37 @@ namespace quxlang
             RPNX_MEMBER_METADATA(pending_goto_fixup, source, target, location);
         };
 
+        struct lambda_capture_selection
+        {
+            std::string name;
+            lambda_capture_mode mode = lambda_capture_mode::reference;
+            type_symbol field_type;
+        };
+
+        struct lambda_dry_run_result
+        {
+            std::vector< lambda_capture_selection > captures;
+            lambda_environment environment;
+        };
+
+        struct lambda_dry_static_context
+        {
+            std::map< std::string, scoped_definition_v3 > scoped_definitions;
+            std::map< static_local_ref, codegen_static > statics;
+            std::vector< codegen_static_scope > static_scopes;
+        };
+
+        struct lambda_capture_analysis_state
+        {
+            std::map< std::string, lambda_possible_capture > possible_captures;
+            std::map< std::string, lambda_capture_mode > explicit_captures;
+            bool has_explicit_capture_list = false;
+            std::map< std::string, type_symbol > local_types;
+            std::vector< lambda_capture_selection > captures;
+            std::map< std::string, std::size_t > capture_indices;
+            lambda_dry_static_context static_context;
+        };
+
         struct codegen_state
         {
             std::vector< codegen_value > genvalues{codegen_binding{.attached_symbol = void_type(), .bound_value = value_index(0)}};
@@ -249,6 +285,8 @@ namespace quxlang
             std::uint64_t next_static_snapshot_id = 1;
             /// Immutable snapshot localdata emitted into the current routine.
             std::map< static_snapshot_ref, vmir2::localdata_entry > static_snapshots;
+            /// Next lambda closure index in encounter order for this generated routine.
+            std::size_t next_lambda_index = 0;
         };
 
         codegen_state state;
@@ -1859,6 +1897,37 @@ namespace quxlang
             }
 
             co_return co_await co_gen_call_functum(bidx, as< attached_type_reference >(callee_type).attached_symbol, args);
+        }
+
+        auto co_generate(block_index& bidx, expression_lambda const& lambda) -> co_type< value_index >
+        {
+            std::size_t lambda_index = this->state.next_lambda_index++;
+            auto possible_captures = this->build_lambda_possible_captures(bidx);
+            auto dry_context = this->lambda_static_context_from_current();
+            auto dry_run = co_await this->co_analyze_lambda_captures(lambda, possible_captures, std::move(dry_context));
+            auto operator_declaration = this->make_lambda_operator_declaration(lambda);
+            co_await this->co_publish_lambda_subqueries(lambda_index, possible_captures, dry_run, std::move(operator_declaration));
+
+            type_symbol closure_type = make_lambda_closure_symbol(this->ctx, lambda_index);
+            value_index closure = this->create_local_value(closure_type);
+
+            codegen_invocation_args ctor_args;
+            ctor_args.named["THIS"] = closure;
+            for (std::size_t i = 0; i < dry_run.captures.size(); i++)
+            {
+                lambda_capture_selection const& capture = dry_run.captures.at(i);
+                std::optional< value_index > source = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = capture.name});
+                if (!source.has_value())
+                {
+                    throw compiler_bug("Lambda capture disappeared during closure generation: " + capture.name);
+                }
+                ctor_args.positional.push_back(*source);
+            }
+
+            type_symbol constructor = submember{.of = closure_type, .name = "CONSTRUCTOR"};
+            co_await this->co_gen_call_functum(bidx, std::move(constructor), std::move(ctor_args), allowed_adaptations::source_rebinding);
+
+            co_return closure;
         }
 
       public:
@@ -4034,6 +4103,536 @@ namespace quxlang
                 apply_static_eval_mutations(result.values);
             }
             co_return result;
+        }
+
+        auto lambda_reference_capture_type(block_index bidx, value_index value) -> type_symbol
+        {
+            type_symbol value_type = this->current_type(bidx, value);
+            if (!is_ref(value_type))
+            {
+                return make_mref(value_type);
+            }
+            ptrref_type ref_type = as< ptrref_type >(value_type);
+            if (ref_type.qual == qualifier::write)
+            {
+                return make_mref(ref_type.target);
+            }
+            return value_type;
+        }
+
+        auto lambda_value_capture_type(block_index bidx, value_index value) -> type_symbol
+        {
+            return remove_ref(this->current_type(bidx, value));
+        }
+
+        auto build_lambda_possible_captures(block_index bidx) -> std::map< std::string, lambda_possible_capture >
+        {
+            std::map< std::string, lambda_possible_capture > result;
+            auto add_lookup = [&](std::string const& name, value_index value)
+            {
+                if (name == "RETURN" || name == "THIS")
+                {
+                    return;
+                }
+                result[name] = lambda_possible_capture{
+                    .reference_field_type = this->lambda_reference_capture_type(bidx, value),
+                    .value_field_type = this->lambda_value_capture_type(bidx, value),
+                };
+            };
+
+            for (auto const& [name, value] : this->state.top_level_lookups)
+            {
+                add_lookup(name, value);
+            }
+            for (auto const& [name, value] : this->state.top_level_lookups_weak)
+            {
+                if (!result.contains(name))
+                {
+                    add_lookup(name, value);
+                }
+            }
+            for (auto const& [name, value] : this->state.blocks.at(bidx).lookup_values)
+            {
+                add_lookup(name, value);
+            }
+            return result;
+        }
+
+        auto lambda_static_context_from_current() -> lambda_dry_static_context
+        {
+            return lambda_dry_static_context{
+                .scoped_definitions = this->state.scoped_definitions,
+                .statics = this->state.statics,
+                .static_scopes = this->state.static_scopes,
+            };
+        }
+
+        auto lambda_environment_from_analysis(lambda_capture_analysis_state const& analysis) -> lambda_environment
+        {
+            lambda_environment env;
+            env.capture_indices = analysis.capture_indices;
+            env.scoped_definitions = analysis.static_context.scoped_definitions;
+            for (auto const& scope : analysis.static_context.static_scopes)
+            {
+                for (auto const& [name, symbol] : scope.bindings)
+                {
+                    env.scoped_definitions[name] = scoped_static{.symbol = symbol};
+                }
+            }
+            for (auto const& [symbol, binding] : analysis.static_context.statics)
+            {
+                env.statics[symbol] = constexpr_static{
+                    .type = binding.type,
+                    .value = binding.value,
+                    .mutation_result_id = std::nullopt,
+                };
+            }
+            return env;
+        }
+
+        auto add_lambda_capture(lambda_capture_analysis_state& analysis, std::string const& name) -> void
+        {
+            if (analysis.local_types.contains(name))
+            {
+                return;
+            }
+            auto possible_it = analysis.possible_captures.find(name);
+            if (possible_it == analysis.possible_captures.end())
+            {
+                return;
+            }
+            if (analysis.has_explicit_capture_list && !analysis.explicit_captures.contains(name))
+            {
+                throw std::logic_error("Lambda body references uncaptured outer local: " + name);
+            }
+            if (analysis.capture_indices.contains(name))
+            {
+                return;
+            }
+
+            lambda_capture_mode mode = lambda_capture_mode::reference;
+            if (analysis.has_explicit_capture_list)
+            {
+                mode = analysis.explicit_captures.at(name);
+            }
+            type_symbol field_type = mode == lambda_capture_mode::value ? possible_it->second.value_field_type : possible_it->second.reference_field_type;
+            std::size_t index = analysis.captures.size();
+            analysis.capture_indices[name] = index;
+            analysis.captures.push_back(lambda_capture_selection{
+                .name = name,
+                .mode = mode,
+                .field_type = std::move(field_type),
+            });
+        }
+
+        auto add_lambda_local_capture_source(lambda_capture_analysis_state& analysis, std::string const& name, type_symbol const& type) -> void
+        {
+            if (is_ref(type))
+            {
+                analysis.possible_captures[name] = lambda_possible_capture{
+                    .reference_field_type = type,
+                    .value_field_type = remove_ref(type),
+                };
+                return;
+            }
+            analysis.possible_captures[name] = lambda_possible_capture{
+                .reference_field_type = make_mref(type),
+                .value_field_type = type,
+            };
+        }
+
+        auto co_eval_lambda_dry_static_expression(lambda_capture_analysis_state& analysis, expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_result_v3 >
+        {
+            auto saved_scoped_definitions = std::move(this->state.scoped_definitions);
+            auto saved_statics = std::move(this->state.statics);
+            auto saved_static_scopes = std::move(this->state.static_scopes);
+
+            this->state.scoped_definitions = analysis.static_context.scoped_definitions;
+            this->state.statics = analysis.static_context.statics;
+            this->state.static_scopes = analysis.static_context.static_scopes;
+
+            auto result = co_await this->co_eval_static_expression(std::move(expr), std::move(expected_result_type), static_eval_access::mutable_view);
+
+            analysis.static_context.scoped_definitions = std::move(this->state.scoped_definitions);
+            analysis.static_context.statics = std::move(this->state.statics);
+            analysis.static_context.static_scopes = std::move(this->state.static_scopes);
+
+            this->state.scoped_definitions = std::move(saved_scoped_definitions);
+            this->state.statics = std::move(saved_statics);
+            this->state.static_scopes = std::move(saved_static_scopes);
+            co_return result;
+        }
+
+        auto co_analyze_lambda_expression(lambda_capture_analysis_state& analysis, expression const& expr) -> co_type< void >
+        {
+            co_await rpnx::apply_visitor< co_type< void > >(
+                expr,
+                [&](auto const& value) -> co_type< void >
+                {
+                    using value_type = std::decay_t< decltype(value) >;
+                    if constexpr (std::is_same_v< value_type, expression_symbol_reference >)
+                    {
+                        if (typeis< freebound_identifier >(value.symbol))
+                        {
+                            this->add_lambda_capture(analysis, as< freebound_identifier >(value.symbol).name);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_binary >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.lhs);
+                        co_await this->co_analyze_lambda_expression(analysis, value.rhs);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_unary_prefix >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.rhs);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_unary_postfix > || std::is_same_v< value_type, expression_dotreference > ||
+                                       std::is_same_v< value_type, expression_rightarrow > || std::is_same_v< value_type, expression_leftarrow >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.lhs);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_multibind >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.lhs);
+                        for (auto const& item : value.bracketed)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, item);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_call >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.callee);
+                        for (auto const& arg : value.args)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, arg.value);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_typecast >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.expr);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_pun >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.value);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_place >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.at);
+                        if (value.assign_init.has_value())
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, *value.assign_init);
+                        }
+                        for (auto const& arg : value.args)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, arg.value);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_choose >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.condition);
+                        co_await this->co_analyze_lambda_expression(analysis, value.true_expr);
+                        co_await this->co_analyze_lambda_expression(analysis, value.false_expr);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_static_choose >)
+                    {
+                        auto eval_result = co_await this->co_eval_lambda_dry_static_expression(analysis, value.condition, type_symbol(bool_type{}));
+                        if (this->static_eval_result_as_bool(eval_result))
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, value.true_expr);
+                        }
+                        else
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, value.false_expr);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.index);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_lambda >)
+                    {
+                        auto nested = co_await this->co_analyze_lambda_captures(value, analysis.possible_captures, analysis.static_context);
+                        for (auto const& capture : nested.captures)
+                        {
+                            this->add_lambda_capture(analysis, capture.name);
+                        }
+                    }
+                    co_return;
+                });
+            co_return;
+        }
+
+        auto co_analyze_lambda_block(lambda_capture_analysis_state& analysis, function_block const& block) -> co_type< void >
+        {
+            for (auto const& statement : block.statements)
+            {
+                co_await rpnx::apply_visitor< co_type< void > >(
+                    statement,
+                    [&](auto const& st) -> co_type< void >
+                    {
+                        using statement_type = std::decay_t< decltype(st) >;
+                        if constexpr (std::is_same_v< statement_type, function_block >)
+                        {
+                            co_await this->co_analyze_lambda_block(analysis, st);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_expression_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.expr);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_return_statement >)
+                        {
+                            if (st.expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.expr);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_var_statement >)
+                        {
+                            for (auto const& arg : st.initializers)
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, arg.value);
+                            }
+                            if (st.equals_initializer.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.equals_initializer);
+                            }
+                            if (!st.static_kind.has_value())
+                            {
+                                auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = this->ctx, .type = st.type});
+                                analysis.local_types[st.name] = resolved.value_or(st.type);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_if_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.condition);
+                            co_await this->co_analyze_lambda_block(analysis, st.then_block);
+                            if (st.else_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.else_block);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_runtime_statement >)
+                        {
+                            co_await this->co_analyze_lambda_block(analysis, st.then_block);
+                            if (st.else_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.else_block);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_static_if_statement >)
+                        {
+                            auto eval_result = co_await this->co_eval_lambda_dry_static_expression(analysis, st.condition, type_symbol(bool_type{}));
+                            if (this->static_eval_result_as_bool(eval_result))
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, st.then_block);
+                            }
+                            else if (st.else_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.else_block);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_static_while_statement >)
+                        {
+                            while (true)
+                            {
+                                auto eval_result = co_await this->co_eval_lambda_dry_static_expression(analysis, st.condition, type_symbol(bool_type{}));
+                                if (!this->static_eval_result_as_bool(eval_result))
+                                {
+                                    break;
+                                }
+                                co_await this->co_analyze_lambda_block(analysis, st.loop_block);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_static_eval_statement >)
+                        {
+                            co_await this->co_eval_lambda_dry_static_expression(analysis, st.expr, std::nullopt);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_while_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.condition);
+                            co_await this->co_analyze_lambda_block(analysis, st.loop_block);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_for_statement >)
+                        {
+                            if (st.init_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.init_block);
+                            }
+                            if (st.eval_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.eval_block);
+                            }
+                            if (st.test_condition.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.test_condition);
+                            }
+                            if (st.posttest_condition.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.posttest_condition);
+                            }
+                            if (st.step_block.has_value())
+                            {
+                                co_await this->co_analyze_lambda_block(analysis, *st.step_block);
+                            }
+                            if (st.in_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.in_expr);
+                            }
+                            if (st.start_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.start_expr);
+                            }
+                            if (st.end_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.end_expr);
+                            }
+                            if (st.limit_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.limit_expr);
+                            }
+                            if (st.filter_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.filter_expr);
+                            }
+                            if (st.by_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.by_expr);
+                            }
+                            if (st.from_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.from_expr);
+                            }
+                            if (st.to_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.to_expr);
+                            }
+                            if (st.until_expr.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.until_expr);
+                            }
+                            if (st.iter_name.has_value())
+                            {
+                                analysis.local_types[*st.iter_name] = type_symbol(auto_temploidic{});
+                            }
+                            if (st.value_name.has_value())
+                            {
+                                analysis.local_types[*st.value_name] = type_symbol(auto_temploidic{});
+                            }
+                            if (st.index_name.has_value())
+                            {
+                                analysis.local_types[*st.index_name] = type_symbol(auto_temploidic{});
+                            }
+                            if (st.item_name.has_value())
+                            {
+                                analysis.local_types[*st.item_name] = type_symbol(auto_temploidic{});
+                            }
+                            co_await this->co_analyze_lambda_block(analysis, st.loop_block);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_assert_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.condition);
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_place_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.at);
+                            if (st.assign_init.has_value())
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, *st.assign_init);
+                            }
+                            for (auto const& arg : st.args)
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, arg.value);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_destroy_statement >)
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, st.at);
+                            for (auto const& arg : st.args)
+                            {
+                                co_await this->co_analyze_lambda_expression(analysis, arg.value);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< statement_type, function_label_block_statement >)
+                        {
+                            co_await this->co_analyze_lambda_block(analysis, st.block);
+                        }
+                        co_return;
+                    });
+            }
+            co_return;
+        }
+
+        auto co_analyze_lambda_captures(expression_lambda const& lambda, std::map< std::string, lambda_possible_capture > possible_captures,
+                                        lambda_dry_static_context static_context) -> co_type< lambda_dry_run_result >
+        {
+            lambda_capture_analysis_state analysis;
+            analysis.possible_captures = std::move(possible_captures);
+            analysis.static_context = std::move(static_context);
+            analysis.has_explicit_capture_list = lambda.has_explicit_capture_list;
+
+            for (auto const& param : lambda.parameters)
+            {
+                if (param.name.has_value())
+                {
+                    analysis.local_types[*param.name] = param.type;
+                }
+                else if (param.api_name.has_value())
+                {
+                    analysis.local_types[*param.api_name] = param.type;
+                }
+            }
+            for (auto const& capture : lambda.captures)
+            {
+                if (!analysis.possible_captures.contains(capture.name))
+                {
+                    throw std::logic_error("Lambda capture source is not available: " + capture.name);
+                }
+                analysis.explicit_captures[capture.name] = capture.mode;
+                this->add_lambda_capture(analysis, capture.name);
+            }
+
+            co_await this->co_analyze_lambda_block(analysis, lambda.body.get());
+            co_return lambda_dry_run_result{
+                .captures = std::move(analysis.captures),
+                .environment = this->lambda_environment_from_analysis(analysis),
+            };
+        }
+
+        auto make_lambda_operator_declaration(expression_lambda const& lambda) -> ast2_function_declaration
+        {
+            ast2_function_declaration declaration;
+            declaration.header.call_parameters = lambda.parameters;
+            declaration.definition.return_type = lambda.return_type.value_or(type_symbol(decay_temploidic{}));
+            declaration.definition.body = lambda.body.get();
+            declaration.location = lambda.location;
+            return declaration;
+        }
+
+        auto co_publish_lambda_subqueries(std::size_t lambda_index, std::map< std::string, lambda_possible_capture > possible_captures,
+                                          lambda_dry_run_result const& dry_run, ast2_function_declaration operator_declaration) -> co_type< void >
+        {
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_possible_captures_subquery >())
+            {
+                co_yield rpnx::querygraph::subquery_result< lambda_possible_captures_subquery >(lambda_index, std::move(possible_captures));
+            }
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_capture_set_subquery >())
+            {
+                std::vector< type_symbol > capture_types;
+                for (auto const& capture : dry_run.captures)
+                {
+                    capture_types.push_back(capture.field_type);
+                }
+                co_yield rpnx::querygraph::subquery_result< lambda_capture_set_subquery >(lambda_index, std::move(capture_types));
+            }
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_environment_subquery >())
+            {
+                co_yield rpnx::querygraph::subquery_result< lambda_environment_subquery >(lambda_index, dry_run.environment);
+            }
+            if constexpr (rpnx::querygraph::query_handler_produced_subqueries_t< handler_spec >::template contains< lambda_operator_subquery >())
+            {
+                co_yield rpnx::querygraph::subquery_result< lambda_operator_subquery >(lambda_index, std::move(operator_declaration));
+            }
+            co_return;
         }
 
         /// Reuses constructor-call expression generation for STATIC/STATIC_VAR initialization.
@@ -7134,14 +7733,95 @@ namespace quxlang
             entry_block.current_state = entry_state;
         }
 
+        auto co_generate_lambda_constructor(block_index& current_block, instanciation_reference const& func, lambda_symbol_info const& lambda) -> co_type< void >
+        {
+            (void)func;
+            std::vector< type_symbol > capture_types =
+                co_await rpnx::querygraph::subquery_request< lambda_capture_set_subquery >(as< instanciation_reference >(lambda.parent_functanoid), lambda.index);
+
+            std::optional< value_index > this_value = this->local_value_direct_lookup(current_block, "THIS");
+            if (!this_value.has_value())
+            {
+                throw compiler_bug("Lambda constructor has no THIS parameter");
+            }
+
+            codegen_invocation_args fields_args;
+            for (std::size_t i = 0; i < capture_types.size(); i++)
+            {
+                fields_args.named[lambda_capture_field_name(i)] = this->create_local_value(capture_types.at(i));
+            }
+            this->emit(current_block, vmir2::struct_init_start{.on_value = get_local_index(*this_value), .fields = get_invocation_args(fields_args)});
+
+            for (std::size_t i = 0; i < capture_types.size(); i++)
+            {
+                std::string argument_name = "__CAPTURE_ARG" + std::to_string(i);
+                std::optional< value_index > argument = this->local_value_direct_lookup(current_block, argument_name);
+                if (!argument.has_value())
+                {
+                    throw compiler_bug("Lambda constructor missing positional capture argument: " + argument_name);
+                }
+
+                type_symbol const& field_type = capture_types.at(i);
+                codegen_invocation_args field_ctor_args;
+                field_ctor_args.named["THIS"] = fields_args.named.at(lambda_capture_field_name(i));
+                field_ctor_args.named["OTHER"] = *argument;
+                type_symbol field_constructor = submember{.of = field_type, .name = "CONSTRUCTOR"};
+                co_await this->co_gen_call_functum(current_block, std::move(field_constructor), std::move(field_ctor_args), allowed_adaptations::source_rebinding);
+            }
+
+            co_return;
+        }
+
+        auto co_apply_lambda_operator_environment(block_index& current_block, instanciation_reference const& func) -> co_type< void >
+        {
+            auto lambda = parse_lambda_operator_symbol(func.temploid.templexoid);
+            if (!lambda.has_value())
+            {
+                co_return;
+            }
+
+            auto env = co_await rpnx::querygraph::subquery_request< lambda_environment_subquery >(as< instanciation_reference >(lambda->parent_functanoid), lambda->index);
+            this->state.scoped_definitions = std::move(env.scoped_definitions);
+            this->state.statics.clear();
+            for (auto& [symbol, input] : env.statics)
+            {
+                this->state.statics[std::move(symbol)] = codegen_static{
+                    .type = std::move(input.type),
+                    .value = std::move(input.value),
+                    .mutation_result_id = std::nullopt,
+                };
+            }
+
+            auto this_value = this->local_value_direct_lookup(current_block, "THIS");
+            if (!this_value.has_value())
+            {
+                throw compiler_bug("Lambda operator has no THIS parameter");
+            }
+            for (auto const& [name, index] : env.capture_indices)
+            {
+                auto field_ref = co_await this->co_generate_dot_access(current_block, *this_value, lambda_capture_field_name(index));
+                this->state.top_level_lookups[name] = field_ref;
+            }
+            co_return;
+        }
+
         [[nodiscard]] auto co_generate_functanoid(instanciation_reference func) -> co_type< vmir2::functanoid_routine3 >
         {
             assert(!type_is_contextual(func));
             co_await this->co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block(0);
+            co_await this->co_apply_lambda_operator_environment(current_block, func);
             if (!co_await rpnx::querygraph::request< function_builtin_query >(func.temploid))
             {
+                if (std::optional< lambda_symbol_info > lambda_constructor = parse_lambda_constructor_symbol(func.temploid.templexoid); lambda_constructor.has_value())
+                {
+                    co_await this->co_generate_lambda_constructor(current_block, func, *lambda_constructor);
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtors();
+                    co_return get_result();
+                }
+
                 if (typeis< submember >(func.temploid.templexoid) && func.temploid.templexoid.template get_as< submember >().name == "CONSTRUCTOR")
                 {
                     auto cls = func.temploid.templexoid.get_as< submember >().of;

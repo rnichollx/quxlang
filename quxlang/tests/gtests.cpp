@@ -22,12 +22,15 @@
 #include <quxlang/parsers/try_parse_class.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/data/lambda_types.hpp>
 #include <quxlang/queries/class_field_list.hpp>
+#include <quxlang/queries/class_layout.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/convertible_by_call.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
+#include <quxlang/queries/functum_list_user_overload_declarations.hpp>
 #include <quxlang/queries/functum_user_overloads.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/lookup.hpp>
@@ -1174,6 +1177,124 @@ TEST(parsing, reject_internal_tempar_name_in_expression)
     EXPECT_ANY_THROW(parse_expression_text("IS_INTEGRAL(__int_type)"));
 }
 
+TEST(parsing, lambda_expression_body_lowers_to_return_block)
+{
+    auto expr = parse_expression_text("-< = x");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    EXPECT_FALSE(lambda.has_explicit_capture_list);
+    EXPECT_FALSE(lambda.return_type.has_value());
+    ASSERT_EQ(lambda.body.get().statements.size(), 1);
+    ASSERT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+
+    auto const& ret = lambda.body.get().statements.front().template get_as< quxlang::function_return_statement >();
+    ASSERT_TRUE(ret.expr.has_value());
+    ASSERT_TRUE(ret.expr->template type_is< quxlang::expression_symbol_reference >());
+    auto const& symbol = ret.expr->template get_as< quxlang::expression_symbol_reference >().symbol;
+    ASSERT_TRUE(symbol.template type_is< quxlang::freebound_identifier >());
+    EXPECT_EQ(symbol.template get_as< quxlang::freebound_identifier >().name, "x");
+}
+
+TEST(parsing, lambda_block_body_uses_block_directly)
+{
+    auto expr = parse_expression_text("-< { RETURN 4; }");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    EXPECT_FALSE(lambda.return_type.has_value());
+    ASSERT_EQ(lambda.body.get().statements.size(), 1);
+    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+}
+
+TEST(parsing, lambda_captures_args_and_explicit_expression_return)
+{
+    auto expr = parse_expression_text("-< [x, =y] (%a I32) :TT = a");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    ASSERT_TRUE(lambda.has_explicit_capture_list);
+    ASSERT_EQ(lambda.captures.size(), 2);
+    EXPECT_EQ(lambda.captures.at(0).name, "x");
+    EXPECT_EQ(lambda.captures.at(0).mode, quxlang::lambda_capture_mode::reference);
+    EXPECT_EQ(lambda.captures.at(1).name, "y");
+    EXPECT_EQ(lambda.captures.at(1).mode, quxlang::lambda_capture_mode::value);
+    ASSERT_EQ(lambda.parameters.size(), 1);
+    EXPECT_EQ(lambda.parameters.front().name, "a");
+    EXPECT_EQ(lambda.parameters.front().type, parse_type_symbol("I32"));
+    ASSERT_TRUE(lambda.return_type.has_value());
+    EXPECT_EQ(*lambda.return_type, parse_type_symbol("TT"));
+    ASSERT_EQ(lambda.body.get().statements.size(), 1);
+    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+}
+
+TEST(parsing, lambda_parameters_use_function_parameter_syntax)
+{
+    std::string parameters = "(%a I32 DEFAULT(42), @external:local I64 DEFAULT(7), %...rest I32)";
+    auto function_args = parse_function_args_text(parameters);
+    auto expr = parse_expression_text("-< " + parameters + " :I32 = a");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    ASSERT_EQ(function_args.size(), 3);
+    ASSERT_EQ(lambda.parameters.size(), function_args.size());
+
+    EXPECT_EQ(lambda.parameters.at(0).name, function_args.at(0).name);
+    EXPECT_EQ(lambda.parameters.at(0).api_name, function_args.at(0).api_name);
+    EXPECT_EQ(lambda.parameters.at(0).type, function_args.at(0).type);
+    EXPECT_EQ(lambda.parameters.at(0).is_pack, function_args.at(0).is_pack);
+    ASSERT_TRUE(lambda.parameters.at(0).default_expr.has_value());
+    ASSERT_TRUE(lambda.parameters.at(0).default_expr->template type_is< quxlang::expression_numeric_literal >());
+    EXPECT_EQ(lambda.parameters.at(0).default_expr->template get_as< quxlang::expression_numeric_literal >().value, "42");
+
+    EXPECT_EQ(lambda.parameters.at(1).name, function_args.at(1).name);
+    EXPECT_EQ(lambda.parameters.at(1).api_name, function_args.at(1).api_name);
+    EXPECT_EQ(lambda.parameters.at(1).type, function_args.at(1).type);
+    EXPECT_EQ(lambda.parameters.at(1).is_pack, function_args.at(1).is_pack);
+    ASSERT_TRUE(lambda.parameters.at(1).default_expr.has_value());
+    ASSERT_TRUE(lambda.parameters.at(1).default_expr->template type_is< quxlang::expression_numeric_literal >());
+    EXPECT_EQ(lambda.parameters.at(1).default_expr->template get_as< quxlang::expression_numeric_literal >().value, "7");
+
+    EXPECT_EQ(lambda.parameters.at(2).name, function_args.at(2).name);
+    EXPECT_EQ(lambda.parameters.at(2).api_name, function_args.at(2).api_name);
+    EXPECT_EQ(lambda.parameters.at(2).type, function_args.at(2).type);
+    EXPECT_EQ(lambda.parameters.at(2).is_pack, function_args.at(2).is_pack);
+    EXPECT_FALSE(lambda.parameters.at(2).default_expr.has_value());
+}
+
+TEST(parsing, lambda_explicit_return_type_allows_block_body)
+{
+    auto expr = parse_expression_text("-< :TT { RETURN x; }");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    ASSERT_TRUE(lambda.return_type.has_value());
+    EXPECT_EQ(*lambda.return_type, parse_type_symbol("TT"));
+    ASSERT_EQ(lambda.body.get().statements.size(), 1);
+    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+}
+
+TEST(parsing, lambda_expression_body_requires_equal_for_parenthesized_expression)
+{
+    EXPECT_THROW(parse_expression_text("-< (x)"), std::logic_error);
+
+    auto expr = parse_expression_text("-< = (x)");
+
+    ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
+    auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
+    EXPECT_TRUE(lambda.parameters.empty());
+    ASSERT_EQ(lambda.body.get().statements.size(), 1);
+    auto const& ret = lambda.body.get().statements.front().template get_as< quxlang::function_return_statement >();
+    ASSERT_TRUE(ret.expr.has_value());
+    ASSERT_TRUE(ret.expr->template type_is< quxlang::expression_symbol_reference >());
+}
+
+TEST(parsing, decay_type_symbol)
+{
+    EXPECT_EQ(parse_type_symbol("DECAY"), quxlang::type_symbol(quxlang::decay_temploidic{}));
+    EXPECT_EQ(parse_type_symbol("DECAY(t)"), quxlang::type_symbol(quxlang::decay_temploidic{.name = "t"}));
+}
+
 
 
 TEST(parsing, parse_destroy_statement_with_args)
@@ -1233,6 +1354,26 @@ TEST(qual, template_matching_preserves_reference_shape_without_hidden_conversion
     auto auto_ref = parse_type_symbol("& AUTO(t)");
     auto value = parse_type_symbol("I32");
     EXPECT_FALSE(quxlang::match_template(auto_ref, value).has_value());
+}
+
+TEST(qual, decay_template_matching_preserves_mut_and_const_refs_but_decays_temps)
+{
+    auto templ = parse_type_symbol("DECAY(t)");
+
+    auto mut_ref = quxlang::match_template(templ, parse_type_symbol("MUT& I32"));
+    ASSERT_TRUE(mut_ref.has_value());
+    EXPECT_EQ(mut_ref->type, parse_type_symbol("MUT& I32"));
+    EXPECT_EQ(mut_ref->matches.at("t"), parse_type_symbol("MUT& I32"));
+
+    auto const_ref = quxlang::match_template(templ, parse_type_symbol("CONST& I32"));
+    ASSERT_TRUE(const_ref.has_value());
+    EXPECT_EQ(const_ref->type, parse_type_symbol("CONST& I32"));
+    EXPECT_EQ(const_ref->matches.at("t"), parse_type_symbol("CONST& I32"));
+
+    auto temp_ref = quxlang::match_template(templ, parse_type_symbol("TEMP& I32"));
+    ASSERT_TRUE(temp_ref.has_value());
+    EXPECT_EQ(temp_ref->type, parse_type_symbol("I32"));
+    EXPECT_EQ(temp_ref->matches.at("t"), parse_type_symbol("I32"));
 }
 
 
@@ -1539,6 +1680,70 @@ TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
     auto const& array = quxlang::as< quxlang::array_type >(fields.front().type);
     ASSERT_EQ(array.element_type, parse_type_symbol("U64"));
     ASSERT_EQ(array.element_count, quxlang::expression(quxlang::expression_numeric_literal{.value = "4"}));
+}
+
+TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::lambda_layout_probe FUNCTION(): I32
+{
+    VAR x I32 := 7;
+    VAR y I32 := 9;
+    (-< [x, =y] (%a I32) :I32 = x + y + a);
+    RETURN 0;
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+    auto parent_symbol = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_layout_probe #{}"), mainmodule);
+    ASSERT_TRUE(parent_symbol.template type_is< quxlang::instanciation_reference >());
+    auto parent = parent_symbol.template get_as< quxlang::instanciation_reference >();
+
+    (void)graph.make_request< quxlang::vm_procedure3_query >(parent);
+
+    quxlang::type_symbol closure = quxlang::make_lambda_closure_symbol(parent, 0);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(closure), quxlang::symbol_kind::class_);
+
+    auto fields = graph.make_request< quxlang::class_field_list_query >(closure);
+    ASSERT_EQ(fields.size(), 2);
+    EXPECT_EQ(fields.at(0).name, "__CAPTURE0");
+    EXPECT_EQ(fields.at(0).type, parse_type_symbol("MUT& I32"));
+    EXPECT_EQ(fields.at(1).name, "__CAPTURE1");
+    EXPECT_EQ(fields.at(1).type, parse_type_symbol("I32"));
+
+    auto layout = graph.make_request< quxlang::class_layout_query >(closure);
+    ASSERT_EQ(layout.fields.size(), 2);
+    EXPECT_EQ(layout.fields.at(0).name, "__CAPTURE0");
+    EXPECT_EQ(layout.fields.at(1).name, "__CAPTURE1");
+
+    quxlang::type_symbol operator_symbol = quxlang::submember{.of = closure, .name = "OPERATOR()"};
+    auto operator_declarations = graph.make_request< quxlang::functum_list_user_overload_declarations_query >(operator_symbol);
+    ASSERT_EQ(operator_declarations.size(), 1);
+    auto const& operator_declaration = operator_declarations.front();
+    ASSERT_TRUE(operator_declaration.definition.return_type.has_value());
+    EXPECT_EQ(*operator_declaration.definition.return_type, parse_type_symbol("I32"));
+    ASSERT_EQ(operator_declaration.header.call_parameters.size(), 1);
+    EXPECT_EQ(operator_declaration.header.call_parameters.front().name, "a");
+    EXPECT_EQ(operator_declaration.header.call_parameters.front().type, parse_type_symbol("I32"));
+}
+
+TEST(quxlang, lambda_explicit_capture_list_rejects_unlisted_runtime_local)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::lambda_unlisted_capture_probe FUNCTION(): I32
+{
+    VAR x I32 := 1;
+    RETURN (-< [] = x)();
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+    auto function_symbol = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_unlisted_capture_probe #{}"), mainmodule);
+    ASSERT_TRUE(function_symbol.template type_is< quxlang::instanciation_reference >());
+
+    EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(function_symbol.template get_as< quxlang::instanciation_reference >()), std::logic_error);
 }
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)

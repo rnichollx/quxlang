@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
+#include <quxlang/data/lambda_types.hpp>
 #include <quxlang/macros.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -13,6 +14,11 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input))
     {
         co_return symbol_kind::pseudotype;
+    }
+
+    if (parse_lambda_closure_symbol(input).has_value())
+    {
+        co_return symbol_kind::class_;
     }
 
     if (!(co_await rpnx::querygraph::request< templex_builtins_query >(input)).empty())

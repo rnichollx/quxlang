@@ -377,6 +377,28 @@ namespace quxlang::parsers
 
             output = std::move(tref);
         }
+        else if (skip_keyword_if_is(pos, end, "DECAY"))
+        {
+            decay_temploidic tref;
+
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "("))
+            {
+                skip_whitespace_and_comments(pos, end);
+                tref.name = parse_identifier(pos, end);
+                if (tref.name.empty())
+                {
+                    throw std::logic_error("Expected identifier after DECAY(");
+                }
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw std::logic_error("Expected ')' after DECAY(" + tref.name);
+                }
+            }
+
+            output = std::move(tref);
+        }
         else if (skip_symbol_if_is(pos, end, "&"))
         {
             return ptrref_type{.target = parse_type_symbol(ctx), .ptr_class = pointer_class::ref, .qual = qualifier::mut};

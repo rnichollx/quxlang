@@ -257,6 +257,16 @@ namespace quxlang
 
         QUX_AST_METADATA(function_destroy_statement, at, type, args);
     };
+
+    inline auto lambda_body::operator<=>(lambda_body const& other) const -> std::strong_ordering
+    {
+        return block.get() <=> other.block.get();
+    }
+
+    inline bool lambda_body::operator==(lambda_body const& other) const
+    {
+        return block.get() == other.block.get();
+    }
 } // namespace quxlang
 
 #include "quxlang/data/function_while_statement.hpp"

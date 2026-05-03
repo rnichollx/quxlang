@@ -196,22 +196,6 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_templex, templates);
     };
 
-    struct ast2_function_parameter
-    {
-        /// Local source name for this parameter, or nullopt for an ignored parameter.
-        std::optional<std::string> name;
-        /// External call-site name for named parameters.
-        std::optional< std::string > api_name;
-        /// Declared parameter type or positional pack element type.
-        type_symbol type;
-        /// Optional default expression for omitted arguments.
-        std::optional< expression > default_expr;
-        /// True when this positional parameter is a variadic pack.
-        bool is_pack = false;
-
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_parameter, name, api_name, type, default_expr, is_pack);
-    };
-
     struct ast2_function_header
     {
         std::vector< ast2_function_parameter > call_parameters;

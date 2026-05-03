@@ -67,6 +67,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                 return name;
             }
         }
+        else if (typeis< decay_temploidic >(param_type))
+        {
+            auto const& name = as< decay_temploidic >(param_type).name;
+            if (!name.empty())
+            {
+                return name;
+            }
+        }
         else if (typeis< type_temploidic >(param_type))
         {
             auto const& name = as< type_temploidic >(param_type).name;

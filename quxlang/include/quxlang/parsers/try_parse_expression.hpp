@@ -8,16 +8,19 @@
 #include <optional>
 #include <utility>
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/function_statement.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/operators.hpp>
 #include <quxlang/parsers/iter_parse_number.hpp>
 #include <quxlang/parsers/parse_int.hpp>
+#include <quxlang/parsers/parse_function_args.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/peek_symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 
 #include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
+#include <quxlang/parsers/fwd.hpp>
 
 namespace quxlang::parsers
 {
@@ -40,6 +43,104 @@ namespace quxlang::parsers
                 return result;
             }
             throw std::logic_error("Expected expression");
+        }
+
+        inline std::vector< lambda_capture > parse_lambda_captures(parsing_context& ctx)
+        {
+            auto& pos = ctx.iter_pos;
+            auto end = ctx.iter_end;
+            std::vector< lambda_capture > captures;
+            if (!skip_symbol_if_is(pos, end, "["))
+            {
+                throw std::logic_error("Expected '['");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "]"))
+            {
+                return captures;
+            }
+            while (true)
+            {
+                auto capture_begin = pos;
+                lambda_capture capture;
+                capture.mode = skip_symbol_if_is(pos, end, "=") ? lambda_capture_mode::value : lambda_capture_mode::reference;
+                skip_whitespace_and_comments(pos, end);
+                capture.name = parse_identifier(pos, end);
+                if (capture.name.empty())
+                {
+                    throw std::logic_error("Expected capture name");
+                }
+                capture.location = ctx.get_location_optional(capture_begin, pos);
+                captures.push_back(std::move(capture));
+                skip_whitespace_and_comments(pos, end);
+                if (skip_symbol_if_is(pos, end, "]"))
+                {
+                    return captures;
+                }
+                if (!skip_symbol_if_is(pos, end, ","))
+                {
+                    throw std::logic_error("Expected ',' or ']'");
+                }
+                skip_whitespace_and_comments(pos, end);
+            }
+        }
+
+        inline expression_lambda parse_lambda_expression(parsing_context& ctx)
+        {
+            auto& pos = ctx.iter_pos;
+            auto end = ctx.iter_end;
+            auto begin = pos;
+            if (!skip_symbol_if_is(pos, end, "-<"))
+            {
+                throw std::logic_error("Expected '-<'");
+            }
+
+            expression_lambda lambda;
+            skip_whitespace_and_comments(pos, end);
+            if (peek_symbol(pos, end).starts_with("["))
+            {
+                lambda.has_explicit_capture_list = true;
+                lambda.captures = parse_lambda_captures(ctx);
+                skip_whitespace_and_comments(pos, end);
+            }
+
+            if (peek_symbol(pos, end).starts_with("("))
+            {
+                lambda.parameters = parse_function_parameters(ctx);
+                skip_whitespace_and_comments(pos, end);
+            }
+
+            if (skip_symbol_if_is(pos, end, ":"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                lambda.return_type = parse_type_symbol(ctx);
+                skip_whitespace_and_comments(pos, end);
+            }
+
+            if (auto block = try_parse_function_block(ctx); block.has_value())
+            {
+                lambda.body.block = std::move(*block);
+                lambda.location = ctx.get_location_optional(begin, pos);
+                return lambda;
+            }
+
+            if (!skip_symbol_if_is(pos, end, "="))
+            {
+                throw std::logic_error("Expected lambda block body or '=' before lambda expression body");
+            }
+            skip_whitespace_and_comments(pos, end);
+
+            auto expr_begin = pos;
+            expression returned = parse_expression_impl(ctx);
+            function_return_statement ret;
+            ret.expr = std::move(returned);
+            ret.location = ctx.get_location_optional(expr_begin, pos);
+            function_block block;
+            block.statements.push_back(std::move(ret));
+            block.location = ctx.get_location_optional(expr_begin, pos);
+            lambda.body.block = std::move(block);
+            lambda.location = ctx.get_location_optional(begin, pos);
+            return lambda;
         }
 
         template < typename It >
@@ -167,6 +268,11 @@ namespace quxlang::parsers
             expression_value_keyword expr_kw;
             expr_kw.keyword = *kw;
             *value_bind_point = std::move(expr_kw);
+            have_anything = true;
+        }
+        else if (peek_symbol(pos, end).starts_with("-<"))
+        {
+            *value_bind_point = parse_lambda_expression(ctx);
             have_anything = true;
         }
         else if (auto str = try_parse_string_literal(pos, end); str)

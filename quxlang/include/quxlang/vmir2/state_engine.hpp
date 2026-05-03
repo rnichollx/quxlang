@@ -904,8 +904,7 @@ namespace quxlang::vmir2
             {
                 state.erase(index);
             }
-            // TODO: Should we clear the delegate list?
-            // state[scn.on_value].delegates.reset();
+            state[scn.on_value].delegates.reset();
 
             state[scn.on_value].stage = slot_stage::full;
             state[scn.on_value].storage_valid = true;
