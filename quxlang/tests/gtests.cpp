@@ -42,6 +42,7 @@
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/templex_select_template.hpp>
 #include <quxlang/queries/source_bundle.hpp>
+#include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
@@ -1862,6 +1863,119 @@ TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conve
                                                },
                                                std::nullopt);
     EXPECT_FALSE(rank.has_value());
+}
+
+TEST(quxlang, attached_type_reference_lookup_canonicalizes_parts)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol attached_bare_foo = quxlang::attached_type_reference{
+        .carrying_type = quxlang::void_type{},
+        .attached_symbol = parse_type_symbol("foo"),
+    };
+    quxlang::type_symbol attached_module_foo = quxlang::attached_type_reference{
+        .carrying_type = quxlang::void_type{},
+        .attached_symbol = parse_type_symbol("MODULE(main)::foo"),
+    };
+
+    std::optional< quxlang::type_symbol > looked_up = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = parse_type_symbol("MODULE(main)"),
+        .type = attached_bare_foo,
+    });
+
+    ASSERT_TRUE(looked_up.has_value());
+    EXPECT_EQ(*looked_up, attached_module_foo);
+}
+
+TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("::foo FUNCTION(): I32 { RETURN 1; }");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
+    quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{
+        .carrying_type = quxlang::void_type{},
+        .attached_symbol = foo_symbol,
+    };
+    quxlang::type_symbol carrier_type = parse_type_symbol("MUT& I32");
+    quxlang::type_symbol bound_attached_foo = quxlang::attached_type_reference{
+        .carrying_type = carrier_type,
+        .attached_symbol = foo_symbol,
+    };
+
+    quxlang::type_placement_info free_placement = graph.make_request< quxlang::type_placement_info_query >(free_attached_foo);
+    quxlang::type_placement_info expected_free_placement{.size = 0, .alignment = 1};
+    EXPECT_EQ(free_placement, expected_free_placement);
+
+    quxlang::type_placement_info carrier_placement = graph.make_request< quxlang::type_placement_info_query >(carrier_type);
+    quxlang::type_placement_info bound_placement = graph.make_request< quxlang::type_placement_info_query >(bound_attached_foo);
+    EXPECT_EQ(bound_placement, carrier_placement);
+}
+
+TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::holder TEMPLATE(@fn TYPE AUTO(fntype)) CLASS
+{
+    .fn VAR fntype;
+}
+
+::foo FUNCTION(): I32
+{
+    RETURN 1;
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
+    quxlang::type_symbol free_attached_foo = quxlang::attached_type_reference{
+        .carrying_type = quxlang::void_type{},
+        .attached_symbol = foo_symbol,
+    };
+    quxlang::initialization_reference free_init{.initializee = parse_type_symbol("MODULE(main)::holder")};
+    free_init.parameters.named["fn"] = quxlang::make_type_instantiation(free_attached_foo);
+    std::optional< quxlang::instanciation_reference > free_holder = graph.make_request< quxlang::instanciation_query >(free_init);
+    ASSERT_TRUE(free_holder.has_value());
+
+    quxlang::type_symbol free_holder_symbol = free_holder.value();
+    std::vector< quxlang::class_field > free_fields = graph.make_request< quxlang::class_field_list_query >(free_holder_symbol);
+    ASSERT_EQ(free_fields.size(), 1);
+    EXPECT_EQ(free_fields.front().name, "fn");
+    EXPECT_EQ(free_fields.front().type, free_attached_foo);
+
+    quxlang::class_layout free_layout = graph.make_request< quxlang::class_layout_query >(free_holder_symbol);
+    ASSERT_EQ(free_layout.fields.size(), 1);
+    EXPECT_EQ(free_layout.fields.front().type, free_attached_foo);
+    EXPECT_EQ(free_layout.fields.front().offset, 0u);
+    EXPECT_EQ(free_layout.size, 0u);
+    EXPECT_EQ(free_layout.align, 1u);
+
+    quxlang::type_symbol carrier_type = parse_type_symbol("MUT& I32");
+    quxlang::type_symbol bound_attached_foo = quxlang::attached_type_reference{
+        .carrying_type = carrier_type,
+        .attached_symbol = foo_symbol,
+    };
+    quxlang::initialization_reference bound_init{.initializee = parse_type_symbol("MODULE(main)::holder")};
+    bound_init.parameters.named["fn"] = quxlang::make_type_instantiation(bound_attached_foo);
+    std::optional< quxlang::instanciation_reference > bound_holder = graph.make_request< quxlang::instanciation_query >(bound_init);
+    ASSERT_TRUE(bound_holder.has_value());
+
+    quxlang::type_symbol bound_holder_symbol = bound_holder.value();
+    std::vector< quxlang::class_field > bound_fields = graph.make_request< quxlang::class_field_list_query >(bound_holder_symbol);
+    ASSERT_EQ(bound_fields.size(), 1);
+    EXPECT_EQ(bound_fields.front().type, bound_attached_foo);
+
+    quxlang::class_layout bound_layout = graph.make_request< quxlang::class_layout_query >(bound_holder_symbol);
+    quxlang::type_placement_info carrier_placement = graph.make_request< quxlang::type_placement_info_query >(carrier_type);
+    ASSERT_EQ(bound_layout.fields.size(), 1);
+    EXPECT_EQ(bound_layout.fields.front().type, bound_attached_foo);
+    EXPECT_EQ(bound_layout.fields.front().offset, 0u);
+    EXPECT_EQ(bound_layout.size, carrier_placement.size);
+    EXPECT_EQ(bound_layout.align, carrier_placement.alignment);
 }
 
 TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)

@@ -576,6 +576,23 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     {
         co_return type;
     }
+    else if (typeis< attached_type_reference >(type))
+    {
+        attached_type_reference attached = as< attached_type_reference >(type);
+        auto carrying_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = std::move(attached.carrying_type)});
+        if (!carrying_type.has_value())
+        {
+            co_return std::nullopt;
+        }
+        auto attached_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = std::move(attached.attached_symbol)});
+        if (!attached_symbol.has_value())
+        {
+            co_return std::nullopt;
+        }
+        attached.carrying_type = std::move(*carrying_type);
+        attached.attached_symbol = std::move(*attached_symbol);
+        co_return attached;
+    }
     else if (typeis< array_type >(type))
     {
         auto const& arry = type.template get_as< array_type >();

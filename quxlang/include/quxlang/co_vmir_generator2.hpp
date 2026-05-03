@@ -62,6 +62,7 @@
 #include "quxlang/vmir2/vmir2.hpp"
 #include "rpnx/querygraph/querygraph.hpp"
 
+#include <algorithm>
 #include <assert.h>
 #include <quxlang/macros.hpp>
 #include <set>
@@ -727,7 +728,12 @@ namespace quxlang
                 if (typeis< attached_type_reference >(result_type))
                 {
                     auto const& attached = as< attached_type_reference >(result_type);
-                    if (typeis< void_type >(attached.carrying_type))
+                    auto attached_symbol_kind = co_await rpnx::querygraph::request< symbol_type_query >(attached.attached_symbol);
+                    if (attached_symbol_kind == symbol_kind::functum || attached_symbol_kind == symbol_kind::funtanoid)
+                    {
+                        type_binding_result = result_type;
+                    }
+                    else if (typeis< void_type >(attached.carrying_type))
                     {
                         type_binding_result = attached.attached_symbol;
                     }
@@ -1416,6 +1422,41 @@ namespace quxlang
             return attached.carrying_type;
         }
 
+        static auto storage_type_for_attached_field(type_symbol const& field_type) -> std::optional< type_symbol >
+        {
+            if (!typeis< attached_type_reference >(field_type))
+            {
+                return field_type;
+            }
+
+            attached_type_reference const& attached = as< attached_type_reference >(field_type);
+            if (typeis< void_type >(attached.carrying_type))
+            {
+                return std::nullopt;
+            }
+            return attached.carrying_type;
+        }
+
+        auto attached_binding_carrier_value(block_index& current_block, value_index binding_value, type_symbol const& expected_type) -> value_index
+        {
+            type_symbol binding_type = this->current_type(current_block, binding_value);
+            if (binding_type != expected_type)
+            {
+                throw std::logic_error("Expected attached binding " + to_string(expected_type) + ", got " + to_string(binding_type));
+            }
+            if (!this->state.genvalues.at(binding_value).template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected attached binding value");
+            }
+
+            codegen_binding const& binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
+            if (binding.bound_value == value_index(0))
+            {
+                throw std::logic_error("Expected bound attached binding value");
+            }
+            return binding.bound_value;
+        }
+
         static auto parameter_local_type(type_symbol param_type) -> type_symbol
         {
             type_symbol local_type = std::move(param_type);
@@ -1920,6 +1961,16 @@ namespace quxlang
                         {
                             auto def_type = def.template get_as< scoped_typedef >().type;
                             assert(!type_is_contextual(def_type));
+                            if (typeis< attached_type_reference >(def_type))
+                            {
+                                attached_type_reference const& attached = as< attached_type_reference >(def_type);
+                                if (!typeis< void_type >(attached.carrying_type))
+                                {
+                                    throw std::logic_error("Cannot materialize bound attached type without a carrier value: " + to_string(def_type));
+                                }
+                                auto binding = this->create_binding(value_index(0), attached.attached_symbol);
+                                co_return binding;
+                            }
                             auto binding = this->create_binding(value_index(0), def_type);
                             co_return binding;
                         }
@@ -6321,6 +6372,65 @@ namespace quxlang
 
             std::string type_str = quxlang::to_string(st.type);
             std::string context_str = quxlang::to_string(ctx);
+
+            if (typeis< auto_temploidic >(st.type))
+            {
+                if (!st.initializers.empty() || !st.equals_initializer.has_value())
+                {
+                    throw std::logic_error("AUTO variables require a single := initializer");
+                }
+
+                block_index new_expr_block = this->generate_subblock(current_block, "auto_var_new");
+                block_index after_block = this->generate_subblock(current_block, "auto_var_after");
+
+                this->generate_jump(current_block, new_expr_block);
+                current_block = new_expr_block;
+
+                value_index init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
+                type_symbol var_type = this->current_type(new_expr_block, init_idx);
+
+                if (typeis< attached_type_reference >(var_type))
+                {
+                    value_index copied_binding = co_await this->co_copy_attached_binding(new_expr_block, init_idx, var_type);
+                    this->block(new_expr_block).lookup_values[st.name] = copied_binding;
+
+                    this->generate_jump(new_expr_block, after_block);
+                    codegen_binding const& binding = this->state.genvalues.at(copied_binding).template get_as< codegen_binding >();
+                    if (binding.bound_value != value_index(0))
+                    {
+                        this->generate_survivor_local(new_expr_block, after_block, get_local_index(binding.bound_value));
+                    }
+                    this->generate_survivor_lookup(new_expr_block, after_block, st.name);
+                    current_block = after_block;
+                    co_return;
+                }
+
+                value_index idx = this->generate_variable_local(new_expr_block, st.name, var_type);
+                codegen_invocation_args args;
+                args.named["THIS"] = idx;
+                args.named["OTHER"] = init_idx;
+
+                auto ctor = submember{.of = var_type, .name = "CONSTRUCTOR"};
+                co_await this->co_gen_call_functum(new_expr_block, ctor, args);
+                auto class_default_dtor = co_await rpnx::querygraph::request< class_default_dtor_query >(var_type);
+                if (class_default_dtor)
+                {
+                    if (!state.non_trivial_dtors.contains(var_type))
+                    {
+                        state.non_trivial_dtors[var_type] = class_default_dtor.value();
+                    }
+                }
+
+                vmir2::slot_state new_state = state.blocks.at(new_expr_block).current_state[get_local_index(idx)];
+                assert(new_state.valid());
+
+                this->generate_jump(new_expr_block, after_block);
+                this->generate_survivor_local(new_expr_block, after_block, get_local_index(idx));
+                this->generate_survivor_lookup(new_expr_block, after_block, st.name);
+                current_block = after_block;
+                co_return;
+            }
+
             type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
 
             if (typeis< attached_type_reference >(var_type))
@@ -6462,6 +6572,24 @@ namespace quxlang
             {
                 if (field.name == field_name)
                 {
+                    if (typeis< attached_type_reference >(field.type))
+                    {
+                        attached_type_reference const& attached = as< attached_type_reference >(field.type);
+                        if (typeis< void_type >(attached.carrying_type))
+                        {
+                            co_return this->create_binding(value_index(0), attached.attached_symbol);
+                        }
+
+                        vmir2::access_field access;
+                        access.base_index = get_local_index(base);
+                        access.field_name = field.name;
+                        type_symbol carrier_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), attached.carrying_type);
+                        auto carrier_idx = create_local_value(carrier_ref_type);
+                        access.store_index = get_local_index(carrier_idx);
+                        this->emit(bidx, access);
+                        co_return this->create_binding(carrier_idx, attached.attached_symbol);
+                    }
+
                     vmir2::access_field access;
                     access.base_index = get_local_index(base);
                     access.field_name = field.name;
@@ -7248,13 +7376,22 @@ namespace quxlang
             auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
                 if (!this_ref.has_value())
                 {
                     throw compiler_bug("Missing builtin SERIALIZE THIS");
                 }
                 auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
-                auto field_serialize_functum = submember{.of = fld.type, .name = "SERIALIZE"};
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    field_ref = this->attached_binding_carrier_value(current_block, field_ref, fld.type);
+                }
+                auto field_serialize_functum = submember{.of = *field_storage_type, .name = "SERIALIZE"};
                 current_iter = co_await this->co_gen_call_functum(current_block, field_serialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"OUTPUT_ITERATOR", *current_iter}}});
             }
 
@@ -7454,13 +7591,22 @@ namespace quxlang
             auto const& fields = co_await rpnx::querygraph::request< class_field_list_query >(class_type);
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
                 if (!this_ref.has_value())
                 {
                     throw compiler_bug("Missing builtin DESERIALIZE THIS");
                 }
                 auto field_ref = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
-                auto field_deserialize_functum = submember{.of = fld.type, .name = "DESERIALIZE"};
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    field_ref = this->attached_binding_carrier_value(current_block, field_ref, fld.type);
+                }
+                auto field_deserialize_functum = submember{.of = *field_storage_type, .name = "DESERIALIZE"};
                 current_iter = co_await this->co_gen_call_functum(current_block, field_deserialize_functum, codegen_invocation_args{.named = {{"THIS", field_ref}, {"INPUT_ITERATOR", *current_iter}}});
             }
 
@@ -7481,6 +7627,11 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
                 auto other_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"});
 
@@ -7491,6 +7642,11 @@ namespace quxlang
 
                 auto this_field = co_await this->co_generate_dot_access(current_block, *this_ref, fld.name);
                 auto other_field = co_await this->co_generate_dot_access(current_block, *other_ref, fld.name);
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    this_field = this->attached_binding_carrier_value(current_block, this_field, fld.type);
+                    other_field = this->attached_binding_carrier_value(current_block, other_field, fld.type);
+                }
                 auto fields_equal = co_await this->co_generate_binary(current_block, "==", this_field, other_field);
 
                 auto match_block = this->generate_subblock(current_block, "datatype_compare_match");
@@ -8467,7 +8623,12 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
-                auto fslot = this->create_local_value(fld.type);
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
+                auto fslot = this->create_local_value(*field_storage_type);
                 fields_args.named[fld.name] = fslot;
             }
 
@@ -8491,12 +8652,21 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto temporary_block = this->generate_subblock(current_block, "copy_ctor_temp_" + fld.name);
                 auto after_ctor_block = this->generate_subblock(current_block, "copy_ctor_after_" + fld.name);
                 this->generate_jump(current_block, temporary_block);
                 auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
                 auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
-                auto field_type = fld.type;
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    other_field = this->attached_binding_carrier_value(temporary_block, other_field, fld.type);
+                }
+                auto field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
                 auto field_copy_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
                 codegen_invocation_args args;
@@ -8617,6 +8787,11 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto temp_block = this->generate_subblock(current_block, "swap_member_temp_" + fld.name);
                 auto after_block = this->generate_subblock(current_block, "swap_member_after_" + fld.name);
                 this->generate_jump(current_block, temp_block);
@@ -8625,7 +8800,12 @@ namespace quxlang
                 auto otherval = (co_await this->co_lookup_symbol(current_block, freebound_identifier{"OTHER"})).value();
                 auto this_field = co_await this->co_generate_dot_access(current_block, thisval, fld.name);
                 auto other_field = co_await this->co_generate_dot_access(current_block, otherval, fld.name);
-                auto field_type = fld.type;
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    this_field = this->attached_binding_carrier_value(current_block, this_field, fld.type);
+                    other_field = this->attached_binding_carrier_value(current_block, other_field, fld.type);
+                }
+                auto field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
                 auto field_swap_functum = submember{.of = field_type, .name = "OPERATOR<->"};
                 codegen_invocation_args args;
@@ -8692,7 +8872,12 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
-                auto fslot = this->create_local_value(fld.type);
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
+                auto fslot = this->create_local_value(*field_storage_type);
                 fields_args.named[fld.name] = fslot;
             }
 
@@ -8708,12 +8893,21 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
                 auto temporary_block = this->generate_subblock(current_block, "move_ctor_temp_" + fld.name);
                 auto after_ctor_block = this->generate_subblock(current_block, "move_ctor_after_" + fld.name);
                 this->generate_jump(current_block, temporary_block);
                 auto other_idx_copy = co_await this->co_copy_ref(temporary_block, otheridx_value);
                 auto other_field = co_await this->co_generate_dot_access(temporary_block, other_idx_copy, fld.name);
-                auto field_type = fld.type;
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    other_field = this->attached_binding_carrier_value(temporary_block, other_field, fld.type);
+                }
+                auto field_type = *field_storage_type;
                 assert(!type_is_contextual(field_type));
                 auto field_ctor_functum = submember{.of = field_type, .name = "CONSTRUCTOR"};
                 other_field = co_await this->co_generate_move(temporary_block, other_field);
@@ -8749,7 +8943,12 @@ namespace quxlang
 
             for (class_field const& fld : fields)
             {
-                auto fslot = this->create_local_value(fld.type);
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    continue;
+                }
+                auto fslot = this->create_local_value(*field_storage_type);
                 fields_args.named[fld.name] = fslot;
             }
 
@@ -8767,12 +8966,78 @@ namespace quxlang
                 found_delegate_names.insert(dlg.name);
             }
 
+            for (delegate const& dlg : delegates)
+            {
+                auto field_it = std::find_if(fields.begin(), fields.end(), [&](class_field const& fld)
+                                             { return fld.name == dlg.name; });
+                if (field_it == fields.end())
+                {
+                    throw std::logic_error("Constructor delegate names unknown field: " + dlg.name);
+                }
+
+                class_field const& fld = *field_it;
+                std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                if (!field_storage_type.has_value())
+                {
+                    if (dlg.args.size() > 1)
+                    {
+                        throw std::logic_error("Free attached binding delegate accepts at most one initializer");
+                    }
+                    if (dlg.args.size() == 1)
+                    {
+                        value_index init_idx = co_await co_generate_expr(current_block, dlg.args.front().value);
+                        type_symbol init_type = this->current_type(current_block, init_idx);
+                        if (init_type != fld.type)
+                        {
+                            throw std::logic_error("Free attached binding delegate expected " + to_string(fld.type) + ", got " + to_string(init_type));
+                        }
+                    }
+                    continue;
+                }
+
+                codegen_invocation_args args;
+                args.named["THIS"] = fields_args.named.at(fld.name);
+
+                if (typeis< attached_type_reference >(fld.type))
+                {
+                    if (dlg.args.size() != 1 || dlg.args.front().name.has_value())
+                    {
+                        throw std::logic_error("Attached binding field delegates require exactly one positional initializer");
+                    }
+                    value_index init_idx = co_await co_generate_expr(current_block, dlg.args.front().value);
+                    args.named["OTHER"] = this->attached_binding_carrier_value(current_block, init_idx, fld.type);
+                }
+                else
+                {
+                    for (expression_arg const& arg : dlg.args)
+                    {
+                        auto init_idx = co_await co_generate_expr(current_block, arg.value);
+                        if (arg.name.has_value())
+                        {
+                            args.named[*arg.name] = init_idx;
+                        }
+                        else
+                        {
+                            args.positional.push_back(init_idx);
+                        }
+                    }
+                }
+
+                auto ctor = submember{.of = *field_storage_type, .name = "CONSTRUCTOR"};
+                co_await this->co_gen_call_functum(current_block, ctor, args);
+            }
+
             // TODO: Drop temporaries between loop iterations
             for (class_field const& fld : fields)
             {
                 if (!found_delegate_names.contains(fld.name))
                 {
-                    auto ctor = submember{.of = fld.type, .name = "CONSTRUCTOR"};
+                    std::optional< type_symbol > field_storage_type = storage_type_for_attached_field(fld.type);
+                    if (!field_storage_type.has_value())
+                    {
+                        continue;
+                    }
+                    auto ctor = submember{.of = *field_storage_type, .name = "CONSTRUCTOR"};
                     codegen_invocation_args args;
                     args.named["THIS"] = fields_args.named.at(fld.name);
 

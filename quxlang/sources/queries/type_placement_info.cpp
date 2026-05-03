@@ -20,7 +20,17 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
 
-    if (type.template type_is< ptrref_type >())
+    if (type.template type_is< attached_type_reference >())
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            co_return type_placement_info{.size = 0, .alignment = 1};
+        }
+
+        co_return co_await rpnx::querygraph::request< type_placement_info_query >(attached.carrying_type);
+    }
+    else if (type.template type_is< ptrref_type >())
     {
         type_placement_info result;
         result.alignment = machine_info.pointer_align();

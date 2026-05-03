@@ -16,6 +16,16 @@ rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang
         co_return false;
     }
 
+    if (typeis< attached_type_reference >(input))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(input);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            co_return true;
+        }
+        co_return co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(attached.carrying_type);
+    }
+
     // Pointers and references are not implicitly datatypes
     if (typeis< ptrref_type >(input) )
     {

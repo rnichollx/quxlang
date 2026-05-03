@@ -909,6 +909,16 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
 
     std::string type_str = quxlang::to_string(type);
 
+    if (typeis< attached_type_reference >(type))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            return 0;
+        }
+        return get_type_size(attached.carrying_type);
+    }
+
     if (typeis< int_type >(type))
     {
         return (type.get_as< int_type >().bits + 7) / 8;
@@ -982,6 +992,15 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
 
+    if (typeis< attached_type_reference >(type))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            return 1;
+        }
+        return get_type_alignment(attached.carrying_type);
+    }
     if (typeis< int_type >(type))
     {
         auto sz = get_type_size(type);
@@ -1581,6 +1600,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (!field_type.has_value())
     {
         throw compiler_bug("access field of object that does not have field in layout");
+    }
+    if (typeis< attached_type_reference >(*field_type))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(*field_type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            throw compiler_bug("access field emitted for zero-storage attached binding");
+        }
+        field_type = attached.carrying_type;
     }
 
     if (typeis< ptrref_type >(*field_type) && as< ptrref_type >(*field_type).ptr_class == pointer_class::ref)
@@ -4742,6 +4770,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     local_value->storage_destroy_delegate = false;
     local_value->procedure = std::nullopt;
 
+    if (typeis< attached_type_reference >(type))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(type);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            return;
+        }
+        init_storage(local_value, attached.carrying_type);
+        return;
+    }
+
     type.match< readonly_constant >(
         [&](readonly_constant const& rc)
         {
@@ -4758,6 +4797,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         for (auto const& field : layout.fields)
         {
+            if (typeis< attached_type_reference >(field.type) && typeis< void_type >(as< attached_type_reference >(field.type).carrying_type))
+            {
+                continue;
+            }
 
             auto const& name = field.name;
             if (local_value->struct_members[name] == nullptr)
@@ -4956,10 +4999,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             auto const& layout = class_layouts.at(*type);
             for (auto const& field : layout.fields)
             {
+                type_symbol field_type = field.type;
+                if (typeis< attached_type_reference >(field_type))
+                {
+                    attached_type_reference const& attached = as< attached_type_reference >(field_type);
+                    if (typeis< void_type >(attached.carrying_type))
+                    {
+                        continue;
+                    }
+                    field_type = attached.carrying_type;
+                }
                 auto value_it = fields.find(field.name);
                 if (value_it != fields.end())
                 {
-                    collect_missing_antestatal_globals(value_it->second, field.type);
+                    collect_missing_antestatal_globals(value_it->second, field_type);
                 }
             }
             return;
@@ -5320,13 +5373,23 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto const& struct_value = as< antestatal_struct >(value);
         for (auto const& field : layout.fields)
         {
+            type_symbol field_type = field.type;
+            if (typeis< attached_type_reference >(field_type))
+            {
+                attached_type_reference const& attached = as< attached_type_reference >(field_type);
+                if (typeis< void_type >(attached.carrying_type))
+                {
+                    continue;
+                }
+                field_type = attached.carrying_type;
+            }
             auto member_it = object->struct_members.find(field.name);
             auto value_it = struct_value.fields.find(field.name);
             if (member_it == object->struct_members.end() || value_it == struct_value.fields.end())
             {
                 throw constexpr_logic_execution_error("antestatal struct initializer missing field: " + field.name);
             }
-            initialize_local_from_antestatal_value(member_it->second, field.type, value_it->second);
+            initialize_local_from_antestatal_value(member_it->second, field_type, value_it->second);
         }
         begin_lifetime(object);
         return;
@@ -5478,12 +5541,22 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
         auto const& layout = class_layouts.at(type);
         for (auto const& field : layout.fields)
         {
+            type_symbol field_type = field.type;
+            if (typeis< attached_type_reference >(field_type))
+            {
+                attached_type_reference const& attached = as< attached_type_reference >(field_type);
+                if (typeis< void_type >(attached.carrying_type))
+                {
+                    continue;
+                }
+                field_type = attached.carrying_type;
+            }
             auto it = object->struct_members.find(field.name);
             if (it == object->struct_members.end())
             {
                 throw constexpr_logic_execution_error("antestatal struct materialization missing field: " + field.name);
             }
-            result.fields[field.name] = materialize_antestatal_value(it->second, field.type);
+            result.fields[field.name] = materialize_antestatal_value(it->second, field_type);
         }
         return result;
     }

@@ -28,6 +28,16 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return true;
     }
 
+    if (typeis< attached_type_reference >(input))
+    {
+        attached_type_reference const& attached = as< attached_type_reference >(input);
+        if (typeis< void_type >(attached.carrying_type))
+        {
+            co_return true;
+        }
+        co_return co_await rpnx::querygraph::request< type_is_antestatal_query >(attached.carrying_type);
+    }
+
     if (typeis< array_type >(input))
     {
         co_return co_await rpnx::querygraph::request< type_is_antestatal_query >(as< array_type >(input).element_type);

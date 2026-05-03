@@ -230,7 +230,7 @@
 
 ::functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
 {
-  VAR g TYPEOF(f) := f;
+  VAR g AUTO := f;
   RETURN g(6, 7);
 }
 
@@ -262,8 +262,18 @@
 
 ::bound_functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
 {
-  VAR g TYPEOF(f) := f;
+  VAR g AUTO := f;
   RETURN g(2) + f(3);
+}
+
+::functum_binding_holder TEMPLATE(@fn TYPE AUTO(fntype)) CLASS
+{
+  .fn VAR fntype;
+
+  .call FUNCTION(%x I32, %y I32): I32
+  {
+    RETURN .fn(x, y);
+  }
 }
 
 ::functum_binding_auto_argument_test STATIC_TEST
@@ -272,6 +282,12 @@
   ASSERT(functum_binding_forward_helper(foo) == 7);
   ASSERT(functum_binding_copy_helper(foo) == 13);
   ASSERT(functum_binding_same_type_helper(foo, foo) == 14);
+
+  VAR holder functum_binding_holder#(@fn foo);
+  ASSERT(holder.call(8, 9) == 17);
+
+  VAR holder_copy DECLTYPE(holder) := holder;
+  ASSERT(holder_copy.call(10, 11) == 21);
 }
 
 ::bound_functum_binding_auto_argument_test STATIC_TEST

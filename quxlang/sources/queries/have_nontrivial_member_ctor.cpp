@@ -30,7 +30,17 @@ rpnx::querygraph::coroutine< quxlang::have_nontrivial_member_ctor_spec > quxlang
     auto class_fields = co_await rpnx::querygraph::request< class_field_list_query >(input);
     for (auto& field : class_fields)
     {
-        auto field_ctor = co_await rpnx::querygraph::request< class_default_ctor_query >(field.type);
+        type_symbol field_type = field.type;
+        if (typeis< attached_type_reference >(field_type))
+        {
+            attached_type_reference const& attached = as< attached_type_reference >(field_type);
+            if (typeis< void_type >(attached.carrying_type))
+            {
+                continue;
+            }
+            field_type = attached.carrying_type;
+        }
+        auto field_ctor = co_await rpnx::querygraph::request< class_default_ctor_query >(field_type);
         if (field_ctor)
         {
             co_return true;
