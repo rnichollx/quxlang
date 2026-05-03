@@ -218,6 +218,73 @@
   ASSERT(x == 11);
 }
 
+::functum_binding_call_helper FUNCTION(%f AUTO(fn), %x I32, %y I32): I32
+{
+  RETURN f(x, y);
+}
+
+::functum_binding_forward_helper FUNCTION(%f AUTO(fn)): I32
+{
+  RETURN functum_binding_call_helper(f, 3, 4);
+}
+
+::functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
+{
+  VAR g TYPEOF(f) := f;
+  RETURN g(6, 7);
+}
+
+::functum_binding_same_type_helper FUNCTION(%a AUTO(fn), %b AUTO(fn)): I32
+{
+  RETURN a(2, 3) + b(4, 5);
+}
+
+::functum_binding_counter CLASS
+{
+  .value VAR I32;
+
+  .CONSTRUCTOR FUNCTION()
+  {
+    .value := 0;
+  }
+
+  .add FUNCTION(%x I32): I32
+  {
+    .value := .value + x;
+    RETURN .value;
+  }
+}
+
+::bound_functum_binding_call_helper FUNCTION(%f AUTO(fn)): I32
+{
+  RETURN f(4) + f(5);
+}
+
+::bound_functum_binding_copy_helper FUNCTION(%f AUTO(fn)): I32
+{
+  VAR g TYPEOF(f) := f;
+  RETURN g(2) + f(3);
+}
+
+::functum_binding_auto_argument_test STATIC_TEST
+{
+  ASSERT(functum_binding_call_helper(foo, 4, 5) == 9);
+  ASSERT(functum_binding_forward_helper(foo) == 7);
+  ASSERT(functum_binding_copy_helper(foo) == 13);
+  ASSERT(functum_binding_same_type_helper(foo, foo) == 14);
+}
+
+::bound_functum_binding_auto_argument_test STATIC_TEST
+{
+  VAR counter functum_binding_counter;
+  ASSERT(bound_functum_binding_call_helper(counter.add) == 13);
+  ASSERT(counter.value == 9);
+
+  VAR counter2 functum_binding_counter;
+  ASSERT(bound_functum_binding_copy_helper(counter2.add) == 7);
+  ASSERT(counter2.value == 5);
+}
+
 
 ::include_if_helper FUNCTION(%a AUTO(t1)) ENABLE_IF( BITS(t1) < 32 AS I32 ): I32
 {

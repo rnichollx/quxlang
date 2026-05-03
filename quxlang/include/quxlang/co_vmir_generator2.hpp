@@ -786,6 +786,15 @@ namespace quxlang
             {
                 return true;
             }
+            if (state.genvalues.at(idx).template type_is< codegen_binding >())
+            {
+                value_index bound_value = state.genvalues.at(idx).template get_as< codegen_binding >().bound_value;
+                if (bound_value == value_index(0))
+                {
+                    return true;
+                }
+                return value_alive(bidx, bound_value);
+            }
             return local_alive(bidx, get_local_index(idx));
         }
 
@@ -823,6 +832,11 @@ namespace quxlang
             {
                 assert(val != value_index(0));
                 co_return val;
+            }
+
+            if (typeis< attached_type_reference >(value_type) || typeis< attached_type_reference >(target_type))
+            {
+                throw std::logic_error("Cannot adapt attached binding " + to_string(value_type) + " to " + to_string(target_type));
             }
 
             if (is_ref(target_type) && remove_ref(value_type) != remove_ref(target_type))
@@ -887,6 +901,10 @@ namespace quxlang
             for (auto& [name, arg] : args.named)
             {
                 auto arg_type = current_type(bidx, arg);
+                if (name == "THIS" && typeis< attached_type_reference >(arg_type))
+                {
+                    arg_type = as< attached_type_reference >(arg_type).carrying_type;
+                }
                 bool is_alive = value_alive(bidx, arg);
 
                 if constexpr (QUXLANG_IN_DEBUG)
@@ -1383,6 +1401,92 @@ namespace quxlang
             return value_index(this->state.genvalues.size() - 1);
         }
 
+        static auto runtime_type_for_attached_parameter(type_symbol const& param_type) -> std::optional< type_symbol >
+        {
+            if (!typeis< attached_type_reference >(param_type))
+            {
+                return param_type;
+            }
+
+            attached_type_reference const& attached = as< attached_type_reference >(param_type);
+            if (typeis< void_type >(attached.carrying_type))
+            {
+                return std::nullopt;
+            }
+            return attached.carrying_type;
+        }
+
+        static auto parameter_local_type(type_symbol param_type) -> type_symbol
+        {
+            type_symbol local_type = std::move(param_type);
+            if (typeis< nvalue_slot >(local_type))
+            {
+                local_type = type_symbol(as< nvalue_slot >(local_type).target);
+            }
+            else if (typeis< dvalue_slot >(local_type))
+            {
+                local_type = as< dvalue_slot >(local_type).target;
+            }
+            return local_type;
+        }
+
+        auto copy_ref_value(block_index& current_block, value_index val) -> value_index
+        {
+            type_symbol val_type = this->current_type(current_block, val);
+            if (!val_type.type_is< ptrref_type >())
+            {
+                throw std::logic_error("Expected a reference type");
+            }
+
+            ptrref_type const& vptr = val_type.get_as< ptrref_type >();
+            if (vptr.ptr_class != pointer_class::ref)
+            {
+                throw std::logic_error("Expected a reference type");
+            }
+
+            value_index copy_idx = this->create_local_value(vptr);
+            this->emit(current_block, vmir2::copy_reference{.from_index = get_local_index(val), .to_index = get_local_index(copy_idx)});
+            return copy_idx;
+        }
+
+        auto copy_attached_binding_value(block_index& current_block, value_index binding_value, std::optional< type_symbol > expected_type) -> value_index
+        {
+            type_symbol binding_type = this->current_type(current_block, binding_value);
+            if (expected_type.has_value() && binding_type != *expected_type)
+            {
+                throw std::logic_error("Cannot copy attached binding " + to_string(binding_type) + " into " + to_string(*expected_type));
+            }
+
+            if (!typeis< attached_type_reference >(binding_type))
+            {
+                throw std::logic_error("Expected attached binding type, got " + to_string(binding_type));
+            }
+            if (!this->state.genvalues.at(binding_value).template type_is< codegen_binding >())
+            {
+                throw std::logic_error("Expected attached binding value");
+            }
+
+            codegen_binding const& binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
+            if (binding.bound_value == value_index(0))
+            {
+                return this->create_binding(value_index(0), binding.attached_symbol);
+            }
+
+            type_symbol carrier_type = this->current_type(current_block, binding.bound_value);
+            value_index carrier_copy = binding.bound_value;
+            if (is_ref(carrier_type))
+            {
+                carrier_copy = this->copy_ref_value(current_block, binding.bound_value);
+            }
+
+            return this->create_binding(carrier_copy, binding.attached_symbol);
+        }
+
+        auto co_copy_attached_binding(block_index& current_block, value_index binding_value, type_symbol expected_type) -> co_type< value_index >
+        {
+            co_return this->copy_attached_binding_value(current_block, binding_value, std::move(expected_type));
+        }
+
         /// This is a very low level function, generally DO NOT USE IT
         /// 99% of instruction output should be through intrinsic functions
         void emit(block_index& bidx, vmir2::vm_instruction val)
@@ -1458,6 +1562,11 @@ namespace quxlang
         auto materialize_lookup_reference(block_index idx, value_index lookup) -> value_index
         {
             auto lookup_type = this->current_type(idx, lookup);
+
+            if (typeis< attached_type_reference >(lookup_type))
+            {
+                return this->copy_attached_binding_value(idx, lookup, lookup_type);
+            }
 
             if (!is_ref(lookup_type))
             {
@@ -1913,7 +2022,12 @@ namespace quxlang
 
             for (auto const& [name, arg] : args.named)
             {
-                calltype.named[name] = this->current_type(bidx, arg);
+                type_symbol arg_type = this->current_type(bidx, arg);
+                if (name == "THIS" && typeis< attached_type_reference >(arg_type))
+                {
+                    arg_type = as< attached_type_reference >(arg_type).carrying_type;
+                }
+                calltype.named[name] = std::move(arg_type);
             }
 
             return calltype;
@@ -2022,7 +2136,12 @@ namespace quxlang
             if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
             {
                 auto const& callee_binding = this->state.genvalues.at(callee).template get_as< codegen_binding >();
-                args.named["THIS"] = callee_binding.bound_value;
+                value_index this_value = callee_binding.bound_value;
+                if (is_ref(this->current_type(bidx, this_value)))
+                {
+                    this_value = this->copy_ref_value(bidx, this_value);
+                }
+                args.named["THIS"] = this_value;
             }
 
             if (attached_symbol_kind == symbol_kind::class_)
@@ -2202,11 +2321,33 @@ namespace quxlang
             codegen_invocation_args invocation_args;
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
 
-            auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
+            auto create_arg_value = [&](std::string const& arg_name, value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
             {
                 // TODO: Support PRValue args
                 auto arg_expr_type = this->current_type(bidx, arg_expr_index);
                 bool arg_alive = this->value_alive(bidx, arg_expr_index);
+
+                if (arg_name == "THIS" && typeis< attached_type_reference >(arg_expr_type) && !typeis< attached_type_reference >(arg_target_type))
+                {
+                    if (!this->state.genvalues.at(arg_expr_index).template type_is< codegen_binding >())
+                    {
+                        throw std::logic_error("Expected attached THIS argument to be a binding");
+                    }
+
+                    attached_type_reference const& attached = as< attached_type_reference >(arg_expr_type);
+                    if (attached.carrying_type != arg_target_type)
+                    {
+                        throw std::logic_error("Cannot lower attached THIS argument " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
+                    }
+
+                    codegen_binding const& binding = this->state.genvalues.at(arg_expr_index).template get_as< codegen_binding >();
+                    value_index this_value = binding.bound_value;
+                    if (is_ref(this->current_type(bidx, this_value)))
+                    {
+                        this_value = this->copy_ref_value(bidx, this_value);
+                    }
+                    co_return this_value;
+                }
 
                 if (!arg_alive)
                 {
@@ -2216,6 +2357,10 @@ namespace quxlang
 
                 if (arg_expr_type == arg_target_type)
                 {
+                    if (typeis< attached_type_reference >(arg_target_type))
+                    {
+                        co_return co_await this->co_copy_attached_binding(bidx, arg_expr_index, arg_target_type);
+                    }
                     co_return arg_expr_index;
                 }
 
@@ -2265,7 +2410,7 @@ namespace quxlang
                     arg_expr_index = co_await generate_default_expr(*default_it->second);
                 }
 
-                auto arg_index = co_await create_arg_value(arg_expr_index, parameter_instantiation_type(arg_accepted_type));
+                auto arg_index = co_await create_arg_value(name, arg_expr_index, parameter_instantiation_type(arg_accepted_type));
 
                 invocation_args.named[name] = arg_index;
             }
@@ -2288,7 +2433,7 @@ namespace quxlang
                     arg_expr_index = co_await generate_default_expr(*positional_defaults.at(i));
                 }
 
-                auto arg_index = co_await create_arg_value(arg_expr_index, arg_accepted_type);
+                auto arg_index = co_await create_arg_value(std::string{}, arg_expr_index, arg_accepted_type);
                 invocation_args.positional.push_back(arg_index);
             }
 
@@ -2413,7 +2558,7 @@ namespace quxlang
             // std::string args_str = to_string(args);
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = get_invocation_args(args);
+            ivk.args = get_invocation_args(what, args);
 
             this->emit(bidx, ivk);
 
@@ -3609,7 +3754,7 @@ namespace quxlang
 
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = get_invocation_args(args);
+            ivk.args = get_invocation_args(what, args);
 
             this->emit(bidx, ivk);
             co_return;
@@ -6178,6 +6323,34 @@ namespace quxlang
             std::string context_str = quxlang::to_string(ctx);
             type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
 
+            if (typeis< attached_type_reference >(var_type))
+            {
+                if (!st.initializers.empty() || !st.equals_initializer.has_value())
+                {
+                    throw std::logic_error("Attached binding variables require a single := initializer");
+                }
+
+                block_index new_expr_block = this->generate_subblock(current_block, "binding_var_new");
+                block_index after_block = this->generate_subblock(current_block, "binding_var_after");
+
+                this->generate_jump(current_block, new_expr_block);
+                current_block = new_expr_block;
+
+                value_index init_idx = co_await co_generate_expr(new_expr_block, *st.equals_initializer);
+                value_index copied_binding = co_await this->co_copy_attached_binding(new_expr_block, init_idx, var_type);
+                this->block(new_expr_block).lookup_values[st.name] = copied_binding;
+
+                this->generate_jump(new_expr_block, after_block);
+                codegen_binding const& binding = this->state.genvalues.at(copied_binding).template get_as< codegen_binding >();
+                if (binding.bound_value != value_index(0))
+                {
+                    this->generate_survivor_local(new_expr_block, after_block, get_local_index(binding.bound_value));
+                }
+                this->generate_survivor_lookup(new_expr_block, after_block, st.name);
+                current_block = after_block;
+                co_return;
+            }
+
             block_index new_expr_block = this->generate_subblock(current_block, "var_new");
             block_index after_block = this->generate_subblock(current_block, "var_after");
             block_index initial_block = current_block;
@@ -7821,18 +7994,64 @@ namespace quxlang
                 this->create_return_parameter(std::move(return_type));
             }
 
-            auto parameter_local_type = [](type_symbol param_type) -> type_symbol
+            auto create_parameter_lookup = [&](type_symbol const& param_type, auto publish_runtime_parameter) -> value_index
             {
-                auto local_type = std::move(param_type);
-                if (typeis< nvalue_slot >(local_type))
+                if (typeis< attached_type_reference >(param_type))
                 {
-                    local_type = type_symbol(as< nvalue_slot >(local_type).target);
+                    attached_type_reference const& attached = as< attached_type_reference >(param_type);
+                    if (typeis< void_type >(attached.carrying_type))
+                    {
+                        return this->create_binding(value_index(0), attached.attached_symbol);
+                    }
+
+                    type_symbol runtime_type = attached.carrying_type;
+                    value_index carrier_idx = this->create_local_value(parameter_local_type(runtime_type));
+                    publish_runtime_parameter(std::move(runtime_type), carrier_idx);
+                    return this->create_binding(carrier_idx, attached.attached_symbol);
                 }
-                else if (typeis< dvalue_slot >(local_type))
+
+                type_symbol runtime_type = param_type;
+                value_index param_idx = this->create_local_value(parameter_local_type(runtime_type));
+                publish_runtime_parameter(std::move(runtime_type), param_idx);
+                return param_idx;
+            };
+
+            auto create_named_parameter_lookup = [&](std::string const& api_name, type_symbol const& param_type) -> value_index
+            {
+                return create_parameter_lookup(param_type,
+                                               [&](type_symbol runtime_type, value_index param_idx)
+                                               {
+                                                   local_index param_local = get_local_index(param_idx);
+                                                   this->state.params.named[api_name] = {
+                                                       .type = std::move(runtime_type),
+                                                       .local_index = param_local,
+                                                   };
+                                               });
+            };
+
+            auto create_positional_parameter_lookup = [&](type_symbol const& param_type) -> value_index
+            {
+                return create_parameter_lookup(param_type,
+                                               [&](type_symbol runtime_type, value_index param_idx)
+                                               {
+                                                   this->state.params.positional.push_back(vmir2::routine_parameter{
+                                                       .type = std::move(runtime_type),
+                                                       .local_index = get_local_index(param_idx),
+                                                   });
+                                               });
+            };
+
+            auto register_parameter_lookup_name = [&](std::optional< std::string > const& local_name, std::string const& api_name, value_index arg_idx) -> void
+            {
+                if (local_name.has_value())
                 {
-                    local_type = as< dvalue_slot >(local_type).target;
+                    this->state.top_level_lookups[local_name.value()] = arg_idx;
+                    this->state.top_level_lookups_weak[api_name] = arg_idx;
                 }
-                return local_type;
+                else
+                {
+                    this->state.top_level_lookups[api_name] = arg_idx;
+                }
             };
 
             auto declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);
@@ -7847,29 +8066,15 @@ namespace quxlang
                         auto const& api_name = param.api_name.value();
                         handled_named_parameters.insert(api_name);
                         auto const& param_type = parameter_instantiation_type(inst.params.named.at(api_name));
-                        auto arg_idx = this->create_local_value(parameter_local_type(param_type));
-                        this->state.params.named[api_name] = {
-                            .type = param_type,
-                            .local_index = get_local_index(arg_idx),
-                        };
-
-                        if (param.name.has_value())
-                        {
-                            this->state.top_level_lookups[param.name.value()] = arg_idx;
-                            this->state.top_level_lookups_weak[api_name] = arg_idx;
-                        }
-                        else
-                        {
-                            this->state.top_level_lookups[api_name] = arg_idx;
-                        }
+                        value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
+                        register_parameter_lookup_name(param.name, api_name, arg_idx);
                         continue;
                     }
 
                     if (!param.is_pack)
                     {
                         auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
-                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
-                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        value_index param_idx = create_positional_parameter_lookup(param_type);
                         if (param.name.has_value())
                         {
                             this->state.top_level_lookups[param.name.value()] = param_idx;
@@ -7882,8 +8087,7 @@ namespace quxlang
                     while (positional_index < inst.params.positional.size())
                     {
                         auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
-                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
-                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        value_index param_idx = create_positional_parameter_lookup(param_type);
                         pack.values.push_back(param_idx);
                         pack.types.push_back(param_type);
                         positional_index++;
@@ -7906,11 +8110,7 @@ namespace quxlang
                         continue;
                     }
                     auto const& param_type = parameter_instantiation_type(param);
-                    auto arg_idx = this->create_local_value(parameter_local_type(param_type));
-                    this->state.params.named[api_name] = {
-                        .type = param_type,
-                        .local_index = get_local_index(arg_idx),
-                    };
+                    value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
                     this->state.top_level_lookups[api_name] = arg_idx;
                 }
 
@@ -7932,16 +8132,14 @@ namespace quxlang
                     while (positional_index < inst.params.positional.size())
                     {
                         type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
-                        auto param_idx = this->create_local_value(parameter_local_type(param_type));
-                        this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                        create_positional_parameter_lookup(param_type);
                         positional_index++;
                     }
                     continue;
                 }
 
                 type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
-                auto param_idx = this->create_local_value(parameter_local_type(param_type));
-                this->state.params.positional.push_back(vmir2::routine_parameter{.type = param_type, .local_index = get_local_index(param_idx)});
+                value_index param_idx = create_positional_parameter_lookup(param_type);
                 if (interface_index < arg_names.positional.size() && arg_names.positional.at(interface_index).has_value())
                 {
                     this->state.top_level_lookups[*arg_names.positional.at(interface_index)] = param_idx;
@@ -7964,12 +8162,7 @@ namespace quxlang
                 {
                     arg_name = arg_names.named.at(api_name);
                 }
-                auto local_type = parameter_local_type(param_type);
-                auto arg_idx = this->create_local_value(local_type);
-                this->state.params.named[api_name] = {
-                    .type = param_type,
-                    .local_index = get_local_index(arg_idx),
-                };
+                value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
 
                 // If a local name is provided, it's strongly defined and the API name is weakly defined.
                 // Otherwise, the API name is strongly defined.
@@ -7978,15 +8171,7 @@ namespace quxlang
 
                 // TODO: Check for conflicts with existing names in the top-level lookups.
 
-                if (arg_name.has_value())
-                {
-                    this->state.top_level_lookups[arg_name.value()] = arg_idx;
-                    this->state.top_level_lookups_weak[api_name] = arg_idx;
-                }
-                else
-                {
-                    this->state.top_level_lookups[api_name] = arg_idx;
-                }
+                register_parameter_lookup_name(arg_name, api_name, arg_idx);
             }
 
             co_return;
@@ -8200,6 +8385,41 @@ namespace quxlang
             for (auto const& value : args.positional)
             {
                 result.positional.push_back(get_local_index(value));
+            }
+            return result;
+        }
+
+        auto get_invocation_args(instanciation_reference const& what, codegen_invocation_args const& args) -> vmir2::invocation_args
+        {
+            vmir2::invocation_args result;
+            for (auto const& [name, value] : args.named)
+            {
+                if (name == "RETURN")
+                {
+                    result.named[name] = get_local_index(value);
+                    continue;
+                }
+
+                type_symbol param_type = parameter_instantiation_type(what.params.named.at(name));
+                std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
+                if (!runtime_type.has_value())
+                {
+                    continue;
+                }
+
+                result.named[name] = get_local_index(value);
+            }
+
+            for (std::size_t index = 0; index < args.positional.size(); index++)
+            {
+                type_symbol param_type = parameter_instantiation_type(what.params.positional.at(index));
+                std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
+                if (!runtime_type.has_value())
+                {
+                    continue;
+                }
+
+                result.positional.push_back(get_local_index(args.positional.at(index)));
             }
             return result;
         }

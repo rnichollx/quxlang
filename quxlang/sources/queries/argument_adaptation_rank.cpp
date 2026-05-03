@@ -64,6 +64,11 @@ namespace
         std::vector< source_form > forms;
         append_source_form(forms, from, source_form_kind::exact);
 
+        if (typeis< attached_type_reference >(from))
+        {
+            return forms;
+        }
+
         if (!allows_source_rebinding(adaptations))
         {
             return forms;
@@ -198,11 +203,6 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
     auto from = input.from;
     auto const& to = input.to;
 
-    if (typeis< attached_type_reference >(from))
-    {
-        from = as< attached_type_reference >(from).carrying_type;
-    }
-
     if (from == to)
     {
         co_return 1;
@@ -248,6 +248,11 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
                 co_return rank;
             }
         }
+    }
+
+    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to))
+    {
+        co_return std::nullopt;
     }
 
     if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{

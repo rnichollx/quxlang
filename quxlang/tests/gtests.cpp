@@ -25,6 +25,7 @@
 #include <quxlang/data/lambda_types.hpp>
 #include <quxlang/queries/class_field_list.hpp>
 #include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/convertible_by_call.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
@@ -1573,6 +1574,12 @@ namespace
                 quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
         }
 
+        auto get_argument_adaptation_rank(quxlang::argument_init_input input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::argument_adaptation_rank_query >(
+                quxlang::argument_init_input{.from = std::move(input.from), .to = std::move(input.to), .adaptations = input.adaptations});
+        }
+
         auto get_convertible_by_call(quxlang::implicitly_convertible_to_input input, std::optional< std::filesystem::path > const&) const
         {
             return m_graph.make_request< quxlang::convertible_by_call_query >(
@@ -1794,6 +1801,67 @@ TEST(quxlang, write_reference_does_not_objectize_into_auto_template)
                                                    std::nullopt);
 
     EXPECT_FALSE(adapted.has_value());
+}
+
+TEST(quxlang, attached_type_reference_matches_auto_without_decay)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    quxlang::type_symbol foo_symbol = parse_type_symbol("MODULE(main)::foo");
+    quxlang::type_symbol attached_foo = quxlang::attached_type_reference{
+        .carrying_type = quxlang::void_type{},
+        .attached_symbol = foo_symbol,
+    };
+
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+                                                       .from = attached_foo,
+                                                       .to = parse_type_symbol("AUTO(fn)"),
+                                                       .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                   },
+                                                   std::nullopt);
+
+    ASSERT_TRUE(adapted.has_value());
+    EXPECT_EQ(*adapted, attached_foo);
+
+    auto rank = c.get_argument_adaptation_rank(quxlang::argument_init_input{
+                                                   .from = attached_foo,
+                                                   .to = parse_type_symbol("AUTO(fn)"),
+                                                   .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                               },
+                                               std::nullopt);
+
+    ASSERT_TRUE(rank.has_value());
+    EXPECT_EQ(*rank, 3u);
+}
+
+TEST(quxlang, attached_type_reference_does_not_decay_to_carrier_in_generic_conversions)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    quxlang::type_symbol attached_i32_foo = quxlang::attached_type_reference{
+        .carrying_type = parse_type_symbol("I32"),
+        .attached_symbol = parse_type_symbol("MODULE(main)::foo"),
+    };
+
+    auto adapted = c.get_ensig_argument_initialize(quxlang::argument_init_input{
+                                                       .from = attached_i32_foo,
+                                                       .to = parse_type_symbol("I32"),
+                                                       .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                                   },
+                                                   std::nullopt);
+    EXPECT_FALSE(adapted.has_value());
+
+    auto rank = c.get_argument_adaptation_rank(quxlang::argument_init_input{
+                                                   .from = attached_i32_foo,
+                                                   .to = parse_type_symbol("I32"),
+                                                   .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+                                               },
+                                               std::nullopt);
+    EXPECT_FALSE(rank.has_value());
 }
 
 TEST(quxlang, templating_typoids_consider_ref_rebinding_and_objectization_once)

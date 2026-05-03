@@ -63,6 +63,11 @@ namespace
         std::vector< source_form > forms;
         append_source_form(forms, from, source_form_kind::exact);
 
+        if (typeis< attached_type_reference >(from))
+        {
+            return forms;
+        }
+
         if (!allows_source_rebinding(adaptations))
         {
             return forms;
@@ -95,11 +100,6 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_template_spec > qux
 {
     auto from = input.from;
     auto const& to = input.to;
-
-    if (typeis< attached_type_reference >(from))
-    {
-        from = as< attached_type_reference >(from).carrying_type;
-    }
 
     if (!is_template(to))
     {

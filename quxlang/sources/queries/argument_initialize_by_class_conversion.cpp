@@ -123,9 +123,9 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_class_conversion_sp
     auto from = input.from;
     auto const& to = input.to;
 
-    if (typeis< attached_type_reference >(from))
+    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to))
     {
-        from = as< attached_type_reference >(from).carrying_type;
+        co_return std::nullopt;
     }
 
     if (!allows_class_conversions(input.adaptations) || is_template(to))

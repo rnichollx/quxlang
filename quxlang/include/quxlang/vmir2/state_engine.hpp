@@ -4,6 +4,7 @@
 #define QUXLANG_VMIR2_STATE_ENGINE_HEADER_GUARD
 
 #include <map>
+#include <optional>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include <vector>
@@ -290,11 +291,39 @@ namespace quxlang::vmir2
             check_state_valid();
             auto ivk_func_inst = inv.what.get_as< instanciation_reference >();
 
-            for (std::size_t index = 0; index < inv.args.positional.size(); index++)
+            auto runtime_parameter_type = [](type_symbol const& param_type) -> std::optional< type_symbol >
             {
-                auto const arg_idx = inv.args.positional[index];
-                auto const& arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.positional.at(index));
-                if (arg_inst_type.template type_is< nvalue_slot >())
+                if (!typeis< attached_type_reference >(param_type))
+                {
+                    return param_type;
+                }
+
+                attached_type_reference const& attached = as< attached_type_reference >(param_type);
+                if (typeis< void_type >(attached.carrying_type))
+                {
+                    return std::nullopt;
+                }
+                return attached.carrying_type;
+            };
+
+            std::size_t runtime_positional_index = 0;
+            for (std::size_t param_index = 0; param_index < ivk_func_inst.params.positional.size(); param_index++)
+            {
+                type_symbol arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.positional.at(param_index));
+                std::optional< type_symbol > runtime_type = runtime_parameter_type(arg_inst_type);
+                if (!runtime_type.has_value())
+                {
+                    continue;
+                }
+                if (runtime_positional_index >= inv.args.positional.size())
+                {
+                    throw invalid_instruction_error("invoke missing positional runtime argument");
+                }
+
+                local_index arg_idx = inv.args.positional[runtime_positional_index];
+                runtime_positional_index++;
+
+                if (runtime_type->template type_is< nvalue_slot >())
                 {
                     output(arg_idx);
                 }
@@ -303,26 +332,45 @@ namespace quxlang::vmir2
                     consume(arg_idx);
                 }
             }
-
-            for (auto const& [name, index] : inv.args.named)
+            if (runtime_positional_index != inv.args.positional.size())
             {
-                type_symbol arg_inst_type;
-                if (name == "RETURN")
+                throw invalid_instruction_error("invoke has extra positional runtime arguments");
+            }
+
+            for (auto const& [name, param] : ivk_func_inst.params.named)
+            {
+                type_symbol arg_inst_type = parameter_instantiation_type(param);
+                std::optional< type_symbol > runtime_type = runtime_parameter_type(arg_inst_type);
+                if (!runtime_type.has_value())
                 {
-                    arg_inst_type = nvalue_slot{.target = slot_info.at(index).type};
-                }
-                else
-                {
-                    arg_inst_type = parameter_instantiation_type(ivk_func_inst.params.named.at(name));
+                    continue;
                 }
 
-                if (arg_inst_type.template type_is< nvalue_slot >())
+                auto arg_it = inv.args.named.find(name);
+                if (arg_it == inv.args.named.end())
                 {
-                    output(index);
+                    throw invalid_instruction_error("invoke missing named runtime argument");
+                }
+
+                if (runtime_type->template type_is< nvalue_slot >())
+                {
+                    output(arg_it->second);
                 }
                 else
                 {
-                    consume(index);
+                    consume(arg_it->second);
+                }
+            }
+            if (auto return_it = inv.args.named.find("RETURN"); return_it != inv.args.named.end())
+            {
+                type_symbol return_type = nvalue_slot{.target = slot_info.at(return_it->second).type};
+                if (return_type.template type_is< nvalue_slot >())
+                {
+                    output(return_it->second);
+                }
+                else
+                {
+                    consume(return_it->second);
                 }
             }
             check_state_valid();

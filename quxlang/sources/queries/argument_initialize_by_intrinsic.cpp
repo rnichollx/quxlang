@@ -7,9 +7,9 @@ rpnx::querygraph::coroutine< quxlang::argument_initialize_by_intrinsic_spec > qu
 {
     auto from = input.from;
 
-    if (typeis< attached_type_reference >(from))
+    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(input.to))
     {
-        from = as< attached_type_reference >(from).carrying_type;
+        co_return std::nullopt;
     }
 
     if ((typeis< int_type >(input.to) || typeis< float_type >(input.to)) && typeis< numeric_literal_reference >(from))

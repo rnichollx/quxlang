@@ -30,15 +30,6 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
     auto from = input.from;
     auto const& to = input.to;
 
-    if (typeis< attached_type_reference >(from))
-    {
-        co_return co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
-                                                                      .from = as< attached_type_reference >(from).carrying_type,
-                                                                      .to = to,
-                                                                      .adaptations = input.adaptations,
-                                                                  });
-    }
-
     if (from == to)
     {
         co_return to;
@@ -60,6 +51,11 @@ rpnx::querygraph::coroutine< quxlang::ensig_argument_initialize_spec > quxlang::
                                                   }))
     {
         co_return templated;
+    }
+
+    if (typeis< attached_type_reference >(from) || typeis< attached_type_reference >(to))
+    {
+        co_return std::nullopt;
     }
 
     if (allows_source_rebinding(input.adaptations) && co_await rpnx::querygraph::request< bindable_query >(implicitly_convertible_to_input{
