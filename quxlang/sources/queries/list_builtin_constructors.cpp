@@ -102,6 +102,17 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         return expression_static_choose{.condition = std::move(condition), .true_expr = std::move(true_expr), .false_expr = std::move(false_expr)};
     };
 
+    if (co_await rpnx::querygraph::request< symbol_type_query >(input) == symbol_kind::interface_)
+    {
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_tref(input)}}, void_type{});
+        if (co_await rpnx::querygraph::request< interface_defaultable_query >(input))
+        {
+            add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
+        }
+        co_return result;
+    }
+
 
     if (typeis< readonly_constant >(input))
     {

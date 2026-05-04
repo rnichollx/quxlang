@@ -1,0 +1,88 @@
+::interface_integer INTERFACE DEFAULTABLE
+{
+    .value FUNCTION(%x I32): I32;
+    .default_value FUNCTION(%x I32): I32 { RETURN x + 100; }
+}
+
+::interface_integer_impl IMPLEMENTATION(interface_integer)
+{
+    ::value FUNCTION(%x I32): I32 { RETURN x + 7; }
+    ::default_value FUNCTION(%x I32): I32 { RETURN x + 1; }
+}
+
+::static_interface_integer STATIC interface_integer := interface_integer_impl;
+
+::interface_overloaded INTERFACE
+{
+    .pick FUNCTION(%x I32): I32;
+    .pick FUNCTION(%x I64): I64;
+}
+
+::interface_overloaded_impl IMPLEMENTATION(interface_overloaded)
+{
+    ::pick FUNCTION(%x I32): I32 { RETURN x + 1; }
+    ::pick FUNCTION(%x I64): I64 { RETURN x + 2; }
+}
+
+::interface_dispatch_and_default_test STATIC_TEST
+{
+    VAR handle interface_integer := interface_integer_impl;
+    ASSERT(handle??);
+    ASSERT(handle.value(5) == 12);
+    ASSERT(handle.default_value(5) == 6);
+
+    VAR copied interface_integer := handle;
+    ASSERT(copied.value(3) == 10);
+
+    VAR assigned interface_integer;
+    ASSERT((assigned??) == FALSE);
+    assigned := handle;
+    ASSERT(assigned??);
+    ASSERT(assigned.value(4) == 11);
+
+    VAR defaulted interface_integer;
+    ASSERT((defaulted??) == FALSE);
+    ASSERT(defaulted.default_value(4) == 104);
+}
+
+::interface_argument_dispatch_helper FUNCTION(%handle interface_integer, %x I32): I32
+{
+    RETURN handle.value(x);
+}
+
+::interface_argument_passing_test STATIC_TEST
+{
+    ASSERT(interface_argument_dispatch_helper(interface_integer_impl, 8) == 15);
+}
+
+::interface_static_handle_dispatch_test STATIC_TEST
+{
+    ASSERT(static_interface_integer??);
+    ASSERT(static_interface_integer.value(6) == 13);
+}
+
+::interface_overloaded_dispatch_test STATIC_TEST
+{
+    VAR handle interface_overloaded := interface_overloaded_impl;
+    ASSERT(handle.pick(I32(@OTHER 4)) == 5);
+    ASSERT(handle.pick(I64(@OTHER 7)) == I64(@OTHER 9));
+}
+
+::interface_not_defaultable INTERFACE
+{
+    .value FUNCTION(): I32;
+}
+
+::interface_missing_impl IMPLEMENTATION(interface_not_defaultable)
+{
+}
+
+::interface_non_defaultable_default_ctor_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR handle interface_not_defaultable;
+}
+
+::interface_missing_implementation_fails STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+    VAR handle interface_not_defaultable := interface_missing_impl;
+}

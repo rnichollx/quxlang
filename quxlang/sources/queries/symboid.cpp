@@ -15,6 +15,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return as< ast2_class_declaration >(decl);
         }
+        else if (typeis< ast2_interface_declaration >(decl))
+        {
+            return as< ast2_interface_declaration >(decl);
+        }
+        else if (typeis< ast2_implementation_declaration >(decl))
+        {
+            return as< ast2_implementation_declaration >(decl);
+        }
         else if (typeis< ast2_function_declaration >(decl))
         {
             functum output;

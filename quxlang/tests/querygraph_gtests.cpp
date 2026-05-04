@@ -12,11 +12,16 @@
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
+#include <quxlang/queries/implementation_function_map.hpp>
+#include <quxlang/queries/implementation_interface_type.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
 #include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/interface_defaultable.hpp>
+#include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_id.hpp>
 #include <quxlang/queries/source_file_index.hpp>
@@ -25,10 +30,14 @@
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
+#include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
+#include <quxlang/queries/vm_procedure3.hpp>
+#include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
 #include "graph_dump_test_utils.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <variant>
 
@@ -285,6 +294,105 @@ TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
+}
+
+TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::iface INTERFACE DEFAULTABLE {
+    .value FUNCTION(%x I32): I32;
+    .fallback FUNCTION(%x I32): I32 { RETURN x + 10; }
+    .pick FUNCTION(%x I32): I32;
+    .pick FUNCTION(%x I64): I64;
+}
+::impl IMPLEMENTATION(iface) {
+    ::value FUNCTION(%x I32): I32 { RETURN x + 1; }
+    ::fallback FUNCTION(%x I32): I32 { RETURN x + 2; }
+    ::pick FUNCTION(%x I32): I32 { RETURN x + 3; }
+    ::pick FUNCTION(%x I64): I64 { RETURN x + 4; }
+}
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto iface = quxlang::type_symbol(quxlang::subsymbol{main, "iface"});
+    auto impl = quxlang::type_symbol(quxlang::subsymbol{main, "impl"});
+
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(iface), quxlang::symbol_kind::interface_);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(impl), quxlang::symbol_kind::implementation_);
+    EXPECT_TRUE(graph.make_request< quxlang::interface_defaultable_query >(iface));
+    EXPECT_EQ(graph.make_request< quxlang::implementation_interface_type_query >(impl), iface);
+
+    auto placement = graph.make_request< quxlang::type_placement_info_query >(iface);
+    auto machine = graph.make_request< quxlang::machine_info_query >(std::monostate{});
+    EXPECT_EQ(placement.size, machine.pointer_size_bytes());
+    EXPECT_EQ(placement.alignment, machine.pointer_align());
+
+    auto slots = graph.make_request< quxlang::interface_slot_list_query >(iface);
+    ASSERT_EQ(slots.size(), 4);
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+    auto i64 = quxlang::type_symbol(quxlang::int_type{64, true});
+    quxlang::interface_slot_key value_key{.name = "value", .concrete_params = quxlang::invotype{.positional = {i32}}, .concrete_return_type = i32};
+    quxlang::interface_slot_key pick_i64_key{.name = "pick", .concrete_params = quxlang::invotype{.positional = {i64}}, .concrete_return_type = i64};
+
+    auto has_value_slot = std::ranges::any_of(slots,
+                                              [&](quxlang::interface_slot const& slot)
+                                              {
+                                                  return slot.key == value_key && !slot.declaration.has_default_body;
+                                              });
+    auto has_pick_i64_slot = std::ranges::any_of(slots,
+                                                 [&](quxlang::interface_slot const& slot)
+                                                 {
+                                                     return slot.key == pick_i64_key;
+                                                 });
+    EXPECT_TRUE(has_value_slot);
+    EXPECT_TRUE(has_pick_i64_slot);
+
+    auto functions = graph.make_request< quxlang::implementation_function_map_query >(impl);
+    ASSERT_EQ(functions.size(), slots.size());
+    ASSERT_TRUE(functions.contains(value_key));
+    EXPECT_NE(quxlang::to_string(functions.at(value_key)).find("impl::value"), std::string::npos);
+
+    auto get_impl = quxlang::type_symbol(quxlang::subsymbol{impl, "GET_INTERFACE_IMPL"});
+    auto get_impl_inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = get_impl,
+        .parameters = {},
+        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+    });
+    ASSERT_TRUE(get_impl_inst.has_value());
+    auto routine = graph.make_request< quxlang::vm_procedure3_query >(*get_impl_inst);
+    quxlang::vmir2::assembler asm_printer(routine);
+    EXPECT_NE(asm_printer.to_string(routine).find("INTERFACE_INIT"), std::string::npos);
+}
+
+TEST(querygraph_queries, interface_slot_validation_rejects_bad_shapes)
+{
+    auto expect_bad_interface = [](std::string const& source)
+    {
+        auto bundle = make_single_main_source_bundle(source);
+        auto graph = make_x64_graph(bundle);
+        auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+        auto iface = quxlang::type_symbol(quxlang::subsymbol{main, "iface"});
+        EXPECT_THROW(graph.make_request< quxlang::interface_slot_list_query >(iface), std::logic_error);
+    };
+
+    expect_bad_interface("::iface INTERFACE { .value FUNCTION(%x AUTO): I32; }");
+    expect_bad_interface("::iface INTERFACE { .value FUNCTION(%...xs I32): I32; }");
+    expect_bad_interface("::iface INTERFACE { .value FUNCTION(@THIS I32): I32; }");
+    expect_bad_interface("::iface INTERFACE { .value FUNCTION(%x MissingType): I32; }");
+    expect_bad_interface("::iface INTERFACE { .value FUNCTION(%x I32): I32; .value FUNCTION(%y I32): I32; }");
+}
+
+TEST(querygraph_queries, interface_implementation_map_rejects_missing_slot)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::iface INTERFACE { .value FUNCTION(): I32; }
+::bad_impl IMPLEMENTATION(iface) { }
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto bad_impl = quxlang::type_symbol(quxlang::subsymbol{main, "bad_impl"});
+
+    EXPECT_THROW(graph.make_request< quxlang::implementation_function_map_query >(bad_impl), std::logic_error);
 }
 
 TEST(querygraph_queries, option_number_and_bool_values_are_constexpr_literals)

@@ -534,6 +534,47 @@ namespace quxlang::vmir2
         return "INVOKE " + quxlang::to_string(inst.what) + ", " + this->to_string_internal(inst.args);
     }
 
+    std::string assembler::to_string_internal(vmir2::interface_init inst)
+    {
+        std::string output = "INTERFACE_INIT %" + std::to_string(inst.target) + ", " + quxlang::to_string(inst.interface_type);
+        if (inst.is_default)
+        {
+            output += ", DEFAULT";
+            return output;
+        }
+
+        output += ", [";
+        bool first = true;
+        for (std::pair< interface_slot_key const, type_symbol > const& entry : inst.functions)
+        {
+            if (!first)
+            {
+                output += ", ";
+            }
+            first = false;
+            interface_slot_key const& slot = entry.first;
+            type_symbol const& function = entry.second;
+            output += quxlang::to_string(slot) + " = " + quxlang::to_string(function);
+        }
+        output += "]";
+        return output;
+    }
+
+    std::string assembler::to_string_internal(vmir2::interface_invoke inst)
+    {
+        std::string output = "INTERFACE_INVOKE %" + std::to_string(inst.interface_value) + ", " + quxlang::to_string(inst.slot) + ", " + this->to_string_internal(inst.args);
+        if (inst.default_function.has_value())
+        {
+            output += " DEFAULT " + quxlang::to_string(*inst.default_function);
+        }
+        return output;
+    }
+
+    std::string assembler::to_string_internal(vmir2::interface_is_default inst)
+    {
+        return "INTERFACE_IS_DEFAULT %" + std::to_string(inst.interface_value) + ", %" + std::to_string(inst.result);
+    }
+
     std::string assembler::to_string_internal(vmir2::invoke_indirect inst)
     {
         return "INVOKE_INDIRECT %" + std::to_string(inst.what_index) + ", " + this->to_string_internal(inst.args);

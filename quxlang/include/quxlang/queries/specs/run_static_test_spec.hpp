@@ -20,6 +20,7 @@
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_options_map.hpp>
@@ -59,6 +60,7 @@ namespace quxlang
             global_is_antestatal_static_query,
             implicitly_convertible_to_qg_query,
             instanciation_query,
+            interface_slot_list_query,
             lookup_query,
             machine_info_query,
             module_options_map_query,

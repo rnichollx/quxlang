@@ -36,6 +36,24 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_class_declaration >(source);
     }
+    else if (typeis< ast2_interface_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::logic_error("Cannot merge interface into already existing entity");
+        }
+
+        destination = as< ast2_interface_declaration >(source);
+    }
+    else if (typeis< ast2_implementation_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw std::logic_error("Cannot merge implementation into already existing entity");
+        }
+
+        destination = as< ast2_implementation_declaration >(source);
+    }
     else if (typeis< ast2_template_declaration >(source))
     {
         if (typeis< std::monostate >(destination))

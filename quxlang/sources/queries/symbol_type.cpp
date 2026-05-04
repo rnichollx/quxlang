@@ -101,6 +101,15 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
                 co_return symbol_kind::functum;
             }
         }
+        if (parent_kind == symbol_kind::interface_)
+        {
+            auto decls = co_await rpnx::querygraph::request< functum_overloads_query >(input);
+
+            if (decls.size() > 0)
+            {
+                co_return symbol_kind::functum;
+            }
+        }
 
         auto s = co_await rpnx::querygraph::request< symboid_query >(input);
 
@@ -126,6 +135,14 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         else if (typeis< ast2_class_declaration >(s))
         {
             co_return symbol_kind::class_;
+        }
+        else if (typeis< ast2_interface_declaration >(s))
+        {
+            co_return symbol_kind::interface_;
+        }
+        else if (typeis< ast2_implementation_declaration >(s))
+        {
+            co_return symbol_kind::implementation_;
         }
         else if (typeis< ast2_namespace_declaration >(s))
         {
@@ -163,6 +180,14 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        if (typeis< ast2_class_declaration >(selected_ast))
        {
           co_return symbol_kind::class_;
+       }
+       else if (typeis< ast2_interface_declaration >(selected_ast))
+       {
+          co_return symbol_kind::interface_;
+       }
+       else if (typeis< ast2_implementation_declaration >(selected_ast))
+       {
+          co_return symbol_kind::implementation_;
        }
        else if (typeis< functum >(selected_ast))
        {

@@ -51,8 +51,9 @@ namespace quxlang
     struct antestatal_array;
     struct antestatal_ptrref;
     struct antestatal_primitive;
+    struct antestatal_interface;
 
-    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct >;
+    using antestatal_value = rpnx::variant< antestatal_primitive, antestatal_array, antestatal_ptrref, antestatal_struct, antestatal_interface >;
 
     struct antestatal_access_global;
     struct antestatal_access_field;
@@ -315,6 +316,24 @@ namespace quxlang
         std::optional< type_symbol > return_type;
 
         RPNX_MEMBER_METADATA(sigtype, params, return_type);
+    };
+
+    struct interface_slot_key
+    {
+        std::string name;
+        invotype concrete_params;
+        std::optional< type_symbol > concrete_return_type;
+
+        RPNX_MEMBER_METADATA(interface_slot_key, name, concrete_params, concrete_return_type);
+    };
+
+    struct antestatal_interface
+    {
+        type_symbol interface_type;
+        std::map< interface_slot_key, type_symbol > functions;
+        bool is_default = false;
+
+        RPNX_MEMBER_METADATA(antestatal_interface, interface_type, functions, is_default);
     };
 
     struct numeric_literal_reference

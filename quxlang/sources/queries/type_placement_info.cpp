@@ -40,6 +40,11 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else if (type.template type_is< subsymbol >())
     {
+        if (co_await rpnx::querygraph::request< symbol_type_query >(type) == symbol_kind::interface_)
+        {
+            co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        }
+
         class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(type);
 
         type_placement_info result;

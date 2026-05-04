@@ -96,11 +96,26 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         }
     }
 
+    if (typeis< subsymbol >(input.temploid.templexoid))
+    {
+        subsymbol const& ss = as< subsymbol >(input.temploid.templexoid);
+        if (ss.name == "GET_INTERFACE_IMPL" && co_await rpnx::querygraph::request< symbol_type_query >(ss.of) == symbol_kind::implementation_)
+        {
+            co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
+            co_return co_await gen.co_generate_interface_get_impl(input);
+        }
+    }
+
     if (typeis< submember >(input.temploid.templexoid))
     {
         co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > > gen(machine_info, input);
         auto const & sm = as< submember >(input.temploid.templexoid);
         auto parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(sm.of);
+
+        if (parent_kind == symbol_kind::interface_)
+        {
+            co_return co_await gen.co_generate_interface_builtin(input);
+        }
        
         if (parent_kind == symbol_kind::global_variable)
         {

@@ -97,6 +97,13 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool invalidated = false;
     };
 
+    struct interface_object
+    {
+        type_symbol interface_type;
+        std::map< interface_slot_key, type_symbol > functions;
+        bool is_default = false;
+    };
+
     struct local
     {
         std::vector< std::byte > data;
@@ -106,6 +113,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::uint64_t object_id{};
         bool readonly = false;
         std::optional< type_symbol > procedure;
+        std::optional< interface_object > interface_value;
         std::optional< pointer_impl > ref;
         std::optional< std::weak_ptr< local > > member_of;
         std::optional< std::weak_ptr< local > > storage_owner;
@@ -366,6 +374,9 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::access_pointer const& acp);
     void exec_instr_val(vmir2::invoke const& inv);
     void exec_instr_val(vmir2::invoke_indirect const& inv);
+    void exec_instr_val(vmir2::interface_init const& inv);
+    void exec_instr_val(vmir2::interface_invoke const& inv);
+    void exec_instr_val(vmir2::interface_is_default const& inv);
     void exec_instr_val(vmir2::get_procedure_ptr const& gpp);
     void exec_instr_val(vmir2::make_reference const& mrf);
     void exec_instr_val(vmir2::jump const& jmp);
@@ -533,6 +544,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::uint64_t consume_u64(local_index slot);
     std::shared_ptr< local > consume_local(local_index slot);
+    interface_object load_interface_object(local_index slot, bool consume);
 
     uint64_t alloc_object_id();
     void set_data(local_index slot, std::vector< std::byte > data);
@@ -1816,6 +1828,45 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto callee = load_indirect_callable_symbol(inv.what_index, true);
     call_func(callee, inv.args);
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::interface_init const& inv)
+{
+    auto target = output_local(inv.target);
+    target->interface_value = interface_object{
+        .interface_type = inv.interface_type,
+        .functions = inv.functions,
+        .is_default = inv.is_default,
+    };
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::interface_invoke const& inv)
+{
+    interface_object interface_handle = load_interface_object(inv.interface_value, false);
+    if (interface_handle.is_default)
+    {
+        if (!inv.default_function.has_value())
+        {
+            throw constexpr_logic_execution_error("Interface default value invoked without a default implementation");
+        }
+
+        invocation_args default_args = inv.args;
+        default_args.named["THIS"] = inv.interface_value;
+        call_func(*inv.default_function, std::move(default_args));
+        return;
+    }
+
+    auto callee = interface_handle.functions.find(inv.slot);
+    if (callee == interface_handle.functions.end())
+    {
+        throw constexpr_logic_execution_error("Interface value invoked without a matching implementation slot");
+    }
+
+    consume_local(inv.interface_value);
+    call_func(callee->second, inv.args);
+}
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::interface_is_default const& inv)
+{
+    interface_object interface_handle = load_interface_object(inv.interface_value, true);
+    output_bool(inv.result, interface_handle.is_default);
+}
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_procedure_ptr const& gpp)
 {
     auto proc_local = get_or_create_procedure(gpp.routine, gpp.calling_convention);
@@ -2620,6 +2671,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     target_slot->data = load_from.data;
     target_slot->ref = load_from.ref;
     target_slot->constexpr_proxy_output_id = load_from.constexpr_proxy_output_id;
+    target_slot->interface_value = load_from.interface_value;
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {
@@ -2893,6 +2945,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     to_ptr_target.ref = from_ptr_target.ref;
     to_ptr_target.constexpr_proxy_output_id = from_ptr_target.constexpr_proxy_output_id;
+    to_ptr_target.interface_value = from_ptr_target.interface_value;
 
     return;
 }
@@ -3955,6 +4008,26 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
                     this->implementation->missing_functanoids_val.insert(gpp.routine);
                 }
             }
+            else if (typeis< vmir2::interface_init >(instr))
+            {
+                vmir2::interface_init const& init = instr.get_as< vmir2::interface_init >();
+                for (std::pair< interface_slot_key const, type_symbol > const& entry : init.functions)
+                {
+                    type_symbol const& routine = entry.second;
+                    if (!this->implementation->functanoids3.contains(routine))
+                    {
+                        this->implementation->missing_functanoids_val.insert(routine);
+                    }
+                }
+            }
+            else if (typeis< vmir2::interface_invoke >(instr))
+            {
+                vmir2::interface_invoke const& inv = instr.get_as< vmir2::interface_invoke >();
+                if (inv.default_function.has_value() && !this->implementation->functanoids3.contains(*inv.default_function))
+                {
+                    this->implementation->missing_functanoids_val.insert(*inv.default_function);
+                }
+            }
             else if (typeis< vmir2::get_antestatal_ref >(instr))
             {
                 auto const& gar = instr.get_as< vmir2::get_antestatal_ref >();
@@ -4384,6 +4457,55 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
     return result;
 }
+
+quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::interface_object quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::load_interface_object(local_index slot, bool consume)
+{
+    std::shared_ptr< local > local_ptr;
+    auto& frame_slot = get_current_frame().local_values.at(slot);
+    if (!frame_slot || !frame_slot->alive())
+    {
+        throw constexpr_logic_execution_error("Error executing interface instruction: interface handle is not alive");
+    }
+
+    if (consume)
+    {
+        local_ptr = consume_local(slot);
+    }
+    else
+    {
+        local_ptr = frame_slot;
+    }
+
+    type_symbol slot_type = get_local_type(slot);
+    if (is_ref(slot_type))
+    {
+        if (!local_ptr->ref.has_value() || !local_ptr->ref->pointer_target.has_value())
+        {
+            throw constexpr_logic_execution_error("Error executing interface instruction: reference has no target");
+        }
+        if (pointer_invalidated(*local_ptr->ref))
+        {
+            throw constexpr_logic_execution_error("Error executing interface instruction: reference target is invalidated");
+        }
+        std::shared_ptr< local > target = local_ptr->ref->pointer_target->lock();
+        if (!target || !target->alive())
+        {
+            throw constexpr_logic_execution_error("Error executing interface instruction: reference target is not alive");
+        }
+        if (!target->interface_value.has_value())
+        {
+            throw constexpr_logic_execution_error("Error executing interface instruction: referenced object is not an interface handle");
+        }
+        return *target->interface_value;
+    }
+
+    if (!local_ptr->interface_value.has_value())
+    {
+        throw constexpr_logic_execution_error("Error executing interface instruction: object is not an interface handle");
+    }
+    return *local_ptr->interface_value;
+}
+
 uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::alloc_object_id()
 {
     return next_object_id++;
@@ -4946,6 +5068,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         }
     }
 
+    if (typeis< antestatal_interface >(value))
+    {
+        antestatal_interface const& interface_value = as< antestatal_interface >(value);
+        for (std::pair< interface_slot_key const, type_symbol > const& function : interface_value.functions)
+        {
+            if (!functanoids3.contains(function.second))
+            {
+                missing_functanoids_val.insert(function.second);
+            }
+        }
+        return;
+    }
+
     if (typeis< antestatal_ptrref >(value))
     {
         if (type.has_value() && typeis< ptrref_type >(*type) && typeis< procedure_type >(as< ptrref_type >(*type).target))
@@ -5306,6 +5441,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw constexpr_logic_execution_error("antestatal storage values are only supported as primitive bytes");
     }
 
+    if (typeis< antestatal_interface >(value))
+    {
+        antestatal_interface const& interface_value = as< antestatal_interface >(value);
+        if (type != interface_value.interface_type)
+        {
+            throw constexpr_logic_execution_error("antestatal interface initializer type mismatch");
+        }
+        object->interface_value = interface_object{
+            .interface_type = interface_value.interface_type,
+            .functions = interface_value.functions,
+            .is_default = interface_value.is_default,
+        };
+        begin_lifetime(object);
+        return;
+    }
+
     if (typeis< ptrref_type >(type))
     {
         if (!typeis< antestatal_ptrref >(value))
@@ -5492,6 +5643,20 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::ir2_constex
             return materialize_antestatal_value(object->stored_object, *object->storage_active_type);
         }
         return antestatal_primitive{.value = object->data};
+    }
+
+    if (object->interface_value.has_value())
+    {
+        interface_object const& interface_value = *object->interface_value;
+        if (type != interface_value.interface_type)
+        {
+            throw constexpr_logic_execution_error("antestatal interface materialization type mismatch");
+        }
+        return antestatal_interface{
+            .interface_type = interface_value.interface_type,
+            .functions = interface_value.functions,
+            .is_default = interface_value.is_default,
+        };
     }
 
     if (typeis< ptrref_type >(type))

@@ -1769,6 +1769,47 @@ namespace quxlang
         return output;
     }
 
+    std::string to_string(interface_slot_key const& ref)
+    {
+        std::string output = "@" + ref.name;
+        if (!ref.concrete_params.named.empty() || !ref.concrete_params.positional.empty() || ref.concrete_return_type.has_value())
+        {
+            output += "#(";
+            bool first = true;
+            append_named_arguments_in_print_order(output, first, ref.concrete_params.named, [&](std::pair< std::string const, type_symbol > const& entry) {
+                std::string const& name = entry.first;
+                type_symbol const& arg = entry.second;
+                output += "@" + name + " " + to_string(arg);
+            });
+            for (type_symbol const& arg : ref.concrete_params.positional)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    output += ", ";
+                }
+                output += to_string(arg);
+            }
+            if (ref.concrete_return_type.has_value())
+            {
+                if (!first)
+                {
+                    output += ": ";
+                }
+                else
+                {
+                    output += ": ";
+                }
+                output += to_string(*ref.concrete_return_type);
+            }
+            output += ")";
+        }
+        return output;
+    }
+
     std::string constexpr_parameter_value_to_string(type_symbol const& type, constexpr_value const& value)
     {
         auto const& antestatal = constexpr_value_as_antestatal(value);

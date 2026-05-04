@@ -37,6 +37,29 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
         co_return result;
     }
 
+    if (typeis< submember >(input))
+    {
+        submember const& member = as< submember >(input);
+        auto parent_sym = co_await rpnx::querygraph::request< symboid_query >(member.of);
+        if (typeis< ast2_interface_declaration >(parent_sym))
+        {
+            ast2_interface_declaration const& interface_decl = as< ast2_interface_declaration >(parent_sym);
+            for (ast2_interface_function_declaration const& interface_function : interface_decl.functions)
+            {
+                if (interface_function.name != member.name)
+                {
+                    continue;
+                }
+                ast2_function_declaration declaration;
+                declaration.header = interface_function.header;
+                declaration.definition = interface_function.definition;
+                declaration.location = interface_function.location;
+                result.push_back(std::move(declaration));
+            }
+            co_return result;
+        }
+    }
+
     auto maybe_functum_ast = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (!typeis< functum >(maybe_functum_ast))

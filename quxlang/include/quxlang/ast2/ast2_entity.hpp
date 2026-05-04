@@ -22,6 +22,9 @@ namespace quxlang
     struct ast2_variable_declaration;
     struct ast2_file_declaration;
     struct ast2_class_declaration;
+    struct ast2_interface_declaration;
+    struct ast2_implementation_declaration;
+    struct ast2_interface_function_declaration;
     struct ast2_function_declaration;
     struct ast2_template_declaration;
     struct ast2_function_template_declaration;
@@ -37,13 +40,13 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
-    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_function_declaration, ast2_variable_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
     struct member_subdeclaroid
     {
@@ -234,6 +237,32 @@ namespace quxlang
         ast2_function_definition definition;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_function_declaration, header, definition);
+    };
+
+    struct ast2_interface_function_declaration
+    {
+        std::string name;
+        ast2_function_header header;
+        ast2_function_definition definition;
+        bool has_default_body = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_interface_function_declaration, name, header, definition, has_default_body);
+    };
+
+    struct ast2_interface_declaration
+    {
+        std::vector< ast2_interface_function_declaration > functions;
+        bool defaultable = false;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_interface_declaration, functions, defaultable);
+    };
+
+    struct ast2_implementation_declaration
+    {
+        type_symbol interface_type;
+        std::vector< subdeclaroid > declarations;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_implementation_declaration, interface_type, declarations);
     };
 
     struct ast2_static_test

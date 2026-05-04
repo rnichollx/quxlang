@@ -12,6 +12,7 @@
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/skip_whitespace.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
+#include <quxlang/parsers/try_parse_interface.hpp>
 #include <quxlang/parsers/try_parse_template_declaration.hpp>
 #include <quxlang/parsers/try_parse_function_declaration.hpp>
 #include <quxlang/parsers/try_parse_name.hpp>
@@ -23,6 +24,8 @@ namespace quxlang::parsers
 {
     std::optional< quxlang::ast2_template_declaration > try_parse_template(parsing_context& ctx);
     std::optional< ast2_class_declaration > try_parse_class(parsing_context& ctx);
+    std::optional< ast2_interface_declaration > try_parse_interface(parsing_context& ctx);
+    std::optional< ast2_implementation_declaration > try_parse_implementation(parsing_context& ctx);
     std::optional< ast2_function_declaration > try_parse_function_declaration(parsing_context& ctx);
     std::optional< ast2_static_test > try_parse_static_test(parsing_context& ctx);
     std::optional< ast2_variable_declaration > try_parse_variable_declaration(parsing_context& ctx);
@@ -113,6 +116,16 @@ namespace quxlang::parsers
             return std::move(output);
         }
         output = try_parse_class(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+        output = try_parse_interface(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+        output = try_parse_implementation(ctx);
         if (output)
         {
             return std::move(output);

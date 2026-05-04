@@ -37,6 +37,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_class_body.hpp
         include/quxlang/parsers/try_parse_class.hpp
+        include/quxlang/parsers/try_parse_interface.hpp
         include/quxlang/parsers/try_parse_template_declaration.hpp
         include/quxlang/parsers/skip_whitespace.hpp
         include/quxlang/parsers/keyword.hpp
@@ -243,11 +244,15 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/global_is_string_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp
+        include/quxlang/queries/specs/implementation_function_map_spec.hpp
+        include/quxlang/queries/specs/implementation_interface_type_spec.hpp
         include/quxlang/queries/specs/implicitly_convertible_to_spec.hpp
         include/quxlang/queries/specs/instanciation_spec.hpp
         include/quxlang/queries/specs/instanciation_tempar_map_spec.hpp
         include/quxlang/queries/specs/interpret_bool_spec.hpp
         include/quxlang/queries/specs/interpret_value_spec.hpp
+        include/quxlang/queries/specs/interface_defaultable_spec.hpp
+        include/quxlang/queries/specs/interface_slot_list_spec.hpp
         include/quxlang/queries/specs/list_builtin_constructors_spec.hpp
         include/quxlang/queries/specs/list_static_tests_spec.hpp
         include/quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp
@@ -367,11 +372,15 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/global_is_string_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
         sources/queries/have_nontrivial_member_dtor.cpp
+        sources/queries/implementation_function_map.cpp
+        sources/queries/implementation_interface_type.cpp
         sources/queries/implicitly_convertible_to.cpp
         sources/queries/instanciation.cpp
         sources/queries/instanciation_tempar_map.cpp
         sources/queries/interpret_bool.cpp
         sources/queries/interpret_value.cpp
+        sources/queries/interface_defaultable.cpp
+        sources/queries/interface_slot_list.cpp
         sources/queries/list_builtin_constructors.cpp
         sources/queries/list_static_tests.cpp
         sources/queries/list_user_functum_formal_paratypes.cpp

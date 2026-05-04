@@ -39,8 +39,11 @@
 #include "quxlang/queries/functum_select_function.hpp"
 #include "quxlang/queries/global_is_string_static.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
+#include "quxlang/queries/implementation_function_map.hpp"
+#include "quxlang/queries/implementation_interface_type.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
+#include "quxlang/queries/interface_slot_list.hpp"
 #include "quxlang/queries/lambda_capture_set.hpp"
 #include "quxlang/queries/lambda_environment.hpp"
 #include "quxlang/queries/lambda_operator.hpp"
@@ -2037,6 +2040,11 @@ namespace quxlang
                 auto global_get_reference = submember{.of = canonical_symbol, .name = "GET_REFERENCE"};
                 index = co_await this->co_gen_call_functum(idx, global_get_reference, {});
             }
+            else if (kind == quxlang::symbol_kind::implementation_)
+            {
+                subsymbol implementation_get_interface = subsymbol{.of = canonical_symbol, .name = "GET_INTERFACE_IMPL"};
+                index = co_await this->co_gen_call_functum(idx, implementation_get_interface, {});
+            }
             else
             {
                 index = binding;
@@ -2585,6 +2593,11 @@ namespace quxlang
         {
             /// THIS IS THE MAIN BIND POINT FOR NEW INSTRUCTIONS AND BUILTIN TYPES
             /// DO NOT GENERATE NEW FUNCTIONS THAT ONLY OUTPUT ONE INSTRUCTION THEN RETURN
+            if (co_await this->co_try_emit_interface_builtin(bidx, what, args))
+            {
+                co_return;
+            }
+
             if (auto intrinsic = this->intrinsic_instruction(what, args); intrinsic.has_value())
             {
                 this->emit(bidx, intrinsic.value());
@@ -2614,6 +2627,142 @@ namespace quxlang
             this->emit(bidx, ivk);
 
             co_return;
+        }
+
+        auto interface_slot_key_from_functanoid(instanciation_reference const& what) -> co_type< interface_slot_key >
+        {
+            interface_slot_key key;
+            if (!typeis< submember >(what.temploid.templexoid))
+            {
+                throw compiler_bug("Interface slot key requires a member functanoid");
+            }
+            submember const& member = as< submember >(what.temploid.templexoid);
+            key.name = member.name;
+            key.concrete_params = invotype_from_instatype(what.params);
+            key.concrete_params.named.erase("THIS");
+
+            auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(what);
+            if (!typeis< void_type >(return_type))
+            {
+                key.concrete_return_type = std::move(return_type);
+            }
+            co_return key;
+        }
+
+        auto interface_slot_has_default_body(type_symbol interface_type, interface_slot_key const& key) -> co_type< bool >
+        {
+            std::vector< interface_slot > slots = co_await rpnx::querygraph::request< interface_slot_list_query >(std::move(interface_type));
+            for (interface_slot const& slot : slots)
+            {
+                if (slot.key == key)
+                {
+                    co_return slot.declaration.has_default_body;
+                }
+            }
+            throw compiler_bug("Interface slot not found after overload resolution");
+        }
+
+        auto co_try_emit_interface_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        {
+            if (!typeis< submember >(what.temploid.templexoid))
+            {
+                co_return false;
+            }
+
+            submember const& member = as< submember >(what.temploid.templexoid);
+            symbol_kind parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+            if (parent_kind != symbol_kind::interface_)
+            {
+                co_return false;
+            }
+
+            invotype call = invotype_from_instatype(what.params);
+            if (member.name == "CONSTRUCTOR")
+            {
+                if (args.named.contains("THIS") && args.size() == 1)
+                {
+                    this->emit(bidx, vmir2::interface_init{
+                                         .target = get_local_index(args.named.at("THIS")),
+                                         .interface_type = member.of,
+                                         .is_default = true,
+                                     });
+                    co_return true;
+                }
+
+                if (args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+                {
+                    this->emit(bidx, vmir2::load_from_ref{
+                                         .from_reference = get_local_index(args.named.at("OTHER")),
+                                         .to_value = get_local_index(args.named.at("THIS")),
+                                     });
+                    co_return true;
+                }
+            }
+
+            if (member.name == "OPERATOR:=" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::store_to_ref{
+                                     .from_value = get_local_index(args.named.at("OTHER")),
+                                     .to_reference = get_local_index(args.named.at("THIS")),
+                                 });
+                co_return true;
+            }
+
+            if (member.name == "OPERATOR??" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            {
+                value_index default_check = this->create_local_value(bool_type{});
+                this->emit(bidx, vmir2::interface_is_default{
+                                     .interface_value = get_local_index(args.named.at("THIS")),
+                                     .result = get_local_index(default_check),
+                                 });
+                this->emit(bidx, vmir2::to_bool_not{
+                                     .from = get_local_index(default_check),
+                                     .to = get_local_index(args.named.at("RETURN")),
+                                 });
+                co_return true;
+            }
+
+            (void)call;
+            co_return false;
+        }
+
+        auto co_try_emit_interface_builtin_from_locals(block_index& bidx, instanciation_reference const& what) -> co_type< bool >
+        {
+            codegen_invocation_args args;
+            std::optional< value_index > this_value = this->local_value_direct_lookup(bidx, "THIS");
+            if (this_value.has_value())
+            {
+                args.named["THIS"] = *this_value;
+            }
+            std::optional< value_index > other_value = this->local_value_direct_lookup(bidx, "OTHER");
+            if (other_value.has_value())
+            {
+                args.named["OTHER"] = *other_value;
+            }
+            std::optional< value_index > return_value = this->local_value_direct_lookup(bidx, "RETURN");
+            if (return_value.has_value())
+            {
+                args.named["RETURN"] = *return_value;
+            }
+
+            co_return co_await this->co_try_emit_interface_builtin(bidx, what, args);
+        }
+
+        auto co_generate_interface_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
+            {
+                throw compiler_bug("Interface builtin routine is not implemented: " + quxlang::to_string(func));
+            }
+
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
         }
 
         bool is_intrinsic_type(type_symbol of_type)
@@ -3791,6 +3940,33 @@ namespace quxlang
             if (is_builtin)
             {
                 co_return co_await co_gen_invoke_builtin(bidx, what, args);
+            }
+
+            if (typeis< submember >(what.temploid.templexoid))
+            {
+                submember const& member = as< submember >(what.temploid.templexoid);
+                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                {
+                    if (!args.named.contains("THIS"))
+                    {
+                        throw compiler_bug("Interface invocation is missing THIS");
+                    }
+
+                    interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
+                    codegen_invocation_args call_args = args;
+                    call_args.named.erase("THIS");
+
+                    vmir2::interface_invoke inv;
+                    inv.interface_value = get_local_index(args.named.at("THIS"));
+                    inv.slot = key;
+                    inv.args = get_invocation_args(call_args);
+                    if (co_await interface_slot_has_default_body(member.of, key))
+                    {
+                        inv.default_function = what;
+                    }
+                    this->emit(bidx, inv);
+                    co_return;
+                }
             }
 
             if (args.named.contains("RETURN"))
@@ -6629,6 +6805,17 @@ namespace quxlang
             block_index current_block = block_index(0);
             auto cls = func.temploid.templexoid.get_as< submember >().of;
 
+            if (co_await rpnx::querygraph::request< symbol_type_query >(cls) == symbol_kind::interface_)
+            {
+                if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
+                {
+                    throw compiler_bug("Interface constructor routine is not implemented: " + quxlang::to_string(func));
+                }
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
             if (cls.template type_is< array_type >())
             {
                 co_await co_generate_array_ctor_delegates(current_block, func, {});
@@ -6637,6 +6824,40 @@ namespace quxlang
             {
                 co_await co_generate_struct_ctor_delegates(current_block, func, {});
             }
+            co_await co_generate_builtin_return(current_block);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_interface_get_impl(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+            block_index current_block = block_index(0);
+
+            if (!typeis< subsymbol >(func.temploid.templexoid))
+            {
+                throw compiler_bug("GET_INTERFACE_IMPL must be a subsymbol functanoid");
+            }
+
+            subsymbol const& function_symbol = as< subsymbol >(func.temploid.templexoid);
+            type_symbol implementation_type = function_symbol.of;
+            type_symbol interface_type = co_await rpnx::querygraph::request< implementation_interface_type_query >(implementation_type);
+            std::map< interface_slot_key, type_symbol > functions = co_await rpnx::querygraph::request< implementation_function_map_query >(implementation_type);
+            std::optional< value_index > return_value = this->local_value_direct_lookup(current_block, "RETURN");
+            if (!return_value.has_value())
+            {
+                throw compiler_bug("GET_INTERFACE_IMPL has no RETURN parameter");
+            }
+
+            this->emit(current_block, vmir2::interface_init{
+                                          .target = get_local_index(*return_value),
+                                          .interface_type = std::move(interface_type),
+                                          .functions = std::move(functions),
+                                          .is_default = false,
+                                      });
+
             co_await co_generate_builtin_return(current_block);
             co_await co_generate_dtor_references();
             co_return get_result();
@@ -7674,6 +7895,21 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
 
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                {
+                    if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
+                    {
+                        throw compiler_bug("Interface copy constructor routine is not implemented: " + quxlang::to_string(func));
+                    }
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
+
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
             auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
             if (thisidx.has_value() && otheridx.has_value())
@@ -7704,6 +7940,21 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block = block_index(0);
 
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                {
+                    if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
+                    {
+                        throw compiler_bug("Interface move constructor routine is not implemented: " + quxlang::to_string(func));
+                    }
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
+
             auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
             auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
             if (thisidx.has_value() && otheridx.has_value())
@@ -7732,6 +7983,22 @@ namespace quxlang
             co_await co_generate_arg_info(func);
             this->generate_entry_block();
             block_index current_block = block_index(0);
+
+            if (typeis< submember >(func.temploid.templexoid))
+            {
+                submember const& member = as< submember >(func.temploid.templexoid);
+                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                {
+                    if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
+                    {
+                        throw compiler_bug("Interface assignment routine is not implemented: " + quxlang::to_string(func));
+                    }
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+            }
+
             auto swap_expr = expression_binary{
                 .operator_str = "<->",
                 .lhs = expression_symbol_reference{.symbol = freebound_identifier{"THIS"}},

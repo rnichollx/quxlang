@@ -20,6 +20,7 @@
 
 #include <quxlang/parsers/parse_file.hpp>
 #include <quxlang/parsers/try_parse_class.hpp>
+#include <quxlang/parsers/try_parse_interface.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/data/lambda_types.hpp>
@@ -122,6 +123,18 @@ static std::optional< quxlang::ast2_class_declaration > try_parse_class_text(std
     return quxlang::parsers::try_parse_class(ctx);
 }
 
+static std::optional< quxlang::ast2_interface_declaration > try_parse_interface_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::try_parse_interface(ctx);
+}
+
+static std::optional< quxlang::ast2_implementation_declaration > try_parse_implementation_text(std::string const& input)
+{
+    auto ctx = test_parsing_context(input);
+    return quxlang::parsers::try_parse_implementation(ctx);
+}
+
 static std::vector< quxlang::ast2_function_parameter > parse_function_args_text(std::string const& input)
 {
     auto ctx = test_parsing_context(input);
@@ -174,6 +187,47 @@ TEST(parsing, parse_empty_class)
     std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_interface_declaration)
+{
+    auto parsed = try_parse_interface_text(R"(INTERFACE DEFAULTABLE {
+    .value FUNCTION(%x I32): I32;
+    .fallback FUNCTION(%x I32): I32 { RETURN x + 10; }
+    .pick FUNCTION(%x I32): I32;
+    .pick FUNCTION(%x I64): I64;
+}
+)");
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->defaultable);
+    ASSERT_EQ(parsed->functions.size(), 4);
+    EXPECT_EQ(parsed->functions.at(0).name, "value");
+    EXPECT_FALSE(parsed->functions.at(0).has_default_body);
+    EXPECT_EQ(parsed->functions.at(1).name, "fallback");
+    EXPECT_TRUE(parsed->functions.at(1).has_default_body);
+    EXPECT_EQ(parsed->functions.at(2).name, "pick");
+    EXPECT_EQ(parsed->functions.at(3).name, "pick");
+}
+
+TEST(parsing, parse_implementation_declaration)
+{
+    auto parsed = try_parse_implementation_text(R"(IMPLEMENTATION(foo) {
+    ::value FUNCTION(%x I32): I32 { RETURN x + 1; }
+    ::fallback FUNCTION(%x I32): I32 { RETURN x + 2; }
+}
+)");
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->interface_type, quxlang::type_symbol(quxlang::freebound_identifier{"foo"}));
+    ASSERT_EQ(parsed->declarations.size(), 2);
+    ASSERT_TRUE(parsed->declarations.at(0).type_is< quxlang::global_subdeclaroid >());
+    EXPECT_EQ(parsed->declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "value");
+}
+
+TEST(parsing, explicit_get_interface_impl_is_not_source_syntax)
+{
+    EXPECT_THROW(parse_expression_text("interface_integer_impl::GET_INTERFACE_IMPL()"), std::logic_error);
 }
 
 TEST(parsing, parse_static_classification_keywords)

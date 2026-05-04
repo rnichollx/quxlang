@@ -375,6 +375,59 @@ namespace quxlang::vmir2
             }
             check_state_valid();
         }
+        void apply_internal(vmir2::interface_init const& init)
+        {
+            output(init.target);
+        }
+        void apply_internal(vmir2::interface_invoke const& inv)
+        {
+            check_state_valid();
+            consume(inv.interface_value);
+
+            for (std::size_t index = 0; index < inv.slot.concrete_params.positional.size(); index++)
+            {
+                local_index arg_idx = inv.args.positional.at(index);
+                type_symbol arg_inst_type = inv.slot.concrete_params.positional.at(index);
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(arg_idx);
+                }
+                else
+                {
+                    consume(arg_idx);
+                }
+            }
+
+            for (std::pair< std::string const, local_index > const& named_arg : inv.args.named)
+            {
+                std::string const& name = named_arg.first;
+                local_index index = named_arg.second;
+                type_symbol arg_inst_type;
+                if (name == "RETURN")
+                {
+                    arg_inst_type = nvalue_slot{.target = slot_info.at(index).type};
+                }
+                else
+                {
+                    arg_inst_type = inv.slot.concrete_params.named.at(name);
+                }
+
+                if (arg_inst_type.template type_is< nvalue_slot >())
+                {
+                    output(index);
+                }
+                else
+                {
+                    consume(index);
+                }
+            }
+            check_state_valid();
+        }
+        void apply_internal(vmir2::interface_is_default const& is_default)
+        {
+            consume(is_default.interface_value);
+            output(is_default.result);
+        }
         void apply_internal(vmir2::invoke_indirect const& inv)
         {
             check_state_valid();

@@ -111,6 +111,17 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         }
     }
 
+    if (typeis< subsymbol >(functum))
+    {
+        subsymbol const& as_subsymbol = as< subsymbol >(functum);
+        if (as_subsymbol.name == "GET_INTERFACE_IMPL" && co_await rpnx::querygraph::request< symbol_type_query >(as_subsymbol.of) == symbol_kind::implementation_)
+        {
+            auto interface_type = co_await rpnx::querygraph::request< implementation_interface_type_query >(as_subsymbol.of);
+            add_overload({}, {}, interface_type);
+            co_return allowed_operations;
+        }
+    }
+
     if (!typeis< submember >(functum))
     {
         co_return {};
@@ -151,6 +162,21 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (name == "CONSTRUCTOR")
     {
         co_return co_await rpnx::querygraph::request< list_builtin_constructors_query >(parent);
+    }
+
+    if (parent_kind == symbol_kind::interface_)
+    {
+        if (name == "OPERATOR??" && co_await rpnx::querygraph::request< interface_defaultable_query >(parent))
+        {
+            add_overload({}, {{"THIS", parent}}, bool_type{});
+            co_return allowed_operations;
+        }
+
+        if (name == "OPERATOR:=")
+        {
+            add_overload({}, {{"THIS", make_wref(parent)}, {"OTHER", parent}}, void_type{});
+            co_return allowed_operations;
+        }
     }
 
     if (typeis< constexpr_proxy >(parent))

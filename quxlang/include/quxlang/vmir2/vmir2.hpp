@@ -35,6 +35,9 @@ namespace quxlang
         struct access_pointer;
         struct ret;
         struct invoke;
+        struct interface_init;
+        struct interface_invoke;
+        struct interface_is_default;
         struct invoke_indirect;
         struct get_procedure_ptr;
         struct make_reference;
@@ -173,6 +176,9 @@ namespace quxlang
         // clang-format: off
         using vm_instruction = rpnx::variant<
             access_field,
+            interface_init,
+            interface_invoke,
+            interface_is_default,
             invoke,
             invoke_indirect,
             get_procedure_ptr,
@@ -634,6 +640,34 @@ namespace quxlang
             invocation_args args;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(invoke, what, args);
+        };
+
+        struct interface_init
+        {
+            local_index target;
+            type_symbol interface_type;
+            std::map< interface_slot_key, type_symbol > functions;
+            bool is_default = false;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(interface_init, target, interface_type, functions, is_default);
+        };
+
+        struct interface_invoke
+        {
+            local_index interface_value;
+            interface_slot_key slot;
+            invocation_args args;
+            std::optional< type_symbol > default_function;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(interface_invoke, interface_value, slot, args, default_function);
+        };
+
+        struct interface_is_default
+        {
+            local_index interface_value;
+            local_index result;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(interface_is_default, interface_value, result);
         };
 
         struct invoke_indirect
