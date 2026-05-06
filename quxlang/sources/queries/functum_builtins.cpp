@@ -228,7 +228,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if ((name == "OPERATOR[]" || name == "OPERATOR[&]") && parent.type_is< ptrref_type >())
     {
         auto const& ptr = parent.get_as< ptrref_type >();
-        if (ptr.ptr_class == pointer_class::array)
+        if (ptr.ptr_class == pointer_class::array && !typeis< void_type >(ptr.target))
         {
             if (name == "OPERATOR[]")
             {
@@ -420,7 +420,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, bool_type{});
         }
 
-        if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator)
+        if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))
         {
             auto ptr = as< ptrref_type >(parent);
             add_overload({}, {{"THIS", parent}}, ptrref_type{.target = remove_ptr(parent), .ptr_class = pointer_class::ref, .qual = ptr.qual});
@@ -477,6 +477,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (typeis< ptrref_type >(parent))
         {
             ptrref_type const& ptr = as< ptrref_type >(parent);
+            bool const ptr_targets_void = typeis< void_type >(ptr.target);
 
             if (ptr.ptr_class != pointer_class::ref && basic_compare_operators.contains(operator_name) && !is_rhs)
             {
@@ -488,14 +489,14 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, bool_type{});
             }
 
-            if (ptr.ptr_class == pointer_class::array && operator_name == "+" && !is_rhs)
+            if (ptr.ptr_class == pointer_class::array && !ptr_targets_void && operator_name == "+" && !is_rhs)
             {
                 // Arithmetic
                 add_overload({}, {{"THIS", ptr}, {"OTHER", uintptr_type}}, parent);
                 add_overload({}, {{"THIS", ptr}, {"OTHER", sintptr_type}}, parent);
             }
 
-            if (ptr.ptr_class == pointer_class::array && operator_name == "-" && !is_rhs)
+            if (ptr.ptr_class == pointer_class::array && !ptr_targets_void && operator_name == "-" && !is_rhs)
             {
                 // Arithmetic
                 add_overload({}, {{"THIS", ptr}, {"OTHER", uintptr_type}}, parent);
@@ -505,7 +506,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 add_overload({}, {{"THIS", ptr}, {"OTHER", ptr}}, sintptr_type);
             }
 
-            if (ptr.ptr_class == pointer_class::array && incdec_operators.contains(operator_name))
+            if (ptr.ptr_class == pointer_class::array && !ptr_targets_void && incdec_operators.contains(operator_name))
             {
                 if (!is_rhs)
                 {

@@ -102,6 +102,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         return expression_static_choose{.condition = std::move(condition), .true_expr = std::move(true_expr), .false_expr = std::move(false_expr)};
     };
 
+    auto is_void_type = [](type_symbol const& type) -> bool
+    {
+        return typeis< void_type >(type);
+    };
+
     if (co_await rpnx::querygraph::request< symbol_type_query >(input) == symbol_kind::interface_)
     {
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
@@ -293,6 +298,25 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         }
 
         // input/output/auto are not concrete types so don't have constructors.
+
+        if (target_pref.ptr_class == pointer_class::instance || target_pref.ptr_class == pointer_class::array)
+        {
+            bool const target_is_void = is_void_type(target_pref.target);
+            for (qualifier q : allowed_qualifiiers)
+            {
+                if (target_is_void)
+                {
+                    type_symbol source_target = type_symbol(auto_temploidic{.name = "__reinterpret_pointee_type"});
+                    type_symbol source_type = ptrref_type{.target = source_target, .ptr_class = target_pref.ptr_class, .qual = q};
+                    add_overload({}, {{"THIS", create_nslot(input)}, {"REINTERPRET", source_type}}, void_type{});
+                }
+                else
+                {
+                    type_symbol source_type = ptrref_type{.target = void_type{}, .ptr_class = target_pref.ptr_class, .qual = q};
+                    add_overload({}, {{"THIS", create_nslot(input)}, {"REINTERPRET", source_type}}, void_type{});
+                }
+            }
+        }
 
         if (target_pref.ptr_class == pointer_class::ref)
         {

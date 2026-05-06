@@ -3193,7 +3193,7 @@ namespace quxlang
             if (member->name == "CONSTRUCTOR")
             {
                 std::optional< std::string > ctor_input_name;
-                for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "CHECKED", "ASSUME", "PARTIAL", "APPROXIMATE"})
+                for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "REINTERPRET", "CHECKED", "ASSUME", "PARTIAL", "APPROXIMATE"})
                 {
                     if (call.named.contains(candidate_name))
                     {

@@ -192,6 +192,127 @@
   VAR y I32 := x;
 }
 
+::void_pointer_instance_reinterpret_roundtrip_test STATIC_TEST
+{
+  VAR x I32 := 11;
+  VAR p ->I32 := x<-;
+  VAR vp ->VOID := p AS REINTERPRET ->VOID;
+  VAR back ->I32 := vp AS REINTERPRET ->I32;
+  back-> := back-> + 6;
+  ASSERT(x == 17);
+}
+
+::void_pointer_array_reinterpret_roundtrip_test STATIC_TEST
+{
+  VAR values [2]I32;
+  values[0] := 7;
+  values[1] := 13;
+  VAR p =>>I32 := values[&0];
+  VAR vp =>>VOID := p AS REINTERPRET =>>VOID;
+  VAR back =>>I32 := vp AS REINTERPRET =>>I32;
+  ASSERT(back-> == 7);
+  back := back + 1;
+  ASSERT(back-> == 13);
+}
+
+::void_pointer_const_reinterpret_roundtrip_test STATIC_TEST
+{
+  VAR x I32 := 11;
+  VAR p CONST->I32 := x<-;
+  VAR vp CONST->VOID := p AS REINTERPRET CONST->VOID;
+  VAR back CONST->I32 := vp AS REINTERPRET CONST->I32;
+  ASSERT(back-> == 11);
+}
+
+::void_pointer_reinterpret_preserves_const_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 11;
+  VAR p CONST->I32 := x<-;
+  VAR vp CONST->VOID := p AS REINTERPRET CONST->VOID;
+  VAR back ->I32 := vp AS REINTERPRET ->I32;
+}
+
+::null_void_pointer_reinterpret_backcast_test STATIC_TEST
+{
+  VAR vp ->VOID;
+  VAR back ->I32 := vp AS REINTERPRET ->I32;
+  ASSERT((back??) == FALSE);
+}
+
+::void_pointer_cast_requires_reinterpret_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 1;
+  VAR p ->I32 := x<-;
+  VAR vp ->VOID := p AS ->VOID;
+}
+
+::void_pointer_backcast_requires_reinterpret_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp ->VOID;
+  VAR p ->I32 := vp AS ->I32;
+}
+
+::direct_reinterpret_between_concrete_pointers_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 1;
+  VAR p ->I32 := x<-;
+  VAR bad ->BYTE := p AS REINTERPRET ->BYTE;
+}
+
+::void_instance_pointer_dereference_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp ->VOID;
+  vp->;
+}
+
+::void_array_pointer_index_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp =>>VOID;
+  vp[0];
+}
+
+::void_array_pointer_add_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp =>>VOID;
+  vp + 1;
+}
+
+::void_array_pointer_subtract_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp =>>VOID;
+  vp - 1;
+}
+
+::void_array_pointer_increment_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp =>>VOID;
+  vp++;
+}
+
+::void_array_pointer_decrement_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR vp =>>VOID;
+  vp--;
+}
+
+::void_pointer_wrong_instance_backcast_fails_test STATIC_TEST EXPECT_FAIL
+{
+  VAR x I32 := 1;
+  VAR p ->I32 := x<-;
+  VAR vp ->VOID := p AS REINTERPRET ->VOID;
+  VAR bad ->BYTE := vp AS REINTERPRET ->BYTE;
+  ASSERT(bad??);
+}
+
+::void_pointer_wrong_array_backcast_fails_test STATIC_TEST EXPECT_FAIL
+{
+  VAR values [1]I32;
+  VAR p =>>I32 := values[&0];
+  VAR vp =>>VOID := p AS REINTERPRET =>>VOID;
+  VAR bad =>>BYTE := vp AS REINTERPRET =>>BYTE;
+  ASSERT(bad??);
+}
+
 ::main FUNCTION(): I32
 {
   VAR x I32;

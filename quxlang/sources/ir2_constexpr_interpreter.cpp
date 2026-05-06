@@ -112,6 +112,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         bool storage_initiated = false;
         std::uint64_t object_id{};
         bool readonly = false;
+        std::optional< type_symbol > actual_type;
         std::optional< type_symbol > procedure;
         std::optional< interface_object > interface_value;
         std::optional< pointer_impl > ref;
@@ -1977,6 +1978,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     target_slot->negative = stored_object->negative;
     target_slot->stage = slot_stage::full;
     target_slot->readonly = stored_object->readonly;
+    target_slot->actual_type = stored_object->actual_type;
     target_slot->procedure = stored_object->procedure;
     target_slot->ref = stored_object->ref;
     target_slot->member_of = stored_object->member_of;
@@ -2393,6 +2395,51 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (!local_ptr_base->alive())
     {
         throw constexpr_logic_execution_error("Error executing <cast_ptrref>: accessing dealived storage");
+    }
+
+    type_symbol const source_type = get_local_type(cst.source_index);
+    type_symbol const target_type = get_local_type(cst.target_index);
+    if (typeis< ptrref_type >(source_type) && typeis< ptrref_type >(target_type))
+    {
+        ptrref_type const& source_ptr_type = as< ptrref_type >(source_type);
+        ptrref_type const& target_ptr_type = as< ptrref_type >(target_type);
+        bool const is_void_backcast = source_ptr_type.ptr_class != pointer_class::ref && target_ptr_type.ptr_class != pointer_class::ref && typeis< void_type >(source_ptr_type.target) && !typeis< void_type >(target_ptr_type.target);
+        if (is_void_backcast && local_ptr_base->ref.has_value())
+        {
+            pointer_impl const& ptr = local_ptr_base->ref.value();
+            if (pointer_invalidated(ptr))
+            {
+                throw constexpr_logic_execution_error("Error executing <cast_ptrref>: casting an invalidated void pointer is undefined behavior");
+            }
+
+            std::optional< type_symbol > pointee_type;
+            if (ptr.pointer_target.has_value())
+            {
+                auto pointee = ptr.pointer_target->lock();
+                if (!pointee || !pointee->alive())
+                {
+                    throw constexpr_logic_execution_error("Error executing <cast_ptrref>: casting a void pointer to a non-live object is undefined behavior");
+                }
+                pointee_type = pointee->actual_type;
+            }
+            else if (ptr.one_past_the_end.has_value())
+            {
+                auto array = ptr.one_past_the_end->lock();
+                if (!array || !array->alive())
+                {
+                    throw constexpr_logic_execution_error("Error executing <cast_ptrref>: casting a void pointer to a non-live array is undefined behavior");
+                }
+                if (array->actual_type.has_value() && typeis< array_type >(*array->actual_type))
+                {
+                    pointee_type = as< array_type >(*array->actual_type).element_type;
+                }
+            }
+
+            if (pointee_type.has_value() && *pointee_type != target_ptr_type.target)
+            {
+                throw constexpr_logic_execution_error("Error executing <cast_ptrref>: void pointer cast back to " + to_string(target_ptr_type.target) + " but pointee has type " + to_string(*pointee_type));
+            }
+        }
     }
 
     local_ptr_result->ref = local_ptr_base->ref;
@@ -4866,6 +4913,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 {
     auto val = std::make_shared< local >();
     val->object_id = next_object_id++;
+    val->actual_type = type;
     auto& r_data = val->data;
     r_data.resize(get_type_size(type));
     std::fill(r_data.begin(), r_data.end(), std::byte(0));
@@ -4883,6 +4931,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::init_storage(std::shared_ptr< local > local_value, type_symbol type)
 {
+    local_value->actual_type = type;
     local_value->storage_initiated = true;
     local_value->stage = slot_stage::dead;
     local_value->storage_alignment = get_type_alignment(type);

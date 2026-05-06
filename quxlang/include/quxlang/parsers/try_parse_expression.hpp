@@ -673,7 +673,7 @@ namespace quxlang::parsers
             expression_typecast tc;
 
             skip_whitespace_and_comments(pos, end);
-            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE"}); kw)
+            if (auto kw = skip_keyword_if_one_of(pos, end, {"EXPLICIT", "REINTERPRET", "PARTIAL", "ASSUME", "CHECKED", "APPROXIMATE"}); kw)
             {
                 tc.keyword = *kw;
                 skip_whitespace_and_comments(pos, end);
@@ -683,7 +683,7 @@ namespace quxlang::parsers
             auto to_type = try_parse_type_symbol(ctx);
             if (!to_type)
             {
-                throw std::logic_error("Expected type after AS (optional EXPLICIT/PARTIAL/ASSUME/CHECKED/APPROXIMATE)");
+                throw std::logic_error("Expected type after AS (optional EXPLICIT/REINTERPRET/PARTIAL/ASSUME/CHECKED/APPROXIMATE)");
             }
             tc.to_type = std::move(*to_type);
 
