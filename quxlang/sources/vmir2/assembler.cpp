@@ -11,7 +11,7 @@ namespace quxlang::vmir2
         this->line_starts.push_back(0);
         for (std::size_t i = 0; i < this->contents.size(); ++i)
         {
-            if (this->contents.at(i) == '\n')
+            if (this->contents[i] == '\n')
             {
                 this->line_starts.push_back(i + 1);
             }

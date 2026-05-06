@@ -18,11 +18,10 @@ namespace quxlang::parsers
     {
         auto pos = begin;
         bool started = false;
-        while (pos != end && !is_space(*pos) && !is_alpha(*pos) && !is_digit(*pos) && (!started || ((*pos != ')') && ( *pos != '}') && (*pos != ',' && *pos != ';'))) && *pos != '_')
+        char c;
+        while (pos != end && (c = *pos, !is_space(c)) && !is_alpha(c) && !is_digit(c) && (!started || ((c != ')') && ( c != '}') && (c != ',' && c != ';'))) && c != '_')
         {
-            char c = *pos;
             ++pos;
-
             if (c == '(' || c == ')')
             {
                 break;

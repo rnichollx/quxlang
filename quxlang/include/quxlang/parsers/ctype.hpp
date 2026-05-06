@@ -6,22 +6,22 @@
 
 namespace quxlang::parsers
 {
-    constexpr bool is_space(char c)
+    inline constexpr bool is_space(char c)
     {
         return c == ' ' || c == '\t' || c == '\n' || c == '\r';
     }
 
-    constexpr bool is_alpha(char c)
+    inline constexpr bool is_alpha(char c)
     {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
     }
 
-    constexpr bool is_digit(char c)
+    inline constexpr bool is_digit(char c)
     {
         return c >= '0' && c <= '9';
     }
 
-    constexpr bool is_alnum(char c)
+    inline constexpr bool is_alnum(char c)
     {
         return is_alpha(c) || is_digit(c);
     }
