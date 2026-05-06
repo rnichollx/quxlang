@@ -12,7 +12,7 @@
 
   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output &AUTO(it_type))
   {
-    IF (.which == BYTE(@OTHER 0))
+    IF (.which == 0)
     {
       VAR len U64 := 0;
       output := SERIALIZE_UINTANY(@VALUE len, @OUTPUT_ITERATOR output);
@@ -29,8 +29,8 @@
   }
 }
 
-::stringlike_string_static STATIC STRING_CONSTANT := fixed_stringlike(@OTHER BYTE(@OTHER 1));
-::empty_stringlike_string_static STATIC STRING_CONSTANT := fixed_stringlike(@OTHER BYTE(@OTHER 0));
+::stringlike_string_static STATIC STRING_CONSTANT := 1 AS fixed_stringlike;
+::empty_stringlike_string_static STATIC STRING_CONSTANT := 0 AS fixed_stringlike;
 
 ::string_constant_literal_static_test STATIC_TEST
 {
@@ -115,7 +115,7 @@
 {
   .SERIALIZE FUNCTION(@OUTPUT_ITERATOR:output MUT& AUTO(it_type))
   {
-    (output++)-> := BYTE(@OTHER 128);
+    (output++)-> := 128;
   }
 }
 
@@ -127,7 +127,7 @@
 
 ::runtime_stringlike_to_string_constant_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
-  VAR probe fixed_stringlike := fixed_stringlike(@OTHER BYTE(@OTHER 1));
+  VAR probe fixed_stringlike := 1;
   VAR value STRING_CONSTANT := probe;
   ASSERT(value.BEGIN() == value.END());
 }

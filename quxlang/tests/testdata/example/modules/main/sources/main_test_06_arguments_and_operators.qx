@@ -216,30 +216,30 @@
    VAR b BYTE;
 
    // Binary bitwise on BYTE
-   b := b1 #&& b2; ASSERT(b == BYTE(@OTHER 2));  // 0000 0010
-   b := b1 #|| b2; ASSERT(b == BYTE(@OTHER 7));  // 0000 0111
-   b := b1 #^^ b2; ASSERT(b == BYTE(@OTHER 5));  // 0000 0101
-   b := b1 #&! b2; ASSERT(b == BYTE(@OTHER 253)); // ~(6&3)=~2=253
-   b := b1 #|! b2; ASSERT(b == BYTE(@OTHER 248)); // ~(6|3)=~7=248
-   b := b1 #^! b2; ASSERT(b == BYTE(@OTHER 250)); // ~(6^3)=~5=250
-   b := b1 #^> b2; ASSERT(b == BYTE(@OTHER 251));
-   b := b1 #^< b2; ASSERT(b == BYTE(@OTHER 254));
+   b := b1 #&& b2; ASSERT(b == 2);  // 0000 0010
+   b := b1 #|| b2; ASSERT(b == 7);  // 0000 0111
+   b := b1 #^^ b2; ASSERT(b == 5);  // 0000 0101
+   b := b1 #&! b2; ASSERT(b == 253); // ~(6&3)=~2=253
+   b := b1 #|! b2; ASSERT(b == 248); // ~(6|3)=~7=248
+   b := b1 #^! b2; ASSERT(b == 250); // ~(6^3)=~5=250
+   b := b1 #^> b2; ASSERT(b == 251);
+   b := b1 #^< b2; ASSERT(b == 254);
 
    // Unary bitwise inverse for BYTE
    VAR bu BYTE := 170; // 1010 1010
    // UNIMPLEMENTED
    bu := bu #!!;       // -> 0101 0101 = 85
-   ASSERT(bu == BYTE(@OTHER 85));
+   ASSERT(bu == 85);
 
    // Shifts for BYTE
    VAR bs BYTE := 1;
-   bs := bs #++ 3; ASSERT(bs == BYTE(@OTHER 8));
-   bs := bs #-- 1; ASSERT(bs == BYTE(@OTHER 4));
+   bs := bs #++ 3; ASSERT(bs == 8);
+   bs := bs #-- 1; ASSERT(bs == 4);
 
    // Rotates for BYTE
    VAR br BYTE := 129;                             // 1000 0001
-   br := br #+% 1; ASSERT(br == BYTE(@OTHER 3));   // 0000 0011
-   br := br #-% 1; ASSERT(br == BYTE(@OTHER 129)); // back to 1000 0001
+   br := br #+% 1; ASSERT(br == 3);   // 0000 0011
+   br := br #-% 1; ASSERT(br == 129); // back to 1000 0001
 }
 
 ::bool_probe FUNCTION(@counter & I32, @value BOOL): BOOL

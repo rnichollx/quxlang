@@ -64,8 +64,8 @@
 ::interface_overloaded_dispatch_test STATIC_TEST
 {
     VAR handle interface_overloaded := interface_overloaded_impl;
-    ASSERT(handle.pick(I32(@OTHER 4)) == 5);
-    ASSERT(handle.pick(I64(@OTHER 7)) == I64(@OTHER 9));
+    ASSERT(handle.pick(4 AS I32) == 5);
+    ASSERT(handle.pick(7 AS I64) == 9);
 }
 
 ::interface_not_defaultable INTERFACE

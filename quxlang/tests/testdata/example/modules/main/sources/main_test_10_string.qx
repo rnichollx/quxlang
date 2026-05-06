@@ -81,14 +81,14 @@
         WHILE ( i < .length )
         {
            VAR current BYTE := PUN .data[i] AS BYTE;
-           result.push_back(@value BYTE(@OTHER current));
+           result.push_back(@value current);
            i++;
         }
         i := 0;
         WHILE (i < OTHER.length )
         {
            VAR current BYTE := PUN OTHER.data[i] AS BYTE;
-           result.push_back(@value BYTE(@OTHER current));
+           result.push_back(@value current);
            i++;
         }
 

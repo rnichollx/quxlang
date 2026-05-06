@@ -27,7 +27,7 @@
 ::implicit_conversions_test STATIC_TEST
 {
     VAR a implicit_foo;
-    a := I32(@OTHER 5);
+    a := 5;
 
     ASSERT(a.x == 5);
 
