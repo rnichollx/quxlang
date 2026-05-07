@@ -6198,7 +6198,7 @@ namespace quxlang
             auto sequence_type = remove_ref(this->current_type(current_block, start_input));
             if (sequence_type.template type_is< numeric_literal_reference >())
             {
-                throw std::logic_error("FOR sequence FROM expression must have a concrete type");
+                throw std::logic_error("FOR sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
             }
             auto sequence_value = co_await co_gen_construct_with_target_type(current_block, start_input, sequence_type, allowed_adaptations::source_rebinding);
             this->block(current_block).lookup_values[*st.value_name] = sequence_value;

@@ -1,0 +1,26 @@
+::blockgen_test STATIC_TEST {
+
+  ASSERT(blockgen_additional_statements_after_return() == 1);
+  ASSERT(blockgen_additional_statement_after_continue() == 5);
+}
+
+
+::blockgen_additional_statements_after_return FUNCTION(): I32
+{
+  VAR x I32 := 1;
+  RETURN x;
+  x++;
+}
+
+::blockgen_additional_statement_after_continue FUNCTION(): I32
+{
+  VAR x I32 := 0;
+  FOR
+    VALUE(i) FROM(1 AS SZ) TO(5)
+  LOOP {
+    x++;
+    CONTINUE;
+    x++;
+  }
+  RETURN x;
+}

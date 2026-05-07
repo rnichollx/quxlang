@@ -152,6 +152,29 @@
    ASSERT(foo == 4);
 }
 
+::static_while_zero_iterations_test STATIC_TEST
+{
+   VAR foo I32 := 0;
+   STATIC_VAR x I32 := 0;
+   STATIC_WHILE (FALSE) {
+      foo++;
+      STATIC_EVAL x++;
+   }
+   ASSERT(foo == 0);
+   ASSERT(SNAPSHOT(x) == 0);
+}
+
+::static_while_condition_mutation_test STATIC_TEST
+{
+   VAR foo I32 := 0;
+   STATIC_VAR x I32 := 0;
+   STATIC_WHILE (static_counter_probe(@counter x, @value x < 3)) {
+      foo++;
+   }
+   ASSERT(foo == 3);
+   ASSERT(SNAPSHOT(x) == 4);
+}
+
 ::static_if_selected_branch_test STATIC_TEST
 {
    STATIC_VAR x I32 := 0;
@@ -176,6 +199,25 @@
    ASSERT(y == 2);
 }
 
+::static_if_unselected_branch_not_generated_test STATIC_TEST
+{
+   STATIC_IF (TRUE) {
+      VAR x I32 := 1;
+      ASSERT(x == 1);
+   } STATIC_ELSE {
+      VAR y I32 := bogus_unselected;
+      ASSERT(y == 2);
+   }
+}
+
+::static_choose_unselected_expression_not_generated_test STATIC_TEST
+{
+   VAR chosen_a I32 := STATIC_CHOOSE(TRUE, 7, bogus_choice_a);
+   VAR chosen_b I32 := STATIC_CHOOSE(FALSE, bogus_choice_b, 11);
+   ASSERT(chosen_a == 7);
+   ASSERT(chosen_b == 11);
+}
+
 ::static_default_and_call_initializers_test STATIC_TEST
 {
    STATIC x I32;
@@ -193,6 +235,29 @@
    VAR after CONST->I32 := SNAPSHOT(z);
    ASSERT(before-> == 1);
    ASSERT(after-> == 2);
+}
+
+::static_var_nested_block_snapshot_test STATIC_TEST
+{
+   STATIC_VAR outer I32 := 1;
+   ASSERT(SNAPSHOT(outer) == 1);
+   {
+      STATIC_VAR inner I32 := 5;
+      ASSERT(SNAPSHOT(inner) == 5);
+      STATIC_EVAL inner++;
+      ASSERT(SNAPSHOT(inner) == 6);
+      ASSERT(SNAPSHOT(outer) == 1);
+   }
+   ASSERT(SNAPSHOT(outer) == 1);
+}
+
+::static_var_shadowed_block_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+   STATIC_VAR x I32 := 1;
+   {
+      STATIC_VAR x I32 := 5;
+   }
+   ASSERT(SNAPSHOT(x) == 1);
 }
 
 ::runtime_if_static_generation_order_test STATIC_TEST
