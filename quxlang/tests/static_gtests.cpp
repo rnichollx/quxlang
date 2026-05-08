@@ -11,10 +11,14 @@
 
 #include "graph_dump_test_utils.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <iostream>
+#include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -23,15 +27,53 @@ namespace
     std::string const static_test_target = "linux-arm64";
     std::string const static_test_suite_name = "Module_main_linux_arm64";
 
+    /// Identifies the source location GoogleTest should report for a discovered STATIC_TEST.
+    struct static_test_gtest_location
+    {
+        std::filesystem::path file;
+        int line = 1;
+    };
+
+    /// Stores the source location metadata found while statically discovering STATIC_TEST declarations.
+    using static_test_discovery_map = std::map< quxlang::type_symbol, static_test_gtest_location >;
+
+    /// Suppresses debug stdout while static gtest discovery loads the Quxlang source bundle.
+    class scoped_static_test_source_loading_output_suppression
+    {
+      public:
+        scoped_static_test_source_loading_output_suppression() : m_previous_buffer(std::cout.rdbuf(m_sink.rdbuf()))
+        {
+        }
+
+        ~scoped_static_test_source_loading_output_suppression()
+        {
+            std::cout.rdbuf(m_previous_buffer);
+        }
+
+        scoped_static_test_source_loading_output_suppression(scoped_static_test_source_loading_output_suppression const&) = delete;
+        auto operator=(scoped_static_test_source_loading_output_suppression const&) -> scoped_static_test_source_loading_output_suppression& = delete;
+
+      private:
+        std::ostringstream m_sink;
+        std::streambuf* m_previous_buffer;
+    };
+
     auto main_static_test_module() -> quxlang::type_symbol
     {
         return quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     }
 
-    auto load_static_test_sources() -> quxlang::source_bundle
+    /// Returns the filesystem root corresponding to the loaded source bundle.
+    auto static_test_source_root() -> std::filesystem::path
     {
         std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-        return quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+        return std::filesystem::absolute(testdata / "example").lexically_normal();
+    }
+
+    auto load_static_test_sources() -> quxlang::source_bundle
+    {
+        scoped_static_test_source_loading_output_suppression const suppress_output;
+        return quxlang::load_bundle_sources_for_targets(static_test_source_root(), {});
     }
 
     class static_test_querygraph_compiler
@@ -73,6 +115,27 @@ namespace
         return name;
     }
 
+    /// Converts a byte offset within a source file to the one-based line number GoogleTest expects.
+    auto static_test_line(std::string const& contents, std::size_t begin_index) -> int
+    {
+        std::size_t const capped_begin_index = std::min(begin_index, contents.size());
+        int line = 1;
+        for (std::size_t index = 0; index < capped_begin_index; ++index)
+        {
+            if (contents[index] == '\n')
+            {
+                ++line;
+            }
+        }
+        return line;
+    }
+
+    /// Converts a source-bundle-relative path into the path GoogleTest should expose.
+    auto static_test_file_path(std::filesystem::path const& source_root, std::string const& relative_path) -> std::filesystem::path
+    {
+        return (source_root / relative_path).lexically_normal();
+    }
+
     class main_static_test_fixture : public ::testing::Test
     {
       public:
@@ -102,7 +165,9 @@ namespace
         std::optional< std::string > m_discovery_error;
     };
 
-    auto collect_static_test_symbols(quxlang::type_symbol context, std::vector< quxlang::subdeclaroid > const& declarations, std::set< quxlang::type_symbol >& output) -> void
+    /// Recursively discovers STATIC_TEST declarations and records the source location for each test symbol.
+    auto collect_static_test_symbols(quxlang::type_symbol context, std::vector< quxlang::subdeclaroid > const& declarations, std::filesystem::path const& source_file_path,
+                                     std::string const& contents, static_test_discovery_map& output) -> void
     {
         for (quxlang::subdeclaroid const& declaration : declarations)
         {
@@ -131,33 +196,49 @@ namespace
             quxlang::type_symbol child = is_member ? quxlang::type_symbol{quxlang::submember{.of = context, .name = *name}} : quxlang::type_symbol{quxlang::subsymbol{.of = context, .name = *name}};
             if (decl->type_is< quxlang::ast2_static_test >())
             {
-                output.insert(child);
+                quxlang::ast2_static_test const& static_test = decl->get_as< quxlang::ast2_static_test >();
+                int line = 1;
+                if (static_test.location.has_value())
+                {
+                    line = static_test_line(contents, static_test.location->begin_index);
+                }
+                output.emplace(std::move(child), static_test_gtest_location{.file = source_file_path, .line = line});
             }
             else if (decl->type_is< quxlang::ast2_class_declaration >())
             {
-                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_class_declaration >().declarations, output);
+                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_class_declaration >().declarations, source_file_path, contents, output);
             }
             else if (decl->type_is< quxlang::ast2_namespace_declaration >())
             {
-                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_namespace_declaration >().declarations, output);
+                collect_static_test_symbols(child, decl->get_as< quxlang::ast2_namespace_declaration >().declarations, source_file_path, contents, output);
             }
         }
     }
 
-    auto discover_main_static_tests() -> std::set< quxlang::type_symbol >
+    /// Discovers main-module STATIC_TEST declarations using located parsing contexts.
+    auto discover_main_static_tests() -> static_test_discovery_map
     {
-        auto sources = load_static_test_sources();
-        auto const& target = sources.targets.at(static_test_target);
+        quxlang::source_bundle sources = load_static_test_sources();
+        quxlang::target_configuration const& target = sources.targets.at(static_test_target);
         std::string const& source_module_name = target.module_configurations.at("main").source;
-        auto const& main_sources = sources.module_sources.at(source_module_name);
+        quxlang::module_source const& main_sources = sources.module_sources.at(source_module_name);
+        std::filesystem::path source_root = static_test_source_root();
 
-        std::set< quxlang::type_symbol > output;
-        for (auto const& [_, source_file] : main_sources.files)
+        static_test_discovery_map output;
+        std::uint64_t file_id = 0;
+        for (auto const& [source_file_name, source_file] : main_sources.files)
         {
             std::string contents = source_file->contents;
-            auto ctx = quxlang::parsers::make_unlocated_parsing_context(contents);
-            auto file_ast = quxlang::parsers::parse_file(ctx);
-            collect_static_test_symbols(main_static_test_module(), file_ast.declarations, output);
+            quxlang::parsers::parsing_context ctx{
+                .file_id = file_id,
+                .source_locations_enabled = true,
+                .iter_begin = contents.begin(),
+                .iter_pos = contents.begin(),
+                .iter_end = contents.end(),
+            };
+            quxlang::ast2_file_declaration file_ast = quxlang::parsers::parse_file(ctx);
+            collect_static_test_symbols(main_static_test_module(), file_ast.declarations, static_test_file_path(source_root, source_file_name), contents, output);
+            ++file_id;
         }
 
         return output;
@@ -187,7 +268,7 @@ namespace
     {
         try
         {
-            auto tests = discover_main_static_tests();
+            static_test_discovery_map tests = discover_main_static_tests();
             if (tests.empty())
             {
                 register_main_static_test_discovery_failure("No STATIC_TEST declarations were discovered in the main module");
@@ -195,8 +276,10 @@ namespace
             }
 
             std::set< std::string > registered_names;
-            for (quxlang::type_symbol const& test : tests)
+            for (std::pair< quxlang::type_symbol const, static_test_gtest_location > const& test_entry : tests)
             {
+                quxlang::type_symbol const& test = test_entry.first;
+                static_test_gtest_location const& location = test_entry.second;
                 std::string base_name = main_static_test_gtest_name(test);
                 std::string test_name = base_name;
                 for (std::size_t suffix = 2; !registered_names.insert(test_name).second; ++suffix)
@@ -204,8 +287,8 @@ namespace
                     test_name = base_name + "_" + std::to_string(suffix);
                 }
 
-                std::string value_param = quxlang::to_string(test);
-                ::testing::RegisterTest(static_test_suite_name.c_str(), test_name.c_str(), nullptr, value_param.c_str(), __FILE__, __LINE__,
+                std::string source_file = location.file.string();
+                ::testing::RegisterTest(static_test_suite_name.c_str(), test_name.c_str(), nullptr, nullptr, source_file.c_str(), location.line,
                                         [test]() -> main_static_test_fixture*
                                         {
                                             return new main_static_test_fixture(test);
