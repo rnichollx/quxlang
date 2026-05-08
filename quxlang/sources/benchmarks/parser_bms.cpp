@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -14,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -287,28 +289,88 @@ namespace
         return result;
     }
 
+    auto parse_file(generated_file const& file, std::size_t index) -> std::size_t
+    {
+        std::uint64_t const file_id = static_cast< std::uint64_t >(index);
+        auto ctx = quxlang::parsers::parsing_context{
+            .file_id = file_id,
+            .source_locations_enabled = true,
+            .iter_begin = file.contents.begin(),
+            .iter_pos = file.contents.begin(),
+            .iter_end = file.contents.end(),
+        };
+
+        auto parsed = quxlang::parsers::parse_file(ctx);
+        if (ctx.iter_pos != ctx.iter_end)
+        {
+            throw std::logic_error("parser benchmark did not consume the whole generated file: " + file.name);
+        }
+
+        return parsed.declarations.size();
+    }
+
     auto parse_corpus(corpus const& input) -> std::size_t
     {
         std::size_t declarations = 0;
-        std::uint64_t file_id = 0;
 
-        for (auto const& file : input.files)
+        for (std::size_t index = 0; index != input.files.size(); ++index)
         {
-            auto ctx = quxlang::parsers::parsing_context{
-                .file_id = file_id,
-                .source_locations_enabled = true,
-                .iter_begin = file.contents.begin(),
-                .iter_pos = file.contents.begin(),
-                .iter_end = file.contents.end(),
+            declarations += parse_file(input.files[index], index);
+        }
+
+        return declarations;
+    }
+
+    auto parse_corpus_multicore(corpus const& input, std::size_t thread_count) -> std::size_t
+    {
+        if (thread_count == 0)
+        {
+            throw std::invalid_argument("parser benchmark thread count must be nonzero");
+        }
+
+        std::vector< std::thread > workers;
+        std::vector< std::size_t > declaration_counts(thread_count, 0);
+        std::vector< std::exception_ptr > worker_exceptions(thread_count);
+        workers.reserve(thread_count);
+
+        for (std::size_t worker_index = 0; worker_index != thread_count; ++worker_index)
+        {
+            auto worker = [&, worker_index]()
+            {
+                try
+                {
+                    std::size_t const begin = input.files.size() * worker_index / thread_count;
+                    std::size_t const end = input.files.size() * (worker_index + 1) / thread_count;
+
+                    std::size_t declarations = 0;
+                    for (std::size_t file_index = begin; file_index != end; ++file_index)
+                    {
+                        declarations += parse_file(input.files[file_index], file_index);
+                    }
+                    declaration_counts[worker_index] = declarations;
+                }
+                catch (...)
+                {
+                    worker_exceptions[worker_index] = std::current_exception();
+                }
             };
 
-            auto parsed = quxlang::parsers::parse_file(ctx);
-            if (ctx.iter_pos != ctx.iter_end)
+            workers.emplace_back(worker);
+        }
+
+        for (std::thread& worker : workers)
+        {
+            worker.join();
+        }
+
+        std::size_t declarations = 0;
+        for (std::size_t worker_index = 0; worker_index != thread_count; ++worker_index)
+        {
+            if (worker_exceptions[worker_index] != nullptr)
             {
-                throw std::logic_error("parser benchmark did not consume the whole generated file: " + file.name);
+                std::rethrow_exception(worker_exceptions[worker_index]);
             }
-            declarations += parsed.declarations.size();
-            ++file_id;
+            declarations += declaration_counts[worker_index];
         }
 
         return declarations;
@@ -328,6 +390,30 @@ namespace
         state.SetItemsProcessed(static_cast< std::int64_t >(state.iterations()) * static_cast< std::int64_t >(input.files.size()));
     }
 
+    auto run_multicore_parser_benchmark(benchmark::State& state, corpus_spec spec) -> void
+    {
+        auto const input = load_corpus(spec);
+        std::size_t const thread_count = static_cast< std::size_t >(state.range(0));
+
+        for (auto _ : state)
+        {
+            auto declarations = parse_corpus_multicore(input, thread_count);
+            benchmark::DoNotOptimize(declarations);
+        }
+
+        state.SetBytesProcessed(static_cast< std::int64_t >(state.iterations()) * static_cast< std::int64_t >(input.byte_count));
+        state.SetItemsProcessed(static_cast< std::int64_t >(state.iterations()) * static_cast< std::int64_t >(input.files.size()));
+    }
+
+    auto multicore_parser_args(benchmark::internal::Benchmark* benchmark) -> void
+    {
+        benchmark->ArgName("Threads");
+        for (int thread_count : {1, 2, 4, 8, 16, 20})
+        {
+            benchmark->Arg(thread_count);
+        }
+    }
+
     void BM_ParseGeneratedLargeFiles(benchmark::State& state)
     {
         run_parser_benchmark(state, large_files_spec);
@@ -337,7 +423,19 @@ namespace
     {
         run_parser_benchmark(state, small_files_spec);
     }
+
+    void BM_ParseGeneratedLargeFilesMulticore(benchmark::State& state)
+    {
+        run_multicore_parser_benchmark(state, large_files_spec);
+    }
+
+    void BM_ParseGeneratedManySmallFilesMulticore(benchmark::State& state)
+    {
+        run_multicore_parser_benchmark(state, small_files_spec);
+    }
 } // namespace
 
 BENCHMARK(BM_ParseGeneratedLargeFiles)->Unit(benchmark::kMillisecond);
 BENCHMARK(BM_ParseGeneratedManySmallFiles)->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_ParseGeneratedLargeFilesMulticore)->Apply(multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);
+BENCHMARK(BM_ParseGeneratedManySmallFilesMulticore)->Apply(multicore_parser_args)->UseRealTime()->Unit(benchmark::kMillisecond);
