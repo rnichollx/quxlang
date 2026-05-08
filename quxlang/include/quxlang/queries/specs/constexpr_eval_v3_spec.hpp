@@ -7,6 +7,8 @@
 #include <quxlang/queries/class_layout.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine_v3.hpp>
+#include <quxlang/queries/functanoid_indirectly_instantiated_functanoids.hpp>
+#include <quxlang/queries/functanoid_required_class_layouts.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
@@ -21,7 +23,7 @@ namespace quxlang
     struct constexpr_eval_v3_spec
     {
         using query = constexpr_eval_v3_query;
-        using dependencies = rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, variable_type_query, vm_procedure3_query >;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, functanoid_indirectly_instantiated_functanoids_query, functanoid_required_class_layouts_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, variable_type_query, vm_procedure3_query >;
     };
 
     /// Evaluates a constexpr v3 expression and returns all requested result IDs.

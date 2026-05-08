@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/functum_list_user_ensig_declarations_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -46,7 +47,7 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_ensig_declarations_spec 
             {
                 if (ensig.interface.named.contains(param.api_name.value()))
                 {
-                    throw std::logic_error("Duplicate parameter name");
+                    throw quxlang::semantic_compilation_error("Duplicate parameter name");
                     //
                 }
 

@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_IF_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_IF_STATEMENT_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_if_statement.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
@@ -29,7 +31,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error("Expected 'IF'");
+                throw syntax_compilation_error("Expected 'IF'");
             }
         }
 
@@ -37,7 +39,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '('");
+            throw syntax_compilation_error("Expected '('");
         }
 
         function_if_statement if_statement;
@@ -47,7 +49,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')'");
+            throw syntax_compilation_error("Expected ')'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -73,7 +75,7 @@ namespace quxlang::parsers
         }
         else if (next_keyword(pos, end) == "STATIC_ELSE")
         {
-            throw std::logic_error("Expected 'ELSE' after IF, not 'STATIC_ELSE'");
+            throw syntax_compilation_error("Expected 'ELSE' after IF, not 'STATIC_ELSE'");
         }
 
         if_statement.location = ctx.get_location_optional(begin, pos);
@@ -108,14 +110,14 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error("Expected 'STATIC_IF'");
+                throw syntax_compilation_error("Expected 'STATIC_IF'");
             }
         }
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after STATIC_IF");
+            throw syntax_compilation_error("Expected '(' after STATIC_IF");
         }
 
         function_static_if_statement if_statement;
@@ -124,7 +126,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after STATIC_IF condition");
+            throw syntax_compilation_error("Expected ')' after STATIC_IF condition");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -148,7 +150,7 @@ namespace quxlang::parsers
         }
         else if (next_keyword(pos, end) == "ELSE")
         {
-            throw std::logic_error("Expected 'STATIC_ELSE' after STATIC_IF, not 'ELSE'");
+            throw syntax_compilation_error("Expected 'STATIC_ELSE' after STATIC_IF, not 'ELSE'");
         }
 
         if_statement.location = ctx.get_location_optional(begin, pos);
@@ -177,14 +179,14 @@ namespace quxlang::parsers
 
         if (!skip_keyword_if_is(pos, end, "ASSERT"))
         {
-            throw std::logic_error("Expected 'ASSERT'");
+            throw syntax_compilation_error("Expected 'ASSERT'");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '('");
+            throw syntax_compilation_error("Expected '('");
         }
 
         function_assert_statement asrt_statement;
@@ -200,14 +202,14 @@ namespace quxlang::parsers
         }
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')'");
+            throw syntax_compilation_error("Expected ')'");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';'");
+            throw syntax_compilation_error("Expected ';'");
         }
 
         asrt_statement.location = ctx.get_location_optional(begin, pos);

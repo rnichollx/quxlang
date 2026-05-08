@@ -1,5 +1,6 @@
 // Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/manipulators/convert_llvm_object.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/manipulators/llvm_symbol_relocation.hpp"
@@ -17,7 +18,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
         auto section_name_ex = section.getName();
         if (!section_name_ex)
         {
-            throw std::logic_error("Section has no name");
+            throw quxlang::compiler_bug("Section has no name");
         }
 
         std::string section_name = section_name_ex.get().str();
@@ -31,7 +32,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
 
         if (!data_ex)
         {
-            throw std::logic_error("Section has no data");
+            throw quxlang::compiler_bug("Section has no data");
         }
 
         auto data = data_ex.get();
@@ -44,7 +45,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
             auto sym_name_ex = sym.getName();
             if (!sym_name_ex)
             {
-                throw std::logic_error("Symbol has no name");
+                throw quxlang::compiler_bug("Symbol has no name");
             }
 
             std::string sym_name = sym_name_ex.get().str();
@@ -57,7 +58,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
             auto sym_section_ex = sym.getSection();
             if (!sym_section_ex)
             {
-                throw std::logic_error("Symbol has no section");
+                throw quxlang::compiler_bug("Symbol has no section");
             }
 
             auto sym_section = sym_section_ex.get();
@@ -83,7 +84,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
                                           errorMessage += eib.message();
                                       });
 
-                throw std::logic_error(errorMessage);
+                throw quxlang::compiler_bug(errorMessage);
             }
             else
             {
@@ -100,7 +101,7 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
             auto symAddrEx = sym.getAddress();
             if (!symAddrEx)
             {
-                throw std::logic_error("Symbol has no address");
+                throw quxlang::compiler_bug("Symbol has no address");
             }
             uint64_t symAddr = symAddrEx.get();
 
@@ -124,12 +125,12 @@ void quxlang::convert_llvm_object(llvm::object::ObjectFile const& obj, std::func
                                   if (output.position >= data.size())
                                   {
                                       // TODO: check if this is correct
-                                      //    throw std::logic_error("Symbol position is out of range");
+                                      //    throw quxlang::compiler_bug("Symbol position is out of range");
                                   }
                                   if (output.position_end > data.size())
                                   {
                                       // TODO: check if this is correct
-                                      //    throw std::logic_error("Symbol position_end is out of range");
+                                      //    throw quxlang::compiler_bug("Symbol position_end is out of range");
                                   }
 
                                   auto vdata = std::vector< std::uint8_t >(data.begin() + output.position, data.begin() + output.position_end);

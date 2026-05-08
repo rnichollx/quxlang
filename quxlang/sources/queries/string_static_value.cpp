@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/string_static_value_spec.hpp>
 
 #include <stdexcept>
@@ -9,23 +10,23 @@ rpnx::querygraph::coroutine< quxlang::string_static_value_spec > quxlang::string
 {
     if (!(co_await rpnx::querygraph::request< global_is_string_static_query >(input)))
     {
-        throw std::logic_error("requested string value for a non-string static: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("requested string value for a non-string static: " + quxlang::to_string(input));
     }
 
     auto symboid = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_variable_declaration >(symboid))
     {
-        throw std::logic_error("string static symbol is not a variable: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("string static symbol is not a variable: " + quxlang::to_string(input));
     }
 
     auto const& decl = as< ast2_variable_declaration >(symboid);
     if (!decl.init_expr.has_value())
     {
-        throw std::logic_error("STATIC STRING_CONSTANT requires a := initializer: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("STATIC STRING_CONSTANT requires a := initializer: " + quxlang::to_string(input));
     }
     if (!decl.init_args.empty())
     {
-        throw std::logic_error("STATIC STRING_CONSTANT initializer argument lists are not implemented: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("STATIC STRING_CONSTANT initializer argument lists are not implemented: " + quxlang::to_string(input));
     }
 
     if (typeis< expression_symbol_reference >(*decl.init_expr))
@@ -37,17 +38,17 @@ rpnx::querygraph::coroutine< quxlang::string_static_value_spec > quxlang::string
             auto referenced_symboid = co_await rpnx::querygraph::request< symboid_query >(*referenced_symbol);
             if (!typeis< ast2_variable_declaration >(referenced_symboid))
             {
-                throw std::logic_error("referenced string static symbol is not a variable: " + quxlang::to_string(*referenced_symbol));
+                throw quxlang::semantic_compilation_error("referenced string static symbol is not a variable: " + quxlang::to_string(*referenced_symbol));
             }
 
             auto const& referenced_decl = as< ast2_variable_declaration >(referenced_symboid);
             if (!referenced_decl.init_expr.has_value())
             {
-                throw std::logic_error("referenced STATIC STRING_CONSTANT requires a := initializer: " + quxlang::to_string(*referenced_symbol));
+                throw quxlang::semantic_compilation_error("referenced STATIC STRING_CONSTANT requires a := initializer: " + quxlang::to_string(*referenced_symbol));
             }
             if (!referenced_decl.init_args.empty())
             {
-                throw std::logic_error("referenced STATIC STRING_CONSTANT initializer argument lists are not implemented: " + quxlang::to_string(*referenced_symbol));
+                throw quxlang::semantic_compilation_error("referenced STATIC STRING_CONSTANT initializer argument lists are not implemented: " + quxlang::to_string(*referenced_symbol));
             }
 
             constexpr_input_v3 referenced_constexpr_input;

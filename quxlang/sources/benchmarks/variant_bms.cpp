@@ -1,5 +1,6 @@
 // Copyright 2025-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 // Copyright (c) 2025 Ryan P. Nicholl $USER_EMAIL
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/parsers/parse_expression.hpp"
@@ -172,7 +173,7 @@ static void BM_SomeFunction(benchmark::State& state)
         auto result = quxlang::parsers::parse_expression(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
-            throw std::logic_error("Input not fully parsed");
+            throw quxlang::compiler_bug("Input not fully parsed");
         }
         return result;
     };

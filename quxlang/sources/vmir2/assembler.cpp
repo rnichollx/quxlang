@@ -1,4 +1,5 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 
 #include <algorithm>
@@ -56,13 +57,13 @@ namespace quxlang::vmir2
             auto module_iter = bundle.module_sources.find(name.source_module);
             if (module_iter == bundle.module_sources.end())
             {
-                throw std::logic_error("source_index received a source file index with an unknown source module");
+                throw quxlang::compiler_bug("source_index received a source file index with an unknown source module");
             }
 
             auto file_iter = module_iter->second.files.find(name.relative_path);
             if (file_iter == module_iter->second.files.end())
             {
-                throw std::logic_error("source_index received a source file index with an unknown relative path");
+                throw quxlang::compiler_bug("source_index received a source file index with an unknown relative path");
             }
 
             this->files.emplace(file_id, indexed_source_file{name, file_iter->second->contents});
@@ -324,7 +325,7 @@ namespace quxlang::vmir2
             output = "LITERAL";
             break;
         default:
-            throw std::logic_error("Invalid slot kind");
+            throw quxlang::compiler_bug("Invalid slot kind");
         }
 
         output += " " + quxlang::to_string(slt.type);

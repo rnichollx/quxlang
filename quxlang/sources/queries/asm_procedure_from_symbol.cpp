@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/asm_procedure_from_symbol_spec.hpp>
 
 #include "quxlang/manipulators/mangler.hpp"
@@ -17,7 +18,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
     if (!typeis< ast2_asm_procedure_declaration >(ast))
     {
-        throw std::logic_error("Not an asm procedure");
+        throw quxlang::compiler_bug("Not an asm procedure");
     }
 
     auto proc = as< ast2_asm_procedure_declaration >(ast);

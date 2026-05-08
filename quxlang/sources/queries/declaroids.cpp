@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/declaroids_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -12,12 +13,12 @@ rpnx::querygraph::coroutine< quxlang::declaroids_spec > quxlang::declaroids_impl
 
     if (typeis< absolute_module_reference >(input))
     {
-        throw std::logic_error("Cannot have declarations of a module");
+        throw quxlang::compiler_bug("Cannot have declarations of a module");
     }
 
     if (typeis< initialization_reference >(input))
     {
-        throw std::logic_error("Non-canonical symbol passed to declaroids resolver: initialization_reference. Canonicalize with lookup/instanciation before calling declaroids.");
+        throw quxlang::compiler_bug("Non-canonical symbol passed to declaroids resolver: initialization_reference. Canonicalize with lookup/instanciation before calling declaroids.");
     }
 
     bool is_member = false;

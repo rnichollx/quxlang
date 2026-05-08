@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
 #define QUXLANG_PARSERS_ASM_ARM_ASSEMBLER_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/macros.hpp"
@@ -101,7 +103,7 @@ namespace quxlang::parsers
         {
             if (bracket_count == 0)
             {
-                throw std::logic_error("Mismatched brackets");
+                throw syntax_compilation_error("Mismatched brackets");
             }
             bracket_count--;
             ret.components.push_back(std::string("]"));
@@ -178,7 +180,7 @@ namespace quxlang::parsers
             auto operand = try_parse_arm_asm_operand(trial);
             if (!operand)
             {
-                throw std::logic_error("expected operand");
+                throw syntax_compilation_error("expected operand");
             }
 
             ret.operands.push_back(std::move(*operand));
@@ -193,7 +195,7 @@ namespace quxlang::parsers
             if (!skip_symbol_if_is(pos, end, ","))
             {
 
-                throw std::logic_error("expected , or ;");
+                throw syntax_compilation_error("expected , or ;");
             }
         }
 

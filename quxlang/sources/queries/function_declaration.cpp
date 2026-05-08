@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/function_declaration_spec.hpp>
 
 #include "quxlang/operators.hpp"
@@ -13,7 +14,7 @@ rpnx::querygraph::coroutine< quxlang::function_declaration_spec > quxlang::funct
     auto functum_kind = co_await rpnx::querygraph::request< symbol_type_query >(functum);
     if (functum_kind == symbol_kind::template_)
     {
-        throw std::logic_error("function_declaration received a template selection. Templates of functions are not directly callable; set template arguments manually and resolve the selected function first.");
+        throw quxlang::compiler_bug("function_declaration received a template selection. Templates of functions are not directly callable; set template arguments manually and resolve the selected function first.");
     }
 
     auto const& decl_map = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(functum);

@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_DELEGATE_CALLSITE_ARGS_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/symbol.hpp>
@@ -40,7 +42,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("expected ',' or ')'");
+            throw syntax_compilation_error("expected ',' or ')'");
         }
 
         return std::move(result);

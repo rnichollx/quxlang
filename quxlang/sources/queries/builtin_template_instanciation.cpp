@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/builtin_template_instanciation_spec.hpp>
 
 #include <quxlang/queries/ensig_initialize.hpp>
@@ -13,19 +14,19 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
 {
     if (!typeis< temploid_reference >(input.initializee))
     {
-        throw std::logic_error("builtin_template_instanciation called on a non-template selection");
+        throw quxlang::compiler_bug("builtin_template_instanciation called on a non-template selection");
     }
 
     auto temploid = as< temploid_reference >(input.initializee);
     auto const selected_kind = co_await rpnx::querygraph::request< symbol_type_query >(temploid);
     if (selected_kind != symbol_kind::template_)
     {
-        throw std::logic_error("builtin_template_instanciation received a temploid selection that is not a template");
+        throw quxlang::compiler_bug("builtin_template_instanciation received a temploid selection that is not a template");
     }
 
     if (!(co_await rpnx::querygraph::request< template_builtin_query >(temploid)))
     {
-        throw std::logic_error("builtin_template_instanciation received a non-builtin template selection");
+        throw quxlang::compiler_bug("builtin_template_instanciation received a non-builtin template selection");
     }
 
     auto argument_eval_context = input.context.value_or(context_reference{});

@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_NAME_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_NAME_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <string>
 
 namespace quxlang::parsers
@@ -22,7 +24,7 @@ namespace quxlang::parsers
 
         if (output.has_value() && output->second.empty())
         {
-            throw std::logic_error("Expected identifier");
+            throw syntax_compilation_error("Expected identifier");
         }
 
         return output;

@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
 #define QUXLANG_PARSERS_SYMBOL_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -87,11 +89,11 @@ namespace quxlang::parsers
         auto pos = iter_parse_symbol(begin, end);
         if (pos == begin)
         {
-            throw std::logic_error("Expected symbol");
+            throw syntax_compilation_error("Expected symbol");
         }
         if (static_cast< std::size_t >(std::distance(begin, pos)) != symbol.size() || !std::equal(begin, pos, symbol.begin(), symbol.end()))
         {
-            throw std::logic_error("Expected symbol");
+            throw syntax_compilation_error("Expected symbol");
         }
         begin = pos;
     }

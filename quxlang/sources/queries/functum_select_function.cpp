@@ -24,13 +24,13 @@ namespace
             {
                 if (result.has_value())
                 {
-                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                    throw quxlang::semantic_compilation_error("A positional parameter cannot follow a positional variadic pack");
                 }
                 continue;
             }
             if (result.has_value())
             {
-                throw std::logic_error("Only one positional variadic pack is supported");
+                throw quxlang::semantic_compilation_error("Only one positional variadic pack is supported");
             }
             result = i;
         }
@@ -76,12 +76,12 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
         if (selected_kind == symbol_kind::template_)
         {
-            throw std::logic_error("functum_select_function received a template selection. Function templates are not directly callable; set the template arguments manually before resolving a callable function.");
+            throw quxlang::compiler_bug("functum_select_function received a template selection. Function templates are not directly callable; set the template arguments manually before resolving a callable function.");
         }
 
         if (selected_kind != symbol_kind::function)
         {
-            throw std::logic_error("functum_select_function received a temploid selection that is not a function.");
+            throw quxlang::compiler_bug("functum_select_function received a temploid selection that is not a function.");
         }
 
         // TODO: We should identify a real match and error if this isn't a valid selection.
@@ -221,7 +221,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     {
         QUX_WHY("No matching overloads");
         co_return std::nullopt;
-        // throw std::logic_error("No matching overloads");
+        // throw quxlang::semantic_compilation_error("No matching overloads");
     }
     else if (best_match.size() > 1)
     {

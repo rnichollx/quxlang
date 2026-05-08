@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/source_loader.hpp"
 
 #include "quxlang/macros.hpp"
@@ -18,7 +19,7 @@ namespace quxlang
         auto input_build = path / "quxbuild.yaml";
         if (!std::filesystem::exists(input_build))
         {
-            throw std::logic_error("quxbuild.yaml not found in input directory");
+            throw quxlang::semantic_compilation_error("quxbuild.yaml not found in input directory");
         }
 #ifdef WIN32
         auto build_config = YAML::LoadFile(input_build.string());
@@ -47,12 +48,18 @@ namespace quxlang
 
             if (!module_dirent.is_directory())
             {
-                throw std::logic_error("Module " + module_name + " is not a directory");
+                throw quxlang::semantic_compilation_error("Module " + module_name + " is not a directory");
             }
 
             module_source mod;
 
-            for (auto const& module_file : std::filesystem::recursive_directory_iterator(module_dirent.path() / "sources"))
+            auto module_sources_path = module_dirent.path() / "sources";
+            if (!std::filesystem::is_directory(module_sources_path))
+            {
+                throw quxlang::semantic_compilation_error("Module " + module_name + " does not have a sources directory");
+            }
+
+            for (auto const& module_file : std::filesystem::recursive_directory_iterator(module_sources_path))
             {
                 if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
                 {
@@ -108,7 +115,7 @@ namespace quxlang
                     auto key = kv.first.as<std::string>();
                     if (allowed_target_keys.count(key) == 0)
                     {
-                        throw std::logic_error("Unknown field in target '" + target_name + "': " + key);
+                        throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "': " + key);
                     }
                 }
             }
@@ -138,7 +145,7 @@ namespace quxlang
                 }
                 else
                 {
-                    throw std::logic_error("Unknown/unsupported platform " + platform);
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported platform " + platform);
                     rpnx::unimplemented();
                 }
 
@@ -160,7 +167,7 @@ namespace quxlang
                 }
                 else
                 {
-                    throw std::logic_error("Unknown/unsupported cpu " + cpu);
+                    throw quxlang::semantic_compilation_error("Unknown/unsupported cpu " + cpu);
                     rpnx::unimplemented();
                 }
 
@@ -183,7 +190,7 @@ namespace quxlang
                             auto key = kv.first.as<std::string>();
                             if (allowed_output_keys.count(key) == 0)
                             {
-                                throw std::logic_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
+                                throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
                             }
                         }
                     }
@@ -229,7 +236,7 @@ namespace quxlang
                             auto key = kv.first.as<std::string>();
                             if (allowed_module_keys.count(key) == 0)
                             {
-                                throw std::logic_error("Unknown field in target '" + target_name + "' module '" + module_name + "': " + key);
+                                throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' module '" + module_name + "': " + key);
                             }
                         }
                     }

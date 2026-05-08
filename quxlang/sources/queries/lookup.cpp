@@ -64,7 +64,7 @@ namespace quxlang
                         {
                             if (param.name.has_value() && param.name.value() == name)
                             {
-                                throw std::logic_error("DECLTYPE cannot name a positional pack; use PACK_ARG_TYPE for pack elements.");
+                                throw quxlang::semantic_compilation_error("DECLTYPE cannot name a positional pack; use PACK_ARG_TYPE for pack elements.");
                             }
                             positional_index = inst.params.positional.size();
                             continue;
@@ -197,7 +197,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     {
         if (!context.type_is< instanciation_reference >())
         {
-            throw std::logic_error("PACK_ARG_TYPE requires an instantiated function context");
+            throw quxlang::semantic_compilation_error("PACK_ARG_TYPE requires an instantiated function context");
         }
 
         auto const& ref = as< pack_arg_type_ref >(type);
@@ -242,13 +242,13 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
         if (kind != symbol_kind::global_variable)
         {
-            throw std::logic_error("DECLTYPE requires a value symbol");
+            throw quxlang::semantic_compilation_error("DECLTYPE requires a value symbol");
         }
 
         auto declaration = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
         if (!declaration.template type_is< ast2_variable_declaration >())
         {
-            throw std::logic_error("DECLTYPE target variable is not declared as a variable");
+            throw quxlang::semantic_compilation_error("DECLTYPE target variable is not declared as a variable");
         }
 
         auto declared_type = as< ast2_variable_declaration >(declaration).type;
@@ -261,7 +261,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     }
     else if (type.template type_is< typeof_type_ref >())
     {
-        throw std::logic_error("TYPEOF requires a function generation context for expression type resolution");
+        throw quxlang::semantic_compilation_error("TYPEOF requires a function generation context for expression type resolution");
     }
     else if (type.template type_is< freebound_identifier >())
     {
@@ -655,8 +655,8 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         {
             co_yield rpnx::querygraph::debug_message("{}", str);
         }
-        throw std::logic_error(str);
+        throw quxlang::semantic_compilation_error(str);
     }
 
-    throw std::logic_error("unreachable code reached in lookup resolver");
+    throw quxlang::compiler_bug("unreachable code reached in lookup resolver");
 }

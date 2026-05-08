@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_TYPE_SYMBOL_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_TYPE_SYMBOL_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 #include <utility>
 #include <quxlang/data/basic_types.hpp>
@@ -34,7 +36,7 @@ namespace quxlang::parsers
             result.name = parse_argument_name(pos, end);
             if (result.name->empty())
             {
-                throw std::logic_error("Expected identifier after '@' in instanciation argument");
+                throw syntax_compilation_error("Expected identifier after '@' in instanciation argument");
             }
             skip_whitespace_and_comments(pos, end);
         }
@@ -61,13 +63,13 @@ namespace quxlang::parsers
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after MODULE");
+                throw syntax_compilation_error("Expected '(' after MODULE");
             }
             m.module_name = parse_identifier(pos, end);
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after MODULE(" + m.module_name + ")");
+                throw syntax_compilation_error("Expected ')' after MODULE(" + m.module_name + ")");
             }
             output = std::move(m);
         }
@@ -105,7 +107,7 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "__CONSTEXPR_PROXY"))
         {
-            throw std::logic_error("__CONSTEXPR_PROXY is an internal implementation detail and cannot be named in source");
+            throw syntax_compilation_error("__CONSTEXPR_PROXY is an internal implementation detail and cannot be named in source");
         }
         else if (skip_keyword_if_is(pos, end, "PROCEDURE"))
         {
@@ -125,13 +127,13 @@ namespace quxlang::parsers
             auto unexpected_modifier = next_keyword(pos, end);
             if (!unexpected_modifier.empty())
             {
-                throw std::logic_error("Unexpected PROCEDURE modifier keyword: " + unexpected_modifier);
+                throw syntax_compilation_error("Unexpected PROCEDURE modifier keyword: " + unexpected_modifier);
             }
 
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after PROCEDURE");
+                throw syntax_compilation_error("Expected '(' after PROCEDURE");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -153,7 +155,7 @@ namespace quxlang::parsers
                         skip_whitespace_and_comments(pos, end);
                         if (!skip_symbol_if_is(pos, end, ")"))
                         {
-                            throw std::logic_error("Expected ')' after PROCEDURE return type");
+                            throw syntax_compilation_error("Expected ')' after PROCEDURE return type");
                         }
                         break;
                     }
@@ -181,7 +183,7 @@ namespace quxlang::parsers
                         skip_whitespace_and_comments(pos, end);
                         if (!skip_symbol_if_is(pos, end, ")"))
                         {
-                            throw std::logic_error("Expected ')' after PROCEDURE return type");
+                            throw syntax_compilation_error("Expected ')' after PROCEDURE return type");
                         }
                         break;
                     }
@@ -189,7 +191,7 @@ namespace quxlang::parsers
                     {
                         break;
                     }
-                    throw std::logic_error("Expected ',', ':', or ')' in PROCEDURE type");
+                    throw syntax_compilation_error("Expected ',', ':', or ')' in PROCEDURE type");
                 }
 
                 output = std::move(result);
@@ -210,7 +212,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after STORAGE");
+                throw syntax_compilation_error("Expected '(' after STORAGE");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -229,13 +231,13 @@ namespace quxlang::parsers
                     {
                         break;
                     }
-                    throw std::logic_error("Expected ',' or ')' after STORAGE type list");
+                    throw syntax_compilation_error("Expected ',' or ')' after STORAGE type list");
                 }
             }
 
             if (result.storable_types.empty())
             {
-                throw std::logic_error("STORAGE requires at least one type");
+                throw syntax_compilation_error("STORAGE requires at least one type");
             }
 
             output = std::move(result);
@@ -247,7 +249,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after ALIGNED_STORAGE");
+                throw syntax_compilation_error("Expected '(' after ALIGNED_STORAGE");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -255,14 +257,14 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("Expected ',' after ALIGNED_STORAGE size");
+                throw syntax_compilation_error("Expected ',' after ALIGNED_STORAGE size");
             }
             skip_whitespace_and_comments(pos, end);
             result.align = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after ALIGNED_STORAGE(size, align)");
+                throw syntax_compilation_error("Expected ')' after ALIGNED_STORAGE(size, align)");
             }
 
             output = std::move(result);
@@ -274,20 +276,20 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after PACK_ARG_TYPE");
+                throw syntax_compilation_error("Expected '(' after PACK_ARG_TYPE");
             }
 
             skip_whitespace_and_comments(pos, end);
             result.pack_name = parse_identifier(pos, end);
             if (result.pack_name.empty())
             {
-                throw std::logic_error("Expected pack name in PACK_ARG_TYPE");
+                throw syntax_compilation_error("Expected pack name in PACK_ARG_TYPE");
             }
 
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("Expected ',' after PACK_ARG_TYPE pack name");
+                throw syntax_compilation_error("Expected ',' after PACK_ARG_TYPE pack name");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -296,7 +298,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after PACK_ARG_TYPE index");
+                throw syntax_compilation_error("Expected ')' after PACK_ARG_TYPE index");
             }
 
             output = std::move(result);
@@ -308,7 +310,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after DECLTYPE");
+                throw syntax_compilation_error("Expected '(' after DECLTYPE");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -317,7 +319,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after DECLTYPE symbol");
+                throw syntax_compilation_error("Expected ')' after DECLTYPE symbol");
             }
 
             output = std::move(result);
@@ -329,7 +331,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after TYPEOF");
+                throw syntax_compilation_error("Expected '(' after TYPEOF");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -338,7 +340,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after TYPEOF expression");
+                throw syntax_compilation_error("Expected ')' after TYPEOF expression");
             }
 
             output = std::move(result);
@@ -361,7 +363,7 @@ namespace quxlang::parsers
             skip_whitespace(pos, end);
             if (!skip_symbol_if_is(pos, end, "]"))
             {
-                throw std::logic_error("Expected ']' after array count");
+                throw syntax_compilation_error("Expected ']' after array count");
             }
 
             skip_whitespace(pos, end);
@@ -386,12 +388,12 @@ namespace quxlang::parsers
                 tref.name = parse_identifier(pos, end);
                 if (tref.name.empty())
                 {
-                    throw std::logic_error("Expected identifier after T(");
+                    throw syntax_compilation_error("Expected identifier after T(");
                 }
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
-                    throw std::logic_error("Expected ')' after T(" + tref.name);
+                    throw syntax_compilation_error("Expected ')' after T(" + tref.name);
                 }
             }
 
@@ -408,12 +410,12 @@ namespace quxlang::parsers
                 tref.name = parse_identifier(pos, end);
                 if (tref.name.empty())
                 {
-                    throw std::logic_error("Expected identifier after T(");
+                    throw syntax_compilation_error("Expected identifier after T(");
                 }
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
-                    throw std::logic_error("Expected ')' after T(" + tref.name);
+                    throw syntax_compilation_error("Expected ')' after T(" + tref.name);
                 }
             }
 
@@ -430,12 +432,12 @@ namespace quxlang::parsers
                 tref.name = parse_identifier(pos, end);
                 if (tref.name.empty())
                 {
-                    throw std::logic_error("Expected identifier after DECAY(");
+                    throw syntax_compilation_error("Expected identifier after DECAY(");
                 }
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
-                    throw std::logic_error("Expected ')' after DECAY(" + tref.name);
+                    throw syntax_compilation_error("Expected ')' after DECAY(" + tref.name);
                 }
             }
 
@@ -466,7 +468,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error("unreachable");
+                throw syntax_compilation_error("unreachable");
             }
             skip_whitespace_and_comments(pos, end);
 
@@ -484,7 +486,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error(std::string("Expected &, ->, or =>> after ") + std::string(*kw));
+                throw syntax_compilation_error(std::string("Expected &, ->, or =>> after ") + std::string(*kw));
             }
             pr_result.target = parse_type_symbol(ctx);
             return pr_result;
@@ -494,7 +496,7 @@ namespace quxlang::parsers
             if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
-                throw std::logic_error("Expected & after NEW");
+                throw syntax_compilation_error("Expected & after NEW");
             }
             return nvalue_slot{parse_type_symbol(ctx)};
         }
@@ -503,7 +505,7 @@ namespace quxlang::parsers
             if (!skip_symbol_if_is(pos, end, "&"))
             {
                 // TODO: Support MUT-> etc
-                throw std::logic_error("Expected && after DESTROY");
+                throw syntax_compilation_error("Expected && after DESTROY");
             }
             return dvalue_slot{parse_type_symbol(ctx)};
         }
@@ -529,7 +531,7 @@ namespace quxlang::parsers
         {
             auto ident = parse_subentity(pos, end);
             if (ident.empty())
-                throw std::logic_error("expected identifier after ::");
+                throw syntax_compilation_error("expected identifier after ::");
 
             output = subsymbol{context_reference(), std::move(ident)};
         }
@@ -621,7 +623,7 @@ namespace quxlang::parsers
             }
             else if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("expected ',' or ')'");
+                throw syntax_compilation_error("expected ',' or ')'");
             }
             goto next_arg;
         }
@@ -634,7 +636,7 @@ namespace quxlang::parsers
             auto arg_symbol = try_parse_type_symbol(ctx);
             if (!arg_symbol.has_value())
             {
-                throw std::logic_error("expected symbol after '#'");
+                throw syntax_compilation_error("expected symbol after '#'");
             }
 
             expression_symbol_reference symbol_arg;
@@ -710,7 +712,7 @@ namespace quxlang::parsers
             }
             else if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("expected ',' or '}'");
+                throw syntax_compilation_error("expected ',' or '}'");
             }
             goto next_arg2;
         }
@@ -736,7 +738,7 @@ namespace quxlang::parsers
 
                 if (!skip_symbol_if_is(pos, end, ";"))
                 {
-                    throw std::logic_error("Expected ';'");
+                    throw syntax_compilation_error("Expected ';'");
                 }
             }
 
@@ -763,7 +765,7 @@ namespace quxlang::parsers
             }
             else if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("expected ',' or ']'");
+                throw syntax_compilation_error("expected ',' or ']'");
             }
             goto next_arg3;
         }

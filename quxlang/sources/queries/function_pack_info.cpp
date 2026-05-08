@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/function_pack_info_spec.hpp>
 
 #include <stdexcept>
@@ -25,7 +26,7 @@ namespace quxlang
             {
                 if (param.is_pack)
                 {
-                    throw std::logic_error("Named variadic packs are not supported");
+                    throw quxlang::semantic_compilation_error("Named variadic packs are not supported");
                 }
                 continue;
             }
@@ -34,7 +35,7 @@ namespace quxlang
             {
                 if (saw_pack)
                 {
-                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                    throw quxlang::semantic_compilation_error("A positional parameter cannot follow a positional variadic pack");
                 }
                 expanded_positional_index++;
                 continue;
@@ -42,13 +43,13 @@ namespace quxlang
 
             if (saw_pack)
             {
-                throw std::logic_error("Only one positional variadic pack is supported");
+                throw quxlang::semantic_compilation_error("Only one positional variadic pack is supported");
             }
             saw_pack = true;
 
             if (input.params.positional.size() < expanded_positional_index)
             {
-                throw std::logic_error("Function instantiation has fewer positional arguments than the fixed prefix");
+                throw quxlang::compiler_bug("Function instantiation has fewer positional arguments than the fixed prefix");
             }
 
             std::uint64_t const pack_size = static_cast< std::uint64_t >(input.params.positional.size()) - expanded_positional_index;

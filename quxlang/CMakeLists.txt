@@ -127,6 +127,8 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/builtin_functions.hpp
         include/quxlang/vmir2/assembler.hpp
         sources/vmir2/assembler.cpp
+        include/quxlang/vmir2/routine_requirements.hpp
+        sources/vmir2/routine_requirements.cpp
         include/quxlang/vmir2/ir2_constexpr_interpreter.hpp
         sources/ir2_constexpr_interpreter.cpp
         include/quxlang/exception.hpp
@@ -219,6 +221,9 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/ensig_tempars_spec.hpp
         include/quxlang/queries/specs/exists_spec.hpp
         include/quxlang/queries/specs/extern_linksymbol_spec.hpp
+        include/quxlang/queries/specs/functanoid_indirectly_instantiated_functanoids_spec.hpp
+        include/quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp
+        include/quxlang/queries/specs/functanoid_required_type_placements_spec.hpp
         include/quxlang/queries/specs/functanoid_return_type_spec.hpp
         include/quxlang/queries/specs/functanoid_sigtype_spec.hpp
         include/quxlang/queries/specs/function_builtin_spec.hpp
@@ -347,6 +352,9 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/ensig_tempars.cpp
         sources/queries/exists.cpp
         sources/queries/extern_linksymbol.cpp
+        sources/queries/functanoid_indirectly_instantiated_functanoids.cpp
+        sources/queries/functanoid_required_class_layouts.cpp
+        sources/queries/functanoid_required_type_placements.cpp
         sources/queries/functanoid_return_type.cpp
         sources/queries/functanoid_sigtype.cpp
         sources/queries/function_builtin.cpp
@@ -442,6 +450,7 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
         include/quxlang/filelist.hpp
         ${QUXLANG_QUERY_HEADERS}
         ${QUXLANG_QUERY_SPEC_HEADERS}
+        include/quxlang/data/functanoid_requirements.hpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/argument_adaptation_types.hpp
         include/quxlang/data/adaptation_types.hpp
@@ -463,6 +472,9 @@ add_executable(quxlang-parser-benchmarks sources/benchmarks/parser_bms.cpp)
 
 target_link_libraries(quxlang-parser-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main quxlang)
 target_compile_definitions(quxlang-parser-benchmarks PRIVATE QUXLANG_PARSER_BENCHMARK_CORPUS_DIR="${CMAKE_CURRENT_BINARY_DIR}/parser_benchmark_corpus")
+
+add_executable(qxc sources/app/qxc.cpp)
+target_link_libraries(qxc PRIVATE quxlang-loaders)
 
 
 add_compile_definitions(BOOST_MPL_CFG_NO_PREPROCESSED_HEADER_GUARDS BOOST_MPL_LIMIT_LIST_SIZE=50)
@@ -510,6 +522,11 @@ install(
 install(
         TARGETS quxlang quxlang-loaders
         EXPORT quxlang_exports
+)
+
+install(
+        TARGETS qxc
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 
 export(

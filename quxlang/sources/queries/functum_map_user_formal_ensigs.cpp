@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/functum_map_user_formal_ensigs_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -61,11 +62,11 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
             {
-                throw std::logic_error("Type not found");
+                throw quxlang::semantic_compilation_error("Type not found");
             }
             if (param.second.is_pack)
             {
-                throw std::logic_error("Named variadic packs are not supported");
+                throw quxlang::semantic_compilation_error("Named variadic packs are not supported");
             }
             formal_ensig.interface.named[param.first] = argif{.type = formal_type_opt.value(), .is_defaulted = param.second.is_defaulted, .is_pack = param.second.is_pack};
         }
@@ -77,7 +78,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
             {
-                throw std::logic_error("Type not found");
+                throw quxlang::semantic_compilation_error("Type not found");
             }
             formal_ensig.interface.positional.push_back(argif{.type = formal_type_opt.value(), .is_defaulted = param.is_defaulted, .is_pack = param.is_pack});
         }
@@ -107,7 +108,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             auto const& other_type = formal_ensig.interface.named.at("OTHER").type;
             if (!is_ref(other_type) && other_type == class_type.value())
             {
-                throw std::logic_error("Constructors cannot declare @OTHER with the same value type as the constructed class; use a reference form such as CONST& or TEMP& instead.");
+                throw quxlang::semantic_compilation_error("Constructors cannot declare @OTHER with the same value type as the constructed class; use a reference form such as CONST& or TEMP& instead.");
             }
         }
 
@@ -115,7 +116,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
 
         if (output.contains(formal_ensig))
         {
-            throw std::logic_error("Duplicate overload");
+            throw quxlang::semantic_compilation_error("Duplicate overload");
         }
 
         output.insert({formal_ensig, i});

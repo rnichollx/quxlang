@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_FUNCTION_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_FUNCTION_DECLARATION_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 
 #include <quxlang/ast2/ast2_function_delegate.hpp>
@@ -40,14 +42,14 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected '(' after ENABLE_IF");
+                throw syntax_compilation_error("Expected '(' after ENABLE_IF");
             }
             skip_whitespace_and_comments(pos, end);
             out->header.enable_if = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ')' after ENABLE_IF expression");
+                throw syntax_compilation_error("Expected ')' after ENABLE_IF expression");
             }
             skip_whitespace_and_comments(pos, end);
         }

@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <utility>
 
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
@@ -915,7 +916,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         if (!expr.type_is< expression_numeric_literal >())
         {
-            throw std::logic_error("Expected numeric literal in storage type");
+            throw quxlang::compiler_bug("Expected numeric literal in storage type");
         }
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
@@ -1000,7 +1001,7 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         if (!expr.type_is< expression_numeric_literal >())
         {
-            throw std::logic_error("Expected numeric literal in storage type");
+            throw quxlang::compiler_bug("Expected numeric literal in storage type");
         }
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
@@ -1074,7 +1075,7 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
 
     if (!type.type_is< int_type >())
     {
-        throw std::runtime_error("expected primitive integer type");
+        throw quxlang::compiler_bug("expected primitive integer type");
     }
 
     int_type const& int_type_info = type.get_as< int_type >();
@@ -1088,7 +1089,7 @@ quxlang::bytemath::fixed_float_options quxlang::vmir2::ir2_constexpr_interpreter
 {
     if (!type.type_is< float_type >())
     {
-        throw std::runtime_error("expected primitive floating point type");
+        throw quxlang::compiler_bug("expected primitive floating point type");
     }
 
     auto const& float_type_info = type.get_as< float_type >();
@@ -1149,7 +1150,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_data.size() != b_data.size())
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operands have different sizes");
     }
 
     type_symbol a_type = get_local_type(a_slot);
@@ -1158,7 +1159,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_type != b_type || a_type != result_type)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(a_type);
@@ -1166,7 +1167,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_data.size() != expected_size)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
 
     result_data.resize(expected_size, std::byte{0});
@@ -1214,21 +1215,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (target_data.size() != value_data.size())
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operands have different sizes");
     }
 
     type_symbol target_type = remove_ref(get_local_type(target_slot));
     type_symbol value_type = get_local_type(value_slot);
     if (target_type != value_type)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(target_type);
     std::size_t expected_size = (opts.bits + 7) / 8;
     if (target_data.size() != expected_size)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
 
     bytemath::int_result res = op(opts, target_data, value_data);
@@ -1262,7 +1263,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_data.size() != b_data.size())
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operands have different sizes");
     }
 
     type_symbol a_type = get_local_type(a_slot);
@@ -1271,7 +1272,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_type != b_type || a_type != result_type)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
     }
 
     bytemath::fixed_float_options opts = get_fixed_float_options(a_type);
@@ -1279,7 +1280,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (a_data.size() != expected_size)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
 
     result_data.resize(expected_size, std::byte{0});
@@ -1327,21 +1328,21 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (target_data.size() != value_data.size())
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operands have different sizes");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operands have different sizes");
     }
 
     type_symbol target_type = remove_ref(get_local_type(target_slot));
     type_symbol value_type = get_local_type(value_slot);
     if (target_type != value_type)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": type mismatch among operands");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
     }
 
     bytemath::fixed_float_options opts = get_fixed_float_options(target_type);
     std::size_t expected_size = (opts.bits + 7) / 8;
     if (target_data.size() != expected_size)
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operand size does not match type width");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operand size does not match type width");
     }
 
     bytemath::float_result res = op(opts, target_data, value_data);
@@ -1367,7 +1368,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto b_type = get_local_type(b_slot);
     if (a_type != b_type || !a_type.type_is< float_type >())
     {
-        throw std::runtime_error(std::string(instruction_name) + ": operands must have the same floating point type");
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": operands must have the same floating point type");
     }
 
     auto a_data = consume_local_as_data(a_slot);
@@ -2650,7 +2651,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     pointer_impl ptr = get_pointer_to(stack.size() - 1, mpt.of_index);
     if (ptr.pointer_target.value().expired())
     {
-        throw std::logic_error("creating a pointer to non value???");
+        throw quxlang::compiler_bug("creating a pointer to non value???");
     }
     auto ptrval = output_local(mpt.pointer_index);
     ptrval->ref = ptr;
@@ -2670,7 +2671,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             std::cout << "ptr object id: " << ptr->object_id << std::endl;
         }
-        throw std::logic_error("pointer missing value?");
+        throw quxlang::compiler_bug("pointer missing value?");
     }
     if (pointer_invalidated(ptr->ref.value()))
     {
@@ -2892,7 +2893,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto result_type = get_local_type(op.result);
     if (!result_type.type_is< float_type >() || (!source_type.type_is< int_type >() && !source_type.type_is< byte_type >()))
     {
-        throw std::runtime_error("ITOF requires an integer source and floating point result");
+        throw quxlang::compiler_bug("ITOF requires an integer source and floating point result");
     }
 
     auto source_data = consume_local_as_data(op.source);
@@ -3141,7 +3142,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto b_type = get_local_type(ceq.b);
         if (a_type != b_type)
         {
-            throw std::runtime_error("FCMP_EQ: type mismatch among operands");
+            throw quxlang::compiler_bug("FCMP_EQ: type mismatch among operands");
         }
         auto a = consume_local_as_data(ceq.a);
         auto b = consume_local_as_data(ceq.b);
@@ -3173,7 +3174,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto b_type = get_local_type(cne.b);
         if (a_type != b_type)
         {
-            throw std::runtime_error("FCMP_NE: type mismatch among operands");
+            throw quxlang::compiler_bug("FCMP_NE: type mismatch among operands");
         }
         auto a = consume_local_as_data(cne.a);
         auto b = consume_local_as_data(cne.b);
@@ -3204,7 +3205,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto b_type = get_local_type(clt.b);
         if (a_type != b_type)
         {
-            throw std::runtime_error("FCMP_LT: type mismatch among operands");
+            throw quxlang::compiler_bug("FCMP_LT: type mismatch among operands");
         }
         auto a = consume_local_as_data(clt.a);
         auto b = consume_local_as_data(clt.b);
@@ -3251,7 +3252,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         auto b_type = get_local_type(cge.b);
         if (a_type != b_type)
         {
-            throw std::runtime_error("FCMP_GE: type mismatch among operands");
+            throw quxlang::compiler_bug("FCMP_GE: type mismatch among operands");
         }
         auto a = consume_local_as_data(cge.a);
         auto b = consume_local_as_data(cge.b);
@@ -4121,7 +4122,7 @@ std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::get_cr_u64()
     std::uint64_t result = 0;
     if (this->implementation->constexpr_result_v.size() != 8)
     {
-        throw std::logic_error("expected uint64");
+        throw quxlang::compiler_bug("expected uint64");
     }
     for (std::size_t i = 0; i < 8; i++)
     {
@@ -4142,7 +4143,7 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::get_cr_ante
     }
     if (!this->implementation->constexpr_result_antestatal.has_value())
     {
-        throw std::logic_error("expected antestatal constexpr result");
+        throw quxlang::compiler_bug("expected antestatal constexpr result");
     }
     return *this->implementation->constexpr_result_antestatal;
 }
@@ -4476,7 +4477,7 @@ std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpret
     auto data = consume_local_as_data(slot);
     if (data.size() != 8)
     {
-        throw std::logic_error("expected uint64");
+        throw quxlang::compiler_bug("expected uint64");
     }
     std::uint64_t result = 0;
     for (std::size_t i = 0; i < 8; i++)
@@ -5005,7 +5006,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 // The expression must have been resolved to a single numeric literal at this point,
                 // types like `[4 + 5]I32` should have been reduced to `[9]I32` before adding to IR.
-                throw std::logic_error("unresolved array type");
+                throw quxlang::compiler_bug("unresolved array type");
             }
         });
 

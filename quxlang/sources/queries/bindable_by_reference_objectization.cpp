@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/bindable_by_reference_objectization_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -37,7 +38,7 @@ namespace
             return false;
         }
 
-        throw std::logic_error("unreachable allowed_adaptations");
+        throw quxlang::compiler_bug("unreachable allowed_adaptations");
     }
 
     void append_source_form(std::vector< source_form >& forms, quxlang::type_symbol type, source_form_kind kind)

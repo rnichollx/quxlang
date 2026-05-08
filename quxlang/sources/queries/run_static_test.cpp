@@ -6,6 +6,7 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/source_index.hpp>
 
 #include <optional>
@@ -60,7 +61,7 @@ namespace
 
         auto add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >;
         auto add_layouts_for_routine(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::vmir2::functanoid_routine3 const& routine) -> run_static_test_coroutine::cosubroutine< void >;
-        auto provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< void >;
+        auto provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< std::set< quxlang::type_symbol > >;
     };
 
     auto static_test_dependency_provider::add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >
@@ -103,10 +104,15 @@ namespace
         {
             co_await add_layouts_for_type(interp, param.type);
         }
+        for (auto const& [_, localdata] : routine.static_snapshots)
+        {
+            co_await add_layouts_for_type(interp, localdata.type);
+        }
     }
 
-    auto static_test_dependency_provider::provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< void >
+    auto static_test_dependency_provider::provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< std::set< quxlang::type_symbol > >
     {
+        std::set< quxlang::type_symbol > discovered_functanoids;
         while (!interp.missing_antestatal_globals().empty())
         {
             auto missing_antestatal_globals = interp.missing_antestatal_globals();
@@ -115,15 +121,18 @@ namespace
             {
                 if (!(co_await rpnx::querygraph::request< quxlang::global_is_antestatal_static_query >(symbol)))
                 {
-                    throw std::logic_error("constexpr interpreter requested non-antestatal global data: " + quxlang::to_string(symbol));
+                    throw quxlang::compiler_bug("constexpr interpreter requested non-antestatal global data: " + quxlang::to_string(symbol));
                 }
 
                 auto type = co_await rpnx::querygraph::request< quxlang::variable_type_query >(symbol);
                 co_await add_layouts_for_type(interp, type);
                 auto value = co_await rpnx::querygraph::request< quxlang::antestatal_static_value_query >(symbol);
+                std::set< quxlang::type_symbol > const value_functanoids = quxlang::vmir2::directly_instantiated_functanoids(value, type);
+                discovered_functanoids.insert(value_functanoids.begin(), value_functanoids.end());
                 interp.add_constexpr_antestatal_global(symbol, type, std::move(value));
             }
         }
+        co_return discovered_functanoids;
     }
 
     auto generate_static_test_routine(quxlang::type_symbol input, quxlang::ast2_static_test const& test) -> run_static_test_coroutine::cosubroutine< quxlang::vmir2::functanoid_routine3 >
@@ -138,26 +147,69 @@ namespace
         quxlang::vmir2::ir2_constexpr_interpreter interp;
         interp.set_source_index(std::move(source_index));
         static_test_dependency_provider dependency_provider;
+        std::vector< quxlang::instanciation_reference > pending_functanoids;
+        std::set< quxlang::type_symbol > queued_functanoids;
+        std::set< quxlang::type_symbol > loaded_functanoids;
+
+        auto enqueue_functanoid = [&](quxlang::type_symbol const& funcname)
+        {
+            if (!quxlang::typeis< quxlang::instanciation_reference >(funcname))
+            {
+                throw quxlang::compiler_bug("functanoid dependency is not an instanciation reference: " + quxlang::to_string(funcname));
+            }
+            if (loaded_functanoids.contains(funcname) || !queued_functanoids.insert(funcname).second)
+            {
+                return;
+            }
+            pending_functanoids.push_back(funcname.get_as< quxlang::instanciation_reference >());
+        };
+
+        auto enqueue_functanoids = [&](std::set< quxlang::type_symbol > const& functanoids)
+        {
+            for (quxlang::type_symbol const& funcname : functanoids)
+            {
+                enqueue_functanoid(funcname);
+            }
+        };
+
+        auto add_layouts_for_functanoid = [&](quxlang::instanciation_reference const& functanoid) -> run_static_test_coroutine::cosubroutine< void >
+        {
+            std::set< quxlang::type_symbol > const required_layouts = co_await rpnx::querygraph::request< quxlang::functanoid_required_class_layouts_query >(
+                quxlang::functanoid_requirement_input{.functanoid = functanoid, .compilation_type = quxlang::functanoid_compilation_type::all});
+            for (quxlang::type_symbol const& type : required_layouts)
+            {
+                co_await dependency_provider.add_layouts_for_type(interp, type);
+            }
+        };
 
         co_await dependency_provider.add_layouts_for_routine(interp, routine);
+        enqueue_functanoids(quxlang::vmir2::directly_instantiated_functanoids(routine));
         interp.add_functanoid3(quxlang::void_type{}, routine);
+        loaded_functanoids.insert(quxlang::type_symbol(quxlang::void_type{}));
 
-        while (!interp.missing_functanoids().empty() || !interp.missing_antestatal_globals().empty())
+        while (!pending_functanoids.empty() || !interp.missing_antestatal_globals().empty())
         {
-            co_await dependency_provider.provide_missing_antestatal_globals(interp);
+            enqueue_functanoids(co_await dependency_provider.provide_missing_antestatal_globals(interp));
 
-            auto missing_functanoids = interp.missing_functanoids();
-
-            for (quxlang::type_symbol const& funcname : missing_functanoids)
+            while (!pending_functanoids.empty())
             {
-                if (!quxlang::typeis< quxlang::instanciation_reference >(funcname))
-                {
-                    throw quxlang::compiler_bug("Internal Compiler Error: Missing functanoid is not an instanciation reference");
-                }
-                quxlang::vmir2::functanoid_routine3 const& missing_routine = co_await rpnx::querygraph::request< quxlang::vm_procedure3_query >(funcname.template get_as< quxlang::instanciation_reference >());
-                co_await dependency_provider.add_layouts_for_routine(interp, missing_routine);
+                quxlang::instanciation_reference functanoid = std::move(pending_functanoids.back());
+                pending_functanoids.pop_back();
 
+                quxlang::type_symbol funcname = functanoid;
+                if (loaded_functanoids.contains(funcname))
+                {
+                    continue;
+                }
+
+                co_await add_layouts_for_functanoid(functanoid);
+                quxlang::vmir2::functanoid_routine3 const& missing_routine = co_await rpnx::querygraph::request< quxlang::vm_procedure3_query >(functanoid);
                 interp.add_functanoid3(funcname, missing_routine);
+                loaded_functanoids.insert(funcname);
+
+                std::set< quxlang::type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< quxlang::functanoid_indirectly_instantiated_functanoids_query >(
+                    quxlang::functanoid_requirement_input{.functanoid = functanoid, .compilation_type = quxlang::functanoid_compilation_type::all});
+                enqueue_functanoids(direct_functanoids);
             }
         }
 
@@ -170,7 +222,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_static_test >(sym))
     {
-        throw std::logic_error("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
+        throw quxlang::compiler_bug("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
     }
 
     auto const& test = as< ast2_static_test >(sym);
@@ -246,11 +298,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
     if (test.expected_mode == static_test_expected_mode::expect_fail)
     {
-        throw std::logic_error("STATIC_TEST EXPECT_FAIL completed successfully: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("STATIC_TEST EXPECT_FAIL completed successfully: " + quxlang::to_string(input));
     }
     if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
     {
-        throw std::logic_error("STATIC_TEST EXPECT_COMPILATION_FAILURE compiled and executed successfully: " + quxlang::to_string(input));
+        throw quxlang::semantic_compilation_error("STATIC_TEST EXPECT_COMPILATION_FAILURE compiled and executed successfully: " + quxlang::to_string(input));
     }
 
     co_return true;

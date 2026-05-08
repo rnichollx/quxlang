@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_DECLARATION_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <optional>
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -164,7 +166,7 @@ namespace quxlang::parsers
 
         if (!decl.has_value())
         {
-            throw std::logic_error("expected declaroid");
+            throw syntax_compilation_error("expected declaroid");
         }
         return std::move(*decl);
     }
@@ -185,7 +187,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::logic_error("expected { after namespace");
+            throw syntax_compilation_error("expected { after namespace");
         }
 
         out.declarations = parse_subdeclaroids(ctx);
@@ -194,7 +196,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::logic_error("expected } after namespace");
+            throw syntax_compilation_error("expected } after namespace");
         }
 
         out.location = ctx.get_location_optional(begin, pos);

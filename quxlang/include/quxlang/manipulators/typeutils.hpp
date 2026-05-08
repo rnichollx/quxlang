@@ -3,6 +3,8 @@
 #ifndef QUXLANG_MANIPULATORS_TYPEUTILS_HEADER_GUARD
 #define QUXLANG_MANIPULATORS_TYPEUTILS_HEADER_GUARD
 
+#include <quxlang/data/compilation_result.hpp>
+
 #include "quxlang/data/fwd.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
@@ -94,7 +96,7 @@ namespace quxlang
                 auto const& pref = ref.get_as< ptrref_type >();
                 if (pref.qual == qualifier::constant)
                 {
-                    throw std::logic_error("can't convert from CONST to MUT");
+                    throw quxlang::semantic_compilation_error("can't convert from CONST to MUT");
                 }
                 return ptrref_type{.target = pref.target, .ptr_class = pointer_class::ref, .qual = qualifier::mut};
             }

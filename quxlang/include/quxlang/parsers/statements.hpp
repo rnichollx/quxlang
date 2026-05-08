@@ -4,6 +4,8 @@
 #ifndef QUXLANG_PARSERS_STATEMENTS_HEADER_GUARD
 #define QUXLANG_PARSERS_STATEMENTS_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/data/statements.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/keyword.hpp>
@@ -32,13 +34,13 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "AT"))
         {
-            throw std::logic_error("Expected 'AT' after 'PLACE'");
+            throw syntax_compilation_error("Expected 'AT' after 'PLACE'");
         }
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after PLACE AT");
+            throw syntax_compilation_error("Expected '(' after PLACE AT");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -48,7 +50,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after PLACE AT(location expression)");
+            throw syntax_compilation_error("Expected ')' after PLACE AT(location expression)");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -77,14 +79,14 @@ namespace quxlang::parsers
                     }
                     else
                     {
-                        throw std::logic_error("Expected ',' or ')' in PLACE args");
+                        throw syntax_compilation_error("Expected ',' or ')' in PLACE args");
                     }
                 }
             }
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after PLACE statement");
+                throw syntax_compilation_error("Expected ';' after PLACE statement");
             }
             result.location = ctx.get_location_optional(begin, pos);
             return std::optional<function_place_statement>{std::move(result)};
@@ -96,7 +98,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after PLACE := initializer");
+                throw syntax_compilation_error("Expected ';' after PLACE := initializer");
             }
             result.location = ctx.get_location_optional(begin, pos);
             return std::move(result);
@@ -105,7 +107,7 @@ namespace quxlang::parsers
         {
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after PLACE statement");
+                throw syntax_compilation_error("Expected ';' after PLACE statement");
             }
             result.location = ctx.get_location_optional(begin, pos);
             return std::move(result);
@@ -117,7 +119,7 @@ namespace quxlang::parsers
         auto res = try_parse_place_statement(ctx);
         if (!res)
         {
-            throw std::logic_error("Expected PLACE statement");
+            throw syntax_compilation_error("Expected PLACE statement");
         }
         return std::move(*res);
     }
@@ -131,17 +133,17 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "DESTROY"))
         {
-            throw std::logic_error("Expected 'DESTROY'");
+            throw syntax_compilation_error("Expected 'DESTROY'");
         }
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "AT"))
         {
-            throw std::logic_error("Expected 'AT' after 'DESTROY'");
+            throw syntax_compilation_error("Expected 'AT' after 'DESTROY'");
         }
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after DESTROY AT");
+            throw syntax_compilation_error("Expected '(' after DESTROY AT");
         }
         skip_whitespace_and_comments(pos, end);
         function_destroy_statement result;
@@ -149,7 +151,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after DESTROY AT(location expression)");
+            throw syntax_compilation_error("Expected ')' after DESTROY AT(location expression)");
         }
         skip_whitespace_and_comments(pos, end);
         result.type = parse_type_symbol(ctx);
@@ -174,7 +176,7 @@ namespace quxlang::parsers
                     }
                     else
                     {
-                        throw std::logic_error("Expected ',' or ')' in DESTROY args");
+                        throw syntax_compilation_error("Expected ',' or ')' in DESTROY args");
                     }
                 }
             }
@@ -182,7 +184,7 @@ namespace quxlang::parsers
         }
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';' after DESTROY statement");
+            throw syntax_compilation_error("Expected ';' after DESTROY statement");
         }
         result.location = ctx.get_location_optional(begin, pos);
         return result;

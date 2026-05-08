@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_FUNCTION_HEADER_GUARD
 #define QUXLANG_PARSERS_FUNCTION_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <algorithm>
@@ -45,7 +47,7 @@ namespace quxlang::parsers
                     return std::string(keyword);
                 }
             }
-            throw std::logic_error("Expected identifier or keyword");
+            throw syntax_compilation_error("Expected identifier or keyword");
         }
 
         return identifier;

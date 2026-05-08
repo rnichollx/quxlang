@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/interpret_bool_spec.hpp>
 #include "quxlang/parsers/parse_type_symbol.hpp"
 
@@ -13,7 +14,7 @@ namespace
         auto result = quxlang::parsers::parse_type_symbol(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
-            throw std::logic_error("Input not fully parsed");
+            throw quxlang::semantic_compilation_error("Input not fully parsed");
         }
         return result;
     }
@@ -29,7 +30,7 @@ rpnx::querygraph::coroutine< quxlang::interpret_bool_spec > quxlang::interpret_b
 
     if (val.type != booltype)
     {
-        throw std::logic_error("Expected boolean value");
+        throw quxlang::semantic_compilation_error("Expected boolean value");
     }
     assert(val.data.size() == 1);
 

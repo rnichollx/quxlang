@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_OPTION_HEADER_GUARD
 #define QUXLANG_PARSERS_OPTION_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -45,7 +47,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::logic_error("Expected NUMBER, STRING, or BOOL after OPTION");
+            throw syntax_compilation_error("Expected NUMBER, STRING, or BOOL after OPTION");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -55,14 +57,14 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected ( after DEFAULT_VALUE");
+                throw syntax_compilation_error("Expected ( after DEFAULT_VALUE");
             }
             skip_whitespace_and_comments(pos, end);
             expression e = parse_expression(ctx);
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ) after DEFAULT_VALUE expression");
+                throw syntax_compilation_error("Expected ) after DEFAULT_VALUE expression");
             }
             opt.option_default = ast2_option_default{ast2_option_default_value{.value = std::move(e)}};
             skip_whitespace_and_comments(pos, end);
@@ -72,21 +74,21 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw std::logic_error("Expected ( after DEFAULT_FROM");
+                throw syntax_compilation_error("Expected ( after DEFAULT_FROM");
             }
             skip_whitespace_and_comments(pos, end);
             opt.option_default = ast2_option_default{ast2_option_default_from{.symbol = parse_type_symbol(ctx)}};
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ")"))
             {
-                throw std::logic_error("Expected ) after DEFAULT_FROM option symbol");
+                throw syntax_compilation_error("Expected ) after DEFAULT_FROM option symbol");
             }
             skip_whitespace_and_comments(pos, end);
         }
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';' after OPTION declaration");
+            throw syntax_compilation_error("Expected ';' after OPTION declaration");
         }
 
         opt.location = ctx.get_location_optional(begin, pos);

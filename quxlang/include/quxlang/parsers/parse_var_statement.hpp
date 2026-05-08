@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_VAR_STATEMENT_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/parsers/try_parse_function_callsite_expression.hpp>
@@ -29,7 +31,7 @@ namespace quxlang::parsers
         }
         else if (!is_var)
         {
-            throw std::logic_error("Expected 'VAR', 'STATIC', or 'STATIC_VAR'");
+            throw syntax_compilation_error("Expected 'VAR', 'STATIC', or 'STATIC_VAR'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -65,7 +67,7 @@ namespace quxlang::parsers
                 }
                 else
                 {
-                    throw std::logic_error("Expected ',' or ')'");
+                    throw syntax_compilation_error("Expected ',' or ')'");
                 }
             }
         }
@@ -92,7 +94,7 @@ namespace quxlang::parsers
                 }
                 else
                 {
-                    throw std::logic_error("Expected ',' or ')'");
+                    throw syntax_compilation_error("Expected ',' or ')'");
                 }
             }
         }
@@ -107,7 +109,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';'");
+            throw syntax_compilation_error("Expected ';'");
         }
 
         var_statement.location = ctx.get_location_optional(begin, pos);

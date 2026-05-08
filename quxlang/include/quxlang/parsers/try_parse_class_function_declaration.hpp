@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_CLASS_FUNCTION_DECLARATION_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>
@@ -36,7 +38,7 @@ namespace quxlang::parsers
 
         if (name.empty())
         {
-            throw std::logic_error("Expected identifier");
+            throw syntax_compilation_error("Expected identifier");
         }
 
         skip_whitespace_and_comments(trial.iter_pos, trial.iter_end);

@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/parsers/context.hpp>
 #include <quxlang/parsers/parse_file.hpp>
 
@@ -218,12 +219,12 @@ namespace
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
         if (!out)
         {
-            throw std::runtime_error("failed to open parser benchmark corpus file for writing: " + path.string());
+            throw quxlang::compilation_error("failed to open parser benchmark corpus file for writing: " + path.string());
         }
         out.write(contents.data(), static_cast< std::streamsize >(contents.size()));
         if (!out)
         {
-            throw std::runtime_error("failed to write parser benchmark corpus file: " + path.string());
+            throw quxlang::compilation_error("failed to write parser benchmark corpus file: " + path.string());
         }
     }
 
@@ -232,7 +233,7 @@ namespace
         std::ifstream in(path, std::ios::binary);
         if (!in)
         {
-            throw std::runtime_error("failed to open parser benchmark corpus file for reading: " + path.string());
+            throw quxlang::compilation_error("failed to open parser benchmark corpus file for reading: " + path.string());
         }
 
         return std::string(std::istreambuf_iterator< char >(in), std::istreambuf_iterator< char >());
@@ -303,7 +304,7 @@ namespace
         auto parsed = quxlang::parsers::parse_file(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
-            throw std::logic_error("parser benchmark did not consume the whole generated file: " + file.name);
+            throw quxlang::compiler_bug("parser benchmark did not consume the whole generated file: " + file.name);
         }
 
         return parsed.declarations.size();

@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/instanciation_spec.hpp>
 
 
@@ -31,6 +32,6 @@ rpnx::querygraph::coroutine< quxlang::instanciation_spec > quxlang::instanciatio
     else
     {
         co_return std::nullopt;
-      //  throw std::logic_error("Cannot instanciate non-templexoid");
+      //  throw quxlang::semantic_compilation_error("Cannot instanciate non-templexoid");
     }
 }

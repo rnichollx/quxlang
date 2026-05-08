@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/class_field_declaration_list_spec.hpp>
 #include <quxlang/data/lambda_types.hpp>
 
@@ -41,7 +42,7 @@ rpnx::querygraph::coroutine< quxlang::class_field_declaration_list_spec > quxlan
 
     if (!typeis< ast2_class_declaration >(the_class))
     {
-        throw std::logic_error("Cannot get class fields of non-class");
+        throw quxlang::compiler_bug("Cannot get class fields of non-class");
     }
     ast2_class_declaration const& class_obj = as< ast2_class_declaration >(the_class);
 

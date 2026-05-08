@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_RETURN_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_RETURN_STATEMENT_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_return_statement.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
@@ -18,7 +20,7 @@ namespace quxlang::parsers
 
         if (!skip_keyword_if_is(pos, end, "RETURN"))
         {
-            throw std::logic_error("Expected 'RETURN'");
+            throw syntax_compilation_error("Expected 'RETURN'");
         }
 
         function_return_statement output;
@@ -35,7 +37,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';'");
+            throw syntax_compilation_error("Expected ';'");
         }
 
         output.location = ctx.get_location_optional(begin, pos);

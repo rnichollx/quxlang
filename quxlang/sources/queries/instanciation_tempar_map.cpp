@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/instanciation_tempar_map_spec.hpp>
 
 #include "quxlang/data/temploid_instanciation_parameter_set.hpp"
@@ -17,13 +18,13 @@ namespace
             {
                 if (result.has_value())
                 {
-                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                    throw quxlang::semantic_compilation_error("A positional parameter cannot follow a positional variadic pack");
                 }
                 continue;
             }
             if (result.has_value())
             {
-                throw std::logic_error("Only one positional variadic pack is supported");
+                throw quxlang::semantic_compilation_error("Only one positional variadic pack is supported");
             }
             result = i;
         }
@@ -50,7 +51,7 @@ namespace
             {
                 if (existing->second != x.second)
                 {
-                    throw std::logic_error("Template parameter " + x.first + " has inconsistent argument types in the same template instanciation.");
+                    throw quxlang::semantic_compilation_error("Template parameter " + x.first + " has inconsistent argument types in the same template instanciation.");
                 }
                 continue;
             }
@@ -70,7 +71,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
     auto const fixed_positional_count = pack_index.value_or(func_name.which.interface.positional.size());
     if ((!pack_index.has_value() && input.params.positional.size() != func_name.which.interface.positional.size()) || (pack_index.has_value() && input.params.positional.size() < fixed_positional_count))
     {
-        throw std::logic_error("Instantiated function positional parameter count does not match the selected interface.");
+        throw quxlang::semantic_compilation_error("Instantiated function positional parameter count does not match the selected interface.");
     }
 
 
@@ -96,7 +97,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
         auto it = func_name.which.interface.named.find(name);
         if (it == func_name.which.interface.named.end())
         {
-            throw std::logic_error("Unknown named parameter '" + name + "' for instanciation.");
+            throw quxlang::semantic_compilation_error("Unknown named parameter '" + name + "' for instanciation.");
         }
         auto const& template_arg = it->second;
         type_symbol instanciation_arg = parameter_instantiation_type(arg_val);

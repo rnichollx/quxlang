@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/interface_slot_list_spec.hpp>
 
 #include <quxlang/manipulators/typeutils.hpp>
@@ -23,7 +24,7 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
     auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_interface_declaration >(sym))
     {
-        throw std::logic_error("Cannot list interface slots of non-interface: " + quxlang::to_string(input));
+        throw quxlang::compiler_bug("Cannot list interface slots of non-interface: " + quxlang::to_string(input));
     }
 
     ast2_interface_declaration const& interface_decl = as< ast2_interface_declaration >(sym);
@@ -34,11 +35,11 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
     {
         if (function.header.enable_if.has_value() || function.header.priority.has_value())
         {
-            throw std::logic_error("Interface functions cannot use overload priority or ENABLE_IF");
+            throw quxlang::semantic_compilation_error("Interface functions cannot use overload priority or ENABLE_IF");
         }
         if (!function.definition.delegates.empty())
         {
-            throw std::logic_error("Interface functions cannot use constructor delegates");
+            throw quxlang::semantic_compilation_error("Interface functions cannot use constructor delegates");
         }
 
         interface_slot slot;
@@ -49,32 +50,32 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
         {
             if (param.api_name == std::optional< std::string >{"THIS"} || param.name == std::optional< std::string >{"THIS"})
             {
-                throw std::logic_error("Interface functions cannot declare THIS");
+                throw quxlang::semantic_compilation_error("Interface functions cannot declare THIS");
             }
             if (param.is_pack)
             {
-                throw std::logic_error("Interface functions cannot use variadic packs");
+                throw quxlang::semantic_compilation_error("Interface functions cannot use variadic packs");
             }
             if (is_template(param.type))
             {
-                throw std::logic_error("Interface function parameter types must be concrete");
+                throw quxlang::semantic_compilation_error("Interface function parameter types must be concrete");
             }
 
             auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input, .type = param.type});
             if (!resolved.has_value())
             {
-                throw std::logic_error("Interface function parameter type could not be resolved");
+                throw quxlang::semantic_compilation_error("Interface function parameter type could not be resolved");
             }
             if (is_template(*resolved))
             {
-                throw std::logic_error("Interface function parameter types must be concrete");
+                throw quxlang::semantic_compilation_error("Interface function parameter types must be concrete");
             }
 
             if (param.api_name.has_value())
             {
                 if (slot.key.concrete_params.named.contains(*param.api_name))
                 {
-                    throw std::logic_error("Duplicate interface function parameter name");
+                    throw quxlang::semantic_compilation_error("Duplicate interface function parameter name");
                 }
                 slot.key.concrete_params.named[*param.api_name] = *resolved;
             }
@@ -87,16 +88,16 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
         type_symbol declared_return_type = function.definition.return_type.value_or(type_symbol(void_type{}));
         if (is_template(declared_return_type))
         {
-            throw std::logic_error("Interface function return types must be concrete");
+            throw quxlang::semantic_compilation_error("Interface function return types must be concrete");
         }
         auto resolved_return_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = input, .type = std::move(declared_return_type)});
         if (!resolved_return_type.has_value())
         {
-            throw std::logic_error("Interface function return type could not be resolved");
+            throw quxlang::semantic_compilation_error("Interface function return type could not be resolved");
         }
         if (is_template(*resolved_return_type))
         {
-            throw std::logic_error("Interface function return types must be concrete");
+            throw quxlang::semantic_compilation_error("Interface function return types must be concrete");
         }
         if (!typeis< void_type >(*resolved_return_type))
         {
@@ -106,7 +107,7 @@ rpnx::querygraph::coroutine< quxlang::interface_slot_list_spec > quxlang::interf
         slot.key.concrete_params = strip_locations(std::move(slot.key.concrete_params));
         if (seen_slots.contains(slot.key))
         {
-            throw std::logic_error("Duplicate interface slot: " + slot.key.name);
+            throw quxlang::semantic_compilation_error("Duplicate interface slot: " + slot.key.name);
         }
         seen_slots.insert(slot.key);
         output.push_back(std::move(slot));

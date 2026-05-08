@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FILE_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/parsers/context.hpp>
 #include "declaration.hpp"
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -39,7 +41,7 @@ namespace quxlang::parsers
 
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ; here");
+                throw syntax_compilation_error("Expected ; here");
             }
 
             output.imports.emplace(std::move(import_name), std::move(module_name));
@@ -53,7 +55,7 @@ namespace quxlang::parsers
 
         if (pos != end)
         {
-            throw std::logic_error("Expected parse_subdeclaroids to consume the remainder of the file");
+            throw syntax_compilation_error("Expected parse_subdeclaroids to consume the remainder of the file");
         }
 
         output.location = ctx.get_location_optional(begin, ctx.iter_pos);

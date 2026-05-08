@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
@@ -37,7 +38,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
 
     if (!decl.has_value())
     {
-        throw std::logic_error("No function declaration");
+        throw quxlang::compiler_bug("No function declaration");
     }
 
     contextual_type_reference decl_ctx = {.context = input, .type = decl.value().definition.return_type.value_or(void_type{})};

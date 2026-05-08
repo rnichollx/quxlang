@@ -54,6 +54,9 @@
 #include <quxlang/queries/specs/ensig_tempars_spec.hpp>
 #include <quxlang/queries/specs/exists_spec.hpp>
 #include <quxlang/queries/specs/extern_linksymbol_spec.hpp>
+#include <quxlang/queries/specs/functanoid_indirectly_instantiated_functanoids_spec.hpp>
+#include <quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp>
+#include <quxlang/queries/specs/functanoid_required_type_placements_spec.hpp>
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
 #include <quxlang/queries/specs/functanoid_sigtype_spec.hpp>
 #include <quxlang/queries/specs/function_builtin_spec.hpp>
@@ -165,7 +168,7 @@ namespace
         std::ofstream out(output_path, std::ios::binary | std::ios::trunc);
         if (!out)
         {
-            throw std::runtime_error(std::format("Failed to open dump file for writing: {}", output_path.string()));
+            throw quxlang::compilation_error(std::format("Failed to open dump file for writing: {}", output_path.string()));
         }
 
         if (!marshaled_dump.empty())
@@ -174,7 +177,7 @@ namespace
         }
         if (!out)
         {
-            throw std::runtime_error(std::format("Failed to write dump file: {}", output_path.string()));
+            throw quxlang::compilation_error(std::format("Failed to write dump file: {}", output_path.string()));
         }
     }
 } // namespace
@@ -251,6 +254,9 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< ensig_tempars_spec >(ensig_tempars_impl);
     m_graph.register_handler_function< exists_spec >(exists_impl);
     m_graph.register_handler_function< extern_linksymbol_spec >(extern_linksymbol_impl);
+    m_graph.register_handler_function< functanoid_indirectly_instantiated_functanoids_spec >(functanoid_indirectly_instantiated_functanoids_impl);
+    m_graph.register_handler_function< functanoid_required_class_layouts_spec >(functanoid_required_class_layouts_impl);
+    m_graph.register_handler_function< functanoid_required_type_placements_spec >(functanoid_required_type_placements_impl);
     m_graph.register_handler_function< functanoid_return_type_spec >(functanoid_return_type_impl);
     m_graph.register_handler_function< functanoid_sigtype_spec >(functanoid_sigtype_impl);
     m_graph.register_handler_function< function_builtin_spec >(function_builtin_impl);

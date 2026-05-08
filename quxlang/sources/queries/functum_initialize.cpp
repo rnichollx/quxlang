@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/functum_initialize_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -26,7 +27,7 @@ rpnx::querygraph::coroutine< quxlang::functum_initialize_spec > quxlang::functum
         QUX_WHY("No function found that matches the given parameters.");
 
         co_return std::nullopt;
-        // throw std::logic_error("No function found that matches the given parameters.");
+        // throw quxlang::semantic_compilation_error("No function found that matches the given parameters.");
     }
 
     co_return co_await rpnx::querygraph::request< function_instanciation_query >(initialization_reference{

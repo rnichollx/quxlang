@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_CLASS_VARIABLE_DECLARATION_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/parsers/keyword.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
@@ -35,14 +37,14 @@ namespace quxlang::parsers
 
         if (name.empty())
         {
-            throw std::logic_error("Expected identifier");
+            throw syntax_compilation_error("Expected identifier");
         }
 
         skip_whitespace(trial.iter_pos, trial.iter_end);
 
         if (skip_keyword_if_is(trial.iter_pos, trial.iter_end, "STATIC_VAR"))
         {
-            throw std::logic_error("STATIC_VAR is only allowed inside function bodies");
+            throw syntax_compilation_error("STATIC_VAR is only allowed inside function bodies");
         }
 
         if (!skip_keyword_if_is(trial.iter_pos, trial.iter_end, "VAR"))
@@ -58,7 +60,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(trial.iter_pos, trial.iter_end, ";"))
         {
-            throw std::logic_error("Expected ';' after VAR type");
+            throw syntax_compilation_error("Expected ';' after VAR type");
         }
 
         pos = trial.iter_pos;

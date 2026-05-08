@@ -1,4 +1,5 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/variant_utils.hpp"
 #include <iostream>
@@ -20,7 +21,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         else if (!typeis< functum >(destination))
         {
-            throw std::logic_error("Cannot merge function into non-function of the same name");
+            throw quxlang::semantic_compilation_error("Cannot merge function into non-function of the same name");
         }
 
         functum & destination_functum = as< functum >(destination);
@@ -31,7 +32,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge class into non-class of the same name");
+            throw quxlang::semantic_compilation_error("Cannot merge class into non-class of the same name");
         }
 
         destination = as< ast2_class_declaration >(source);
@@ -40,7 +41,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge interface into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge interface into already existing entity");
         }
 
         destination = as< ast2_interface_declaration >(source);
@@ -49,7 +50,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge implementation into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge implementation into already existing entity");
         }
 
         destination = as< ast2_implementation_declaration >(source);
@@ -62,7 +63,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
         }
         if (!typeis< ast2_templex >(destination))
         {
-            throw std::logic_error("Cannot merge template into non-template of the same name");
+            throw quxlang::semantic_compilation_error("Cannot merge template into non-template of the same name");
         }
 
         ast2_templex& destination_templex = as< ast2_templex >(destination);
@@ -77,7 +78,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
         }
         if (!typeis< ast2_namespace_declaration >(destination))
         {
-            throw std::logic_error("Cannot merge namespace into non-namespace of the same name");
+            throw quxlang::semantic_compilation_error("Cannot merge namespace into non-namespace of the same name");
         }
 
         ast2_namespace_declaration& ns = as< ast2_namespace_declaration >(destination);
@@ -91,7 +92,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge variable into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge variable into already existing entity");
         }
 
         destination = as< ast2_variable_declaration >(source);
@@ -101,7 +102,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge asm procedure into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge asm procedure into already existing entity");
         }
 
         destination = as< ast2_asm_procedure_declaration >(source);
@@ -110,7 +111,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge static test into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge static test into already existing entity");
         }
 
         destination = as < ast2_static_test >(source);
@@ -119,7 +120,7 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw std::logic_error("Cannot merge option into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge option into already existing entity");
         }
 
         destination = as< ast2_option >(source);

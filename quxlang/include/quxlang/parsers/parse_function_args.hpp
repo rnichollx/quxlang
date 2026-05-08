@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_ARGS_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/function.hpp>
@@ -24,14 +26,14 @@ namespace quxlang::parsers
             ast2_function_parameter arg;
             if (skip_symbol_if_is(pos, end, "@..."))
             {
-                throw std::logic_error("Named variadic packs are not supported");
+                throw syntax_compilation_error("Named variadic packs are not supported");
             }
             else if (skip_symbol_if_is(pos, end, "@"))
             {
                 arg.api_name = parse_argument_name(pos, end);
                 if (arg.api_name->empty())
                 {
-                    throw std::logic_error("Expected identifier after '@' ");
+                    throw syntax_compilation_error("Expected identifier after '@' ");
                 }
 
                 if (skip_symbol_if_is(pos, end, ":"))
@@ -41,7 +43,7 @@ namespace quxlang::parsers
 
                 if (!skip_whitespace(pos, end))
                 {
-                    throw std::logic_error("Expected whitespace after external parameter name");
+                    throw syntax_compilation_error("Expected whitespace after external parameter name");
                 }
             }
             else if (skip_symbol_if_is(pos, end, "%..."))
@@ -49,7 +51,7 @@ namespace quxlang::parsers
                 arg.is_pack = true;
                 if (seen_positional_pack)
                 {
-                    throw std::logic_error("Only one positional variadic pack is allowed");
+                    throw syntax_compilation_error("Only one positional variadic pack is allowed");
                 }
                 seen_positional_pack = true;
                 if (!skip_keyword_if_is(pos, end, "IGNORED"))
@@ -57,7 +59,7 @@ namespace quxlang::parsers
                     arg.name = parse_identifier(pos, end);
                     if (arg.name->empty())
                     {
-                        throw std::logic_error("Expected identifier after '%...', use '%...IGNORED' to accept a variadic pack without a name");
+                        throw syntax_compilation_error("Expected identifier after '%...', use '%...IGNORED' to accept a variadic pack without a name");
                     }
                 }
             }
@@ -65,20 +67,20 @@ namespace quxlang::parsers
             {
                 if (seen_positional_pack)
                 {
-                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                    throw syntax_compilation_error("A positional parameter cannot follow a positional variadic pack");
                 }
                 if (!skip_keyword_if_is(pos, end, "IGNORED"))
                 {
                     arg.name = parse_identifier(pos, end);
                     if (arg.name->empty())
                     {
-                        throw std::logic_error("Expected identifier after '%', use '%IGNORED' to accept an argument without a name");
+                        throw syntax_compilation_error("Expected identifier after '%', use '%IGNORED' to accept an argument without a name");
                     }
                 }
             }
             else
             {
-                throw std::logic_error("Expected positional '%' or named '@' argument");
+                throw syntax_compilation_error("Expected positional '%' or named '@' argument");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -92,7 +94,7 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, "("))
                 {
-                    throw std::logic_error("Expected '(' after DEFAULT");
+                    throw syntax_compilation_error("Expected '(' after DEFAULT");
                 }
 
                 arg.default_expr = parse_expression(ctx);
@@ -100,7 +102,7 @@ namespace quxlang::parsers
                 skip_whitespace_and_comments(pos, end);
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
-                    throw std::logic_error("Expected ')' after default parameter expression");
+                    throw syntax_compilation_error("Expected ')' after default parameter expression");
                 }
             }
             arg.location = ctx.get_location_optional(begin, pos);
@@ -118,7 +120,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '('");
+            throw syntax_compilation_error("Expected '('");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -138,7 +140,7 @@ namespace quxlang::parsers
             }
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("Expected ',' or ')'");
+                throw syntax_compilation_error("Expected ',' or ')'");
             }
         }
     }

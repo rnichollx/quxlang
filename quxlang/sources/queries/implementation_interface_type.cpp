@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/implementation_interface_type_spec.hpp>
 
 #include <quxlang/manipulators/typeutils.hpp>
@@ -9,7 +10,7 @@ rpnx::querygraph::coroutine< quxlang::implementation_interface_type_spec > quxla
     auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_implementation_declaration >(sym))
     {
-        throw std::logic_error("Cannot get interface type of non-implementation: " + quxlang::to_string(input));
+        throw quxlang::compiler_bug("Cannot get interface type of non-implementation: " + quxlang::to_string(input));
     }
 
     ast2_implementation_declaration const& impl = as< ast2_implementation_declaration >(sym);
@@ -19,11 +20,11 @@ rpnx::querygraph::coroutine< quxlang::implementation_interface_type_spec > quxla
     });
     if (!resolved.has_value())
     {
-        throw std::logic_error("Implementation interface type could not be resolved");
+        throw quxlang::semantic_compilation_error("Implementation interface type could not be resolved");
     }
     if (co_await rpnx::querygraph::request< symbol_type_query >(*resolved) != symbol_kind::interface_)
     {
-        throw std::logic_error("IMPLEMENTATION target is not an interface: " + quxlang::to_string(*resolved));
+        throw quxlang::semantic_compilation_error("IMPLEMENTATION target is not an interface: " + quxlang::to_string(*resolved));
     }
     co_return *resolved;
 }

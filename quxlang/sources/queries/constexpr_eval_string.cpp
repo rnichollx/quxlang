@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/constexpr_eval_string_spec.hpp>
 
 #include <stdexcept>
@@ -12,7 +13,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_string_spec > quxlang::cons
     auto result_it = result.values.find(constexpr_primary_result_id);
     if (result_it == result.values.end() || !typeis< constexpr_string >(result_it->second))
     {
-        throw std::logic_error("constexpr string evaluation did not produce a string result");
+        throw quxlang::semantic_compilation_error("constexpr string evaluation did not produce a string result");
     }
     co_return as< constexpr_string >(std::move(result_it->second));
 }

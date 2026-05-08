@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_FOR_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FOR_STATEMENT_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
@@ -27,7 +29,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after " + std::string(clause_name));
+            throw syntax_compilation_error("Expected '(' after " + std::string(clause_name));
         }
 
         auto output = parse_expression(ctx);
@@ -35,7 +37,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after " + std::string(clause_name));
+            throw syntax_compilation_error("Expected ')' after " + std::string(clause_name));
         }
         return output;
     }
@@ -48,7 +50,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after " + std::string(clause_name));
+            throw syntax_compilation_error("Expected '(' after " + std::string(clause_name));
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -57,7 +59,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after " + std::string(clause_name));
+            throw syntax_compilation_error("Expected ')' after " + std::string(clause_name));
         }
         return output;
     }
@@ -67,7 +69,7 @@ namespace quxlang::parsers
     {
         if (target.has_value())
         {
-            throw std::logic_error("Duplicate FOR " + std::string(clause_name) + " clause");
+            throw syntax_compilation_error("Duplicate FOR " + std::string(clause_name) + " clause");
         }
         target = std::move(value);
     }
@@ -81,7 +83,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "FOR"))
         {
-            throw std::logic_error("Expected 'FOR'");
+            throw syntax_compilation_error("Expected 'FOR'");
         }
 
         function_for_statement output;
@@ -173,7 +175,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error("Expected FOR clause or LOOP");
+                throw syntax_compilation_error("Expected FOR clause or LOOP");
             }
         }
     }

@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_INTERFACE_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_INTERFACE_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -32,13 +34,13 @@ namespace quxlang::parsers
         auto [is_member, name] = std::move(*name_opt);
         if (!is_member)
         {
-            throw std::logic_error("Interface functions must be declared with member syntax");
+            throw syntax_compilation_error("Interface functions must be declared with member syntax");
         }
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "FUNCTION"))
         {
-            throw std::logic_error("Expected FUNCTION in interface declaration");
+            throw syntax_compilation_error("Expected FUNCTION in interface declaration");
         }
 
         ast2_interface_function_declaration out;
@@ -58,7 +60,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected interface function body or ';'");
+            throw syntax_compilation_error("Expected interface function body or ';'");
         }
 
         out.location = ctx.get_location_optional(begin, pos);
@@ -86,7 +88,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::logic_error("Expected '{' after INTERFACE");
+            throw syntax_compilation_error("Expected '{' after INTERFACE");
         }
 
         while (true)
@@ -101,7 +103,7 @@ namespace quxlang::parsers
             auto function = try_parse_interface_function_declaration(ctx);
             if (!function.has_value())
             {
-                throw std::logic_error("Expected interface function declaration");
+                throw syntax_compilation_error("Expected interface function declaration");
             }
             out.functions.push_back(std::move(*function));
         }
@@ -122,7 +124,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after IMPLEMENTATION");
+            throw syntax_compilation_error("Expected '(' after IMPLEMENTATION");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -130,13 +132,13 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after implementation interface type");
+            throw syntax_compilation_error("Expected ')' after implementation interface type");
         }
 
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::logic_error("Expected '{' after implementation interface type");
+            throw syntax_compilation_error("Expected '{' after implementation interface type");
         }
 
         out.declarations = parse_subdeclaroids(ctx);
@@ -144,7 +146,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::logic_error("Expected '}' after implementation declaration");
+            throw syntax_compilation_error("Expected '}' after implementation declaration");
         }
 
         out.location = ctx.get_location_optional(begin, pos);

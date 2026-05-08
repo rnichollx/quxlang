@@ -147,7 +147,7 @@ static quxlang::type_symbol parse_type_symbol(std::string const& input)
     auto result = quxlang::parsers::parse_type_symbol(ctx);
     if (ctx.iter_pos != ctx.iter_end)
     {
-        throw std::logic_error("Input not fully parsed");
+        throw quxlang::compiler_bug("Input not fully parsed");
     }
     return result;
 }
@@ -158,7 +158,7 @@ static quxlang::expression parse_expression_text(std::string const& input)
     auto result = quxlang::parsers::parse_expression(ctx);
     if (ctx.iter_pos != ctx.iter_end)
     {
-        throw std::logic_error("Input not fully parsed");
+        throw quxlang::compiler_bug("Input not fully parsed");
     }
     return result;
 }
@@ -175,7 +175,7 @@ static quxlang::function_destroy_statement parse_destroy_statement_text(std::str
     auto result = quxlang::parsers::parse_destroy_statement(ctx);
     if (ctx.iter_pos != ctx.iter_end)
     {
-        throw std::logic_error("Input not fully parsed");
+        throw quxlang::compiler_bug("Input not fully parsed");
     }
     return result;
 }
@@ -810,14 +810,33 @@ TEST(mangling, name_mangling_new)
     subentity3.of = subentity2;
     subentity3.name = "baz";
 
-    quxlang::initialization_reference param_set{subentity3, {}};
+    quxlang::intertype interface;
+    interface.positional.push_back(quxlang::argif{.type = quxlang::int_type{32, true}});
+    interface.positional.push_back(quxlang::argif{.type = quxlang::int_type{32, true}});
 
-    param_set.parameters.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
-    param_set.parameters.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
+    quxlang::instatype params;
+    params.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
+    params.positional.push_back(quxlang::make_type_instantiation(quxlang::int_type{32, true}));
+
+    quxlang::instanciation_reference param_set{
+        .temploid =
+            quxlang::temploid_reference{
+                .templexoid = subentity3,
+                .which = quxlang::temploid_ensig{.interface = interface},
+            },
+        .params = params,
+    };
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
-    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazCAPI32API32E");
+    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazSAPI32API32EIAPI32API32E");
+}
+
+TEST(mangling, initialization_reference_is_not_mangleable)
+{
+    quxlang::initialization_reference init{.initializee = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"}};
+
+    EXPECT_THROW((void)quxlang::mangle(quxlang::type_symbol(init)), quxlang::compiler_bug);
 }
 
 TEST(collector_tester, order_of_operations)

@@ -4,6 +4,8 @@
 #ifndef QUXLANG_PARSERS_IMPORT_HEADER_GUARD
 #define QUXLANG_PARSERS_IMPORT_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 
 #include "parse_type_symbol.hpp"
 #include "parse_whitespace_and_comments.hpp"
@@ -34,7 +36,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after IMPORT");
+            throw syntax_compilation_error("Expected '(' after IMPORT");
         }
 
         type_symbol import_symbol = parse_type_symbol(ctx);

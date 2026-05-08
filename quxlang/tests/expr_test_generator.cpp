@@ -25,7 +25,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, lookup_symbol, std::opt
         co_return it->second;
     }
 
-    throw std::logic_error("Symbol not found");
+    throw quxlang::compiler_bug("Symbol not found");
 }
 
 QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, create_temporary_storage, quxlang::vmir2::storage_index, (type_symbol type))
@@ -44,9 +44,9 @@ QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, emit, void, (vmir2::vm_
 QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, index_type, quxlang::type_symbol, (vmir2::storage_index index))
 {
     if (index == 0)
-        throw std::logic_error("Invalid index");
+        throw quxlang::compiler_bug("Invalid index");
     if (index >= gen->slots.size())
-        throw std::logic_error("Invalid index");
+        throw quxlang::compiler_bug("Invalid index");
     co_return gen->slots.at(index).type;
 }
 

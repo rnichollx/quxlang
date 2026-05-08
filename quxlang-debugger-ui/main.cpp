@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <querygraph_ui.hpp>
 
 #include <filesystem>
@@ -245,7 +246,7 @@ namespace
         std::ifstream in(dump_path, std::ios::binary);
         if (!in)
         {
-            throw std::runtime_error(std::format("Failed to open dump file: {}", dump_path.string()));
+            throw quxlang::compilation_error(std::format("Failed to open dump file: {}", dump_path.string()));
         }
 
         auto const file_size = std::filesystem::file_size(dump_path);
@@ -255,7 +256,7 @@ namespace
             in.read(reinterpret_cast< char* >(dump_bytes.data()), static_cast< std::streamsize >(dump_bytes.size()));
             if (!in)
             {
-                throw std::runtime_error(std::format("Failed to read dump file: {}", dump_path.string()));
+                throw quxlang::compilation_error(std::format("Failed to read dump file: {}", dump_path.string()));
             }
         }
 

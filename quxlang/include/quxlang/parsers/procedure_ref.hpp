@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_PARSERS_PROCEDURE_REF_HEADER_GUARD
 #define QUXLANG_PARSERS_PROCEDURE_REF_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include "parse_type_symbol.hpp"
 #include "parse_whitespace_and_comments.hpp"
 #include "string_literal.hpp"
@@ -29,7 +31,7 @@ namespace quxlang::parsers
 
         if (!parsers::skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after PROCEDURE_REF");
+            throw syntax_compilation_error("Expected '(' after PROCEDURE_REF");
         }
 
         parsers::skip_whitespace_and_comments(pos, end);
@@ -40,7 +42,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ","))
         {
-            throw std::logic_error("Expected ',' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\"");
+            throw syntax_compilation_error("Expected ',' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\"");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -51,7 +53,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\", ...");
+            throw syntax_compilation_error("Expected ')' after PROCEDURE_REF(\"" + std::string(calling_convention) + "\", ...");
         }
 
         return ast2_procedure_ref{

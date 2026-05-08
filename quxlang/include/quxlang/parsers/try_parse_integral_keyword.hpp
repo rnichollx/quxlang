@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_INTEGRAL_KEYWORD_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_INTEGRAL_KEYWORD_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/ctype.hpp>
@@ -80,7 +82,7 @@ namespace quxlang::parsers
             }
             if (exponent_start == it)
             {
-                throw std::logic_error("Expected exponent bit count after floating point type exponent marker");
+                throw syntax_compilation_error("Expected exponent bit count after floating point type exponent marker");
             }
             exponent_bits = static_cast< std::size_t >(str_to_i(exponent_start, it).value());
         }
@@ -94,12 +96,12 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::logic_error("Floating point type shorthand is only available for F32 and F64; use F<N>E<M> for other sizes");
+            throw syntax_compilation_error("Floating point type shorthand is only available for F32 and F64; use F<N>E<M> for other sizes");
         }
 
         if (bits < 3 || exponent_bits == 0 || exponent_bits + 1 >= bits)
         {
-            throw std::logic_error("Invalid floating point type bit layout");
+            throw syntax_compilation_error("Invalid floating point type bit layout");
         }
 
         pos = it;

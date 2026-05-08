@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -31,7 +32,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
             auto type = co_await rpnx::querygraph::request< lookup_query >(ctx_type);
             if (!type)
             {
-                throw std::logic_error("Type not found");
+                throw quxlang::semantic_compilation_error("Type not found");
             }
 
             parameter_type formal_parameter;

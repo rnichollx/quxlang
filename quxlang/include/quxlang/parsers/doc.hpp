@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_DOC_HEADER_GUARD
 #define QUXLANG_PARSERS_DOC_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
@@ -86,7 +88,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "<$"))
         {
-            throw std::logic_error("expected <$ after DOC");
+            throw syntax_compilation_error("expected <$ after DOC");
         }
 
         auto doc_begin = pos;
@@ -110,7 +112,7 @@ namespace quxlang::parsers
             }
         }
 
-        throw std::logic_error("unexpected end of file in DOC block");
+        throw syntax_compilation_error("unexpected end of file in DOC block");
     }
 
     inline std::optional< std::string > try_parse_single_doc(parsing_context& ctx)
@@ -119,7 +121,7 @@ namespace quxlang::parsers
 
         if (out && try_parse_doc(ctx))
         {
-            throw std::logic_error("only one DOC block is allowed per declaration");
+            throw syntax_compilation_error("only one DOC block is allowed per declaration");
         }
 
         return out;

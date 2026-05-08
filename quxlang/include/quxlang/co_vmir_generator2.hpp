@@ -664,7 +664,7 @@ namespace quxlang
                 co_return;
             }
 
-            throw std::logic_error("constexpr string evaluation requires STRING_CONSTANT or STRINGLIKE input, got: " + quxlang::to_string(result_type));
+            throw semantic_compilation_error("constexpr string evaluation requires STRING_CONSTANT or STRINGLIKE input, got: " + quxlang::to_string(result_type));
         }
 
         /// Generates a constexpr v3 routine that can return primary and static mutation results.
@@ -845,7 +845,7 @@ namespace quxlang
 
             if (typeis< attached_type_reference >(value_type) || typeis< attached_type_reference >(target_type))
             {
-                throw std::logic_error("Cannot adapt attached binding " + to_string(value_type) + " to " + to_string(target_type));
+                throw semantic_compilation_error("Cannot adapt attached binding " + to_string(value_type) + " to " + to_string(target_type));
             }
 
             if (is_ref(target_type) && remove_ref(value_type) != remove_ref(target_type))
@@ -873,7 +873,7 @@ namespace quxlang
             case allowed_adaptations::none:
                 return allowed_adaptations::none;
             default:
-                throw std::logic_error("Invalid constructor adaptation ceiling");
+                throw compiler_bug("Invalid constructor adaptation ceiling");
             }
         }
 
@@ -1099,7 +1099,7 @@ namespace quxlang
                 {
                     if (arg.is_pack)
                     {
-                        throw std::logic_error("Cannot form a procedure pointer to an uninstantiated variadic function");
+                        throw semantic_compilation_error("Cannot form a procedure pointer to an uninstantiated variadic function");
                     }
                     proc_type.signature.params.positional.push_back(arg.type);
                 }
@@ -1107,7 +1107,7 @@ namespace quxlang
                 {
                     if (arg.is_pack)
                     {
-                        throw std::logic_error("Cannot form a procedure pointer to an uninstantiated variadic function");
+                        throw semantic_compilation_error("Cannot form a procedure pointer to an uninstantiated variadic function");
                     }
                     proc_type.signature.params.named[name] = arg.type;
                 }
@@ -1115,7 +1115,7 @@ namespace quxlang
                 auto decl = co_await rpnx::querygraph::request< function_declaration_query >(selected_function);
                 if (!decl.has_value())
                 {
-                    throw std::logic_error("Procedure pointer target function declaration not found");
+                    throw semantic_compilation_error("Procedure pointer target function declaration not found");
                 }
 
                 auto ret_type = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
@@ -1124,13 +1124,13 @@ namespace quxlang
                 });
                 if (!ret_type.has_value())
                 {
-                    throw std::logic_error("Procedure pointer target return type could not be resolved");
+                    throw semantic_compilation_error("Procedure pointer target return type could not be resolved");
                 }
                 proc_type.signature.return_type = ret_type.value();
             }
             else
             {
-                throw std::logic_error("Procedure pointers currently require a concrete function selection");
+                throw semantic_compilation_error("Procedure pointers currently require a concrete function selection");
             }
 
             auto pointer_value = create_local_value(ptrref_type{
@@ -1216,19 +1216,19 @@ namespace quxlang
             auto storage_ref_type = this->current_type(bidx, storage_ref);
             if (!is_ref(storage_ref_type))
             {
-                throw std::logic_error("Expected a storage reference");
+                throw semantic_compilation_error("Expected a storage reference");
             }
 
             auto ref_type = as< ptrref_type >(storage_ref_type);
             if (require_mut && ref_type.qual != qualifier::mut)
             {
-                throw std::logic_error("Expected MUT& STORAGE for storage mutation");
+                throw semantic_compilation_error("Expected MUT& STORAGE for storage mutation");
             }
 
             auto storage_type = remove_ref(storage_ref_type);
             if (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type))
             {
-                throw std::logic_error("Expected a storage-typed reference");
+                throw semantic_compilation_error("Expected a storage-typed reference");
             }
 
             if (projected_type.has_value() && typeis< storage >(storage_type))
@@ -1244,7 +1244,7 @@ namespace quxlang
                 }
                 if (!allowed)
                 {
-                    throw std::logic_error("Projected type is not permitted by storage type");
+                    throw semantic_compilation_error("Projected type is not permitted by storage type");
                 }
             }
             else if (projected_type.has_value() && typeis< aligned_storage >(storage_type))
@@ -1253,7 +1253,7 @@ namespace quxlang
                 auto storage_placement = co_await rpnx::querygraph::request< type_placement_info_query >(storage_type);
                 if (projected_placement.size > storage_placement.size || projected_placement.alignment > storage_placement.alignment)
                 {
-                    throw std::logic_error("Projected type does not fit in aligned storage");
+                    throw semantic_compilation_error("Projected type does not fit in aligned storage");
                 }
             }
 
@@ -1379,7 +1379,7 @@ namespace quxlang
             auto const& binding = this->state.statics.at(symbol);
             if (binding.mutation_result_id.has_value() && !allow_mutable_static_targets)
             {
-                throw std::logic_error("cannot use mutable function-local static outside constexpr context without SNAPSHOT: " + symbol.name);
+                throw semantic_compilation_error("cannot use mutable function-local static outside constexpr context without SNAPSHOT: " + symbol.name);
             }
             if (auto it = remapped.find(symbol); it != remapped.end())
             {
@@ -1442,17 +1442,17 @@ namespace quxlang
             type_symbol binding_type = this->current_type(current_block, binding_value);
             if (binding_type != expected_type)
             {
-                throw std::logic_error("Expected attached binding " + to_string(expected_type) + ", got " + to_string(binding_type));
+                throw semantic_compilation_error("Expected attached binding " + to_string(expected_type) + ", got " + to_string(binding_type));
             }
             if (!this->state.genvalues.at(binding_value).template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected attached binding value");
+                throw semantic_compilation_error("Expected attached binding value");
             }
 
             codegen_binding const& binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
             if (binding.bound_value == value_index(0))
             {
-                throw std::logic_error("Expected bound attached binding value");
+                throw semantic_compilation_error("Expected bound attached binding value");
             }
             return binding.bound_value;
         }
@@ -1476,13 +1476,13 @@ namespace quxlang
             type_symbol val_type = this->current_type(current_block, val);
             if (!val_type.type_is< ptrref_type >())
             {
-                throw std::logic_error("Expected a reference type");
+                throw compiler_bug("Expected a reference type");
             }
 
             ptrref_type const& vptr = val_type.get_as< ptrref_type >();
             if (vptr.ptr_class != pointer_class::ref)
             {
-                throw std::logic_error("Expected a reference type");
+                throw compiler_bug("Expected a reference type");
             }
 
             value_index copy_idx = this->create_local_value(vptr);
@@ -1495,16 +1495,16 @@ namespace quxlang
             type_symbol binding_type = this->current_type(current_block, binding_value);
             if (expected_type.has_value() && binding_type != *expected_type)
             {
-                throw std::logic_error("Cannot copy attached binding " + to_string(binding_type) + " into " + to_string(*expected_type));
+                throw semantic_compilation_error("Cannot copy attached binding " + to_string(binding_type) + " into " + to_string(*expected_type));
             }
 
             if (!typeis< attached_type_reference >(binding_type))
             {
-                throw std::logic_error("Expected attached binding type, got " + to_string(binding_type));
+                throw semantic_compilation_error("Expected attached binding type, got " + to_string(binding_type));
             }
             if (!this->state.genvalues.at(binding_value).template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected attached binding value");
+                throw semantic_compilation_error("Expected attached binding value");
             }
 
             codegen_binding const& binding = this->state.genvalues.at(binding_value).template get_as< codegen_binding >();
@@ -1684,26 +1684,26 @@ namespace quxlang
             auto canonical_symbol = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(symbol)});
             if (!canonical_symbol.has_value())
             {
-                throw std::logic_error("DECLTYPE target symbol could not be resolved");
+                throw semantic_compilation_error("DECLTYPE target symbol could not be resolved");
             }
 
             auto kind = co_await rpnx::querygraph::request< symbol_type_query >(*canonical_symbol);
             if (kind != symbol_kind::global_variable)
             {
-                throw std::logic_error("DECLTYPE requires a value symbol");
+                throw semantic_compilation_error("DECLTYPE requires a value symbol");
             }
 
             auto sym = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
             if (!sym.template type_is< ast2_variable_declaration >())
             {
-                throw std::logic_error("DECLTYPE target variable is not declared as a variable");
+                throw semantic_compilation_error("DECLTYPE target variable is not declared as a variable");
             }
 
             auto declared_type = sym.template get_as< ast2_variable_declaration >().type;
             auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = *canonical_symbol, .type = declared_type});
             if (!resolved.has_value())
             {
-                throw std::logic_error("DECLTYPE target type could not be resolved");
+                throw semantic_compilation_error("DECLTYPE target type could not be resolved");
             }
             co_return *resolved;
         }
@@ -1740,7 +1740,7 @@ namespace quxlang
                 auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(ref)});
                 if (!resolved.has_value())
                 {
-                    throw std::logic_error("Type could not be resolved");
+                    throw semantic_compilation_error("Type could not be resolved");
                 }
                 co_return *resolved;
             }
@@ -1751,7 +1751,7 @@ namespace quxlang
                 auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(array)});
                 if (!resolved.has_value())
                 {
-                    throw std::logic_error("Array type could not be resolved");
+                    throw semantic_compilation_error("Array type could not be resolved");
                 }
                 co_return *resolved;
             }
@@ -1768,7 +1768,7 @@ namespace quxlang
             auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(type)});
             if (!resolved.has_value())
             {
-                throw std::logic_error("Type could not be resolved");
+                throw semantic_compilation_error("Type could not be resolved");
             }
             co_return *resolved;
         }
@@ -1782,7 +1782,7 @@ namespace quxlang
             auto looked = co_await co_lookup_symbol(idx, sym);
             if (!looked.has_value())
             {
-                throw std::logic_error("Type not found: " + to_string(sym));
+                throw semantic_compilation_error("Type not found: " + to_string(sym));
             }
 
             auto val = looked.value();
@@ -1790,20 +1790,20 @@ namespace quxlang
 
             if (!typeis< attached_type_reference >(vtype))
             {
-                throw std::logic_error("Lookup did not yield a type symbol: " + to_string(vtype));
+                throw semantic_compilation_error("Lookup did not yield a type symbol: " + to_string(vtype));
             }
 
             auto const& att = as< attached_type_reference >(vtype);
             // If carrying_type is not void, it's a member bound to a value.
             if (!typeis< void_type >(att.carrying_type))
             {
-                throw std::logic_error("Type symbol bound to a value: " + to_string(vtype));
+                throw semantic_compilation_error("Type symbol bound to a value: " + to_string(vtype));
             }
 
             auto kind = co_await rpnx::querygraph::request< symbol_type_query >(att.attached_symbol);
             if (kind != symbol_kind::class_)
             {
-                throw std::logic_error("Symbol is not a class: " + to_string(att.attached_symbol));
+                throw semantic_compilation_error("Symbol is not a class: " + to_string(att.attached_symbol));
             }
 
             co_return att.attached_symbol;
@@ -1837,7 +1837,7 @@ namespace quxlang
                 auto bool_value = option_bool_value(option_value);
                 if (!bool_value.has_value())
                 {
-                    throw std::logic_error("Invalid BOOL option value for " + to_string(option_symbol) + ": " + option_value);
+                    throw semantic_compilation_error("Invalid BOOL option value for " + to_string(option_symbol) + ": " + option_value);
                 }
                 return this->create_bool_value(idx, *bool_value);
             }
@@ -1865,14 +1865,14 @@ namespace quxlang
                 }
             }
 
-            throw std::logic_error("Option default value for " + to_string(option_symbol) + " does not match the declared option kind");
+            throw semantic_compilation_error("Option default value for " + to_string(option_symbol) + " does not match the declared option kind");
         }
 
         auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option, std::set< type_symbol > resolving_options) -> co_type< value_index >
         {
             if (!resolving_options.insert(option_symbol).second)
             {
-                throw std::logic_error("Cyclic DEFAULT_FROM while resolving option " + to_string(option_symbol));
+                throw semantic_compilation_error("Cyclic DEFAULT_FROM while resolving option " + to_string(option_symbol));
             }
 
             auto options_map = co_await rpnx::querygraph::request< module_options_map_query >(std::monostate{});
@@ -1891,13 +1891,13 @@ namespace quxlang
                 });
                 if (!default_option_symbol.has_value())
                 {
-                    throw std::logic_error("DEFAULT_FROM option for " + to_string(option_symbol) + " did not resolve: " + to_string(default_from));
+                    throw semantic_compilation_error("DEFAULT_FROM option for " + to_string(option_symbol) + " did not resolve: " + to_string(default_from));
                 }
 
                 auto default_kind = co_await rpnx::querygraph::request< symbol_type_query >(*default_option_symbol);
                 if (default_kind != symbol_kind::option)
                 {
-                    throw std::logic_error("DEFAULT_FROM for " + to_string(option_symbol) + " resolved to non-option symbol " + to_string(*default_option_symbol));
+                    throw semantic_compilation_error("DEFAULT_FROM for " + to_string(option_symbol) + " resolved to non-option symbol " + to_string(*default_option_symbol));
                 }
 
                 auto default_symboid = co_await rpnx::querygraph::request< symboid_query >(*default_option_symbol);
@@ -1909,7 +1909,7 @@ namespace quxlang
                 auto const& default_option = default_symboid.template get_as< ast2_option >();
                 if (default_option.kind != option.kind)
                 {
-                    throw std::logic_error("DEFAULT_FROM option for " + to_string(option_symbol) + " has a different kind: " + to_string(*default_option_symbol));
+                    throw semantic_compilation_error("DEFAULT_FROM option for " + to_string(option_symbol) + " has a different kind: " + to_string(*default_option_symbol));
                 }
 
                 co_return co_await co_generate_option_value(idx, *default_option_symbol, default_option, std::move(resolving_options));
@@ -1920,7 +1920,7 @@ namespace quxlang
                 co_return this->create_default_option_value(idx, option, default_value, option_symbol);
             }
 
-            throw std::logic_error("No configured or default value for option " + to_string(option_symbol));
+            throw semantic_compilation_error("No configured or default value for option " + to_string(option_symbol));
         }
 
         auto co_generate_option_value(block_index idx, type_symbol const& option_symbol, ast2_option const& option) -> co_type< value_index >
@@ -1966,7 +1966,7 @@ namespace quxlang
                                 attached_type_reference const& attached = as< attached_type_reference >(def_type);
                                 if (!typeis< void_type >(attached.carrying_type))
                                 {
-                                    throw std::logic_error("Cannot materialize bound attached type without a carrier value: " + to_string(def_type));
+                                    throw semantic_compilation_error("Cannot materialize bound attached type without a carrier value: " + to_string(def_type));
                                 }
                                 auto binding = this->create_binding(value_index(0), attached.attached_symbol);
                                 co_return binding;
@@ -1997,7 +1997,7 @@ namespace quxlang
                     }
                     if (this->state.packs.contains(name))
                     {
-                        throw std::logic_error("Cannot use positional pack '" + name + "' directly; use PACK_SIZE, PACK_ARG, or PACK_ARG_TYPE.");
+                        throw semantic_compilation_error("Cannot use positional pack '" + name + "' directly; use PACK_SIZE, PACK_ARG, or PACK_ARG_TYPE.");
                     }
                 }
             }
@@ -2204,7 +2204,7 @@ namespace quxlang
             {
                 if (!typeis< void_type >(as< attached_type_reference >(callee_type).carrying_type))
                 {
-                    throw std::logic_error("this is bug...");
+                    throw compiler_bug("attached class reference unexpectedly carried a value type");
                 }
                 auto object_type = as< attached_type_reference >(callee_type).attached_symbol;
 
@@ -2279,7 +2279,7 @@ namespace quxlang
             type_symbol element_type = array.element_type;
             if (!array.element_count.type_is< expression_numeric_literal >())
             {
-                throw std::logic_error("Array size must be a numeric literal");
+                throw semantic_compilation_error("Array size must be a numeric literal");
             }
 
             std::string const& array_size = as< expression_numeric_literal >(array.element_count).value;
@@ -2291,12 +2291,12 @@ namespace quxlang
             auto [res, ok] = bytemath::unlimited_to_int< std::uint64_t >(opts, ule);
             if (!ok)
             {
-                throw std::logic_error("Array size is too large");
+                throw semantic_compilation_error("Array size is too large");
             }
 
             if (args.positional.size() != static_cast< std::size_t >(res))
             {
-                throw std::logic_error("Array positional constructor argument count does not match array length");
+                throw semantic_compilation_error("Array positional constructor argument count does not match array length");
             }
 
             array_initializer_type init_type;
@@ -2387,13 +2387,13 @@ namespace quxlang
                 {
                     if (!this->state.genvalues.at(arg_expr_index).template type_is< codegen_binding >())
                     {
-                        throw std::logic_error("Expected attached THIS argument to be a binding");
+                        throw semantic_compilation_error("Expected attached THIS argument to be a binding");
                     }
 
                     attached_type_reference const& attached = as< attached_type_reference >(arg_expr_type);
                     if (attached.carrying_type != arg_target_type)
                     {
-                        throw std::logic_error("Cannot lower attached THIS argument " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
+                        throw semantic_compilation_error("Cannot lower attached THIS argument " + to_string(arg_expr_type) + " to " + to_string(arg_target_type));
                     }
 
                     codegen_binding const& binding = this->state.genvalues.at(arg_expr_index).template get_as< codegen_binding >();
@@ -2461,7 +2461,7 @@ namespace quxlang
                     auto default_it = named_defaults.find(name);
                     if (default_it == named_defaults.end())
                     {
-                        throw std::logic_error("Missing argument @" + name + " and no default expression is available");
+                        throw semantic_compilation_error("Missing argument @" + name + " and no default expression is available");
                     }
                     arg_expr_index = co_await generate_default_expr(*default_it->second);
                 }
@@ -2484,7 +2484,7 @@ namespace quxlang
                 {
                     if (i >= positional_defaults.size() || positional_defaults.at(i) == nullptr)
                     {
-                        throw std::logic_error("Missing positional argument and no default expression is available");
+                        throw semantic_compilation_error("Missing positional argument and no default expression is available");
                     }
                     arg_expr_index = co_await generate_default_expr(*positional_defaults.at(i));
                 }
@@ -2535,7 +2535,7 @@ namespace quxlang
 
             if (!is_ref(target_ref_type) || !is_ref(ref_type))
             {
-                throw std::logic_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
+                throw semantic_compilation_error("Cannot gen_reinterpret_reference reinterpret non-reference types");
             }
 
             auto new_index = this->create_local_value(target_ref_type);
@@ -2919,7 +2919,7 @@ namespace quxlang
                     }
                     if (call.positional.at(0) != call.positional.at(1) || !typeis< float_type >(call.positional.at(0)))
                     {
-                        throw std::logic_error(builtin->name + " requires two floating point arguments of the same type");
+                        throw semantic_compilation_error(builtin->name + " requires two floating point arguments of the same type");
                     }
 
                     auto const a = get_local_index(args.positional.at(0));
@@ -3991,7 +3991,7 @@ namespace quxlang
 
             if (!value_opt.has_value())
             {
-                throw std::logic_error("Expected symbol " + quxlang::to_string(expr.symbol) + " to be defined.");
+                throw semantic_compilation_error("Expected symbol " + quxlang::to_string(expr.symbol) + " to be defined.");
             }
 
             co_return value_opt.value();
@@ -4001,26 +4001,26 @@ namespace quxlang
         {
             if (!expr.symbol.template type_is< freebound_identifier >())
             {
-                throw std::logic_error("FORWARD requires a symbol");
+                throw semantic_compilation_error("FORWARD requires a symbol");
             }
 
             auto const& name = expr.symbol.template get_as< freebound_identifier >().name;
             auto value = this->local_value_direct_lookup(bidx, name);
             if (!value.has_value())
             {
-                throw std::logic_error("FORWARD requires a visible local or parameter symbol");
+                throw semantic_compilation_error("FORWARD requires a visible local or parameter symbol");
             }
 
             auto declared_type = this->declared_type_of_local_value(*value);
             if (!is_ref(declared_type))
             {
-                throw std::logic_error("FORWARD currently requires a reference-typed symbol");
+                throw semantic_compilation_error("FORWARD currently requires a reference-typed symbol");
             }
 
             auto current = this->current_type(bidx, *value);
             if (!is_ref(current))
             {
-                throw std::logic_error("FORWARD target is not currently a reference");
+                throw semantic_compilation_error("FORWARD target is not currently a reference");
             }
 
             co_return this->copy_refernece_internal(bidx, *value);
@@ -4031,7 +4031,7 @@ namespace quxlang
             auto symbol = this->find_visible_static_binding(expr.name);
             if (!symbol.has_value())
             {
-                throw std::logic_error("SNAPSHOT requires a visible function-local static: " + expr.name);
+                throw semantic_compilation_error("SNAPSHOT requires a visible function-local static: " + expr.name);
             }
 
             std::map< static_local_ref, static_snapshot_ref > remapped;
@@ -4061,7 +4061,7 @@ namespace quxlang
             }
 
             {
-                throw std::logic_error("Unknown positional pack '" + expr.pack_name + "'");
+                throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
             }
         }
 
@@ -4071,13 +4071,13 @@ namespace quxlang
             auto const pack_it = this->state.packs.find(expr.pack_name);
             if (pack_it == this->state.packs.end())
             {
-                throw std::logic_error("Unknown positional pack '" + expr.pack_name + "'");
+                throw semantic_compilation_error("Unknown positional pack '" + expr.pack_name + "'");
             }
 
             std::uint64_t const index = co_await this->co_constexpr_u64(bidx, expr.index);
             if (index >= pack_it->second.values.size())
             {
-                throw std::logic_error("PACK_ARG index is out of range for positional pack '" + expr.pack_name + "'");
+                throw semantic_compilation_error("PACK_ARG index is out of range for positional pack '" + expr.pack_name + "'");
             }
 
             co_return this->materialize_lookup_reference(bidx, pack_it->second.values.at(static_cast< std::vector< value_index >::size_type >(index)));
@@ -4088,7 +4088,7 @@ namespace quxlang
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
             {
-                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
             }
 
             auto type_val = type_opt.value();
@@ -4097,22 +4097,22 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_literal >())
             {
-                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
             }
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got an object or reference instead.");
+                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got something else instead.");
+                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             auto const& attached_type = binding.attached_symbol;
@@ -4121,7 +4121,7 @@ namespace quxlang
             symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
-                throw std::logic_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
+                throw semantic_compilation_error("Expected SIZEOF(...) to refer to a class type, got a non-class type instead.");
             }
 
             type_placement_info placement_info = co_await rpnx::querygraph::request< type_placement_info_query >(attached_type);
@@ -4136,7 +4136,7 @@ namespace quxlang
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
             {
-                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
             }
 
             auto type_val = type_opt.value();
@@ -4145,22 +4145,22 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_literal >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
             }
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got something else instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             type_symbol const& attached_type = binding.attached_symbol;
@@ -4169,7 +4169,7 @@ namespace quxlang
             symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
-                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
             }
 
             if (attached_type.template type_is< byte_type >())
@@ -4179,7 +4179,7 @@ namespace quxlang
 
             if (!attached_type.template type_is< int_type >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
             }
 
             int_type const& inttype = attached_type.template as< int_type >();
@@ -4193,7 +4193,7 @@ namespace quxlang
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
             {
-                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
             }
 
             auto type_val = type_opt.value();
@@ -4202,22 +4202,22 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_literal >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got a literal genvalue instead (hint: cast to a concrete type like I32, NUMERIC_CONSTANT, STRING_CONSTANT, or similar).");
             }
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got something else instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw std::logic_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw semantic_compilation_error("Expected BITS(...) to refer to a integer type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             type_symbol const& attached_type = binding.attached_symbol;
@@ -4226,7 +4226,7 @@ namespace quxlang
             symbol_kind kind = co_await rpnx::querygraph::request< symbol_type_query >(attached_type);
             if (kind != symbol_kind::class_)
             {
-                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to an integer type, got a non-class type instead.");
             }
 
             if (attached_type.template type_is< byte_type >())
@@ -4236,7 +4236,7 @@ namespace quxlang
 
             if (!attached_type.template type_is< int_type >())
             {
-                throw std::logic_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
+                throw semantic_compilation_error("Expected BITS(...) to refer to an integer type, got a non-integer class type instead.");
             }
 
             int_type const& inttype = attached_type.template as< int_type >();
@@ -4248,7 +4248,7 @@ namespace quxlang
             auto type_opt = co_await this->co_lookup_symbol(bidx, szof.of_type);
             if (!type_opt.has_value())
             {
-                throw std::logic_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(szof.of_type) + " to be defined.");
             }
 
             auto type_val = type_opt.value();
@@ -4262,17 +4262,17 @@ namespace quxlang
 
             if (genvalue.template type_is< codegen_local >())
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got an object or reference instead.");
+                throw semantic_compilation_error("Expected IS_INTEGRAL(...) to refer to a type, got an object or reference instead.");
             }
 
             if (!genvalue.template type_is< codegen_binding >())
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got something else instead.");
+                throw semantic_compilation_error("Expected IS_INTEGRAL(...) to refer to a type, got something else instead.");
             }
             auto const& binding = genvalue.template get_as< codegen_binding >();
             if (binding.bound_value != value_index(0))
             {
-                throw std::logic_error("Expected IS_INTEGRAL(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                throw semantic_compilation_error("Expected IS_INTEGRAL(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
             }
 
             type_symbol const& attached_type = binding.attached_symbol;
@@ -4304,30 +4304,30 @@ namespace quxlang
                 auto type_opt = co_await this->co_lookup_symbol(bidx, sym);
                 if (!type_opt.has_value())
                 {
-                    throw std::logic_error("Expected type " + quxlang::to_string(sym) + " to be defined.");
+                    throw semantic_compilation_error("Expected type " + quxlang::to_string(sym) + " to be defined.");
                 }
 
                 auto const& genvalue = this->state.genvalues.at(*type_opt);
 
                 if (genvalue.template type_is< codegen_literal >())
                 {
-                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got a literal instead.");
+                    throw semantic_compilation_error("Expected SAME_TYPES(...) to refer to a type, got a literal instead.");
                 }
 
                 if (genvalue.template type_is< codegen_local >())
                 {
-                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got an object or reference instead.");
+                    throw semantic_compilation_error("Expected SAME_TYPES(...) to refer to a type, got an object or reference instead.");
                 }
 
                 if (!genvalue.template type_is< codegen_binding >())
                 {
-                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got something else instead.");
+                    throw semantic_compilation_error("Expected SAME_TYPES(...) to refer to a type, got something else instead.");
                 }
 
                 auto const& binding = genvalue.template get_as< codegen_binding >();
                 if (binding.bound_value != value_index(0))
                 {
-                    throw std::logic_error("Expected SAME_TYPES(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
+                    throw semantic_compilation_error("Expected SAME_TYPES(...) to refer to a type, got an attached symbol (member function?) instead. (hint: cast member function attachments to a concrete type first)");
                 }
 
                 co_return binding.attached_symbol;
@@ -4363,7 +4363,7 @@ namespace quxlang
                 {
                     if (!typeis< void_type >(attached.carrying_type))
                     {
-                        throw std::logic_error("Bound method procedure pointers are not yet supported");
+                        throw semantic_compilation_error("Bound method procedure pointers are not yet supported");
                     }
                     co_return co_await co_gen_get_procedure_ptr(bidx, attached.attached_symbol, "DEFAULT");
                 }
@@ -4371,13 +4371,13 @@ namespace quxlang
                 {
                     if (!typeis< void_type >(attached.carrying_type))
                     {
-                        throw std::logic_error("Bound method procedure pointers are not yet supported");
+                        throw semantic_compilation_error("Bound method procedure pointers are not yet supported");
                     }
 
                     auto overloads = co_await rpnx::querygraph::request< functum_overloads_query >(attached.attached_symbol);
                     if (overloads.size() != 1)
                     {
-                        throw std::logic_error("Cannot take address of overloaded functum " + to_string(attached.attached_symbol));
+                        throw semantic_compilation_error("Cannot take address of overloaded functum " + to_string(attached.attached_symbol));
                     }
 
                     auto const& selected_overload = *overloads.begin();
@@ -4386,7 +4386,7 @@ namespace quxlang
                     {
                         if (arg.is_pack)
                         {
-                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                            throw semantic_compilation_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
                         }
                         if (is_template(arg.type))
                         {
@@ -4398,7 +4398,7 @@ namespace quxlang
                     {
                         if (arg.is_pack)
                         {
-                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                            throw semantic_compilation_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
                         }
                         if (is_template(arg.type))
                         {
@@ -4408,7 +4408,7 @@ namespace quxlang
                     }
                     if (has_template_params)
                     {
-                        throw std::logic_error("Cannot take address of templated functum " + to_string(attached.attached_symbol));
+                        throw semantic_compilation_error("Cannot take address of templated functum " + to_string(attached.attached_symbol));
                     }
 
                     temploid_reference selected_function{
@@ -4421,7 +4421,7 @@ namespace quxlang
                     {
                         if (arg.is_pack)
                         {
-                            throw std::logic_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
+                            throw semantic_compilation_error("Cannot take address of uninstantiated variadic functum " + to_string(attached.attached_symbol));
                         }
                         selected_inst.params.positional.push_back(make_type_instantiation(arg.type));
                     }
@@ -4432,7 +4432,7 @@ namespace quxlang
                     co_return co_await co_gen_get_procedure_ptr(bidx, selected_inst, "DEFAULT");
                 }
 
-                throw std::logic_error("Cannot take address of non-object binding " + to_string(attached.attached_symbol));
+                throw semantic_compilation_error("Cannot take address of non-object binding " + to_string(attached.attached_symbol));
             }
 
             vmir2::make_pointer_to make_pointer;
@@ -4508,7 +4508,7 @@ namespace quxlang
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
                 if (!result.has_value())
                 {
-                    throw std::runtime_error("Expected symbol " + kw.keyword + " to be defined.");
+                    throw quxlang::semantic_compilation_error("Expected symbol " + kw.keyword + " to be defined.");
                 }
                 co_return result.value();
             }
@@ -5207,7 +5207,7 @@ namespace quxlang
             {
                 if (!analysis.possible_captures.contains(capture.name))
                 {
-                    throw std::logic_error("Lambda capture source is not available: " + capture.name);
+                    throw semantic_compilation_error("Lambda capture source is not available: " + capture.name);
                 }
                 analysis.explicit_captures[capture.name] = capture.mode;
                 this->add_lambda_capture(analysis, capture.name);
@@ -5563,7 +5563,7 @@ namespace quxlang
                 co_return co_await co_gen_call_functum(bidx, rhs_function, rhs_args);
             }
 
-            throw std::logic_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
+            throw semantic_compilation_error("Found neither " + to_string(lhs_function) + " callable with (" + to_string(lhs_type) + ", " + to_string(rhs_type) + ") nor " + to_string(rhs_function) + " callable with (" + to_string(rhs_type) + ", " + to_string(lhs_type) + ")");
         }
 
         auto co_generate(block_index& bidx, expression_binary input) -> co_type< value_index >
@@ -5728,7 +5728,7 @@ namespace quxlang
                 co_return *other_ctor;
             }
 
-            throw std::logic_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
+            throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
         }
 
         auto co_generate(block_index& bidx, expression_pun input) -> co_type< value_index >
@@ -5819,7 +5819,7 @@ namespace quxlang
 
             if (!convertible)
             {
-                throw std::logic_error("Cannot convert " + quxlang::to_string(type_of_expr) + " to " + quxlang::to_string(target_type));
+                throw semantic_compilation_error("Cannot convert " + quxlang::to_string(type_of_expr) + " to " + quxlang::to_string(target_type));
             }
 
             co_return co_await co_gen_implicit_conversion(bidx, expr_val, target_type);
@@ -5985,7 +5985,7 @@ namespace quxlang
                 target = this->find_labeled_break_target(*st.label_name);
                 if (!target.has_value())
                 {
-                    throw std::logic_error("BREAK used with unknown label: " + *st.label_name);
+                    throw semantic_compilation_error("BREAK used with unknown label: " + *st.label_name);
                 }
             }
             else if (!this->state.loop_controls.empty())
@@ -5994,7 +5994,7 @@ namespace quxlang
             }
             else
             {
-                throw std::logic_error("BREAK used outside a runtime loop");
+                throw semantic_compilation_error("BREAK used outside a runtime loop");
             }
             this->generate_jump(current_block, *target, "break");
             co_return;
@@ -6008,7 +6008,7 @@ namespace quxlang
                 target = this->find_labeled_continue_target(*st.label_name);
                 if (!target.has_value())
                 {
-                    throw std::logic_error("CONTINUE used with unknown loop label: " + *st.label_name);
+                    throw semantic_compilation_error("CONTINUE used with unknown loop label: " + *st.label_name);
                 }
             }
             else if (!this->state.loop_controls.empty())
@@ -6017,7 +6017,7 @@ namespace quxlang
             }
             else
             {
-                throw std::logic_error("CONTINUE used outside a runtime loop");
+                throw semantic_compilation_error("CONTINUE used outside a runtime loop");
             }
             this->generate_jump(current_block, *target, "continue");
             co_return;
@@ -6173,19 +6173,19 @@ namespace quxlang
         {
             if (st.init_block.has_value() || st.eval_block.has_value() || st.test_condition.has_value() || st.posttest_condition.has_value() || st.step_block.has_value())
             {
-                throw std::logic_error("FOR sequence clauses cannot be mixed with INIT, EVAL, TEST, POSTTEST, or STEP");
+                throw semantic_compilation_error("FOR sequence clauses cannot be mixed with INIT, EVAL, TEST, POSTTEST, or STEP");
             }
             if (!st.from_expr.has_value())
             {
-                throw std::logic_error("FOR sequence loop requires FROM");
+                throw semantic_compilation_error("FOR sequence loop requires FROM");
             }
             if (!st.value_name.has_value())
             {
-                throw std::logic_error("FOR sequence loop requires VALUE");
+                throw semantic_compilation_error("FOR sequence loop requires VALUE");
             }
             if (st.to_expr.has_value() == st.until_expr.has_value())
             {
-                throw std::logic_error("FOR sequence loop requires exactly one of TO or UNTIL");
+                throw semantic_compilation_error("FOR sequence loop requires exactly one of TO or UNTIL");
             }
 
             auto outer_lookup_values = this->block(current_block).lookup_values;
@@ -6195,7 +6195,7 @@ namespace quxlang
             auto sequence_type = remove_ref(this->current_type(current_block, start_input));
             if (sequence_type.template type_is< numeric_literal_reference >())
             {
-                throw std::logic_error("FOR sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
+                throw semantic_compilation_error("FOR sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
             }
             auto sequence_value = co_await co_gen_construct_with_target_type(current_block, start_input, sequence_type, allowed_adaptations::source_rebinding);
             this->block(current_block).lookup_values[*st.value_name] = sequence_value;
@@ -6269,7 +6269,7 @@ namespace quxlang
         {
             if (this->for_statement_has_iterator_clause(st))
             {
-                throw std::logic_error("FOR iterator clauses are parsed but not yet implemented");
+                throw semantic_compilation_error("FOR iterator clauses are parsed but not yet implemented");
             }
             if (this->for_statement_has_sequence_clause(st))
             {
@@ -6387,7 +6387,7 @@ namespace quxlang
         {
             if (this->state.blocks.at(from).terminator.has_value())
             {
-                throw std::logic_error("Cannot branch from a block that already has a terminator");
+                throw compiler_bug("Cannot branch from a block that already has a terminator");
             }
             this->set_terminator(from, vmir2::branch{.condition = get_local_index(condition), .target_true = block_index(true_branch), .target_false = block_index(false_branch)});
         }
@@ -6396,7 +6396,7 @@ namespace quxlang
         {
             if (this->state.blocks.at(from).terminator.has_value())
             {
-                throw std::logic_error("Cannot branch from a block that already has a terminator");
+                throw compiler_bug("Cannot branch from a block that already has a terminator");
             }
             this->set_terminator(from, vmir2::runtime_constexpr{.target_constexpr = block_index(constexpr_branch), .target_native = block_index(native_branch)});
         }
@@ -6503,11 +6503,11 @@ namespace quxlang
             }
             if (this->find_visible_static_binding(st.name).has_value())
             {
-                throw std::logic_error("duplicate visible static local: " + st.name);
+                throw semantic_compilation_error("duplicate visible static local: " + st.name);
             }
             if (this->local_value_direct_lookup(current_block, st.name).has_value())
             {
-                throw std::logic_error("static local conflicts with visible runtime local: " + st.name);
+                throw semantic_compilation_error("static local conflicts with visible runtime local: " + st.name);
             }
 
             type_symbol var_type = co_await this->co_resolve_type_symbol(current_block, st.type);
@@ -6550,7 +6550,7 @@ namespace quxlang
             {
                 if (!st.initializers.empty() || !st.equals_initializer.has_value())
                 {
-                    throw std::logic_error("AUTO variables require a single := initializer");
+                    throw semantic_compilation_error("AUTO variables require a single := initializer");
                 }
 
                 block_index new_expr_block = this->generate_subblock(current_block, "auto_var_new");
@@ -6610,7 +6610,7 @@ namespace quxlang
             {
                 if (!st.initializers.empty() || !st.equals_initializer.has_value())
                 {
-                    throw std::logic_error("Attached binding variables require a single := initializer");
+                    throw semantic_compilation_error("Attached binding variables require a single := initializer");
                 }
 
                 block_index new_expr_block = this->generate_subblock(current_block, "binding_var_new");
@@ -6674,7 +6674,7 @@ namespace quxlang
             {
                 if (!st.initializers.empty() || st.equals_initializer.has_value())
                 {
-                    throw std::logic_error("STORAGE variables do not support direct initializers");
+                    throw semantic_compilation_error("STORAGE variables do not support direct initializers");
                 }
                 this->emit(new_expr_block, vmir2::storage_init{.storage = get_local_index(idx)});
             }
@@ -6716,7 +6716,7 @@ namespace quxlang
             auto value = co_await this->co_lookup_symbol(bidx, this_reference);
             if (!value)
             {
-                throw std::logic_error("Cannot find " + to_string(this_reference));
+                throw semantic_compilation_error("Cannot find " + to_string(this_reference));
             }
             auto field = co_await this->co_generate_dot_access(bidx, *value, what.field_name);
             co_return field;
@@ -6791,7 +6791,7 @@ namespace quxlang
                 co_return binding;
             }
 
-            throw std::logic_error("Cannot find field " + field_name + " in " + to_string(base_type));
+            throw semantic_compilation_error("Cannot find field " + field_name + " in " + to_string(base_type));
         }
 
         auto co_generate_builtin_ctor(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -6944,7 +6944,7 @@ namespace quxlang
                 auto default_ctor = co_await rpnx::querygraph::request< instanciation_query >(default_ctor_probe);
                 if (!default_ctor.has_value())
                 {
-                    throw std::logic_error("serialoid STATIC requires a deserialize constructor or default constructor plus DESERIALIZE: " + quxlang::to_string(global_symbol));
+                    throw semantic_compilation_error("serialoid STATIC requires a deserialize constructor or default constructor plus DESERIALIZE: " + quxlang::to_string(global_symbol));
                 }
 
                 auto initialized = co_await co_generate_place_expression_impl(current_block, storage_ref, global_type, std::nullopt, {});
@@ -7072,13 +7072,13 @@ namespace quxlang
             }
             if (!value_type.type_is< int_type >())
             {
-                throw std::logic_error("UINTANY serialization requires an unsigned integer value");
+                throw semantic_compilation_error("UINTANY serialization requires an unsigned integer value");
             }
 
             auto const& int_value_type = value_type.get_as< int_type >();
             if (int_value_type.has_sign)
             {
-                throw std::logic_error("UINTANY serialization requires an unsigned integer value");
+                throw semantic_compilation_error("UINTANY serialization requires an unsigned integer value");
             }
 
             if (int_value_type.bits < 16)
@@ -8106,7 +8106,7 @@ namespace quxlang
 
             if (!return_arg_opt.has_value())
             {
-                throw std::logic_error("RETURN parameter not found");
+                throw compiler_bug("RETURN parameter not found");
             }
 
             auto return_arg = return_arg_opt.value();
@@ -8118,7 +8118,7 @@ namespace quxlang
             auto return_type = current_type(current_block, return_arg);
             if (!typeis< nvalue_slot >(return_type))
             {
-                throw std::logic_error("RETURN parameter has the wrong type");
+                throw compiler_bug("RETURN parameter has the wrong type");
             }
             return_type = type_symbol(as< nvalue_slot >(return_type).target);
             auto ctor = submember{.of = return_type, .name = "CONSTRUCTOR"};
@@ -8244,7 +8244,7 @@ namespace quxlang
             auto& from_block = this->state.blocks.at(from);
             if (from_block.terminator.has_value())
             {
-                throw std::logic_error("Cannot " + std::string(action) + " from a block that already has a terminator");
+                throw compiler_bug("Cannot " + std::string(action) + " from a block that already has a terminator");
             }
 
             vmir2::jump jump_instruction{.target = to};
@@ -8306,7 +8306,7 @@ namespace quxlang
         {
             if (this->state.params.named.contains("RETURN"))
             {
-                throw std::logic_error("RETURN parameter is already defined");
+                throw compiler_bug("RETURN parameter is already defined");
             }
 
             type_symbol return_parameter_type = create_nslot(return_type);
@@ -8353,7 +8353,7 @@ namespace quxlang
             std::optional< ast2_function_declaration > declaration = co_await rpnx::querygraph::request< function_declaration_query >(inst.temploid);
             if (!declaration.has_value())
             {
-                throw std::logic_error("No function declaration");
+                throw compiler_bug("No function declaration");
             }
 
             type_symbol declared_return_type = declaration->definition.return_type.value_or(type_symbol(void_type{}));
@@ -8390,7 +8390,7 @@ namespace quxlang
                 return match->type;
             }
 
-            throw std::logic_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));
+            throw semantic_compilation_error("Return expression type " + to_string(expression_type) + " does not match declared return template " + to_string(declared_return_type));
         }
 
         auto co_generate_arg_info(instanciation_reference func) -> co_type< void >
@@ -8851,14 +8851,14 @@ namespace quxlang
 
             if (!val_type.type_is< ptrref_type >())
             {
-                throw std::logic_error("Expected a reference type");
+                throw compiler_bug("Expected a reference type");
             }
 
             auto vptr = val_type.get_as< ptrref_type >();
 
             if (vptr.ptr_class != pointer_class::ref)
             {
-                throw std::logic_error("Expected a reference type");
+                throw compiler_bug("Expected a reference type");
             }
 
             auto copy_idx = this->create_local_value(vptr);
@@ -8979,7 +8979,7 @@ namespace quxlang
 
             if (!ok)
             {
-                throw std::logic_error("Array size is too large");
+                throw semantic_compilation_error("Array size is too large");
             }
 
             array_initializer_type init_type;
@@ -9236,7 +9236,7 @@ namespace quxlang
                                              { return fld.name == dlg.name; });
                 if (field_it == fields.end())
                 {
-                    throw std::logic_error("Constructor delegate names unknown field: " + dlg.name);
+                    throw semantic_compilation_error("Constructor delegate names unknown field: " + dlg.name);
                 }
 
                 class_field const& fld = *field_it;
@@ -9245,7 +9245,7 @@ namespace quxlang
                 {
                     if (dlg.args.size() > 1)
                     {
-                        throw std::logic_error("Free attached binding delegate accepts at most one initializer");
+                        throw semantic_compilation_error("Free attached binding delegate accepts at most one initializer");
                     }
                     if (dlg.args.size() == 1)
                     {
@@ -9253,7 +9253,7 @@ namespace quxlang
                         type_symbol init_type = this->current_type(current_block, init_idx);
                         if (init_type != fld.type)
                         {
-                            throw std::logic_error("Free attached binding delegate expected " + to_string(fld.type) + ", got " + to_string(init_type));
+                            throw semantic_compilation_error("Free attached binding delegate expected " + to_string(fld.type) + ", got " + to_string(init_type));
                         }
                     }
                     continue;
@@ -9266,7 +9266,7 @@ namespace quxlang
                 {
                     if (dlg.args.size() != 1 || dlg.args.front().name.has_value())
                     {
-                        throw std::logic_error("Attached binding field delegates require exactly one positional initializer");
+                        throw semantic_compilation_error("Attached binding field delegates require exactly one positional initializer");
                     }
                     value_index init_idx = co_await co_generate_expr(current_block, dlg.args.front().value);
                     args.named["OTHER"] = this->attached_binding_carrier_value(current_block, init_idx, fld.type);
@@ -9352,7 +9352,7 @@ namespace quxlang
 
             if (!ok)
             {
-                throw std::logic_error("Array size is too large");
+                throw semantic_compilation_error("Array size is too large");
             }
 
             array_initializer_type init_type;
@@ -9373,7 +9373,7 @@ namespace quxlang
             {
                 if (func.params.positional.size() != static_cast< std::size_t >(res))
                 {
-                    throw std::logic_error("Array positional constructor argument count does not match array length");
+                    throw semantic_compilation_error("Array positional constructor argument count does not match array length");
                 }
 
                 auto constructor = submember{.of = element_type, .name = "CONSTRUCTOR"};

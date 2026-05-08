@@ -223,7 +223,7 @@ namespace
         auto parse_result = std::from_chars(text.data(), text.data() + text.size(), result);
         if (parse_result.ec != std::errc{} || parse_result.ptr != text.data() + text.size())
         {
-            throw std::runtime_error("QUXLANG_LONG_GTEST_F32_RANDOM_VALUES must be an unsigned integer");
+            throw quxlang::compilation_error("QUXLANG_LONG_GTEST_F32_RANDOM_VALUES must be an unsigned integer");
         }
         return result;
     }

@@ -5,6 +5,7 @@
 #define QUXLANG_COMPILATION_RESULT_HPP
 
 #include <quxlang/ast2/source_location.hpp>
+#include <quxlang/exception.hpp>
 #include <rpnx/variant.hpp>
 
 #include <optional>
@@ -70,6 +71,16 @@ namespace quxlang
     {
         compilation_error error(message);
         error.structured_error = semantic_error{std::move(message)};
+        return error;
+    }
+
+    /**
+     * Builds a compilation_error for a syntax diagnostic message.
+     */
+    inline auto syntax_compilation_error(std::string message) -> compilation_error
+    {
+        compilation_error error(message);
+        error.structured_error = syntax_error{std::move(message)};
         return error;
     }
 

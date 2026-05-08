@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/function_instanciation_spec.hpp>
 
 #include "quxlang/macros.hpp"
@@ -9,7 +10,7 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
 {
     if (!typeis< temploid_reference >(input.initializee))
     {
-        throw std::logic_error("Internal Compiler Error(this is a compiler bug): Cannot instanciate a non-function with 'function_instanciation' resolver");
+        throw quxlang::compiler_bug("Internal Compiler Error(this is a compiler bug): Cannot instanciate a non-function with 'function_instanciation' resolver");
     }
 
     temploid_reference const& sel_ref = as< temploid_reference >(input.initializee);
@@ -17,12 +18,12 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
 
     if (selected_kind == symbol_kind::template_)
     {
-        throw std::logic_error("function_instanciation received a template selection. Function templates are not directly callable; set template arguments manually before performing function instanciation.");
+        throw quxlang::compiler_bug("function_instanciation received a template selection. Function templates are not directly callable; set template arguments manually before performing function instanciation.");
     }
 
     if (selected_kind != symbol_kind::function)
     {
-        throw std::logic_error("Internal Compiler Error(this is a compiler bug): function_instanciation received a temploid selection that is not a function");
+        throw quxlang::compiler_bug("Internal Compiler Error(this is a compiler bug): function_instanciation received a temploid selection that is not a function");
     }
 
 

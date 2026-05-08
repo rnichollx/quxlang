@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/ensig_initialize_spec.hpp>
 
 #include <quxlang/data/temploid_instanciation_parameter_set.hpp>
@@ -22,13 +23,13 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             {
                 if (result.has_value())
                 {
-                    throw std::logic_error("A positional parameter cannot follow a positional variadic pack");
+                    throw quxlang::semantic_compilation_error("A positional parameter cannot follow a positional variadic pack");
                 }
                 continue;
             }
             if (result.has_value())
             {
-                throw std::logic_error("Only one positional variadic pack is supported");
+                throw quxlang::semantic_compilation_error("Only one positional variadic pack is supported");
             }
             result = i;
         }
@@ -185,7 +186,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
     {
         if (formal.requires_static_value)
         {
-            throw std::logic_error("Defaulted static-value parameters are not supported");
+            throw quxlang::semantic_compilation_error("Defaulted static-value parameters are not supported");
         }
         return make_type_instantiation(formal.type);
     };

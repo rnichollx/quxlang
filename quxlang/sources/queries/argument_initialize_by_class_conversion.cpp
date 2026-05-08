@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -37,7 +38,7 @@ namespace
             return false;
         }
 
-        throw std::logic_error("unreachable allowed_adaptations");
+        throw quxlang::compiler_bug("unreachable allowed_adaptations");
     }
 
     auto allows_class_conversions(quxlang::allowed_adaptations adaptations) -> bool
@@ -54,7 +55,7 @@ namespace
             return false;
         }
 
-        throw std::logic_error("unreachable allowed_adaptations");
+        throw quxlang::compiler_bug("unreachable allowed_adaptations");
     }
 
     auto allows_destination_rebinding(quxlang::allowed_adaptations adaptations) -> bool

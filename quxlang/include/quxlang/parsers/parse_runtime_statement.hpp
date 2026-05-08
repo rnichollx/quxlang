@@ -2,6 +2,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_RUNTIME_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_RUNTIME_STATEMENT_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/keyword.hpp>
@@ -18,7 +20,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "RUNTIME"))
         {
-            throw std::logic_error("Expected 'RUNTIME'");
+            throw syntax_compilation_error("Expected 'RUNTIME'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -55,7 +57,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::logic_error("Expected runtime condition 'CONSTEXPR' or 'NATIVE' after 'RUNTIME'");
+            throw syntax_compilation_error("Expected runtime condition 'CONSTEXPR' or 'NATIVE' after 'RUNTIME'");
         }
     }
 

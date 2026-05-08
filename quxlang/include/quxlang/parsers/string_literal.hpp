@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_PARSERS_STRING_LITERAL_HEADER_GUARD
 #define QUXLANG_PARSERS_STRING_LITERAL_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <string>
 
 namespace quxlang::parsers
@@ -24,7 +26,7 @@ namespace quxlang::parsers
             {
                 pos++;
                 if (pos == end)
-                    throw std::logic_error("Unexpected end of file in string literal");
+                    throw syntax_compilation_error("Unexpected end of file in string literal");
                 switch (*pos)
                 {
                 case 'n':
@@ -46,7 +48,7 @@ namespace quxlang::parsers
                     result.push_back('"');
                     break;
                 default:
-                    throw std::logic_error("Invalid escape sequence in string literal");
+                    throw syntax_compilation_error("Invalid escape sequence in string literal");
                 }
             }
             else
@@ -58,9 +60,9 @@ namespace quxlang::parsers
         }
 
         if (pos == end)
-            throw std::logic_error("Unexpected end of file in string literal");
+            throw syntax_compilation_error("Unexpected end of file in string literal");
         if (*pos != '"')
-            throw std::logic_error("Expected '\"' at end of string literal");
+            throw syntax_compilation_error("Expected '\"' at end of string literal");
 
         pos++;
 
@@ -76,7 +78,7 @@ namespace quxlang::parsers
         pos++;
 
         if (pos == end)
-            throw std::logic_error("Unexpected end of file in char literal");
+            throw syntax_compilation_error("Unexpected end of file in char literal");
 
         std::byte result{};
 
@@ -85,7 +87,7 @@ namespace quxlang::parsers
             pos++;
             if (pos == end)
             {
-                throw std::logic_error("Unexpected end of file in char literal");
+                throw syntax_compilation_error("Unexpected end of file in char literal");
             }
             switch (*pos)
             {
@@ -108,7 +110,7 @@ namespace quxlang::parsers
                 result = std::byte('\'');
                 break;
             default:
-                throw std::logic_error("Invalid escape sequence in char literal");
+                throw syntax_compilation_error("Invalid escape sequence in char literal");
             }
         }
         else
@@ -120,11 +122,11 @@ namespace quxlang::parsers
 
         if (pos == end)
         {
-            throw std::logic_error("Unexpected end of file in char literal");
+            throw syntax_compilation_error("Unexpected end of file in char literal");
         }
         if (*pos != '\'')
         {
-            throw std::logic_error("Expected '\'' at end of char literal");
+            throw syntax_compilation_error("Expected '\'' at end of char literal");
         }
 
         pos++;

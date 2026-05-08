@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/extern_linksymbol_spec.hpp>
 
 
@@ -20,6 +21,6 @@ rpnx::querygraph::coroutine< quxlang::extern_linksymbol_spec > quxlang::extern_l
     }
     else
     {
-        throw std::logic_error("Extern language '" + lang + "' not supported");
+        throw quxlang::semantic_compilation_error("Extern language '" + lang + "' not supported");
     }
 }

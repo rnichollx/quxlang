@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_TEMPLATE_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_TEMPLATE_DECLARATION_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_class.hpp>
 #include <quxlang/parsers/function.hpp>
@@ -28,7 +30,7 @@ namespace quxlang::parsers
             return template_parameter_kind::value;
         }
 
-        throw std::logic_error("Expected TYPE or VALUE in template parameter");
+        throw syntax_compilation_error("Expected TYPE or VALUE in template parameter");
     }
 
     inline auto default_template_type(declared_parameter const& arg) -> type_symbol
@@ -74,7 +76,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after TEMPLATE");
+            throw syntax_compilation_error("Expected '(' after TEMPLATE");
         }
         std::optional< quxlang::ast2_template_declaration > ct = ast2_template_declaration{};
     get_arg:
@@ -86,7 +88,7 @@ namespace quxlang::parsers
             arg.api_name = parse_argument_name(pos, end);
             if (arg.api_name->empty())
             {
-                throw std::logic_error("Expected identifier after '@' in template parameter");
+                throw syntax_compilation_error("Expected identifier after '@' in template parameter");
             }
 
             if (skip_symbol_if_is(pos, end, ":"))
@@ -96,7 +98,7 @@ namespace quxlang::parsers
 
             if (!skip_whitespace(pos, end))
             {
-                throw std::logic_error("Expected whitespace after named template parameter");
+                throw syntax_compilation_error("Expected whitespace after named template parameter");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -105,7 +107,7 @@ namespace quxlang::parsers
 
             if (ct->m_template_args.named.contains(*arg.api_name))
             {
-                throw std::logic_error("Duplicate named template parameter '" + *arg.api_name + "'");
+                throw syntax_compilation_error("Duplicate named template parameter '" + *arg.api_name + "'");
             }
 
             ct->m_template_args.named[*arg.api_name] = std::move(arg);
@@ -131,7 +133,7 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::logic_error("Expected ',' or ')' after TEMPLATE(...");
+            throw syntax_compilation_error("Expected ',' or ')' after TEMPLATE(...");
         }
     }
 

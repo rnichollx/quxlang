@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/templex_select_template_spec.hpp>
 
 #include <quxlang/ast2/ast2_entity.hpp>
@@ -106,7 +107,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
         if (selected_kind != symbol_kind::template_)
         {
-            throw std::logic_error("templex_select_template received a temploid selection that is not a template.");
+            throw quxlang::compiler_bug("templex_select_template received a temploid selection that is not a template.");
         }
 
         co_return selected;
@@ -284,7 +285,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
         if (matches.size() > 1)
         {
-            throw std::logic_error("Ambiguous template instanciation");
+            throw quxlang::semantic_compilation_error("Ambiguous template instanciation");
         }
 
         co_return matches.front();
@@ -495,7 +496,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
     if (matches.size() > 1)
     {
-        throw std::logic_error("Ambiguous template instanciation");
+        throw quxlang::semantic_compilation_error("Ambiguous template instanciation");
     }
 
     co_return matches.front();

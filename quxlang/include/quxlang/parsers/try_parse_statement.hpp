@@ -1,6 +1,8 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
 #ifndef QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_STATEMENT_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_statement.hpp>
 #include <quxlang/parsers/parse_if_statement.hpp>
 #include <quxlang/parsers/parse_for_statement.hpp>
@@ -30,7 +32,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "STATIC_EVAL"))
         {
-            throw std::logic_error("Expected 'STATIC_EVAL'");
+            throw syntax_compilation_error("Expected 'STATIC_EVAL'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -39,7 +41,7 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';' after STATIC_EVAL expression");
+            throw syntax_compilation_error("Expected ';' after STATIC_EVAL expression");
         }
         st.location = ctx.get_location_optional(begin, pos);
         return st;
@@ -66,7 +68,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after UNIMPLEMENTED statement");
+                throw syntax_compilation_error("Expected ';' after UNIMPLEMENTED statement");
             }
             function_unimplemented_statement st;
             st.location = ctx.get_location_optional(begin, pos);
@@ -110,7 +112,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after BREAK statement");
+                throw syntax_compilation_error("Expected ';' after BREAK statement");
             }
             function_break_statement st;
             st.label_name = std::move(label_name);
@@ -123,7 +125,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after CONTINUE statement");
+                throw syntax_compilation_error("Expected ';' after CONTINUE statement");
             }
             function_continue_statement st;
             st.label_name = std::move(label_name);
@@ -136,7 +138,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after GOTO statement");
+                throw syntax_compilation_error("Expected ';' after GOTO statement");
             }
             function_goto_statement st;
             st.target = std::move(target);

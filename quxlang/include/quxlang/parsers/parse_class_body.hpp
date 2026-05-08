@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_CLASS_BODY_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 #include <utility>
 #include <quxlang/ast2/ast2_type_map.hpp>
@@ -41,7 +43,7 @@ namespace quxlang::parsers
             }
             else
             {
-                throw std::logic_error("Unknown keyword in class keywords: " + next_kw);
+                throw syntax_compilation_error("Unknown keyword in class keywords: " + next_kw);
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -49,7 +51,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::logic_error("Expected '{'");
+            throw syntax_compilation_error("Expected '{'");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -64,7 +66,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::logic_error("Expected '}'");
+            throw syntax_compilation_error("Expected '}'");
         }
 
         result.location = ctx.get_location_optional(begin, pos);

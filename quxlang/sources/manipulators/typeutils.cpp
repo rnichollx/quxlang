@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include "quxlang/bytemath.hpp"
@@ -1484,7 +1485,7 @@ namespace quxlang
         else if (typeis< submember >(template_type))
         {
             // it is not possible for a type to be a subdotentity_reference
-            throw std::logic_error("::. cannot appear in an argument type or argument type template");
+            throw quxlang::semantic_compilation_error("::. cannot appear in an argument type or argument type template");
         }
         else if (typeis< initialization_reference >(template_type))
         {
@@ -1685,7 +1686,7 @@ namespace quxlang
         else if (typeis< submember >(template_type))
         {
             // it is not possible for a type to be a subdotentity_reference
-            throw std::logic_error("::. cannot appear in an argument type or argument type template");
+            throw quxlang::semantic_compilation_error("::. cannot appear in an argument type or argument type template");
         }
         else if (typeis< initialization_reference >(template_type))
         {

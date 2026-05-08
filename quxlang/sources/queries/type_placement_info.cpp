@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/type_placement_info_spec.hpp>
 #include "quxlang/data/machine.hpp"
 #include "quxlang/parsers/parse_int.hpp"
@@ -15,7 +16,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     {
         if (!expr.type_is< expression_numeric_literal >())
         {
-            throw std::logic_error("Expected numeric literal in aligned storage type");
+            throw quxlang::semantic_compilation_error("Expected numeric literal in aligned storage type");
         }
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
@@ -123,6 +124,6 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else
     {
-        throw std::logic_error("Unimplemented");
+        throw quxlang::compiler_bug("Unimplemented");
     }
 }

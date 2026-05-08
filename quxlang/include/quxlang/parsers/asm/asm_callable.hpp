@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_ASM_ASM_CALLABLE_HEADER_GUARD
 #define QUXLANG_PARSERS_ASM_ASM_CALLABLE_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 #include "quxlang/parsers/parse_symbol.hpp"
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
@@ -50,7 +52,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' in CALLABLE expression");
+            throw syntax_compilation_error("Expected '(' in CALLABLE expression");
         }
 
         while (true)
@@ -78,7 +80,7 @@ namespace quxlang::parsers
 
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw std::logic_error("Expected ',' in CALLABLE expression");
+                throw syntax_compilation_error("Expected ',' in CALLABLE expression");
             }
         }
 

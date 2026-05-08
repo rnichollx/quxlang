@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
@@ -101,7 +102,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         auto inst = co_await rpnx::querygraph::request< instanciation_query >(init);
         if (!inst.has_value())
         {
-            throw std::logic_error("symboid resolver received a non-canonical initialization_reference that could not be canonicalized");
+            throw quxlang::compiler_bug("symboid resolver received a non-canonical initialization_reference that could not be canonicalized");
         }
         co_return co_await rpnx::querygraph::request< symboid_query >(*inst);
     }
@@ -173,7 +174,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
                 }
             }
 
-            throw std::logic_error("Template declaration not found for instanciation");
+            throw quxlang::compiler_bug("Template declaration not found for instanciation");
         }
     }
 

@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_VMIR2_HEADER_GUARD
 #define QUXLANG_PARSERS_VMIR2_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <optional>
 #include <utility>
 #include <quxlang/parsers/integer.hpp>
@@ -19,7 +21,7 @@ namespace quxlang::parsers::vmir2
     std::size_t parse_vmir_register(It& ipos, It end)
     {
         if (!skip_symbol_if_is(ipos, end, "%"))
-            throw std::logic_error("Expected register symbol");
+            throw syntax_compilation_error("Expected register symbol");
 
         return parse_integer(ipos, end);
     }
@@ -56,7 +58,7 @@ namespace quxlang::parsers::vmir2
             else if (skip_symbol_if_is(ipos, end, ']'))
                 return result;
             else
-                throw std::logic_error("Expected ',' or ']' after named argument");
+                throw syntax_compilation_error("Expected ',' or ']' after named argument");
         }
     positional_arg:
         skip_whitespace(ipos, end);
@@ -69,7 +71,7 @@ namespace quxlang::parsers::vmir2
         else if (skip_symbol_if_is(ipos, end, ']'))
             return result;
         else
-            throw std::logic_error("Expected ',' or ']' after positional argument");
+            throw syntax_compilation_error("Expected ',' or ']' after positional argument");
     }
 
     inline std::optional< quxlang::vmir2::access_field > try_parse_access_field(parsing_context& ctx)

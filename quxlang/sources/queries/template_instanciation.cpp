@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/template_instanciation_spec.hpp>
 
 #include <quxlang/manipulators/typeutils.hpp>
@@ -16,7 +17,7 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
 {
     if (!typeis< temploid_reference >(input.initializee))
     {
-        throw std::logic_error("template_instanciation called on a non-template selection");
+        throw quxlang::compiler_bug("template_instanciation called on a non-template selection");
     }
 
     auto temploid = as< temploid_reference >(input.initializee);
@@ -24,7 +25,7 @@ rpnx::querygraph::coroutine< quxlang::template_instanciation_spec > quxlang::tem
     auto temploid_kind = co_await rpnx::querygraph::request< symbol_type_query >(temploid);
     if (temploid_kind != symbol_kind::template_)
     {
-        throw std::logic_error("template_instanciation called on a non-template selection");
+        throw quxlang::compiler_bug("template_instanciation called on a non-template selection");
     }
 
     if (co_await rpnx::querygraph::request< template_builtin_query >(temploid))

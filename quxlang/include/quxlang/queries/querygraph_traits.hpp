@@ -3,6 +3,8 @@
 #ifndef QUXLANG_QUERIES_QUERYGRAPH_TRAITS_HEADER_GUARD
 #define QUXLANG_QUERIES_QUERYGRAPH_TRAITS_HEADER_GUARD
 
+#include <quxlang/data/compilation_result.hpp>
+
 #include <quxlang/data/machine.hpp>
 #include <quxlang/data/target_configuration.hpp>
 
@@ -306,7 +308,7 @@ namespace rpnx
                 }
             }
 
-            throw std::runtime_error("invalid cpu enum string");
+            throw quxlang::compiler_bug("invalid cpu enum string");
         }
     };
 
@@ -335,7 +337,7 @@ namespace rpnx
                 }
             }
 
-            throw std::runtime_error("invalid os enum string");
+            throw quxlang::compiler_bug("invalid os enum string");
         }
     };
 
@@ -364,7 +366,7 @@ namespace rpnx
                 }
             }
 
-            throw std::runtime_error("invalid binary enum string");
+            throw quxlang::compiler_bug("invalid binary enum string");
         }
     };
 
@@ -393,7 +395,7 @@ namespace rpnx
                 }
             }
 
-            throw std::runtime_error("invalid output_kind enum string");
+            throw quxlang::compiler_bug("invalid output_kind enum string");
         }
     };
 } // namespace rpnx

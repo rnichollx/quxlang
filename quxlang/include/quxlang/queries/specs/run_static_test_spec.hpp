@@ -10,6 +10,8 @@
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/functanoid_indirectly_instantiated_functanoids.hpp>
+#include <quxlang/queries/functanoid_required_class_layouts.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -50,6 +52,8 @@ namespace quxlang
             constexpr_bool_query,
             constexpr_eval_v3_query,
             constexpr_u64_query,
+            functanoid_indirectly_instantiated_functanoids_query,
+            functanoid_required_class_layouts_query,
             functanoid_return_type_query,
             functanoid_sigtype_query,
             function_builtin_query,

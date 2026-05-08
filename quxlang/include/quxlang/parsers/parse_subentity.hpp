@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_SUBENTITY_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/iter_parse_identifier.hpp>
 #include <quxlang/parsers/keyword.hpp>
@@ -59,7 +61,7 @@ namespace quxlang::parsers
 
                 if (pos == end || *pos != ']')
                 {
-                    throw std::logic_error("Expected ']' after operator '['");
+                    throw syntax_compilation_error("Expected ']' after operator '['");
                 }
                 ++pos;
                 sym += "]";
@@ -70,7 +72,7 @@ namespace quxlang::parsers
             }
             if (sym.empty())
             {
-                throw std::logic_error("Expected operator symbol");
+                throw syntax_compilation_error("Expected operator symbol");
             }
             result += sym;
             skip_whitespace(pos, end);

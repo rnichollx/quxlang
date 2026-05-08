@@ -1,5 +1,6 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/function_positional_parameter_names_spec.hpp>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -22,7 +23,7 @@ rpnx::querygraph::coroutine< quxlang::function_positional_parameter_names_spec >
 
     if (!func.has_value())
     {
-        throw std::logic_error("Function not found");
+        throw quxlang::compiler_bug("Function not found");
     }
 
     std::set< std::string > names;
@@ -37,7 +38,7 @@ rpnx::querygraph::coroutine< quxlang::function_positional_parameter_names_spec >
 
         if (param.name.has_value() && names.contains(*param.name))
         {
-            throw std::logic_error("Duplicate parameter name");
+            throw quxlang::semantic_compilation_error("Duplicate parameter name");
         }
 
         result.push_back(param.name);

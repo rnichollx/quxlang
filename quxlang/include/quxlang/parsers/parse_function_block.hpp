@@ -11,6 +11,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_FUNCTION_BLOCK_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <utility>
 #include <quxlang/data/function_block.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
@@ -62,7 +64,7 @@ namespace quxlang::parsers
             body.location = ctx.get_location_optional(begin, pos);
             return std::move(body);
         }
-        throw std::logic_error("Expected '}' or statement");
+        throw syntax_compilation_error("Expected '}' or statement");
     }
 
     inline function_block parse_function_block(parsing_context& ctx)
@@ -72,7 +74,7 @@ namespace quxlang::parsers
         {
             return std::move(*fb);
         }
-        throw std::logic_error("Expected a function block");
+        throw syntax_compilation_error("Expected a function block");
     }
 
 } // namespace quxlang::parsers

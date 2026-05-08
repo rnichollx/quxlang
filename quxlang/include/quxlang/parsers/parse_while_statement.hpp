@@ -2,6 +2,8 @@
 
 #ifndef QUXLANG_PARSERS_PARSE_WHILE_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_WHILE_STATEMENT_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include <quxlang/data/function_while_statement.hpp>
 #include <quxlang/parsers/parse_function_block.hpp>
 #include <quxlang/parsers/parse_label_reference.hpp>
@@ -21,20 +23,20 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "WHILE"))
         {
-            throw std::logic_error("Expected 'WHILE'");
+            throw syntax_compilation_error("Expected 'WHILE'");
         }
         function_while_statement output;
         output.label_name = try_parse_label_reference(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '('");
+            throw syntax_compilation_error("Expected '('");
         }
         output.condition = parse_expression(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')'");
+            throw syntax_compilation_error("Expected ')'");
         }
         skip_whitespace_and_comments(pos, end);
         output.loop_block = parse_function_block(ctx);
@@ -52,19 +54,19 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_keyword_if_is(pos, end, "STATIC_WHILE"))
         {
-            throw std::logic_error("Expected 'STATIC_WHILE'");
+            throw syntax_compilation_error("Expected 'STATIC_WHILE'");
         }
         function_static_while_statement output;
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw std::logic_error("Expected '(' after STATIC_WHILE");
+            throw syntax_compilation_error("Expected '(' after STATIC_WHILE");
         }
         output.condition = parse_expression(ctx);
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ")"))
         {
-            throw std::logic_error("Expected ')' after STATIC_WHILE condition");
+            throw syntax_compilation_error("Expected ')' after STATIC_WHILE condition");
         }
         skip_whitespace_and_comments(pos, end);
         output.loop_block = parse_function_block(ctx);

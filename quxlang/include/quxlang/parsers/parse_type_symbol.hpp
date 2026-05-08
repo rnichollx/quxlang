@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_TYPE_SYMBOL_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/parsers/try_parse_type_symbol.hpp>
 #include <optional>
@@ -17,7 +19,7 @@ namespace quxlang::parsers
         auto result = try_parse_type_symbol(ctx);
         if (!result)
         {
-            throw std::logic_error("Expected type symbol");
+            throw syntax_compilation_error("Expected type symbol");
         }
         return std::move(*result);
     }

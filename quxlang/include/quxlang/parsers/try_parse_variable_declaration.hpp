@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_VARIABLE_DECLARATION_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_VARIABLE_DECLARATION_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
@@ -25,7 +27,7 @@ namespace quxlang::parsers
         {
             if (skip_keyword_if_is(pos, end, "STATIC_VAR"))
             {
-                throw std::logic_error("STATIC_VAR is only allowed inside function bodies");
+                throw syntax_compilation_error("STATIC_VAR is only allowed inside function bodies");
             }
             if (skip_keyword_if_is(pos, end, "STATIC"))
             {
@@ -84,7 +86,7 @@ namespace quxlang::parsers
 
                 if (!skip_symbol_if_is(pos, end, ")"))
                 {
-                    throw std::logic_error("Expected ',' or ')' after VAR initializer arguments");
+                    throw syntax_compilation_error("Expected ',' or ')' after VAR initializer arguments");
                 }
 
                 break;
@@ -101,7 +103,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, ";"))
         {
-            throw std::logic_error("Expected ';' after VAR declaration");
+            throw syntax_compilation_error("Expected ';' after VAR declaration");
         }
 
         output = ast2_variable_declaration{};

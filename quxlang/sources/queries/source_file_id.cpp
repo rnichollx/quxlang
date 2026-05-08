@@ -1,5 +1,6 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/source_file_id_spec.hpp>
 
 #include <stdexcept>
@@ -10,7 +11,7 @@ rpnx::querygraph::coroutine< quxlang::source_file_id_spec > quxlang::source_file
     auto const iter = index.file_to_id.find(input);
     if (iter == index.file_to_id.end())
     {
-        throw std::logic_error("source_file_id_query received an unknown source file name");
+        throw quxlang::compiler_bug("source_file_id_query received an unknown source file name");
     }
     co_return iter->second;
 }

@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
 #define QUXLANG_FIXED_BYTEMATH_HEADER_GUARD
+
+#include <quxlang/data/compilation_result.hpp>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -51,7 +53,7 @@ namespace quxlang::bytemath
         std::size_t bit_index = bit % 8;
         if (byte_index >= v.size())
         {
-            throw std::runtime_error("int_add_le: index out of range");
+            throw quxlang::compiler_bug("int_add_le: index out of range");
         }
         return (std::to_integer< std::uint8_t >(v[byte_index]) >> bit_index) & 1;
     }
@@ -61,7 +63,7 @@ namespace quxlang::bytemath
         std::size_t bit_index = bit % 8;
         if (byte_index >= v.size())
         {
-            throw std::runtime_error("int_add_le: index out of range");
+            throw quxlang::compiler_bug("int_add_le: index out of range");
         }
         if (value)
         {
@@ -536,12 +538,12 @@ namespace quxlang::bytemath
         value = normalize_signed(std::move(value));
         if (value.is_negative)
         {
-            throw std::logic_error("negative value cannot be converted to size");
+            throw quxlang::compiler_bug("negative value cannot be converted to size");
         }
         auto [result, ok] = detail::le_to_u_raw< std::size_t >(value.data);
         if (!ok)
         {
-            throw std::logic_error("fixed float shift is too large for host allocation");
+            throw quxlang::compiler_bug("fixed float shift is too large for host allocation");
         }
         return result;
     }
@@ -587,7 +589,7 @@ namespace quxlang::bytemath
     {
         if (opt.bits < 3 || opt.exponent_bits == 0 || opt.exponent_bits + 1 >= opt.bits)
         {
-            throw std::logic_error("invalid fixed float options");
+            throw quxlang::compiler_bug("invalid fixed float options");
         }
     }
 
@@ -683,7 +685,7 @@ namespace quxlang::bytemath
         shift = normalize_signed(std::move(shift));
         if (shift.is_negative)
         {
-            throw std::logic_error("negative shift in fixed float alignment");
+            throw quxlang::compiler_bug("negative shift in fixed float alignment");
         }
         return detail::le_shift_up_raw(std::move(value), signed_nonnegative_to_size(std::move(shift)));
     }
@@ -810,7 +812,7 @@ namespace quxlang::bytemath
         raw_trim(denominator);
         if (raw_is_zero(denominator))
         {
-            throw std::logic_error("fixed float division by zero");
+            throw quxlang::semantic_compilation_error("fixed float division by zero");
         }
         if (raw_is_zero(numerator))
         {
@@ -973,7 +975,7 @@ namespace quxlang::bytemath
         auto exponent = signed_add(high_exponent, fixed_float_exponent_bias_signed(opt));
         if (exponent.is_negative || raw_is_zero(exponent.data))
         {
-            throw std::logic_error("normal fixed float packed with non-normal exponent");
+            throw quxlang::compiler_bug("normal fixed float packed with non-normal exponent");
         }
 
         auto fraction = detail::unlimited_int_unsigned_sub_le_raw(std::move(significand), raw_power_of_two(fraction_bits));
@@ -1312,9 +1314,9 @@ namespace quxlang::bytemath
             case fixed_float_kind::zero: return 0;
             case fixed_float_kind::finite: return 1;
             case fixed_float_kind::infinity: return 2;
-            case fixed_float_kind::nan: throw std::logic_error("nan in non-nan float ordering");
+            case fixed_float_kind::nan: throw quxlang::compiler_bug("nan in non-nan float ordering");
             }
-            throw std::logic_error("unknown fixed float kind");
+            throw quxlang::compiler_bug("unknown fixed float kind");
         };
 
         int lhs_rank = magnitude_rank(lhs.kind);

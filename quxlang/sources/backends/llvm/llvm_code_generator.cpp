@@ -1,4 +1,5 @@
 // Copyright 2023-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+#include <quxlang/data/compilation_result.hpp>
 #include "quxlang/backends/llvm/llvm_code_generator.hpp"
 #include "quxlang/backends/llvm/vm_llvm_frame.hpp"
 #include "quxlang/compiler.hpp"
@@ -250,7 +251,7 @@ llvm::Type* quxlang::llvm_code_generator::get_llvm_type_from_vm_type(llvm::LLVMC
     }
     else
     {
-        throw std::logic_error("unimplemented");
+        throw quxlang::semantic_compilation_error("unimplemented");
     }
 }
 
@@ -642,7 +643,7 @@ llvm::Value* quxlang::llvm_code_generator::get_llvm_value(llvm::LLVMContext& con
             }
             else
             {
-                throw std::logic_error("Cannot compare bools for magnituide");
+                throw quxlang::semantic_compilation_error("Cannot compare bools for magnituide");
             }
             return result;
         }
@@ -786,7 +787,7 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
     }
     else
     {
-        throw std::logic_error("Unsupported CPU type");
+        throw quxlang::semantic_compilation_error("Unsupported CPU type");
     }
 
     llvm::SmallVector< char, 16 > output;
@@ -822,14 +823,14 @@ std::vector< std::byte > quxlang::llvm_code_generator::assemble(quxlang::asm_pro
 
     if (!target_asm_parser)
     {
-        throw std::logic_error("Failed to create target ASM parser!");
+        throw quxlang::semantic_compilation_error("Failed to create target ASM parser!");
     }
 
     asm_parser->setTargetParser(*target_asm_parser.get());
 
     if (asm_parser->Run(false))
     {
-        throw std::logic_error("Assembly parsing failed!\n");
+        throw quxlang::semantic_compilation_error("Assembly parsing failed!\n");
     }
 
     std::ofstream output_file(input.name + ".o", std::ios::out | std::ios::binary | std::ios::trunc);
@@ -856,7 +857,7 @@ quxlang::llvm_code_generator::llvm_code_generator(quxlang::output_info m)
 
     if (!target)
     {
-        throw std::logic_error("Failed to lookup target: " + err);
+        throw quxlang::semantic_compilation_error("Failed to lookup target: " + err);
     }
 
     auto CPU = "generic";
@@ -965,7 +966,7 @@ static std::unique_ptr< llvm::Module > parse_llvm_bitcode(llvm::LLVMContext& llv
     }
     else
     {
-        throw std::logic_error(llvm::toString(module_or_e.takeError()));
+        throw quxlang::semantic_compilation_error(llvm::toString(module_or_e.takeError()));
     }
 }
 

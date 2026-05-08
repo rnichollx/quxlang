@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_LABEL_REFERENCE_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_LABEL_REFERENCE_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
 
@@ -19,14 +21,14 @@ namespace quxlang::parsers
         skip_whitespace_and_comments(pos, end);
         if (!skip_symbol_if_is(pos, end, ":"))
         {
-            throw std::logic_error("Expected label reference");
+            throw syntax_compilation_error("Expected label reference");
         }
 
         skip_whitespace_and_comments(pos, end);
         auto label = parse_identifier(pos, end);
         if (label.empty())
         {
-            throw std::logic_error("Expected label name after ':'");
+            throw syntax_compilation_error("Expected label name after ':'");
         }
         return label;
     }
@@ -48,7 +50,7 @@ namespace quxlang::parsers
         auto label = parse_identifier(pos, end);
         if (label.empty())
         {
-            throw std::logic_error("Expected label name after ':'");
+            throw syntax_compilation_error("Expected label name after ':'");
         }
         return label;
     }

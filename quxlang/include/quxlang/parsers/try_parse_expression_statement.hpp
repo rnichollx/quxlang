@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_TRY_PARSE_EXPRESSION_STATEMENT_HEADER_GUARD
 #define QUXLANG_PARSERS_TRY_PARSE_EXPRESSION_STATEMENT_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 
 #include <quxlang/parsers/try_parse_expression.hpp>
 
@@ -23,7 +25,7 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, ";"))
             {
-                throw std::logic_error("Expected ';' after expression");
+                throw syntax_compilation_error("Expected ';' after expression");
             }
             function_expression_statement result;
             result.expr = std::move(*expr);

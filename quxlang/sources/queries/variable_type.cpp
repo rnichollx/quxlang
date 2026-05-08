@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/variable_type_spec.hpp>
 
 rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_type_impl(type_symbol input)
@@ -8,7 +9,7 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
 
     if (!typeis< ast2_variable_declaration >(sym))
     {
-        throw std::logic_error("Variable not declared.");
+        throw quxlang::compiler_bug("Variable not declared.");
     }
 
     type_symbol var_decl_type = as< ast2_variable_declaration >(sym).type;
@@ -18,7 +19,7 @@ rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_typ
 
     if (!var_type.has_value())
     {
-        throw std::logic_error("Variable type could not be resolved.");
+        throw quxlang::semantic_compilation_error("Variable type could not be resolved.");
     }
 
     co_return var_type.value();

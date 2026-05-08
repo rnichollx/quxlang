@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
 #define QUXLANG_PARSERS_LINKNAME_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include "keyword.hpp"
 #include "quxlang/parsers/context.hpp"
 #include "parse_whitespace_and_comments.hpp"
@@ -32,7 +34,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(begin, end, "("))
         {
-            throw std::logic_error("Expected '(' after LINKNAME");
+            throw syntax_compilation_error("Expected '(' after LINKNAME");
         }
 
         skip_whitespace_and_comments(begin, end);
@@ -40,14 +42,14 @@ namespace quxlang::parsers
         auto str = try_parse_string_literal(begin, end);
         if (!str)
         {
-            throw std::logic_error("Expected string literal after LINKNAME(");
+            throw syntax_compilation_error("Expected string literal after LINKNAME(");
         }
 
         skip_whitespace_and_comments(begin, end);
 
         if (!skip_symbol_if_is(begin, end, ")"))
         {
-            throw std::logic_error("Expected ')' after LINKNAME(STRING_LITERAL");
+            throw syntax_compilation_error("Expected ')' after LINKNAME(STRING_LITERAL");
         }
 
         return str;

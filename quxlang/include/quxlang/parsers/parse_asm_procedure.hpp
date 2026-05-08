@@ -3,6 +3,8 @@
 #ifndef QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD
 #define QUXLANG_PARSERS_PARSE_ASM_PROCEDURE_HEADER_GUARD
 
+#include "quxlang/data/compilation_result.hpp"
+
 #include "linkname.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 #include <optional>
@@ -36,7 +38,7 @@ namespace quxlang::parsers
 
         if (arch.empty())
         {
-            throw std::logic_error("Expected architecture name");
+            throw syntax_compilation_error("Expected architecture name");
         }
 
         skip_whitespace_and_comments(pos, end);
@@ -64,7 +66,7 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "{"))
         {
-            throw std::logic_error("Expected {");
+            throw syntax_compilation_error("Expected {");
         }
 
         if (arch == "ARM")
@@ -81,14 +83,14 @@ namespace quxlang::parsers
         }
         else
         {
-            throw std::logic_error("Unsupported architecture");
+            throw syntax_compilation_error("Unsupported architecture");
         }
 
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "}"))
         {
-            throw std::logic_error("Expected }");
+            throw syntax_compilation_error("Expected }");
         }
         
         out.location = ctx.get_location_optional(begin, pos);

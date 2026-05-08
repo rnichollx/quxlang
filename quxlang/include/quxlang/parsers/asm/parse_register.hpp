@@ -3,6 +3,8 @@
 
 #ifndef QUXLANG_PARSERS_ASM_PARSE_REGISTER_HEADER_GUARD
 #define QUXLANG_PARSERS_ASM_PARSE_REGISTER_HEADER_GUARD
+
+#include "quxlang/data/compilation_result.hpp"
 #include "rpnx/unimplemented.hpp"
 #include "quxlang/data/machine.hpp"
 
@@ -35,7 +37,7 @@ namespace quxlang::parsers
 
         if (output.empty())
         {
-            throw std::logic_error("Expected register name");
+            throw syntax_compilation_error("Expected register name");
         }
 
         return output;

@@ -1,5 +1,6 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/builtin_vm_procedure3_spec.hpp>
 #include <quxlang/queries/machine_info.hpp>
 
@@ -17,7 +18,7 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         auto result = parsers::parse_type_symbol(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
-            throw std::logic_error("Input not fully parsed");
+            throw quxlang::compiler_bug("Input not fully parsed");
         }
         return result;
     };
