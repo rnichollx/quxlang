@@ -1,10 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/keywords.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/global_is_antestatal_static_spec.hpp>
-
-#include <stdexcept>
-
 
 rpnx::querygraph::coroutine< quxlang::global_is_antestatal_static_spec > quxlang::global_is_antestatal_static_impl(type_symbol input)
 {
@@ -35,7 +33,7 @@ rpnx::querygraph::coroutine< quxlang::global_is_antestatal_static_spec > quxlang
             auto tags = co_await rpnx::querygraph::request< class_tags_query >(variable_type);
             if (tags.contains(keywords::nonstatic))
             {
-                throw std::logic_error("STATIC global has a NONSTATIC type: " + quxlang::to_string(input));
+                throw semantic_compilation_error("STATIC global has a NONSTATIC type: " + quxlang::to_string(input));
             }
         }
         co_return false;

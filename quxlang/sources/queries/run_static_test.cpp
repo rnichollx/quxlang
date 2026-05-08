@@ -3,6 +3,7 @@
 #include <quxlang/queries/specs/run_static_test_spec.hpp>
 
 #include <quxlang/co_vmir_generator2.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
 #include <quxlang/vmir2/source_index.hpp>
@@ -183,6 +184,14 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     {
         throw;
     }
+    catch (constexpr_runtime_error const& error)
+    {
+        if (test.expected_mode == static_test_expected_mode::expect_fail)
+        {
+            co_return true;
+        }
+        throw semantic_compilation_error(error.what());
+    }
     catch (compilation_error const&)
     {
         if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
@@ -206,13 +215,13 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
         co_await execute_static_test_routine(*routine, quxlang::vmir2::source_index(source_file_index, source_bundle));
     }
-    catch (constexpr_logic_execution_error const&)
+    catch (constexpr_runtime_error const& error)
     {
         if (test.expected_mode == static_test_expected_mode::expect_fail)
         {
             co_return true;
         }
-        throw;
+        throw semantic_compilation_error(error.what());
     }
     catch (compiler_bug const&)
     {

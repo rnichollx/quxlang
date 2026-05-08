@@ -8,36 +8,19 @@
 #include <rpnx/variant.hpp>
 
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace quxlang
 {
-    struct syntax_error;
-    struct semantic_error;
-
-
     struct trace_frame
     {
         std::string trace_context;
         std::optional< source_location > location;
 
         RPNX_MEMBER_METADATA(trace_frame, trace_context, location);
-    };
-
-    struct compilation_error
-        : public std::exception
-    {
-        std::vector< trace_frame > traceback;
-
-        rpnx::variant< syntax_error, semantic_error > structured_error;
-
-        virtual char const * what() const noexcept override
-        {
-            return "compilation error";
-        }
-
-        RPNX_MEMBER_METADATA(compilation_error, traceback, structured_error);
     };
 
     struct syntax_error
@@ -52,6 +35,43 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(semantic_error, message);
     };
+
+    /**
+     * Compiler-facing diagnostic that can be cached and rethrown as a
+     * canonical querygraph error.
+     */
+    struct compilation_error : public std::logic_error
+    {
+        std::string message = "compilation error";
+        std::vector< trace_frame > traceback;
+
+        rpnx::variant< syntax_error, semantic_error > structured_error;
+
+        compilation_error() : std::logic_error("compilation error")
+        {
+        }
+
+        explicit compilation_error(std::string message_arg) : std::logic_error(message_arg), message(std::move(message_arg))
+        {
+        }
+
+        auto what() const noexcept -> char const* override
+        {
+            return message.c_str();
+        }
+
+        RPNX_MEMBER_METADATA(compilation_error, message, traceback, structured_error);
+    };
+
+    /**
+     * Builds a compilation_error for a semantic diagnostic message.
+     */
+    inline auto semantic_compilation_error(std::string message) -> compilation_error
+    {
+        compilation_error error(message);
+        error.structured_error = semantic_error{std::move(message)};
+        return error;
+    }
 
 
     template < typename T >

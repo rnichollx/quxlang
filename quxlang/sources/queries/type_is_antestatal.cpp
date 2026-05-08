@@ -1,10 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/keywords.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/type_is_antestatal_spec.hpp>
-
-#include <stdexcept>
-
 
 rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is_antestatal_impl(type_symbol input)
 {
@@ -77,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
     {
         if (explicitly_antestatal)
         {
-            throw std::logic_error("ANTESTATAL type is not trivially destructible: " + quxlang::to_string(input));
+            throw semantic_compilation_error("ANTESTATAL type is not trivially destructible: " + quxlang::to_string(input));
         }
         co_return false;
     }
@@ -89,7 +87,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         {
             if (explicitly_antestatal)
             {
-                throw std::logic_error("ANTESTATAL type has a non-antestatal field: " + quxlang::to_string(input));
+                throw semantic_compilation_error("ANTESTATAL type has a non-antestatal field: " + quxlang::to_string(input));
             }
             co_return false;
         }

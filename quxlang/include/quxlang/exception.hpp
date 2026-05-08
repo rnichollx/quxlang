@@ -3,7 +3,11 @@
 #ifndef QUXLANG_EXCEPTION_HEADER_GUARD
 #define QUXLANG_EXCEPTION_HEADER_GUARD
 
+#include <rpnx/macros.hpp>
+
 #include <exception>
+#include <string>
+#include <utility>
 #include <version>
 #ifdef __cpp_lib_source_location
 #include <source_location>
@@ -65,21 +69,33 @@ namespace quxlang
         }
     };
 
-    class constexpr_logic_execution_error : public std::logic_error
+    /**
+     * Runtime failure raised while evaluating code in the constexpr interpreter.
+     */
+    class constexpr_runtime_error : public std::logic_error
     {
       public:
-        constexpr_logic_execution_error(std::string what_arg) : std::logic_error("During constexpr evaluation: " + what_arg)
+        std::string message;
+
+        RPNX_MEMBER_METADATA(constexpr_runtime_error, message);
+
+        constexpr_runtime_error() : std::logic_error("During constexpr evaluation: "), message("During constexpr evaluation: ")
         {
+        }
+
+        constexpr_runtime_error(std::string what_arg)
+            : std::logic_error(std::string("During constexpr evaluation: ") + what_arg), message(std::string("During constexpr evaluation: ") + std::move(what_arg))
+        {
+        }
+
+        auto what() const noexcept -> char const* override
+        {
+            return message.c_str();
         }
     };
 
-    class constexpr_assert_failure : public constexpr_logic_execution_error
-    {
-      public:
-        constexpr_assert_failure(std::string what_arg) : constexpr_logic_execution_error(what_arg)
-        {
-        }
-    };
+    using constexpr_logic_execution_error = constexpr_runtime_error;
+    using constexpr_assert_failure = constexpr_runtime_error;
 
     class invalid_instruction_error : public std::logic_error
     {

@@ -943,25 +943,22 @@ namespace quxlang
                 if (kind == symbol_kind::noexist)
                 {
                     auto func_str = to_string(func);
-                    compilation_error c;
-                    c.structured_error = semantic_error{func_str + " does not exist"};
-
-                    throw c;
+                    throw semantic_compilation_error(func_str + " does not exist");
                 }
                 else if (kind == symbol_kind::local_variable)
                 {
                     auto func_str = to_string(func);
-                    throw std::logic_error("Error: cannot call local variable " + func_str + " as a functum");
+                    throw semantic_compilation_error("Error: cannot call local variable " + func_str + " as a functum");
                 }
                 else if (kind == symbol_kind::class_)
                 {
                     auto func_str = to_string(func);
-                    throw std::logic_error("Error: cannot call class type " + func_str + " as a functum");
+                    throw semantic_compilation_error("Error: cannot call class type " + func_str + " as a functum");
                 }
                 else
                 {
                     auto func_str = to_string(func);
-                    throw std::logic_error("Error: symbol " + func_str + " is not a functum");
+                    throw semantic_compilation_error("Error: symbol " + func_str + " is not a functum");
                 }
             }
             auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
@@ -980,7 +977,7 @@ namespace quxlang
             {
                 std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
 
-                throw std::logic_error(message);
+                throw semantic_compilation_error(message);
             }
 
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -1158,13 +1155,13 @@ namespace quxlang
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
             {
-                throw std::logic_error("Expected functum symbol " + to_string(func));
+                throw semantic_compilation_error("Expected functum symbol " + to_string(func));
             }
 
             auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
             if (!instanciation)
             {
-                throw std::logic_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
+                throw semantic_compilation_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
             }
 
             co_return *instanciation;
@@ -4821,7 +4818,7 @@ namespace quxlang
             }
             if (analysis.has_explicit_capture_list && !analysis.explicit_captures.contains(name))
             {
-                throw std::logic_error("Lambda body references uncaptured outer local: " + name);
+                throw semantic_compilation_error("Lambda body references uncaptured outer local: " + name);
             }
             if (analysis.capture_indices.contains(name))
             {

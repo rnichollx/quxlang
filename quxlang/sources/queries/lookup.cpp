@@ -1,6 +1,8 @@
 // Copyright 2023-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/queries/specs/lookup_spec.hpp>
+
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/macros.hpp>
 
 #include "quxlang/data/constexpr_types.hpp"
@@ -208,11 +210,11 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         auto const pack_it = pack_info.packs.find(ref.pack_name);
         if (pack_it == pack_info.packs.end())
         {
-            throw std::logic_error("Unknown positional pack '" + ref.pack_name + "'");
+            throw semantic_compilation_error("Unknown positional pack '" + ref.pack_name + "'");
         }
         if (pack_index >= pack_it->second.size)
         {
-            throw std::logic_error("PACK_ARG_TYPE index is out of range for positional pack '" + ref.pack_name + "'");
+            throw semantic_compilation_error("PACK_ARG_TYPE index is out of range for positional pack '" + ref.pack_name + "'");
         }
 
         co_return pack_it->second.types.at(static_cast< std::vector< type_symbol >::size_type >(pack_index));

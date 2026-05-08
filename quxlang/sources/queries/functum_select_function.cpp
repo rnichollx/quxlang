@@ -2,6 +2,7 @@
 
 #include <quxlang/queries/specs/functum_select_function_spec.hpp>
 
+#include "quxlang/data/compilation_result.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/variant_utils.hpp"
@@ -366,7 +367,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 co_yield rpnx::querygraph::debug_message("   Ambiguous candidate: {}", to_string(temploid_reference{.templexoid = input.initializee, .which = item}));
             }
         }
-        throw std::logic_error(message.str());
+        throw semantic_compilation_error(message.str());
     }
     auto best_ref = temploid_reference{.templexoid = input.initializee, .which = best_match.front()};
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)

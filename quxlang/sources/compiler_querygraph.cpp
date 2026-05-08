@@ -1,6 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/data/compilation_result.hpp>
+#include <quxlang/exception.hpp>
 #include <quxlang/queries/specs/argument_adaptation_is_better_fit_spec.hpp>
 #include <quxlang/queries/specs/argument_adaptation_rank_spec.hpp>
 #include <quxlang/queries/specs/argument_initialize_by_class_conversion_spec.hpp>
@@ -189,6 +191,9 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
         module_source_name_map.emplace(logical_name, module_config.source);
         module_option_strings_map.emplace(logical_name, module_config.option_values);
     }
+
+    m_graph.register_canonical_error< compilation_error >();
+    m_graph.register_canonical_error< constexpr_runtime_error >();
 
     m_graph.register_handler_singleton< source_bundle_query >(bundle);
     m_graph.register_handler_singleton< machine_info_query >(machine_info);

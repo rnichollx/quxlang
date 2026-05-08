@@ -1,9 +1,8 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/keywords.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/type_is_serialoid_spec.hpp>
-
-#include <stdexcept>
 
 rpnx::querygraph::coroutine< quxlang::type_is_serialoid_spec > quxlang::type_is_serialoid_impl(type_symbol input)
 {
@@ -32,7 +31,7 @@ rpnx::querygraph::coroutine< quxlang::type_is_serialoid_spec > quxlang::type_is_
         auto can_deserialize = has_user_deserialize || co_await rpnx::querygraph::request< type_should_autogen_deserialize_query >(input);
         if (!can_serialize || !can_deserialize)
         {
-            throw std::logic_error("SERIALOID type does not have serialization and deserialization support: " + quxlang::to_string(input));
+            throw semantic_compilation_error("SERIALOID type does not have serialization and deserialization support: " + quxlang::to_string(input));
         }
         co_return true;
     }
