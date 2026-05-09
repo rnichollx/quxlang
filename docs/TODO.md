@@ -72,6 +72,7 @@ coverage:
 - [ ] Reflection
 - [ ] Generics
 - [ ] Registries
+- [ ] Range-based for and container iteration
 
 ## Compiler and runtime
 
