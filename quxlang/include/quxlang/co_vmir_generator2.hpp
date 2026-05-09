@@ -27,11 +27,13 @@
 #include "quxlang/queries/constexpr_bool.hpp"
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
+#include "quxlang/queries/ensig_argument_initialize.hpp"
 #include "quxlang/queries/functanoid_deduced_return_type.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
 #include "quxlang/queries/function_builtin.hpp"
 #include "quxlang/queries/function_declaration.hpp"
+#include "quxlang/queries/function_ensig_init_with.hpp"
 #include "quxlang/queries/function_pack_info.hpp"
 #include "quxlang/queries/function_param_names.hpp"
 #include "quxlang/queries/function_primitive.hpp"
@@ -877,6 +879,196 @@ namespace quxlang
             }
         }
 
+        /**
+         * Returns the positional pack index for an overload candidate, if present.
+         */
+        auto call_candidate_positional_pack_index(temploid_ensig const& ensig) -> std::optional< std::size_t >
+        {
+            std::optional< std::size_t > result;
+            for (std::size_t i = 0; i < ensig.interface.positional.size(); i++)
+            {
+                if (!ensig.interface.positional.at(i).is_pack)
+                {
+                    continue;
+                }
+                if (result.has_value())
+                {
+                    throw compiler_bug("overload candidate has more than one positional pack");
+                }
+                result = i;
+            }
+            return result;
+        }
+
+        /**
+         * Returns the formal positional parameter used for a concrete argument index.
+         */
+        auto call_candidate_positional_formal_for(temploid_ensig const& ensig, std::size_t argument_index) -> argif const&
+        {
+            std::optional< std::size_t > const pack_index = this->call_candidate_positional_pack_index(ensig);
+            if (pack_index.has_value() && argument_index >= *pack_index)
+            {
+                return ensig.interface.positional.at(*pack_index);
+            }
+            return ensig.interface.positional.at(argument_index);
+        }
+
+        /**
+         * Describes why one overload candidate did not accept the call arguments.
+         */
+        auto co_describe_invalid_call_candidate(type_symbol const& func, temploid_ensig const& ensig, instatype const& params, allowed_adaptations adaptations) -> co_type< std::string >
+        {
+            std::string note = "  candidate: " + to_string(temploid_reference{.templexoid = func, .which = ensig});
+
+            std::optional< instatype > const accepted = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
+                .ensig = ensig,
+                .params = params,
+                .adaptations = adaptations,
+            });
+            if (accepted.has_value())
+            {
+                co_return note + "\n    note: viable before overload filtering";
+            }
+
+            std::optional< std::size_t > const pack_index = this->call_candidate_positional_pack_index(ensig);
+            std::size_t const fixed_positional_count = pack_index.value_or(ensig.interface.positional.size());
+            if (!pack_index.has_value() && params.positional.size() > ensig.interface.positional.size())
+            {
+                co_return note + "\n    note: too many positional arguments; expected " + std::to_string(ensig.interface.positional.size()) + ", got " + std::to_string(params.positional.size());
+            }
+            if (pack_index.has_value() && params.positional.size() < fixed_positional_count)
+            {
+                co_return note + "\n    note: too few positional arguments before variadic pack; expected at least " + std::to_string(fixed_positional_count) + ", got " + std::to_string(params.positional.size());
+            }
+
+            for (std::pair< std::string const, parameter_instantiation > const& actual : params.named)
+            {
+                std::map< std::string, argif >::const_iterator const formal_iter = ensig.interface.named.find(actual.first);
+                if (formal_iter == ensig.interface.named.end())
+                {
+                    co_return note + "\n    note: unknown named argument @" + actual.first;
+                }
+
+                bool const actual_is_value = actual.second.template type_is< parameter_value_instantiation >();
+                if (formal_iter->second.requires_static_value != actual_is_value)
+                {
+                    co_return note + "\n    note: named argument @" + actual.first + (formal_iter->second.requires_static_value ? " requires a static value" : " does not accept a static value");
+                }
+
+                type_symbol const& actual_type = parameter_instantiation_type(actual.second);
+                std::optional< type_symbol > initialized_type;
+                if (adaptations == allowed_adaptations::none)
+                {
+                    if (match_template(formal_iter->second.type, actual_type).has_value())
+                    {
+                        initialized_type = actual_type;
+                    }
+                }
+                else
+                {
+                    initialized_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
+                        .from = actual_type,
+                        .to = formal_iter->second.type,
+                        .adaptations = adaptations,
+                    });
+                }
+
+                if (!initialized_type.has_value())
+                {
+                    co_return note + "\n    note: named argument @" + actual.first + " cannot initialize " + to_string(formal_iter->second.type) + " from " + to_string(actual_type);
+                }
+                if (!match_template(formal_iter->second.type, *initialized_type).has_value())
+                {
+                    co_return note + "\n    note: named argument @" + actual.first + " initializes to " + to_string(*initialized_type) + " but does not satisfy template pattern " + to_string(formal_iter->second.type);
+                }
+            }
+
+            for (std::pair< std::string const, argif > const& formal : ensig.interface.named)
+            {
+                if (!params.named.contains(formal.first) && !formal.second.is_defaulted)
+                {
+                    co_return note + "\n    note: missing required named argument @" + formal.first;
+                }
+            }
+
+            for (std::size_t i = 0; i < params.positional.size(); i++)
+            {
+                if (!pack_index.has_value() && i >= ensig.interface.positional.size())
+                {
+                    co_return note + "\n    note: unexpected positional argument " + std::to_string(i);
+                }
+
+                argif const& formal = this->call_candidate_positional_formal_for(ensig, i);
+                parameter_instantiation const& actual = params.positional.at(i);
+                bool const actual_is_value = actual.template type_is< parameter_value_instantiation >();
+                if (formal.requires_static_value != actual_is_value)
+                {
+                    co_return note + "\n    note: positional argument " + std::to_string(i) + (formal.requires_static_value ? " requires a static value" : " does not accept a static value");
+                }
+
+                type_symbol const& actual_type = parameter_instantiation_type(actual);
+                std::optional< type_symbol > initialized_type;
+                if (adaptations == allowed_adaptations::none)
+                {
+                    if (match_template(formal.type, actual_type).has_value())
+                    {
+                        initialized_type = actual_type;
+                    }
+                }
+                else
+                {
+                    initialized_type = co_await rpnx::querygraph::request< ensig_argument_initialize_query >(argument_init_input{
+                        .from = actual_type,
+                        .to = formal.type,
+                        .adaptations = adaptations,
+                    });
+                }
+
+                if (!initialized_type.has_value())
+                {
+                    co_return note + "\n    note: positional argument " + std::to_string(i) + " cannot initialize " + to_string(formal.type) + " from " + to_string(actual_type);
+                }
+                if (!match_template(formal.type, *initialized_type).has_value())
+                {
+                    co_return note + "\n    note: positional argument " + std::to_string(i) + " initializes to " + to_string(*initialized_type) + " but does not satisfy template pattern " + to_string(formal.type);
+                }
+            }
+
+            if (!pack_index.has_value())
+            {
+                for (std::size_t i = params.positional.size(); i < ensig.interface.positional.size(); i++)
+                {
+                    if (!ensig.interface.positional.at(i).is_defaulted)
+                    {
+                        co_return note + "\n    note: missing required positional argument " + std::to_string(i);
+                    }
+                }
+            }
+
+            co_return note + "\n    note: not viable after template deduction or default argument checks";
+        }
+
+        /**
+         * Builds an invalid-call diagnostic with overload candidate notes.
+         */
+        auto co_invalid_call_message(type_symbol const& func, invotype const& calltype, instatype const& params, std::set< temploid_ensig > const& overloads, allowed_adaptations adaptations)
+            -> co_type< std::string >
+        {
+            std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
+            if (overloads.empty())
+            {
+                co_return message + "\ncandidates: none";
+            }
+
+            message += "\ncandidates:";
+            for (temploid_ensig const& overload : overloads)
+            {
+                message += "\n";
+                message += co_await this->co_describe_invalid_call_candidate(func, overload, params, adaptations);
+            }
+            co_return message;
+        }
+
         auto co_gen_construct_with_target_type(block_index& bidx, value_index source, type_symbol target_type, allowed_adaptations adaptations) -> co_type< value_index >
         {
             auto target_index = create_local_value(target_type);
@@ -931,7 +1123,8 @@ namespace quxlang
                 calltype.named[name] = arg_type;
             }
 
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = instatype_from_invotype(calltype), .adaptations = adaptations};
+            instatype call_parameters = instatype_from_invotype(calltype);
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = call_parameters, .adaptations = adaptations};
 
             // co_yield rpnx::querygraph::debug_message("co_gen_call_functum initialization params: ({})", quxlang::to_string(functanoid_unnormalized));
             //  Get call type
@@ -975,9 +1168,7 @@ namespace quxlang
 
             if (!instanciation)
             {
-                std::string message = "Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype);
-
-                throw semantic_compilation_error(message);
+                throw semantic_compilation_error(co_await this->co_invalid_call_message(func, calltype, call_parameters, functum_overloeads, adaptations));
             }
 
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -1150,7 +1341,8 @@ namespace quxlang
 
         auto resolve_functum_instanciation(block_index& bidx, type_symbol func, invotype calltype, allowed_adaptations adaptations) -> co_type< instanciation_reference >
         {
-            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = instatype_from_invotype(calltype), .adaptations = adaptations};
+            instatype call_parameters = instatype_from_invotype(calltype);
+            initialization_reference functanoid_unnormalized{.initializee = func, .parameters = call_parameters, .adaptations = adaptations};
 
             auto kind = (co_await rpnx::querygraph::request< symbol_type_query >(func));
             if (kind != symbol_kind::functum)
@@ -1161,7 +1353,8 @@ namespace quxlang
             auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
             if (!instanciation)
             {
-                throw semantic_compilation_error("Cannot call " + to_string(func) + " with " + quxlang::to_string(calltype));
+                std::set< temploid_ensig > const functum_overloads = co_await rpnx::querygraph::request< functum_overloads_query >(func);
+                throw semantic_compilation_error(co_await this->co_invalid_call_message(func, calltype, call_parameters, functum_overloads, adaptations));
             }
 
             co_return *instanciation;

@@ -50,18 +50,18 @@ linux-x86:
       type: executable
       # main_module: main
 
-windows:
-  modules:
-    runtime:
-      source: windows-runtime
-    foolib:
-      source: foolib1_0
-    barlib:
-      source: barlib2_0
-    main:
-      source: main_experimental_windows
-  platform: windows
-  cpu: x64
+#windows:
+#  modules:
+#    runtime:
+#      source: windows-runtime
+#    foolib:
+#      source: foolib1_0
+#    barlib:
+#      source: barlib2_0
+#    main:
+#      source: main_experimental_windows
+#  platform: windows
+#  cpu: x64
 
 
 

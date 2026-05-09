@@ -100,6 +100,11 @@
   RETURN a + b;
 }
 
+::foo_error FUNCTION(%a I32, %b I32): I32
+{
+  RETURN a + b + not_defined(@z 1);
+}
+
 ::bar FUNCTION(%a I32, %b I32): I32
 {
   RETURN a * b;
