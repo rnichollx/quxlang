@@ -60,6 +60,8 @@ coverage:
 - [x] Compound assignments
 - [x] Floating point numbers
 - [x] Lambda functions / closures
+- [x] Defaulted function arguments
+- [x] AUTO return type inference
 
 ## Remaining language features
 
@@ -75,11 +77,5 @@ coverage:
 - [ ] Complete runtime unwinding support
 - [ ] Native runtime support and standard-library allocator integration
 
-## Frontend and VMIR correctness
 
-- [ ] Defaulted function arguments
-- [ ] AUTO return type inference
-- [ ] Static tests inside concrete functions, if still desired
-- [ ] More complete negative coverage for antestatal static mutation
-- [ ] Broader VMIR2 constexpr pointer provenance, pointer difference, and
-      lifetime/state-transition coverage
+
