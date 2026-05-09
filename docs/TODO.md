@@ -69,6 +69,9 @@ coverage:
 - [ ] Exceptions and unwinding
 - [ ] Polymorphism / virtual functions 
 - [ ] Coroutines
+- [ ] Reflection
+- [ ] Generics
+- [ ] Registries
 
 ## Compiler and runtime
 
