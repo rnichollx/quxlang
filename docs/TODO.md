@@ -67,7 +67,6 @@ coverage:
 - [ ] Exceptions and unwinding
 - [ ] Polymorphism / virtual functions 
 - [ ] Coroutines
-- [ ] Array literal initializers
 
 ## Compiler and runtime
 
