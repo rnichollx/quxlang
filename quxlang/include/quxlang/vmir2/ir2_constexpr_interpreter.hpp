@@ -7,9 +7,11 @@
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/data/constexpr_types.hpp"
 #include "vmir2.hpp"
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
+#include <string>
 namespace quxlang
 {
     namespace vmir2
@@ -29,6 +31,8 @@ namespace quxlang
             void add_class_layout(type_symbol name, class_layout layout);
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
             void set_source_index(source_index source_index);
+            /// Sets a callback that receives constexpr interpreter debug lines when debug message emission is enabled.
+            void set_debug_line_handler(std::function< void(std::string) > handler);
             void set_constexpr_result_global_symbol(std::optional< type_symbol > symbol);
             void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value);
             /// Adds an antestatal root with explicit mutability for constexpr localdata/static evaluation.

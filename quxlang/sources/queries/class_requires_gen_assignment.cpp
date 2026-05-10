@@ -9,6 +9,11 @@
 
 rpnx::querygraph::coroutine< quxlang::class_requires_gen_assignment_spec > quxlang::class_requires_gen_assignment_impl(type_symbol input)
 {
+    if (is_atomic_type(input))
+    {
+        co_return false;
+    }
+
     auto have_user_assignment = co_await rpnx::querygraph::request< user_assignment_exists_query >(input);
     if (have_user_assignment)
     {

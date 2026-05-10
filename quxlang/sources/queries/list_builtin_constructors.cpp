@@ -107,6 +107,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         return typeis< void_type >(type);
     };
 
+    if (typeis< builtin_symbol >(input) && is_builtin_atomic_access_mode_name(as< builtin_symbol >(input).name))
+    {
+        co_return result;
+    }
+
     if (co_await rpnx::querygraph::request< symbol_type_query >(input) == symbol_kind::interface_)
     {
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
@@ -118,6 +123,12 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
+    if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
+    {
+        add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(*atomic_value_type)}}, void_type{});
+        co_return result;
+    }
 
     if (typeis< readonly_constant >(input))
     {

@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
+#include "quxlang/keywords.hpp"
 #include "quxlang/manipulators/merge_entity.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -116,6 +117,19 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid))
             {
+                if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
+                {
+                    if (!is_valid_atomic_storage_type(*atomic_value_type))
+                    {
+                        co_return std::monostate{};
+                    }
+
+                    ast2_class_declaration builtin_atomic_class;
+                    builtin_atomic_class.class_keywords.insert(keywords::no_implicit_assignment);
+                    builtin_atomic_class.class_keywords.insert(keywords::not_copyable);
+                    co_return builtin_atomic_class;
+                }
+
                 functum builtin_functum;
                 co_return builtin_functum;
             }

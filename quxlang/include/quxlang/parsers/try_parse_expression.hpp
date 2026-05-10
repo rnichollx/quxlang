@@ -707,6 +707,46 @@ namespace quxlang::parsers
         {
             expression_dotreference dot;
             dot.field_name = parse_subentity(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, "#("))
+            {
+                skip_whitespace_and_comments(pos, end);
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    while (true)
+                    {
+                        skip_whitespace_and_comments(pos, end);
+                        dot.template_arguments.push_back(parse_initialization_expression_arg(ctx));
+                        skip_whitespace_and_comments(pos, end);
+                        if (skip_symbol_if_is(pos, end, ")"))
+                        {
+                            break;
+                        }
+                        if (!skip_symbol_if_is(pos, end, ","))
+                        {
+                            throw syntax_compilation_error("expected ',' or ')'");
+                        }
+                    }
+                }
+            }
+            else if (skip_symbol_if_is(pos, end, "#"))
+            {
+                parse_iterator const arg_begin = pos;
+                auto arg_symbol = try_parse_type_symbol(ctx);
+                if (!arg_symbol.has_value())
+                {
+                    throw syntax_compilation_error("expected symbol after '#'");
+                }
+
+                expression_symbol_reference symbol_arg;
+                symbol_arg.symbol = std::move(*arg_symbol);
+
+                expression_arg arg;
+                arg.name = "T";
+                arg.value = std::move(symbol_arg);
+                arg.location = ctx.get_location_optional(arg_begin, pos);
+                dot.template_arguments.push_back(std::move(arg));
+            }
             dot.lhs = std::move(*bindings[bindings.size() - 1]);
             *bindings[bindings.size() - 1] = std::move(dot);
             goto next_operator;

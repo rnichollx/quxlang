@@ -15,7 +15,7 @@
 #include "rpnx/unimplemented.hpp"
 
 #include <deque>
-#include <iostream>
+#include <sstream>
 
 namespace quxlang
 {
@@ -54,6 +54,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /// Materialized constexpr_set_result2 outputs keyed by result ID.
     std::map< std::uint64_t, antestatal_value > constexpr_result_antestatal_values;
     std::map< std::uint64_t, constexpr_serialoid > constexpr_result_serialoid_values;
+    /// Callback that receives debug lines emitted by this interpreter instance.
+    std::function< void(std::string) > debug_line_handler;
     std::optional< source_index > printer_source_index;
 
     std::set< type_symbol > missing_functanoids_val;
@@ -284,11 +286,11 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
     char const* fixed_float_instruction_name(fixed_float_instruction instruction) const;
     void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
-    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, fixed_int_binary_op op);
+    void exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op);
     void exec_fixed_float_binary_op(fixed_float_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_binary_op op);
     void exec_mut_fixed_float_binary_op(fixed_float_instruction instruction, local_index target_slot, local_index value_slot, fixed_float_binary_op op);
     void exec_fixed_float_compare_op(char const* instruction_name, local_index a_slot, local_index b_slot, local_index result_slot, fixed_float_compare_op op);
-    void exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, mut_bitwise_binary_op op, bool invert);
+    void exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, mut_bitwise_binary_op op, bool invert);
 
     std::shared_ptr< local > output(local_index slot);
 
@@ -410,6 +412,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::initguard_abort const& iga);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
+    void exec_instr_val(vmir2::compare_exchange const& op);
     void exec_instr_val(vmir2::ret const& ret);
     void exec_instr_val(vmir2::int_add const& add);
     void exec_instr_val(vmir2::iconv const& icv);
@@ -765,8 +768,13 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
             quxlang::vmir2::assembler ir_printer(func.second.get());
             ir_printer.source_index = this->printer_source_index;
-            std::cout << "Functanoid: " << quxlang::to_string(*(func.first)) << std::endl;
-            std::cout << ir_printer.to_string(func.second.get()) << std::endl;
+            std::ostringstream debug_message;
+            debug_message << "Functanoid: " << quxlang::to_string(*(func.first)) << '\n';
+            debug_message << ir_printer.to_string(func.second.get());
+            if (debug_line_handler)
+            {
+                debug_line_handler(debug_message.str());
+            }
         }
     }
 
@@ -833,7 +841,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
-            std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer->to_string(instr) << std::endl;
+            std::ostringstream debug_message;
+            debug_message << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " instruction " << current_instr_address.instruction_index << ": " << ir_printer->to_string(instr);
+            if (debug_line_handler)
+            {
+                debug_line_handler(debug_message.str());
+            }
         }
         //  If there is an error here, it usually means there is an instruction which is not implemented
         //  on the constexpr virtual machine. Instructions which are illegal in a constexpr context
@@ -851,11 +864,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 if (current_statemap != expected_state)
                 {
-                    std::cout << " - Expected before state: " << ir_printer->to_string(expected_state) << std::endl;
-                    std::cout << " - Actual before state: " << ir_printer->to_string(current_statemap) << std::endl;
+                    std::ostringstream debug_message;
+                    debug_message << " - Expected before state: " << ir_printer->to_string(expected_state) << '\n';
+                    debug_message << " - Actual before state: " << ir_printer->to_string(current_statemap) << '\n';
                     for (auto const& [index, states] : state_diff)
                     {
-                        std::cout << "   - Slot " << index << " state mismatch: expected " << ir_printer->to_string(index, states.second) << ", got " << ir_printer->to_string(index, states.first) << std::endl;
+                        debug_message << "   - Slot " << index << " state mismatch: expected " << ir_printer->to_string(index, states.second) << ", got " << ir_printer->to_string(index, states.first) << '\n';
+                    }
+                    if (debug_line_handler)
+                    {
+                        debug_line_handler(debug_message.str());
                     }
                 }
                 assert(current_statemap == expected_state);
@@ -885,7 +903,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        std::cout << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer->to_string(terminator_instruction.value()) << std::endl;
+        std::ostringstream debug_message;
+        debug_message << "Executing in constexpr " << quxlang::to_string(current_func.get()) << " block " << current_instr_address.block << " terminator " << current_instr_address.instruction_index << ": " << ir_printer->to_string(terminator_instruction.value());
+        if (debug_line_handler)
+        {
+            debug_line_handler(debug_message.str());
+        }
     }
 
     rpnx::apply_visitor< void >(*terminator_instruction,
@@ -922,6 +945,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     };
 
     std::string type_str = quxlang::to_string(type);
+
+    if (auto atomic_value_type = atomic_type_argument(type); atomic_value_type.has_value())
+    {
+        return get_type_size(*atomic_value_type);
+    }
 
     if (typeis< attached_type_reference >(type))
     {
@@ -1006,6 +1034,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
 
+    if (auto atomic_value_type = atomic_type_argument(type); atomic_value_type.has_value())
+    {
+        return get_type_alignment(*atomic_value_type);
+    }
+
     if (typeis< attached_type_reference >(type))
     {
         attached_type_reference const& attached = as< attached_type_reference >(type);
@@ -1064,8 +1097,9 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
 quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_fixed_int_options(type_symbol const& type) const
 {
     bytemath::fixed_int_options opts{};
+    type_symbol const storage_type = atomic_storage_type_or_self(type);
 
-    if (type.type_is< byte_type >())
+    if (storage_type.type_is< byte_type >())
     {
         opts.bits = 8;
         opts.has_sign = false;
@@ -1073,12 +1107,12 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
         return opts;
     }
 
-    if (!type.type_is< int_type >())
+    if (!storage_type.type_is< int_type >())
     {
         throw quxlang::compiler_bug("expected primitive integer type");
     }
 
-    int_type const& int_type_info = type.get_as< int_type >();
+    int_type const& int_type_info = storage_type.get_as< int_type >();
     opts.bits = int_type_info.bits;
     opts.has_sign = int_type_info.has_sign;
     opts.overflow_undefined = false;
@@ -1186,12 +1220,16 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     result_data = std::move(res.data_bytes);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, fixed_int_binary_op op)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_fixed_int_binary_op(fixed_int_instruction instruction, local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, fixed_int_binary_op op)
 {
     char const* instruction_name = fixed_int_instruction_name(instruction);
 
     require_valid_input_precondition(target_slot);
     require_valid_input_precondition(value_slot);
+    if (old_value_slot.has_value())
+    {
+        require_valid_output_precondition(*old_value_slot);
+    }
 
     std::shared_ptr< local > target_ref = consume_local(target_slot);
     std::shared_ptr< local > value_local = consume_local(value_slot);
@@ -1218,11 +1256,15 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         throw quxlang::compiler_bug(std::string(instruction_name) + ": operands have different sizes");
     }
 
-    type_symbol target_type = remove_ref(get_local_type(target_slot));
+    type_symbol target_type = atomic_storage_type_or_self(remove_ref(get_local_type(target_slot)));
     type_symbol value_type = get_local_type(value_slot);
     if (target_type != value_type)
     {
         throw quxlang::compiler_bug(std::string(instruction_name) + ": type mismatch among operands");
+    }
+    if (old_value_slot.has_value() && get_local_type(*old_value_slot) != target_type)
+    {
+        throw quxlang::compiler_bug(std::string(instruction_name) + ": old-value output type does not match target storage type");
     }
 
     bytemath::fixed_int_options opts = get_fixed_int_options(target_type);
@@ -1240,6 +1282,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     if (res.data_bytes.size() != expected_size)
     {
         throw compiler_bug(std::string(instruction_name) + ": bytemath returned unexpected result size");
+    }
+
+    if (old_value_slot.has_value())
+    {
+        std::shared_ptr< local > old_value_local = output_local(*old_value_slot);
+        local_set_data(old_value_local, target_data);
     }
 
     local_set_data(target_value, std::move(res.data_bytes));
@@ -2669,7 +2717,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     {
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
-            std::cout << "ptr object id: " << ptr->object_id << std::endl;
+            std::ostringstream debug_message;
+            debug_message << "ptr object id: " << ptr->object_id;
+            if (debug_line_handler)
+            {
+                debug_line_handler(debug_message.str());
+            }
         }
         throw quxlang::compiler_bug("pointer missing value?");
     }
@@ -2720,6 +2773,55 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     target_slot->ref = load_from.ref;
     target_slot->constexpr_proxy_output_id = load_from.constexpr_proxy_output_id;
     target_slot->interface_value = load_from.interface_value;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::compare_exchange const& op)
+{
+    require_valid_input_precondition(op.target_reference);
+    require_valid_input_precondition(op.expected_reference);
+    require_valid_input_precondition(op.desired_value);
+    require_valid_output_precondition(op.result);
+
+    type_symbol target_type = atomic_storage_type_or_self(remove_ref(get_local_type(op.target_reference)));
+    type_symbol expected_type = remove_ref(get_local_type(op.expected_reference));
+    type_symbol desired_type = get_local_type(op.desired_value);
+    if (target_type != expected_type || target_type != desired_type || !typeis< bool_type >(get_local_type(op.result)))
+    {
+        throw compiler_bug("CMPXCHG operand type mismatch");
+    }
+
+    std::shared_ptr< local > target = load_from_reference(op.target_reference, true);
+    std::shared_ptr< local > expected = load_from_reference(op.expected_reference, true);
+    std::shared_ptr< local > desired = consume_local(op.desired_value);
+    if (target->readonly)
+    {
+        throw constexpr_logic_execution_error("Error executing <compare_exchange>: storing into read-only object");
+    }
+
+    bool const matched = target->data == expected->data;
+    if (matched)
+    {
+        target->data = desired->data;
+        target->ref = desired->ref;
+        target->constexpr_proxy_output_id = desired->constexpr_proxy_output_id;
+        target->interface_value = desired->interface_value;
+        begin_lifetime(target);
+    }
+    else
+    {
+        if (expected->readonly)
+        {
+            throw constexpr_logic_execution_error("Error executing <compare_exchange>: updating read-only expected object");
+        }
+        expected->data = target->data;
+        expected->ref = target->ref;
+        expected->constexpr_proxy_output_id = target->constexpr_proxy_output_id;
+        expected->interface_value = target->interface_value;
+        begin_lifetime(expected);
+    }
+
+    std::shared_ptr< local > result = output_local(op.result);
+    local_set_data(result, {matched ? std::byte(1) : std::byte(0)});
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::ret const& ret)
 {
@@ -2832,23 +2934,23 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_add const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::add, op.target, op.value, &bytemath::fixed_int_add_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::add, op.target, op.value, op.old_value, &bytemath::fixed_int_add_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_sub const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::sub, op.target, op.value, &bytemath::fixed_int_sub_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::sub, op.target, op.value, op.old_value, &bytemath::fixed_int_sub_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mul const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::mul, op.target, op.value, &bytemath::fixed_int_mul_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::mul, op.target, op.value, op.old_value, &bytemath::fixed_int_mul_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_div const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::div, op.target, op.value, &bytemath::fixed_int_div_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::div, op.target, op.value, op.old_value, &bytemath::fixed_int_div_le);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_int_mod const& op)
 {
-    exec_mut_fixed_int_binary_op(fixed_int_instruction::mod, op.target, op.value, &bytemath::fixed_int_mod_le);
+    exec_mut_fixed_int_binary_op(fixed_int_instruction::mod, op.target, op.value, op.old_value, &bytemath::fixed_int_mod_le);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::float_add const& op)
@@ -2984,7 +3086,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
-                std::cout << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id << std::endl;
+                std::ostringstream debug_message;
+                debug_message << "str: from: " << from_ptr_target.object_id << " to: " << to_ptr_target.object_id;
+                if (debug_line_handler)
+                {
+                    debug_line_handler(debug_message.str());
+                }
             }
             throw constexpr_logic_execution_error("Error executing <store_to_ref>: out of bounds write");
         }
@@ -3219,7 +3326,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        std::cout << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b) << std::endl;
+        std::ostringstream debug_message;
+        debug_message << "CLT " << bytemath::detail::le_to_string_raw(a) << " " << bytemath::detail::le_to_string_raw(b);
+        if (debug_line_handler)
+        {
+            debug_line_handler(debug_message.str());
+        }
     }
 
     for (std::size_t i = a.size() - 1; true; i--)
@@ -3312,11 +3424,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 static std::size_t get_bit_width_for_type(const quxlang::type_symbol& ty)
 {
-    if (typeis< quxlang::int_type >(ty))
+    quxlang::type_symbol const storage_type = quxlang::atomic_storage_type_or_self(ty);
+    if (typeis< quxlang::int_type >(storage_type))
     {
-        return ty.get_as< quxlang::int_type >().bits;
+        return storage_type.get_as< quxlang::int_type >().bits;
     }
-    if (typeis< quxlang::byte_type >(ty))
+    if (typeis< quxlang::byte_type >(storage_type))
     {
         return 8;
     }
@@ -3519,52 +3632,72 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     set_data(op.result, std::move(out));
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, mut_bitwise_binary_op op, bool invert)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_mut_bitwise_binary_op(local_index target_slot, local_index value_slot, std::optional< local_index > old_value_slot, mut_bitwise_binary_op op, bool invert)
 {
+    if (old_value_slot.has_value())
+    {
+        require_valid_output_precondition(*old_value_slot);
+    }
+
     auto target = load_from_reference(target_slot, true);
     auto value = consume_local_as_data(value_slot);
-    auto target_type = remove_ref(get_local_type(target_slot));
+    auto target_type = atomic_storage_type_or_self(remove_ref(get_local_type(target_slot)));
+    auto value_type = get_local_type(value_slot);
+    if (target_type != value_type)
+    {
+        throw compiler_bug("MUT_BITWISE: type mismatch among operands");
+    }
+    if (old_value_slot.has_value() && get_local_type(*old_value_slot) != target_type)
+    {
+        throw compiler_bug("MUT_BITWISE: old-value output type does not match target storage type");
+    }
     std::size_t bits = get_bit_width_for_type(target_type);
 
+    std::vector< std::byte > old_value = target->data;
     mut_bitwise_byte_op(target->data, value, op);
     if (invert)
     {
         bitwise_not_inplace(target->data);
+    }
+    if (old_value_slot.has_value())
+    {
+        std::shared_ptr< local > old_value_local = output_local(*old_value_slot);
+        local_set_data(old_value_local, std::move(old_value));
     }
     local_set_data(target, truncate_to_bits(std::move(target->data), bits));
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_and const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, false);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_or const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, false);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_xor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, false);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nand const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, true);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, true);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nxor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, true);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implies const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >((~av) | bv); }, false);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >((~av) | bv); }, false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implied const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >(av | (~bv)); }, false);
+    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >(av | (~bv)); }, false);
 }
 
 static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
@@ -4098,6 +4231,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
 void quxlang::vmir2::ir2_constexpr_interpreter::set_source_index(source_index source_index)
 {
     this->implementation->printer_source_index = std::move(source_index);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::set_debug_line_handler(std::function< void(std::string) > handler)
+{
+    this->implementation->debug_line_handler = std::move(handler);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::exec(type_symbol func)

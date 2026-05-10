@@ -94,6 +94,48 @@ namespace
         return quxlang::int_type{32, true};
     }
 
+    auto test_atomic_type(quxlang::type_symbol value_type) -> quxlang::type_symbol
+    {
+        quxlang::temploid_ensig selected_template;
+        selected_template.interface.named["T"] = quxlang::argif{.type = quxlang::type_temploidic{}};
+
+        quxlang::instatype params;
+        params.named["T"] = quxlang::make_type_instantiation(std::move(value_type));
+
+        return quxlang::instanciation_reference{
+            .temploid = quxlang::temploid_reference{
+                .templexoid = quxlang::builtin_symbol{"ATOMIC"},
+                .which = std::move(selected_template),
+            },
+            .params = std::move(params),
+        };
+    }
+
+    auto test_atomic_mode_instanciation(quxlang::type_symbol atomic_type, std::string member_name, std::string mode_name) -> quxlang::type_symbol
+    {
+        quxlang::instatype params;
+        params.named["T"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(mode_name)});
+        return quxlang::instanciation_reference{
+            .temploid = quxlang::temploid_reference{
+                .templexoid = quxlang::submember{.of = std::move(atomic_type), .name = std::move(member_name)},
+            },
+            .params = std::move(params),
+        };
+    }
+
+    auto test_atomic_cas_instanciation(quxlang::type_symbol atomic_type, std::string success_mode_name, std::string failure_mode_name) -> quxlang::type_symbol
+    {
+        quxlang::instatype params;
+        params.named["SUCCESS"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(success_mode_name)});
+        params.named["FAILURE"] = quxlang::make_type_instantiation(quxlang::builtin_symbol{std::move(failure_mode_name)});
+        return quxlang::instanciation_reference{
+            .temploid = quxlang::temploid_reference{
+                .templexoid = quxlang::submember{.of = std::move(atomic_type), .name = "COMPARE_EXCHANGE"},
+            },
+            .params = std::move(params),
+        };
+    }
+
     auto test_i32_value(std::byte low_byte) -> quxlang::antestatal_value
     {
         return quxlang::antestatal_primitive{.value = {low_byte, std::byte{0}, std::byte{0}, std::byte{0}}};
@@ -1139,6 +1181,134 @@ TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
     auto result_values = mutable_interp.get_cr_antestatal_values();
     ASSERT_TRUE(result_values.contains(17));
     expect_i32_value(result_values.at(17), std::byte{9});
+}
+
+TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_threaded)
+{
+    quxlang::type_symbol i32 = test_i32_type();
+    quxlang::type_symbol atomic_i32 = test_atomic_type(i32);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = atomic_i32},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::load_const_zero{.target = quxlang::vmir2::local_index(1)},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "5"},
+            quxlang::vmir2::store_to_ref{
+                .from_value = quxlang::vmir2::local_index(3),
+                .to_reference = quxlang::vmir2::local_index(2),
+                .access_mode = quxlang::atomic_access_mode::atomic_release,
+            },
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "2"},
+            quxlang::vmir2::mut_int_add{
+                .target = quxlang::vmir2::local_index(2),
+                .value = quxlang::vmir2::local_index(3),
+                .access_mode = quxlang::atomic_access_mode::atomic_acqrel,
+                .old_value = quxlang::vmir2::local_index(4),
+            },
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_from_ref{
+                .from_reference = quxlang::vmir2::local_index(2),
+                .to_value = quxlang::vmir2::local_index(5),
+                .access_mode = quxlang::atomic_access_mode::atomic_acquire,
+            },
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "5"},
+            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(4), .b = quxlang::vmir2::local_index(6), .result = quxlang::vmir2::local_index(7)},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .message = "FETCH_ADD old value"},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(8), .value = "7"},
+            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(5), .b = quxlang::vmir2::local_index(8), .result = quxlang::vmir2::local_index(9)},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(9), .message = "atomic load after RMW"},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    EXPECT_NO_THROW(interp.exec3(quxlang::void_type{}));
+}
+
+TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_failure)
+{
+    quxlang::type_symbol i32 = test_i32_type();
+    quxlang::type_symbol atomic_i32 = test_atomic_type(i32);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = atomic_i32},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::load_const_zero{.target = quxlang::vmir2::local_index(1)},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(3), .value = "7"},
+            quxlang::vmir2::store_to_ref{.from_value = quxlang::vmir2::local_index(3), .to_reference = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(4), .value = "5"},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "9"},
+            quxlang::vmir2::compare_exchange{
+                .target_reference = quxlang::vmir2::local_index(2),
+                .expected_reference = quxlang::vmir2::local_index(5),
+                .desired_value = quxlang::vmir2::local_index(6),
+                .result = quxlang::vmir2::local_index(7),
+                .success_mode = quxlang::atomic_access_mode::atomic_acqrel,
+                .failure_mode = quxlang::atomic_access_mode::atomic_acquire,
+            },
+            quxlang::vmir2::to_bool_not{.from = quxlang::vmir2::local_index(7), .to = quxlang::vmir2::local_index(8)},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(8), .message = "first CAS should fail"},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
+            quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(5), .to_value = quxlang::vmir2::local_index(9)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "7"},
+            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .message = "failed CAS updates expected"},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "9"},
+            quxlang::vmir2::compare_exchange{
+                .target_reference = quxlang::vmir2::local_index(2),
+                .expected_reference = quxlang::vmir2::local_index(5),
+                .desired_value = quxlang::vmir2::local_index(6),
+                .result = quxlang::vmir2::local_index(7),
+                .success_mode = quxlang::atomic_access_mode::atomic_acqrel,
+                .failure_mode = quxlang::atomic_access_mode::atomic_acquire,
+            },
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .message = "second CAS should succeed"},
+            quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(2), .to_value = quxlang::vmir2::local_index(9)},
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "9"},
+            quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .message = "successful CAS updates target"},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    EXPECT_NO_THROW(interp.exec3(quxlang::void_type{}));
 }
 
 TEST(vmir_constexpr_interpreter, constexpr_proxy_outputs_bytes_in_order)
@@ -2499,6 +2669,186 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     auto selected = quxlang::as< quxlang::instanciation_reference >(*resolved).temploid;
     EXPECT_EQ(selected, *selected_template);
+}
+
+TEST(quxlang, atomic_builtin_lookup_and_mode_classes)
+{
+    auto sources = make_main_module_source_bundle("");
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    auto resolved_i32 = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = parse_type_symbol("ATOMIC#I32"),
+    }, std::nullopt);
+    ASSERT_TRUE(resolved_i32.has_value());
+    EXPECT_EQ(c.get_symbol_type(*resolved_i32, std::nullopt), quxlang::symbol_kind::class_);
+    ASSERT_TRUE(quxlang::atomic_type_argument(*resolved_i32).has_value());
+    EXPECT_EQ(*quxlang::atomic_type_argument(*resolved_i32), parse_type_symbol("I32"));
+
+    auto resolved_f32 = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = parse_type_symbol("ATOMIC#F32"),
+    }, std::nullopt);
+    ASSERT_TRUE(resolved_f32.has_value());
+    EXPECT_EQ(c.get_symbol_type(*resolved_f32, std::nullopt), quxlang::symbol_kind::noexist);
+
+    for (std::string const& mode_name : {"NONATOMIC", "ATOMIC_RELAXED", "ATOMIC_RELEASE", "ATOMIC_ACQUIRE", "ATOMIC_ACQREL", "ATOMIC_SEQCST"})
+    {
+        auto resolved_mode = c.get_lookup(quxlang::contextual_type_reference{
+            .context = mainmodule,
+            .type = parse_type_symbol(mode_name),
+        }, std::nullopt);
+        ASSERT_TRUE(resolved_mode.has_value());
+        EXPECT_EQ(c.get_symbol_type(*resolved_mode, std::nullopt), quxlang::symbol_kind::class_);
+        EXPECT_TRUE(c.get_functum_builtin_overloads(quxlang::submember{.of = *resolved_mode, .name = "CONSTRUCTOR"}, std::nullopt).empty());
+    }
+}
+
+TEST(quxlang, atomic_builtin_operation_mode_validation)
+{
+    auto sources = make_main_module_source_bundle("");
+    auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    auto atomic_i32 = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = parse_type_symbol("ATOMIC#I32"),
+    }, std::nullopt);
+    ASSERT_TRUE(atomic_i32.has_value());
+
+    auto atomic_bool = c.get_lookup(quxlang::contextual_type_reference{
+        .context = mainmodule,
+        .type = parse_type_symbol("ATOMIC#BOOL"),
+    }, std::nullopt);
+    ASSERT_TRUE(atomic_bool.has_value());
+
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "LOAD", "ATOMIC_ACQUIRE"), std::nullopt).empty());
+    EXPECT_TRUE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "LOAD", "ATOMIC_RELEASE"), std::nullopt).empty());
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "STORE", "ATOMIC_RELEASE"), std::nullopt).empty());
+    EXPECT_TRUE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "STORE", "ATOMIC_ACQUIRE"), std::nullopt).empty());
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "FETCH_ADD", "ATOMIC_RELEASE"), std::nullopt).empty());
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_i32, "ADD", "NONATOMIC"), std::nullopt).empty());
+    EXPECT_TRUE(c.get_functum_builtin_overloads(test_atomic_mode_instanciation(*atomic_bool, "FETCH_ADD", "ATOMIC_RELAXED"), std::nullopt).empty());
+
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_cas_instanciation(*atomic_i32, "ATOMIC_ACQREL", "ATOMIC_ACQUIRE"), std::nullopt).empty());
+    EXPECT_FALSE(c.get_functum_builtin_overloads(test_atomic_cas_instanciation(*atomic_i32, "NONATOMIC", "NONATOMIC"), std::nullopt).empty());
+    EXPECT_TRUE(c.get_functum_builtin_overloads(test_atomic_cas_instanciation(*atomic_i32, "ATOMIC_RELAXED", "ATOMIC_ACQUIRE"), std::nullopt).empty());
+    EXPECT_TRUE(c.get_functum_builtin_overloads(test_atomic_cas_instanciation(*atomic_i32, "NONATOMIC", "ATOMIC_RELAXED"), std::nullopt).empty());
+}
+
+TEST(quxlang, atomic_builtin_codegen_preserves_access_modes)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::atomic_fetch_add_ir FUNCTION(%seed I32): I32
+{
+   VAR x ATOMIC#I32 := seed;
+   RETURN x.FETCH_ADD#ATOMIC_RELEASE(4);
+}
+
+::atomic_add_ir FUNCTION(%seed I32): I32
+{
+   VAR x ATOMIC#I32 := seed;
+   x.ADD#ATOMIC_RELEASE(seed);
+   RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_store_load_ir FUNCTION(%value I32): I32
+{
+   VAR x ATOMIC#I32;
+   x.STORE#ATOMIC_RELEASE(value);
+   RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_cas_ir FUNCTION(%seed I32, %desired I32): BOOL
+{
+   VAR x ATOMIC#I32 := seed;
+   VAR expected I32 := seed;
+   RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, desired);
+}
+)QX");
+    quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    auto routine_for = [&](std::string function_name, std::string params) -> quxlang::vmir2::functanoid_routine3
+    {
+        quxlang::type_symbol func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{" + params + "}");
+        func_name = quxlang::with_context(func_name, mainmodule);
+        return c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), std::nullopt);
+    };
+
+    quxlang::vmir2::functanoid_routine3 fetch_routine = routine_for("atomic_fetch_add_ir", "I32");
+    bool saw_fetch_add = false;
+    for (quxlang::vmir2::executable_block const& block : fetch_routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::mut_int_add >())
+            {
+                quxlang::vmir2::mut_int_add const& add = instruction.as< quxlang::vmir2::mut_int_add >();
+                saw_fetch_add = add.access_mode == quxlang::atomic_access_mode::atomic_release && add.old_value.has_value();
+            }
+        }
+    }
+    EXPECT_TRUE(saw_fetch_add) << quxlang::vmir2::assembler(fetch_routine).to_string(fetch_routine);
+
+    quxlang::vmir2::functanoid_routine3 add_routine = routine_for("atomic_add_ir", "I32");
+    bool saw_void_add = false;
+    bool saw_acquire_load = false;
+    for (quxlang::vmir2::executable_block const& block : add_routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::mut_int_add >())
+            {
+                quxlang::vmir2::mut_int_add const& add = instruction.as< quxlang::vmir2::mut_int_add >();
+                saw_void_add = add.access_mode == quxlang::atomic_access_mode::atomic_release && !add.old_value.has_value();
+            }
+            if (instruction.type_is< quxlang::vmir2::load_from_ref >())
+            {
+                saw_acquire_load = saw_acquire_load || instruction.as< quxlang::vmir2::load_from_ref >().access_mode == quxlang::atomic_access_mode::atomic_acquire;
+            }
+        }
+    }
+    EXPECT_TRUE(saw_void_add) << quxlang::vmir2::assembler(add_routine).to_string(add_routine);
+    EXPECT_TRUE(saw_acquire_load) << quxlang::vmir2::assembler(add_routine).to_string(add_routine);
+
+    quxlang::vmir2::functanoid_routine3 store_load_routine = routine_for("atomic_store_load_ir", "I32");
+    bool saw_release_store = false;
+    saw_acquire_load = false;
+    for (quxlang::vmir2::executable_block const& block : store_load_routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::store_to_ref >())
+            {
+                saw_release_store = saw_release_store || instruction.as< quxlang::vmir2::store_to_ref >().access_mode == quxlang::atomic_access_mode::atomic_release;
+            }
+            if (instruction.type_is< quxlang::vmir2::load_from_ref >())
+            {
+                saw_acquire_load = saw_acquire_load || instruction.as< quxlang::vmir2::load_from_ref >().access_mode == quxlang::atomic_access_mode::atomic_acquire;
+            }
+        }
+    }
+    EXPECT_TRUE(saw_release_store) << quxlang::vmir2::assembler(store_load_routine).to_string(store_load_routine);
+    EXPECT_TRUE(saw_acquire_load) << quxlang::vmir2::assembler(store_load_routine).to_string(store_load_routine);
+
+    quxlang::vmir2::functanoid_routine3 cas_routine = routine_for("atomic_cas_ir", "I32, I32");
+    bool saw_cas = false;
+    for (quxlang::vmir2::executable_block const& block : cas_routine.blocks)
+    {
+        for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< quxlang::vmir2::compare_exchange >())
+            {
+                quxlang::vmir2::compare_exchange const& cas = instruction.as< quxlang::vmir2::compare_exchange >();
+                saw_cas = cas.success_mode == quxlang::atomic_access_mode::atomic_acqrel && cas.failure_mode == quxlang::atomic_access_mode::atomic_acquire;
+            }
+        }
+    }
+    EXPECT_TRUE(saw_cas) << quxlang::vmir2::assembler(cas_routine).to_string(cas_routine);
 }
 
 TEST(quxlang, storage_type_validation)

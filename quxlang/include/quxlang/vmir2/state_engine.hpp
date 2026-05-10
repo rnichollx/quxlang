@@ -625,6 +625,13 @@ namespace quxlang::vmir2
             consume(lfr.from_reference);
             output(lfr.to_value);
         }
+        void apply_internal(vmir2::compare_exchange const& op)
+        {
+            consume(op.target_reference);
+            consume(op.expected_reference);
+            consume(op.desired_value);
+            output(op.result);
+        }
         void apply_internal(vmir2::ret const& ret)
         {
         }
@@ -662,26 +669,46 @@ namespace quxlang::vmir2
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_int_sub const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_int_mul const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_int_div const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_int_mod const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::float_add const& add)
         {
@@ -814,41 +841,73 @@ namespace quxlang::vmir2
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_or const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_xor const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_nand const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_nor const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_nxor const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_implies const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_implied const& op)
         {
             consume(op.target);
             consume(op.value);
+            if (op.old_value.has_value())
+            {
+                output(*op.old_value);
+            }
         }
         void apply_internal(vmir2::mut_bitwise_shift_up const& op)
         {

@@ -126,6 +126,10 @@ namespace
             {
                 pending.push_back(current.get_as< quxlang::array_type >().element_type);
             }
+            else if (auto atomic_value_type = quxlang::atomic_type_argument(current); atomic_value_type.has_value())
+            {
+                pending.push_back(std::move(*atomic_value_type));
+            }
             else if (current.type_is< quxlang::storage >())
             {
                 for (quxlang::type_symbol const& storable_type : current.get_as< quxlang::storage >().storable_types)
@@ -138,6 +142,11 @@ namespace
 
     auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
     {
+        if (quxlang::is_atomic_type(type))
+        {
+            return false;
+        }
+
         return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
     }
 

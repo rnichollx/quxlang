@@ -1935,10 +1935,18 @@ namespace quxlang
     std::optional< type_symbol > func_class(type_symbol const& func)
     {
         std::string func_str = to_string(func);
-        auto tmplx = func.get_as< instanciation_reference >().temploid.templexoid;
+        type_symbol tmplx = func.get_as< instanciation_reference >().temploid.templexoid;
         if (tmplx.type_is< submember >())
         {
             return as< submember >(tmplx).of;
+        }
+        if (tmplx.type_is< instanciation_reference >())
+        {
+            type_symbol const& instantiated_temploid = as< instanciation_reference >(tmplx).temploid.templexoid;
+            if (instantiated_temploid.type_is< submember >())
+            {
+                return as< submember >(instantiated_temploid).of;
+            }
         }
         return std::nullopt;
     }

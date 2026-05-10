@@ -9,6 +9,11 @@
 
 rpnx::querygraph::coroutine< quxlang::class_requires_gen_copy_ctor_spec > quxlang::class_requires_gen_copy_ctor_impl(type_symbol input)
 {
+    if (is_atomic_type(input))
+    {
+        co_return false;
+    }
+
     auto have_user_copy_ctor = co_await rpnx::querygraph::request< user_copy_ctor_exists_query >(input);
     if (have_user_copy_ctor)
     {

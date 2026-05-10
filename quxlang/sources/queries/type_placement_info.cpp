@@ -21,6 +21,11 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
 
+    if (auto atomic_value_type = atomic_type_argument(type); atomic_value_type.has_value())
+    {
+        co_return co_await rpnx::querygraph::request< type_placement_info_query >(*atomic_value_type);
+    }
+
     if (type.template type_is< attached_type_reference >())
     {
         attached_type_reference const& attached = as< attached_type_reference >(type);

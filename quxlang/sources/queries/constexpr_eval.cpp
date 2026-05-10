@@ -8,8 +8,11 @@
 #include "quxlang/vmir2/routine_requirements.hpp"
 #include "quxlang/vmir2/source_index.hpp"
 
+#include <exception>
 #include <set>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -134,6 +137,14 @@ namespace
 rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_eval_impl(constexpr_input2 input)
 {
     vmir2::ir2_constexpr_interpreter interp;
+    [[maybe_unused]] std::vector< std::string > debug_lines;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        interp.set_debug_line_handler([&debug_lines](std::string line)
+                                      {
+                                          debug_lines.push_back(std::move(line));
+                                      });
+    }
     auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
     auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
     interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
@@ -207,7 +218,26 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         }
     }
 
-    interp.exec3(void_type{});
+    std::exception_ptr execution_exception;
+    try
+    {
+        interp.exec3(void_type{});
+    }
+    catch (...)
+    {
+        execution_exception = std::current_exception();
+    }
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        for (std::string const& debug_line : debug_lines)
+        {
+            co_yield rpnx::querygraph::debug_message("{}", debug_line);
+        }
+    }
+    if (execution_exception)
+    {
+        std::rethrow_exception(execution_exception);
+    }
 
     auto val = interp.get_cr_value();
     val.type = type_symbol(bool_type{});

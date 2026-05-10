@@ -21,6 +21,11 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
         co_return true;
     }
 
+    if (auto atomic_value_type = atomic_type_argument(input); atomic_value_type.has_value())
+    {
+        co_return co_await rpnx::querygraph::request< type_is_antestatal_query >(*atomic_value_type);
+    }
+
     if (typeis< ptrref_type >(input))
     {
         co_return true;

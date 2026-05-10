@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/macros.hpp>
 #include <rpnx/macros.hpp>
@@ -59,6 +60,7 @@ namespace quxlang
         struct move_value;
         struct load_from_ref;
         struct store_to_ref;
+        struct compare_exchange;
         struct storage_init;
         struct storage_init_start;
         struct storage_deinit_start;
@@ -213,6 +215,7 @@ namespace quxlang
             load_const_bool,
             dereference_pointer,
             store_to_ref,
+            compare_exchange,
             int_add,
             int_mul,
             int_div,
@@ -801,16 +804,30 @@ namespace quxlang
         {
             local_index from_reference;
             local_index to_value;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_from_ref, from_reference, to_value);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(load_from_ref, from_reference, to_value, access_mode);
         };
 
         struct store_to_ref
         {
             local_index from_value;
             local_index to_reference;
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(store_to_ref, from_value, to_reference);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(store_to_ref, from_value, to_reference, access_mode);
+        };
+
+        struct compare_exchange
+        {
+            local_index target_reference;
+            local_index expected_reference;
+            local_index desired_value;
+            local_index result;
+            atomic_access_mode success_mode = atomic_access_mode::nonatomic;
+            atomic_access_mode failure_mode = atomic_access_mode::nonatomic;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(compare_exchange, target_reference, expected_reference, desired_value, result, success_mode, failure_mode);
         };
 
         struct load_const_int
@@ -887,35 +904,45 @@ namespace quxlang
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_add, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_add, target, value, access_mode, old_value);
         };
 
         struct mut_int_sub
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_sub, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_sub, target, value, access_mode, old_value);
         };
 
         struct mut_int_mul
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mul, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mul, target, value, access_mode, old_value);
         };
 
         struct mut_int_div
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_div, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_div, target, value, access_mode, old_value);
         };
 
         struct mut_int_mod
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mod, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_int_mod, target, value, access_mode, old_value);
         };
 
         struct float_add
@@ -1091,49 +1118,65 @@ namespace quxlang
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_and, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_and, target, value, access_mode, old_value);
         };
         struct mut_bitwise_or
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_or, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_or, target, value, access_mode, old_value);
         };
         struct mut_bitwise_xor
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_xor, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_xor, target, value, access_mode, old_value);
         };
         struct mut_bitwise_nand
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nand, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nand, target, value, access_mode, old_value);
         };
         struct mut_bitwise_nor
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nor, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nor, target, value, access_mode, old_value);
         };
         struct mut_bitwise_nxor
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nxor, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_nxor, target, value, access_mode, old_value);
         };
         struct mut_bitwise_implies
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implies, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implies, target, value, access_mode, old_value);
         };
         struct mut_bitwise_implied
         {
             local_index target;
             local_index value;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implied, target, value);
+            atomic_access_mode access_mode = atomic_access_mode::nonatomic;
+            std::optional< local_index > old_value;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(mut_bitwise_implied, target, value, access_mode, old_value);
         };
         struct mut_bitwise_shift_up
         {

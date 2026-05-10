@@ -47,6 +47,59 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         allowed_operations.insert(make_overload(positionals, named, return_type));
     };
 
+    auto atomic_mode_from_type = [](type_symbol const& type) -> std::optional< atomic_access_mode >
+    {
+        if (!typeis< builtin_symbol >(type))
+        {
+            return std::nullopt;
+        }
+        return atomic_access_mode_from_name(as< builtin_symbol >(type).name);
+    };
+
+    auto valid_load_mode = [](atomic_access_mode mode) -> bool
+    {
+        return mode == atomic_access_mode::nonatomic || mode == atomic_access_mode::atomic_relaxed || mode == atomic_access_mode::atomic_acquire || mode == atomic_access_mode::atomic_seqcst;
+    };
+
+    auto valid_store_mode = [](atomic_access_mode mode) -> bool
+    {
+        return mode == atomic_access_mode::nonatomic || mode == atomic_access_mode::atomic_relaxed || mode == atomic_access_mode::atomic_release || mode == atomic_access_mode::atomic_seqcst;
+    };
+
+    auto valid_cas_failure_mode_for_success = [](atomic_access_mode success, atomic_access_mode failure) -> bool
+    {
+        if (success == atomic_access_mode::nonatomic || failure == atomic_access_mode::nonatomic)
+        {
+            return success == atomic_access_mode::nonatomic && failure == atomic_access_mode::nonatomic;
+        }
+
+        if (failure != atomic_access_mode::atomic_relaxed && failure != atomic_access_mode::atomic_acquire && failure != atomic_access_mode::atomic_seqcst)
+        {
+            return false;
+        }
+
+        switch (success)
+        {
+        case atomic_access_mode::atomic_relaxed:
+        case atomic_access_mode::atomic_release:
+            return failure == atomic_access_mode::atomic_relaxed;
+        case atomic_access_mode::atomic_acquire:
+        case atomic_access_mode::atomic_acqrel:
+            return failure == atomic_access_mode::atomic_relaxed || failure == atomic_access_mode::atomic_acquire;
+        case atomic_access_mode::atomic_seqcst:
+            return true;
+        case atomic_access_mode::nonatomic:
+            break;
+        }
+
+        return false;
+    };
+
+    auto is_atomic_rmw_value_type = [](type_symbol const& type) -> bool
+    {
+        return typeis< int_type >(type) || typeis< byte_type >(type);
+    };
+
     auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
     if (typeis< builtin_symbol >(functum))
@@ -71,6 +124,97 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
     if (typeis< instanciation_reference >(functum))
     {
         auto const& inst = as< instanciation_reference >(functum);
+        if (typeis< submember >(inst.temploid.templexoid))
+        {
+            submember const& member = as< submember >(inst.temploid.templexoid);
+            std::optional< type_symbol > const atomic_value_type = atomic_type_argument(member.of);
+            if (atomic_value_type.has_value())
+            {
+                if (!is_valid_atomic_storage_type(*atomic_value_type))
+                {
+                    co_return allowed_operations;
+                }
+
+                std::string const& member_name = member.name;
+                if (member_name == "COMPARE_EXCHANGE")
+                {
+                    auto success_arg = inst.params.named.find("SUCCESS");
+                    auto failure_arg = inst.params.named.find("FAILURE");
+                    if (success_arg == inst.params.named.end() || failure_arg == inst.params.named.end() || inst.params.named.size() != 2 || !inst.params.positional.empty())
+                    {
+                        co_return allowed_operations;
+                    }
+
+                    std::optional< atomic_access_mode > success_mode = atomic_mode_from_type(parameter_instantiation_type(success_arg->second));
+                    std::optional< atomic_access_mode > failure_mode = atomic_mode_from_type(parameter_instantiation_type(failure_arg->second));
+                    if (!success_mode.has_value() || !failure_mode.has_value() || !valid_cas_failure_mode_for_success(*success_mode, *failure_mode))
+                    {
+                        co_return allowed_operations;
+                    }
+
+                    add_overload({make_mref(*atomic_value_type), *atomic_value_type}, {{"THIS", make_mref(member.of)}}, bool_type{});
+                    co_return allowed_operations;
+                }
+
+                auto mode_arg = inst.params.named.find("T");
+                if (mode_arg == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
+                {
+                    co_return allowed_operations;
+                }
+
+                std::optional< atomic_access_mode > mode = atomic_mode_from_type(parameter_instantiation_type(mode_arg->second));
+                if (!mode.has_value())
+                {
+                    co_return allowed_operations;
+                }
+
+                if (member_name == "LOAD")
+                {
+                    if (valid_load_mode(*mode))
+                    {
+                        add_overload({}, {{"THIS", make_cref(member.of)}}, *atomic_value_type);
+                    }
+                    co_return allowed_operations;
+                }
+                if (member_name == "STORE")
+                {
+                    if (valid_store_mode(*mode))
+                    {
+                        add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                    }
+                    co_return allowed_operations;
+                }
+
+                static std::set< std::string > const fetch_members = {
+                    "FETCH_ADD",
+                    "FETCH_SUB",
+                    "FETCH_AND",
+                    "FETCH_OR",
+                    "FETCH_XOR",
+                };
+                static std::set< std::string > const void_members = {
+                    "ADD",
+                    "SUB",
+                    "AND",
+                    "OR",
+                    "XOR",
+                };
+
+                if (is_atomic_rmw_value_type(*atomic_value_type) && fetch_members.contains(member_name))
+                {
+                    add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, *atomic_value_type);
+                    co_return allowed_operations;
+                }
+                if (is_atomic_rmw_value_type(*atomic_value_type) && void_members.contains(member_name))
+                {
+                    add_overload({*atomic_value_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                    co_return allowed_operations;
+                }
+
+                co_return allowed_operations;
+            }
+        }
+
         auto type_argument = inst.params.named.find("T");
         if (co_await rpnx::querygraph::request< template_builtin_query >(inst.temploid) && type_argument != inst.params.named.end() && inst.params.named.size() == 1 && inst.params.positional.empty())
         {
@@ -83,7 +227,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             auto allocator_kind = builtin_allocator_kind_from_name(builtin.name);
             if (!allocator_kind.has_value())
             {
-                throw compiler_bug("builtin template selection had no allocator kind");
+                co_return allowed_operations;
             }
 
             auto const allocated_type = parameter_instantiation_type(type_argument->second);

@@ -35,6 +35,8 @@ RPNX_ENUM(quxlang, constant_kind, std::uint16_t, data, numeric, string, cstring)
 RPNX_ENUM(quxlang, allowed_adaptations, std::uint8_t, source_rebinding, class_conversions, destination_rebinding, none);
 RPNX_ENUM(quxlang, conversion_type, std::uint8_t, implicit, explicit_, partial, assume, checked);
 RPNX_ENUM(quxlang, builtin_allocator_kind, std::uint8_t, constexpr_alloc, constexpr_alloc_multiple, constexpr_dealloc, constexpr_dealloc_multiple);
+/// Selects whether an atomic-capable VMIR access is plain or atomic, and if atomic, its memory ordering.
+RPNX_ENUM(quxlang, atomic_access_mode, std::uint8_t, nonatomic, atomic_relaxed, atomic_release, atomic_acquire, atomic_acqrel, atomic_seqcst);
 
 RPNX_ENUM(quxlang, integral_qualifier, std::uint8_t, none, signed_, unsigned_);
 RPNX_ENUM(quxlang, template_parameter_kind, std::uint8_t, type, value);
@@ -709,9 +711,110 @@ namespace quxlang
         return builtin_allocator_kind_from_name(name).has_value();
     }
 
+    /// Returns true when a builtin name denotes a type-level atomic template.
+    inline auto is_builtin_atomic_templex_name(std::string_view name) -> bool
+    {
+        return name == "ATOMIC";
+    }
+
+    /// Converts a builtin atomic access-mode class name into the corresponding VMIR mode.
+    inline auto atomic_access_mode_from_name(std::string_view name) -> std::optional< atomic_access_mode >
+    {
+        if (name == "NONATOMIC")
+        {
+            return atomic_access_mode::nonatomic;
+        }
+        if (name == "ATOMIC_RELAXED")
+        {
+            return atomic_access_mode::atomic_relaxed;
+        }
+        if (name == "ATOMIC_RELEASE")
+        {
+            return atomic_access_mode::atomic_release;
+        }
+        if (name == "ATOMIC_ACQUIRE")
+        {
+            return atomic_access_mode::atomic_acquire;
+        }
+        if (name == "ATOMIC_ACQREL")
+        {
+            return atomic_access_mode::atomic_acqrel;
+        }
+        if (name == "ATOMIC_SEQCST")
+        {
+            return atomic_access_mode::atomic_seqcst;
+        }
+        return std::nullopt;
+    }
+
+    /// Returns true when a builtin name denotes an atomic access-mode class.
+    inline auto is_builtin_atomic_access_mode_name(std::string_view name) -> bool
+    {
+        return atomic_access_mode_from_name(name).has_value();
+    }
+
+    /// Returns true when a builtin name denotes an atomic member operation.
+    inline auto is_builtin_atomic_member_name(std::string_view name) -> bool
+    {
+        return name == "LOAD" || name == "STORE" || name == "COMPARE_EXCHANGE" || name == "FETCH_ADD" || name == "FETCH_SUB" || name == "FETCH_AND" || name == "FETCH_OR" || name == "FETCH_XOR" || name == "ADD" || name == "SUB" || name == "AND" || name == "OR" || name == "XOR";
+    }
+
+    /// Returns true when a builtin name is parsed as a type or type template.
+    inline auto is_builtin_type_name(std::string_view name) -> bool
+    {
+        return is_builtin_atomic_templex_name(name) || is_builtin_atomic_access_mode_name(name);
+    }
+
     inline auto is_builtin_global_functum_name(std::string_view name) -> bool
     {
         return name == "SERIALIZE_UINTANY" || name == "DESERIALIZE_UINTANY" || name == "SERIALIZE_LEB128" || name == "DESERIALIZE_LEB128" || name == "IEEE_EQUALS" || name == "IEEE_NOTEQUALS" || name == "IEEE_LESS" || name == "IEEE_GREATER";
+    }
+
+    /// Extracts the storage type parameter from a canonical ATOMIC#T type.
+    inline auto atomic_type_argument(type_symbol const& type) -> std::optional< type_symbol >
+    {
+        if (!type.template type_is< instanciation_reference >())
+        {
+            return std::nullopt;
+        }
+
+        instanciation_reference const& inst = type.template get_as< instanciation_reference >();
+        if (!inst.temploid.templexoid.template type_is< builtin_symbol >())
+        {
+            return std::nullopt;
+        }
+        if (!is_builtin_atomic_templex_name(inst.temploid.templexoid.template get_as< builtin_symbol >().name))
+        {
+            return std::nullopt;
+        }
+        auto type_arg = inst.params.named.find("T");
+        if (type_arg == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
+        {
+            return std::nullopt;
+        }
+        return parameter_instantiation_type(type_arg->second);
+    }
+
+    /// Returns true when a type is permitted as ATOMIC#T storage.
+    inline auto is_valid_atomic_storage_type(type_symbol const& type) -> bool
+    {
+        return type.template type_is< int_type >() || type.template type_is< byte_type >() || type.template type_is< bool_type >();
+    }
+
+    /// Returns true when the type is a canonical ATOMIC#T instantiation.
+    inline auto is_atomic_type(type_symbol const& type) -> bool
+    {
+        return atomic_type_argument(type).has_value();
+    }
+
+    /// Returns the storage type for ATOMIC#T, otherwise returns the input type unchanged.
+    inline auto atomic_storage_type_or_self(type_symbol const& type) -> type_symbol
+    {
+        if (auto value_type = atomic_type_argument(type); value_type.has_value())
+        {
+            return *value_type;
+        }
+        return type;
     }
 
     struct storage
@@ -808,8 +911,9 @@ namespace quxlang
     {
         expression lhs;
         std::string field_name;
+        std::vector< expression_arg > template_arguments;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_dotreference, lhs, field_name);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_dotreference, lhs, field_name, template_arguments);
     };
 
     // Right arrow -> is used to get a reference from a pointer.

@@ -16,6 +16,11 @@ rpnx::querygraph::coroutine< quxlang::type_is_implicitly_datatype_spec > quxlang
         co_return false;
     }
 
+    if (is_atomic_type(input))
+    {
+        co_return false;
+    }
+
     if (typeis< attached_type_reference >(input))
     {
         attached_type_reference const& attached = as< attached_type_reference >(input);

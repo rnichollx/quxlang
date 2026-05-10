@@ -72,6 +72,7 @@
 #include <quxlang/macros.hpp>
 #include <set>
 #include <string_view>
+#include <utility>
 
 namespace quxlang
 {
@@ -2957,7 +2958,53 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >();
+            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || is_atomic_type(of_type);
+        }
+
+        /// Converts a canonical atomic access-mode type into a VMIR access mode.
+        static auto intrinsic_atomic_mode_from_type(type_symbol const& type) -> std::optional< atomic_access_mode >
+        {
+            if (!typeis< builtin_symbol >(type))
+            {
+                return std::nullopt;
+            }
+            return atomic_access_mode_from_name(as< builtin_symbol >(type).name);
+        }
+
+        /// Reads the single shorthand atomic mode parameter from an atomic operation instantiation.
+        static auto single_atomic_mode_from_instanciation(instanciation_reference const& instanciation) -> atomic_access_mode
+        {
+            auto mode_arg = instanciation.params.named.find("T");
+            if (mode_arg == instanciation.params.named.end() || instanciation.params.named.size() != 1 || !instanciation.params.positional.empty())
+            {
+                throw compiler_bug("atomic intrinsic expects one instantiated access mode");
+            }
+
+            std::optional< atomic_access_mode > mode = intrinsic_atomic_mode_from_type(parameter_instantiation_type(mode_arg->second));
+            if (!mode.has_value())
+            {
+                throw compiler_bug("atomic intrinsic received an invalid access mode");
+            }
+            return *mode;
+        }
+
+        /// Reads the success and failure access modes from an atomic compare-exchange instantiation.
+        static auto compare_exchange_atomic_modes_from_instanciation(instanciation_reference const& instanciation) -> std::pair< atomic_access_mode, atomic_access_mode >
+        {
+            auto success_arg = instanciation.params.named.find("SUCCESS");
+            auto failure_arg = instanciation.params.named.find("FAILURE");
+            if (success_arg == instanciation.params.named.end() || failure_arg == instanciation.params.named.end() || instanciation.params.named.size() != 2 || !instanciation.params.positional.empty())
+            {
+                throw compiler_bug("atomic compare_exchange intrinsic expects SUCCESS and FAILURE access modes");
+            }
+
+            std::optional< atomic_access_mode > success_mode = intrinsic_atomic_mode_from_type(parameter_instantiation_type(success_arg->second));
+            std::optional< atomic_access_mode > failure_mode = intrinsic_atomic_mode_from_type(parameter_instantiation_type(failure_arg->second));
+            if (!success_mode.has_value() || !failure_mode.has_value())
+            {
+                throw compiler_bug("atomic compare_exchange intrinsic received an invalid access mode");
+            }
+            return {*success_mode, *failure_mode};
         }
 
         // This implements builtin operators for primitives,
@@ -3166,13 +3213,148 @@ namespace quxlang
             auto instanciation = func.cast_ptr< instanciation_reference >();
             assert(instanciation);
 
-            auto selection = &instanciation->temploid;
+            temploid_reference const* selection = &instanciation->temploid;
             assert(selection);
 
-            auto member = selection->templexoid.cast_ptr< submember >();
-            assert(member);
+            instanciation_reference const* member_template_instanciation = nullptr;
+            submember const* member = selection->templexoid.cast_ptr< submember >();
+            if (member == nullptr)
+            {
+                member_template_instanciation = selection->templexoid.cast_ptr< instanciation_reference >();
+                if (member_template_instanciation != nullptr)
+                {
+                    member = member_template_instanciation->temploid.templexoid.cast_ptr< submember >();
+                }
+            }
+            if (member == nullptr)
+            {
+                return std::nullopt;
+            }
 
             auto call = invotype_from_instatype(instanciation->params);
+
+            if (std::optional< type_symbol > atomic_value_type = atomic_type_argument(*cls); atomic_value_type.has_value())
+            {
+                if (member->name == "CONSTRUCTOR")
+                {
+                    if (call.named.contains("OTHER") && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+                    {
+                        type_symbol const& other_type = call.named.at("OTHER");
+                        if (is_ref(other_type) && remove_ref(other_type) == *atomic_value_type)
+                        {
+                            return vmir2::load_from_ref{
+                                .from_reference = get_local_index(args.named.at("OTHER")),
+                                .to_value = get_local_index(args.named.at("THIS")),
+                                .access_mode = atomic_access_mode::nonatomic,
+                            };
+                        }
+                    }
+                }
+                else if (member->name == "LOAD")
+                {
+                    if (member_template_instanciation == nullptr)
+                    {
+                        throw compiler_bug("atomic LOAD intrinsic expects a member template instantiation");
+                    }
+                    atomic_access_mode mode = single_atomic_mode_from_instanciation(*member_template_instanciation);
+                    if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+                    {
+                        return vmir2::load_from_ref{
+                            .from_reference = get_local_index(args.named.at("THIS")),
+                            .to_value = get_local_index(args.named.at("RETURN")),
+                            .access_mode = mode,
+                        };
+                    }
+                }
+                else if (member->name == "STORE")
+                {
+                    if (member_template_instanciation == nullptr)
+                    {
+                        throw compiler_bug("atomic STORE intrinsic expects a member template instantiation");
+                    }
+                    atomic_access_mode mode = single_atomic_mode_from_instanciation(*member_template_instanciation);
+                    if (args.named.contains("THIS") && args.positional.size() == 1 && args.size() == 2)
+                    {
+                        return vmir2::store_to_ref{
+                            .from_value = get_local_index(args.positional.at(0)),
+                            .to_reference = get_local_index(args.named.at("THIS")),
+                            .access_mode = mode,
+                        };
+                    }
+                }
+                else if (member->name == "COMPARE_EXCHANGE")
+                {
+                    if (member_template_instanciation == nullptr)
+                    {
+                        throw compiler_bug("atomic compare_exchange intrinsic expects a member template instantiation");
+                    }
+                    std::pair< atomic_access_mode, atomic_access_mode > modes = compare_exchange_atomic_modes_from_instanciation(*member_template_instanciation);
+                    if (args.named.contains("THIS") && args.named.contains("RETURN") && args.positional.size() == 2 && args.size() == 4)
+                    {
+                        return vmir2::compare_exchange{
+                            .target_reference = get_local_index(args.named.at("THIS")),
+                            .expected_reference = get_local_index(args.positional.at(0)),
+                            .desired_value = get_local_index(args.positional.at(1)),
+                            .result = get_local_index(args.named.at("RETURN")),
+                            .success_mode = modes.first,
+                            .failure_mode = modes.second,
+                        };
+                    }
+                }
+                else if (args.named.contains("THIS") && args.positional.size() == 1)
+                {
+                    if (member_template_instanciation == nullptr)
+                    {
+                        throw compiler_bug("atomic RMW intrinsic expects a member template instantiation");
+                    }
+                    atomic_access_mode mode = single_atomic_mode_from_instanciation(*member_template_instanciation);
+                    bool const has_return = args.named.contains("RETURN");
+                    std::optional< local_index > old_value = has_return ? std::optional< local_index >{get_local_index(args.named.at("RETURN"))} : std::nullopt;
+                    local_index const target = get_local_index(args.named.at("THIS"));
+                    local_index const value = get_local_index(args.positional.at(0));
+
+                    if (member->name == "FETCH_ADD" && has_return && args.size() == 3)
+                    {
+                        return vmir2::mut_int_add{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (member->name == "FETCH_SUB" && has_return && args.size() == 3)
+                    {
+                        return vmir2::mut_int_sub{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (member->name == "FETCH_AND" && has_return && args.size() == 3)
+                    {
+                        return vmir2::mut_bitwise_and{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (member->name == "FETCH_OR" && has_return && args.size() == 3)
+                    {
+                        return vmir2::mut_bitwise_or{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (member->name == "FETCH_XOR" && has_return && args.size() == 3)
+                    {
+                        return vmir2::mut_bitwise_xor{.target = target, .value = value, .access_mode = mode, .old_value = old_value};
+                    }
+                    if (member->name == "ADD" && !has_return && args.size() == 2)
+                    {
+                        return vmir2::mut_int_add{.target = target, .value = value, .access_mode = mode};
+                    }
+                    if (member->name == "SUB" && !has_return && args.size() == 2)
+                    {
+                        return vmir2::mut_int_sub{.target = target, .value = value, .access_mode = mode};
+                    }
+                    if (member->name == "AND" && !has_return && args.size() == 2)
+                    {
+                        return vmir2::mut_bitwise_and{.target = target, .value = value, .access_mode = mode};
+                    }
+                    if (member->name == "OR" && !has_return && args.size() == 2)
+                    {
+                        return vmir2::mut_bitwise_or{.target = target, .value = value, .access_mode = mode};
+                    }
+                    if (member->name == "XOR" && !has_return && args.size() == 2)
+                    {
+                        return vmir2::mut_bitwise_xor{.target = target, .value = value, .access_mode = mode};
+                    }
+                }
+            }
 
             if (member->name == "CONSTRUCTOR" && cls->template type_is< constexpr_proxy >())
             {
@@ -6918,10 +7100,10 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_dotreference what) -> co_type< value_index >
         {
             auto parent = co_await co_generate_expr(bidx, what.lhs);
-            co_return co_await co_generate_dot_access(bidx, parent, what.field_name);
+            co_return co_await co_generate_dot_access(bidx, parent, what.field_name, std::move(what.template_arguments));
         }
 
-        auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name) -> co_type< value_index >
+        auto co_generate_dot_access(block_index& bidx, value_index base, std::string field_name, std::vector< expression_arg > template_arguments = {}) -> co_type< value_index >
         {
             auto base_type = this->current_type(bidx, base);
             std::string base_type_str = quxlang::to_string(base_type);
@@ -6971,7 +7153,12 @@ namespace quxlang
 
             // If no field is found, look for a member function
             auto member_func = submember{.of = base_type_noref, .name = field_name};
-            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = member_func});
+            type_symbol lookup_target = member_func;
+            if (!template_arguments.empty())
+            {
+                lookup_target = initialization_reference{.initializee = member_func, .context = ctx, .arguments = std::move(template_arguments)};
+            }
+            auto lookup_result = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = ctx, .type = std::move(lookup_target)});
 
             if (lookup_result)
             {

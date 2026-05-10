@@ -35,7 +35,7 @@ namespace quxlang::parsers
 
         if (!keywords::subentity_keywords.contains(kw))
         {
-            if (!is_builtin_allocator_name(kw) && !is_builtin_global_functum_name(kw))
+            if (!is_builtin_allocator_name(kw) && !is_builtin_global_functum_name(kw) && !is_builtin_type_name(kw) && !is_builtin_atomic_member_name(kw))
             {
                 return {};
             }

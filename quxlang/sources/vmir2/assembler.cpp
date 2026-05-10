@@ -7,6 +7,43 @@
 
 namespace quxlang::vmir2
 {
+    /// Returns the assembly spelling for a VMIR atomic access mode.
+    auto atomic_access_mode_assembly_name(atomic_access_mode mode) -> std::string
+    {
+        switch (mode)
+        {
+        case atomic_access_mode::nonatomic:
+            return "NONATOMIC";
+        case atomic_access_mode::atomic_relaxed:
+            return "ATOMIC_RELAXED";
+        case atomic_access_mode::atomic_release:
+            return "ATOMIC_RELEASE";
+        case atomic_access_mode::atomic_acquire:
+            return "ATOMIC_ACQUIRE";
+        case atomic_access_mode::atomic_acqrel:
+            return "ATOMIC_ACQREL";
+        case atomic_access_mode::atomic_seqcst:
+            return "ATOMIC_SEQCST";
+        }
+        throw std::logic_error("unknown atomic access mode");
+    }
+
+    /// Formats an optional old-value output for read-modify-write instructions.
+    auto rmw_old_value_suffix(std::optional< local_index > old_value) -> std::string
+    {
+        if (!old_value.has_value())
+        {
+            return "";
+        }
+        return " -> %" + std::to_string(*old_value);
+    }
+
+    /// Formats the atomic-mode suffix shared by atomic-capable VMIR instructions.
+    auto atomic_access_mode_suffix(atomic_access_mode mode) -> std::string
+    {
+        return " [" + atomic_access_mode_assembly_name(mode) + "]";
+    }
+
     indexed_source_file::indexed_source_file(source_file_name name, std::string contents) : name(std::move(name)), contents(std::move(contents))
     {
         this->line_starts.push_back(0);
@@ -789,11 +826,15 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::load_from_ref inst)
     {
-        return "LOAD %" + std::to_string(inst.from_reference) + ", %" + std::to_string(inst.to_value);
+        return "LOAD" + atomic_access_mode_suffix(inst.access_mode) + " %" + std::to_string(inst.from_reference) + ", %" + std::to_string(inst.to_value);
     }
     std::string assembler::to_string_internal(vmir2::store_to_ref inst)
     {
-        return "STORE %" + std::to_string(inst.from_value) + ", %" + std::to_string(inst.to_reference);
+        return "STORE" + atomic_access_mode_suffix(inst.access_mode) + " %" + std::to_string(inst.from_value) + ", %" + std::to_string(inst.to_reference);
+    }
+    std::string assembler::to_string_internal(vmir2::compare_exchange inst)
+    {
+        return "CMPXCHG [" + atomic_access_mode_assembly_name(inst.success_mode) + ", " + atomic_access_mode_assembly_name(inst.failure_mode) + "] %" + std::to_string(inst.target_reference) + ", %" + std::to_string(inst.expected_reference) + ", %" + std::to_string(inst.desired_value) + " -> %" + std::to_string(inst.result);
     }
     std::string assembler::to_string_internal(vmir2::dereference_pointer inst)
     {
@@ -826,23 +867,23 @@ namespace quxlang::vmir2
 
     std::string assembler::to_string_internal(vmir2::mut_int_add op)
     {
-        return "MUT_IADD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_IADD" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_int_sub op)
     {
-        return "MUT_ISUB %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_ISUB" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_int_mul op)
     {
-        return "MUT_IMUL %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_IMUL" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_int_div op)
     {
-        return "MUT_IDIV %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_IDIV" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_int_mod op)
     {
-        return "MUT_IMOD %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_IMOD" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
 
     std::string assembler::to_string_internal(vmir2::float_add add)
@@ -953,35 +994,35 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_and op)
     {
-        return "MUT_BITWISE_AND %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_AND" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_or op)
     {
-        return "MUT_BITWISE_OR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_OR" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_xor op)
     {
-        return "MUT_BITWISE_XOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_XOR" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_nand op)
     {
-        return "MUT_BITWISE_NAND %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_NAND" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_nor op)
     {
-        return "MUT_BITWISE_NOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_NOR" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_nxor op)
     {
-        return "MUT_BITWISE_NXOR %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_NXOR" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_implies op)
     {
-        return "MUT_BITWISE_IMPLIES %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_IMPLIES" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_implied op)
     {
-        return "MUT_BITWISE_IMPLIED %" + std::to_string(op.target) + ", %" + std::to_string(op.value);
+        return "MUT_BITWISE_IMPLIED" + atomic_access_mode_suffix(op.access_mode) + " %" + std::to_string(op.target) + ", %" + std::to_string(op.value) + rmw_old_value_suffix(op.old_value);
     }
     std::string assembler::to_string_internal(vmir2::mut_bitwise_shift_up op)
     {
