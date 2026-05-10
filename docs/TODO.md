@@ -62,10 +62,11 @@ coverage:
 - [x] Lambda functions / closures
 - [x] Defaulted function arguments
 - [x] AUTO return type inference
+- [x] Atomic operations
 
 ## Remaining language features
 
-- [ ] Atomic operations
+
 - [ ] Exceptions and unwinding
 - [ ] Polymorphism / virtual functions 
 - [ ] Coroutines
