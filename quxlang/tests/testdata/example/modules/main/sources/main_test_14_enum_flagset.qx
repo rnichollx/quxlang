@@ -65,13 +65,13 @@
 {
   VAR flags access_flags;
   ASSERT(flags?!);
-  ASSERT((flags??) == FALSE);
+  ASSERT(flags?? !!);
 
   flags := access_flags::read;
   ASSERT(flags??);
   ASSERT((flags?!) == FALSE);
   ASSERT(flags.read);
-  ASSERT((flags.write) == FALSE);
+  ASSERT(flags.write!!);
 
   flags #||= access_flags::write;
   ASSERT(flags.read);
