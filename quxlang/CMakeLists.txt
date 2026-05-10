@@ -22,7 +22,7 @@ find_package(RPNXCow REQUIRED)
 find_package(benchmark REQUIRED)
 
 # Legacy LLVM backend / VMIR v1 sources remain in the tree, but are not built.
-add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
+add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include/quxlang/data/entity_category.hpp include/quxlang/fwd.hpp include/quxlang/data/symbol_id.hpp include/quxlang/data/lookup_type.hpp include/quxlang/data/lookup_chain.hpp include/quxlang/data/lookup_singular.hpp include/quxlang/manipulators/merge_entity.hpp sources/merge_entity.cpp include/quxlang/data/contextual_type_reference.hpp include/quxlang/data/class_field_declaration.hpp include/quxlang/data/absolute_lookup_reference.hpp include/quxlang/data/proximate_lookup_reference.hpp include/quxlang/data/class_layout.hpp include/quxlang/data/class_field_info.hpp include/quxlang/data/enum_flagset_info.hpp include/quxlang/data/lambda_types.hpp include/quxlang/data/type_placement_info.hpp include/quxlang/manipulators/struct_math.hpp include/quxlang/data/basic_types.hpp include/quxlang/data/function_block.hpp include/quxlang/data/function_statement.hpp include/quxlang/data/function_if_statement.hpp include/quxlang/data/function_expression_statement.hpp include/quxlang/cow.hpp include/quxlang/manipulators/expression_stringifier.hpp include/quxlang/data/canonical_resolved_function_chain.hpp include/quxlang/data/function_argument.hpp include/quxlang/data/cpu_architecture.hpp include/quxlang/data/function_return_statement.hpp include/quxlang/ordering.hpp include/quxlang/manipulators/mangler.hpp include/quxlang/converters/qual_converters.hpp include/quxlang/manipulators/typeutils.hpp
         include/quxlang/variant_utils.hpp
         include/quxlang/vmir2/vmir2.hpp
         include/quxlang/data/numeric_literal.hpp
@@ -37,6 +37,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/ast2/ast2_function_delegate.hpp
         include/quxlang/parsers/parse_class_body.hpp
         include/quxlang/parsers/try_parse_class.hpp
+        include/quxlang/parsers/try_parse_enum_flagset.hpp
         include/quxlang/parsers/try_parse_interface.hpp
         include/quxlang/parsers/try_parse_template_declaration.hpp
         include/quxlang/parsers/skip_whitespace.hpp
@@ -219,8 +220,10 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/declaroids_spec.hpp
         include/quxlang/queries/specs/ensig_argument_initialize_spec.hpp
         include/quxlang/queries/specs/ensig_tempars_spec.hpp
+        include/quxlang/queries/specs/enum_info_spec.hpp
         include/quxlang/queries/specs/exists_spec.hpp
         include/quxlang/queries/specs/extern_linksymbol_spec.hpp
+        include/quxlang/queries/specs/flagset_info_spec.hpp
         include/quxlang/queries/specs/functanoid_indirectly_instantiated_functanoids_spec.hpp
         include/quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp
         include/quxlang/queries/specs/functanoid_required_type_placements_spec.hpp
@@ -350,8 +353,10 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/ensig_argument_initialize.cpp
         sources/queries/ensig_initialize.cpp
         sources/queries/ensig_tempars.cpp
+        sources/queries/enum_info.cpp
         sources/queries/exists.cpp
         sources/queries/extern_linksymbol.cpp
+        sources/queries/flagset_info.cpp
         sources/queries/functanoid_indirectly_instantiated_functanoids.cpp
         sources/queries/functanoid_required_class_layouts.cpp
         sources/queries/functanoid_required_type_placements.cpp
@@ -458,6 +463,7 @@ target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
         include/quxlang/data/convertibility_types.hpp
         include/quxlang/data/constexpr_types.hpp
         include/quxlang/data/codegen_types.hpp
+        include/quxlang/data/enum_flagset_info.hpp
         include/quxlang/data/functum_types.hpp
         include/quxlang/data/symbol_functum_types.hpp
         include/quxlang/data/tempar_types.hpp)

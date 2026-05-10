@@ -17,6 +17,8 @@
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
+#include <quxlang/queries/enum_info.hpp>
+#include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/function_builtin.hpp>
@@ -61,6 +63,8 @@ namespace quxlang
         constexpr_eval_v3_query,
         constexpr_u64_query,
         ensig_argument_initialize_query,
+        enum_info_query,
+        flagset_info_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,
@@ -100,6 +104,8 @@ namespace quxlang
         constexpr_eval_v3_query,
         constexpr_u64_query,
         ensig_argument_initialize_query,
+        enum_info_query,
+        flagset_info_query,
         functanoid_return_type_query,
         functanoid_sigtype_query,
         function_builtin_query,

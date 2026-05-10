@@ -24,6 +24,8 @@ namespace quxlang
     struct ast2_class_declaration;
     struct ast2_interface_declaration;
     struct ast2_implementation_declaration;
+    struct ast2_enum_declaration;
+    struct ast2_flagset_declaration;
     struct ast2_interface_function_declaration;
     struct ast2_function_declaration;
     struct ast2_template_declaration;
@@ -40,13 +42,13 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_option >;
 
-    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_function_declaration, ast2_variable_declaration >;
+    using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
     struct member_subdeclaroid
     {
@@ -181,6 +183,68 @@ namespace quxlang
         std::set< std::string > class_keywords;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_class_declaration, declarations, class_keywords);
+    };
+
+    /// A named enum item as written in an ENUM declaration list.
+    struct ast2_enum_value_declaration
+    {
+        std::string name;
+        bool is_default = false;
+        bool is_null = false;
+        std::optional< expression > value;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_value_declaration, name, is_default, is_null, value);
+    };
+
+    /// A reserved inclusive numeric range in an ENUM declaration list.
+    struct ast2_enum_reserved_range_declaration
+    {
+        expression from;
+        expression to;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_reserved_range_declaration, from, to);
+    };
+
+    using ast2_enum_entry = rpnx::variant< ast2_enum_value_declaration, ast2_enum_reserved_range_declaration >;
+
+    /// A nominal ENUM declaration with normalized values computed by enum_info_query.
+    struct ast2_enum_declaration
+    {
+        std::optional< expression > bit_width;
+        std::vector< ast2_enum_entry > entries;
+        bool allow_unknown = false;
+        std::vector< subdeclaroid > declarations;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_declaration, bit_width, entries, allow_unknown, declarations);
+    };
+
+    /// A named flag mask as written in a FLAGSET declaration list.
+    struct ast2_flagset_value_declaration
+    {
+        std::string name;
+        std::optional< expression > mask;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_flagset_value_declaration, name, mask);
+    };
+
+    /// A reserved mask in a FLAGSET declaration list.
+    struct ast2_flagset_reserved_declaration
+    {
+        expression mask;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_flagset_reserved_declaration, mask);
+    };
+
+    using ast2_flagset_entry = rpnx::variant< ast2_flagset_value_declaration, ast2_flagset_reserved_declaration >;
+
+    /// A nominal FLAGSET declaration with normalized masks computed by flagset_info_query.
+    struct ast2_flagset_declaration
+    {
+        std::optional< expression > bit_width;
+        std::vector< ast2_flagset_entry > entries;
+        std::vector< subdeclaroid > declarations;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_flagset_declaration, bit_width, entries, declarations);
     };
 
     struct ast2_template_declaration

@@ -1,0 +1,151 @@
+::nullable_choice ENUM [none = NULL, x, y];
+
+::default_choice ENUM [x = 7, y DEFAULT, z];
+
+::plain_zero_choice ENUM [zero = 0, one];
+
+::no_default_choice ENUM [x, y];
+
+::wire_choice ENUM BITS(3) [zero DEFAULT = 0, one = 1, RESERVED FROM(2) TO(3), four = 4];
+
+::wire_choice_unknown_ok ENUM BITS(3) [zero DEFAULT = 0, one = 1] ALLOW_UNKNOWN;
+
+::wire_choice_reserved_unknown ENUM BITS(3) [zero DEFAULT = 0, RESERVED FROM(2) TO(3)] ALLOW_UNKNOWN;
+
+::access_flags FLAGSET [read, write, RESERVED = 12, exec] {
+  ::read_write STATIC access_flags := read #|| write;
+}
+
+::compound_flags FLAGSET [read_write = 3, exec = 4];
+
+::wire_flags FLAGSET BITS(4) [read, write];
+
+::padded_flags FLAGSET BITS(3) [read, write, exec];
+
+::enum_default_booliate_and_ordering_test STATIC_TEST
+{
+  VAR nullable nullable_choice;
+  ASSERT(nullable == nullable_choice::none);
+  ASSERT(nullable?!);
+  ASSERT((nullable??) == FALSE);
+
+  nullable := nullable_choice::x;
+  ASSERT(nullable??);
+  ASSERT((nullable?!) == FALSE);
+  ASSERT(nullable_choice::x < nullable_choice::y);
+
+  VAR defaulted default_choice;
+  ASSERT(defaulted == default_choice::y);
+  ASSERT(default_choice::y < default_choice::z);
+  ASSERT(default_choice::x > default_choice::z);
+}
+
+::enum_without_default_constructor_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR bad no_default_choice;
+}
+
+::enum_explicit_zero_does_not_booliate_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR zero plain_zero_choice := plain_zero_choice::zero;
+  ASSERT(zero??);
+}
+
+::enum_rejects_integer_cast_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR raw U8 := nullable_choice::x AS U8;
+}
+
+::enum_rejects_bitwise_ops_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR bad nullable_choice := nullable_choice::x #|| nullable_choice::y;
+}
+
+::flagset_defaults_ops_membership_and_casts_test STATIC_TEST
+{
+  VAR flags access_flags;
+  ASSERT(flags?!);
+  ASSERT((flags??) == FALSE);
+
+  flags := access_flags::read;
+  ASSERT(flags??);
+  ASSERT((flags?!) == FALSE);
+  ASSERT(flags.read);
+  ASSERT((flags.write) == FALSE);
+
+  flags #||= access_flags::write;
+  ASSERT(flags.read);
+  ASSERT(flags.write);
+  ASSERT(flags == access_flags::read_write);
+  ASSERT((flags #&& access_flags::read) == access_flags::read);
+
+  VAR raw U8 := access_flags::exec AS U8;
+  ASSERT(raw == 16);
+
+  VAR from_raw access_flags := (3 AS U8) AS access_flags;
+  ASSERT(from_raw == access_flags::read_write);
+}
+
+::flagset_composite_membership_test STATIC_TEST
+{
+  VAR none compound_flags;
+  ASSERT((none.read_write) == FALSE);
+
+  VAR both compound_flags := compound_flags::read_write;
+  ASSERT(both.read_write);
+}
+
+::enum_unknown_deserialize_rejected_test STATIC_TEST EXPECT_FAIL
+{
+  VAR input [1]BYTE;
+  input[0] := 5;
+
+  VAR value wire_choice;
+  value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+}
+
+::enum_unknown_deserialize_allowed_test STATIC_TEST
+{
+  VAR input [1]BYTE;
+  input[0] := 5;
+
+  VAR value wire_choice_unknown_ok;
+  value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+
+  VAR output [1]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 5);
+}
+
+::enum_reserved_deserialize_rejected_even_when_unknown_allowed_test STATIC_TEST EXPECT_FAIL
+{
+  VAR input [1]BYTE;
+  input[0] := 2;
+
+  VAR value wire_choice_reserved_unknown;
+  value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+}
+
+::flagset_unknown_bits_roundtrip_test STATIC_TEST
+{
+  VAR input [1]BYTE;
+  input[0] := 8;
+
+  VAR flags wire_flags;
+  flags.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+  ASSERT(flags??);
+  ASSERT((flags.read) == FALSE);
+
+  VAR output [1]BYTE;
+  flags.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 8);
+}
+
+::flagset_padding_deserialize_rejected_test STATIC_TEST EXPECT_FAIL
+{
+  VAR input [1]BYTE;
+  input[0] := 8;
+
+  VAR flags padded_flags;
+  flags.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+}

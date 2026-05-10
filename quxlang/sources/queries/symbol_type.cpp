@@ -97,6 +97,32 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
             co_return symbol_kind::noexist;
         }
 
+        if (parent_kind == symbol_kind::enum_)
+        {
+            std::string const& value_name = typeis< subsymbol >(input) ? as< subsymbol >(input).name : as< submember >(input).name;
+            enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent);
+            for (enum_value_info const& value : info.values)
+            {
+                if (value.name == value_name)
+                {
+                    co_return symbol_kind::enum_value;
+                }
+            }
+        }
+
+        if (parent_kind == symbol_kind::flagset_)
+        {
+            std::string const& value_name = typeis< subsymbol >(input) ? as< subsymbol >(input).name : as< submember >(input).name;
+            flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(parent);
+            for (flagset_value_info const& value : info.values)
+            {
+                if (value.name == value_name)
+                {
+                    co_return symbol_kind::flagset_value;
+                }
+            }
+        }
+
         if (parent_kind == symbol_kind::class_)
         {
             auto decls = co_await rpnx::querygraph::request< functum_overloads_query >(input);
@@ -149,6 +175,14 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::implementation_;
         }
+        else if (typeis< ast2_enum_declaration >(s))
+        {
+            co_return symbol_kind::enum_;
+        }
+        else if (typeis< ast2_flagset_declaration >(s))
+        {
+            co_return symbol_kind::flagset_;
+        }
         else if (typeis< ast2_namespace_declaration >(s))
         {
             co_return symbol_kind::namespace_;
@@ -193,6 +227,14 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        else if (typeis< ast2_implementation_declaration >(selected_ast))
        {
           co_return symbol_kind::implementation_;
+       }
+       else if (typeis< ast2_enum_declaration >(selected_ast))
+       {
+          co_return symbol_kind::enum_;
+       }
+       else if (typeis< ast2_flagset_declaration >(selected_ast))
+       {
+          co_return symbol_kind::flagset_;
        }
        else if (typeis< functum >(selected_ast))
        {

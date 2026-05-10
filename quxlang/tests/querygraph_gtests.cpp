@@ -10,6 +10,8 @@
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/enum_info.hpp>
+#include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/implementation_function_map.hpp>
@@ -39,6 +41,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <map>
 #include <variant>
 
 namespace
@@ -294,6 +297,126 @@ TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
+}
+
+TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::choice ENUM BITS(8) [none = NULL, x, RESERVED FROM(2) TO(3), y = 4] ALLOW_UNKNOWN {
+    ::zero STATIC choice := none;
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol choice = quxlang::subsymbol{main, "choice"};
+    quxlang::type_symbol none = quxlang::subsymbol{choice, "none"};
+    quxlang::type_symbol zero = quxlang::subsymbol{choice, "zero"};
+
+    quxlang::enum_info info = graph.make_request< quxlang::enum_info_query >(choice);
+
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(choice), quxlang::symbol_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(none), quxlang::symbol_kind::enum_value);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(zero), quxlang::symbol_kind::global_variable);
+    EXPECT_EQ(info.bits, 8);
+    EXPECT_EQ(info.storage_bytes, 1);
+    EXPECT_TRUE(info.allow_unknown);
+    ASSERT_EQ(info.values.size(), 3);
+    ASSERT_EQ(info.reserved_ranges.size(), 1);
+    EXPECT_EQ(info.reserved_ranges.at(0).from, 2);
+    EXPECT_EQ(info.reserved_ranges.at(0).to, 3);
+    ASSERT_TRUE(info.null_value_name.has_value());
+    EXPECT_EQ(*info.null_value_name, "none");
+    ASSERT_TRUE(info.default_value_name.has_value());
+    EXPECT_EQ(*info.default_value_name, "none");
+
+    std::map< std::string, quxlang::enum_value_info > values;
+    for (quxlang::enum_value_info const& value : info.values)
+    {
+        values[value.name] = value;
+    }
+
+    EXPECT_EQ(values.at("none").value, 0);
+    EXPECT_TRUE(values.at("none").is_null);
+    EXPECT_TRUE(values.at("none").is_default);
+    EXPECT_EQ(values.at("x").value, 1);
+    EXPECT_FALSE(values.at("x").is_explicit);
+    EXPECT_EQ(values.at("y").value, 4);
+    EXPECT_TRUE(values.at("y").is_explicit);
+
+    quxlang::type_placement_info placement = graph.make_request< quxlang::type_placement_info_query >(choice);
+    EXPECT_EQ(placement.size, 1);
+    EXPECT_EQ(placement.alignment, 1);
+}
+
+TEST(querygraph_queries, enum_info_rejects_conflicting_semantics)
+{
+    auto expect_bad_enum = [](std::string const& source)
+    {
+        quxlang::source_bundle bundle = make_single_main_source_bundle(source);
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::type_symbol bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
+        EXPECT_THROW(graph.make_request< quxlang::enum_info_query >(bad), std::logic_error);
+    };
+
+    expect_bad_enum("::bad ENUM [none = NULL, x DEFAULT];");
+    expect_bad_enum("::bad ENUM [a DEFAULT, b DEFAULT];");
+    expect_bad_enum("::bad ENUM [RESERVED FROM(1) TO(2), a = 1];");
+}
+
+TEST(querygraph_queries, flagset_info_allocates_implicit_bits_around_reserved_masks)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::permissions FLAGSET [read, write, RESERVED = 12, exec] {
+    ::read_write STATIC permissions := read #|| write;
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol permissions = quxlang::subsymbol{main, "permissions"};
+    quxlang::type_symbol read = quxlang::subsymbol{permissions, "read"};
+    quxlang::type_symbol read_write = quxlang::subsymbol{permissions, "read_write"};
+
+    quxlang::flagset_info info = graph.make_request< quxlang::flagset_info_query >(permissions);
+
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(permissions), quxlang::symbol_kind::flagset_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(read), quxlang::symbol_kind::flagset_value);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(read_write), quxlang::symbol_kind::global_variable);
+    EXPECT_EQ(info.bits, 5);
+    EXPECT_EQ(info.storage_bytes, 1);
+    ASSERT_EQ(info.values.size(), 3);
+    ASSERT_EQ(info.reserved_masks.size(), 1);
+    EXPECT_EQ(info.reserved_masks.at(0).mask, 12);
+    EXPECT_EQ(info.reserved_bit_mask, 12);
+    EXPECT_EQ(info.canonical_bit_mask, 19);
+
+    std::map< std::string, quxlang::flagset_value_info > values;
+    for (quxlang::flagset_value_info const& value : info.values)
+    {
+        values[value.name] = value;
+    }
+
+    EXPECT_EQ(values.at("read").mask, 1);
+    EXPECT_EQ(values.at("write").mask, 2);
+    EXPECT_EQ(values.at("exec").mask, 16);
+
+    quxlang::type_placement_info placement = graph.make_request< quxlang::type_placement_info_query >(permissions);
+    EXPECT_EQ(placement.size, 1);
+    EXPECT_EQ(placement.alignment, 1);
+}
+
+TEST(querygraph_queries, flagset_info_rejects_overlapping_canonical_and_reserved_bits)
+{
+    auto expect_bad_flagset = [](std::string const& source)
+    {
+        quxlang::source_bundle bundle = make_single_main_source_bundle(source);
+        quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+        quxlang::type_symbol bad = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "bad"};
+        EXPECT_THROW(graph.make_request< quxlang::flagset_info_query >(bad), std::logic_error);
+    };
+
+    expect_bad_flagset("::bad FLAGSET [a = 3, b = 1];");
+    expect_bad_flagset("::bad FLAGSET [RESERVED = 2, a = 3];");
+    expect_bad_flagset("::bad FLAGSET [a = 0];");
 }
 
 TEST(querygraph_queries, interface_symbols_slots_and_implementation_map)

@@ -81,6 +81,19 @@ namespace
             }
 
             layout_types.insert(type);
+            quxlang::symbol_kind const kind = co_await rpnx::querygraph::request< quxlang::symbol_type_query >(type);
+            if (kind == quxlang::symbol_kind::enum_)
+            {
+                quxlang::enum_info const info = co_await rpnx::querygraph::request< quxlang::enum_info_query >(type);
+                interp.add_nominal_integer_type(type, info.bits);
+                continue;
+            }
+            if (kind == quxlang::symbol_kind::flagset_)
+            {
+                quxlang::flagset_info const info = co_await rpnx::querygraph::request< quxlang::flagset_info_query >(type);
+                interp.add_nominal_integer_type(type, info.bits);
+                continue;
+            }
             auto layout = co_await rpnx::querygraph::request< quxlang::class_layout_query >(type);
             interp.add_class_layout(type, layout);
             for (auto const& field : layout.fields)

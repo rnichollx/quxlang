@@ -52,6 +52,10 @@ rpnx::querygraph::coroutine< quxlang::type_is_antestatal_spec > quxlang::type_is
     }
 
     auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
+    if (type_kind == symbol_kind::enum_ || type_kind == symbol_kind::flagset_)
+    {
+        co_return true;
+    }
     if (type_kind == symbol_kind::interface_)
     {
         co_return true;

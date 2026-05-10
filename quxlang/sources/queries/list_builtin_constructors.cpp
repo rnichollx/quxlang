@@ -4,6 +4,7 @@
 
 #include "quxlang/manipulators/typeutils.hpp"
 
+#include <cstdint>
 #include <vector>
 
 #include "quxlang/manipulators/typeutils.hpp"
@@ -112,13 +113,45 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         co_return result;
     }
 
-    if (co_await rpnx::querygraph::request< symbol_type_query >(input) == symbol_kind::interface_)
+    symbol_kind const input_kind = co_await rpnx::querygraph::request< symbol_type_query >(input);
+
+    if (input_kind == symbol_kind::interface_)
     {
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
         add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_tref(input)}}, void_type{});
         if (co_await rpnx::querygraph::request< interface_defaultable_query >(input))
         {
             add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
+        }
+        co_return result;
+    }
+
+    if (input_kind == symbol_kind::enum_)
+    {
+        enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(input);
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_tref(input)}}, void_type{});
+        if (info.default_value_name.has_value())
+        {
+            add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
+        }
+        co_return result;
+    }
+
+    if (input_kind == symbol_kind::flagset_)
+    {
+        flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(input);
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_cref(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}, {"OTHER", make_tref(input)}}, void_type{});
+        add_overload({}, {{"THIS", create_nslot(input)}}, void_type{});
+
+        std::vector< std::uint64_t > unsigned_widths{8, 16, 32, 64};
+        for (std::uint64_t width : unsigned_widths)
+        {
+            if (width >= info.bits)
+            {
+                add_overload({}, {{"THIS", create_nslot(input)}, {"EXPLICIT", int_type{.bits = width, .has_sign = false}}}, void_type{});
+            }
         }
         co_return result;
     }

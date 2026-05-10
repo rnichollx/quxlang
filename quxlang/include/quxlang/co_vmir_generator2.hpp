@@ -28,6 +28,8 @@
 #include "quxlang/queries/constexpr_eval_v3.hpp"
 #include "quxlang/queries/constexpr_u64.hpp"
 #include "quxlang/queries/ensig_argument_initialize.hpp"
+#include "quxlang/queries/enum_info.hpp"
+#include "quxlang/queries/flagset_info.hpp"
 #include "quxlang/queries/functanoid_deduced_return_type.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/functanoid_sigtype.hpp"
@@ -69,6 +71,7 @@
 
 #include <algorithm>
 #include <assert.h>
+#include <limits>
 #include <quxlang/macros.hpp>
 #include <set>
 #include <string_view>
@@ -2222,6 +2225,56 @@ namespace quxlang
                 co_return co_await co_generate_option_value(idx, canonical_symbol, option_symboid.template get_as< ast2_option >());
             }
 
+            if (kind == quxlang::symbol_kind::enum_value || kind == quxlang::symbol_kind::flagset_value)
+            {
+                type_symbol const parent_type = type_parent(canonical_symbol).value();
+                std::string const value_name = typeis< subsymbol >(canonical_symbol) ? as< subsymbol >(canonical_symbol).name : as< submember >(canonical_symbol).name;
+                std::uint64_t numeric_value = 0;
+                if (kind == quxlang::symbol_kind::enum_value)
+                {
+                    enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(parent_type);
+                    bool found = false;
+                    for (enum_value_info const& value : info.values)
+                    {
+                        if (value.name == value_name)
+                        {
+                            numeric_value = value.value;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        throw compiler_bug("enum value symbol did not appear in enum_info: " + to_string(canonical_symbol));
+                    }
+                }
+                else
+                {
+                    flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(parent_type);
+                    bool found = false;
+                    for (flagset_value_info const& value : info.values)
+                    {
+                        if (value.name == value_name)
+                        {
+                            numeric_value = value.mask;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        throw compiler_bug("flagset value symbol did not appear in flagset_info: " + to_string(canonical_symbol));
+                    }
+                }
+
+                value_index value = this->create_local_value(parent_type);
+                vmir2::load_const_int instr;
+                instr.target = get_local_index(value);
+                instr.value = std::to_string(numeric_value);
+                this->emit(idx, instr);
+                co_return value;
+            }
+
             value_index index(0);
 
             auto binding = this->create_binding(value_index(0), canonical_symbol);
@@ -2788,6 +2841,10 @@ namespace quxlang
             {
                 co_return;
             }
+            if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, args))
+            {
+                co_return;
+            }
 
             if (auto intrinsic = this->intrinsic_instruction(what, args); intrinsic.has_value())
             {
@@ -2909,6 +2966,14 @@ namespace quxlang
                 this->emit(bidx, vmir2::to_bool_not{
                                      .from = get_local_index(default_check),
                                      .to = get_local_index(args.named.at("RETURN")),
+                });
+                co_return true;
+            }
+            if (member.name == "OPERATOR?!" && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::interface_is_default{
+                                     .interface_value = get_local_index(args.named.at("THIS")),
+                                     .result = get_local_index(args.named.at("RETURN")),
                                  });
                 co_return true;
             }
@@ -2937,6 +3002,217 @@ namespace quxlang
             }
 
             co_return co_await this->co_try_emit_interface_builtin(bidx, what, args);
+        }
+
+        auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        {
+            if (!typeis< submember >(what.temploid.templexoid))
+            {
+                co_return false;
+            }
+
+            submember const& member = as< submember >(what.temploid.templexoid);
+            symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+            if (parent_kind != symbol_kind::enum_ && parent_kind != symbol_kind::flagset_)
+            {
+                co_return false;
+            }
+
+            invotype call = invotype_from_instatype(what.params);
+            auto emit_load_const_u64 = [&](value_index target, std::uint64_t value) -> void
+            {
+                vmir2::load_const_int instr;
+                instr.target = get_local_index(target);
+                instr.value = std::to_string(value);
+                this->emit(bidx, instr);
+            };
+
+            if (member.name == "CONSTRUCTOR" && args.named.contains("THIS") && args.size() == 1)
+            {
+                if (parent_kind == symbol_kind::flagset_)
+                {
+                    this->emit(bidx, vmir2::load_const_zero{.target = get_local_index(args.named.at("THIS"))});
+                    co_return true;
+                }
+
+                enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(member.of);
+                if (!info.default_value_name.has_value())
+                {
+                    co_return false;
+                }
+                for (enum_value_info const& value : info.values)
+                {
+                    if (value.name == *info.default_value_name)
+                    {
+                        emit_load_const_u64(args.named.at("THIS"), value.value);
+                        co_return true;
+                    }
+                }
+                throw compiler_bug("ENUM default value was not present in enum_info");
+            }
+
+            if (member.name == "CONSTRUCTOR" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::load_from_ref{.from_reference = get_local_index(args.named.at("OTHER")), .to_value = get_local_index(args.named.at("THIS"))});
+                co_return true;
+            }
+
+            if (member.name == "CONSTRUCTOR" && parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("EXPLICIT") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::iconv{.from = get_local_index(args.named.at("EXPLICIT")), .to = get_local_index(args.named.at("THIS")), .convtype = vmir2::conversion_class::partial});
+                co_return true;
+            }
+
+            if (member.name == "OPERATOR:=" && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                this->emit(bidx, vmir2::store_to_ref{.from_value = get_local_index(args.named.at("OTHER")), .to_reference = get_local_index(args.named.at("THIS"))});
+                co_return true;
+            }
+
+            if ((member.name == "OPERATOR??" || member.name == "OPERATOR?!") && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
+            {
+                if (member.name == "OPERATOR??")
+                {
+                    this->emit(bidx, vmir2::to_bool{.from = get_local_index(args.named.at("THIS")), .to = get_local_index(args.named.at("RETURN"))});
+                }
+                else
+                {
+                    this->emit(bidx, vmir2::to_bool_not{.from = get_local_index(args.named.at("THIS")), .to = get_local_index(args.named.at("RETURN"))});
+                }
+                co_return true;
+            }
+
+            if (args.named.contains("THIS") && args.named.contains("OTHER") && args.named.contains("RETURN") && args.size() == 3)
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, member, call, args, true))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, member, call, args, true))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+
+                if (parent_kind == symbol_kind::flagset_)
+                {
+                    if (implement_binary_instruction< vmir2::bitwise_and >(instr, "#&&", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_or >(instr, "#||", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_xor >(instr, "#^^", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_nand >(instr, "#&!", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_nor >(instr, "#|!", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_nxor >(instr, "#^!", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_implies >(instr, "#^>", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                    if (implement_binary_instruction< vmir2::bitwise_implied >(instr, "#^<", true, member, call, args))
+                    {
+                        this->emit(bidx, *instr);
+                        co_return true;
+                    }
+                }
+            }
+
+            if (parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2 && member.name == "OPERATOR#!!")
+            {
+                this->emit(bidx, vmir2::bitwise_inverse{.value = get_local_index(args.named.at("THIS")), .result = get_local_index(args.named.at("RETURN"))});
+                co_return true;
+            }
+
+            if (parent_kind == symbol_kind::flagset_ && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_and >(instr, "#&&=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_or >(instr, "#||=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_xor >(instr, "#^^=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nand >(instr, "#&!=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nor >(instr, "#|!=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_nxor >(instr, "#^!=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implies >(instr, "#^>=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+                if (implement_mut_binary_instruction< vmir2::mut_bitwise_implied >(instr, "#^<=", member, call, args))
+                {
+                    this->emit(bidx, *instr);
+                    co_return true;
+                }
+            }
+
+            co_return false;
         }
 
         auto co_generate_interface_builtin(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -3398,19 +3674,25 @@ namespace quxlang
                 }
             }
 
-            if (member->name == "OPERATOR??")
+            if (member->name == "OPERATOR??" || member->name == "OPERATOR?!")
             {
-                if (cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref)
+                if ((cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref) || cls->template type_is< int_type >())
                 {
                     if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
                     {
                         auto this_slot_id = args.named.at("THIS");
 
-                        vmir2::to_bool tb{};
-                        tb.from = get_local_index(this_slot_id);
-                        tb.to = get_local_index(args.named.at("RETURN"));
-
-                        return tb;
+                        if (member->name == "OPERATOR??")
+                        {
+                            vmir2::to_bool tb{};
+                            tb.from = get_local_index(this_slot_id);
+                            tb.to = get_local_index(args.named.at("RETURN"));
+                            return tb;
+                        }
+                        vmir2::to_bool_not tbn{};
+                        tbn.from = get_local_index(this_slot_id);
+                        tbn.to = get_local_index(args.named.at("RETURN"));
+                        return tbn;
                     }
                 }
             }
@@ -6086,6 +6368,11 @@ namespace quxlang
 
             type_symbol target_class = co_await this->co_resolve_type_symbol(bidx, input.to_type);
 
+            if (std::optional< value_index > flagset_cast = co_await co_try_generate_flagset_to_unsigned_cast(bidx, arg_val, target_class, input.keyword); flagset_cast.has_value())
+            {
+                co_return *flagset_cast;
+            }
+
             if (input.keyword.has_value())
             {
                 codegen_invocation_args args;
@@ -6104,6 +6391,56 @@ namespace quxlang
             }
 
             throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
+        }
+
+        auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< std::string > const& keyword) -> co_type< std::optional< value_index > >
+        {
+            if (keyword.has_value() && *keyword != "EXPLICIT")
+            {
+                co_return std::nullopt;
+            }
+
+            type_symbol source_type = this->current_type(bidx, arg_val);
+            type_symbol source_value_type = remove_ref(source_type);
+            if (co_await rpnx::querygraph::request< symbol_type_query >(source_value_type) != symbol_kind::flagset_)
+            {
+                co_return std::nullopt;
+            }
+
+            std::optional< std::uint64_t > target_bits;
+            if (target_class.type_is< int_type >())
+            {
+                int_type const& target_integer = target_class.get_as< int_type >();
+                if (!target_integer.has_sign)
+                {
+                    target_bits = target_integer.bits;
+                }
+            }
+            else if (target_class.type_is< byte_type >())
+            {
+                target_bits = 8;
+            }
+
+            if (!target_bits.has_value())
+            {
+                co_return std::nullopt;
+            }
+
+            flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(source_value_type);
+            if (*target_bits < info.bits)
+            {
+                throw semantic_compilation_error("Cannot cast FLAGSET " + to_string(source_value_type) + " to narrower unsigned integer " + to_string(target_class));
+            }
+
+            value_index source_value = arg_val;
+            if (is_ref(source_type))
+            {
+                source_value = load_reference_value(bidx, arg_val, source_value_type);
+            }
+
+            value_index result = this->create_local_value(target_class);
+            this->emit(bidx, vmir2::iconv{.from = get_local_index(source_value), .to = get_local_index(result), .convtype = vmir2::conversion_class::partial});
+            co_return result;
         }
 
         auto co_generate(block_index& bidx, expression_pun input) -> co_type< value_index >
@@ -7110,44 +7447,86 @@ namespace quxlang
             auto base_type_noref = quxlang::remove_ref(base_type);
 
             std::string base_type_noref_string = quxlang::to_string(base_type_noref);
+            symbol_kind const base_kind = co_await rpnx::querygraph::request< symbol_type_query >(base_type_noref);
+
+            if (base_kind == symbol_kind::flagset_)
+            {
+                flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(base_type_noref);
+                for (flagset_value_info const& flag : info.values)
+                {
+                    if (flag.name != field_name)
+                    {
+                        continue;
+                    }
+
+                    value_index base_value = base;
+                    if (is_ref(base_type))
+                    {
+                        base_value = this->create_local_value(base_type_noref);
+                        this->emit(bidx, vmir2::load_from_ref{.from_reference = get_local_index(base), .to_value = get_local_index(base_value)});
+                    }
+
+                    auto load_mask_value = [&](block_index& load_block) -> value_index
+                    {
+                        value_index mask_value = this->create_local_value(base_type_noref);
+                        vmir2::load_const_int load_mask;
+                        load_mask.target = get_local_index(mask_value);
+                        load_mask.value = std::to_string(flag.mask);
+                        this->emit(load_block, load_mask);
+                        return mask_value;
+                    };
+
+                    value_index mask_for_and = load_mask_value(bidx);
+                    value_index and_value = this->create_local_value(base_type_noref);
+                    this->emit(bidx, vmir2::bitwise_and{.a = get_local_index(base_value), .b = get_local_index(mask_for_and), .result = get_local_index(and_value)});
+
+                    value_index mask_for_compare = load_mask_value(bidx);
+                    value_index result = this->create_local_value(bool_type{});
+                    this->emit(bidx, vmir2::cmp_eq{.a = get_local_index(and_value), .b = get_local_index(mask_for_compare), .result = get_local_index(result)});
+                    co_return result;
+                }
+            }
 
             // First try to find a field with this name
-            class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(base_type_noref);
-
-            // std::string base_type_str = to_string(base_type);
-
-            for (class_field_info const& field : layout.fields)
+            if (base_kind == symbol_kind::class_)
             {
-                if (field.name == field_name)
+                class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(base_type_noref);
+
+                // std::string base_type_str = to_string(base_type);
+
+                for (class_field_info const& field : layout.fields)
                 {
-                    if (typeis< attached_type_reference >(field.type))
+                    if (field.name == field_name)
                     {
-                        attached_type_reference const& attached = as< attached_type_reference >(field.type);
-                        if (typeis< void_type >(attached.carrying_type))
+                        if (typeis< attached_type_reference >(field.type))
                         {
-                            co_return this->create_binding(value_index(0), attached.attached_symbol);
+                            attached_type_reference const& attached = as< attached_type_reference >(field.type);
+                            if (typeis< void_type >(attached.carrying_type))
+                            {
+                                co_return this->create_binding(value_index(0), attached.attached_symbol);
+                            }
+
+                            vmir2::access_field access;
+                            access.base_index = get_local_index(base);
+                            access.field_name = field.name;
+                            type_symbol carrier_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), attached.carrying_type);
+                            auto carrier_idx = create_local_value(carrier_ref_type);
+                            access.store_index = get_local_index(carrier_idx);
+                            this->emit(bidx, access);
+                            co_return this->create_binding(carrier_idx, attached.attached_symbol);
                         }
 
                         vmir2::access_field access;
                         access.base_index = get_local_index(base);
                         access.field_name = field.name;
-                        type_symbol carrier_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), attached.carrying_type);
-                        auto carrier_idx = create_local_value(carrier_ref_type);
-                        access.store_index = get_local_index(carrier_idx);
+                        type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), field.type);
+                        auto result_idx = create_local_value(result_ref_type);
+                        access.store_index = get_local_index(result_idx);
+                        // co_yield rpnx::querygraph::debug_message("Created field access {} for {} in {}", access.store_index, field_name, to_string(base_type));
+
                         this->emit(bidx, access);
-                        co_return this->create_binding(carrier_idx, attached.attached_symbol);
+                        co_return result_idx;
                     }
-
-                    vmir2::access_field access;
-                    access.base_index = get_local_index(base);
-                    access.field_name = field.name;
-                    type_symbol result_ref_type = recast_reference(base_type.template get_as< ptrref_type >(), field.type);
-                    auto result_idx = create_local_value(result_ref_type);
-                    access.store_index = get_local_index(result_idx);
-                    // co_yield rpnx::querygraph::debug_message("Created field access {} for {} in {}", access.store_index, field_name, to_string(base_type));
-
-                    this->emit(bidx, access);
-                    co_return result_idx;
                 }
             }
 
@@ -7187,6 +7566,48 @@ namespace quxlang
                 if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
                 {
                     throw compiler_bug("Interface constructor routine is not implemented: " + quxlang::to_string(func));
+                }
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
+            symbol_kind const cls_kind = co_await rpnx::querygraph::request< symbol_type_query >(cls);
+            if (cls_kind == symbol_kind::enum_ || cls_kind == symbol_kind::flagset_)
+            {
+                auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+                if (!thisidx.has_value())
+                {
+                    throw compiler_bug("Nominal integer constructor is missing THIS");
+                }
+                if (cls_kind == symbol_kind::flagset_)
+                {
+                    this->emit(current_block, vmir2::load_const_zero{.target = get_local_index(*thisidx)});
+                }
+                else
+                {
+                    enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(cls);
+                    if (!info.default_value_name.has_value())
+                    {
+                        throw semantic_compilation_error("ENUM is not default constructible: " + to_string(cls));
+                    }
+                    bool found = false;
+                    for (enum_value_info const& value : info.values)
+                    {
+                        if (value.name == *info.default_value_name)
+                        {
+                            vmir2::load_const_int load_default;
+                            load_default.target = get_local_index(*thisidx);
+                            load_default.value = std::to_string(value.value);
+                            this->emit(current_block, load_default);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        throw compiler_bug("ENUM default value was not present in enum_info");
+                    }
                 }
                 co_await co_generate_builtin_return(current_block);
                 co_await co_generate_dtor_references();
@@ -7757,6 +8178,11 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_serialize_float(func);
             }
+            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
+            if (class_kind == symbol_kind::enum_ || class_kind == symbol_kind::flagset_)
+            {
+                co_return co_await this->co_generate_builtin_serialize_nominal_integer(func);
+            }
             co_return co_await this->co_generate_builtin_serialize_struct(func);
         }
 
@@ -7778,7 +8204,222 @@ namespace quxlang
             {
                 co_return co_await this->co_generate_builtin_deserialize_float(func);
             }
+            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
+            if (class_kind == symbol_kind::enum_ || class_kind == symbol_kind::flagset_)
+            {
+                co_return co_await this->co_generate_builtin_deserialize_nominal_integer(func);
+            }
             co_return co_await this->co_generate_builtin_deserialize_struct(func);
+        }
+
+        auto co_nominal_integer_storage_bytes(type_symbol const& class_type) -> co_type< std::uint64_t >
+        {
+            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
+            if (class_kind == symbol_kind::enum_)
+            {
+                enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
+                co_return info.storage_bytes;
+            }
+            if (class_kind == symbol_kind::flagset_)
+            {
+                flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(class_type);
+                co_return info.storage_bytes;
+            }
+            throw compiler_bug("Expected nominal integer type");
+        }
+
+        auto create_nominal_integer_const(block_index& current_block, type_symbol const& class_type, std::uint64_t value) -> value_index
+        {
+            value_index result = this->create_local_value(class_type);
+            vmir2::load_const_int load;
+            load.target = get_local_index(result);
+            load.value = std::to_string(value);
+            this->emit(current_block, load);
+            return result;
+        }
+
+        auto load_nominal_integer_copy(block_index& current_block, type_symbol const& class_type, value_index raw_value) -> value_index
+        {
+            value_index raw_ref = this->create_reference(current_block, raw_value, make_cref(class_type));
+            return load_reference_value(current_block, raw_ref, class_type);
+        }
+
+        auto emit_nominal_integer_assert_false(block_index& current_block, std::string message) -> void
+        {
+            value_index false_value = this->create_bool_value(current_block, false);
+            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(false_value), .message = std::move(message)});
+        }
+
+        auto co_emit_nominal_padding_validation(block_index& current_block, type_symbol const& storage_type, value_index storage_value, std::uint64_t bits, std::uint64_t storage_bytes) -> co_type< void >
+        {
+            std::uint64_t const storage_bits = storage_bytes * 8;
+            std::uint64_t const value_mask = bits >= 64 ? std::numeric_limits< std::uint64_t >::max() : ((std::uint64_t{1} << bits) - 1);
+            std::uint64_t const storage_mask = storage_bits >= 64 ? std::numeric_limits< std::uint64_t >::max() : ((std::uint64_t{1} << storage_bits) - 1);
+            std::uint64_t const padding_mask = storage_mask & ~value_mask;
+            if (padding_mask == 0)
+            {
+                co_return;
+            }
+
+            value_index raw_copy = load_nominal_integer_copy(current_block, storage_type, storage_value);
+            value_index mask_value = create_nominal_integer_const(current_block, storage_type, padding_mask);
+            value_index masked_value = this->create_local_value(storage_type);
+            this->emit(current_block, vmir2::bitwise_and{.a = get_local_index(raw_copy), .b = get_local_index(mask_value), .result = get_local_index(masked_value)});
+
+            value_index zero_value = create_nominal_integer_const(current_block, storage_type, 0);
+            value_index condition = this->create_local_value(bool_type{});
+            this->emit(current_block, vmir2::cmp_eq{.a = get_local_index(masked_value), .b = get_local_index(zero_value), .result = get_local_index(condition)});
+            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(condition), .message = "nominal integer deserialization padding bits are nonzero"});
+            co_return;
+        }
+
+        auto co_emit_enum_deserialize_validation(block_index& current_block, type_symbol const& class_type, value_index raw_value, enum_info const& info) -> co_type< void >
+        {
+            if (info.allow_unknown && info.reserved_ranges.empty())
+            {
+                co_return;
+            }
+
+            block_index invalid_block = this->generate_subblock(current_block, "enum_deserialize_invalid");
+            block_index valid_block = this->generate_subblock(current_block, "enum_deserialize_valid");
+            block_index check_block = current_block;
+
+            for (enum_reserved_range_info const& reserved : info.reserved_ranges)
+            {
+                block_index ge_true_block = this->generate_subblock(check_block, "enum_deserialize_reserved_upper_check");
+                block_index next_range_block = this->generate_subblock(check_block, "enum_deserialize_reserved_next");
+
+                value_index ge_raw = load_nominal_integer_copy(check_block, class_type, raw_value);
+                value_index from_value = create_nominal_integer_const(check_block, class_type, reserved.from);
+                value_index ge_condition = this->create_local_value(bool_type{});
+                this->emit(check_block, vmir2::cmp_ge{.a = get_local_index(ge_raw), .b = get_local_index(from_value), .result = get_local_index(ge_condition)});
+                this->generate_branch(ge_condition, check_block, ge_true_block, next_range_block);
+
+                value_index le_raw = load_nominal_integer_copy(ge_true_block, class_type, raw_value);
+                value_index to_value = create_nominal_integer_const(ge_true_block, class_type, reserved.to);
+                value_index le_condition = this->create_local_value(bool_type{});
+                this->emit(ge_true_block, vmir2::cmp_ge{.a = get_local_index(to_value), .b = get_local_index(le_raw), .result = get_local_index(le_condition)});
+                this->generate_branch(le_condition, ge_true_block, invalid_block, next_range_block);
+
+                check_block = next_range_block;
+            }
+
+            if (info.allow_unknown)
+            {
+                this->generate_jump(check_block, valid_block);
+            }
+            else
+            {
+                for (enum_value_info const& value : info.values)
+                {
+                    block_index next_value_block = this->generate_subblock(check_block, "enum_deserialize_value_next");
+                    value_index raw_copy = load_nominal_integer_copy(check_block, class_type, raw_value);
+                    value_index expected_value = create_nominal_integer_const(check_block, class_type, value.value);
+                    value_index match_condition = this->create_local_value(bool_type{});
+                    this->emit(check_block, vmir2::cmp_eq{.a = get_local_index(raw_copy), .b = get_local_index(expected_value), .result = get_local_index(match_condition)});
+                    this->generate_branch(match_condition, check_block, valid_block, next_value_block);
+                    check_block = next_value_block;
+                }
+                this->generate_jump(check_block, invalid_block);
+            }
+
+            emit_nominal_integer_assert_false(invalid_block, "ENUM deserialization rejected reserved or unknown value");
+            this->generate_jump(invalid_block, valid_block);
+            current_block = valid_block;
+            co_return;
+        }
+
+        auto co_generate_builtin_serialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            block_index current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            if (!this_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE THIS");
+            }
+
+            value_index raw_value = load_reference_value(current_block, *this_ref, class_type);
+            std::uint64_t const byte_count = co_await co_nominal_integer_storage_bytes(class_type);
+            for (std::uint64_t i = 0; i < byte_count; ++i)
+            {
+                value_index raw_ref = this->create_reference(current_block, raw_value, make_cref(class_type));
+                value_index byte_value = this->create_local_value(byte_type{});
+                this->emit(current_block, vmir2::get_value_byte{.source_reference = get_local_index(raw_ref), .offset = i, .result = get_local_index(byte_value)});
+                co_await co_emit_output_byte(current_block, byte_value);
+            }
+
+            auto outit_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"OUTPUT_ITERATOR"});
+            if (!outit_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin SERIALIZE iterator");
+            }
+            co_await co_return_value(current_block, *outit_ref);
+            co_await co_generate_dtor_references();
+            co_return get_result();
+        }
+
+        auto co_generate_builtin_deserialize_nominal_integer(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
+        {
+            assert(!type_is_contextual(func));
+            type_symbol class_type = func.temploid.templexoid.get_as< submember >().of;
+            co_await co_generate_arg_info(func);
+            this->generate_entry_block();
+
+            block_index current_block = block_index(0);
+            auto this_ref = co_await this->co_lookup_symbol(current_block, freebound_identifier{"THIS"});
+            if (!this_ref.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE THIS");
+            }
+
+            value_index raw_value = load_zero_value(current_block, class_type);
+            std::uint64_t const byte_count = co_await co_nominal_integer_storage_bytes(class_type);
+            type_symbol storage_type = int_type{.bits = byte_count * 8, .has_sign = false};
+            value_index storage_value = load_zero_value(current_block, storage_type);
+            for (std::uint64_t i = 0; i < byte_count; ++i)
+            {
+                value_index byte_value = co_await co_read_input_byte(current_block);
+                value_index byte_ref = this->create_reference(current_block, byte_value, make_cref(byte_type{}));
+                value_index byte_copy = load_reference_value(current_block, byte_ref, byte_type{});
+
+                value_index raw_ref = this->create_reference(current_block, raw_value, make_mref(class_type));
+                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(raw_ref), .offset = i, .value = get_local_index(byte_value)});
+
+                value_index storage_ref = this->create_reference(current_block, storage_value, make_mref(storage_type));
+                this->emit(current_block, vmir2::set_value_byte{.target_reference = get_local_index(storage_ref), .offset = i, .value = get_local_index(byte_copy)});
+            }
+
+            symbol_kind const class_kind = co_await rpnx::querygraph::request< symbol_type_query >(class_type);
+            if (class_kind == symbol_kind::enum_)
+            {
+                enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(class_type);
+                co_await co_emit_enum_deserialize_validation(current_block, class_type, raw_value, info);
+                co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
+            }
+            else if (class_kind == symbol_kind::flagset_)
+            {
+                flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(class_type);
+                co_await co_emit_nominal_padding_validation(current_block, storage_type, storage_value, info.bits, info.storage_bytes);
+            }
+            else
+            {
+                throw compiler_bug("Expected nominal integer type");
+            }
+
+            this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(raw_value), .to_reference = get_local_index(*this_ref)});
+            auto input_iter = co_await this->co_lookup_symbol(current_block, freebound_identifier{"INPUT_ITERATOR"});
+            if (!input_iter.has_value())
+            {
+                throw compiler_bug("Missing builtin DESERIALIZE iterator");
+            }
+            co_await co_return_value(current_block, *input_iter);
+            co_await co_generate_dtor_references();
+            co_return get_result();
         }
 
         auto co_generate_builtin_serialize_int(instanciation_reference const& func) -> co_type< quxlang::vmir2::functanoid_routine3 >
@@ -8294,6 +8935,18 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
+                if (typeis< submember >(func.temploid.templexoid))
+                {
+                    submember const& member = as< submember >(func.temploid.templexoid);
+                    symbol_kind const member_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+                    if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                    {
+                        this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
+                        co_await co_generate_builtin_return(current_block);
+                        co_await co_generate_dtor_references();
+                        co_return get_result();
+                    }
+                }
                 if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
@@ -8339,6 +8992,18 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
+                if (typeis< submember >(func.temploid.templexoid))
+                {
+                    submember const& member = as< submember >(func.temploid.templexoid);
+                    symbol_kind const member_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+                    if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                    {
+                        this->emit(current_block, vmir2::load_from_ref{.from_reference = get_local_index(*otheridx), .to_value = get_local_index(*thisidx)});
+                        co_await co_generate_builtin_return(current_block);
+                        co_await co_generate_dtor_references();
+                        co_return get_result();
+                    }
+                }
                 if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
@@ -8364,12 +9029,26 @@ namespace quxlang
             if (typeis< submember >(func.temploid.templexoid))
             {
                 submember const& member = as< submember >(func.temploid.templexoid);
-                if (co_await rpnx::querygraph::request< symbol_type_query >(member.of) == symbol_kind::interface_)
+                symbol_kind const member_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
+                if (member_kind == symbol_kind::interface_)
                 {
                     if (!co_await this->co_try_emit_interface_builtin_from_locals(current_block, func))
                     {
                         throw compiler_bug("Interface assignment routine is not implemented: " + quxlang::to_string(func));
                     }
+                    co_await co_generate_builtin_return(current_block);
+                    co_await co_generate_dtor_references();
+                    co_return get_result();
+                }
+                if (member_kind == symbol_kind::enum_ || member_kind == symbol_kind::flagset_)
+                {
+                    auto thisidx = this->local_value_direct_lookup(current_block, "THIS");
+                    auto otheridx = this->local_value_direct_lookup(current_block, "OTHER");
+                    if (!thisidx.has_value() || !otheridx.has_value())
+                    {
+                        throw compiler_bug("Nominal integer assignment is missing THIS or OTHER");
+                    }
+                    this->emit(current_block, vmir2::store_to_ref{.from_value = get_local_index(*otheridx), .to_reference = get_local_index(*thisidx)});
                     co_await co_generate_builtin_return(current_block);
                     co_await co_generate_dtor_references();
                     co_return get_result();

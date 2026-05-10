@@ -21,6 +21,7 @@
 #include <quxlang/data/convertibility_types.hpp>
 #include <quxlang/data/constexpr_types.hpp>
 #include <quxlang/data/functum_types.hpp>
+#include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/tempar_types.hpp>
 
 #endif // QUXLANG_DATA_QUERY_TYPES_HEADER_GUARD

@@ -267,6 +267,51 @@ TEST(parsing, parse_implementation_declaration)
     EXPECT_EQ(parsed->declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "value");
 }
 
+TEST(parsing, parse_enum_and_flagset_declarations)
+{
+    quxlang::ast2_file_declaration file = parse_file_text(R"(
+::choice ENUM BITS(8) [none = NULL, x DEFAULT = 5, RESERVED FROM(8) TO(15)] ALLOW_UNKNOWN {
+    ::default STATIC choice := x;
+}
+::permissions FLAGSET BITS(16) [read, write, RESERVED = 12, exec] {
+    ::read_write STATIC permissions := read #|| write;
+}
+)");
+
+    ASSERT_EQ(file.declarations.size(), 2);
+
+    quxlang::global_subdeclaroid const& enum_global = file.declarations.at(0).get_as< quxlang::global_subdeclaroid >();
+    ASSERT_TRUE(enum_global.decl.type_is< quxlang::ast2_enum_declaration >());
+    quxlang::ast2_enum_declaration const& enum_decl = enum_global.decl.get_as< quxlang::ast2_enum_declaration >();
+    EXPECT_TRUE(enum_decl.bit_width.has_value());
+    EXPECT_TRUE(enum_decl.allow_unknown);
+    ASSERT_EQ(enum_decl.entries.size(), 3);
+    ASSERT_TRUE(enum_decl.entries.at(0).type_is< quxlang::ast2_enum_value_declaration >());
+    EXPECT_TRUE(enum_decl.entries.at(0).get_as< quxlang::ast2_enum_value_declaration >().is_null);
+    ASSERT_TRUE(enum_decl.entries.at(1).type_is< quxlang::ast2_enum_value_declaration >());
+    EXPECT_TRUE(enum_decl.entries.at(1).get_as< quxlang::ast2_enum_value_declaration >().is_default);
+    ASSERT_TRUE(enum_decl.entries.at(2).type_is< quxlang::ast2_enum_reserved_range_declaration >());
+    ASSERT_EQ(enum_decl.declarations.size(), 1);
+
+    quxlang::global_subdeclaroid const& flagset_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
+    ASSERT_TRUE(flagset_global.decl.type_is< quxlang::ast2_flagset_declaration >());
+    quxlang::ast2_flagset_declaration const& flagset_decl = flagset_global.decl.get_as< quxlang::ast2_flagset_declaration >();
+    EXPECT_TRUE(flagset_decl.bit_width.has_value());
+    ASSERT_EQ(flagset_decl.entries.size(), 4);
+    ASSERT_TRUE(flagset_decl.entries.at(2).type_is< quxlang::ast2_flagset_reserved_declaration >());
+    ASSERT_EQ(flagset_decl.declarations.size(), 1);
+}
+
+TEST(parsing, enum_and_flagset_body_semicolon_rules)
+{
+    EXPECT_NO_THROW(parse_file_text("::choice ENUM [x];"));
+    EXPECT_NO_THROW(parse_file_text("::permissions FLAGSET [x];"));
+    EXPECT_THROW(parse_file_text("::choice ENUM [x]"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::permissions FLAGSET [x]"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::choice ENUM [x] { };"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::permissions FLAGSET [x] { };"), std::logic_error);
+}
+
 TEST(parsing, explicit_get_interface_impl_is_not_source_syntax)
 {
     EXPECT_THROW(parse_expression_text("interface_integer_impl::GET_INTERFACE_IMPL()"), std::logic_error);

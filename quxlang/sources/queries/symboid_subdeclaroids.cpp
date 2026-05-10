@@ -17,6 +17,14 @@ rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symb
     {
         co_return as< ast2_implementation_declaration >(sym).declarations;
     }
+    else if (typeis< ast2_enum_declaration >(sym))
+    {
+        co_return as< ast2_enum_declaration >(sym).declarations;
+    }
+    else if (typeis< ast2_flagset_declaration >(sym))
+    {
+        co_return as< ast2_flagset_declaration >(sym).declarations;
+    }
     else if (typeis< ast2_module_declaration >(sym))
     {
         co_return as< ast2_module_declaration >(sym).declarations;

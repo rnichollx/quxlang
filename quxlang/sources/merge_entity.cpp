@@ -55,6 +55,24 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_implementation_declaration >(source);
     }
+    else if (typeis< ast2_enum_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge enum into already existing entity");
+        }
+
+        destination = as< ast2_enum_declaration >(source);
+    }
+    else if (typeis< ast2_flagset_declaration >(source))
+    {
+        if (!typeis< std::monostate >(destination))
+        {
+            throw quxlang::semantic_compilation_error("Cannot merge flagset into already existing entity");
+        }
+
+        destination = as< ast2_flagset_declaration >(source);
+    }
     else if (typeis< ast2_template_declaration >(source))
     {
         if (typeis< std::monostate >(destination))

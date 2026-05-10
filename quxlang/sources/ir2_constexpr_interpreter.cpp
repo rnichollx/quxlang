@@ -38,6 +38,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     std::size_t exec_mode = 1;
     std::map< cow< type_symbol >, class_layout > class_layouts;
+    std::map< cow< type_symbol >, std::uint64_t > nominal_integer_bits;
     std::map< cow< type_symbol >, cow< functanoid_routine3 > > functanoids3;
     std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
@@ -283,6 +284,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::size_t get_type_alignment(type_symbol type);
     bytemath::fixed_int_options get_fixed_int_options(type_symbol const& type) const;
     bytemath::fixed_float_options get_fixed_float_options(type_symbol const& type) const;
+    std::size_t get_bit_width_for_type(type_symbol const& type) const;
     char const* fixed_int_instruction_name(fixed_int_instruction instruction) const;
     char const* fixed_float_instruction_name(fixed_float_instruction instruction) const;
     void exec_fixed_int_binary_op(fixed_int_instruction instruction, local_index a_slot, local_index b_slot, local_index result_slot, fixed_int_binary_op op);
@@ -991,6 +993,11 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
         return 1;
     }
 
+    if (nominal_integer_bits.contains(type))
+    {
+        return (nominal_integer_bits.at(type) + 7) / 8;
+    }
+
     if (typeis< storage >(type))
     {
         std::size_t max_size = 0;
@@ -1074,6 +1081,16 @@ std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter
     {
         return 1;
     }
+    if (nominal_integer_bits.contains(type))
+    {
+        std::size_t const byte_count = get_type_size(type);
+        std::size_t alignment = 1;
+        while (alignment * 2 <= byte_count && alignment * 2 <= 8)
+        {
+            alignment *= 2;
+        }
+        return alignment;
+    }
     if (class_layouts.contains(type))
     {
         return class_layouts.at(type).align;
@@ -1102,6 +1119,14 @@ quxlang::bytemath::fixed_int_options quxlang::vmir2::ir2_constexpr_interpreter::
     if (storage_type.type_is< byte_type >())
     {
         opts.bits = 8;
+        opts.has_sign = false;
+        opts.overflow_undefined = false;
+        return opts;
+    }
+
+    if (nominal_integer_bits.contains(storage_type))
+    {
+        opts.bits = nominal_integer_bits.at(storage_type);
         opts.has_sign = false;
         opts.overflow_undefined = false;
         return opts;
@@ -2859,34 +2884,8 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     type_symbol from_type = get_local_type(icv.from);
     type_symbol to_type = get_local_type(icv.to);
 
-    bytemath::fixed_int_options from_opt{};
-    bytemath::fixed_int_options to_opt{};
-
-    if (to_type.type_is< byte_type >())
-    {
-        to_opt.bits = 8;
-        to_opt.has_sign = false;
-    }
-    else
-    {
-        assert(to_type.type_is< int_type >());
-        int_type const& int_type_info = to_type.get_as< int_type >();
-        to_opt.bits = int_type_info.bits;
-        to_opt.has_sign = int_type_info.has_sign;
-    }
-
-    if (from_type.type_is< byte_type >())
-    {
-        from_opt.bits = 8;
-        from_opt.has_sign = false;
-    }
-    else
-    {
-        assert(from_type.type_is< int_type >());
-        int_type const& int_type_info = from_type.get_as< int_type >();
-        from_opt.bits = int_type_info.bits;
-        from_opt.has_sign = int_type_info.has_sign;
-    }
+    bytemath::fixed_int_options from_opt = get_fixed_int_options(from_type);
+    bytemath::fixed_int_options to_opt = get_fixed_int_options(to_type);
 
     if (icv.convtype == conversion_class::partial)
     {
@@ -3119,9 +3118,9 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         int_type_v = copy;
     }
 
-    if (!int_type_v.type_is< int_type >() && !int_type_v.type_is< byte_type >())
+    if (!int_type_v.type_is< int_type >() && !int_type_v.type_is< byte_type >() && !nominal_integer_bits.contains(int_type_v))
     {
-        throw compiler_bug("Expected INTEGER or BYTE type for load_const_int");
+        throw compiler_bug("Expected INTEGER, BYTE, ENUM, or FLAGSET type for load_const_int");
     }
 
     auto& data = intval->data;
@@ -3422,7 +3421,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 // ===== Bitwise operations handlers =====
 
-static std::size_t get_bit_width_for_type(const quxlang::type_symbol& ty)
+std::size_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_bit_width_for_type(const quxlang::type_symbol& ty) const
 {
     quxlang::type_symbol const storage_type = quxlang::atomic_storage_type_or_self(ty);
     if (typeis< quxlang::int_type >(storage_type))
@@ -3432,6 +3431,10 @@ static std::size_t get_bit_width_for_type(const quxlang::type_symbol& ty)
     if (typeis< quxlang::byte_type >(storage_type))
     {
         return 8;
+    }
+    if (nominal_integer_bits.contains(storage_type))
+    {
+        return nominal_integer_bits.at(storage_type);
     }
     // Fallback: use full byte width of storage
     return 8 * ((typeis< quxlang::ptrref_type >(ty)) ? 0 : 0);
@@ -4088,6 +4091,11 @@ quxlang::vmir2::ir2_constexpr_interpreter::~ir2_constexpr_interpreter()
 void quxlang::vmir2::ir2_constexpr_interpreter::add_class_layout(quxlang::type_symbol name, quxlang::class_layout layout)
 {
     this->implementation->class_layouts[name] = std::move(layout);
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_nominal_integer_type(type_symbol name, std::uint64_t bits)
+{
+    this->implementation->nominal_integer_bits[std::move(name)] = bits;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::set_constexpr_result_global_symbol(std::optional< type_symbol > symbol)

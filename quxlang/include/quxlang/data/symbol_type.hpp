@@ -22,7 +22,11 @@ RPNX_ENUM(quxlang, symbol_kind, std::int64_t,
     static_test,
     option,
     interface_,
-    implementation_
+    implementation_,
+    enum_,
+    flagset_,
+    enum_value,
+    flagset_value
 )
 // clang-format on
 

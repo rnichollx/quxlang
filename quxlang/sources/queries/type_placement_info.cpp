@@ -21,6 +21,16 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         return parsers::str_to_int< std::uint64_t >(expr.get_as< expression_numeric_literal >().value);
     };
 
+    auto nominal_alignment = [&](std::uint64_t byte_count) -> std::uint64_t
+    {
+        std::uint64_t alignment = 1;
+        while (alignment * 2 <= byte_count && alignment * 2 <= machine_info.max_int_align())
+        {
+            alignment *= 2;
+        }
+        return alignment;
+    };
+
     if (auto atomic_value_type = atomic_type_argument(type); atomic_value_type.has_value())
     {
         co_return co_await rpnx::querygraph::request< type_placement_info_query >(*atomic_value_type);
@@ -44,11 +54,22 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
 
         co_return result;
     }
-    else if (type.template type_is< subsymbol >())
+    else if (type.template type_is< subsymbol >() || type.template type_is< instanciation_reference >())
     {
-        if (co_await rpnx::querygraph::request< symbol_type_query >(type) == symbol_kind::interface_)
+        symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
+        if (kind == symbol_kind::interface_)
         {
             co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
+        }
+        if (kind == symbol_kind::enum_)
+        {
+            enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
+            co_return type_placement_info{.size = info.storage_bytes, .alignment = nominal_alignment(info.storage_bytes)};
+        }
+        if (kind == symbol_kind::flagset_)
+        {
+            flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
+            co_return type_placement_info{.size = info.storage_bytes, .alignment = nominal_alignment(info.storage_bytes)};
         }
 
         class_layout layout = co_await rpnx::querygraph::request< class_layout_query >(type);
