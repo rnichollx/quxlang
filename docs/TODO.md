@@ -63,6 +63,8 @@ coverage:
 - [x] Defaulted function arguments
 - [x] AUTO return type inference
 - [x] Atomic operations
+- [x] Enums
+- [x] Flagsets
 
 ## Remaining language features
 
@@ -75,8 +77,6 @@ coverage:
 - [ ] Registries
 - [ ] Range-based for and container iteration
 - [ ] Scoped with statements
-- [ ] Enums
-- [ ] Flagsets
 
 
 ## Compiler and runtime
