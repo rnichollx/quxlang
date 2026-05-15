@@ -18,6 +18,7 @@ cmake-*
 *~
 .DS_Store
 *-out
+local/
 
 dev-workspace-*/
 dev-workspace/

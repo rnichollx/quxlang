@@ -1,4 +1,5 @@
 // Copyright 2024-2025 Ryan P. Nicholl, rnicholl@protonmail.com
+// Agents: MUST READ: docs/vmir2_lowering.md BEFORE EDITING
 #ifndef QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 #define QUXLANG_CO_VMIR_GENERATOR2_HEADER_GUARD
 
