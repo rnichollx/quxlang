@@ -98,6 +98,24 @@ namespace
         mutable quxlang::compiler_querygraph m_graph;
     };
 
+    /// Owns the source bundle and compiler graph reused by all in-process static gtests.
+    class static_test_execution_context
+    {
+      public:
+        static_test_execution_context() : m_sources(load_static_test_sources()), m_compiler(m_sources, static_test_target)
+        {
+        }
+
+        auto compiler() -> static_test_querygraph_compiler&
+        {
+            return m_compiler;
+        }
+
+      private:
+        quxlang::source_bundle m_sources;
+        static_test_querygraph_compiler m_compiler;
+    };
+
     auto sanitize_gtest_name(std::string name) -> std::string
     {
         for (char& ch : name)
@@ -155,12 +173,18 @@ namespace
                 return;
             }
 
-            auto sources = load_static_test_sources();
-            static_test_querygraph_compiler c(sources, static_test_target);
-            EXPECT_TRUE(c.run_static_test(*m_test_symbol));
+            EXPECT_TRUE(static_context().compiler().run_static_test(*m_test_symbol));
         }
 
       private:
+        /// Returns the fixture-owned context shared by all registered static tests in this process.
+        auto static_context() -> static_test_execution_context&
+        {
+            static static_test_execution_context context;
+            return context;
+        }
+
+        //static_test_execution_context context;
         std::optional< quxlang::type_symbol > m_test_symbol;
         std::optional< std::string > m_discovery_error;
     };
