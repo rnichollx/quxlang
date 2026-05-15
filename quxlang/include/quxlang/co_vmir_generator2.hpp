@@ -10507,8 +10507,7 @@ namespace quxlang
 
             if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
             {
-                this->emit(current_block, vmir2::unimplemented{.message = "PLACE AT on non-storage locations"});
-                co_return;
+                throw semantic_compilation_error("invalid place on non-storage reference");
             }
 
             auto target_type = co_await this->co_resolve_type_symbol(current_block, st.type);
@@ -10525,8 +10524,7 @@ namespace quxlang
 
             if (!is_ref(storage_ref_type) || (!typeis< storage >(storage_type) && !typeis< aligned_storage >(storage_type)))
             {
-                this->emit(current_block, vmir2::unimplemented{.message = "DESTROY AT on non-storage locations"});
-                co_return;
+                throw semantic_compilation_error("invalid destroy on non-storage reference");
             }
 
             auto target_type = co_await this->co_resolve_type_symbol(current_block, st.type);
