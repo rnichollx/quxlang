@@ -93,6 +93,26 @@ namespace
         }
     }
 
+    auto symbol_is_localdata_root(quxlang::type_symbol const& symbol) -> bool
+    {
+        return symbol.type_is< quxlang::static_local_ref >() || symbol.type_is< quxlang::static_snapshot_ref >();
+    }
+
+    auto symbol_is_functanoid_reference(quxlang::type_symbol const& symbol) -> bool
+    {
+        return symbol.type_is< quxlang::instanciation_reference >() || symbol.type_is< quxlang::temploid_reference >();
+    }
+
+    void add_antestatal_global(std::set< quxlang::type_symbol >& result, quxlang::type_symbol const& symbol)
+    {
+        if (symbol_is_localdata_root(symbol) || symbol_is_functanoid_reference(symbol))
+        {
+            return;
+        }
+
+        result.insert(symbol);
+    }
+
     void add_type_and_components(std::set< quxlang::type_symbol >& result, quxlang::type_symbol type)
     {
         std::vector< quxlang::type_symbol > pending{std::move(type)};
@@ -263,6 +283,64 @@ namespace
             }
         }
     }
+
+    void add_antestatal_globals_from_antestatal_access(std::set< quxlang::type_symbol >& result, quxlang::antestatal_access const& access)
+    {
+        if (access.type_is< quxlang::antestatal_access_global >())
+        {
+            add_antestatal_global(result, access.get_as< quxlang::antestatal_access_global >().symbol);
+            return;
+        }
+        if (access.type_is< quxlang::antestatal_access_field >())
+        {
+            add_antestatal_globals_from_antestatal_access(result, access.get_as< quxlang::antestatal_access_field >().object);
+            return;
+        }
+        if (access.type_is< quxlang::antestatal_access_array_element >())
+        {
+            add_antestatal_globals_from_antestatal_access(result, access.get_as< quxlang::antestatal_access_array_element >().array);
+        }
+    }
+
+    void add_antestatal_globals_from_antestatal_value(std::set< quxlang::type_symbol >& result, quxlang::antestatal_value const& value, std::optional< quxlang::type_symbol > type)
+    {
+        type = normalized_antestatal_type(std::move(type));
+
+        if (value.type_is< quxlang::antestatal_ptrref >())
+        {
+            quxlang::antestatal_access const& access = value.get_as< quxlang::antestatal_ptrref >().target;
+            if (type.has_value() && type->type_is< quxlang::ptrref_type >() && type->get_as< quxlang::ptrref_type >().target.type_is< quxlang::procedure_type >())
+            {
+                return;
+            }
+
+            add_antestatal_globals_from_antestatal_access(result, access);
+            return;
+        }
+
+        if (value.type_is< quxlang::antestatal_array >())
+        {
+            std::optional< quxlang::type_symbol > element_type;
+            if (type.has_value() && type->type_is< quxlang::array_type >())
+            {
+                element_type = type->get_as< quxlang::array_type >().element_type;
+            }
+
+            for (quxlang::antestatal_value const& element : value.get_as< quxlang::antestatal_array >().elements)
+            {
+                add_antestatal_globals_from_antestatal_value(result, element, element_type);
+            }
+            return;
+        }
+
+        if (value.type_is< quxlang::antestatal_struct >())
+        {
+            for (auto const& [_, field_value] : value.get_as< quxlang::antestatal_struct >().fields)
+            {
+                add_antestatal_globals_from_antestatal_value(result, field_value, std::nullopt);
+            }
+        }
+    }
 } // namespace
 
 auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const& routine) -> std::set< type_symbol >
@@ -316,6 +394,11 @@ auto quxlang::vmir2::directly_instantiated_functanoids(functanoid_routine3 const
         }
     }
 
+    for (auto const& [_, localdata] : routine.static_snapshots)
+    {
+        add_functanoids_from_antestatal_value(result, localdata.value, localdata.type);
+    }
+
     return result;
 }
 
@@ -323,6 +406,45 @@ auto quxlang::vmir2::directly_instantiated_functanoids(antestatal_value const& v
 {
     std::set< type_symbol > result;
     add_functanoids_from_antestatal_value(result, value, std::move(type));
+    return result;
+}
+
+auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 const& routine) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    std::set< type_symbol > localdata_roots;
+    for (auto const& [symbol, localdata] : routine.static_snapshots)
+    {
+        localdata_roots.insert(type_symbol(symbol));
+        add_antestatal_globals_from_antestatal_value(result, localdata.value, localdata.type);
+    }
+
+    for (executable_block const& block : routine.blocks)
+    {
+        for (vm_instruction const& instruction : block.instructions)
+        {
+            if (!instruction.type_is< get_antestatal_ref >())
+            {
+                continue;
+            }
+
+            type_symbol const& symbol = instruction.as< get_antestatal_ref >().symbol;
+            if (localdata_roots.contains(symbol))
+            {
+                continue;
+            }
+
+            add_antestatal_global(result, symbol);
+        }
+    }
+
+    return result;
+}
+
+auto quxlang::vmir2::directly_referenced_antestatal_globals(antestatal_value const& value, std::optional< type_symbol > type) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    add_antestatal_globals_from_antestatal_value(result, value, std::move(type));
     return result;
 }
 

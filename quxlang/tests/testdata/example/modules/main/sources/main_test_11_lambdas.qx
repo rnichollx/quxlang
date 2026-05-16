@@ -30,7 +30,7 @@
 ::lambda_nested_capture_bubbling_call FUNCTION(): I32
 {
   VAR x I32 := 5;
-  RETURN (-< = (-< = x)())();
+  RETURN (-< = (-< = (-< = x)())())();
 }
 
 ::lambda_static_path_sensitive_capture_call FUNCTION(): I32

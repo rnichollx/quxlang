@@ -12,6 +12,7 @@
 #include <optional>
 #include <set>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace
@@ -61,7 +62,8 @@ namespace
 
         auto add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >;
         auto add_layouts_for_routine(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::vmir2::functanoid_routine3 const& routine) -> run_static_test_coroutine::cosubroutine< void >;
-        auto provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< std::set< quxlang::type_symbol > >;
+        auto provide_antestatal_global(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol const& symbol)
+            -> run_static_test_coroutine::cosubroutine< std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > >;
     };
 
     auto static_test_dependency_provider::add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >
@@ -123,29 +125,21 @@ namespace
         }
     }
 
-    auto static_test_dependency_provider::provide_missing_antestatal_globals(quxlang::vmir2::ir2_constexpr_interpreter& interp) -> run_static_test_coroutine::cosubroutine< std::set< quxlang::type_symbol > >
+    auto static_test_dependency_provider::provide_antestatal_global(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol const& symbol)
+        -> run_static_test_coroutine::cosubroutine< std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > >
     {
-        std::set< quxlang::type_symbol > discovered_functanoids;
-        while (!interp.missing_antestatal_globals().empty())
+        if (!(co_await rpnx::querygraph::request< quxlang::global_is_antestatal_static_query >(symbol)))
         {
-            auto missing_antestatal_globals = interp.missing_antestatal_globals();
-
-            for (quxlang::type_symbol const& symbol : missing_antestatal_globals)
-            {
-                if (!(co_await rpnx::querygraph::request< quxlang::global_is_antestatal_static_query >(symbol)))
-                {
-                    throw quxlang::compiler_bug("constexpr interpreter requested non-antestatal global data: " + quxlang::to_string(symbol));
-                }
-
-                auto type = co_await rpnx::querygraph::request< quxlang::variable_type_query >(symbol);
-                co_await add_layouts_for_type(interp, type);
-                auto value = co_await rpnx::querygraph::request< quxlang::antestatal_static_value_query >(symbol);
-                std::set< quxlang::type_symbol > const value_functanoids = quxlang::vmir2::directly_instantiated_functanoids(value, type);
-                discovered_functanoids.insert(value_functanoids.begin(), value_functanoids.end());
-                interp.add_constexpr_antestatal_global(symbol, type, std::move(value));
-            }
+            throw quxlang::compiler_bug("constexpr interpreter requested non-antestatal global data: " + quxlang::to_string(symbol));
         }
-        co_return discovered_functanoids;
+
+        quxlang::type_symbol type = co_await rpnx::querygraph::request< quxlang::variable_type_query >(symbol);
+        co_await add_layouts_for_type(interp, type);
+        quxlang::antestatal_value value = co_await rpnx::querygraph::request< quxlang::antestatal_static_value_query >(symbol);
+        std::set< quxlang::type_symbol > value_functanoids = quxlang::vmir2::directly_instantiated_functanoids(value, type);
+        std::set< quxlang::type_symbol > value_antestatal_globals = quxlang::vmir2::directly_referenced_antestatal_globals(value, type);
+        interp.add_constexpr_antestatal_global(symbol, type, std::move(value));
+        co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     }
 
     auto generate_static_test_routine(quxlang::type_symbol input, quxlang::ast2_static_test const& test) -> run_static_test_coroutine::cosubroutine< quxlang::vmir2::functanoid_routine3 >
@@ -163,6 +157,9 @@ namespace
         std::vector< quxlang::instanciation_reference > pending_functanoids;
         std::set< quxlang::type_symbol > queued_functanoids;
         std::set< quxlang::type_symbol > loaded_functanoids;
+        std::vector< quxlang::type_symbol > pending_antestatal_globals;
+        std::set< quxlang::type_symbol > queued_antestatal_globals;
+        std::set< quxlang::type_symbol > loaded_antestatal_globals;
 
         auto enqueue_functanoid = [&](quxlang::type_symbol const& funcname)
         {
@@ -185,6 +182,23 @@ namespace
             }
         };
 
+        auto enqueue_antestatal_global = [&](quxlang::type_symbol const& symbol)
+        {
+            if (loaded_antestatal_globals.contains(symbol) || !queued_antestatal_globals.insert(symbol).second)
+            {
+                return;
+            }
+            pending_antestatal_globals.push_back(symbol);
+        };
+
+        auto enqueue_antestatal_globals = [&](std::set< quxlang::type_symbol > const& symbols)
+        {
+            for (quxlang::type_symbol const& symbol : symbols)
+            {
+                enqueue_antestatal_global(symbol);
+            }
+        };
+
         auto add_layouts_for_functanoid = [&](quxlang::instanciation_reference const& functanoid) -> run_static_test_coroutine::cosubroutine< void >
         {
             std::set< quxlang::type_symbol > const required_layouts = co_await rpnx::querygraph::request< quxlang::functanoid_required_class_layouts_query >(
@@ -197,12 +211,26 @@ namespace
 
         co_await dependency_provider.add_layouts_for_routine(interp, routine);
         enqueue_functanoids(quxlang::vmir2::directly_instantiated_functanoids(routine));
+        enqueue_antestatal_globals(quxlang::vmir2::directly_referenced_antestatal_globals(routine));
         interp.add_functanoid3(quxlang::void_type{}, routine);
         loaded_functanoids.insert(quxlang::type_symbol(quxlang::void_type{}));
 
-        while (!pending_functanoids.empty() || !interp.missing_antestatal_globals().empty())
+        while (!pending_functanoids.empty() || !pending_antestatal_globals.empty())
         {
-            enqueue_functanoids(co_await dependency_provider.provide_missing_antestatal_globals(interp));
+            while (!pending_antestatal_globals.empty())
+            {
+                quxlang::type_symbol symbol = std::move(pending_antestatal_globals.back());
+                pending_antestatal_globals.pop_back();
+                if (loaded_antestatal_globals.contains(symbol))
+                {
+                    continue;
+                }
+
+                std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > requirements = co_await dependency_provider.provide_antestatal_global(interp, symbol);
+                loaded_antestatal_globals.insert(symbol);
+                enqueue_functanoids(requirements.first);
+                enqueue_antestatal_globals(requirements.second);
+            }
 
             while (!pending_functanoids.empty())
             {
@@ -219,6 +247,7 @@ namespace
                 quxlang::vmir2::functanoid_routine3 const& missing_routine = co_await rpnx::querygraph::request< quxlang::vm_procedure3_query >(functanoid);
                 interp.add_functanoid3(funcname, missing_routine);
                 loaded_functanoids.insert(funcname);
+                enqueue_antestatal_globals(quxlang::vmir2::directly_referenced_antestatal_globals(missing_routine));
 
                 std::set< quxlang::type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< quxlang::functanoid_indirectly_instantiated_functanoids_query >(
                     quxlang::functanoid_requirement_input{.functanoid = functanoid, .compilation_type = quxlang::functanoid_compilation_type::all});

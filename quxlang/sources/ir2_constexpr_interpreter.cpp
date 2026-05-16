@@ -4304,17 +4304,6 @@ std::map< std::uint64_t, quxlang::constexpr_serialoid > quxlang::vmir2::ir2_cons
 {
     return this->implementation->constexpr_result_serialoid_values;
 }
-
-std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_functanoids()
-{
-    return this->implementation->missing_functanoids_val;
-}
-
-std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_antestatal_globals()
-{
-    return this->implementation->missing_antestatal_globals_val;
-}
-
 std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_local_as_data(vmir2::local_index slot)
 {
     auto& frame = get_current_frame();
