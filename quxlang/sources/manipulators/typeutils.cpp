@@ -1305,6 +1305,14 @@ namespace quxlang
             return results;
         }
 
+        if (typeis< thistype >(template_type))
+        {
+            template_match_results output;
+            output.type = type;
+            results = std::move(output);
+            return results;
+        }
+
         if (is_auto_ref(template_type))
         {
             // Matches any reference type
@@ -1381,6 +1389,38 @@ namespace quxlang
             };
             return match;
         }
+        else if (typeis< nvalue_slot >(template_type))
+        {
+            if (!type.type_is< nvalue_slot >())
+            {
+                return std::nullopt;
+            }
+
+            auto match = match_template_noconv(as< nvalue_slot >(template_type).target, as< nvalue_slot >(type).target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = nvalue_slot{.target = std::move(match->type)};
+            return match;
+        }
+        else if (typeis< dvalue_slot >(template_type))
+        {
+            if (!type.type_is< dvalue_slot >())
+            {
+                return std::nullopt;
+            }
+
+            auto match = match_template_noconv(as< dvalue_slot >(template_type).target, as< dvalue_slot >(type).target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = dvalue_slot{.target = std::move(match->type)};
+            return match;
+        }
         else if (typeis< subsymbol >(template_type))
         {
             auto const& sub_template = as< subsymbol >(template_type);
@@ -1442,7 +1482,7 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type) || typeis< string_literal_reference >(template_type));
         return std::nullopt;
     }
 
@@ -1501,6 +1541,14 @@ namespace quxlang
             {
                 output.matches[name] = type;
             }
+            output.type = type;
+            results = std::move(output);
+            return results;
+        }
+
+        if (typeis< thistype >(template_type))
+        {
+            template_match_results output;
             output.type = type;
             results = std::move(output);
             return results;
@@ -1582,6 +1630,38 @@ namespace quxlang
             };
             return match;
         }
+        else if (typeis< nvalue_slot >(template_type))
+        {
+            if (!type.type_is< nvalue_slot >())
+            {
+                return std::nullopt;
+            }
+
+            auto match = match_template(as< nvalue_slot >(template_type).target, as< nvalue_slot >(type).target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = nvalue_slot{.target = std::move(match->type)};
+            return match;
+        }
+        else if (typeis< dvalue_slot >(template_type))
+        {
+            if (!type.type_is< dvalue_slot >())
+            {
+                return std::nullopt;
+            }
+
+            auto match = match_template(as< dvalue_slot >(template_type).target, as< dvalue_slot >(type).target);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+
+            match->type = dvalue_slot{.target = std::move(match->type)};
+            return match;
+        }
         else if (typeis< subsymbol >(template_type))
         {
             auto const& sub_template = as< subsymbol >(template_type);
@@ -1645,7 +1725,7 @@ namespace quxlang
 
         std::string template_type_str = quxlang::to_string(template_type);
         std::string type_str = quxlang::to_string(type);
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type) || typeis< string_literal_reference >(template_type));
         return std::nullopt;
     }
 

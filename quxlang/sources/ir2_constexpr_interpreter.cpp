@@ -1715,9 +1715,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto local_a = load_from_reference(swp.a, true);
     auto local_b = load_from_reference(swp.b, true);
 
-    auto& frame = get_current_frame();
-
     std::swap(local_a->data, local_b->data);
+    std::swap(local_a->negative, local_b->negative);
+    std::swap(local_a->actual_type, local_b->actual_type);
+    std::swap(local_a->procedure, local_b->procedure);
+    std::swap(local_a->interface_value, local_b->interface_value);
+    std::swap(local_a->ref, local_b->ref);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::to_bool const& tb)
 {

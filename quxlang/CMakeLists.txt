@@ -278,6 +278,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/source_file_id_spec.hpp
         include/quxlang/queries/specs/source_file_index_spec.hpp
         include/quxlang/queries/specs/source_file_name_spec.hpp
+        include/quxlang/queries/specs/static_test_vmir_spec.hpp
         include/quxlang/queries/specs/string_static_value_spec.hpp
         include/quxlang/queries/specs/symboid_spec.hpp
         include/quxlang/queries/specs/symboid_subdeclaroids_spec.hpp
@@ -391,6 +392,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/implementation_interface_type.cpp
         sources/queries/implicitly_convertible_to.cpp
         sources/queries/instanciation.cpp
+        sources/queries/instanciation_concrete_params.cpp
         sources/queries/instanciation_tempar_map.cpp
         sources/queries/interpret_bool.cpp
         sources/queries/interpret_value.cpp
@@ -412,6 +414,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/source_file_id.cpp
         sources/queries/source_file_index.cpp
         sources/queries/source_file_name.cpp
+        sources/queries/static_test_vmir.cpp
         sources/queries/string_static_value.cpp
         sources/queries/sintpointer_type.cpp
         sources/queries/symboid.cpp

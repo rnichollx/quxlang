@@ -9,6 +9,10 @@
 
 namespace quxlang
 {
+    /// Generates a built-in routine
+    /// @pre The input references a routine which is already determined to be builtin and require generation.
+    /// @param input The instanciation_reference to the built-in routine
+    /// @retval output The resulting generated routine.
     struct builtin_vm_procedure3_query
     {
         static constexpr auto query_id = "builtin_vm_procedure3";

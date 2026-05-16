@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/functanoid_sigtype.hpp>
 #include <quxlang/queries/functanoid_return_type.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -14,7 +15,7 @@ namespace quxlang
     struct functanoid_sigtype_spec
     {
         using query = functanoid_sigtype_query;
-        using dependencies = rpnx::typelist< functanoid_return_type_query >;
+        using dependencies = rpnx::typelist< functanoid_return_type_query, instanciation_concrete_params_query >;
     };
 
     rpnx::querygraph::coroutine< functanoid_sigtype_spec > functanoid_sigtype_impl(instanciation_reference input);

@@ -88,6 +88,7 @@
 #include <quxlang/queries/specs/implementation_interface_type_spec.hpp>
 #include <quxlang/queries/specs/implicitly_convertible_to_spec.hpp>
 #include <quxlang/queries/specs/instanciation_spec.hpp>
+#include <quxlang/queries/specs/instanciation_concrete_params_spec.hpp>
 #include <quxlang/queries/specs/instanciation_tempar_map_spec.hpp>
 #include <quxlang/queries/specs/interpret_bool_spec.hpp>
 #include <quxlang/queries/specs/interpret_value_spec.hpp>
@@ -110,6 +111,7 @@
 #include <quxlang/queries/specs/source_file_id_spec.hpp>
 #include <quxlang/queries/specs/source_file_index_spec.hpp>
 #include <quxlang/queries/specs/source_file_name_spec.hpp>
+#include <quxlang/queries/specs/static_test_vmir_spec.hpp>
 #include <quxlang/queries/specs/string_static_value_spec.hpp>
 #include <quxlang/queries/specs/symboid_spec.hpp>
 #include <quxlang/queries/specs/symboid_subdeclaroids_spec.hpp>
@@ -291,6 +293,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< implementation_interface_type_spec >(implementation_interface_type_impl);
     m_graph.register_handler_function< implicitly_convertible_to_spec >(implicitly_convertible_to_impl);
     m_graph.register_handler_function< instanciation_spec >(instanciation_impl);
+    m_graph.register_handler_function< instanciation_concrete_params_spec >(instanciation_concrete_params_impl);
     m_graph.register_handler_function< instanciation_tempar_map_spec >(instanciation_tempar_map_impl);
     m_graph.register_handler_function< interpret_bool_spec >(interpret_bool_impl);
     m_graph.register_handler_function< interpret_value_spec >(interpret_value_impl);
@@ -313,6 +316,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< source_file_id_spec >(source_file_id_impl);
     m_graph.register_handler_function< source_file_index_spec >(source_file_index_impl);
     m_graph.register_handler_function< source_file_name_spec >(source_file_name_impl);
+    m_graph.register_handler_function< static_test_vmir_spec >(static_test_vmir_impl);
     m_graph.register_handler_function< string_static_value_spec >(string_static_value_impl);
     m_graph.register_handler_function< symboid_spec >(symboid_impl);
     m_graph.register_handler_function< symboid_subdeclaroids_spec >(symboid_subdeclaroids_impl);

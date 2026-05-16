@@ -26,6 +26,7 @@
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
@@ -33,6 +34,7 @@
 #include <quxlang/queries/run_static_test.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
+#include <quxlang/queries/static_test_vmir.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
@@ -73,12 +75,14 @@ namespace quxlang
             global_is_antestatal_static_query,
             implicitly_convertible_to_qg_query,
             instanciation_query,
+            instanciation_concrete_params_query,
             interface_slot_list_query,
             lookup_query,
             machine_info_query,
             module_options_map_query,
             source_bundle_query,
             source_file_index_query,
+            static_test_vmir_query,
             symboid_query,
             symbol_type_query,
             temploid_formal_ensig_query,

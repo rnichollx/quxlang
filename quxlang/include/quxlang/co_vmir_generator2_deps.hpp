@@ -35,6 +35,7 @@
 #include <quxlang/queries/implementation_interface_type.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
@@ -82,6 +83,7 @@ namespace quxlang
         implementation_interface_type_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
+        instanciation_concrete_params_query,
         interface_slot_list_query,
         lookup_query,
         machine_info_query,
@@ -124,6 +126,7 @@ namespace quxlang
         implementation_interface_type_query,
         implicitly_convertible_to_qg_query,
         instanciation_query,
+        instanciation_concrete_params_query,
         interface_slot_list_query,
         lookup_query,
         machine_info_query,

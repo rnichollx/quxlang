@@ -61,7 +61,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        }
        else
        {
-         throw rpnx::unimplemented();
+         throw compiler_bug("temploid_reference parent resolved to unexpected symbol kind " + std::to_string(static_cast<int>(templexoid_type)) + ": " + to_string(temploid.templexoid));
        }
     }
 
@@ -205,7 +205,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         }
         else
         {
-            throw rpnx::unimplemented();
+            throw compiler_bug("subsymbol/submember resolved to unsupported symboid kind for " + to_string(input));
         }
     }
     else if (typeis <array_type>(input))
@@ -269,8 +269,8 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        }
        else
        {
-          throw rpnx::unimplemented();
+          throw compiler_bug("instanciation_reference resolved to unsupported symboid kind for " + to_string(input));
        }
     }
-    throw rpnx::unimplemented();
+    throw compiler_bug("symbol_type does not support symbol: " + to_string(input));
 }

@@ -22,7 +22,12 @@ rpnx::querygraph::coroutine< quxlang::user_move_ctor_exists_spec > quxlang::user
 
     for (auto& ol : user_defined_ctor)
     {
-        auto candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = ol, .params = instatype_from_invotype(ctor_call_type), .adaptations = allowed_adaptations::none});
+        auto candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({
+            .ensig = ol,
+            .params = instatype_from_invotype(ctor_call_type),
+            .adaptations = allowed_adaptations::none,
+            .type_of_this = input,
+        });
 
         if (candidate)
         {

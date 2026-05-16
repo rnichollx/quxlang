@@ -29,6 +29,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
 
     bool is_member_functum = typeis< submember >(input);
     std::optional< type_symbol > class_type;
+    type_symbol thistype_type = thistype{};
     bool is_ctor = false;
     bool is_dtor = false;
     if (is_member_functum)
@@ -89,15 +90,15 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
 
             if (is_ctor)
             {
-                this_argif.type = nvalue_slot{.target = class_type.value()};
+                this_argif.type = nvalue_slot{.target = thistype_type};
             }
             else if (is_dtor)
             {
-                this_argif.type = dvalue_slot{.target = class_type.value()};
+                this_argif.type = dvalue_slot{.target = thistype_type};
             }
             else
             {
-                this_argif.type = ptrref_type{.target = class_type.value(), .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
+                this_argif.type = ptrref_type{.target = thistype_type, .ptr_class = pointer_class::ref, .qual = qualifier::auto_};
             }
 
             formal_ensig.interface.named["THIS"] = this_argif;

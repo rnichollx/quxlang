@@ -18,7 +18,21 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::list_builtin_constructors_impl(type_symbol input)
 {
+    if (typeis< nvalue_slot >(input))
+    {
+        input = as< nvalue_slot >(input).target;
+    }
+    else if (typeis< dvalue_slot >(input))
+    {
+        input = as< dvalue_slot >(input).target;
+    }
+
     std::set< builtin_function_info > result;
+    if (typeis< thistype >(input))
+    {
+        co_return result;
+    }
+
     auto make_overload = [&](std::vector< type_symbol > positionals, std::map< std::string, type_symbol > named, type_symbol return_type, std::optional< expression > enable_if = std::nullopt, std::optional< std::int32_t > priority = std::nullopt)
     {
         builtin_function_info bl_info;

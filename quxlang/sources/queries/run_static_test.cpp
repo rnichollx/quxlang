@@ -142,13 +142,6 @@ namespace
         co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     }
 
-    auto generate_static_test_routine(quxlang::type_symbol input, quxlang::ast2_static_test const& test) -> run_static_test_coroutine::cosubroutine< quxlang::vmir2::functanoid_routine3 >
-    {
-        auto machine_info = co_await rpnx::querygraph::request< quxlang::machine_info_query >(quxlang::machine_info_query::input_type{});
-        quxlang::co_vmir_generator2< run_static_test_coroutine > gen(machine_info, input);
-        co_return co_await gen.co_generate_static_test(test);
-    }
-
     auto execute_static_test_routine(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::source_index source_index) -> run_static_test_coroutine::cosubroutine< void >
     {
         quxlang::vmir2::ir2_constexpr_interpreter interp;
@@ -272,7 +265,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
     try
     {
-        routine = co_await generate_static_test_routine(input, test);
+        routine = co_await rpnx::querygraph::request< quxlang::static_test_vmir_query >(input);
     }
     catch (compiler_bug const&)
     {

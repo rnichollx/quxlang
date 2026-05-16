@@ -19,7 +19,7 @@ rpnx::querygraph::coroutine< quxlang::list_user_functum_formal_paratypes_spec > 
     bool is_constructor = is_member_func && input.get_as< submember >().name == "CONSTRUCTOR";
     bool is_destructor = is_member_func && input.get_as< submember >().name == "DESTRUCTOR";
 
-    auto thistype_type = type_parent(input).value_or(void_type{});
+    type_symbol thistype_type = thistype{};
 
     for (auto const& decl : decls)
     {

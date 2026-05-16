@@ -579,8 +579,13 @@ namespace quxlang
         temploid_ensig ensig;
         instatype params;
         allowed_adaptations adaptations = allowed_adaptations::destination_rebinding;
+        /**
+         * Concrete owning type used when matching a formal THIS parameter that contains THISTYPE.
+         * When this is VOID, THISTYPE is left as-is during ensig matching.
+         */
+        type_symbol type_of_this = void_type{};
 
-        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations);
+        RPNX_MEMBER_METADATA(ensig_initialization, ensig, params, adaptations, type_of_this);
     };
 
     struct initialization_reference
@@ -594,12 +599,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(initialization_reference, initializee, context, arguments, parameters, adaptations);
     };
 
-    /// Reference to a selected overload instantiated with concrete template arguments.
+    /// Reference to a selected overload instantiated with canonical formal template arguments.
     struct instanciation_reference
     {
         /// Selected overload reference for the instantiated templexoid or functum.
         temploid_reference temploid;
-        /// Materialized template arguments for the selected overload.
+        /// Canonical formal template arguments for the selected overload.
+        /// Synthesized member THIS parameters use THISTYPE here rather than the owning concrete class.
         instatype params;
 
         RPNX_MEMBER_METADATA(instanciation_reference, temploid, params);

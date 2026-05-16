@@ -135,10 +135,17 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
         }
     }
 
+    type_symbol type_of_this = void_type{};
+    if (typeis< submember >(temploid.templexoid))
+    {
+        type_of_this = as< submember >(temploid.templexoid).of;
+    }
+
     auto params = co_await rpnx::querygraph::request< ensig_initialize_query >(ensig_initialization{
         .ensig = *formal_ensig,
         .params = std::move(actual_params),
         .adaptations = allowed_adaptations::none,
+        .type_of_this = type_of_this,
     });
     if (!params.has_value())
     {

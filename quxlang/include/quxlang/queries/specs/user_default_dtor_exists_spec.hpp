@@ -5,7 +5,7 @@
 
 #include <quxlang/queries/user_default_dtor_exists.hpp>
 #include <quxlang/queries/function_ensig_init_with.hpp>
-#include <quxlang/queries/functum_overloads.hpp>
+#include <quxlang/queries/functum_user_overloads.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -15,7 +15,7 @@ namespace quxlang
     struct user_default_dtor_exists_spec
     {
         using query = user_default_dtor_exists_query;
-        using dependencies = rpnx::typelist< function_ensig_init_with_query, functum_overloads_query >;
+        using dependencies = rpnx::typelist< function_ensig_init_with_query, functum_user_overloads_query >;
     };
 
     rpnx::querygraph::coroutine< user_default_dtor_exists_spec > user_default_dtor_exists_impl(type_symbol input);

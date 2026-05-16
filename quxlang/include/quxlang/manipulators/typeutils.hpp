@@ -127,10 +127,13 @@ namespace quxlang
         return ptrref_type{.target = remove_ref(ref), .ptr_class = pointer_class::ref, .qual = qualifier::constant};
     }
 
-    inline type_symbol create_nslot(type_symbol ref)
+    inline type_symbol create_nslot(type_symbol ref, cxx_source_location loc = cxx_source_location::current())
     {
-        assert(!typeis< nvalue_slot >(ref));
-        return nvalue_slot{ref};
+        if (typeis< nvalue_slot >(ref))
+        {
+            throw assert_failure("create_nslot received an nvalue_slot: " + to_string(ref), loc);
+        }
+        return nvalue_slot{std::move(ref)};
     }
 
     bool is_ref(type_symbol type);

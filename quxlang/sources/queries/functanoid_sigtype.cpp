@@ -10,7 +10,8 @@ rpnx::querygraph::coroutine< quxlang::functanoid_sigtype_spec > quxlang::functan
     assert(!type_is_contextual(input));
     sigtype result;
 
-    result.params = invotype_from_instatype(input.params);
+    auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(input);
+    result.params = invotype_from_instatype(concrete_params);
 
     result.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(input);
 

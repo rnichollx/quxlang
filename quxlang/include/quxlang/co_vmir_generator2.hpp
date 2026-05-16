@@ -48,6 +48,7 @@
 #include "quxlang/queries/implementation_interface_type.hpp"
 #include "quxlang/queries/implicitly_convertible_to.hpp"
 #include "quxlang/queries/instanciation.hpp"
+#include "quxlang/queries/instanciation_concrete_params.hpp"
 #include "quxlang/queries/interface_slot_list.hpp"
 #include "quxlang/queries/lambda_capture_set.hpp"
 #include "quxlang/queries/lambda_environment.hpp"
@@ -925,11 +926,17 @@ namespace quxlang
         auto co_describe_invalid_call_candidate(type_symbol const& func, temploid_ensig const& ensig, instatype const& params, allowed_adaptations adaptations) -> co_type< std::string >
         {
             std::string note = "  candidate: " + to_string(func) + " " + to_string(ensig.interface);
+            type_symbol type_of_this = void_type{};
+            if (typeis< submember >(func))
+            {
+                type_of_this = as< submember >(func).of;
+            }
 
             std::optional< instatype > const accepted = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
                 .ensig = ensig,
                 .params = params,
                 .adaptations = adaptations,
+                .type_of_this = type_of_this,
             });
             if (accepted.has_value())
             {
@@ -1267,10 +1274,166 @@ namespace quxlang
             return local.local_index;
         }
 
+        /// Returns true when a runtime/codegen type still contains THISTYPE outside allowed symbol-identity positions.
+        static auto has_forbidden_codegen_thistype(type_symbol const& type, bool in_symbol_identity = false) -> bool
+        {
+            if (typeis< thistype >(type))
+            {
+                return !in_symbol_identity;
+            }
+            if (typeis< ptrref_type >(type))
+            {
+                return has_forbidden_codegen_thistype(as< ptrref_type >(type).target, in_symbol_identity);
+            }
+            if (typeis< nvalue_slot >(type))
+            {
+                return has_forbidden_codegen_thistype(as< nvalue_slot >(type).target, in_symbol_identity);
+            }
+            if (typeis< dvalue_slot >(type))
+            {
+                return has_forbidden_codegen_thistype(as< dvalue_slot >(type).target, in_symbol_identity);
+            }
+            if (typeis< attached_type_reference >(type))
+            {
+                attached_type_reference const& attached = as< attached_type_reference >(type);
+                return has_forbidden_codegen_thistype(attached.carrying_type, in_symbol_identity) || has_forbidden_codegen_thistype(attached.attached_symbol, in_symbol_identity);
+            }
+            if (typeis< array_type >(type))
+            {
+                return has_forbidden_codegen_thistype(as< array_type >(type).element_type, in_symbol_identity);
+            }
+            if (typeis< array_initializer_type >(type))
+            {
+                return has_forbidden_codegen_thistype(as< array_initializer_type >(type).element_type, in_symbol_identity);
+            }
+            if (typeis< procedure_type >(type))
+            {
+                procedure_type const& proc = as< procedure_type >(type);
+                for (auto const& [name, param_type] : proc.signature.params.named)
+                {
+                    (void)name;
+                    if (has_forbidden_codegen_thistype(param_type, in_symbol_identity))
+                    {
+                        return true;
+                    }
+                }
+                for (type_symbol const& param_type : proc.signature.params.positional)
+                {
+                    if (has_forbidden_codegen_thistype(param_type, in_symbol_identity))
+                    {
+                        return true;
+                    }
+                }
+                if (proc.signature.return_type.has_value() && has_forbidden_codegen_thistype(*proc.signature.return_type, in_symbol_identity))
+                {
+                    return true;
+                }
+                return false;
+            }
+            if (typeis< storage >(type))
+            {
+                for (type_symbol const& storable_type : as< storage >(type).storable_types)
+                {
+                    if (has_forbidden_codegen_thistype(storable_type, in_symbol_identity))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            if (typeis< initialization_reference >(type))
+            {
+                initialization_reference const& init = as< initialization_reference >(type);
+                if (has_forbidden_codegen_thistype(init.initializee, in_symbol_identity))
+                {
+                    return true;
+                }
+                if (init.context.has_value() && has_forbidden_codegen_thistype(*init.context, in_symbol_identity))
+                {
+                    return true;
+                }
+                for (parameter_instantiation const& param : init.parameters.positional)
+                {
+                    if (has_forbidden_codegen_thistype(parameter_instantiation_type(param), in_symbol_identity))
+                    {
+                        return true;
+                    }
+                }
+                for (auto const& [name, param] : init.parameters.named)
+                {
+                    (void)name;
+                    if (has_forbidden_codegen_thistype(parameter_instantiation_type(param), in_symbol_identity))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            if (typeis< subsymbol >(type))
+            {
+                return has_forbidden_codegen_thistype(as< subsymbol >(type).of, true);
+            }
+            if (typeis< submember >(type))
+            {
+                return has_forbidden_codegen_thistype(as< submember >(type).of, true);
+            }
+            if (typeis< temploid_reference >(type))
+            {
+                return has_forbidden_codegen_thistype(as< temploid_reference >(type).templexoid, true);
+            }
+            if (typeis< instanciation_reference >(type))
+            {
+                instanciation_reference const& inst = as< instanciation_reference >(type);
+                if (has_forbidden_codegen_thistype(inst.temploid.templexoid, true))
+                {
+                    return true;
+                }
+                for (parameter_instantiation const& param : inst.params.positional)
+                {
+                    if (has_forbidden_codegen_thistype(parameter_instantiation_type(param), true))
+                    {
+                        return true;
+                    }
+                }
+                for (auto const& [name, param] : inst.params.named)
+                {
+                    (void)name;
+                    if (has_forbidden_codegen_thistype(parameter_instantiation_type(param), true))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            if (typeis< static_local_ref >(type))
+            {
+                return has_forbidden_codegen_thistype(as< static_local_ref >(type).functanoid, true);
+            }
+            if (typeis< static_snapshot_ref >(type))
+            {
+                return has_forbidden_codegen_thistype(as< static_snapshot_ref >(type).functanoid, true);
+            }
+            if (typeis< decltype_type_ref >(type))
+            {
+                return has_forbidden_codegen_thistype(as< decltype_type_ref >(type).symbol, in_symbol_identity);
+            }
+            return false;
+        }
+
+        /// Throws a compiler bug when THISTYPE reaches a concrete runtime/codegen surface.
+        static auto validate_codegen_type(type_symbol const& type, std::string_view context) -> void
+        {
+            if (has_forbidden_codegen_thistype(type))
+            {
+                throw compiler_bug(std::string(context) + " cannot contain THISTYPE outside of member/lambda symbol identities: " + to_string(type));
+            }
+        }
+
         auto create_local_value(type_symbol type) -> value_index
         {
             // Locals cannot be nvalue or dvalue slots, that is only the case for parameters.
             assert(!type.template type_is< nvalue_slot >() && !type.template type_is< dvalue_slot >());
+            validate_codegen_type(type, "Codegen local type");
             codegen_local storage;
             this->state.locals.push_back(vmir2::local_type{.type = type});
             storage.local_index = local_index(this->state.locals.size() - 1);
@@ -1286,7 +1449,8 @@ namespace quxlang
             if (typeis< instanciation_reference >(routine))
             {
                 auto const& functanoid = as< instanciation_reference >(routine);
-                proc_type.signature.params = invotype_from_instatype(functanoid.params);
+                auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(functanoid);
+                proc_type.signature.params = invotype_from_instatype(concrete_params);
                 proc_type.signature.return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(functanoid);
             }
             else if (typeis< temploid_reference >(routine))
@@ -1375,6 +1539,7 @@ namespace quxlang
         auto adapt_args_for_instanciation(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, std::set< std::string > skip_named = {}) -> co_type< codegen_invocation_args >
         {
             codegen_invocation_args invocation_args;
+            auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
 
             auto create_arg_value = [&](value_index arg_expr_index, type_symbol arg_target_type) -> co_type< value_index >
             {
@@ -1394,7 +1559,7 @@ namespace quxlang
                 co_return co_await co_gen_argument_adaptation(bidx, arg_expr_index, arg_target_type, allowed_adaptations::destination_rebinding);
             };
 
-            for (auto const& [name, arg_accepted_type] : what.params.named)
+            for (auto const& [name, arg_accepted_type] : concrete_params.named)
             {
                 if (skip_named.contains(name))
                 {
@@ -1406,9 +1571,9 @@ namespace quxlang
             }
 
             std::size_t positional_write = 0;
-            for (std::size_t i = 0; i < what.params.positional.size(); i++)
+            for (std::size_t i = 0; i < concrete_params.positional.size(); i++)
             {
-                auto arg_accepted_type = parameter_instantiation_type(what.params.positional.at(i));
+                auto arg_accepted_type = parameter_instantiation_type(concrete_params.positional.at(i));
                 auto arg_expr_index = expression_args.positional.at(positional_write++);
                 invocation_args.positional.push_back(co_await create_arg_value(arg_expr_index, arg_accepted_type));
             }
@@ -1605,6 +1770,7 @@ namespace quxlang
         auto create_binding(value_index bindval, type_symbol bind_type)
         {
             assert(!type_is_contextual(bind_type));
+            validate_codegen_type(bind_type, "Codegen binding type");
             codegen_binding binding;
             binding.attached_symbol = bind_type;
             binding.bound_value = bindval;
@@ -2627,7 +2793,7 @@ namespace quxlang
 
         auto co_gen_call_functanoid(block_index& bidx, instanciation_reference what, codegen_invocation_args expression_args, allowed_adaptations adaptations) -> co_type< value_index >
         {
-            auto const& call_args_types = what.params;
+            auto call_args_types = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
 
             codegen_invocation_args invocation_args;
             auto function_decl_opt = co_await rpnx::querygraph::request< function_declaration_query >(what.temploid);
@@ -2845,16 +3011,18 @@ namespace quxlang
         {
             /// THIS IS THE MAIN BIND POINT FOR NEW INSTRUCTIONS AND BUILTIN TYPES
             /// DO NOT GENERATE NEW FUNCTIONS THAT ONLY OUTPUT ONE INSTRUCTION THEN RETURN
-            if (co_await this->co_try_emit_interface_builtin(bidx, what, args))
+            instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            invotype concrete_call = invotype_from_instatype(concrete_params);
+            if (co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args))
             {
                 co_return;
             }
-            if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, args))
+            if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, concrete_call, args))
             {
                 co_return;
             }
 
-            if (auto intrinsic = this->intrinsic_instruction(what, args); intrinsic.has_value())
+            if (auto intrinsic = this->intrinsic_instruction(what, concrete_call, args); intrinsic.has_value())
             {
                 this->emit(bidx, intrinsic.value());
                 co_return;
@@ -2878,7 +3046,7 @@ namespace quxlang
             // std::string args_str = to_string(args);
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = get_invocation_args(what, args);
+            ivk.args = get_invocation_args(concrete_params, args);
 
             this->emit(bidx, ivk);
 
@@ -2894,7 +3062,8 @@ namespace quxlang
             }
             submember const& member = as< submember >(what.temploid.templexoid);
             key.name = member.name;
-            key.concrete_params = invotype_from_instatype(what.params);
+            auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            key.concrete_params = invotype_from_instatype(concrete_params);
             key.concrete_params.named.erase("THIS");
 
             auto return_type = co_await rpnx::querygraph::request< functanoid_return_type_query >(what);
@@ -2918,7 +3087,7 @@ namespace quxlang
             throw compiler_bug("Interface slot not found after overload resolution");
         }
 
-        auto co_try_emit_interface_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        auto co_try_emit_interface_builtin(block_index& bidx, instanciation_reference const& what, invotype const&, codegen_invocation_args const& args) -> co_type< bool >
         {
             if (!typeis< submember >(what.temploid.templexoid))
             {
@@ -2931,8 +3100,6 @@ namespace quxlang
             {
                 co_return false;
             }
-
-            invotype call = invotype_from_instatype(what.params);
             if (member.name == "CONSTRUCTOR")
             {
                 if (args.named.contains("THIS") && args.size() == 1)
@@ -2985,8 +3152,6 @@ namespace quxlang
                                  });
                 co_return true;
             }
-
-            (void)call;
             co_return false;
         }
 
@@ -3009,10 +3174,12 @@ namespace quxlang
                 args.named["RETURN"] = *return_value;
             }
 
-            co_return co_await this->co_try_emit_interface_builtin(bidx, what, args);
+            instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
+            invotype concrete_call = invotype_from_instatype(concrete_params);
+            co_return co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args);
         }
 
-        auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, codegen_invocation_args const& args) -> co_type< bool >
+        auto co_try_emit_nominal_integer_builtin(block_index& bidx, instanciation_reference const& what, invotype const& call, codegen_invocation_args const& args) -> co_type< bool >
         {
             if (!typeis< submember >(what.temploid.templexoid))
             {
@@ -3025,8 +3192,6 @@ namespace quxlang
             {
                 co_return false;
             }
-
-            invotype call = invotype_from_instatype(what.params);
             auto emit_load_const_u64 = [&](value_index target, std::uint64_t value) -> void
             {
                 vmir2::load_const_int instr;
@@ -3365,7 +3530,7 @@ namespace quxlang
             return true;
         }
 
-        std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, codegen_invocation_args args)
+        std::optional< vmir2::vm_instruction > intrinsic_instruction(type_symbol func, invotype const& call, codegen_invocation_args args)
         {
             std::string funcname = to_string(func);
 
@@ -3436,7 +3601,6 @@ namespace quxlang
                 auto builtin = instanciation == nullptr ? nullptr : instanciation->temploid.templexoid.cast_ptr< builtin_symbol >();
                 if (builtin != nullptr && (builtin->name == "IEEE_EQUALS" || builtin->name == "IEEE_NOTEQUALS" || builtin->name == "IEEE_LESS" || builtin->name == "IEEE_GREATER"))
                 {
-                    auto call = invotype_from_instatype(instanciation->params);
                     if (call.positional.size() != 2 || !call.named.empty() || args.positional.size() != 2 || !args.named.contains("RETURN") || args.size() != 3)
                     {
                         throw compiler_bug(builtin->name + " intrinsic expects two positional arguments and a RETURN slot");
@@ -3514,8 +3678,6 @@ namespace quxlang
             {
                 return std::nullopt;
             }
-
-            auto call = invotype_from_instatype(instanciation->params);
 
             if (std::optional< type_symbol > atomic_value_type = atomic_type_argument(*cls); atomic_value_type.has_value())
             {
@@ -4640,10 +4802,11 @@ namespace quxlang
                 assert(args.size() == what.params.size());
             }
             std::string what_invoke = to_string(what);
+            instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
 
             vmir2::invoke ivk;
             ivk.what = what;
-            ivk.args = get_invocation_args(what, args);
+            ivk.args = get_invocation_args(concrete_params, args);
 
             this->emit(bidx, ivk);
             co_return;
@@ -6654,11 +6817,11 @@ namespace quxlang
                 auto source_it = source_state.find(idx);
                 if (source_it == source_state.end() || !source_it->second.alive())
                 {
-                    throw invalid_goto_error("Invalid GOTO :" + label_name + ": target requires live slot " + std::to_string(idx));
+                    throw semantic_compilation_error("Invalid GOTO :" + label_name + ": target requires live slot " + std::to_string(idx));
                 }
                 if (!this->goto_live_state_compatible(source_it->second, target_slot))
                 {
-                    throw invalid_goto_error("Invalid GOTO :" + label_name + ": target slot " + std::to_string(idx) + " has incompatible live state");
+                    throw semantic_compilation_error("Invalid GOTO :" + label_name + ": target slot " + std::to_string(idx) + " has incompatible live state");
                 }
             }
         }
@@ -6699,7 +6862,7 @@ namespace quxlang
             }
             auto const& [label_name, pending] = *this->state.pending_gotos.begin();
             (void)pending;
-            throw invalid_goto_error("Invalid GOTO :" + label_name + ": target label was not declared");
+            throw semantic_compilation_error("Invalid GOTO :" + label_name + ": target label was not declared");
         }
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_break_statement const& st) -> co_type< void >
@@ -6770,7 +6933,7 @@ namespace quxlang
             auto& label = this->state.goto_labels.at(st.name);
             if (label.declared)
             {
-                throw invalid_goto_error("Duplicate LABEL :" + st.name);
+                throw semantic_compilation_error("Duplicate LABEL :" + st.name);
             }
 
             auto label_state = this->state.blocks.at(current_block).current_state;
@@ -8010,13 +8173,13 @@ namespace quxlang
                 throw compiler_bug("Missing varuint VALUE argument");
             }
 
-            auto value_ref_type = parameter_instantiation_type(func.params.named.at("VALUE"));
-            if (!value_ref_type.type_is< ptrref_type >() || value_ref_type.get_as< ptrref_type >().ptr_class != pointer_class::ref)
+            type_symbol value_ref_type = this->state.params.named.at("VALUE").type;
+            if (!typeis< ptrref_type >(value_ref_type) || as< ptrref_type >(value_ref_type).ptr_class != pointer_class::ref)
             {
                 throw compiler_bug("varuint VALUE argument must be a reference");
             }
 
-            auto value_type = value_ref_type.get_as< ptrref_type >().target;
+            type_symbol value_type = as< ptrref_type >(value_ref_type).target;
             auto work_type = uintany_work_type(value_type);
             auto input_value = load_reference_value(current_block, *value_ref, value_type);
             auto remaining = convert_value(current_block, input_value, work_type);
@@ -8093,13 +8256,13 @@ namespace quxlang
                 throw compiler_bug("Missing varuint VALUE argument");
             }
 
-            auto value_ref_type = parameter_instantiation_type(func.params.named.at("VALUE"));
-            if (!value_ref_type.type_is< ptrref_type >() || value_ref_type.get_as< ptrref_type >().ptr_class != pointer_class::ref)
+            type_symbol value_ref_type = this->state.params.named.at("VALUE").type;
+            if (!typeis< ptrref_type >(value_ref_type) || as< ptrref_type >(value_ref_type).ptr_class != pointer_class::ref)
             {
                 throw compiler_bug("varuint VALUE argument must be a reference");
             }
 
-            auto value_type = value_ref_type.get_as< ptrref_type >().target;
+            type_symbol value_type = as< ptrref_type >(value_ref_type).target;
             auto work_type = uintany_work_type(value_type);
             auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
 
@@ -8948,6 +9111,8 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
+                instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(func);
+                invotype concrete_call = invotype_from_instatype(concrete_params);
                 if (typeis< submember >(func.temploid.templexoid))
                 {
                     submember const& member = as< submember >(func.temploid.templexoid);
@@ -8960,7 +9125,7 @@ namespace quxlang
                         co_return get_result();
                     }
                 }
-                if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
+                if (auto intrinsic = this->intrinsic_instruction(func, concrete_call, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
@@ -9005,6 +9170,8 @@ namespace quxlang
                 codegen_invocation_args args;
                 args.named["THIS"] = *thisidx;
                 args.named["OTHER"] = *otheridx;
+                instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(func);
+                invotype concrete_call = invotype_from_instatype(concrete_params);
                 if (typeis< submember >(func.temploid.templexoid))
                 {
                     submember const& member = as< submember >(func.temploid.templexoid);
@@ -9017,7 +9184,7 @@ namespace quxlang
                         co_return get_result();
                     }
                 }
-                if (auto intrinsic = this->intrinsic_instruction(func, args); intrinsic.has_value())
+                if (auto intrinsic = this->intrinsic_instruction(func, concrete_call, args); intrinsic.has_value())
                 {
                     this->emit(current_block, intrinsic.value());
                     co_await co_generate_builtin_return(current_block);
@@ -9382,6 +9549,8 @@ namespace quxlang
             }
 
             type_symbol return_parameter_type = create_nslot(return_type);
+            validate_codegen_type(return_type, "Return value type");
+            validate_codegen_type(return_parameter_type, "Return parameter type");
             value_index return_valueidx = this->create_local_value(std::move(return_type));
             local_index return_local_index = get_local_index(return_valueidx);
 
@@ -9472,6 +9641,7 @@ namespace quxlang
 
             assert(!type_is_contextual(func));
             instanciation_reference inst = func;
+            auto concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(inst);
 
             // This function should be called before generating any blocks.
             assert(this->state.blocks.empty());
@@ -9488,6 +9658,7 @@ namespace quxlang
 
             auto create_parameter_lookup = [&](type_symbol const& param_type, auto publish_runtime_parameter) -> value_index
             {
+                validate_codegen_type(param_type, "Routine parameter type");
                 if (typeis< attached_type_reference >(param_type))
                 {
                     attached_type_reference const& attached = as< attached_type_reference >(param_type);
@@ -9497,12 +9668,14 @@ namespace quxlang
                     }
 
                     type_symbol runtime_type = attached.carrying_type;
+                    validate_codegen_type(runtime_type, "Attached runtime parameter carrier type");
                     value_index carrier_idx = this->create_local_value(parameter_local_type(runtime_type));
                     publish_runtime_parameter(std::move(runtime_type), carrier_idx);
                     return this->create_binding(carrier_idx, attached.attached_symbol);
                 }
 
                 type_symbol runtime_type = param_type;
+                validate_codegen_type(runtime_type, "Runtime parameter type");
                 value_index param_idx = this->create_local_value(parameter_local_type(runtime_type));
                 publish_runtime_parameter(std::move(runtime_type), param_idx);
                 return param_idx;
@@ -9557,7 +9730,7 @@ namespace quxlang
                     {
                         auto const& api_name = param.api_name.value();
                         handled_named_parameters.insert(api_name);
-                        auto const& param_type = parameter_instantiation_type(inst.params.named.at(api_name));
+                        auto const& param_type = parameter_instantiation_type(concrete_params.named.at(api_name));
                         value_index arg_idx = create_named_parameter_lookup(api_name, param_type);
                         register_parameter_lookup_name(param.name, api_name, arg_idx);
                         continue;
@@ -9565,7 +9738,7 @@ namespace quxlang
 
                     if (!param.is_pack)
                     {
-                        auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
+                        auto const& param_type = parameter_instantiation_type(concrete_params.positional.at(positional_index));
                         value_index param_idx = create_positional_parameter_lookup(param_type);
                         if (param.name.has_value())
                         {
@@ -9576,9 +9749,9 @@ namespace quxlang
                     }
 
                     codegen_pack pack;
-                    while (positional_index < inst.params.positional.size())
+                    while (positional_index < concrete_params.positional.size())
                     {
-                        auto const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
+                        auto const& param_type = parameter_instantiation_type(concrete_params.positional.at(positional_index));
                         value_index param_idx = create_positional_parameter_lookup(param_type);
                         pack.values.push_back(param_idx);
                         pack.types.push_back(param_type);
@@ -9591,7 +9764,7 @@ namespace quxlang
                     }
                 }
 
-                for (auto const& [api_name, param] : inst.params.named)
+                for (auto const& [api_name, param] : concrete_params.named)
                 {
                     if (api_name == "RETURN")
                     {
@@ -9606,7 +9779,7 @@ namespace quxlang
                     this->state.top_level_lookups[api_name] = arg_idx;
                 }
 
-                if (positional_index != inst.params.positional.size())
+                if (positional_index != concrete_params.positional.size())
                 {
                     throw compiler_bug("Function argument generation did not consume all positional arguments");
                 }
@@ -9626,16 +9799,16 @@ namespace quxlang
                 auto const& interface_param = formal_ensig->interface.positional.at(interface_index);
                 if (interface_param.is_pack)
                 {
-                    while (positional_index < inst.params.positional.size())
+                    while (positional_index < concrete_params.positional.size())
                     {
-                        type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
+                        type_symbol const& param_type = parameter_instantiation_type(concrete_params.positional.at(positional_index));
                         create_positional_parameter_lookup(param_type);
                         positional_index++;
                     }
                     continue;
                 }
 
-                type_symbol const& param_type = parameter_instantiation_type(inst.params.positional.at(positional_index));
+                type_symbol const& param_type = parameter_instantiation_type(concrete_params.positional.at(positional_index));
                 value_index param_idx = create_positional_parameter_lookup(param_type);
                 if (interface_index < arg_names.positional.size() && arg_names.positional.at(interface_index).has_value())
                 {
@@ -9643,11 +9816,11 @@ namespace quxlang
                 }
                 positional_index++;
             }
-            if (positional_index != inst.params.positional.size())
+            if (positional_index != concrete_params.positional.size())
             {
                 throw compiler_bug("Builtin function argument generation did not consume all positional arguments");
             }
-            for (auto const& [api_name, param] : inst.params.named)
+            for (auto const& [api_name, param] : concrete_params.named)
             {
                 if (api_name == "RETURN")
                 {
@@ -9886,7 +10059,7 @@ namespace quxlang
             return result;
         }
 
-        auto get_invocation_args(instanciation_reference const& what, codegen_invocation_args const& args) -> vmir2::invocation_args
+        auto get_invocation_args(instatype const& concrete_params, codegen_invocation_args const& args) -> vmir2::invocation_args
         {
             vmir2::invocation_args result;
             for (auto const& [name, value] : args.named)
@@ -9897,7 +10070,7 @@ namespace quxlang
                     continue;
                 }
 
-                type_symbol param_type = parameter_instantiation_type(what.params.named.at(name));
+                type_symbol param_type = parameter_instantiation_type(concrete_params.named.at(name));
                 std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
                 if (!runtime_type.has_value())
                 {
@@ -9909,7 +10082,7 @@ namespace quxlang
 
             for (std::size_t index = 0; index < args.positional.size(); index++)
             {
-                type_symbol param_type = parameter_instantiation_type(what.params.positional.at(index));
+                type_symbol param_type = parameter_instantiation_type(concrete_params.positional.at(index));
                 std::optional< type_symbol > runtime_type = runtime_type_for_attached_parameter(param_type);
                 if (!runtime_type.has_value())
                 {

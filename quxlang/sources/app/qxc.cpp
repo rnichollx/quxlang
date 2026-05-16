@@ -1,13 +1,17 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/ast2/ast2_entity.hpp>
 #include "quxlang/data/contextual_type_reference.hpp"
 #include "quxlang/compiler_querygraph.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include "quxlang/queries/instanciation.hpp"
+#include "quxlang/queries/list_static_tests.hpp"
 #include "quxlang/queries/lookup.hpp"
+#include "quxlang/queries/static_test_vmir.hpp"
+#include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
 #include "quxlang/source_loader.hpp"
@@ -317,7 +321,7 @@ namespace
     /**
      * Writes one VMIR2 routine text file for qxc output.
      */
-    void write_vmir2_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text)
+    auto write_vmir2_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
     {
         std::filesystem::path const ir_path = build_dir / (quxlang::mangle(functanoid_symbol) + ".vmir2");
 
@@ -332,6 +336,8 @@ namespace
         {
             throw quxlang::compilation_error("Failed to write VMIR2 output file: " + ir_path.string());
         }
+
+        return ir_path;
     }
 
     /**
@@ -484,36 +490,47 @@ int main(int argc, char** argv)
                 }
             }
 
-            std::set< quxlang::type_symbol > compiled_functanoids;
-            for (output_entry const& output_entry : outputs_to_compile)
+            std::set< quxlang::type_symbol > compiled_routines;
+            auto compile_routine_tree =
+                [&](quxlang::type_symbol root_symbol, quxlang::vmir2::functanoid_routine3 const& root_routine, std::vector< quxlang::trace_frame > root_traceback) -> void
             {
-                if (!target_config.module_configurations.contains(output_entry.module_name))
-                {
-                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + output_entry.module_name + "'");
-                }
-
-                if (verbose)
-                {
-                    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-                    {
-                        std::cout << "Compiling VMIR2 output: " << target_name << "/" << output_entry.output_name << std::endl;
-                    }
-                }
-
                 std::vector< std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > > pending_functanoids;
                 std::set< quxlang::type_symbol > queued_functanoids;
 
                 auto enqueue_functanoid = [&](quxlang::instanciation_reference const& functanoid, std::vector< quxlang::trace_frame > traceback) -> void
                 {
                     quxlang::type_symbol functanoid_symbol = functanoid;
-                    if (compiled_functanoids.contains(functanoid_symbol) || !queued_functanoids.insert(functanoid_symbol).second)
+                    if (compiled_routines.contains(functanoid_symbol) || !queued_functanoids.insert(functanoid_symbol).second)
                     {
                         return;
                     }
                     pending_functanoids.push_back(std::make_pair(functanoid, std::move(traceback)));
                 };
 
-                enqueue_functanoid(resolve_entry_functanoid(graph, output_entry.module_name, output_entry.main_functanoid), {});
+                if (!compiled_routines.contains(root_symbol))
+                {
+                    quxlang::vmir2::assembler assembler(root_routine, *source_index);
+                    std::string const ir_text = assembler.to_string(root_routine);
+                    std::filesystem::path const ir_path = write_vmir2_text_file(build_dir, root_symbol, ir_text);
+                    if (verbose)
+                    {
+                        std::cout << "Wrote VMIR2: " << quxlang::to_string(root_symbol) << " -> " << ir_path.string() << std::endl;
+                    }
+                    compiled_routines.insert(root_symbol);
+                }
+
+                functanoid_reference_locations const root_dependencies = directly_referenced_functanoid_locations(graph, root_routine);
+                for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
+                {
+                    quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
+                    if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
+                    {
+                        throw quxlang::compiler_bug("VMIR2 dependency scan returned a non-instanciation reference: " + quxlang::to_string(referenced_symbol));
+                    }
+                    enqueue_functanoid(
+                        referenced_symbol.as< quxlang::instanciation_reference >(),
+                        make_dependency_traceback(root_traceback, root_symbol, referenced_functanoid.second));
+                }
 
                 while (!pending_functanoids.empty())
                 {
@@ -523,17 +540,14 @@ int main(int argc, char** argv)
                     quxlang::instanciation_reference functanoid = std::move(pending_functanoid.first);
                     std::vector< quxlang::trace_frame > dependency_traceback = std::move(pending_functanoid.second);
                     quxlang::type_symbol functanoid_symbol = functanoid;
-                    if (compiled_functanoids.contains(functanoid_symbol))
+                    if (compiled_routines.contains(functanoid_symbol))
                     {
                         continue;
                     }
 
                     if (verbose)
                     {
-                        if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-                        {
-                            std::cout << "Compiling VMIR2 function: " << quxlang::to_string(functanoid_symbol) << std::endl;
-                        }
+                        std::cout << "Compiling VMIR2 function: " << quxlang::to_string(functanoid_symbol) << std::endl;
                     }
 
                     quxlang::vmir2::functanoid_routine3 procedure;
@@ -549,9 +563,12 @@ int main(int argc, char** argv)
 
                     quxlang::vmir2::assembler assembler(procedure, *source_index);
                     std::string const ir_text = assembler.to_string(procedure);
-
-                    write_vmir2_text_file(build_dir, functanoid_symbol, ir_text);
-                    compiled_functanoids.insert(functanoid_symbol);
+                    std::filesystem::path const ir_path = write_vmir2_text_file(build_dir, functanoid_symbol, ir_text);
+                    if (verbose)
+                    {
+                        std::cout << "Wrote VMIR2: " << quxlang::to_string(functanoid_symbol) << " -> " << ir_path.string() << std::endl;
+                    }
+                    compiled_routines.insert(functanoid_symbol);
 
                     functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, procedure);
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
@@ -566,6 +583,51 @@ int main(int argc, char** argv)
                             make_dependency_traceback(dependency_traceback, functanoid_symbol, referenced_functanoid.second));
                     }
                 }
+            };
+
+            for (auto const& [module_name, _] : target_config.module_configurations)
+            {
+                quxlang::type_symbol const module_symbol = quxlang::absolute_module_reference{.module_name = module_name};
+                std::set< quxlang::type_symbol > const static_tests = graph.make_request< quxlang::list_static_tests_query >(module_symbol);
+                for (quxlang::type_symbol const& static_test_symbol : static_tests)
+                {
+                    auto sym = graph.make_request< quxlang::symboid_query >(static_test_symbol);
+                    if (!sym.type_is< quxlang::ast2_static_test >())
+                    {
+                        throw quxlang::compiler_bug("list_static_tests returned a non-static-test symbol: " + quxlang::to_string(static_test_symbol));
+                    }
+
+                    quxlang::ast2_static_test const& static_test_decl = sym.get_as< quxlang::ast2_static_test >();
+                    if (static_test_decl.expected_mode == quxlang::static_test_expected_mode::expect_compilation_failure)
+                    {
+                        continue;
+                    }
+
+                    if (verbose)
+                    {
+                        std::cout << "Compiling STATIC_TEST VMIR2: " << quxlang::to_string(static_test_symbol) << std::endl;
+                    }
+
+                    quxlang::vmir2::functanoid_routine3 static_test_routine = graph.make_request< quxlang::static_test_vmir_query >(static_test_symbol);
+                    compile_routine_tree(static_test_symbol, static_test_routine, {});
+                }
+            }
+
+            for (output_entry const& output_entry : outputs_to_compile)
+            {
+                if (!target_config.module_configurations.contains(output_entry.module_name))
+                {
+                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + output_entry.module_name + "'");
+                }
+
+                if (verbose)
+                {
+                    std::cout << "Compiling VMIR2 output: " << target_name << "/" << output_entry.output_name << std::endl;
+                }
+
+                quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_name, output_entry.main_functanoid);
+                quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
+                compile_routine_tree(entry_functanoid, entry_routine, {});
             }
             active_target_name.reset();
         }

@@ -19,6 +19,7 @@ namespace
     {
         std::uint64_t overload_id;
         quxlang::temploid_ensig ensig;
+        std::optional< quxlang::instatype > initialized_params;
     };
 
     /// Returns the index of a selected interface's positional pack, if it has one.
@@ -174,6 +175,46 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         co_yield rpnx::querygraph::debug_message("Select for {} in {}", quxlang::to_string(input), context_type);
     }
 
+    type_symbol selection_type_of_this = void_type{};
+    if (typeis< submember >(input.initializee))
+    {
+        selection_type_of_this = as< submember >(input.initializee).of;
+    }
+
+    auto ranked_this_param_type = [&](auto&& self, type_symbol type) -> type_symbol
+    {
+        if (typeis< thistype >(type) && !typeis< void_type >(selection_type_of_this))
+        {
+            return selection_type_of_this;
+        }
+        if (typeis< ptrref_type >(type))
+        {
+            ptrref_type output = as< ptrref_type >(type);
+            output.target = self(self, output.target);
+            return output;
+        }
+        if (typeis< nvalue_slot >(type))
+        {
+            nvalue_slot output = as< nvalue_slot >(type);
+            output.target = self(self, output.target);
+            return output;
+        }
+        if (typeis< dvalue_slot >(type))
+        {
+            dvalue_slot output = as< dvalue_slot >(type);
+            output.target = self(self, output.target);
+            return output;
+        }
+        if (typeis< attached_type_reference >(type))
+        {
+            attached_type_reference output = as< attached_type_reference >(type);
+            output.carrying_type = self(self, output.carrying_type);
+            output.attached_symbol = self(self, output.attached_symbol);
+            return output;
+        }
+        return type;
+    };
+
     for (auto const& o : overloads)
     {
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -198,7 +239,12 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             co_yield rpnx::querygraph::debug_message("  {}", ss.str());
         }
 
-        std::optional< instatype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o.ensig, .params = input.parameters, .adaptations = input.adaptations});
+        std::optional< instatype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({
+            .ensig = o.ensig,
+            .params = input.parameters,
+            .adaptations = input.adaptations,
+            .type_of_this = selection_type_of_this,
+        });
 
         if (candidate && typeis< submember >(input.initializee))
         {
@@ -250,17 +296,19 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
         if (candidate)
         {
+            function_overload_candidate accepted = o;
+            accepted.initialized_params = *candidate;
             std::size_t priority = o.ensig.priority.value_or(0);
 
             if (!highest_priority || priority > *highest_priority)
             {
                 highest_priority = priority;
                 best_match.clear();
-                best_match.push_back(o);
+                best_match.push_back(std::move(accepted));
             }
             else if (priority == *highest_priority)
             {
-                best_match.push_back(o);
+                best_match.push_back(std::move(accepted));
             }
         }
     }
@@ -294,8 +342,13 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (auto const& [name, arg] : input.parameters.named)
                 {
                     auto const& arg_type = parameter_instantiation_type(arg);
-                    auto const& candidate_param = candidate.ensig.interface.named.at(name).type;
-                    auto const& other_param = other.ensig.interface.named.at(name).type;
+                    type_symbol candidate_param = candidate.ensig.interface.named.at(name).type;
+                    type_symbol other_param = other.ensig.interface.named.at(name).type;
+                    if (name == "THIS")
+                    {
+                        candidate_param = ranked_this_param_type(ranked_this_param_type, candidate_param);
+                        other_param = ranked_this_param_type(ranked_this_param_type, other_param);
+                    }
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,

@@ -26,15 +26,18 @@
 #include <quxlang/data/lambda_types.hpp>
 #include <quxlang/queries/class_field_list.hpp>
 #include <quxlang/queries/class_layout.hpp>
+#include <quxlang/queries/class_default_dtor.hpp>
 #include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/convertible_by_call.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
+#include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
 #include <quxlang/queries/functum_list_user_overload_declarations.hpp>
 #include <quxlang/queries/functum_user_overloads.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_source_name.hpp>
@@ -1889,6 +1892,16 @@ namespace
             return m_graph.make_request< quxlang::instanciation_query >(std::move(input));
         }
 
+        auto get_instanciation_concrete_params(quxlang::instanciation_reference input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::instanciation_concrete_params_query >(std::move(input));
+        }
+
+        auto get_class_default_dtor(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
+        {
+            return m_graph.make_request< quxlang::class_default_dtor_query >(std::move(input));
+        }
+
         auto get_functum_user_overloads(quxlang::type_symbol input, std::optional< std::filesystem::path > const&) const
         {
             return m_graph.make_request< quxlang::functum_user_overloads_query >(std::move(input));
@@ -2078,6 +2091,157 @@ TEST(quxlang, lambda_explicit_capture_list_rejects_unlisted_runtime_local)
     ASSERT_TRUE(function_symbol.has_value());
 
     EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*function_symbol), std::logic_error);
+}
+
+TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_params_query)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::box CLASS
+{
+    .touch FUNCTION(%value I32): I32
+    {
+        RETURN value;
+    }
+
+    .explicit_touch FUNCTION(@THIS CONST& MODULE(main)::box, %value I32): I32
+    {
+        RETURN value;
+    }
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol box_type = parse_type_symbol("MODULE(main)::box");
+
+    quxlang::type_symbol touch_symbol = parse_type_symbol("MODULE(main)::box::.touch");
+    auto touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(touch_symbol);
+    ASSERT_EQ(touch_formal_ensigs.size(), 1);
+    EXPECT_EQ(touch_formal_ensigs.begin()->first.interface.named.at("THIS").type,
+              quxlang::type_symbol(quxlang::ptrref_type{
+                  .target = quxlang::thistype{},
+                  .ptr_class = quxlang::pointer_class::ref,
+                  .qual = quxlang::qualifier::auto_,
+              }));
+
+    quxlang::instatype touch_params;
+    touch_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::type_symbol(quxlang::ptrref_type{
+        .target = box_type,
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::mut,
+    }));
+    touch_params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
+
+    quxlang::initialization_reference touch_init{
+        .initializee = quxlang::with_context(touch_symbol, mainmodule),
+        .parameters = touch_params,
+    };
+    auto touch_inst_opt = graph.make_request< quxlang::instanciation_query >(touch_init);
+    ASSERT_TRUE(touch_inst_opt.has_value());
+    quxlang::instanciation_reference const& touch_inst = *touch_inst_opt;
+    EXPECT_EQ(quxlang::parameter_instantiation_type(touch_inst.params.named.at("THIS")),
+              quxlang::type_symbol(quxlang::ptrref_type{
+                  .target = quxlang::thistype{},
+                  .ptr_class = quxlang::pointer_class::ref,
+                  .qual = quxlang::qualifier::mut,
+              }));
+
+    auto concrete_touch_params = graph.make_request< quxlang::instanciation_concrete_params_query >(touch_inst);
+    EXPECT_EQ(quxlang::parameter_instantiation_type(concrete_touch_params.named.at("THIS")),
+              quxlang::type_symbol(quxlang::ptrref_type{
+                  .target = box_type,
+                  .ptr_class = quxlang::pointer_class::ref,
+                  .qual = quxlang::qualifier::mut,
+              }));
+    EXPECT_EQ(graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+                  .context = touch_inst,
+                  .type = quxlang::thistype{},
+              }),
+              std::optional< quxlang::type_symbol >{quxlang::type_symbol(quxlang::thistype{})});
+
+    quxlang::type_symbol explicit_touch_symbol = parse_type_symbol("MODULE(main)::box::.explicit_touch");
+    auto explicit_touch_formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(explicit_touch_symbol);
+    ASSERT_EQ(explicit_touch_formal_ensigs.size(), 1);
+    EXPECT_EQ(explicit_touch_formal_ensigs.begin()->first.interface.named.at("THIS").type,
+              parse_type_symbol("CONST& MODULE(main)::box"));
+
+    quxlang::instatype explicit_touch_params;
+    explicit_touch_params.named["THIS"] = quxlang::make_type_instantiation(parse_type_symbol("CONST& MODULE(main)::box"));
+    explicit_touch_params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
+
+    quxlang::initialization_reference explicit_touch_init{
+        .initializee = quxlang::with_context(explicit_touch_symbol, mainmodule),
+        .parameters = explicit_touch_params,
+    };
+    auto explicit_touch_inst_opt = graph.make_request< quxlang::instanciation_query >(explicit_touch_init);
+    ASSERT_TRUE(explicit_touch_inst_opt.has_value());
+    EXPECT_EQ(quxlang::parameter_instantiation_type(explicit_touch_inst_opt->params.named.at("THIS")),
+              parse_type_symbol("CONST& MODULE(main)::box"));
+}
+
+TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::nested_lambda_formal_this_probe FUNCTION(): I32
+{
+    VAR x I32 := 1;
+    RETURN (-< :I32 = ((-< = x)()))();
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::type_symbol mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+
+    quxlang::initialization_reference parent_init{
+        .initializee = quxlang::with_context(parse_type_symbol("MODULE(main)::nested_lambda_formal_this_probe"), mainmodule),
+    };
+    auto parent_opt = graph.make_request< quxlang::instanciation_query >(parent_init);
+    ASSERT_TRUE(parent_opt.has_value());
+    quxlang::instanciation_reference const& parent = *parent_opt;
+
+    (void)graph.make_request< quxlang::vm_procedure3_query >(parent);
+
+    quxlang::type_symbol outer_closure = quxlang::make_lambda_closure_symbol(parent, 0);
+    quxlang::instatype outer_operator_params;
+    outer_operator_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::type_symbol(quxlang::ptrref_type{
+        .target = outer_closure,
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::mut,
+    }));
+    quxlang::initialization_reference outer_operator_init{
+        .initializee = quxlang::submember{.of = outer_closure, .name = "OPERATOR()"},
+        .parameters = outer_operator_params,
+    };
+    auto outer_operator_opt = graph.make_request< quxlang::instanciation_query >(outer_operator_init);
+    ASSERT_TRUE(outer_operator_opt.has_value());
+    quxlang::instanciation_reference const& outer_operator = *outer_operator_opt;
+    EXPECT_EQ(quxlang::to_string(outer_operator),
+              "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}");
+
+    (void)graph.make_request< quxlang::vm_procedure3_query >(outer_operator);
+
+    quxlang::type_symbol nested_closure = quxlang::make_lambda_closure_symbol(outer_operator, 0);
+    EXPECT_EQ(quxlang::to_string(nested_closure),
+              "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
+}
+
+TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+    test_querygraph_compiler c(sources, "linux-x64");
+    quxlang::type_symbol const yak_type = parse_type_symbol("MODULE(main)::yak");
+    auto dtor_opt = c.get_class_default_dtor(yak_type, std::nullopt);
+    ASSERT_TRUE(dtor_opt.has_value());
+
+    quxlang::instanciation_reference const& dtor = *dtor_opt;
+    EXPECT_FALSE(c.get_function_builtin(dtor.temploid, std::nullopt));
+    EXPECT_EQ(quxlang::to_string(dtor), "MODULE(main)::yak::.DESTRUCTOR#[0]{@THIS DESTROY{ THISTYPE}}");
+
+    auto routine = c.get_vm_procedure3(dtor, std::nullopt);
+    ASSERT_TRUE(routine.parameters.named.contains("THIS"));
+    EXPECT_EQ(routine.parameters.named.at("THIS").type,
+              quxlang::type_symbol(quxlang::dvalue_slot{.target = parse_type_symbol("MODULE(main)::yak")}));
 }
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
@@ -2697,7 +2861,7 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
 
     ASSERT_TRUE(resolved.has_value());
     ASSERT_TRUE(resolved->type_is< quxlang::instanciation_reference >());
-    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#{@T I32}");
+    EXPECT_EQ(quxlang::to_string(*resolved), "CONSTEXPR_ALLOC#[0]{@T I32}");
     EXPECT_EQ(c.get_symbol_type(*resolved, std::nullopt), quxlang::symbol_kind::functum);
 
     auto explicit_form = parse_expression_text("CONSTEXPR_ALLOC#(@T I32)");
