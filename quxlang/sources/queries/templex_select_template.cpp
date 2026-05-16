@@ -33,73 +33,6 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
         return {std::move(positional), std::move(named)};
     };
 
-    auto template_parameter_name = [](declared_parameter const& param) -> std::optional< std::string >
-    {
-        if (param.name.has_value())
-        {
-            return param.name;
-        }
-        if (param.api_name.has_value())
-        {
-            return param.api_name;
-        }
-
-        auto const& param_type = param.type;
-        if (typeis< auto_temploidic >(param_type))
-        {
-            auto const& name = as< auto_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-        else if (typeis< decay_temploidic >(param_type))
-        {
-            auto const& name = as< decay_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-        else if (typeis< type_temploidic >(param_type))
-        {
-            auto const& name = as< type_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-
-        return std::nullopt;
-    };
-
-    auto temploid_ensig_from_declared_parameters = [&](declared_parameters const& params, std::optional< std::int64_t > priority) -> temploid_ensig
-    {
-        temploid_ensig ensig;
-        ensig.priority = priority;
-
-        for (auto const& param : params.positional)
-        {
-            ensig.interface.positional.push_back(argif{
-                .type = param.type,
-                .requires_static_value = param.kind == template_parameter_kind::value,
-            });
-        }
-
-        for (auto const& [name, param] : params.named)
-        {
-            auto canonical_name = template_parameter_name(param).value_or(name);
-            ensig.interface.named[canonical_name] = argif{
-                .type = param.type,
-                .requires_static_value = param.kind == template_parameter_kind::value,
-            };
-        }
-
-        return ensig;
-    };
-
-    auto input_str = to_string(input);
-
     if (typeis< temploid_reference >(input.initializee))
     {
         auto const& selected = as< temploid_reference >(input.initializee);
@@ -128,8 +61,9 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
         auto const use_expression_arguments = !input.arguments.empty();
         auto [positional_expression_args, named_expression_args] = split_expression_arguments(input.arguments);
 
-        for (auto const& builtin_template : builtin_templates)
+        for (std::size_t builtin_template_index = 0; builtin_template_index < builtin_templates.size(); builtin_template_index++)
         {
+            auto const& builtin_template = builtin_templates.at(builtin_template_index);
             auto const declared_positional_count = builtin_template.template_args.positional.size();
             auto const declared_named_count = builtin_template.template_args.named.size();
             auto const input_positional_count = use_expression_arguments ? positional_expression_args.size() : input.parameters.positional.size();
@@ -141,7 +75,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
             temploid_reference candidate;
             candidate.templexoid = input.initializee;
-            candidate.which = temploid_ensig_from_declared_parameters(builtin_template.template_args, builtin_template.priority);
+            candidate.overload_id = static_cast< std::uint64_t >(builtin_template_index);
 
             bool matched = true;
             auto evaluate_actual =
@@ -306,8 +240,9 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
     std::vector< temploid_reference > matches;
     std::optional< std::int64_t > highest_priority;
 
-    for (auto const& tmpl : templex.templates)
+    for (std::size_t template_index = 0; template_index < templex.templates.size(); template_index++)
     {
+        auto const& tmpl = templex.templates.at(template_index);
         auto const declared_positional_count = tmpl.m_template_args.positional.size();
         auto const declared_named_count = tmpl.m_template_args.named.size();
         auto const input_positional_count = use_expression_arguments ? positional_expression_args.size() : input.parameters.positional.size();
@@ -319,7 +254,7 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
 
         temploid_reference candidate;
         candidate.templexoid = input.initializee;
-        candidate.which.priority = tmpl.priority;
+        candidate.overload_id = static_cast< std::uint64_t >(template_index);
 
         bool matched = true;
         auto evaluate_actual =
@@ -415,8 +350,6 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 matched = false;
                 break;
             }
-
-            candidate.which.interface.positional.push_back(argif{.type = arg_pattern, .requires_static_value = declared_param.kind == template_parameter_kind::value});
         }
 
         if (!matched || input_positional_count != tmpl.m_template_args.positional.size())
@@ -465,9 +398,6 @@ rpnx::querygraph::coroutine< quxlang::templex_select_template_spec > quxlang::te
                 matched = false;
                 break;
             }
-
-            auto canonical_name = template_parameter_name(declared_param).value_or(name);
-            candidate.which.interface.named[canonical_name] = argif{.type = arg_pattern, .requires_static_value = declared_param.kind == template_parameter_kind::value};
         }
 
         if (!matched || input_named_count != tmpl.m_template_args.named.size())

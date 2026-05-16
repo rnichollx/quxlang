@@ -28,8 +28,13 @@ rpnx::querygraph::coroutine< quxlang::function_instanciation_spec > quxlang::fun
 
 
     // Get the overload?
+    auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(sel_ref);
+    if (!formal_ensig.has_value())
+    {
+        throw quxlang::compiler_bug("function_instanciation received an overload reference without a resolvable formal ensig");
+    }
     auto call_set = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
-                                                                       .ensig = sel_ref.which,
+                                                                       .ensig = *formal_ensig,
                                                                        .params = input.parameters,
                                                                        .adaptations = input.adaptations,
                                                                    });

@@ -6,15 +6,12 @@ using namespace quxlang;
 
 rpnx::querygraph::coroutine< quxlang::template_builtin_spec > quxlang::template_builtin_impl(temploid_reference input)
 {
-    auto builtin_templates = co_await rpnx::querygraph::request< templex_builtin_templates_query >(input.templexoid);
+    auto builtin_templates = co_await rpnx::querygraph::request< templex_builtins_query >(input.templexoid);
 
-    for (auto const& info : builtin_templates)
+    if (!input.overload_id.has_value())
     {
-        if (info == input.which)
-        {
-            co_return true;
-        }
+        co_return builtin_templates.size() == 1;
     }
 
-    co_return false;
+    co_return *input.overload_id < builtin_templates.size();
 }

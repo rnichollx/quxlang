@@ -8,12 +8,19 @@
 #include "quxlang/variant_utils.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <sstream>
 
 #include <quxlang/macros.hpp>
 
 namespace
 {
+    struct function_overload_candidate
+    {
+        std::uint64_t overload_id;
+        quxlang::temploid_ensig ensig;
+    };
+
     /// Returns the index of a selected interface's positional pack, if it has one.
     auto positional_pack_index(quxlang::temploid_ensig const& ensig) -> std::optional< std::size_t >
     {
@@ -64,11 +71,6 @@ namespace
 
 rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::functum_select_function_impl(initialization_reference input)
 {
-
-    auto input_str = to_string(input);
-
-    auto input_functum_str = quxlang::to_string(input.initializee);
-
     if (typeis< temploid_reference >(input.initializee))
     {
         auto const& selected = as< temploid_reference >(input.initializee);
@@ -102,9 +104,52 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         co_return std::nullopt;
     }
 
-    auto const &overloads = co_await rpnx::querygraph::request< functum_overloads_query >(input.initializee);
+    std::vector< function_overload_candidate > overloads;
+    auto const& user_overloads = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(input.initializee);
+    auto const& builtin_overloads = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(input.initializee);
 
-    std::vector< temploid_ensig > best_match;
+    overloads.reserve(user_overloads.size() + builtin_overloads.size());
+    for (std::size_t user_index = 0; user_index < user_overloads.size(); user_index++)
+    {
+        bool found = false;
+        for (auto const& [ensig, index] : user_overloads)
+        {
+            if (index == user_index)
+            {
+                overloads.push_back(function_overload_candidate{
+                    .overload_id = static_cast< std::uint64_t >(user_index),
+                    .ensig = ensig,
+                });
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            throw compiler_bug("User functum overload IDs are not contiguous");
+        }
+    }
+
+    std::uint64_t builtin_index = static_cast< std::uint64_t >(user_overloads.size());
+    for (auto const& ensig : builtin_overloads)
+    {
+        overloads.push_back(function_overload_candidate{
+            .overload_id = builtin_index,
+            .ensig = ensig,
+        });
+        builtin_index++;
+    }
+
+    auto describe_overload = [&](function_overload_candidate const& candidate) -> std::string
+    {
+        return quxlang::to_string(temploid_reference{
+            .templexoid = input.initializee,
+            .overload_id = candidate.overload_id,
+        }) + " " + quxlang::to_string(candidate.ensig.interface);
+    };
+
+    std::vector< function_overload_candidate > best_match;
     std::optional< std::int64_t > highest_priority;
 
     std::string context_type = "";
@@ -133,7 +178,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     {
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
-            co_yield rpnx::querygraph::debug_message("  Found overload: {}", quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}));
+            co_yield rpnx::querygraph::debug_message("  Found overload: {}", describe_overload(o));
         }
     }
 
@@ -142,9 +187,9 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
         {
             std::stringstream ss;
-            ss << "Considering overload " << quxlang::to_string(temploid_reference{.templexoid = input.initializee, .which = o}) << " with parameters " << quxlang::to_string(input.parameters);
+            ss << "Considering overload " << describe_overload(o) << " with parameters " << quxlang::to_string(input.parameters);
 
-            if (ss.str() == "Considering overload BYTE::.OPERATOR==#[@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
+            if (ss.str() == "Considering overload BYTE::.OPERATOR==#[0] [@OTHER BYTE, @THIS BYTE] with parameters CALLABLE(@OTHER NUMERIC_LITERAL, @THIS & BYTE)")
             {
                 int breakpoint = 0;
             }
@@ -153,7 +198,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             co_yield rpnx::querygraph::debug_message("  {}", ss.str());
         }
 
-        std::optional< instatype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o, .params = input.parameters, .adaptations = input.adaptations});
+        std::optional< instatype > candidate = co_await rpnx::querygraph::request< function_ensig_init_with_query >({.ensig = o.ensig, .params = input.parameters, .adaptations = input.adaptations});
 
         if (candidate && typeis< submember >(input.initializee))
         {
@@ -169,11 +214,14 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         }
 
         // Evaluate ENABLE_IF in the proper context after instantiation
-        if (candidate && o.enable_if)
+        if (candidate && o.ensig.enable_if)
         {
             constexpr_input cx_input;
-            cx_input.expr = *o.enable_if;
-            temploid_reference tr{.templexoid = input.initializee, .which = o};
+            cx_input.expr = *o.ensig.enable_if;
+            temploid_reference tr{
+                .templexoid = input.initializee,
+                .overload_id = o.overload_id,
+            };
             instanciation_reference inst{.temploid = tr, .params = *candidate};
             // Use the instantiated function context so pack type inspection can see the expanded parameters.
             cx_input.context = inst;
@@ -202,7 +250,7 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
         if (candidate)
         {
-            std::size_t priority = o.priority.value_or(0);
+            std::size_t priority = o.ensig.priority.value_or(0);
 
             if (!highest_priority || priority > *highest_priority)
             {
@@ -225,11 +273,11 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
     }
     else if (best_match.size() > 1)
     {
-        std::vector< temploid_ensig > undominated;
+        std::vector< function_overload_candidate > undominated;
 
         for (std::size_t candidate_index = 0; candidate_index < best_match.size(); ++candidate_index)
         {
-            auto const& candidate = best_match.at(candidate_index);
+            function_overload_candidate const& candidate = best_match.at(candidate_index);
             bool dominated = false;
 
             for (std::size_t other_index = 0; other_index < best_match.size(); ++other_index)
@@ -239,15 +287,15 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                     continue;
                 }
 
-                auto const& other = best_match.at(other_index);
+                function_overload_candidate const& other = best_match.at(other_index);
                 bool other_better = false;
                 bool candidate_better = false;
 
                 for (auto const& [name, arg] : input.parameters.named)
                 {
                     auto const& arg_type = parameter_instantiation_type(arg);
-                    auto const& candidate_param = candidate.interface.named.at(name).type;
-                    auto const& other_param = other.interface.named.at(name).type;
+                    auto const& candidate_param = candidate.ensig.interface.named.at(name).type;
+                    auto const& other_param = other.ensig.interface.named.at(name).type;
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -270,8 +318,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
                 {
                     auto const& arg_type = parameter_instantiation_type(input.parameters.positional.at(i));
-                    auto const& candidate_param = positional_formal_for(candidate, i).type;
-                    auto const& other_param = positional_formal_for(other, i).type;
+                    auto const& candidate_param = positional_formal_for(candidate.ensig, i).type;
+                    auto const& other_param = positional_formal_for(other.ensig, i).type;
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -309,10 +357,10 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
 
     if (best_match.size() > 1)
     {
-        std::vector< temploid_ensig > non_variadic;
+        std::vector< function_overload_candidate > non_variadic;
         for (auto const& item : best_match)
         {
-            if (!has_positional_pack(item))
+            if (!has_positional_pack(item.ensig))
             {
                 non_variadic.push_back(item);
             }
@@ -329,20 +377,20 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         bool saw_variadic = false;
         for (auto const& item : best_match)
         {
-            if (!has_positional_pack(item))
+            if (!has_positional_pack(item.ensig))
             {
                 continue;
             }
             saw_variadic = true;
-            best_fixed_prefix = std::max(best_fixed_prefix, fixed_positional_prefix_count(item));
+            best_fixed_prefix = std::max(best_fixed_prefix, fixed_positional_prefix_count(item.ensig));
         }
 
         if (saw_variadic)
         {
-            std::vector< temploid_ensig > largest_fixed_prefix;
+            std::vector< function_overload_candidate > largest_fixed_prefix;
             for (auto const& item : best_match)
             {
-                if (has_positional_pack(item) && fixed_positional_prefix_count(item) == best_fixed_prefix)
+                if (has_positional_pack(item.ensig) && fixed_positional_prefix_count(item.ensig) == best_fixed_prefix)
                 {
                     largest_fixed_prefix.push_back(item);
                 }
@@ -361,18 +409,21 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
         }
         for (auto const& item : best_match)
         {
-            message << "\n  " << to_string(temploid_reference{.templexoid = input.initializee, .which = item});
+            message << "\n  " << describe_overload(item);
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
             {
-                co_yield rpnx::querygraph::debug_message("   Ambiguous candidate: {}", to_string(temploid_reference{.templexoid = input.initializee, .which = item}));
+                co_yield rpnx::querygraph::debug_message("   Ambiguous candidate: {}", describe_overload(item));
             }
         }
         throw semantic_compilation_error(message.str());
     }
-    auto best_ref = temploid_reference{.templexoid = input.initializee, .which = best_match.front()};
+    auto best_ref = temploid_reference{
+        .templexoid = input.initializee,
+        .overload_id = best_match.front().overload_id,
+    };
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        co_yield rpnx::querygraph::debug_message(" Best match for {} is {}", to_string(input), to_string(best_ref));
+        co_yield rpnx::querygraph::debug_message(" Best match for {} is {}", to_string(input), describe_overload(best_match.front()));
     }
 
     co_return best_ref;

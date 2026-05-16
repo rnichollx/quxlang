@@ -284,6 +284,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
         include/quxlang/queries/specs/symbol_type_spec.hpp
         include/quxlang/queries/specs/template_instanciation_spec.hpp
+        include/quxlang/queries/specs/temploid_formal_ensig_spec.hpp
         include/quxlang/queries/specs/templex_initialize_spec.hpp
         include/quxlang/queries/specs/type_is_antestatal_spec.hpp
         include/quxlang/queries/specs/type_is_serialoid_spec.hpp
@@ -419,6 +420,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/symbol_type.cpp
         sources/queries/template_builtin.cpp
         sources/queries/template_instanciation.cpp
+        sources/queries/temploid_formal_ensig.cpp
         sources/queries/templex_builtins.cpp
         sources/queries/templex_builtin_templates.cpp
         sources/queries/templex_initialize.cpp

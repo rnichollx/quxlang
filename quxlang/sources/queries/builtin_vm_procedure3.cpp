@@ -23,42 +23,85 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         return result;
     };
 
+    auto make_builtin_pattern = [&](std::string member_name, instatype params) -> type_symbol
+    {
+        return instanciation_reference{
+            .temploid = temploid_reference{
+                .templexoid = submember{
+                    .of = parse_type_symbol_text("TT(t1)"),
+                    .name = std::move(member_name),
+                },
+            },
+            .params = std::move(params),
+        };
+    };
+    auto matches_builtin_pattern = [&](type_symbol const& pattern) -> std::optional< template_match_results >
+    {
+        auto normalized_input = input;
+        normalized_input.temploid.overload_id = std::nullopt;
+        return match_template2(pattern, normalized_input);
+    };
+
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
 
-    auto ctor_match = parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& TT(t1)}");
+    auto ctor_match = make_builtin_pattern("CONSTRUCTOR", instatype{
+        .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("NEW& TT(t1)"))}},
+    });
 
 
     auto input_str = quxlang::to_string(input);
 
     QUXLANG_DEBUG_NAMED_VALUE(type_match_str, quxlang::to_string(ctor_match));
 
-    auto template_match_result = match_template2(ctor_match, input);
+    auto template_match_result = matches_builtin_pattern(ctor_match);
 
     if (template_match_result)
     {
         co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.DESTRUCTOR#{ @THIS DESTROY& TT(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("DESTRUCTOR", instatype{
+        .named = {{"THIS", make_type_instantiation(parse_type_symbol_text("DESTROY& TT(t1)"))}},
+    })))
     {
         auto result =  co_await rpnx::querygraph::request< builtin_dtor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("CONSTRUCTOR", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("NEW& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+        },
+    })))
     {
         auto result = co_await rpnx::querygraph::request< builtin_copy_ctor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.CONSTRUCTOR#{@THIS NEW& AUTO(t1), @OTHER TEMP& AUTO(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("CONSTRUCTOR", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("NEW& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("TEMP& AUTO(t1)"))},
+        },
+    })))
     {
         auto result = co_await rpnx::querygraph::request< builtin_move_ctor_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR<-> #{@THIS & AUTO(t1), @OTHER & AUTO(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR<->", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("& AUTO(t1)"))},
+        },
+    })))
     {
         auto result = co_await rpnx::querygraph::request< builtin_swap_vm_procedure3_query >(input);
         co_return result;
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR== #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR==", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+        },
+    })))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
         if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
@@ -66,7 +109,12 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
             co_return co_await rpnx::querygraph::request< builtin_datatype_compare_vm_procedure3_query >(input);
         }
     }
-    else if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR!= #{@THIS CONST& AUTO(t1), @OTHER CONST& AUTO(t1)}"), input))
+    else if (matches_builtin_pattern(make_builtin_pattern("OPERATOR!=", instatype{
+        .named = {
+            {"THIS", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+            {"OTHER", make_type_instantiation(parse_type_symbol_text("CONST& AUTO(t1)"))},
+        },
+    })))
     {
         auto const& compared_type = input.temploid.templexoid.get_as< submember >().of;
         if (co_await rpnx::querygraph::request< symbol_type_query >(compared_type) == symbol_kind::class_ && co_await rpnx::querygraph::request< type_is_implicitly_datatype_query >(compared_type))
@@ -137,7 +185,12 @@ rpnx::querygraph::coroutine< quxlang::builtin_vm_procedure3_spec > quxlang::buil
         {
             co_return co_await rpnx::querygraph::request< builtin_default_ctor_vm_procedure3_query >(input);
         }
-        if (match_template2(parse_type_symbol_text("TT(t1)::.OPERATOR:= #{@THIS WRITE& AUTO(t1), @OTHER AUTO(t1)}"), input))
+        if (matches_builtin_pattern(make_builtin_pattern("OPERATOR:=", instatype{
+            .named = {
+                {"THIS", make_type_instantiation(parse_type_symbol_text("WRITE& AUTO(t1)"))},
+                {"OTHER", make_type_instantiation(parse_type_symbol_text("AUTO(t1)"))},
+            },
+        })))
         {
             auto result = co_await rpnx::querygraph::request< builtin_assignment_vm_procedure3_query >(input);
             co_return result;

@@ -64,12 +64,18 @@ namespace
 rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::instanciation_tempar_map_impl(instanciation_reference input)
 {
     temploid_reference func_name = input.temploid;
+    auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(func_name);
+    if (!formal_ensig.has_value())
+    {
+        throw quxlang::compiler_bug("Formal ensig not found for instanciation tempar mapping");
+    }
+    auto const& interface = formal_ensig->interface;
 
     instanciation_tempar_map_query::output_type result;
 
-    auto const pack_index = positional_pack_index(func_name.which.interface);
-    auto const fixed_positional_count = pack_index.value_or(func_name.which.interface.positional.size());
-    if ((!pack_index.has_value() && input.params.positional.size() != func_name.which.interface.positional.size()) || (pack_index.has_value() && input.params.positional.size() < fixed_positional_count))
+    auto const pack_index = positional_pack_index(interface);
+    auto const fixed_positional_count = pack_index.value_or(interface.positional.size());
+    if ((!pack_index.has_value() && input.params.positional.size() != interface.positional.size()) || (pack_index.has_value() && input.params.positional.size() < fixed_positional_count))
     {
         throw quxlang::semantic_compilation_error("Instantiated function positional parameter count does not match the selected interface.");
     }
@@ -78,7 +84,7 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
     // Positional parameters
     for (std::size_t i = 0; i < input.params.positional.size(); i++)
     {
-        auto template_arg = positional_formal_for(func_name.which.interface, pack_index, i);
+        auto template_arg = positional_formal_for(interface, pack_index, i);
         // TODO: should the selection reference be decontextualized early?
         // TODO: Handle defaulted parameter logic if needed?
 
@@ -94,8 +100,8 @@ rpnx::querygraph::coroutine< quxlang::instanciation_tempar_map_spec > quxlang::i
     // Named parameters
     for (auto const& [name, arg_val] : input.params.named)
     {
-        auto it = func_name.which.interface.named.find(name);
-        if (it == func_name.which.interface.named.end())
+        auto it = interface.named.find(name);
+        if (it == interface.named.end())
         {
             throw quxlang::semantic_compilation_error("Unknown named parameter '" + name + "' for instanciation.");
         }

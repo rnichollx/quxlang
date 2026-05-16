@@ -9,46 +9,6 @@
 
 namespace
 {
-    auto overload_has_unspecialized_parameters(quxlang::temploid_ensig const& ensig) -> bool
-    {
-        for (quxlang::argif const& param : ensig.interface.positional)
-        {
-            if (quxlang::is_template(param.type))
-            {
-                return true;
-            }
-        }
-
-        for (auto const& [_, param] : ensig.interface.named)
-        {
-            if (quxlang::is_template(param.type))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    auto instantiate_declared_overload(quxlang::temploid_ensig const& ensig) -> quxlang::instatype
-    {
-        quxlang::instatype result;
-        for (quxlang::argif const& param : ensig.interface.positional)
-        {
-            if (!param.is_pack)
-            {
-                result.positional.push_back(quxlang::make_type_instantiation(param.type));
-            }
-        }
-
-        for (auto const& [name, param] : ensig.interface.named)
-        {
-            result.named[name] = quxlang::make_type_instantiation(param.type);
-        }
-
-        return result;
-    }
-
     auto concrete_functanoid_from_symbol(quxlang::type_symbol const& symbol) -> std::optional< quxlang::type_symbol >
     {
         if (symbol.type_is< quxlang::instanciation_reference >())
@@ -58,16 +18,7 @@ namespace
 
         if (symbol.type_is< quxlang::temploid_reference >())
         {
-            quxlang::temploid_reference const& selected_function = symbol.as< quxlang::temploid_reference >();
-            if (overload_has_unspecialized_parameters(selected_function.which))
-            {
-                throw quxlang::semantic_compilation_error("Cannot instantiate procedure pointer target with template-only parameters: " + quxlang::to_string(symbol));
-            }
-
-            return quxlang::type_symbol(quxlang::instanciation_reference{
-                .temploid = selected_function,
-                .params = instantiate_declared_overload(selected_function.which),
-            });
+            throw quxlang::compiler_bug("VMIR2 routine requirements encountered an uninstantiated overload reference: " + quxlang::to_string(symbol));
         }
 
         return std::nullopt;

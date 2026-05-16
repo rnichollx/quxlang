@@ -4,121 +4,95 @@
 #include <quxlang/data/basic_types.hpp>
 #include "quxlang/macros.hpp"
 
+#include <functional>
 
-
-template < typename T >
-static void merge_set(std::set< T >& target, std::set< T > const& source)
+namespace
 {
-    for (auto const& item : source)
+    template < typename T >
+    auto merge_set(std::set< T >& target, std::set< T > const& source) -> void
     {
-        target.insert(item);
+        for (auto const& item : source)
+        {
+            target.insert(item);
+        }
     }
-}
+} // namespace
 
 namespace quxlang
 {
-    std::set< std::string > get_symbol_tempars(type_symbol const&);
-    std::set< std::string > get_ensig_tempars(temploid_ensig const& input)
+    rpnx::querygraph::coroutine< symbol_tempars_spec > symbol_tempars_impl(type_symbol input)
     {
-        std::set< std::string > result;
-
-        for (auto const& param : input.interface.positional)
+        using tempar_subquery = rpnx::querygraph::coroutine< symbol_tempars_spec >::cosubroutine< tempar_name_set >;
+        std::function< tempar_subquery(type_symbol const&) > get_symbol_tempars;
+        auto get_ensig_tempars = [&](temploid_ensig const& ensig)
+            -> tempar_subquery
         {
-            auto arg_result = get_symbol_tempars(param.type);
-            for (auto const& name : arg_result)
+            tempar_name_set result;
+            for (auto const& param : ensig.interface.positional)
             {
-                result.insert(name);
+                merge_set(result, co_await get_symbol_tempars(param.type));
             }
-        }
+            for (auto const& [_, param] : ensig.interface.named)
+            {
+                merge_set(result, co_await get_symbol_tempars(param.type));
+            }
+            co_return result;
+        };
 
-        for (auto const& [_, param] : input.interface.named)
+        get_symbol_tempars = [&](type_symbol const& value)
+            -> tempar_subquery
         {
-            auto arg_result = get_symbol_tempars(param.type);
-            for (auto const& name : arg_result)
+            if (typeis< auto_temploidic >(value))
             {
-                result.insert(name);
+                co_return tempar_name_set{as< auto_temploidic >(value).name};
             }
-        }
+            if (typeis< decay_temploidic >(value))
+            {
+                co_return tempar_name_set{as< decay_temploidic >(value).name};
+            }
+            if (typeis< type_temploidic >(value))
+            {
+                co_return tempar_name_set{as< type_temploidic >(value).name};
+            }
+            if (typeis< temploid_reference >(value))
+            {
+                tempar_name_set result = co_await get_symbol_tempars(as< temploid_reference >(value).templexoid);
+                auto ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(as< temploid_reference >(value));
+                if (ensig.has_value())
+                {
+                    merge_set(result, co_await get_ensig_tempars(*ensig));
+                }
+                co_return result;
+            }
+            if (typeis< submember >(value))
+            {
+                co_return co_await get_symbol_tempars(as< submember >(value).of);
+            }
+            if (typeis< subsymbol >(value))
+            {
+                co_return co_await get_symbol_tempars(as< subsymbol >(value).of);
+            }
+            if (typeis< instanciation_reference >(value))
+            {
+                tempar_name_set result = co_await get_symbol_tempars(type_symbol(as< instanciation_reference >(value).temploid));
+                for (auto const& param : as< instanciation_reference >(value).params.positional)
+                {
+                    merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
+                }
+                for (auto const& [_, param] : as< instanciation_reference >(value).params.named)
+                {
+                    merge_set(result, co_await get_symbol_tempars(parameter_instantiation_type(param)));
+                }
+                co_return result;
+            }
+            if (typeis< pack_arg_type_ref >(value))
+            {
+                co_return tempar_name_set{};
+            }
 
-        return result;
+            co_return tempar_name_set{};
+        };
+
+        co_return co_await get_symbol_tempars(input);
     }
-
-    struct tempar_extractor
-    {
-
-        std::set< std::string > operator()(quxlang::auto_temploidic const& input)
-        {
-            return {input.name};
-        }
-
-        std::set< std::string > operator()(quxlang::decay_temploidic const& input)
-        {
-            return {input.name};
-        }
-
-        std::set< std::string > operator()(quxlang::temploid_reference const& input)
-        {
-            std::set< std::string > result;
-
-            auto a = get_ensig_tempars(input.which);
-            auto b = get_symbol_tempars(input.templexoid);
-            merge_set(result, a);
-            merge_set(result, b);
-            return result;
-        }
-
-        auto operator()(submember const & val)
-        {
-            return get_symbol_tempars(val.of);
-        }
-
-        auto operator()(subsymbol const & val)
-        {
-            return get_symbol_tempars(val.of);
-        }
-
-        auto operator()(instanciation_reference const& val)
-        {
-            std::set< std::string > result;
-
-            auto a = get_ensig_tempars(val.temploid.which);
-            auto b = get_symbol_tempars(val.temploid.templexoid);
-            merge_set(result, a);
-            merge_set(result, b);
-
-            for (auto const& param : val.params.positional)
-            {
-                auto arg_result = get_symbol_tempars(parameter_instantiation_type(param));
-                merge_set(result, arg_result);
-            }
-
-            for (auto const& [_, param] : val.params.named)
-            {
-                auto arg_result = get_symbol_tempars(parameter_instantiation_type(param));
-                merge_set(result, arg_result);
-            }
-
-            return result;
-        }
-
-        auto operator()(pack_arg_type_ref const&)
-        {
-            return std::set< std::string >{};
-        }
-
-
-
-    };
-
-    std::set< std::string > get_symbol_tempars(type_symbol const& value)
-    {
-        return rpnx::try_apply_visitor< std::set< std::string > >(value, tempar_extractor());
-    }
-
 } // namespace quxlang
-
-
-rpnx::querygraph::coroutine< quxlang::symbol_tempars_spec > quxlang::symbol_tempars_impl(type_symbol input)
-{
-    co_return get_symbol_tempars(input);
-}

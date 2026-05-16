@@ -6,6 +6,7 @@
 #include <quxlang/queries/function_param_names.hpp>
 #include <quxlang/queries/function_builtin.hpp>
 #include <quxlang/queries/function_declaration.hpp>
+#include <quxlang/queries/temploid_formal_ensig.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -15,7 +16,7 @@ namespace quxlang
     struct function_param_names_spec
     {
         using query = function_param_names_query;
-        using dependencies = rpnx::typelist< function_builtin_query, function_declaration_query >;
+        using dependencies = rpnx::typelist< function_builtin_query, function_declaration_query, temploid_formal_ensig_query >;
     };
 
     rpnx::querygraph::coroutine< function_param_names_spec > function_param_names_impl(temploid_reference input);

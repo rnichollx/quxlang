@@ -31,6 +31,11 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
 
     auto argument_eval_context = input.context.value_or(context_reference{});
     auto actual_params = input.parameters;
+    auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(temploid);
+    if (!formal_ensig.has_value())
+    {
+        throw quxlang::compiler_bug("builtin_template_instanciation received an overload reference without a formal ensig");
+    }
 
     if (!input.arguments.empty())
     {
@@ -89,13 +94,13 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
             co_return parameter_type_instantiation{.type = *canonical_type};
         };
 
-        for (std::size_t i = 0; i < temploid.which.interface.positional.size(); i++)
+        for (std::size_t i = 0; i < formal_ensig->interface.positional.size(); i++)
         {
             if (i >= positional_expression_args.size())
             {
                 co_return std::nullopt;
             }
-            auto actual = co_await evaluate_actual(temploid.which.interface.positional.at(i), *positional_expression_args.at(i));
+            auto actual = co_await evaluate_actual(formal_ensig->interface.positional.at(i), *positional_expression_args.at(i));
             if (!actual.has_value())
             {
                 co_return std::nullopt;
@@ -103,12 +108,12 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
             actual_params.positional.push_back(std::move(*actual));
         }
 
-        if (positional_expression_args.size() != temploid.which.interface.positional.size())
+        if (positional_expression_args.size() != formal_ensig->interface.positional.size())
         {
             co_return std::nullopt;
         }
 
-        for (auto const& [name, formal] : temploid.which.interface.named)
+        for (auto const& [name, formal] : formal_ensig->interface.named)
         {
             auto named_it = named_expression_args.find(name);
             if (named_it == named_expression_args.end())
@@ -124,14 +129,14 @@ rpnx::querygraph::coroutine< quxlang::builtin_template_instanciation_spec > quxl
             actual_params.named[name] = std::move(*actual);
         }
 
-        if (named_expression_args.size() != temploid.which.interface.named.size())
+        if (named_expression_args.size() != formal_ensig->interface.named.size())
         {
             co_return std::nullopt;
         }
     }
 
     auto params = co_await rpnx::querygraph::request< ensig_initialize_query >(ensig_initialization{
-        .ensig = temploid.which,
+        .ensig = *formal_ensig,
         .params = std::move(actual_params),
         .adaptations = allowed_adaptations::none,
     });

@@ -59,6 +59,7 @@
 #include "quxlang/queries/string_static_value.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
+#include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_is_stringlike.hpp"
 #include "quxlang/queries/type_placement_info.hpp"
@@ -923,7 +924,7 @@ namespace quxlang
          */
         auto co_describe_invalid_call_candidate(type_symbol const& func, temploid_ensig const& ensig, instatype const& params, allowed_adaptations adaptations) -> co_type< std::string >
         {
-            std::string note = "  candidate: " + to_string(temploid_reference{.templexoid = func, .which = ensig});
+            std::string note = "  candidate: " + to_string(func) + " " + to_string(ensig.interface);
 
             std::optional< instatype > const accepted = co_await rpnx::querygraph::request< function_ensig_init_with_query >(ensig_initialization{
                 .ensig = ensig,
@@ -1291,7 +1292,13 @@ namespace quxlang
             else if (typeis< temploid_reference >(routine))
             {
                 auto const& selected_function = as< temploid_reference >(routine);
-                for (auto const& arg : selected_function.which.interface.positional)
+                auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(selected_function);
+                if (!formal_ensig.has_value())
+                {
+                    throw semantic_compilation_error("Procedure pointer target function overload not found");
+                }
+
+                for (auto const& arg : formal_ensig->interface.positional)
                 {
                     if (arg.is_pack)
                     {
@@ -1299,7 +1306,7 @@ namespace quxlang
                     }
                     proc_type.signature.params.positional.push_back(arg.type);
                 }
-                for (auto const& [name, arg] : selected_function.which.interface.named)
+                for (auto const& [name, arg] : formal_ensig->interface.named)
                 {
                     if (arg.is_pack)
                     {
@@ -5038,9 +5045,18 @@ namespace quxlang
                         throw semantic_compilation_error("Cannot take address of overloaded functum " + to_string(attached.attached_symbol));
                     }
 
-                    auto const& selected_overload = *overloads.begin();
+                    temploid_reference selected_function{
+                        .templexoid = attached.attached_symbol,
+                        .overload_id = std::nullopt,
+                    };
+                    auto selected_overload = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(selected_function);
+                    if (!selected_overload.has_value())
+                    {
+                        throw compiler_bug("Unique functum selection did not resolve to a formal ensig");
+                    }
+
                     bool has_template_params = false;
-                    for (auto const& arg : selected_overload.interface.positional)
+                    for (auto const& arg : selected_overload->interface.positional)
                     {
                         if (arg.is_pack)
                         {
@@ -5052,7 +5068,7 @@ namespace quxlang
                             break;
                         }
                     }
-                    for (auto const& [_, arg] : selected_overload.interface.named)
+                    for (auto const& [_, arg] : selected_overload->interface.named)
                     {
                         if (arg.is_pack)
                         {
@@ -5069,13 +5085,9 @@ namespace quxlang
                         throw semantic_compilation_error("Cannot take address of templated functum " + to_string(attached.attached_symbol));
                     }
 
-                    temploid_reference selected_function{
-                        .templexoid = attached.attached_symbol,
-                        .which = selected_overload,
-                    };
                     instanciation_reference selected_inst;
                     selected_inst.temploid = selected_function;
-                    for (auto const& arg : selected_overload.interface.positional)
+                    for (auto const& arg : selected_overload->interface.positional)
                     {
                         if (arg.is_pack)
                         {
@@ -5083,7 +5095,7 @@ namespace quxlang
                         }
                         selected_inst.params.positional.push_back(make_type_instantiation(arg.type));
                     }
-                    for (auto const& [name, arg] : selected_overload.interface.named)
+                    for (auto const& [name, arg] : selected_overload->interface.named)
                     {
                         selected_inst.params.named[name] = make_type_instantiation(arg.type);
                     }
@@ -9602,11 +9614,16 @@ namespace quxlang
             }
 
             auto arg_names = co_await rpnx::querygraph::request< function_param_names_query >(inst.temploid);
+            auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(inst.temploid);
+            if (!formal_ensig.has_value())
+            {
+                throw compiler_bug("Formal ensig not found for function argument generation");
+            }
 
             std::size_t positional_index = 0;
-            for (std::size_t interface_index = 0; interface_index < inst.temploid.which.interface.positional.size(); interface_index++)
+            for (std::size_t interface_index = 0; interface_index < formal_ensig->interface.positional.size(); interface_index++)
             {
-                auto const& interface_param = inst.temploid.which.interface.positional.at(interface_index);
+                auto const& interface_param = formal_ensig->interface.positional.at(interface_index);
                 if (interface_param.is_pack)
                 {
                     while (positional_index < inst.params.positional.size())

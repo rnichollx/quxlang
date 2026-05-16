@@ -489,11 +489,15 @@ namespace quxlang
 
 
 
+    /// Reference to a selected overload within a templexoid or functum.
     struct temploid_reference
     {
+        /// Parent templexoid or functum that owns the selected overload.
         type_symbol templexoid;
-        temploid_ensig which;
-        RPNX_MEMBER_METADATA(temploid_reference, templexoid, which);
+        /// Optional zero-based overload identifier. Nullopt denotes the unique-overload form.
+        std::optional< std::uint64_t > overload_id;
+
+        RPNX_MEMBER_METADATA(temploid_reference, templexoid, overload_id);
     };
 
 
@@ -590,10 +594,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(initialization_reference, initializee, context, arguments, parameters, adaptations);
     };
 
+    /// Reference to a selected overload instantiated with concrete template arguments.
     struct instanciation_reference
     {
+        /// Selected overload reference for the instantiated templexoid or functum.
         temploid_reference temploid;
+        /// Materialized template arguments for the selected overload.
         instatype params;
+
         RPNX_MEMBER_METADATA(instanciation_reference, temploid, params);
     };
 

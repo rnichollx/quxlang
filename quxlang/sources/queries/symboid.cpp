@@ -149,54 +149,18 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
             }
 
             auto const& templex = as< ast2_templex >(sym);
-            auto template_context = type_parent(inst.temploid.templexoid).value_or(context_reference{});
-
-            for (auto const& tmpl : templex.templates)
+            std::uint64_t template_index = inst.temploid.overload_id.value_or(0);
+            if (!inst.temploid.overload_id.has_value() && templex.templates.size() != 1)
             {
-                temploid_ensig ensig;
-                ensig.priority = tmpl.priority;
-
-                bool valid = true;
-                for (auto const& arg : tmpl.m_template_args.positional)
-                {
-                    auto canonical_arg = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                        .context = template_context,
-                        .type = arg.type,
-                    });
-
-                    if (!canonical_arg.has_value())
-                    {
-                        valid = false;
-                        break;
-                    }
-
-                    ensig.interface.positional.push_back(argif{.type = *canonical_arg, .requires_static_value = arg.kind == template_parameter_kind::value});
-                }
-
-                for (auto const& [name, arg] : tmpl.m_template_args.named)
-                {
-                    auto canonical_arg = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
-                        .context = template_context,
-                        .type = arg.type,
-                    });
-
-                    if (!canonical_arg.has_value())
-                    {
-                        valid = false;
-                        break;
-                    }
-
-                    auto declared_name = template_parameter_name(arg).value_or(name);
-                    ensig.interface.named[declared_name] = argif{.type = *canonical_arg, .requires_static_value = arg.kind == template_parameter_kind::value};
-                }
-
-                if (valid && ensig == inst.temploid.which)
-                {
-                    co_return selected_template_decl_to_symboid(tmpl.m_declaroid);
-                }
+                throw quxlang::compiler_bug("Template instanciation did not resolve to a unique template declaration");
             }
 
-            throw quxlang::compiler_bug("Template declaration not found for instanciation");
+            if (template_index >= templex.templates.size())
+            {
+                throw quxlang::compiler_bug("Template overload id is out of range for instanciation symboid lookup");
+            }
+
+            co_return selected_template_decl_to_symboid(templex.templates.at(static_cast< std::vector< ast2_template_declaration >::size_type >(template_index)).m_declaroid);
         }
     }
 

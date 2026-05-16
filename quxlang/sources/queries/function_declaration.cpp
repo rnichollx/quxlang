@@ -17,17 +17,23 @@ rpnx::querygraph::coroutine< quxlang::function_declaration_spec > quxlang::funct
         throw quxlang::compiler_bug("function_declaration received a template selection. Templates of functions are not directly callable; set template arguments manually and resolve the selected function first.");
     }
 
-    auto const& decl_map = co_await rpnx::querygraph::request< functum_map_user_formal_ensigs_query >(functum);
+    auto const& decls = co_await rpnx::querygraph::request< functum_list_user_overload_declarations_query >(functum);
+    auto builtin_overloads = co_await rpnx::querygraph::request< functum_builtin_overloads_query >(functum);
+    auto const total_count = decls.size() + builtin_overloads.size();
 
+    if (!input.overload_id.has_value())
+    {
+        if (total_count != 1 || decls.size() != 1)
+        {
+            co_return std::nullopt;
+        }
+        co_return decls.front();
+    }
 
-    if (!decl_map.contains(input.which))
+    if (*input.overload_id >= decls.size())
     {
         co_return std::nullopt;
     }
 
-    std::size_t index = decl_map.at(input.which);
-
-    auto const& decls = co_await rpnx::querygraph::request< functum_list_user_overload_declarations_query >(functum);
-
-    co_return decls.at(index);
+    co_return decls.at(static_cast< std::vector< ast2_function_declaration >::size_type >(*input.overload_id));
 }

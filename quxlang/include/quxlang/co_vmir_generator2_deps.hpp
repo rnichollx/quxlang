@@ -43,6 +43,7 @@
 #include <quxlang/queries/serialoid_static_value.hpp>
 #include <quxlang/queries/string_static_value.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/type_is_implicitly_datatype.hpp>
@@ -89,6 +90,7 @@ namespace quxlang
         serialoid_static_value_query,
         string_static_value_query,
         symbol_type_query,
+        temploid_formal_ensig_query,
         template_builtin_query,
         type_placement_info_query,
         type_is_serialoid_query,
@@ -130,6 +132,7 @@ namespace quxlang
         serialoid_static_value_query,
         string_static_value_query,
         symbol_type_query,
+        temploid_formal_ensig_query,
         template_builtin_query,
         type_placement_info_query,
         type_is_serialoid_query,

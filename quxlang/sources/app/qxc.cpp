@@ -8,6 +8,7 @@
 #include "quxlang/parsers/parse_type_symbol.hpp"
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/lookup.hpp"
+#include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
 #include "quxlang/source_loader.hpp"
 #include "quxlang/vmir2/assembler.hpp"
@@ -143,7 +144,7 @@ namespace
     /**
      * Converts a referenced routine symbol into the concrete functanoid qxc can emit.
      */
-    auto concrete_functanoid_from_symbol(quxlang::type_symbol const& symbol) -> std::optional< quxlang::instanciation_reference >
+    auto concrete_functanoid_from_symbol(quxlang::compiler_querygraph& graph, quxlang::type_symbol const& symbol) -> std::optional< quxlang::instanciation_reference >
     {
         if (symbol.type_is< quxlang::instanciation_reference >())
         {
@@ -153,14 +154,20 @@ namespace
         if (symbol.type_is< quxlang::temploid_reference >())
         {
             quxlang::temploid_reference const& selected_function = symbol.as< quxlang::temploid_reference >();
-            if (overload_has_unspecialized_parameters(selected_function.which))
+            std::optional< quxlang::temploid_ensig > formal_ensig = graph.make_request< quxlang::temploid_formal_ensig_query >(selected_function);
+            if (!formal_ensig.has_value())
+            {
+                throw quxlang::semantic_compilation_error("Cannot resolve selected overload for procedure pointer target: " + quxlang::to_string(symbol));
+            }
+
+            if (overload_has_unspecialized_parameters(*formal_ensig))
             {
                 throw quxlang::semantic_compilation_error("Cannot emit uninstantiated procedure pointer target: " + quxlang::to_string(symbol));
             }
 
             return quxlang::instanciation_reference{
                 .temploid = selected_function,
-                .params = instantiate_declared_overload(selected_function.which),
+                .params = instantiate_declared_overload(*formal_ensig),
             };
         }
 
@@ -172,9 +179,9 @@ namespace
     /**
      * Records a concrete functanoid dependency and the source location that referenced it.
      */
-    void record_referenced_functanoid(functanoid_reference_locations& result, quxlang::type_symbol const& symbol, std::optional< quxlang::source_location > location)
+    void record_referenced_functanoid(quxlang::compiler_querygraph& graph, functanoid_reference_locations& result, quxlang::type_symbol const& symbol, std::optional< quxlang::source_location > location)
     {
-        std::optional< quxlang::instanciation_reference > concrete = concrete_functanoid_from_symbol(symbol);
+        std::optional< quxlang::instanciation_reference > concrete = concrete_functanoid_from_symbol(graph, symbol);
         if (!concrete.has_value())
         {
             throw quxlang::compiler_bug("VMIR2 routine references a non-functanoid symbol: " + quxlang::to_string(symbol));
@@ -191,13 +198,13 @@ namespace
     /**
      * Finds direct functanoid dependencies of a VMIR2 routine and keeps source locations for invoke-like references.
      */
-    auto directly_referenced_functanoid_locations(quxlang::vmir2::functanoid_routine3 const& routine) -> functanoid_reference_locations
+    auto directly_referenced_functanoid_locations(quxlang::compiler_querygraph& graph, quxlang::vmir2::functanoid_routine3 const& routine) -> functanoid_reference_locations
     {
         functanoid_reference_locations result;
 
         for (auto const& [_, dtor] : routine.non_trivial_dtors)
         {
-            record_referenced_functanoid(result, dtor, std::nullopt);
+            record_referenced_functanoid(graph, result, dtor, std::nullopt);
         }
 
         for (quxlang::vmir2::executable_block const& block : routine.blocks)
@@ -206,7 +213,7 @@ namespace
             {
                 if (slot.nontrivial_dtor.has_value())
                 {
-                    record_referenced_functanoid(result, slot.nontrivial_dtor->func, std::nullopt);
+                    record_referenced_functanoid(graph, result, slot.nontrivial_dtor->func, std::nullopt);
                 }
             }
 
@@ -215,21 +222,21 @@ namespace
                 std::optional< quxlang::source_location > const location = quxlang::vmir2::get_location(instruction);
                 if (instruction.type_is< quxlang::vmir2::invoke >())
                 {
-                    record_referenced_functanoid(result, instruction.as< quxlang::vmir2::invoke >().what, location);
+                    record_referenced_functanoid(graph, result, instruction.as< quxlang::vmir2::invoke >().what, location);
                 }
                 else if (instruction.type_is< quxlang::vmir2::defer_nontrivial_dtor >())
                 {
-                    record_referenced_functanoid(result, instruction.as< quxlang::vmir2::defer_nontrivial_dtor >().func, location);
+                    record_referenced_functanoid(graph, result, instruction.as< quxlang::vmir2::defer_nontrivial_dtor >().func, location);
                 }
                 else if (instruction.type_is< quxlang::vmir2::get_procedure_ptr >())
                 {
-                    record_referenced_functanoid(result, instruction.as< quxlang::vmir2::get_procedure_ptr >().routine, location);
+                    record_referenced_functanoid(graph, result, instruction.as< quxlang::vmir2::get_procedure_ptr >().routine, location);
                 }
                 else if (instruction.type_is< quxlang::vmir2::interface_init >())
                 {
                     for (auto const& [_, routine_symbol] : instruction.as< quxlang::vmir2::interface_init >().functions)
                     {
-                        record_referenced_functanoid(result, routine_symbol, location);
+                        record_referenced_functanoid(graph, result, routine_symbol, location);
                     }
                 }
                 else if (instruction.type_is< quxlang::vmir2::interface_invoke >())
@@ -237,7 +244,7 @@ namespace
                     quxlang::vmir2::interface_invoke const& invoke = instruction.as< quxlang::vmir2::interface_invoke >();
                     if (invoke.default_function.has_value())
                     {
-                        record_referenced_functanoid(result, *invoke.default_function, location);
+                        record_referenced_functanoid(graph, result, *invoke.default_function, location);
                     }
                 }
             }
@@ -283,7 +290,7 @@ namespace
             throw quxlang::semantic_compilation_error("Could not resolve main functanoid '" + main_functanoid_text + "' in module '" + module_name + "'");
         }
 
-        if (auto concrete = concrete_functanoid_from_symbol(*resolved_entry); concrete.has_value())
+        if (auto concrete = concrete_functanoid_from_symbol(graph, *resolved_entry); concrete.has_value())
         {
             return *concrete;
         }
@@ -546,7 +553,7 @@ int main(int argc, char** argv)
                     write_vmir2_text_file(build_dir, functanoid_symbol, ir_text);
                     compiled_functanoids.insert(functanoid_symbol);
 
-                    functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(procedure);
+                    functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, procedure);
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
                     {
                         quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;

@@ -9,8 +9,13 @@ rpnx::querygraph::coroutine< quxlang::function_param_names_spec > quxlang::funct
     QUXLANG_DEBUG_VALUE(quxlang::to_string(input));
 
     param_names result;
+    auto formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(input);
+    if (!formal_ensig.has_value())
+    {
+        throw quxlang::compiler_bug("Formal ensig not found for function parameter name lookup");
+    }
 
-    result.positional.resize(input.which.interface.positional.size());
+    result.positional.resize(formal_ensig->interface.positional.size());
 
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared

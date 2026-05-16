@@ -205,6 +205,8 @@ namespace
         register_type< quxlang::symbol_type_spec::query_spec::output_type >(viewer);
         register_type< quxlang::template_instanciation_spec::query_spec::input_type >(viewer);
         register_type< quxlang::template_instanciation_spec::query_spec::output_type >(viewer);
+        register_type< quxlang::temploid_formal_ensig_spec::query_spec::input_type >(viewer);
+        register_type< quxlang::temploid_formal_ensig_spec::query_spec::output_type >(viewer);
         register_type< quxlang::templex_initialize_spec::query_spec::input_type >(viewer);
         register_type< quxlang::templex_initialize_spec::query_spec::output_type >(viewer);
         register_type< quxlang::type_is_implicitly_datatype_spec::query_spec::input_type >(viewer);

@@ -651,71 +651,6 @@ namespace quxlang::parsers
             output = std::move(param_set);
             goto check_next;
         }
-        else if (skip_symbol_if_is(pos, end, "#{"))
-        {
-            QUXLANG_DEBUG(remaining = std::string(pos, end);)
-
-            instanciation_reference param_set;
-
-            param_set.temploid.templexoid = std::move(output);
-
-            skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, "}"))
-            {
-                output = std::move(param_set);
-                goto check_next;
-            }
-
-            skip_whitespace_and_comments(pos, end);
-
-        next_arg2:
-            QUXLANG_DEBUG(remaining = std::string(pos, end);)
-            skip_whitespace_and_comments(pos, end);
-
-            if (skip_symbol_if_is(pos, end, "@"))
-            {
-                std::string param_name = parse_argument_name(pos, end);
-                argif seltype = parse_argif(ctx);
-                skip_whitespace(pos, end);
-                if (skip_symbol_if_is(pos, end, ":"))
-                {
-                    skip_whitespace(pos, end);
-                    param_set.params.named[param_name] = make_type_instantiation(parse_type_symbol(ctx));
-                }
-                else
-                {
-                    param_set.params.named[param_name] = make_type_instantiation(seltype.type);
-                }
-                param_set.temploid.which.interface.named[std::move(param_name)] = std::move(seltype);
-            }
-            else
-            {
-                argif seltype = parse_argif(ctx);
-                skip_whitespace(pos, end);
-                if (skip_symbol_if_is(pos, end, ":"))
-                {
-                    skip_whitespace(pos, end);
-                    param_set.params.positional.push_back(make_type_instantiation(parse_type_symbol(ctx)));
-                }
-                else
-                {
-                    param_set.params.positional.push_back(make_type_instantiation(seltype.type));
-                }
-                param_set.temploid.which.interface.positional.push_back(std::move(seltype));
-            }
-
-            skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, "}"))
-            {
-                output = std::move(param_set);
-                goto check_next;
-            }
-            else if (!skip_symbol_if_is(pos, end, ","))
-            {
-                throw syntax_compilation_error("expected ',' or '}'");
-            }
-            goto next_arg2;
-        }
         else if (skip_symbol_if_is(pos, end, "#["))
         {
             QUXLANG_DEBUG(remaining = std::string(pos, end);)
@@ -729,45 +664,26 @@ namespace quxlang::parsers
                 goto check_next;
             }
 
-            if (skip_keyword_if_is(pos, end, "BUILTIN"))
+            std::string overload_id_string;
+            while (pos != end && is_digit(*pos))
             {
-                // TODO: consider if this is useful
-                // param_set.which.builtin = true;
-
-                skip_whitespace(pos, end);
-
-                if (!skip_symbol_if_is(pos, end, ";"))
-                {
-                    throw syntax_compilation_error("Expected ';'");
-                }
+                overload_id_string += *pos;
+                ++pos;
+            }
+            if (overload_id_string.empty())
+            {
+                throw syntax_compilation_error("Expected zero-based overload ID or empty overload brackets");
             }
 
             skip_whitespace_and_comments(pos, end);
-        next_arg3:
-            QUXLANG_DEBUG(remaining = std::string(pos, end);)
-            skip_whitespace_and_comments(pos, end);
-
-            if (skip_symbol_if_is(pos, end, "@"))
+            if (!skip_symbol_if_is(pos, end, "]"))
             {
-                std::string param_name = parse_argument_name(pos, end);
-                param_set.which.interface.named[std::move(param_name)] = parse_argif(ctx);
-            }
-            else
-            {
-                param_set.which.interface.positional.push_back(parse_argif(ctx));
+                throw syntax_compilation_error("Expected ']'");
             }
 
-            skip_whitespace_and_comments(pos, end);
-            if (skip_symbol_if_is(pos, end, "]"))
-            {
-                output = std::move(param_set);
-                goto check_next;
-            }
-            else if (!skip_symbol_if_is(pos, end, ","))
-            {
-                throw syntax_compilation_error("expected ',' or ']'");
-            }
-            goto next_arg3;
+            param_set.overload_id = std::stoull(overload_id_string);
+            output = std::move(param_set);
+            goto check_next;
         }
 
         return output;

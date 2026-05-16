@@ -26,9 +26,6 @@ rpnx::querygraph::coroutine< quxlang::user_default_dtor_exists_spec > quxlang::u
 
         if (candidate)
         {
-            instanciation_reference inst;
-            inst.temploid = temploid_reference{.templexoid = dtor_symbol, .which = ol};
-            inst.params = *candidate;
             co_return true;
         }
     }

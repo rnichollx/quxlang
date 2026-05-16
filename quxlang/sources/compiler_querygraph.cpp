@@ -117,6 +117,7 @@
 #include <quxlang/queries/specs/symbol_type_spec.hpp>
 #include <quxlang/queries/specs/template_builtin_spec.hpp>
 #include <quxlang/queries/specs/template_instanciation_spec.hpp>
+#include <quxlang/queries/specs/temploid_formal_ensig_spec.hpp>
 #include <quxlang/queries/specs/templex_builtins_spec.hpp>
 #include <quxlang/queries/specs/templex_builtin_templates_spec.hpp>
 #include <quxlang/queries/specs/templex_initialize_spec.hpp>
@@ -319,6 +320,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< symbol_type_spec >(symbol_type_impl);
     m_graph.register_handler_function< template_builtin_spec >(template_builtin_impl);
     m_graph.register_handler_function< template_instanciation_spec >(template_instanciation_impl);
+    m_graph.register_handler_function< temploid_formal_ensig_spec >(temploid_formal_ensig_impl);
     m_graph.register_handler_function< templex_builtins_spec >(templex_builtins_impl);
     m_graph.register_handler_function< templex_builtin_templates_spec >(templex_builtin_templates_impl);
     m_graph.register_handler_function< templex_initialize_spec >(templex_initialize_impl);

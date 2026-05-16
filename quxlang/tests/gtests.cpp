@@ -96,16 +96,12 @@ namespace
 
     auto test_atomic_type(quxlang::type_symbol value_type) -> quxlang::type_symbol
     {
-        quxlang::temploid_ensig selected_template;
-        selected_template.interface.named["T"] = quxlang::argif{.type = quxlang::type_temploidic{}};
-
         quxlang::instatype params;
         params.named["T"] = quxlang::make_type_instantiation(std::move(value_type));
 
         return quxlang::instanciation_reference{
             .temploid = quxlang::temploid_reference{
                 .templexoid = quxlang::builtin_symbol{"ATOMIC"},
-                .which = std::move(selected_template),
             },
             .params = std::move(params),
         };
@@ -568,7 +564,15 @@ TEST(parsing, type_symbol_parenthesized_postfix)
     expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[]"}), "(CONST& foo)::.OPERATOR[]");
     expect_round_trip(type_symbol(submember{.of = const_foo, .name = "OPERATOR[&]"}), "(CONST& foo)::.OPERATOR[&]");
 
-    ASSERT_TRUE(typeis< instanciation_reference >(parse_type_symbol("foo #{bar}")));
+    auto implicit_selection = parse_type_symbol("foo#[]");
+    ASSERT_TRUE(typeis< temploid_reference >(implicit_selection));
+    ASSERT_FALSE(as< temploid_reference >(implicit_selection).overload_id.has_value());
+
+    auto explicit_selection = parse_type_symbol("foo#[2]");
+    ASSERT_TRUE(typeis< temploid_reference >(explicit_selection));
+    ASSERT_EQ(as< temploid_reference >(explicit_selection).overload_id, std::optional< std::uint64_t >(2));
+
+    EXPECT_THROW(parse_type_symbol("foo #{bar}"), std::logic_error);
 }
 
 TEST(typeutils, named_arguments_print_in_stable_order)
@@ -600,11 +604,14 @@ TEST(typeutils, named_arguments_print_in_stable_order)
     ASSERT_EQ(to_string(type_symbol(procedure_type{.signature = sigtype{.params = inv}})), "PROCEDURE(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
 
     auto receiver = type_symbol(freebound_identifier{"foo"});
-    temploid_reference temploid{.templexoid = receiver, .which = temploid_ensig{.interface = interface}};
+    temploid_reference temploid{.templexoid = receiver};
+    temploid_reference overload_temploid{.templexoid = receiver, .overload_id = 2};
 
     ASSERT_EQ(to_string(type_symbol(initialization_reference{.initializee = receiver, .parameters = quxlang::instatype_from_invotype(inv)})), "foo #(@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ)");
-    ASSERT_EQ(to_string(type_symbol(temploid)), "foo#[@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ]");
+    ASSERT_EQ(to_string(type_symbol(temploid)), "foo#[]");
+    ASSERT_EQ(to_string(type_symbol(overload_temploid)), "foo#[2]");
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
+    ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = overload_temploid, .params = quxlang::instatype_from_invotype(inv)})), "foo#[2]{@THIS I32, @OTHER I64, @AAA BYTE, @ZZZ BOOL, SZ}");
 }
 
 TEST(typeutils, value_template_arguments_print_with_equals)
@@ -616,14 +623,12 @@ TEST(typeutils, value_template_arguments_print_with_equals)
     auto value = constexpr_value(test_i32_value(std::byte{4}));
     temploid_reference named_temploid{
         .templexoid = receiver,
-        .which = temploid_ensig{.interface = intertype{.named = {{"foo", argif{.type = i32, .requires_static_value = true}}}}},
     };
     instatype named_params{.named = {{"foo", parameter_value_instantiation{.type = i32, .value = value}}}};
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = named_temploid, .params = named_params})), "foo#{@foo I32=4}");
 
     temploid_reference positional_temploid{
         .templexoid = receiver,
-        .which = temploid_ensig{.interface = intertype{.positional = {argif{.type = i32, .requires_static_value = true}}}},
     };
     instatype positional_params{.positional = {parameter_value_instantiation{.type = i32, .value = value}}};
     ASSERT_EQ(to_string(type_symbol(instanciation_reference{.temploid = positional_temploid, .params = positional_params})), "foo#{I32=4}");
@@ -909,14 +914,13 @@ TEST(mangling, name_mangling_new)
         .temploid =
             quxlang::temploid_reference{
                 .templexoid = subentity3,
-                .which = quxlang::temploid_ensig{.interface = interface},
             },
         .params = params,
     };
 
     std::string mangled_name = quxlang::mangle(quxlang::type_symbol(param_set));
 
-    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazSAPI32API32EIAPI32API32E");
+    ASSERT_EQ(mangled_name, "_S_MmainNfooNbarNbazSUEIAPI32API32E");
 }
 
 TEST(mangling, initialization_reference_is_not_mangleable)
@@ -1953,6 +1957,21 @@ namespace
         return test_querygraph_compiler(sources, "linux-x64");
     }
 
+    auto instantiate_test_symbol(test_querygraph_compiler const& compiler, quxlang::type_symbol const& mainmodule, std::string const& initializee_text, quxlang::instatype params = {})
+        -> quxlang::instanciation_reference
+    {
+        quxlang::initialization_reference init{
+            .initializee = quxlang::with_context(parse_type_symbol(initializee_text), mainmodule),
+            .parameters = std::move(params),
+        };
+        std::optional< quxlang::instanciation_reference > inst = compiler.get_instanciation(std::move(init), std::nullopt);
+        if (!inst.has_value())
+        {
+            throw std::logic_error("Failed to instantiate test symbol " + initializee_text);
+        }
+        return *inst;
+    }
+
 } // namespace
 
 TEST(quxlang, compiler_graph_resolves_main_source_bundle)
@@ -2009,9 +2028,10 @@ TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    auto parent_symbol = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_layout_probe #{}"), mainmodule);
-    ASSERT_TRUE(parent_symbol.template type_is< quxlang::instanciation_reference >());
-    auto parent = parent_symbol.template get_as< quxlang::instanciation_reference >();
+    quxlang::initialization_reference parent_init{.initializee = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_layout_probe"), mainmodule)};
+    auto parent_opt = graph.make_request< quxlang::instanciation_query >(parent_init);
+    ASSERT_TRUE(parent_opt.has_value());
+    auto parent = *parent_opt;
 
     (void)graph.make_request< quxlang::vm_procedure3_query >(parent);
 
@@ -2053,10 +2073,11 @@ TEST(quxlang, lambda_explicit_capture_list_rejects_unlisted_runtime_local)
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
-    auto function_symbol = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_unlisted_capture_probe #{}"), mainmodule);
-    ASSERT_TRUE(function_symbol.template type_is< quxlang::instanciation_reference >());
+    quxlang::initialization_reference function_init{.initializee = quxlang::with_context(parse_type_symbol("MODULE(main)::lambda_unlisted_capture_probe"), mainmodule)};
+    auto function_symbol = graph.make_request< quxlang::instanciation_query >(function_init);
+    ASSERT_TRUE(function_symbol.has_value());
 
-    EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(function_symbol.template get_as< quxlang::instanciation_reference >()), std::logic_error);
+    EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*function_symbol), std::logic_error);
 }
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
@@ -2456,7 +2477,7 @@ TEST(builtin_state, user_func_builtin)
     auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
     auto mainmodule = quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
     test_querygraph_compiler c(sources, "linux-x64");
-    auto type = parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR #[@THIS NEW& MODULE(main)::buz]");
+    auto type = quxlang::with_context(parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR#[]"), mainmodule);
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
     GTEST_ASSERT_FALSE(val_builtin);
@@ -2581,13 +2602,10 @@ TEST(quxlang, func_gen)
 
     test_querygraph_compiler c(sources, "linux-x64");
 
-    auto func_name = parse_type_symbol("MODULE(main)::biz #{I32, I32}");
-
-    func_name = quxlang::with_context(func_name, mainmodule);
-
-    std::string out_type_name = func_name.type().name();
-
-    quxlang::instanciation_reference func_name_real = func_name.template get_as<quxlang::instanciation_reference>();
+    quxlang::instatype params;
+    params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
+    params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
+    quxlang::instanciation_reference func_name_real = instantiate_test_symbol(c, mainmodule, "MODULE(main)::biz", std::move(params));
 
     auto tempname = temp_output_file();
     auto func = c.get_vm_procedure3(func_name_real, tempname);
@@ -2631,10 +2649,11 @@ TEST(quxlang, positional_pack_invalid_body_generation)
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {
-        auto func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{I32}");
-        func_name = quxlang::with_context(func_name, mainmodule);
         auto tempname = temp_output_file();
-        EXPECT_THROW(c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), tempname), std::logic_error);
+        quxlang::instatype params;
+        params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol("I32")));
+        quxlang::instanciation_reference func_name = instantiate_test_symbol(c, mainmodule, "MODULE(main)::" + function_name, std::move(params));
+        EXPECT_THROW(c.get_vm_procedure3(func_name, tempname), std::logic_error);
     };
 
     expect_compile_failure("pack_arg_out_of_range");
@@ -2819,9 +2838,17 @@ TEST(quxlang, atomic_builtin_codegen_preserves_access_modes)
 
     auto routine_for = [&](std::string function_name, std::string params) -> quxlang::vmir2::functanoid_routine3
     {
-        quxlang::type_symbol func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{" + params + "}");
-        func_name = quxlang::with_context(func_name, mainmodule);
-        return c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), std::nullopt);
+        quxlang::instatype inst_params;
+        std::stringstream param_stream(params);
+        std::string param_name;
+        while (std::getline(param_stream, param_name, ','))
+        {
+            param_name.erase(0, param_name.find_first_not_of(' '));
+            param_name.erase(param_name.find_last_not_of(' ') + 1);
+            inst_params.positional.push_back(quxlang::make_type_instantiation(parse_type_symbol(param_name)));
+        }
+        quxlang::instanciation_reference func_name = instantiate_test_symbol(c, mainmodule, "MODULE(main)::" + function_name, std::move(inst_params));
+        return c.get_vm_procedure3(func_name, std::nullopt);
     };
 
     quxlang::vmir2::functanoid_routine3 fetch_routine = routine_for("atomic_fetch_add_ir", "I32");
@@ -2906,10 +2933,9 @@ TEST(quxlang, storage_type_validation)
 
     auto expect_compile_failure = [&](std::string const& function_name)
     {
-        auto func_name = parse_type_symbol("MODULE(main)::" + function_name + " #{}");
-        func_name = quxlang::with_context(func_name, mainmodule);
         auto tempname = temp_output_file();
-        EXPECT_THROW(c.get_vm_procedure3(func_name.get_as< quxlang::instanciation_reference >(), tempname), std::logic_error);
+        quxlang::instanciation_reference func_name = instantiate_test_symbol(c, mainmodule, "MODULE(main)::" + function_name);
+        EXPECT_THROW(c.get_vm_procedure3(func_name, tempname), std::logic_error);
     };
 
     expect_compile_failure("aligned_storage_baz");

@@ -5,6 +5,7 @@
 
 #include <quxlang/queries/function_primitive.hpp>
 #include <quxlang/queries/functum_builtins.hpp>
+#include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
 
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
@@ -14,7 +15,7 @@ namespace quxlang
     struct function_primitive_spec
     {
         using query = function_primitive_query;
-        using dependencies = rpnx::typelist< functum_builtins_query >;
+        using dependencies = rpnx::typelist< functum_builtins_query, functum_map_user_formal_ensigs_query >;
     };
 
     rpnx::querygraph::coroutine< function_primitive_spec > function_primitive_impl(temploid_reference input);

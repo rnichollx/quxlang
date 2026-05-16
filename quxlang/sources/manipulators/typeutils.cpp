@@ -1032,98 +1032,33 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(instanciation_reference const& ref) const
     {
-
         temploid_reference const& sel = ref.temploid;
         std::string output = to_string_as_postfix_receiver(sel.templexoid);
-
-        output += "#{";
-
-        if (typeis< builtin_symbol >(sel.templexoid))
+        if (sel.overload_id.has_value())
         {
-            bool first = true;
-            append_named_arguments_in_print_order(output, first, ref.params.named, [&](auto const& entry) {
-                auto const& [name, actual] = entry;
-                output += "@" + name + " " + to_string(parameter_instantiation_type(actual));
-            });
-            for (auto const& actual : ref.params.positional)
-            {
-                if (first)
-                {
-                    first = false;
-                }
-                else
-                {
-                    output += ", ";
-                }
-                output += to_string(parameter_instantiation_type(actual));
-            }
-            output += "}";
-            return output;
+            output += "#[" + std::to_string(*sel.overload_id) + "]{";
+        }
+        else
+        {
+            output += "#{";
         }
 
-        // TODO: consider if keep this
-        if (false) // (sel.which.builtin)
-        {
-            output += "BUILTIN; ";
-        }
         bool first = true;
-        append_named_arguments_in_print_order(output, first, sel.which.interface.named, [&](auto const& entry) {
-            auto const& [name, param] = entry;
-            auto const& actual = ref.params.named.at(name);
-            output += "@" + name + " " + to_string(param.type);
-            if (actual.template type_is< parameter_value_instantiation >())
-            {
-                auto const& value = actual.template get_as< parameter_value_instantiation >();
-                output += "=" + constexpr_parameter_value_to_string(value.type, value.value);
-            }
-            else if (parameter_instantiation_type(actual) != param.type)
-            {
-                output += ": " + to_string(parameter_instantiation_type(actual));
-            }
+        append_named_arguments_in_print_order(output, first, ref.params.named, [&](auto const& entry) {
+            auto const& [name, actual] = entry;
+            output += "@" + name + " " + to_string(actual);
         });
-        std::size_t actual_positional_index = 0;
-        for (std::size_t i = 0; i < sel.which.interface.positional.size(); i++)
+        for (auto const& actual : ref.params.positional)
         {
-            auto const& param = sel.which.interface.positional.at(i);
-            auto append_one = [&](parameter_instantiation const& actual)
+            if (first)
             {
-                if (first)
-                {
-                    first = false;
-                }
-                else
-                {
-                    output += ", ";
-                }
-                output += to_string(param.type);
-                if (actual.template type_is< parameter_value_instantiation >())
-                {
-                    auto const& value = actual.template get_as< parameter_value_instantiation >();
-                    output += "=" + constexpr_parameter_value_to_string(value.type, value.value);
-                }
-                else if (parameter_instantiation_type(actual) != param.type)
-                {
-                    output += ": " + to_string(parameter_instantiation_type(actual));
-                }
-            };
-
-            if (param.is_pack)
-            {
-                while (actual_positional_index < ref.params.positional.size())
-                {
-                    append_one(ref.params.positional.at(actual_positional_index));
-                    actual_positional_index++;
-                }
-                continue;
+                first = false;
             }
-
-            if (actual_positional_index >= ref.params.positional.size())
+            else
             {
-                output += to_string(param.type);
-                continue;
+                output += ", ";
             }
-            append_one(ref.params.positional.at(actual_positional_index));
-            actual_positional_index++;
+            output += to_string(actual);
         }
         output += "}";
         return output;
@@ -1326,25 +1261,9 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(temploid_reference const& ref) const
     {
         std::string output = to_string_as_postfix_receiver(ref.templexoid) + "#[";
-        bool first = true;
-        if (false) // ref.which.builtin)
+        if (ref.overload_id.has_value())
         {
-            output += "BUILTIN; ";
-        }
-        append_named_arguments_in_print_order(output, first, ref.which.interface.named, [&](auto const& arg) {
-            output += "@" + arg.first + " " + to_string(arg.second.type);
-        });
-        for (auto const& arg : ref.which.interface.positional)
-        {
-            if (first)
-            {
-                first = false;
-            }
-            else
-            {
-                output += ", ";
-            }
-            output += to_string(arg);
+            output += std::to_string(*ref.overload_id);
         }
         output += "]";
         return output;
@@ -2309,13 +2228,7 @@ namespace quxlang
                 {
                     return false;
                 }
-
-                if (!check(tmpl.which.interface, val.which.interface, false))
-                {
-                    return false;
-                }
-
-                return true;
+                return tmpl.overload_id == val.overload_id;
             }
 
             bool check_impl(value_expression_reference const&, value_expression_reference const&, bool conv)
@@ -2880,7 +2793,6 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, temploid_reference >)
             {
                 value.templexoid = strip_source_locations(std::move(value.templexoid));
-                value.which = strip_source_locations(std::move(value.which));
             }
             else if constexpr (std::is_same_v< value_type, ensig_initialization >)
             {
@@ -2890,7 +2802,6 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
             else if constexpr (std::is_same_v< value_type, instanciation_reference >)
             {
                 value.temploid.templexoid = strip_source_locations(std::move(value.temploid.templexoid));
-                value.temploid.which = strip_source_locations(std::move(value.temploid.which));
                 value.params = strip_instatype_locations(std::move(value.params));
             }
             else if constexpr (std::is_same_v< value_type, attached_type_reference >)

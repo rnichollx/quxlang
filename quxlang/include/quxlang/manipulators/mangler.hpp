@@ -554,26 +554,13 @@ namespace quxlang
 
             str += mangle_internal(as< temploid_reference >(qt).templexoid);
             str += "S";
-
-            for (auto const& p : as< temploid_reference >(qt).which.interface.positional)
+            if (as< temploid_reference >(qt).overload_id.has_value())
             {
-                str += "AP";
-                str += mangle_internal(p);
+                str += "O" + std::to_string(*as< temploid_reference >(qt).overload_id);
             }
-            for (auto const& p : as< temploid_reference >(qt).which.interface.named)
+            else
             {
-                str += "AN";
-                str += p.first;
-                str += "A";
-                str += mangle_internal(p.second);
-            }
-            if (as< temploid_reference >(qt).which.priority.has_value())
-            {
-                str += "Y" + std::to_string(*as< temploid_reference >(qt).which.priority);
-            }
-            if (as< temploid_reference >(qt).which.enable_if.has_value())
-            {
-                str += "X" + mangle_expression(*as< temploid_reference >(qt).which.enable_if);
+                str += "U";
             }
             str += "E";
 
