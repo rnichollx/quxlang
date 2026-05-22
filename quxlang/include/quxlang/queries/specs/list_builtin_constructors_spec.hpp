@@ -15,6 +15,7 @@
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 
+
 namespace quxlang
 {
     struct list_builtin_constructors_spec

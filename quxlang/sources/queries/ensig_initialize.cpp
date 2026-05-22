@@ -104,7 +104,11 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         {
             return std::nullopt;
         }
-        auto const& target = this_type.template get_as< nvalue_slot >().target;
+        type_symbol target = this_type.template get_as< nvalue_slot >().target;
+        if (typeis< thistype >(target) && !typeis< void_type >(input.type_of_this))
+        {
+            target = input.type_of_this;
+        }
         if (!target.template type_is< array_type >())
         {
             return std::nullopt;
@@ -131,7 +135,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
     instatype result;
     temploid_instanciation_parameter_set deduced_templates;
 
-    auto substitute_formal_this_type =
+    auto co_substitute_formal_this_type =
         [&](auto&& self, type_symbol type) -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< type_symbol >
     {
         if (typeis< thistype >(type))
@@ -190,7 +194,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         co_return type;
     };
 
-    auto initialize_argument_type =
+    auto co_initialize_argument_type =
         [&](type_symbol const& from, type_symbol const& to) -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< std::optional< type_symbol > >
     {
         if (auto matched = match_template(to, from); matched.has_value())
@@ -210,7 +214,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         });
     };
 
-    auto initialize_parameter =
+    auto co_initialize_parameter =
         [&](std::optional< std::string > const& formal_name, argif const& formal, parameter_instantiation const& actual)
         -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< std::optional< parameter_instantiation > >
     {
@@ -221,13 +225,13 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         }
 
         type_symbol formal_type = formal.type;
-        if (formal_name == std::optional< std::string >{"THIS"} && !typeis< void_type >(input.type_of_this))
+        if (!typeis< void_type >(input.type_of_this))
         {
-            formal_type = co_await substitute_formal_this_type(substitute_formal_this_type, formal_type);
+            formal_type = co_await co_substitute_formal_this_type(co_substitute_formal_this_type, formal_type);
         }
 
         auto const actual_type = parameter_instantiation_type(actual);
-        auto initialized_type = co_await initialize_argument_type(actual_type, formal_type);
+        auto initialized_type = co_await co_initialize_argument_type(actual_type, formal_type);
         if (!initialized_type.has_value())
         {
             co_return std::nullopt;
@@ -249,13 +253,19 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         co_return make_type_instantiation(*initialized_type);
     };
 
-    auto defaulted_parameter = [](argif const& formal) -> parameter_instantiation
+    auto co_defaulted_parameter =
+        [&](argif const& formal) -> rpnx::querygraph::coroutine< ensig_initialize_spec >::cosubroutine< parameter_instantiation >
     {
         if (formal.requires_static_value)
         {
             throw quxlang::semantic_compilation_error("Defaulted static-value parameters are not supported");
         }
-        return make_type_instantiation(formal.type);
+        type_symbol formal_type = formal.type;
+        if (!typeis< void_type >(input.type_of_this))
+        {
+            formal_type = co_await co_substitute_formal_this_type(co_substitute_formal_this_type, formal_type);
+        }
+        co_return make_type_instantiation(std::move(formal_type));
     };
 
     for (auto const& [name, argument] : preargs.named)
@@ -266,7 +276,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             co_return std::nullopt;
         }
 
-        auto initialized = co_await initialize_parameter(name, it->second, argument);
+        auto initialized = co_await co_initialize_parameter(name, it->second, argument);
         if (!initialized.has_value())
         {
             co_return std::nullopt;
@@ -284,13 +294,13 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
         {
             co_return std::nullopt;
         }
-        result.named[name] = defaulted_parameter(formal);
+        result.named[name] = co_await co_defaulted_parameter(formal);
     }
 
     for (std::size_t i = 0; i < preargs.positional.size(); i++)
     {
         auto const& formal = positional_formal_for(ensig.interface, pack_index, i);
-        auto initialized = co_await initialize_parameter(std::nullopt, formal, preargs.positional.at(i));
+        auto initialized = co_await co_initialize_parameter(std::nullopt, formal, preargs.positional.at(i));
         if (!initialized.has_value())
         {
             co_return std::nullopt;
@@ -307,7 +317,7 @@ rpnx::querygraph::coroutine< quxlang::ensig_initialize_spec > quxlang::ensig_ini
             {
                 co_return std::nullopt;
             }
-            result.positional.push_back(defaulted_parameter(formal));
+            result.positional.push_back(co_await co_defaulted_parameter(formal));
         }
     }
 

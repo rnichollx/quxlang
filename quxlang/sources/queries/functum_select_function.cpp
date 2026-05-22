@@ -342,13 +342,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (auto const& [name, arg] : input.parameters.named)
                 {
                     auto const& arg_type = parameter_instantiation_type(arg);
-                    type_symbol candidate_param = candidate.ensig.interface.named.at(name).type;
-                    type_symbol other_param = other.ensig.interface.named.at(name).type;
-                    if (name == "THIS")
-                    {
-                        candidate_param = ranked_this_param_type(ranked_this_param_type, candidate_param);
-                        other_param = ranked_this_param_type(ranked_this_param_type, other_param);
-                    }
+                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, candidate.ensig.interface.named.at(name).type);
+                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, other.ensig.interface.named.at(name).type);
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
@@ -371,8 +366,8 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
                 for (std::size_t i = 0; i < input.parameters.positional.size(); i++)
                 {
                     auto const& arg_type = parameter_instantiation_type(input.parameters.positional.at(i));
-                    auto const& candidate_param = positional_formal_for(candidate.ensig, i).type;
-                    auto const& other_param = positional_formal_for(other.ensig, i).type;
+                    type_symbol candidate_param = ranked_this_param_type(ranked_this_param_type, positional_formal_for(candidate.ensig, i).type);
+                    type_symbol other_param = ranked_this_param_type(ranked_this_param_type, positional_formal_for(other.ensig, i).type);
 
                     auto other_beats_candidate = co_await rpnx::querygraph::request< argument_adaptation_is_better_fit_query >(argument_adaptation_better_fit_input{
                         .from = arg_type,
