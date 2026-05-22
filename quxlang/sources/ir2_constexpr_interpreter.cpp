@@ -13,6 +13,7 @@
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "rpnx/unimplemented.hpp"
+#include "rpnx/serialization4.hpp"
 
 #include <deque>
 #include <sstream>
@@ -49,7 +50,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /// Initial antestatal value for each global or localdata root known to this evaluation.
     std::map< type_symbol, antestatal_value > constexpr_antestatal_global_values;
     /// Mutability policy for each global or localdata root known to this evaluation.
-    std::map< type_symbol, bool > constexpr_antestatal_global_mutable;
+    std::unordered_map< type_symbol, bool, rpnx::serial4::hash > constexpr_antestatal_global_mutable;
     std::weak_ptr< local > constexpr_result_root;
     std::optional< antestatal_value > constexpr_result_antestatal;
     /// Materialized constexpr_set_result2 outputs keyed by result ID.
@@ -582,9 +583,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
     // Actual execution will happen in subsequent calls to exec/exec_instr
 
-    auto type = functype.read();
 
-    std::string funcname_str = quxlang::to_string(type);
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+    {
+        std::string funcname_str = quxlang::to_string(functype.get());
+    }
 
     stack.emplace_back();
     stack.back().type = functype;
@@ -609,7 +612,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    std::string funcname = quxlang::to_string(functype.get());
+    //std::string funcname = quxlang::to_string(functype.get());
 
     cow< vmir2::functanoid_routine3 > current_func_ir_v = stack.back().ir3;
 
@@ -826,14 +829,14 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto const& current_func = stack.back().type;
 
-    auto const & current_func_ir = functanoids3.at(current_func.get());
+    auto const & current_func_ir = stack.back().ir3.get();
 
-    auto const& current_block = current_func_ir->blocks.at(current_instr_address.block);
+    auto const& current_block = current_func_ir.blocks.at(current_instr_address.block);
 
     std::optional<quxlang::vmir2::assembler> ir_printer;
     if constexpr(QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
-        ir_printer.emplace(current_func_ir.get());
+        ir_printer.emplace(current_func_ir);
         ir_printer->source_index = this->printer_source_index;
     }
 
@@ -4170,14 +4173,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     initialize_localdata(func.static_snapshots);
 
     // Track missing dtors
-    for (auto const& dtor : func.non_trivial_dtors)
-    {
-        auto dtor_func = dtor.second;
-        if (!this->implementation->functanoids3.contains(dtor_func))
-        {
-            this->implementation->missing_functanoids_val.insert(dtor_func);
-        }
-    }
+
     // Track missing invoked functions
     for (auto const& block : func.blocks)
     {
