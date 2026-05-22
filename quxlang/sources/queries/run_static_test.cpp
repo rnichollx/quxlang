@@ -1,5 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
+#include "quxlang/profiling.hpp"
+
 #include <quxlang/queries/specs/run_static_test_spec.hpp>
 
 #include <quxlang/co_vmir_generator2.hpp>
@@ -10,251 +12,15 @@
 #include <quxlang/vmir2/source_index.hpp>
 
 #include <optional>
-#include <set>
+#include <rpnx/serialization4.hpp>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
-namespace
-{
-    using run_static_test_coroutine = rpnx::querygraph::coroutine< quxlang::run_static_test_spec >;
-
-    auto add_type_for_layout_scan(std::vector< quxlang::type_symbol >& pending, quxlang::type_symbol type) -> void
-    {
-        if (type.type_is< quxlang::nvalue_slot >())
-        {
-            pending.push_back(type.get_as< quxlang::nvalue_slot >().target);
-            return;
-        }
-        if (type.type_is< quxlang::dvalue_slot >())
-        {
-            pending.push_back(type.get_as< quxlang::dvalue_slot >().target);
-            return;
-        }
-        if (type.type_is< quxlang::ptrref_type >())
-        {
-            pending.push_back(type.get_as< quxlang::ptrref_type >().target);
-            return;
-        }
-        if (type.type_is< quxlang::array_type >())
-        {
-            pending.push_back(type.get_as< quxlang::array_type >().element_type);
-            return;
-        }
-        if (type.type_is< quxlang::storage >())
-        {
-            for (auto const& storable_type : type.get_as< quxlang::storage >().storable_types)
-            {
-                pending.push_back(storable_type);
-            }
-            return;
-        }
-    }
-
-    auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
-    {
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
-    }
-
-    struct static_test_dependency_provider
-    {
-        std::set< quxlang::type_symbol > layout_types;
-
-        auto add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >;
-        auto add_layouts_for_routine(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::vmir2::functanoid_routine3 const& routine) -> run_static_test_coroutine::cosubroutine< void >;
-        auto provide_antestatal_global(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol const& symbol)
-            -> run_static_test_coroutine::cosubroutine< std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > >;
-    };
-
-    auto static_test_dependency_provider::add_layouts_for_type(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol type) -> run_static_test_coroutine::cosubroutine< void >
-    {
-        std::vector< quxlang::type_symbol > pending{std::move(type)};
-
-        while (!pending.empty())
-        {
-            auto type = pending.back();
-            pending.pop_back();
-
-            add_type_for_layout_scan(pending, type);
-
-            if (!type_might_have_layout(type) || layout_types.contains(type))
-            {
-                continue;
-            }
-
-            layout_types.insert(type);
-            quxlang::symbol_kind const kind = co_await rpnx::querygraph::request< quxlang::symbol_type_query >(type);
-            if (kind == quxlang::symbol_kind::enum_)
-            {
-                quxlang::enum_info const info = co_await rpnx::querygraph::request< quxlang::enum_info_query >(type);
-                interp.add_nominal_integer_type(type, info.bits);
-                continue;
-            }
-            if (kind == quxlang::symbol_kind::flagset_)
-            {
-                quxlang::flagset_info const info = co_await rpnx::querygraph::request< quxlang::flagset_info_query >(type);
-                interp.add_nominal_integer_type(type, info.bits);
-                continue;
-            }
-            auto layout = co_await rpnx::querygraph::request< quxlang::class_layout_query >(type);
-            interp.add_class_layout(type, layout);
-            for (auto const& field : layout.fields)
-            {
-                pending.push_back(field.type);
-            }
-        }
-    }
-
-    auto static_test_dependency_provider::add_layouts_for_routine(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::vmir2::functanoid_routine3 const& routine) -> run_static_test_coroutine::cosubroutine< void >
-    {
-        for (auto const& local_type : routine.local_types)
-        {
-            co_await add_layouts_for_type(interp, local_type.type);
-        }
-        for (auto const& [_, param] : routine.parameters.named)
-        {
-            co_await add_layouts_for_type(interp, param.type);
-        }
-        for (auto const& param : routine.parameters.positional)
-        {
-            co_await add_layouts_for_type(interp, param.type);
-        }
-        for (auto const& [_, localdata] : routine.static_snapshots)
-        {
-            co_await add_layouts_for_type(interp, localdata.type);
-        }
-    }
-
-    auto static_test_dependency_provider::provide_antestatal_global(quxlang::vmir2::ir2_constexpr_interpreter& interp, quxlang::type_symbol const& symbol)
-        -> run_static_test_coroutine::cosubroutine< std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > >
-    {
-        if (!(co_await rpnx::querygraph::request< quxlang::global_is_antestatal_static_query >(symbol)))
-        {
-            throw quxlang::compiler_bug("constexpr interpreter requested non-antestatal global data: " + quxlang::to_string(symbol));
-        }
-
-        quxlang::type_symbol type = co_await rpnx::querygraph::request< quxlang::variable_type_query >(symbol);
-        co_await add_layouts_for_type(interp, type);
-        quxlang::antestatal_value value = co_await rpnx::querygraph::request< quxlang::antestatal_static_value_query >(symbol);
-        std::set< quxlang::type_symbol > value_functanoids = quxlang::vmir2::directly_instantiated_functanoids(value, type);
-        std::set< quxlang::type_symbol > value_antestatal_globals = quxlang::vmir2::directly_referenced_antestatal_globals(value, type);
-        interp.add_constexpr_antestatal_global(symbol, type, std::move(value));
-        co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
-    }
-
-    auto execute_static_test_routine(quxlang::vmir2::functanoid_routine3 const& routine, quxlang::vmir2::source_index source_index) -> run_static_test_coroutine::cosubroutine< void >
-    {
-        quxlang::vmir2::ir2_constexpr_interpreter interp;
-        interp.set_source_index(std::move(source_index));
-        static_test_dependency_provider dependency_provider;
-        std::vector< quxlang::instanciation_reference > pending_functanoids;
-        std::set< quxlang::type_symbol > queued_functanoids;
-        std::set< quxlang::type_symbol > loaded_functanoids;
-        std::vector< quxlang::type_symbol > pending_antestatal_globals;
-        std::set< quxlang::type_symbol > queued_antestatal_globals;
-        std::set< quxlang::type_symbol > loaded_antestatal_globals;
-
-        auto enqueue_functanoid = [&](quxlang::type_symbol const& funcname)
-        {
-            if (!quxlang::typeis< quxlang::instanciation_reference >(funcname))
-            {
-                throw quxlang::compiler_bug("functanoid dependency is not an instanciation reference: " + quxlang::to_string(funcname));
-            }
-            if (loaded_functanoids.contains(funcname) || !queued_functanoids.insert(funcname).second)
-            {
-                return;
-            }
-            pending_functanoids.push_back(funcname.get_as< quxlang::instanciation_reference >());
-        };
-
-        auto enqueue_functanoids = [&](std::set< quxlang::type_symbol > const& functanoids)
-        {
-            for (quxlang::type_symbol const& funcname : functanoids)
-            {
-                enqueue_functanoid(funcname);
-            }
-        };
-
-        auto enqueue_antestatal_global = [&](quxlang::type_symbol const& symbol)
-        {
-            if (loaded_antestatal_globals.contains(symbol) || !queued_antestatal_globals.insert(symbol).second)
-            {
-                return;
-            }
-            pending_antestatal_globals.push_back(symbol);
-        };
-
-        auto enqueue_antestatal_globals = [&](std::set< quxlang::type_symbol > const& symbols)
-        {
-            for (quxlang::type_symbol const& symbol : symbols)
-            {
-                enqueue_antestatal_global(symbol);
-            }
-        };
-
-        auto add_layouts_for_functanoid = [&](quxlang::instanciation_reference const& functanoid) -> run_static_test_coroutine::cosubroutine< void >
-        {
-            std::set< quxlang::type_symbol > const required_layouts = co_await rpnx::querygraph::request< quxlang::functanoid_required_class_layouts_query >(
-                quxlang::functanoid_requirement_input{.functanoid = functanoid, .compilation_type = quxlang::functanoid_compilation_type::all});
-            for (quxlang::type_symbol const& type : required_layouts)
-            {
-                co_await dependency_provider.add_layouts_for_type(interp, type);
-            }
-        };
-
-        co_await dependency_provider.add_layouts_for_routine(interp, routine);
-        enqueue_functanoids(quxlang::vmir2::directly_instantiated_functanoids(routine));
-        enqueue_antestatal_globals(quxlang::vmir2::directly_referenced_antestatal_globals(routine));
-        interp.add_functanoid3(quxlang::void_type{}, routine);
-        loaded_functanoids.insert(quxlang::type_symbol(quxlang::void_type{}));
-
-        while (!pending_functanoids.empty() || !pending_antestatal_globals.empty())
-        {
-            while (!pending_antestatal_globals.empty())
-            {
-                quxlang::type_symbol symbol = std::move(pending_antestatal_globals.back());
-                pending_antestatal_globals.pop_back();
-                if (loaded_antestatal_globals.contains(symbol))
-                {
-                    continue;
-                }
-
-                std::pair< std::set< quxlang::type_symbol >, std::set< quxlang::type_symbol > > requirements = co_await dependency_provider.provide_antestatal_global(interp, symbol);
-                loaded_antestatal_globals.insert(symbol);
-                enqueue_functanoids(requirements.first);
-                enqueue_antestatal_globals(requirements.second);
-            }
-
-            while (!pending_functanoids.empty())
-            {
-                quxlang::instanciation_reference functanoid = std::move(pending_functanoids.back());
-                pending_functanoids.pop_back();
-
-                quxlang::type_symbol funcname = functanoid;
-                if (loaded_functanoids.contains(funcname))
-                {
-                    continue;
-                }
-
-                co_await add_layouts_for_functanoid(functanoid);
-                quxlang::vmir2::functanoid_routine3 const& missing_routine = co_await rpnx::querygraph::request< quxlang::vm_procedure3_query >(functanoid);
-                interp.add_functanoid3(funcname, missing_routine);
-                loaded_functanoids.insert(funcname);
-                enqueue_antestatal_globals(quxlang::vmir2::directly_referenced_antestatal_globals(missing_routine));
-
-                std::set< quxlang::type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< quxlang::functanoid_indirectly_instantiated_functanoids_query >(
-                    quxlang::functanoid_requirement_input{.functanoid = functanoid, .compilation_type = quxlang::functanoid_compilation_type::all});
-                enqueue_functanoids(direct_functanoids);
-            }
-        }
-
-        interp.exec3(quxlang::void_type{});
-    }
-} // namespace
-
 rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static_test_impl(type_symbol input)
 {
-    auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
+    auto const& sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_static_test >(sym))
     {
         throw quxlang::compiler_bug("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
@@ -298,9 +64,207 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
     try
     {
-        auto source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
-        auto source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
-        co_await execute_static_test_routine(*routine, quxlang::vmir2::source_index(source_file_index, source_bundle));
+        auto const& source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
+        auto const& source_bundle = co_await rpnx::querygraph::request< source_bundle_query >(std::monostate{});
+
+        vmir2::ir2_constexpr_interpreter interp;
+        interp.set_source_index(vmir2::source_index(source_file_index, source_bundle));
+
+        std::unordered_set< type_symbol, rpnx::serial4::hash > functanoids;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > antestatal_globals;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > layout_types;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_layouts;
+        std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_functanoids;
+        std::vector< type_symbol > functanoid_list;
+        std::vector< type_symbol > antestatal_global_list;
+
+        functanoids.reserve(64);
+        antestatal_globals.reserve(64);
+        layout_types.reserve(64);
+        loaded_layouts.reserve(64);
+        loaded_functanoids.reserve(64);
+
+        for (type_symbol const& type : vmir2::directly_required_class_layouts(*routine))
+        {
+            run_under_profiling_void("run_static_test seed layout_types insert", [&] { layout_types.insert(type); });
+        }
+        for (type_symbol const& funcname : vmir2::directly_instantiated_functanoids(*routine))
+        {
+            run_under_profiling_void("run_static_test seed functanoid loop body", [&] {
+                if (functanoids.insert(funcname).second)
+                {
+                    functanoid_list.push_back(funcname);
+                }
+            });
+        }
+        for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(*routine))
+        {
+            run_under_profiling_void("run_static_test seed antestatal global loop body", [&] {
+                if (antestatal_globals.insert(symbol).second)
+                {
+                    antestatal_global_list.push_back(symbol);
+                }
+            });
+        }
+
+        std::size_t functanoid_index = 0;
+        std::size_t antestatal_global_index = 0;
+        while (functanoid_index != functanoid_list.size() || antestatal_global_index != antestatal_global_list.size())
+        {
+            while (functanoid_index != functanoid_list.size())
+            {
+                type_symbol funcname = functanoid_list[functanoid_index];
+                ++functanoid_index;
+
+                if (!typeis< instanciation_reference >(funcname))
+                {
+                    throw compiler_bug("functanoid dependency is not an instanciation reference: " + to_string(funcname));
+                }
+
+                instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
+                auto const& required_functanoids = co_await rpnx::querygraph::request< functanoid_directly_instantiated_functanoids_query >(
+                    functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
+                for (type_symbol const& dependency : required_functanoids)
+                {
+                    run_under_profiling_void("run_static_test required functanoid loop body", [&] {
+                        if (functanoids.insert(dependency).second)
+                        {
+                            functanoid_list.push_back(dependency);
+                        }
+                    });
+                }
+                auto const& required_layouts = co_await rpnx::querygraph::request< functanoid_required_class_layouts_query >(
+                    functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
+                for (type_symbol const& type : required_layouts)
+                {
+                    run_under_profiling_void("run_static_test required layout loop body", [&] { layout_types.insert(type); });
+                }
+
+                auto const& dependency_routine = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
+                if (loaded_functanoids.insert(funcname).second)
+                {
+                    run_under_profiling_void("run_static_test add functanoid3", [&] {
+                        interp.add_functanoid3(funcname, dependency_routine);
+                    });
+                    for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(dependency_routine))
+                    {
+                        run_under_profiling_void("run_static_test dependency routine antestatal global loop body", [&] {
+                            if (antestatal_globals.insert(symbol).second)
+                            {
+                                antestatal_global_list.push_back(symbol);
+                            }
+                        });
+                    }
+                }
+            }
+
+            while (antestatal_global_index != antestatal_global_list.size())
+            {
+                type_symbol symbol = antestatal_global_list[antestatal_global_index];
+                ++antestatal_global_index;
+
+                if (!(co_await rpnx::querygraph::request< global_is_antestatal_static_query >(symbol)))
+                {
+                    throw compiler_bug("constexpr interpreter requested non-antestatal global data: " + to_string(symbol));
+                }
+
+                type_symbol const& type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
+                antestatal_value const& value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
+                run_under_profiling_void("run_static_test add constexpr antestatal global", [&] {
+                    layout_types.insert(type);
+                    interp.add_constexpr_antestatal_global(symbol, type, value);
+                });
+
+                for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(value, type))
+                {
+                    run_under_profiling_void("run_static_test antestatal functanoid loop body", [&] {
+                        if (functanoids.insert(dependency).second)
+                        {
+                            functanoid_list.push_back(dependency);
+                        }
+                    });
+                }
+                for (type_symbol const& dependency : vmir2::directly_referenced_antestatal_globals(value, type))
+                {
+                    run_under_profiling_void("run_static_test antestatal global dependency loop body", [&] {
+                        if (antestatal_globals.insert(dependency).second)
+                        {
+                            antestatal_global_list.push_back(dependency);
+                        }
+                    });
+                }
+            }
+        }
+
+        run_under_profiling_void("run_static_test add root functanoid3", [&] { interp.add_functanoid3(void_type{}, *routine); });
+
+        for (type_symbol const& root_type : layout_types)
+        {
+            std::vector< type_symbol > pending{root_type};
+
+            while (!pending.empty())
+            {
+                type_symbol type = std::move(pending.back());
+                pending.pop_back();
+
+                run_under_profiling_void("run_static_test layout expansion loop body", [&] {
+                    if (type.type_is< nvalue_slot >())
+                    {
+                        pending.push_back(type.get_as< nvalue_slot >().target);
+                    }
+                    else if (type.type_is< dvalue_slot >())
+                    {
+                        pending.push_back(type.get_as< dvalue_slot >().target);
+                    }
+                    else if (type.type_is< ptrref_type >())
+                    {
+                        pending.push_back(type.get_as< ptrref_type >().target);
+                    }
+                    else if (type.type_is< array_type >())
+                    {
+                        pending.push_back(type.get_as< array_type >().element_type);
+                    }
+                    else if (type.type_is< storage >())
+                    {
+                        for (type_symbol const& storable_type : type.get_as< storage >().storable_types)
+                        {
+                            pending.push_back(storable_type);
+                        }
+                    }
+                });
+
+                if (!(type.type_is< subsymbol >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >()) || loaded_layouts.contains(type))
+                {
+                    continue;
+                }
+
+                run_under_profiling_void("run_static_test loaded_layouts insert", [&] { loaded_layouts.insert(type); });
+                symbol_kind const& kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
+                if (kind == symbol_kind::enum_)
+                {
+                    enum_info const& info = co_await rpnx::querygraph::request< enum_info_query >(type);
+                    run_under_profiling_void("run_static_test add nominal integer type enum", [&] { interp.add_nominal_integer_type(type, info.bits); });
+                    continue;
+                }
+                if (kind == symbol_kind::flagset_)
+                {
+                    flagset_info const& info = co_await rpnx::querygraph::request< flagset_info_query >(type);
+                    run_under_profiling_void("run_static_test add nominal integer type flagset", [&] { interp.add_nominal_integer_type(type, info.bits); });
+                    continue;
+                }
+
+                class_layout const& layout = co_await rpnx::querygraph::request< class_layout_query >(type);
+                run_under_profiling_void("run_static_test add class layout", [&] {
+                    for (auto const& field : layout.fields)
+                    {
+                        pending.push_back(field.type);
+                    }
+                    interp.add_class_layout(type, layout);
+                });
+            }
+        }
+
+        run_under_profiling_void("run_static_test exec3", [&] { interp.exec3(void_type{}); });
     }
     catch (constexpr_runtime_error const& error)
     {

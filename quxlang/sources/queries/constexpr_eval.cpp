@@ -257,7 +257,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
             loaded_functanoids.insert(funcname);
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
 
-            std::set< type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< functanoid_indirectly_instantiated_functanoids_query >(
+            std::set< type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< functanoid_directly_instantiated_functanoids_query >(
                 functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
             enqueue_functanoids(direct_functanoids);
         }

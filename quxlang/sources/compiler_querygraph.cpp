@@ -56,7 +56,7 @@
 #include <quxlang/queries/specs/exists_spec.hpp>
 #include <quxlang/queries/specs/extern_linksymbol_spec.hpp>
 #include <quxlang/queries/specs/flagset_info_spec.hpp>
-#include <quxlang/queries/specs/functanoid_indirectly_instantiated_functanoids_spec.hpp>
+#include <quxlang/queries/specs/functanoid_directly_instantiated_functanoids_spec.hpp>
 #include <quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp>
 #include <quxlang/queries/specs/functanoid_required_type_placements_spec.hpp>
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
@@ -261,7 +261,7 @@ quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, s
     m_graph.register_handler_function< exists_spec >(exists_impl);
     m_graph.register_handler_function< extern_linksymbol_spec >(extern_linksymbol_impl);
     m_graph.register_handler_function< flagset_info_spec >(flagset_info_impl);
-    m_graph.register_handler_function< functanoid_indirectly_instantiated_functanoids_spec >(functanoid_indirectly_instantiated_functanoids_impl);
+    m_graph.register_handler_function< functanoid_directly_instantiated_functanoids_spec >(functanoid_directly_instantiated_functanoids_impl);
     m_graph.register_handler_function< functanoid_required_class_layouts_spec >(functanoid_required_class_layouts_impl);
     m_graph.register_handler_function< functanoid_required_type_placements_spec >(functanoid_required_type_placements_impl);
     m_graph.register_handler_function< functanoid_return_type_spec >(functanoid_return_type_impl);

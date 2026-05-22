@@ -148,6 +148,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/co_vmir_generator2_deps.hpp
         include/quxlang/data/basic_types.hpp
         include/quxlang/llvm-backend.hpp
+        include/quxlang/profiling.hpp
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
@@ -225,7 +226,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/exists_spec.hpp
         include/quxlang/queries/specs/extern_linksymbol_spec.hpp
         include/quxlang/queries/specs/flagset_info_spec.hpp
-        include/quxlang/queries/specs/functanoid_indirectly_instantiated_functanoids_spec.hpp
+        include/quxlang/queries/specs/functanoid_directly_instantiated_functanoids_spec.hpp
         include/quxlang/queries/specs/functanoid_required_class_layouts_spec.hpp
         include/quxlang/queries/specs/functanoid_required_type_placements_spec.hpp
         include/quxlang/queries/specs/functanoid_return_type_spec.hpp
@@ -360,7 +361,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/exists.cpp
         sources/queries/extern_linksymbol.cpp
         sources/queries/flagset_info.cpp
-        sources/queries/functanoid_indirectly_instantiated_functanoids.cpp
+        sources/queries/functanoid_directly_instantiated_functanoids.cpp
         sources/queries/functanoid_required_class_layouts.cpp
         sources/queries/functanoid_required_type_placements.cpp
         sources/queries/functanoid_return_type.cpp

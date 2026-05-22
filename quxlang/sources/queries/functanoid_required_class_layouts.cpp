@@ -5,6 +5,6 @@
 
 rpnx::querygraph::coroutine< quxlang::functanoid_required_class_layouts_spec > quxlang::functanoid_required_class_layouts_impl(functanoid_requirement_input input)
 {
-    auto routine = co_await rpnx::querygraph::request< vm_procedure3_query >(input.functanoid);
+    auto const& routine = co_await rpnx::querygraph::request< vm_procedure3_query >(input.functanoid);
     co_return vmir2::directly_required_class_layouts(routine);
 }
