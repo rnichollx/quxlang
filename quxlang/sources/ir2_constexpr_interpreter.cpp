@@ -12,11 +12,12 @@
 #include "quxlang/macros.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/vmir2/assembler.hpp"
-#include "rpnx/unimplemented.hpp"
 #include "rpnx/serialization4.hpp"
+#include "rpnx/unimplemented.hpp"
 
 #include <deque>
 #include <sstream>
+#include <unordered_map>
 
 namespace quxlang
 {
@@ -38,24 +39,24 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     struct local;
 
     std::size_t exec_mode = 1;
-    std::map< cow< type_symbol >, class_layout > class_layouts;
-    std::map< cow< type_symbol >, std::uint64_t > nominal_integer_bits;
-    std::map< cow< type_symbol >, cow< functanoid_routine3 > > functanoids3;
+    std::unordered_map< cow< type_symbol >, class_layout, rpnx::serial4::hash > class_layouts;
+    std::unordered_map< cow< type_symbol >, std::uint64_t, rpnx::serial4::hash > nominal_integer_bits;
+    std::unordered_map< cow< type_symbol >, cow< functanoid_routine3 >, rpnx::serial4::hash > functanoids3;
     std::vector< std::byte > constexpr_result_v;
     std::optional< type_symbol > constexpr_result_type;
     std::optional< type_symbol > constexpr_result_type_value;
     std::optional< type_symbol > constexpr_result_global_symbol;
     /// Declared type for each global or localdata antestatal root known to this evaluation.
-    std::map< type_symbol, type_symbol > constexpr_antestatal_global_types;
+    std::unordered_map< type_symbol, type_symbol, rpnx::serial4::hash > constexpr_antestatal_global_types;
     /// Initial antestatal value for each global or localdata root known to this evaluation.
-    std::map< type_symbol, antestatal_value > constexpr_antestatal_global_values;
+    std::unordered_map< type_symbol, antestatal_value, rpnx::serial4::hash > constexpr_antestatal_global_values;
     /// Mutability policy for each global or localdata root known to this evaluation.
     std::unordered_map< type_symbol, bool, rpnx::serial4::hash > constexpr_antestatal_global_mutable;
     std::weak_ptr< local > constexpr_result_root;
     std::optional< antestatal_value > constexpr_result_antestatal;
     /// Materialized constexpr_set_result2 outputs keyed by result ID.
-    std::map< std::uint64_t, antestatal_value > constexpr_result_antestatal_values;
-    std::map< std::uint64_t, constexpr_serialoid > constexpr_result_serialoid_values;
+    std::unordered_map< std::uint64_t, antestatal_value > constexpr_result_antestatal_values;
+    std::unordered_map< std::uint64_t, constexpr_serialoid > constexpr_result_serialoid_values;
     /// Callback that receives debug lines emitted by this interpreter instance.
     std::function< void(std::string) > debug_line_handler;
     std::optional< source_index > printer_source_index;
@@ -129,7 +130,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
         std::optional< std::uint64_t > constexpr_proxy_output_id;
         std::optional< dtor_spec > dtor;
         std::vector< std::shared_ptr< local > > array_members;
-        std::map< std::string, std::shared_ptr< local > > struct_members;
+        std::unordered_map< std::string, std::shared_ptr< local > > struct_members;
         std::optional< invocation_args > delegates;
         std::shared_ptr< local > stored_object;
         std::optional< type_symbol > storage_active_type;
@@ -185,7 +186,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
 
     struct struct_object : public object_base
     {
-        std::map< std::string, std::shared_ptr< object > > struct_members;
+        std::unordered_map< std::string, std::shared_ptr< object > > struct_members;
     };
 
     struct pref_object : public object_base
@@ -218,14 +219,14 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     };
 
     std::deque< stack_frame > stack;
-    std::map< std::vector< std::byte >, std::shared_ptr< local > > global_constdata;
-    std::map< type_symbol, std::shared_ptr< local > > global_storages;
-    std::map< local*, type_symbol > global_storage_symbols;
-    std::map< type_symbol, std::shared_ptr< local > > antestatal_global_roots;
-    std::map< type_symbol, std::shared_ptr< local > > global_initguards;
-    std::map< type_symbol, std::shared_ptr< local > > m_procedures;
+    std::unordered_map< std::vector< std::byte >, std::shared_ptr< local >, rpnx::serial4::hash > global_constdata;
+    std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > global_storages;
+    std::unordered_map< local*, type_symbol > global_storage_symbols;
+    std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > antestatal_global_roots;
+    std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > global_initguards;
+    std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > m_procedures;
     std::vector< constexpr_allocation > constexpr_allocations;
-    std::map< local*, std::size_t > constexpr_allocation_lookup;
+    std::unordered_map< local*, std::size_t > constexpr_allocation_lookup;
 
     void call_func(cow< type_symbol > functype, vmir2::invocation_args args);
     type_symbol load_indirect_callable_symbol(local_index slot, bool consume);
@@ -583,7 +584,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     // To call a function we push a stack frame onto the stack, copy any relevant arguments, then return.
     // Actual execution will happen in subsequent calls to exec/exec_instr
 
-
     if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
         std::string funcname_str = quxlang::to_string(functype.get());
@@ -612,7 +612,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         return;
     }
 
-    //std::string funcname = quxlang::to_string(functype.get());
+    // std::string funcname = quxlang::to_string(functype.get());
 
     cow< vmir2::functanoid_routine3 > current_func_ir_v = stack.back().ir3;
 
@@ -769,8 +769,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         for (auto const& func : functanoids3)
         {
 
-
-
             quxlang::vmir2::assembler ir_printer(func.second.get());
             ir_printer.source_index = this->printer_source_index;
             std::ostringstream debug_message;
@@ -782,7 +780,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             }
         }
     }
-
 
     while (!stack.empty())
     {
@@ -829,12 +826,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto const& current_func = stack.back().type;
 
-    auto const & current_func_ir = stack.back().ir3.get();
+    auto const& current_func_ir = stack.back().ir3.get();
 
     auto const& current_block = current_func_ir.blocks.at(current_instr_address.block);
 
-    std::optional<quxlang::vmir2::assembler> ir_printer;
-    if constexpr(QUXLANG_DEBUG_MESSAGES_ENABLED)
+    std::optional< quxlang::vmir2::assembler > ir_printer;
+    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
     {
         ir_printer.emplace(current_func_ir);
         ir_printer->source_index = this->printer_source_index;
@@ -882,9 +879,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                     }
                 }
                 assert(current_statemap == expected_state);
-
             }
-
         }
 
         std::size_t stack_size1 = stack.size();
@@ -895,7 +890,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
                                     });
         std::size_t stack_size2 = stack.size();
         current_instr_address.instruction_index++;
-
 
         return;
     }
@@ -3678,35 +3672,83 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_and const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, false);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av & bv;
+        },
+        false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_or const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, false);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av | bv;
+        },
+        false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_xor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, false);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av ^ bv;
+        },
+        false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nand const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av & bv; }, true);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av & bv;
+        },
+        true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av | bv; }, true);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av | bv;
+        },
+        true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_nxor const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return av ^ bv; }, true);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return av ^ bv;
+        },
+        true);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implies const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >((~av) | bv); }, false);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return static_cast< std::uint8_t >((~av) | bv);
+        },
+        false);
 }
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::mut_bitwise_implied const& op)
 {
-    exec_mut_bitwise_binary_op(op.target, op.value, op.old_value, [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t { return static_cast< std::uint8_t >(av | (~bv)); }, false);
+    exec_mut_bitwise_binary_op(
+        op.target, op.value, op.old_value,
+        [](std::uint8_t av, std::uint8_t bv) -> std::uint8_t
+        {
+            return static_cast< std::uint8_t >(av | (~bv));
+        },
+        false);
 }
 
 static std::uint64_t bytes_to_u64(const std::vector< std::byte >& data)
@@ -4117,19 +4159,17 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(
 /// Adds an antestatal root with explicit mutability for constexpr localdata/static evaluation.
 void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value, bool is_mutable)
 {
-    auto const symbol_copy = symbol;
-    auto const type_copy = type;
 
-    this->implementation->constexpr_antestatal_global_types[std::move(symbol)] = std::move(type);
-    this->implementation->collect_missing_antestatal_globals(value, type_copy);
-    this->implementation->constexpr_antestatal_global_values[symbol_copy] = std::move(value);
-    this->implementation->constexpr_antestatal_global_mutable[symbol_copy] = is_mutable;
-    this->implementation->missing_antestatal_globals_val.erase(symbol_copy);
+    this->implementation->constexpr_antestatal_global_types[symbol] = type;
+    this->implementation->collect_missing_antestatal_globals(value, type);
+    this->implementation->constexpr_antestatal_global_values[symbol] = value;
+    this->implementation->constexpr_antestatal_global_mutable[symbol] = is_mutable;
+    this->implementation->missing_antestatal_globals_val.erase(symbol);
 
-    auto root_it = this->implementation->antestatal_global_roots.find(symbol_copy);
+    auto root_it = this->implementation->antestatal_global_roots.find(symbol);
     if (root_it != this->implementation->antestatal_global_roots.end() && root_it->second != nullptr)
     {
-        this->implementation->initialize_local_from_antestatal_value(root_it->second, type_copy, this->implementation->constexpr_antestatal_global_values.at(symbol_copy));
+        this->implementation->initialize_local_from_antestatal_value(root_it->second, type, this->implementation->constexpr_antestatal_global_values.at(symbol));
         if (!is_mutable)
         {
             this->implementation->set_readonly_tree(root_it->second);
@@ -4147,7 +4187,6 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
             this->implementation->constexpr_antestatal_global_types[type_erased_symbol] = entry.type;
             this->implementation->constexpr_antestatal_global_values[type_erased_symbol] = entry.value;
             this->implementation->constexpr_antestatal_global_mutable[type_erased_symbol] = entry.is_mutable;
-            this->implementation->missing_antestatal_globals_val.erase(type_erased_symbol);
         }
     };
 
@@ -4172,67 +4211,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     preload_localdata(func.static_snapshots);
     initialize_localdata(func.static_snapshots);
 
-    // Track missing dtors
-
-    // Track missing invoked functions
-    for (auto const& block : func.blocks)
-    {
-        for (auto const& instr : block.instructions)
-        {
-            if (typeis< vmir2::invoke >(instr))
-            {
-                auto const& inv = instr.get_as< vmir2::invoke >();
-                auto called_func = inv.what;
-                if (!this->implementation->functanoids3.contains(called_func))
-                {
-                    this->implementation->missing_functanoids_val.insert(called_func);
-                }
-            }
-            else if (typeis< vmir2::get_procedure_ptr >(instr))
-            {
-                auto const& gpp = instr.get_as< vmir2::get_procedure_ptr >();
-                if (!this->implementation->functanoids3.contains(gpp.routine))
-                {
-                    this->implementation->missing_functanoids_val.insert(gpp.routine);
-                }
-            }
-            else if (typeis< vmir2::interface_init >(instr))
-            {
-                vmir2::interface_init const& init = instr.get_as< vmir2::interface_init >();
-                for (std::pair< interface_slot_key const, type_symbol > const& entry : init.functions)
-                {
-                    type_symbol const& routine = entry.second;
-                    if (!this->implementation->functanoids3.contains(routine))
-                    {
-                        this->implementation->missing_functanoids_val.insert(routine);
-                    }
-                }
-            }
-            else if (typeis< vmir2::interface_invoke >(instr))
-            {
-                vmir2::interface_invoke const& inv = instr.get_as< vmir2::interface_invoke >();
-                if (inv.default_function.has_value() && !this->implementation->functanoids3.contains(*inv.default_function))
-                {
-                    this->implementation->missing_functanoids_val.insert(*inv.default_function);
-                }
-            }
-            else if (typeis< vmir2::get_antestatal_ref >(instr))
-            {
-                auto const& gar = instr.get_as< vmir2::get_antestatal_ref >();
-                if (this->implementation->has_constexpr_antestatal_global(gar.symbol))
-                {
-                    continue;
-                }
-                if (typeis< static_local_ref >(gar.symbol) || typeis< static_snapshot_ref >(gar.symbol))
-                {
-                    throw compiler_bug("missing static localdata for " + quxlang::to_string(gar.symbol));
-                }
-                this->implementation->mark_missing_antestatal_global(gar.symbol);
-            }
-        }
-    }
     this->implementation->functanoids3[addr] = std::move(func);
-    this->implementation->missing_functanoids_val.erase(addr);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::set_source_index(source_index source_index)
@@ -4296,12 +4275,18 @@ quxlang::antestatal_value quxlang::vmir2::ir2_constexpr_interpreter::get_cr_ante
 /// Returns every antestatal result materialized by constexpr_set_result2, keyed by result ID.
 std::map< std::uint64_t, quxlang::antestatal_value > quxlang::vmir2::ir2_constexpr_interpreter::get_cr_antestatal_values()
 {
-    return this->implementation->constexpr_result_antestatal_values;
+    return {
+        this->implementation->constexpr_result_antestatal_values.begin(),
+        this->implementation->constexpr_result_antestatal_values.end(),
+    };
 }
 
 std::map< std::uint64_t, quxlang::constexpr_serialoid > quxlang::vmir2::ir2_constexpr_interpreter::get_cr_serialoid_values()
 {
-    return this->implementation->constexpr_result_serialoid_values;
+    return {
+        this->implementation->constexpr_result_serialoid_values.begin(),
+        this->implementation->constexpr_result_serialoid_values.end(),
+    };
 }
 std::vector< std::byte > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_local_as_data(vmir2::local_index slot)
 {
@@ -5254,14 +5239,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (typeis< antestatal_interface >(value))
     {
-        antestatal_interface const& interface_value = as< antestatal_interface >(value);
-        for (std::pair< interface_slot_key const, type_symbol > const& function : interface_value.functions)
-        {
-            if (!functanoids3.contains(function.second))
-            {
-                missing_functanoids_val.insert(function.second);
-            }
-        }
+
         return;
     }
 
@@ -5273,10 +5251,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             if (typeis< antestatal_access_global >(access))
             {
                 auto routine = as< antestatal_access_global >(access).symbol;
-                if (!functanoids3.contains(routine))
-                {
-                    missing_functanoids_val.insert(std::move(routine));
-                }
+
             }
             return;
         }
