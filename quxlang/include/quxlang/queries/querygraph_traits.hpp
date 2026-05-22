@@ -572,23 +572,6 @@ namespace rpnx::querygraph
     };
 } // namespace rpnx::querygraph
 
-namespace rpnx::serial4
-{
-    template < typename T >
-    struct typesig_hashing_traits< rpnx::cow< T > >
-    {
-        template < typename H >
-        static constexpr void partial_hash(detail::typesig16_hashing_context& context, H& h)
-        {
-            detail::hash_typesig_with_recursion_guard< rpnx::cow< T > >(context, h, [&]() {
-                constexpr std::uint64_t struct_constant = 0x3bf9114e884521b8ULL;
-                h(struct_constant);
-                h(std::uint64_t{1});
-                detail::partial_hash_string(h, "cow_value");
-                detail::partial_hash_with_context< T >(context, h);
-            });
-        }
-    };
-} // namespace rpnx::serial4
+
 
 #endif // QUXLANG_QUERIES_QUERYGRAPH_TRAITS_HEADER_GUARD
