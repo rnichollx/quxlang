@@ -9,7 +9,7 @@
 
 rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_impl(type_symbol input)
 {
-    auto type_str = to_string(input);
+   // auto type_str = to_string(input);
 
     if (typeis< nvalue_slot >(input) || typeis< dvalue_slot >(input) || typeis< array_initializer_type >(input))
     {
