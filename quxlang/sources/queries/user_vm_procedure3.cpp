@@ -2,14 +2,7 @@
 
 #include <quxlang/queries/specs/user_vm_procedure3_spec.hpp>
 #include <quxlang/queries/machine_info.hpp>
-
 #include <quxlang/co_vmir_generator2.hpp>
-
-#include <quxlang/parsers/parse_type_symbol.hpp>
-
-
-
-
 
 rpnx::querygraph::coroutine< quxlang::user_vm_procedure3_spec > quxlang::user_vm_procedure3_impl(instanciation_reference input)
 {

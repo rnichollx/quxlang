@@ -6046,7 +6046,7 @@ namespace quxlang
                 this->add_lambda_capture(analysis, capture.name);
             }
 
-            co_await this->co_analyze_lambda_block(analysis, lambda.body.get());
+            co_await this->co_analyze_lambda_block(analysis, lambda.body);
             co_return lambda_dry_run_result{
                 .captures = std::move(analysis.captures),
                 .environment = this->lambda_environment_from_analysis(analysis),
@@ -6058,7 +6058,7 @@ namespace quxlang
             ast2_function_declaration declaration;
             declaration.header.call_parameters = lambda.parameters;
             declaration.definition.return_type = lambda.return_type.value_or(type_symbol(decay_temploidic{}));
-            declaration.definition.body = lambda.body.get();
+            declaration.definition.body = lambda.body;
             declaration.location = lambda.location;
             return declaration;
         }

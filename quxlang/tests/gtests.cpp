@@ -1499,10 +1499,10 @@ TEST(parsing, lambda_expression_body_lowers_to_return_block)
     auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
     EXPECT_FALSE(lambda.has_explicit_capture_list);
     EXPECT_FALSE(lambda.return_type.has_value());
-    ASSERT_EQ(lambda.body.get().statements.size(), 1);
-    ASSERT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+    ASSERT_EQ(lambda.body.statements.size(), 1);
+    ASSERT_TRUE(lambda.body.statements.front().template type_is< quxlang::function_return_statement >());
 
-    auto const& ret = lambda.body.get().statements.front().template get_as< quxlang::function_return_statement >();
+    auto const& ret = lambda.body.statements.front().template get_as< quxlang::function_return_statement >();
     ASSERT_TRUE(ret.expr.has_value());
     ASSERT_TRUE(ret.expr->template type_is< quxlang::expression_symbol_reference >());
     auto const& symbol = ret.expr->template get_as< quxlang::expression_symbol_reference >().symbol;
@@ -1517,8 +1517,8 @@ TEST(parsing, lambda_block_body_uses_block_directly)
     ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
     auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
     EXPECT_FALSE(lambda.return_type.has_value());
-    ASSERT_EQ(lambda.body.get().statements.size(), 1);
-    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+    ASSERT_EQ(lambda.body.statements.size(), 1);
+    EXPECT_TRUE(lambda.body.statements.front().template type_is< quxlang::function_return_statement >());
 }
 
 TEST(parsing, lambda_captures_args_and_explicit_expression_return)
@@ -1538,8 +1538,8 @@ TEST(parsing, lambda_captures_args_and_explicit_expression_return)
     EXPECT_EQ(lambda.parameters.front().type, parse_type_symbol("I32"));
     ASSERT_TRUE(lambda.return_type.has_value());
     EXPECT_EQ(*lambda.return_type, parse_type_symbol("TT"));
-    ASSERT_EQ(lambda.body.get().statements.size(), 1);
-    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+    ASSERT_EQ(lambda.body.statements.size(), 1);
+    EXPECT_TRUE(lambda.body.statements.front().template type_is< quxlang::function_return_statement >());
 }
 
 TEST(parsing, lambda_parameters_use_function_parameter_syntax)
@@ -1584,8 +1584,8 @@ TEST(parsing, lambda_explicit_return_type_allows_block_body)
     auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
     ASSERT_TRUE(lambda.return_type.has_value());
     EXPECT_EQ(*lambda.return_type, parse_type_symbol("TT"));
-    ASSERT_EQ(lambda.body.get().statements.size(), 1);
-    EXPECT_TRUE(lambda.body.get().statements.front().template type_is< quxlang::function_return_statement >());
+    ASSERT_EQ(lambda.body.statements.size(), 1);
+    EXPECT_TRUE(lambda.body.statements.front().template type_is< quxlang::function_return_statement >());
 }
 
 TEST(parsing, lambda_expression_body_requires_equal_for_parenthesized_expression)
@@ -1597,8 +1597,8 @@ TEST(parsing, lambda_expression_body_requires_equal_for_parenthesized_expression
     ASSERT_TRUE(expr.template type_is< quxlang::expression_lambda >());
     auto const& lambda = expr.template get_as< quxlang::expression_lambda >();
     EXPECT_TRUE(lambda.parameters.empty());
-    ASSERT_EQ(lambda.body.get().statements.size(), 1);
-    auto const& ret = lambda.body.get().statements.front().template get_as< quxlang::function_return_statement >();
+    ASSERT_EQ(lambda.body.statements.size(), 1);
+    auto const& ret = lambda.body.statements.front().template get_as< quxlang::function_return_statement >();
     ASSERT_TRUE(ret.expr.has_value());
     ASSERT_TRUE(ret.expr->template type_is< quxlang::expression_symbol_reference >());
 }

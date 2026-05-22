@@ -121,7 +121,7 @@ namespace quxlang::parsers
 
             if (auto block = try_parse_function_block(ctx); block.has_value())
             {
-                lambda.body.block = std::move(*block);
+                lambda.body = std::move(*block);
                 lambda.location = ctx.get_location_optional(begin, pos);
                 return lambda;
             }
@@ -140,7 +140,7 @@ namespace quxlang::parsers
             function_block block;
             block.statements.push_back(std::move(ret));
             block.location = ctx.get_location_optional(expr_begin, pos);
-            lambda.body.block = std::move(block);
+            lambda.body = std::move(block);
             lambda.location = ctx.get_location_optional(begin, pos);
             return lambda;
         }
