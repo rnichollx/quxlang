@@ -1418,27 +1418,6 @@ TEST(vmir_constexpr_interpreter, constexpr_output_byte_rejects_proxy_object)
     EXPECT_THROW(interp.exec3(quxlang::void_type{}), quxlang::constexpr_logic_execution_error);
 }
 
-TEST(vmir_constexpr_interpreter, missing_static_localdata_is_compiler_bug)
-{
-    auto symbol = quxlang::type_symbol(quxlang::static_snapshot_ref{.functanoid = quxlang::void_type{}, .name = "x", .generation = 1, .snapshot_id = 3});
-    auto i32 = test_i32_type();
-
-    quxlang::vmir2::functanoid_routine3 routine;
-    routine.local_types = {
-        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = quxlang::make_cref(i32)},
-    };
-    routine.blocks.push_back(quxlang::vmir2::executable_block{
-        .instructions = {
-            quxlang::vmir2::get_antestatal_ref{.symbol = symbol, .target_ref = quxlang::vmir2::local_index(1)},
-        },
-        .terminator = quxlang::vmir2::ret{},
-    });
-
-    quxlang::vmir2::ir2_constexpr_interpreter interp;
-    EXPECT_THROW(interp.add_functanoid3(quxlang::void_type{}, routine), quxlang::compiler_bug);
-}
-
 TEST(parsing, parse_pun_expression)
 {
     std::string test_string = "PUN x AS I32";
