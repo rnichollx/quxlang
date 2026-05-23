@@ -113,47 +113,59 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             while (functanoid_index != functanoid_list.size())
             {
-                type_symbol funcname = functanoid_list[functanoid_index];
-                ++functanoid_index;
-
-                if (!typeis< instanciation_reference >(funcname))
+                std::size_t const round_end = functanoid_list.size();
+                for (std::size_t i = functanoid_index; i != round_end; ++i)
                 {
-                    throw compiler_bug("functanoid dependency is not an instanciation reference: " + to_string(funcname));
-                }
-
-                instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
-                auto const& required_functanoids = co_await rpnx::querygraph::request< functanoid_directly_instantiated_functanoids_query >(
-                    functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
-                for (type_symbol const& dependency : required_functanoids)
-                {
-                    run_under_profiling_void("run_static_test required functanoid loop body", [&] {
-                        if (functanoids.insert(dependency).second)
-                        {
-                            functanoid_list.push_back(dependency);
-                        }
-                    });
-                }
-                auto const& required_layouts = co_await rpnx::querygraph::request< functanoid_required_class_layouts_query >(
-                    functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
-                for (type_symbol const& type : required_layouts)
-                {
-                    run_under_profiling_void("run_static_test required layout loop body", [&] { layout_types.insert(type); });
-                }
-
-                auto const& dependency_routine = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
-                if (loaded_functanoids.insert(funcname).second)
-                {
-                    run_under_profiling_void("run_static_test add functanoid3", [&] {
-                        interp.add_functanoid3(funcname, dependency_routine);
-                    });
-                    for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(dependency_routine))
+                    type_symbol const& funcname = functanoid_list[i];
+                    if (!typeis< instanciation_reference >(funcname))
                     {
-                        run_under_profiling_void("run_static_test dependency routine antestatal global loop body", [&] {
-                            if (antestatal_globals.insert(symbol).second)
+                        throw compiler_bug("functanoid dependency is not an instanciation reference: " + to_string(funcname));
+                    }
+
+                    instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
+                    co_yield rpnx::querygraph::dependency< vm_procedure3_query >(rpnx::querygraph::request< vm_procedure3_query >(functanoid));
+                }
+
+                while (functanoid_index != round_end)
+                {
+                    type_symbol funcname = functanoid_list[functanoid_index];
+                    ++functanoid_index;
+
+                    if (!typeis< instanciation_reference >(funcname))
+                    {
+                        throw compiler_bug("functanoid dependency is not an instanciation reference: " + to_string(funcname));
+                    }
+
+                    instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
+                    auto const& dependency_routine = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
+                    for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(dependency_routine))
+                    {
+                        run_under_profiling_void("run_static_test required functanoid loop body", [&] {
+                            if (functanoids.insert(dependency).second)
                             {
-                                antestatal_global_list.push_back(symbol);
+                                functanoid_list.push_back(dependency);
                             }
                         });
+                    }
+                    for (type_symbol const& type : vmir2::directly_required_class_layouts(dependency_routine))
+                    {
+                        run_under_profiling_void("run_static_test required layout loop body", [&] { layout_types.insert(type); });
+                    }
+
+                    if (loaded_functanoids.insert(funcname).second)
+                    {
+                        run_under_profiling_void("run_static_test add functanoid3", [&] {
+                            interp.add_functanoid3(funcname, dependency_routine);
+                        });
+                        for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(dependency_routine))
+                        {
+                            run_under_profiling_void("run_static_test dependency routine antestatal global loop body", [&] {
+                                if (antestatal_globals.insert(symbol).second)
+                                {
+                                    antestatal_global_list.push_back(symbol);
+                                }
+                            });
+                        }
                     }
                 }
             }

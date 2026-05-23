@@ -156,6 +156,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     interp.set_constexpr_result_global_symbol(input.antestatal_global_symbol);
 
     std::set< type_symbol > layout_types;
+    std::set< type_symbol > loaded_layouts;
     std::vector< instanciation_reference > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
     std::set< type_symbol > loaded_functanoids;
@@ -205,79 +206,54 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         }
     };
 
-    /// Adds all class layouts needed to materialize or execute values of one type.
-    auto add_layouts_for_type = [&](type_symbol type) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
+    auto enqueue_layouts = [&](std::set< type_symbol > const& types)
     {
-        std::vector< type_symbol > pending{std::move(type)};
-
-        while (!pending.empty())
+        for (type_symbol const& type : types)
         {
-            auto type = pending.back();
-            pending.pop_back();
-
-            add_type_for_layout_scan(pending, type);
-
-            if (!type_might_have_layout(type) || layout_types.contains(type))
-            {
-                continue;
-            }
-
             layout_types.insert(type);
-            symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
-            if (kind == symbol_kind::enum_)
-            {
-                enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
-                interp.add_nominal_integer_type(type, info.bits);
-                continue;
-            }
-            if (kind == symbol_kind::flagset_)
-            {
-                flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
-                interp.add_nominal_integer_type(type, info.bits);
-                continue;
-            }
-            auto layout = co_await rpnx::querygraph::request< class_layout_query >(type);
-            interp.add_class_layout(type, layout);
-            for (auto const& field : layout.fields)
-            {
-                pending.push_back(field.type);
-            }
         }
     };
 
-    /// Adds directly required class layouts for one referenced functanoid.
-    auto add_layouts_for_functanoid = [&](instanciation_reference const& functanoid) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
+    /// Adds all queued class layouts needed to materialize or execute constexpr values.
+    auto add_queued_layouts = [&]() -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
     {
-        std::set< type_symbol > const required_layouts = co_await rpnx::querygraph::request< functanoid_required_class_layouts_query >(
-            functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
-        for (type_symbol const& type : required_layouts)
+        for (type_symbol const& root_type : layout_types)
         {
-            co_await add_layouts_for_type(type);
-        }
-    };
+            std::vector< type_symbol > pending{root_type};
 
-    /// Adds all class layouts reachable from a generated VMIR routine.
-    auto add_layouts_for_routine = [&](vmir2::functanoid_routine3 const& routine) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
-    {
-        if (input.expected_result_type.has_value() && !typeis< auto_temploidic >(*input.expected_result_type))
-        {
-            co_await add_layouts_for_type(*input.expected_result_type);
-        }
-        for (auto const& local_type : routine.local_types)
-        {
-            co_await add_layouts_for_type(local_type.type);
-        }
-        for (auto const& [_, param] : routine.parameters.named)
-        {
-            co_await add_layouts_for_type(param.type);
-        }
-        for (auto const& param : routine.parameters.positional)
-        {
-            co_await add_layouts_for_type(param.type);
-        }
-        for (auto const& [_, localdata] : routine.static_snapshots)
-        {
-            co_await add_layouts_for_type(localdata.type);
+            while (!pending.empty())
+            {
+                type_symbol type = std::move(pending.back());
+                pending.pop_back();
+
+                add_type_for_layout_scan(pending, type);
+
+                if (!type_might_have_layout(type) || loaded_layouts.contains(type))
+                {
+                    continue;
+                }
+
+                loaded_layouts.insert(type);
+                symbol_kind const kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
+                if (kind == symbol_kind::enum_)
+                {
+                    enum_info const info = co_await rpnx::querygraph::request< enum_info_query >(type);
+                    interp.add_nominal_integer_type(type, info.bits);
+                    continue;
+                }
+                if (kind == symbol_kind::flagset_)
+                {
+                    flagset_info const info = co_await rpnx::querygraph::request< flagset_info_query >(type);
+                    interp.add_nominal_integer_type(type, info.bits);
+                    continue;
+                }
+                class_layout const layout = co_await rpnx::querygraph::request< class_layout_query >(type);
+                interp.add_class_layout(type, layout);
+                for (auto const& field : layout.fields)
+                {
+                    pending.push_back(field.type);
+                }
+            }
         }
     };
 
@@ -290,7 +266,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         }
 
         type_symbol type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
-        co_await add_layouts_for_type(type);
+        layout_types.insert(type);
         antestatal_value value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
         std::set< type_symbol > value_functanoids = vmir2::directly_instantiated_functanoids(value, type);
         std::set< type_symbol > value_antestatal_globals = vmir2::directly_referenced_antestatal_globals(value, type);
@@ -300,12 +276,16 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 
     auto routine_result = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(input);
     auto const& ir3 = routine_result.routine;
-    co_await add_layouts_for_routine(ir3);
+    if (input.expected_result_type.has_value() && !typeis< auto_temploidic >(*input.expected_result_type))
+    {
+        layout_types.insert(*input.expected_result_type);
+    }
+    enqueue_layouts(vmir2::directly_required_class_layouts(ir3));
     enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
     enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
     for (auto const& [_, localdata] : input.statics)
     {
-        co_await add_layouts_for_type(localdata.type);
+        layout_types.insert(localdata.type);
     }
 
     for (auto const& [symbol, localdata] : input.statics)
@@ -325,6 +305,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
 
     while (!pending_functanoids.empty() || !pending_antestatal_globals.empty())
     {
+        std::vector< type_symbol > round_antestatal_globals;
         while (!pending_antestatal_globals.empty())
         {
             type_symbol symbol = std::move(pending_antestatal_globals.back());
@@ -333,13 +314,17 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             {
                 continue;
             }
-
-            std::pair< std::set< type_symbol >, std::set< type_symbol > > requirements = co_await provide_antestatal_global(symbol);
-            loaded_antestatal_globals.insert(symbol);
-            enqueue_functanoids(requirements.first);
-            enqueue_antestatal_globals(requirements.second);
+            round_antestatal_globals.push_back(std::move(symbol));
         }
 
+        for (type_symbol const& symbol : round_antestatal_globals)
+        {
+            co_yield rpnx::querygraph::dependency< global_is_antestatal_static_query >(rpnx::querygraph::request< global_is_antestatal_static_query >(symbol));
+            co_yield rpnx::querygraph::dependency< variable_type_query >(rpnx::querygraph::request< variable_type_query >(symbol));
+            co_yield rpnx::querygraph::dependency< antestatal_static_value_query >(rpnx::querygraph::request< antestatal_static_value_query >(symbol));
+        }
+
+        std::vector< instanciation_reference > round_functanoids;
         while (!pending_functanoids.empty())
         {
             instanciation_reference functanoid = std::move(pending_functanoids.back());
@@ -350,18 +335,44 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             {
                 continue;
             }
+            round_functanoids.push_back(std::move(functanoid));
+        }
 
-            co_await add_layouts_for_functanoid(functanoid);
+        for (instanciation_reference const& functanoid : round_functanoids)
+        {
+            co_yield rpnx::querygraph::dependency< vm_procedure3_query >(rpnx::querygraph::request< vm_procedure3_query >(functanoid));
+        }
+
+        for (type_symbol const& symbol : round_antestatal_globals)
+        {
+            if (loaded_antestatal_globals.contains(symbol))
+            {
+                continue;
+            }
+            std::pair< std::set< type_symbol >, std::set< type_symbol > > requirements = co_await provide_antestatal_global(symbol);
+            loaded_antestatal_globals.insert(symbol);
+            enqueue_functanoids(requirements.first);
+            enqueue_antestatal_globals(requirements.second);
+        }
+
+        for (instanciation_reference const& functanoid : round_functanoids)
+        {
+            type_symbol funcname = functanoid;
+            if (loaded_functanoids.contains(funcname))
+            {
+                continue;
+            }
+
             vmir2::functanoid_routine3 const& ir2_other = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
             interp.add_functanoid3(funcname, ir2_other);
             loaded_functanoids.insert(funcname);
+            enqueue_layouts(vmir2::directly_required_class_layouts(ir2_other));
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
-
-            std::set< type_symbol > const direct_functanoids = co_await rpnx::querygraph::request< functanoid_directly_instantiated_functanoids_query >(
-                functanoid_requirement_input{.functanoid = functanoid, .compilation_type = functanoid_compilation_type::all});
-            enqueue_functanoids(direct_functanoids);
+            enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));
         }
     }
+
+    co_await add_queued_layouts();
 
     std::exception_ptr execution_exception;
     try
