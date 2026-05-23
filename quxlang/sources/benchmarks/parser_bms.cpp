@@ -244,7 +244,7 @@ namespace
         auto file_name = std::string(spec.name);
         file_name += "_";
         file_name += std::to_string(index);
-        file_name += ".qx";
+        file_name += ".qxs";
         return dir / file_name;
     }
 

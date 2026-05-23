@@ -1,5 +1,5 @@
 sources:
-  - runtime.qx
+  - runtime.qxs
 copyright:
   - year: 2023
     author_name: "Myname"

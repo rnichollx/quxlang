@@ -67,9 +67,9 @@ namespace
         bundle.targets["x64"] = x64;
         bundle.targets["arm64"] = arm64;
 
-        bundle.module_sources["main_x64"].files["main.qx"] = quxlang::source_file{.contents = "::main VAR I32;"};
-        bundle.module_sources["main_arm64"].files["main.qx"] = quxlang::source_file{.contents = "::main VAR I64;"};
-        bundle.module_sources["util_shared"].files["util.qx"] = quxlang::source_file{.contents = "::util VAR I32;"};
+        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = "::main VAR I32;"};
+        bundle.module_sources["main_arm64"].files["main.qxs"] = quxlang::source_file{.contents = "::main VAR I64;"};
+        bundle.module_sources["util_shared"].files["util.qxs"] = quxlang::source_file{.contents = "::util VAR I32;"};
 
         return bundle;
     }
@@ -85,7 +85,7 @@ namespace
         x64.module_configurations["main"].source = "main_x64";
 
         bundle.targets["x64"] = x64;
-        bundle.module_sources["main_x64"].files["main.qx"] = quxlang::source_file{.contents = std::move(contents)};
+        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = std::move(contents)};
 
         return bundle;
     }
@@ -122,7 +122,7 @@ TEST(querygraph_queries, source_bundle_returns_injected_bundle)
     ASSERT_TRUE(resolved.targets.contains("x64"));
     ASSERT_TRUE(resolved.targets.contains("arm64"));
     ASSERT_TRUE(resolved.module_sources.contains("main_x64"));
-    ASSERT_EQ(resolved.module_sources.at("main_x64").files.at("main.qx").get().contents, "::main VAR I32;");
+    ASSERT_EQ(resolved.module_sources.at("main_x64").files.at("main.qxs").get().contents, "::main VAR I32;");
 }
 
 TEST(querygraph_queries, machine_info_returns_injected_output_info)
@@ -247,8 +247,8 @@ TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
 
     auto resolved = graph.make_request< quxlang::module_sources_query >("util");
 
-    ASSERT_TRUE(resolved.files.contains("util.qx"));
-    ASSERT_EQ(resolved.files.at("util.qx").get().contents, "::util VAR I32;");
+    ASSERT_TRUE(resolved.files.contains("util.qxs"));
+    ASSERT_EQ(resolved.files.at("util.qxs").get().contents, "::util VAR I32;");
 }
 
 TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
@@ -260,9 +260,9 @@ TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)
     auto resolved = graph.make_request< quxlang::source_file_index_query >(std::monostate{});
 
     ASSERT_EQ(resolved.file_to_id.size(), 3);
-    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qx"}), 0);
-    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qx"}), 1);
-    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "util_shared", .relative_path = "util.qx"}), 2);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qxs"}), 0);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qxs"}), 1);
+    ASSERT_EQ(resolved.file_to_id.at(quxlang::source_file_name{.source_module = "util_shared", .relative_path = "util.qxs"}), 2);
 }
 
 TEST(querygraph_queries, source_file_id_is_unique_across_modules)
@@ -271,8 +271,8 @@ TEST(querygraph_queries, source_file_id_is_unique_across_modules)
     quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
 
-    auto arm_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qx"});
-    auto x64_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qx"});
+    auto arm_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_arm64", .relative_path = "main.qxs"});
+    auto x64_id = graph.make_request< quxlang::source_file_id_query >(quxlang::source_file_name{.source_module = "main_x64", .relative_path = "main.qxs"});
 
     ASSERT_NE(arm_id, x64_id);
 }
@@ -282,7 +282,7 @@ TEST(querygraph_queries, source_file_name_round_trips_from_id)
     quxlang::source_bundle bundle = make_test_source_bundle();
     quxlang::compiler_querygraph graph(bundle, "x64", bundle.targets.at("x64").target_output_config,
                                        quxlang::tests::current_test_graph_dump_path());
-    quxlang::source_file_name input{.source_module = "util_shared", .relative_path = "util.qx"};
+    quxlang::source_file_name input{.source_module = "util_shared", .relative_path = "util.qxs"};
 
     auto id = graph.make_request< quxlang::source_file_id_query >(input);
     auto output = graph.make_request< quxlang::source_file_name_query >(id);

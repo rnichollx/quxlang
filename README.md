@@ -13,7 +13,7 @@ Latest video: https://www.youtube.com/watch?v=pjHL4K-AuKo
 
 Quxlang is a systems programming language. It's intended as an improvement over C++ for certain uses.  It is still in
 active development but is not yet ready for people to use or try out. Please wait until a later date when there is 
-a standard library and more codegen. For now, you can compile the quxlang_gtests and modify the main_test.qx file if
+a standard library and more codegen. For now, you can compile the quxlang_gtests and modify the main_test.qxs file if
 you want to experiment.
 
 The compiler is mainly developed using clang and libc++. Compatibility with GCC tends to vary between commits. I try to make sure it compiles with GCC as well, but there can be a long stretch of commits before GCC compatibility is restored if I break it during development accidentally.

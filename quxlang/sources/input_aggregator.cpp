@@ -20,8 +20,8 @@ namespace quxlang
 
             for (auto& p : std::filesystem::recursive_directory_iterator(path))
             {
-            // If file ends in .qx, add the file to the list of input files
-                if (p.is_regular_file() && p.path().extension() == ".qx")
+                // If file ends in .qxs, add the file to the list of input files
+                if (p.is_regular_file() && p.path().extension() == ".qxs")
                 {
                     ret.insert(p);
                 }
