@@ -13,10 +13,7 @@ namespace quxlang
         type_symbol target;
         std::vector< expression > args;
 
-        std::strong_ordering operator<=>(const function_delegate& other) const
-        {
-            return rpnx::compare(target, other.target, args, other.args);
-        }
+        RPNX_MEMBER_METADATA(function_delegate, target, args);
     };
 } // namespace quxlang
 
