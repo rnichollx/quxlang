@@ -86,25 +86,33 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
         for (type_symbol const& type : vmir2::directly_required_class_layouts(*routine))
         {
-            run_under_profiling_void("run_static_test seed layout_types insert", [&] { layout_types.insert(type); });
+            run_under_profiling_void("run_static_test seed layout_types insert",
+                                     [&]
+                                     {
+                                         layout_types.insert(type);
+                                     });
         }
         for (type_symbol const& funcname : vmir2::directly_instantiated_functanoids(*routine))
         {
-            run_under_profiling_void("run_static_test seed functanoid loop body", [&] {
-                if (functanoids.insert(funcname).second)
-                {
-                    functanoid_list.push_back(funcname);
-                }
-            });
+            run_under_profiling_void("run_static_test seed functanoid loop body",
+                                     [&]
+                                     {
+                                         if (functanoids.insert(funcname).second)
+                                         {
+                                             functanoid_list.push_back(funcname);
+                                         }
+                                     });
         }
         for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(*routine))
         {
-            run_under_profiling_void("run_static_test seed antestatal global loop body", [&] {
-                if (antestatal_globals.insert(symbol).second)
-                {
-                    antestatal_global_list.push_back(symbol);
-                }
-            });
+            run_under_profiling_void("run_static_test seed antestatal global loop body",
+                                     [&]
+                                     {
+                                         if (antestatal_globals.insert(symbol).second)
+                                         {
+                                             antestatal_global_list.push_back(symbol);
+                                         }
+                                     });
         }
 
         std::size_t functanoid_index = 0;
@@ -140,31 +148,41 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                     auto const& dependency_routine = co_await rpnx::querygraph::request< vm_procedure3_query >(functanoid);
                     for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(dependency_routine))
                     {
-                        run_under_profiling_void("run_static_test required functanoid loop body", [&] {
-                            if (functanoids.insert(dependency).second)
-                            {
-                                functanoid_list.push_back(dependency);
-                            }
-                        });
+                        run_under_profiling_void("run_static_test required functanoid loop body",
+                                                 [&]
+                                                 {
+                                                     if (functanoids.insert(dependency).second)
+                                                     {
+                                                         functanoid_list.push_back(dependency);
+                                                     }
+                                                 });
                     }
                     for (type_symbol const& type : vmir2::directly_required_class_layouts(dependency_routine))
                     {
-                        run_under_profiling_void("run_static_test required layout loop body", [&] { layout_types.insert(type); });
+                        run_under_profiling_void("run_static_test required layout loop body",
+                                                 [&]
+                                                 {
+                                                     layout_types.insert(type);
+                                                 });
                     }
 
                     if (loaded_functanoids.insert(funcname).second)
                     {
-                        run_under_profiling_void("run_static_test add functanoid3", [&] {
-                            interp.add_functanoid3(funcname, dependency_routine);
-                        });
+                        run_under_profiling_void("run_static_test add functanoid3",
+                                                 [&]
+                                                 {
+                                                     interp.add_functanoid3(funcname, dependency_routine);
+                                                 });
                         for (type_symbol const& symbol : vmir2::directly_referenced_antestatal_globals(dependency_routine))
                         {
-                            run_under_profiling_void("run_static_test dependency routine antestatal global loop body", [&] {
-                                if (antestatal_globals.insert(symbol).second)
-                                {
-                                    antestatal_global_list.push_back(symbol);
-                                }
-                            });
+                            run_under_profiling_void("run_static_test dependency routine antestatal global loop body",
+                                                     [&]
+                                                     {
+                                                         if (antestatal_globals.insert(symbol).second)
+                                                         {
+                                                             antestatal_global_list.push_back(symbol);
+                                                         }
+                                                     });
                         }
                     }
                 }
@@ -182,33 +200,43 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
                 type_symbol const& type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
                 antestatal_value const& value = co_await rpnx::querygraph::request< antestatal_static_value_query >(symbol);
-                run_under_profiling_void("run_static_test add constexpr antestatal global", [&] {
-                    layout_types.insert(type);
-                    interp.add_constexpr_antestatal_global(symbol, type, value);
-                });
+                run_under_profiling_void("run_static_test add constexpr antestatal global",
+                                         [&]
+                                         {
+                                             layout_types.insert(type);
+                                             interp.add_constexpr_antestatal_global(symbol, type, value);
+                                         });
 
                 for (type_symbol const& dependency : vmir2::directly_instantiated_functanoids(value, type))
                 {
-                    run_under_profiling_void("run_static_test antestatal functanoid loop body", [&] {
-                        if (functanoids.insert(dependency).second)
-                        {
-                            functanoid_list.push_back(dependency);
-                        }
-                    });
+                    run_under_profiling_void("run_static_test antestatal functanoid loop body",
+                                             [&]
+                                             {
+                                                 if (functanoids.insert(dependency).second)
+                                                 {
+                                                     functanoid_list.push_back(dependency);
+                                                 }
+                                             });
                 }
                 for (type_symbol const& dependency : vmir2::directly_referenced_antestatal_globals(value, type))
                 {
-                    run_under_profiling_void("run_static_test antestatal global dependency loop body", [&] {
-                        if (antestatal_globals.insert(dependency).second)
-                        {
-                            antestatal_global_list.push_back(dependency);
-                        }
-                    });
+                    run_under_profiling_void("run_static_test antestatal global dependency loop body",
+                                             [&]
+                                             {
+                                                 if (antestatal_globals.insert(dependency).second)
+                                                 {
+                                                     antestatal_global_list.push_back(dependency);
+                                                 }
+                                             });
                 }
             }
         }
 
-        run_under_profiling_void("run_static_test add root functanoid3", [&] { interp.add_functanoid3(void_type{}, *routine); });
+        run_under_profiling_void("run_static_test add root functanoid3",
+                                 [&]
+                                 {
+                                     interp.add_functanoid3(void_type{}, *routine);
+                                 });
 
         for (type_symbol const& root_type : layout_types)
         {
@@ -219,64 +247,84 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                 type_symbol type = std::move(pending.back());
                 pending.pop_back();
 
-                run_under_profiling_void("run_static_test layout expansion loop body", [&] {
-                    if (type.type_is< nvalue_slot >())
-                    {
-                        pending.push_back(type.get_as< nvalue_slot >().target);
-                    }
-                    else if (type.type_is< dvalue_slot >())
-                    {
-                        pending.push_back(type.get_as< dvalue_slot >().target);
-                    }
-                    else if (type.type_is< ptrref_type >())
-                    {
-                        pending.push_back(type.get_as< ptrref_type >().target);
-                    }
-                    else if (type.type_is< array_type >())
-                    {
-                        pending.push_back(type.get_as< array_type >().element_type);
-                    }
-                    else if (type.type_is< storage >())
-                    {
-                        for (type_symbol const& storable_type : type.get_as< storage >().storable_types)
-                        {
-                            pending.push_back(storable_type);
-                        }
-                    }
-                });
+                run_under_profiling_void("run_static_test layout expansion loop body",
+                                         [&]
+                                         {
+                                             if (type.type_is< nvalue_slot >())
+                                             {
+                                                 pending.push_back(type.get_as< nvalue_slot >().target);
+                                             }
+                                             else if (type.type_is< dvalue_slot >())
+                                             {
+                                                 pending.push_back(type.get_as< dvalue_slot >().target);
+                                             }
+                                             else if (type.type_is< ptrref_type >())
+                                             {
+                                                 pending.push_back(type.get_as< ptrref_type >().target);
+                                             }
+                                             else if (type.type_is< array_type >())
+                                             {
+                                                 pending.push_back(type.get_as< array_type >().element_type);
+                                             }
+                                             else if (type.type_is< storage >())
+                                             {
+                                                 for (type_symbol const& storable_type : type.get_as< storage >().storable_types)
+                                                 {
+                                                     pending.push_back(storable_type);
+                                                 }
+                                             }
+                                         });
 
                 if (!(type.type_is< subsymbol >() || type.type_is< instanciation_reference >() || type.type_is< readonly_constant >()) || loaded_layouts.contains(type))
                 {
                     continue;
                 }
 
-                run_under_profiling_void("run_static_test loaded_layouts insert", [&] { loaded_layouts.insert(type); });
+                run_under_profiling_void("run_static_test loaded_layouts insert",
+                                         [&]
+                                         {
+                                             loaded_layouts.insert(type);
+                                         });
                 symbol_kind const& kind = co_await rpnx::querygraph::request< symbol_type_query >(type);
                 if (kind == symbol_kind::enum_)
                 {
                     enum_info const& info = co_await rpnx::querygraph::request< enum_info_query >(type);
-                    run_under_profiling_void("run_static_test add nominal integer type enum", [&] { interp.add_nominal_integer_type(type, info.bits); });
+                    run_under_profiling_void("run_static_test add nominal integer type enum",
+                                             [&]
+                                             {
+                                                 interp.add_nominal_integer_type(type, info.bits);
+                                             });
                     continue;
                 }
                 if (kind == symbol_kind::flagset_)
                 {
                     flagset_info const& info = co_await rpnx::querygraph::request< flagset_info_query >(type);
-                    run_under_profiling_void("run_static_test add nominal integer type flagset", [&] { interp.add_nominal_integer_type(type, info.bits); });
+                    run_under_profiling_void("run_static_test add nominal integer type flagset",
+                                             [&]
+                                             {
+                                                 interp.add_nominal_integer_type(type, info.bits);
+                                             });
                     continue;
                 }
 
                 class_layout const& layout = co_await rpnx::querygraph::request< class_layout_query >(type);
-                run_under_profiling_void("run_static_test add class layout", [&] {
-                    for (auto const& field : layout.fields)
-                    {
-                        pending.push_back(field.type);
-                    }
-                    interp.add_class_layout(type, layout);
-                });
+                run_under_profiling_void("run_static_test add class layout",
+                                         [&]
+                                         {
+                                             for (auto const& field : layout.fields)
+                                             {
+                                                 pending.push_back(field.type);
+                                             }
+                                             interp.add_class_layout(type, layout);
+                                         });
             }
         }
 
-        run_under_profiling_void("run_static_test exec3", [&] { interp.exec3(void_type{}); });
+        run_under_profiling_void("run_static_test exec3",
+                                 [&]
+                                 {
+                                     interp.exec3(void_type{});
+                                 });
     }
     catch (constexpr_runtime_error const& error)
     {
