@@ -1,5 +1,5 @@
 default_configuration:
-  depends: ["cow","benchmark", "googletest", "yaml-cpp", "datastructures", "metalib", "serialization", "querygraph"]
+  depends: ["cow","benchmark", "googletest", "llvm", "yaml-cpp", "datastructures", "metalib", "serialization", "querygraph"]
 suggested_dep_sources:
   cow:
     git:
@@ -10,6 +10,9 @@ suggested_dep_sources:
   googletest:
     git:
         repository: "https://github.com/rnichollx/googletest.git"
+  llvm:
+    git:
+        repository: "https://github.com/llvm/llvm-project.git"
   yaml-cpp:
     git:
       repository: "https://github.com/rnichollx/yaml-cpp.git"

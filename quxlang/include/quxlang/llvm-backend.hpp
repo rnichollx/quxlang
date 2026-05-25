@@ -3,8 +3,11 @@
 #ifndef QUXLANG_LLVM_BACKEND_HPP
 #define QUXLANG_LLVM_BACKEND_HPP
 
-namespace quxlang::backend
+#include <quxlang/vmir2/vmir2.hpp>
+
+namespace quxlang::llvm
 {
+
     class llvm_backend
     {
     public:

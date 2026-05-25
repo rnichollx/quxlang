@@ -13,6 +13,7 @@ find_package(RPNXMetalib REQUIRED)
 find_package(RPNXSerialization REQUIRED)
 find_package(RPNXDataStructures REQUIRED)
 find_package(RPNXQueryGraph REQUIRED)
+find_package(LLVM REQUIRED)
 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
@@ -149,6 +150,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/basic_types.hpp
         include/quxlang/llvm-backend.hpp
         include/quxlang/profiling.hpp
+        include/quxlang/llvm-backend-types.hpp
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
