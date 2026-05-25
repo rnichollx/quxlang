@@ -451,16 +451,26 @@ set(QUXLANG_QUERY_SOURCES
 )
 
 
-target_sources(quxlang PRIVATE sources/compiler_querygraph.cpp
-        sources/compiler_querygraph_handlers_1.cpp
-        sources/compiler_querygraph_handlers_2.cpp
-        sources/compiler_querygraph_handlers_3.cpp
-        sources/compiler_querygraph_handlers_4.cpp
-        sources/compiler_querygraph_handlers_5.cpp
-        sources/compiler_querygraph_handlers_6.cpp
-        sources/compiler_querygraph_handlers_7.cpp
-        sources/compiler_querygraph_handlers_8.cpp
-        sources/compiler_querygraph_handlers_9.cpp
+target_sources(quxlang PRIVATE sources/compiler_querygraph_01.cpp
+        sources/compiler_querygraph_02.cpp
+        sources/compiler_querygraph_03.cpp
+        sources/compiler_querygraph_04.cpp
+        sources/compiler_querygraph_05.cpp
+        sources/compiler_querygraph_06.cpp
+        sources/compiler_querygraph_07.cpp
+        sources/compiler_querygraph_08.cpp
+        sources/compiler_querygraph_09.cpp
+        sources/compiler_querygraph_10.cpp
+        sources/compiler_querygraph_11.cpp
+        sources/compiler_querygraph_12.cpp
+        sources/compiler_querygraph_13.cpp
+        sources/compiler_querygraph_14.cpp
+        sources/compiler_querygraph_15.cpp
+        sources/compiler_querygraph_16.cpp
+        sources/compiler_querygraph_17.cpp
+        sources/compiler_querygraph_18.cpp
+        sources/compiler_querygraph_19.cpp
+        sources/compiler_querygraph_20.cpp
         sources/variant_instantiations.cpp
         ${QUXLANG_QUERY_SOURCES}
         include/quxlang/compiler_querygraph.hpp
