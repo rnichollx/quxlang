@@ -221,17 +221,24 @@ namespace quxlang
     {
         std::string result;
         bool upper = false;
-        for (char c : str)
+        static constexpr char const* hex_digits = "0123456789ABCDEF";
+        for (char const c : str)
         {
             if (c >= 'A' && c <= 'Z')
             {
                 upper = true;
                 result += c - 'A' + 'a';
             }
-
-            else
+            else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')
             {
                 result += c;
+            }
+            else
+            {
+                std::uint8_t const byte = static_cast< std::uint8_t >(c);
+                result += 'Z';
+                result += hex_digits[byte >> 4];
+                result += hex_digits[byte & 0x0F];
             }
         }
 
@@ -329,13 +336,13 @@ namespace quxlang
         }
         else if (qt.type() == typeid(absolute_module_reference))
         {
-            return "M" + (as< absolute_module_reference >(qt)).module_name;
+            return "M" + mangle_internal((as< absolute_module_reference >(qt)).module_name);
         }
         else if (qt.template type_is< subsymbol >())
         {
             subsymbol const& se = as< subsymbol >(qt);
 
-            return mangle_internal(se.of) + "N" + se.name;
+            return mangle_internal(se.of) + "N" + mangle_internal(se.name);
         }
         else if (qt.template type_is< submember >())
         {
@@ -411,7 +418,7 @@ namespace quxlang
             for (auto const& [name, arg] : proc.signature.params.named)
             {
                 output += "AN";
-                output += name;
+                output += mangle_internal(name);
                 output += "A";
                 output += mangle_internal(arg);
             }
@@ -523,7 +530,7 @@ namespace quxlang
             for (auto const& p : inst.params.named)
             {
                 out += "AN";
-                out += p.first;
+                out += mangle_internal(p.first);
                 out += "A";
                 out += mangle_parameter_instantiation(p.second);
             }

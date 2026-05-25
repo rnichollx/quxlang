@@ -17,6 +17,7 @@
 #include "quxlang/source_loader.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "quxlang/vmir2/source_index.hpp"
+#include "qxc_output_paths.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -323,7 +324,8 @@ namespace
      */
     auto write_vmir2_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
     {
-        std::filesystem::path const ir_path = build_dir / (quxlang::mangle(functanoid_symbol) + ".vmir2");
+        std::filesystem::path const ir_path = quxlang::qxc_detail::make_vmir2_output_path(build_dir, quxlang::mangle(functanoid_symbol));
+        std::filesystem::create_directories(ir_path.parent_path());
 
         std::ofstream outfile(ir_path, std::ios::binary | std::ios::trunc);
         if (!outfile)

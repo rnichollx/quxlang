@@ -8,6 +8,7 @@
 #include "quxlang/cow.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/mangler.hpp"
+#include "qxc_output_paths.hpp"
 
 
 #include <quxlang/data/basic_types.hpp>
@@ -931,6 +932,69 @@ TEST(mangling, initialization_reference_is_not_mangleable)
     quxlang::initialization_reference init{.initializee = quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "foo"}};
 
     EXPECT_THROW((void)quxlang::mangle(quxlang::type_symbol(init)), quxlang::compiler_bug);
+}
+
+TEST(mangling, operator_names_escape_punctuation)
+{
+    quxlang::type_symbol const operator_brackets = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "OPERATOR[]",
+    };
+    quxlang::type_symbol const operator_index_ref = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "OPERATOR[&]",
+    };
+    quxlang::type_symbol const operator_assign = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "OPERATOR:=",
+    };
+
+    std::string const mangled_brackets = quxlang::mangle(operator_brackets);
+    std::string const mangled_index_ref = quxlang::mangle(operator_index_ref);
+    std::string const mangled_assign = quxlang::mangle(operator_assign);
+
+    EXPECT_EQ(mangled_brackets, "_S_MmainDWoperatorZ5BZ5D");
+    EXPECT_EQ(mangled_index_ref, "_S_MmainDWoperatorZ5BZ26Z5D");
+    EXPECT_EQ(mangled_assign, "_S_MmainDWoperatorZ3AZ3D");
+
+    EXPECT_EQ(mangled_brackets.find_first_of("[]:&"), std::string::npos);
+    EXPECT_EQ(mangled_index_ref.find_first_of("[]:&"), std::string::npos);
+    EXPECT_EQ(mangled_assign.find_first_of("[]:&"), std::string::npos);
+}
+
+TEST(qxc, vmir2_output_path_spills_long_mangled_names_into_subdirectories)
+{
+    quxlang::type_symbol symbol = quxlang::submember{
+        .of = parse_type_symbol("MODULE(main)::string"),
+        .name = "OPERATOR[]",
+    };
+    for (int i = 0; i < 20; i++)
+    {
+        symbol = quxlang::type_symbol(quxlang::subsymbol{.of = std::move(symbol), .name = "__LAMBDA0"});
+    }
+    std::string const mangled_name = quxlang::mangle(symbol);
+    std::filesystem::path const build_dir = "build";
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_vmir2_output_path(build_dir, mangled_name);
+    std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
+    std::vector< std::string > components;
+
+    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_file_stem_length);
+    EXPECT_NE(output_path, build_dir / (mangled_name + ".vmir2"));
+
+    for (std::filesystem::path const& component : relative_path)
+    {
+        components.push_back(component.string());
+    }
+
+    ASSERT_GE(components.size(), static_cast< std::size_t >(2));
+    for (std::size_t i = 0; i + 1 < components.size(); i++)
+    {
+        EXPECT_TRUE(components.at(i).ends_with(".dir"));
+        EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
+
+    EXPECT_TRUE(components.back().ends_with(".vmir2"));
+    EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
 TEST(collector_tester, order_of_operations)
