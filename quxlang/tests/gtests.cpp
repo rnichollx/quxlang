@@ -7,7 +7,9 @@
 
 #include "quxlang/cow.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/llvm-backend.hpp"
 #include "quxlang/manipulators/mangler.hpp"
+#include "qxc_llvm_inlining.hpp"
 #include "qxc_output_paths.hpp"
 
 
@@ -997,6 +999,2051 @@ TEST(qxc, vmir2_output_path_spills_long_mangled_names_into_subdirectories)
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
+TEST(qxc, optimized_llvm_output_path_spills_long_mangled_names_into_subdirectories)
+{
+    quxlang::type_symbol symbol = quxlang::submember{
+        .of = parse_type_symbol("MODULE(main)::string"),
+        .name = "OPERATOR[]",
+    };
+    for (int i = 0; i < 20; i++)
+    {
+        symbol = quxlang::type_symbol(quxlang::subsymbol{.of = std::move(symbol), .name = "__LAMBDA0"});
+    }
+    std::string const mangled_name = quxlang::mangle(symbol);
+    std::filesystem::path const build_dir = "build";
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_optimized_llvm_output_path(build_dir, mangled_name);
+    std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
+    std::vector< std::string > components;
+
+    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".opt.llvm").size());
+    EXPECT_NE(output_path, build_dir / (mangled_name + ".opt.llvm"));
+
+    for (std::filesystem::path const& component : relative_path)
+    {
+        components.push_back(component.string());
+    }
+
+    ASSERT_GE(components.size(), static_cast< std::size_t >(2));
+    for (std::size_t i = 0; i + 1 < components.size(); i++)
+    {
+        EXPECT_TRUE(components.at(i).ends_with(".dir"));
+        EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
+
+    EXPECT_TRUE(components.back().ends_with(".opt.llvm"));
+    EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+}
+
+TEST(qxc, debug_llvm_output_path_uses_dbg_extension_and_spills_long_mangled_names_into_subdirectories)
+{
+    quxlang::type_symbol symbol = quxlang::submember{
+        .of = parse_type_symbol("MODULE(main)::string"),
+        .name = "OPERATOR[]",
+    };
+    for (int i = 0; i < 20; i++)
+    {
+        symbol = quxlang::type_symbol(quxlang::subsymbol{.of = std::move(symbol), .name = "__LAMBDA0"});
+    }
+    std::string const mangled_name = quxlang::mangle(symbol);
+    std::filesystem::path const build_dir = "build";
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_llvm_output_path(build_dir, mangled_name);
+    std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
+    std::vector< std::string > components;
+
+    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".dbg.llvm").size());
+    EXPECT_NE(output_path, build_dir / (mangled_name + ".dbg.llvm"));
+
+    for (std::filesystem::path const& component : relative_path)
+    {
+        components.push_back(component.string());
+    }
+
+    ASSERT_GE(components.size(), static_cast< std::size_t >(2));
+    for (std::size_t i = 0; i + 1 < components.size(); i++)
+    {
+        EXPECT_TRUE(components.at(i).ends_with(".dir"));
+        EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
+
+    EXPECT_TRUE(components.back().ends_with(".dbg.llvm"));
+    EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+}
+
+TEST(qxc, llvm_inlining_is_limited_to_depth_two)
+{
+    quxlang::type_symbol const root = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "root",
+    };
+    quxlang::type_symbol const depth_one = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "depth_one",
+    };
+    quxlang::type_symbol const depth_two = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "depth_two",
+    };
+    quxlang::type_symbol const depth_three = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "depth_three",
+    };
+    quxlang::type_symbol const sibling = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "sibling",
+    };
+
+    quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
+    dependency_graph[root].insert(depth_one);
+    dependency_graph[root].insert(sibling);
+    dependency_graph[depth_one].insert(depth_two);
+    dependency_graph[depth_two].insert(depth_three);
+
+    std::set< quxlang::type_symbol > const inlinable = quxlang::qxc_detail::collect_potentially_inlinable_functanoids(dependency_graph, root);
+
+    EXPECT_TRUE(inlinable.contains(depth_one));
+    EXPECT_TRUE(inlinable.contains(depth_two));
+    EXPECT_TRUE(inlinable.contains(sibling));
+    EXPECT_FALSE(inlinable.contains(root));
+    EXPECT_FALSE(inlinable.contains(depth_three));
+}
+
+TEST(llvm_backend, antestatal_constant_emits_linkonce_definition)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const constant_symbol = make_symbol("antestatal_static_i32");
+    quxlang::type_symbol const routine_symbol = make_symbol("antestatal_get_reference_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+            .target = i32_type,
+            .ptr_class = quxlang::pointer_class::ref,
+            .qual = quxlang::qualifier::constant,
+        }},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_antestatal_ref{
+        .symbol = constant_symbol,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.antestatal_constants[constant_symbol] = quxlang::antestatal_primitive{
+        .value = {std::byte{4}, std::byte{0}, std::byte{0}, std::byte{0}},
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(constant_symbol) + " = linkonce_odr constant i32 4"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("@" + quxlang::mangle(constant_symbol) + " = external constant i32"), std::string::npos);
+}
+
+TEST(llvm_backend, flagset_antestatal_constant_uses_nominal_integer_initializer_type)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const flagset_type = make_symbol("access_flags");
+    quxlang::type_symbol const constant_symbol = quxlang::submember{
+        .of = flagset_type,
+        .name = "read_write",
+    };
+    quxlang::type_symbol const routine_symbol = make_symbol("flagset_get_reference_test");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+            .target = flagset_type,
+            .ptr_class = quxlang::pointer_class::ref,
+            .qual = quxlang::qualifier::constant,
+        }},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_antestatal_ref{
+        .symbol = constant_symbol,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.antestatal_constants[constant_symbol] = quxlang::antestatal_primitive{
+        .value = {std::byte{3}},
+    };
+    packet.flagset_infos[flagset_type] = quxlang::flagset_info{
+        .bits = 5,
+        .storage_bytes = 1,
+        .values = {
+            quxlang::flagset_value_info{.name = "read", .mask = 1, .is_explicit = false},
+            quxlang::flagset_value_info{.name = "write", .mask = 2, .is_explicit = false},
+        },
+        .reserved_masks = {},
+        .reserved_bit_mask = 0,
+        .canonical_bit_mask = 3,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(constant_symbol) + " = linkonce_odr constant i5 3"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("@" + quxlang::mangle(constant_symbol) + " = linkonce_odr constant [1 x i8]"), std::string::npos);
+}
+
+TEST(llvm_backend, float_from_int_lowers_as_plain_integer_to_float_conversion)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("float_from_int_lowering_test");
+    quxlang::type_symbol const signed_int_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const float_type = quxlang::float_type{
+        .bits = 32,
+        .exponent_bits = 8,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = signed_int_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = float_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "-7",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(3),
+        .value = "9",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_from_int{
+        .source = quxlang::vmir2::local_index(1),
+        .result = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_from_int{
+        .source = quxlang::vmir2::local_index(3),
+        .result = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("sitofp i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("uitofp i8"), std::string::npos);
+}
+
+TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_by_integer_bits)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("canonicalize_float_lowering_test");
+    quxlang::type_symbol const float_type = quxlang::float_type{
+        .bits = 32,
+        .exponent_bits = 8,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::canonicalize_float{
+        .source = quxlang::vmir2::local_index(1),
+        .result = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("@llvm.canonicalize.f32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("bitcast float"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("select i1"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("2143289344"), std::string::npos);
+}
+
+TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute_store)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("mutating_float_operators_lowering_test");
+    quxlang::type_symbol const float_type = quxlang::float_type{
+        .bits = 32,
+        .exponent_bits = 8,
+    };
+    quxlang::type_symbol const ref_float_type = quxlang::ptrref_type{
+        .target = float_type,
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::mut,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = ref_float_type},
+        quxlang::vmir2::local_type{.type = ref_float_type},
+        quxlang::vmir2::local_type{.type = ref_float_type},
+        quxlang::vmir2::local_type{.type = ref_float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+    };
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = ref_float_type,
+        .local_index = quxlang::vmir2::local_index(1),
+    });
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = ref_float_type,
+        .local_index = quxlang::vmir2::local_index(2),
+    });
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = ref_float_type,
+        .local_index = quxlang::vmir2::local_index(3),
+    });
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = ref_float_type,
+        .local_index = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(5),
+        .value = "1.5",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(6),
+        .value = "2.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(7),
+        .value = "3.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(8),
+        .value = "4.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::mut_float_add{
+        .target = quxlang::vmir2::local_index(1),
+        .value = quxlang::vmir2::local_index(5),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::mut_float_sub{
+        .target = quxlang::vmir2::local_index(2),
+        .value = quxlang::vmir2::local_index(6),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::mut_float_mul{
+        .target = quxlang::vmir2::local_index(3),
+        .value = quxlang::vmir2::local_index(7),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::mut_float_div{
+        .target = quxlang::vmir2::local_index(4),
+        .value = quxlang::vmir2::local_index(8),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("fadd float"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("fsub float"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("fmul float"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("fdiv float"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("Unsupported VMIR2 instruction for LLVM lowering"), std::string::npos);
+}
+
+TEST(llvm_backend, init_zero_does_not_emit_memset_intrinsics)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("init_zero_without_memintrinsic_test");
+    quxlang::type_symbol const array_type = parse_type_symbol("[4] I32");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = array_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_zero{
+        .target = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[array_type] = quxlang::type_placement_info{
+        .size = 16,
+        .alignment = 4,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("llvm.memset"), std::string::npos);
+    EXPECT_EQ(result.optimized_llvm_ir_text.find("llvm.memset"), std::string::npos);
+}
+
+TEST(llvm_backend, swap_on_references_swaps_pointee_values)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("swap_on_references_test");
+    quxlang::type_symbol const byte_type = quxlang::byte_type{};
+    quxlang::type_symbol const byte_ref_type = quxlang::ptrref_type{
+        .target = byte_type,
+        .ptr_class = quxlang::pointer_class::ref,
+        .qual = quxlang::qualifier::mut,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = byte_type},
+        quxlang::vmir2::local_type{.type = byte_type},
+        quxlang::vmir2::local_type{.type = byte_ref_type},
+        quxlang::vmir2::local_type{.type = byte_ref_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "1",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "2",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::make_reference{
+        .value_index = quxlang::vmir2::local_index(1),
+        .reference_index = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::make_reference{
+        .value_index = quxlang::vmir2::local_index(2),
+        .reference_index = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::swap{
+        .a = quxlang::vmir2::local_index(3),
+        .b = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("load i8, ptr"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("store i8"), std::string::npos);
+}
+
+TEST(llvm_backend, native_illegal_constexpr_instructions_trap_instead_of_lowering_runtime_helpers)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("constexpr_native_illegal_trap_test");
+    quxlang::type_symbol const byte_type = quxlang::byte_type{};
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+            .target = byte_type,
+            .ptr_class = quxlang::pointer_class::instance,
+            .qual = quxlang::qualifier::mut,
+        }},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::constexpr_alloc{
+        .storage_type = byte_type,
+        .result = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("call void @llvm.trap()"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("malloc"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("free"), std::string::npos);
+}
+
+TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("runtime_constexpr_native_path_test");
+    quxlang::type_symbol const i32 = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32},
+    };
+    routine.blocks.resize(3);
+    routine.blocks[0].terminator = quxlang::vmir2::runtime_constexpr{
+        .target_constexpr = quxlang::vmir2::block_index(1),
+        .target_native = quxlang::vmir2::block_index(2),
+    };
+    routine.blocks[1].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("br label %block2"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("\nblock1:"), std::string::npos);
+}
+
+TEST(llvm_backend, standard_float_comparisons_use_strong_integer_ordering_while_ieee_ops_use_fcmp)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("float_comparison_ordering_test");
+    quxlang::type_symbol const float_type = quxlang::float_type{
+        .bits = 32,
+        .exponent_bits = 8,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+        quxlang::vmir2::local_type{.type = float_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "-0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(7),
+        .value = "0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(8),
+        .value = "-0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(9),
+        .value = "-0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(10),
+        .value = "0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(11),
+        .value = "-0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(12),
+        .value = "0.0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_eq{
+        .a = quxlang::vmir2::local_index(1),
+        .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_lt{
+        .a = quxlang::vmir2::local_index(9),
+        .b = quxlang::vmir2::local_index(10),
+        .result = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_ieee_eq{
+        .a = quxlang::vmir2::local_index(7),
+        .b = quxlang::vmir2::local_index(8),
+        .result = quxlang::vmir2::local_index(5),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::float_ieee_lt{
+        .a = quxlang::vmir2::local_index(11),
+        .b = quxlang::vmir2::local_index(12),
+        .result = quxlang::vmir2::local_index(6),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.optimized_llvm_ir_text.find("define linkonce_odr void @" + quxlang::mangle(routine_symbol) + "()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp eq i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp ult i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("fcmp oeq float"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("fcmp olt float"), std::string::npos);
+}
+
+TEST(llvm_backend, caller_provided_output_slots_do_not_allocate_local_storage)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("caller_provided_output_slot_test");
+    quxlang::type_symbol const aggregate_type = make_symbol("opaque_aggregate");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = aggregate_type},
+    };
+    routine.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = aggregate_type},
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("%slot1 = alloca"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void @" + quxlang::mangle(routine_symbol) + "(ptr %slot1_arg_THIS)"), std::string::npos);
+}
+
+TEST(llvm_backend, source_abi_orders_named_parameters_before_positionals_and_uses_argument_names)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("abi_parameter_ordering_definition_test");
+    quxlang::type_symbol const aggregate_type = make_symbol("opaque_aggregate");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i16_type = quxlang::int_type{
+        .bits = 16,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i64_type = quxlang::int_type{
+        .bits = 64,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = aggregate_type},
+        quxlang::vmir2::local_type{.type = i16_type},
+        quxlang::vmir2::local_type{.type = i64_type},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+    };
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = i32_type,
+        .local_index = quxlang::vmir2::local_index(1),
+    });
+    routine.parameters.named["alpha"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::byte_type{},
+        .local_index = quxlang::vmir2::local_index(5),
+    };
+    routine.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = aggregate_type},
+        .local_index = quxlang::vmir2::local_index(2),
+    };
+    routine.parameters.named["INPUT_ITERATOR"] = quxlang::vmir2::routine_parameter{
+        .type = i64_type,
+        .local_index = quxlang::vmir2::local_index(4),
+    };
+    routine.parameters.named["OTHER"] = quxlang::vmir2::routine_parameter{
+        .type = i16_type,
+        .local_index = quxlang::vmir2::local_index(3),
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(
+        result.llvm_ir_text.find("define linkonce_odr void @" + quxlang::mangle(routine_symbol) + "(ptr %slot2_arg_THIS, i16 %arg_OTHER, i64 %arg_INPUT_ITERATOR, i8 %arg_alpha, i32 %arg_0)"),
+        std::string::npos);
+}
+
+TEST(llvm_backend, callsites_follow_source_abi_order_for_named_and_positional_arguments)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const caller_symbol = make_symbol("abi_parameter_ordering_callsite_test");
+    quxlang::type_symbol const callee_symbol = make_symbol("abi_parameter_ordering_callee");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i16_type = quxlang::int_type{
+        .bits = 16,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i64_type = quxlang::int_type{
+        .bits = 64,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const f32_type = quxlang::float_type{
+        .bits = 32,
+        .exponent_bits = 8,
+    };
+    quxlang::type_symbol const callee_pointer_type = quxlang::ptrref_type{
+        .target = quxlang::procedure_type{
+            .calling_convention = "DEFAULT",
+            .signature = quxlang::sigtype{
+                .params = quxlang::invotype{
+                    .named = {
+                        {"OTHER", i16_type},
+                        {"THIS", i64_type},
+                        {"INPUT_ITERATOR", i32_type},
+                        {"alpha", quxlang::byte_type{}},
+                    },
+                    .positional = {f32_type},
+                },
+            },
+        },
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::constant,
+    };
+
+    quxlang::vmir2::functanoid_routine3 callee;
+    callee.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i16_type},
+        quxlang::vmir2::local_type{.type = i64_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = f32_type},
+        quxlang::vmir2::local_type{.type = callee_pointer_type},
+    };
+    callee.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = f32_type,
+        .local_index = quxlang::vmir2::local_index(5),
+    });
+    callee.parameters.named["alpha"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::byte_type{},
+        .local_index = quxlang::vmir2::local_index(4),
+    };
+    callee.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = i64_type,
+        .local_index = quxlang::vmir2::local_index(2),
+    };
+    callee.parameters.named["INPUT_ITERATOR"] = quxlang::vmir2::routine_parameter{
+        .type = i32_type,
+        .local_index = quxlang::vmir2::local_index(3),
+    };
+    callee.parameters.named["OTHER"] = quxlang::vmir2::routine_parameter{
+        .type = i16_type,
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    callee.blocks.resize(1);
+    callee.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i16_type},
+        quxlang::vmir2::local_type{.type = i64_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+        quxlang::vmir2::local_type{.type = f32_type},
+        quxlang::vmir2::local_type{.type = callee_pointer_type},
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "9",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(3),
+        .value = "11",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(4),
+        .value = "3",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_float{
+        .target = quxlang::vmir2::local_index(5),
+        .value = "1.5",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::get_procedure_ptr{
+        .routine = callee_symbol,
+        .calling_convention = "DEFAULT",
+        .pointer_index = quxlang::vmir2::local_index(6),
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
+        .what_index = quxlang::vmir2::local_index(6),
+        .args = quxlang::vmir2::invocation_args{
+            .positional = {quxlang::vmir2::local_index(5)},
+            .named = {
+                {"alpha", quxlang::vmir2::local_index(4)},
+                {"THIS", quxlang::vmir2::local_index(2)},
+                {"INPUT_ITERATOR", quxlang::vmir2::local_index(3)},
+                {"OTHER", quxlang::vmir2::local_index(1)},
+            },
+        },
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = caller_symbol;
+    packet.target_code = caller;
+    packet.inlinable_functions[callee_symbol] = callee;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    std::string const call_prefix = "call void %";
+    std::size_t const call_pos = result.llvm_ir_text.find(call_prefix);
+    ASSERT_NE(call_pos, std::string::npos);
+
+    std::string const call_window = result.llvm_ir_text.substr(call_pos, 160);
+    std::size_t const this_pos = call_window.find("i64 ");
+    std::size_t const other_pos = call_window.find("i16 ");
+    std::size_t const keyword_pos = call_window.find("i32 ");
+    std::size_t const named_pos = call_window.find("i8 ");
+    std::size_t const positional_pos = call_window.find("float ");
+
+    ASSERT_NE(this_pos, std::string::npos);
+    ASSERT_NE(other_pos, std::string::npos);
+    ASSERT_NE(keyword_pos, std::string::npos);
+    ASSERT_NE(named_pos, std::string::npos);
+    ASSERT_NE(positional_pos, std::string::npos);
+    EXPECT_LT(this_pos, other_pos);
+    EXPECT_LT(other_pos, keyword_pos);
+    EXPECT_LT(keyword_pos, named_pos);
+    EXPECT_LT(named_pos, positional_pos);
+}
+
+TEST(llvm_backend, invoke_indirect_accepts_const_ref_procedure_slots)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const caller_symbol = make_symbol("invoke_indirect_const_ref_procedure_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const proc_type = quxlang::procedure_type{
+        .calling_convention = "DEFAULT",
+        .signature = quxlang::sigtype{
+            .params = quxlang::invotype{
+                .positional = {i32_type, i32_type},
+            },
+            .return_type = i32_type,
+        },
+    };
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(proc_type)},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    caller.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::make_cref(proc_type),
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "4",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(3),
+        .value = "5",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
+        .what_index = quxlang::vmir2::local_index(1),
+        .args = quxlang::vmir2::invocation_args{
+            .positional = {quxlang::vmir2::local_index(2), quxlang::vmir2::local_index(3)},
+            .named = {{"RETURN", quxlang::vmir2::local_index(4)}},
+        },
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = caller_symbol;
+    packet.target_code = caller;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("call i32 %"), std::string::npos);
+}
+
+TEST(llvm_backend, invoke_indirect_omits_return_argument_for_void_procedures)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const caller_symbol = make_symbol("invoke_indirect_void_procedure_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const proc_type = quxlang::procedure_type{
+        .calling_convention = "DEFAULT",
+        .signature = quxlang::sigtype{
+            .params = quxlang::invotype{
+                .named = {{"val", quxlang::make_mref(i32_type)}},
+            },
+            .return_type = quxlang::void_type{},
+        },
+    };
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_cref(proc_type)},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+    };
+    caller.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::make_cref(proc_type),
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    caller.parameters.named["val"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::make_mref(i32_type),
+        .local_index = quxlang::vmir2::local_index(2),
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke_indirect{
+        .what_index = quxlang::vmir2::local_index(1),
+        .args = quxlang::vmir2::invocation_args{
+            .named = {{"val", quxlang::vmir2::local_index(2)}},
+        },
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = caller_symbol;
+    packet.target_code = caller;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("call void %"), std::string::npos);
+}
+
+TEST(llvm_backend, void_local_slots_do_not_allocate_storage)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("void_slot_storage_elision_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("%slot0 = alloca"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("%slot1 = alloca i32"), std::string::npos);
+}
+
+TEST(llvm_backend, consumed_instruction_inputs_poison_slot_storage_immediately)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("instruction_consume_poison_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "3",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::int_add{
+        .a = quxlang::vmir2::local_index(1),
+        .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("store i32 poison, ptr %slot1"), std::string::npos);
+}
+
+TEST(llvm_backend, vmir_source_locations_lower_to_llvm_debug_metadata)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("llvm_debug_location_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::source_file_name file_name{.source_module = "foo", .relative_path = "bar.qxs"};
+    quxlang::source_file_index file_index;
+    file_index.file_to_id.emplace(file_name, 123);
+    file_index.id_to_file.emplace(123, file_name);
+
+    quxlang::source_bundle bundle;
+    bundle.module_sources["foo"].files["bar.qxs"] = quxlang::source_file{.contents = "a\nbcdef\n"};
+
+    quxlang::source_location loc{.file_id = 123, .begin_index = 2, .end_index = std::optional< std::size_t >{4}};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+        .location = loc,
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{.location = loc};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.source_index = rpnx::cow< quxlang::vmir2::source_index >(quxlang::vmir2::source_index(file_index, bundle));
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("!DIFile(filename: \"bar.qxs\", directory: \"foo\")"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!DILocation(line: 2, column: 1"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!dbg !"), std::string::npos);
+}
+
+TEST(llvm_backend, vmir_metadata_annotations_use_comment_free_instruction_text_with_counters)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("llvm_vmir_metadata_test");
+    quxlang::type_symbol const string_constant_type = quxlang::readonly_constant{.kind = quxlang::constant_kind::string};
+    quxlang::type_symbol const byte_pointer_type = quxlang::ptrref_type{
+        .target = quxlang::byte_type{},
+        .ptr_class = quxlang::pointer_class::array,
+        .qual = quxlang::qualifier::constant,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = string_constant_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_value{
+        .target = quxlang::vmir2::local_index(1),
+        .value = {std::byte{'f'}, std::byte{'o'}, std::byte{'o'}},
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+        .size = 16,
+        .alignment = 8,
+    };
+    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+        .fields = {
+            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+        },
+        .size = 16,
+        .align = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("!qux.vmir2 !"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 0}"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("!{!\"INITVAL %1, {66, 6F, 6F}\", i64 1}"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("INITVAL %1, {66, 6F, 6F} //"), std::string::npos);
+}
+
+TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_pointer)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("string_constant_initval_test");
+    quxlang::type_symbol const string_constant_type = quxlang::readonly_constant{.kind = quxlang::constant_kind::string};
+    quxlang::type_symbol const byte_pointer_type = quxlang::ptrref_type{
+        .target = quxlang::byte_type{},
+        .ptr_class = quxlang::pointer_class::array,
+        .qual = quxlang::qualifier::constant,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = string_constant_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_value{
+        .target = quxlang::vmir2::local_index(1),
+        .value = {std::byte{'f'}, std::byte{'o'}, std::byte{'o'}},
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+        .size = 16,
+        .alignment = 8,
+    };
+    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+        .fields = {
+            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+        },
+        .size = 16,
+        .align = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("private unnamed_addr constant [3 x i8] c\"foo\""), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8, ptr"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("i64 3"), std::string::npos);
+}
+
+TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const enum_type = make_symbol("nullable_choice");
+    quxlang::type_symbol const routine_symbol = make_symbol("enum_lowering_test");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = enum_type},
+        quxlang::vmir2::local_type{.type = enum_type},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = enum_type},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "0",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(4),
+        .value = "1",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "1",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::cmp_lt{
+        .a = quxlang::vmir2::local_index(1),
+        .b = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::to_bool{
+        .from = quxlang::vmir2::local_index(4),
+        .to = quxlang::vmir2::local_index(5),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.enum_infos[enum_type] = quxlang::enum_info{
+        .bits = 2,
+        .storage_bytes = 1,
+        .values = {
+            quxlang::enum_value_info{.name = "none", .value = 0, .is_null = true, .is_default = true, .is_explicit = true},
+            quxlang::enum_value_info{.name = "x", .value = 1, .is_null = false, .is_default = false, .is_explicit = false},
+        },
+        .reserved_ranges = {},
+        .null_value_name = std::optional< std::string >{"none"},
+        .default_value_name = std::optional< std::string >{"none"},
+        .allow_unknown = false,
+    };
+    packet.type_placements[enum_type] = quxlang::type_placement_info{
+        .size = 1,
+        .alignment = 1,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("alloca i2"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp ult i2"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("icmp ne i2"), std::string::npos);
+}
+
+TEST(llvm_backend, get_value_byte_loads_one_byte_from_reference_storage)
+{
+    quxlang::type_symbol const array_type = parse_type_symbol("[4] BYTE");
+    quxlang::type_symbol const reference_type = parse_type_symbol("MUT& [4] BYTE");
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "get_value_byte_test",
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = reference_type},
+        quxlang::vmir2::local_type{.type = quxlang::byte_type{}},
+    };
+    routine.parameters.positional = {
+        quxlang::vmir2::routine_parameter{
+            .type = reference_type,
+            .local_index = quxlang::vmir2::local_index(1),
+        },
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_value_byte{
+        .source_reference = quxlang::vmir2::local_index(1),
+        .offset = 2,
+        .result = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[array_type] = quxlang::type_placement_info{
+        .size = 4,
+        .alignment = 1,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8, ptr"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("i64 2"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("load i8, ptr"), std::string::npos);
+}
+
+TEST(llvm_backend, pointer_arith_emits_signed_subtractive_gep)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("pointer_arith_test");
+    quxlang::type_symbol const pointer_type = quxlang::ptrref_type{
+        .target = quxlang::byte_type{},
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::mut,
+    };
+    quxlang::type_symbol const offset_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = pointer_type},
+        quxlang::vmir2::local_type{.type = offset_type},
+        quxlang::vmir2::local_type{.type = pointer_type},
+    };
+    routine.parameters.positional = {
+        quxlang::vmir2::routine_parameter{
+            .type = pointer_type,
+            .local_index = quxlang::vmir2::local_index(1),
+        },
+        quxlang::vmir2::routine_parameter{
+            .type = offset_type,
+            .local_index = quxlang::vmir2::local_index(2),
+        },
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(2)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::pointer_arith{
+        .from = quxlang::vmir2::local_index(1),
+        .multiplier = -1,
+        .offset = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("sext i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("sub i64 0,"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("getelementptr inbounds i8"), std::string::npos);
+}
+
+TEST(llvm_backend, pointer_diff_emits_signed_element_difference)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("pointer_diff_test");
+    quxlang::type_symbol const pointer_type = quxlang::ptrref_type{
+        .target = quxlang::int_type{
+            .bits = 32,
+            .has_sign = true,
+        },
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::mut,
+    };
+    quxlang::type_symbol const result_type = quxlang::int_type{
+        .bits = 64,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = pointer_type},
+        quxlang::vmir2::local_type{.type = pointer_type},
+        quxlang::vmir2::local_type{.type = result_type},
+    };
+    routine.parameters.positional = {
+        quxlang::vmir2::routine_parameter{
+            .type = pointer_type,
+            .local_index = quxlang::vmir2::local_index(1),
+        },
+        quxlang::vmir2::routine_parameter{
+            .type = pointer_type,
+            .local_index = quxlang::vmir2::local_index(2),
+        },
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(2)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::pointer_diff{
+        .from = quxlang::vmir2::local_index(1),
+        .to = quxlang::vmir2::local_index(2),
+        .result = quxlang::vmir2::local_index(3),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("ptrtoint ptr"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("sub i64"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("sdiv exact i64"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(", 4"), std::string::npos);
+}
+
+TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("atomic_load_store_test");
+    quxlang::type_symbol const i32 = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const atomic_i32 = test_atomic_type(i32);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(atomic_i32)},
+    };
+    routine.parameters.positional = {
+        quxlang::vmir2::routine_parameter{
+            .type = quxlang::make_mref(atomic_i32),
+            .local_index = quxlang::vmir2::local_index(1),
+        },
+        quxlang::vmir2::routine_parameter{
+            .type = i32,
+            .local_index = quxlang::vmir2::local_index(3),
+        },
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(3)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::copy_reference{
+        .from_index = quxlang::vmir2::local_index(1),
+        .to_index = quxlang::vmir2::local_index(4),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::store_to_ref{
+        .from_value = quxlang::vmir2::local_index(3),
+        .to_reference = quxlang::vmir2::local_index(1),
+        .access_mode = quxlang::atomic_access_mode::atomic_release,
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_from_ref{
+        .from_reference = quxlang::vmir2::local_index(4),
+        .to_value = quxlang::vmir2::local_index(2),
+        .access_mode = quxlang::atomic_access_mode::atomic_acquire,
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("store atomic i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(" release,"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("load atomic i32"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(" acquire,"), std::string::npos);
+}
+
+TEST(llvm_backend, interface_default_invoke_binds_this_parameter)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const interface_type = make_symbol("demo_interface");
+    quxlang::type_symbol const routine_symbol = make_symbol("interface_default_invoke_test");
+    quxlang::type_symbol const return_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::interface_slot_key slot_key{
+        .name = "RUN",
+        .concrete_params = {},
+        .concrete_return_type = return_type,
+    };
+
+    quxlang::instatype default_params;
+    default_params.named["THIS"] = quxlang::make_type_instantiation(interface_type);
+    quxlang::type_symbol const default_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = make_symbol("default_iface_run"),
+        },
+        .params = default_params,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = interface_type},
+        quxlang::vmir2::local_type{.type = return_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::interface_init{
+        .target = quxlang::vmir2::local_index(1),
+        .interface_type = interface_type,
+        .functions = {},
+        .is_default = true,
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::interface_invoke{
+        .interface_value = quxlang::vmir2::local_index(1),
+        .slot = slot_key,
+        .args = quxlang::vmir2::invocation_args{
+            .named = {{"RETURN", quxlang::vmir2::local_index(2)}},
+        },
+        .default_function = default_symbol,
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.interface_slots[interface_type] = {slot_key};
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("call i32 @" + quxlang::mangle(default_symbol) + "(ptr "), std::string::npos);
+}
+
+TEST(llvm_backend, explicit_destroy_emits_destructor_call)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const object_type = make_symbol("widget");
+    quxlang::type_symbol const routine_symbol = make_symbol("destroy_test");
+    quxlang::instatype dtor_params;
+    dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
+    quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::submember{
+                .of = object_type,
+                .name = ".DESTRUCTOR",
+            },
+        },
+        .params = dtor_params,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = object_type},
+    };
+    routine.parameters.named["VALUE"] = quxlang::vmir2::routine_parameter{
+        .type = object_type,
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    routine.non_trivial_dtors[object_type] = dtor_symbol;
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+    };
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::destroy{
+        .of = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[object_type] = quxlang::type_placement_info{
+        .size = 8,
+        .alignment = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("call void @" + quxlang::mangle(dtor_symbol)), std::string::npos);
+}
+
+TEST(llvm_backend, jump_transition_emits_destructor_cleanup_block)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const object_type = make_symbol("jump_widget");
+    quxlang::type_symbol const routine_symbol = make_symbol("jump_cleanup_test");
+    quxlang::instatype dtor_params;
+    dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
+    quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::submember{
+                .of = object_type,
+                .name = ".DESTRUCTOR",
+            },
+        },
+        .params = dtor_params,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = object_type},
+    };
+    routine.non_trivial_dtors[object_type] = dtor_symbol;
+    routine.blocks.resize(2);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::jump{
+        .target = quxlang::vmir2::block_index(1),
+    };
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[object_type] = quxlang::type_placement_info{
+        .size = 8,
+        .alignment = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("block0.transition.block1"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call void @" + quxlang::mangle(dtor_symbol)), std::string::npos);
+}
+
+TEST(llvm_backend, return_emits_destructor_cleanup)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const object_type = make_symbol("return_widget");
+    quxlang::type_symbol const routine_symbol = make_symbol("return_cleanup_test");
+    quxlang::instatype dtor_params;
+    dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
+    quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::submember{
+                .of = object_type,
+                .name = ".DESTRUCTOR",
+            },
+        },
+        .params = dtor_params,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = object_type},
+    };
+    routine.non_trivial_dtors[object_type] = dtor_symbol;
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[object_type] = quxlang::type_placement_info{
+        .size = 8,
+        .alignment = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+    std::size_t const call_position = result.llvm_ir_text.find("call void @" + quxlang::mangle(dtor_symbol));
+    std::size_t const ret_position = result.llvm_ir_text.find("ret void");
+
+    ASSERT_NE(call_position, std::string::npos);
+    ASSERT_NE(ret_position, std::string::npos);
+    EXPECT_LT(call_position, ret_position);
+}
+
 TEST(collector_tester, order_of_operations)
 {
     // quxlang::collector c;
@@ -1225,6 +3272,30 @@ TEST(source_locations, vmir_instruction_and_terminator_locations_print_automatic
 
     quxlang::vmir2::assembler typed_comment_source_assembler(routine, quxlang::vmir2::source_index(file_index, bundle));
     ASSERT_EQ(typed_comment_source_assembler.to_string(located_typed_comment_instruction), "ACCESS_FIELD %0, %1, x @@ foo/bar.qxs:2:1,2:5 // type1=I32 type2=I32");
+
+    quxlang::vmir2::assembler no_comment_assembler(routine);
+    no_comment_assembler.print_comments = false;
+    ASSERT_EQ(no_comment_assembler.to_string(located_typed_comment_instruction), "ACCESS_FIELD %0, %1, x @@(123, 2, 6)");
+}
+
+TEST(vmir2_assembler, routine_parameters_print_assigned_slots)
+{
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.parameters.named["THIS"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::int_type{32, true},
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    routine.parameters.named["flag"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::bool_type{},
+        .local_index = quxlang::vmir2::local_index(2),
+    };
+    routine.parameters.positional.push_back(quxlang::vmir2::routine_parameter{
+        .type = quxlang::byte_type{},
+        .local_index = quxlang::vmir2::local_index(3),
+    });
+
+    std::string const result = quxlang::vmir2::assembler(routine).to_string(routine);
+    EXPECT_NE(result.find("[Parameters]:\n    PARAMETERS(@THIS I32=%1, @flag BOOL=%2, BYTE=%3)\n"), std::string::npos);
 }
 
 TEST(vmir_constexpr_interpreter, localdata_get_antestatal_ref_sets_result_zero)
@@ -1297,6 +3368,30 @@ TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
     auto result_values = mutable_interp.get_cr_antestatal_values();
     ASSERT_TRUE(result_values.contains(17));
     expect_i32_value(result_values.at(17), std::byte{9});
+}
+
+TEST(vmir_constexpr_interpreter, get_cr_u64_accepts_narrow_integer_results)
+{
+    quxlang::type_symbol i32 = test_i32_type();
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(1), .value = "9"},
+            quxlang::vmir2::constexpr_set_result{.target = quxlang::vmir2::local_index(1)},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    EXPECT_EQ(interp.get_cr_u64(), 9);
 }
 
 TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_threaded)
@@ -2278,7 +4373,7 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
     ASSERT_TRUE(dtor_opt.has_value());
 
     quxlang::instanciation_reference const& dtor = *dtor_opt;
-    EXPECT_FALSE(c.get_function_builtin(dtor.temploid, std::nullopt));
+    EXPECT_EQ(c.get_function_builtin(dtor.temploid, std::nullopt), quxlang::builtin_function_kind::not_builtin);
     EXPECT_EQ(quxlang::to_string(dtor), "MODULE(main)::yak::.DESTRUCTOR#[0]{@THIS DESTROY{ THISTYPE}}");
 
     auto routine = c.get_vm_procedure3(dtor, std::nullopt);
@@ -2429,6 +4524,20 @@ TEST(quxlang, attached_type_reference_has_storage_of_carrier_or_zero)
     quxlang::type_placement_info carrier_placement = graph.make_request< quxlang::type_placement_info_query >(carrier_type);
     quxlang::type_placement_info bound_placement = graph.make_request< quxlang::type_placement_info_query >(bound_attached_foo);
     EXPECT_EQ(bound_placement, carrier_placement);
+}
+
+TEST(quxlang, string_constant_has_two_pointer_logical_placement)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle("");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const string_constant_type = parse_type_symbol("STRING_CONSTANT");
+    quxlang::type_placement_info const placement = graph.make_request< quxlang::type_placement_info_query >(string_constant_type);
+    quxlang::output_info const machine_info = graph.make_request< quxlang::machine_info_query >(std::monostate{});
+
+    EXPECT_EQ(placement.size, machine_info.pointer_size_bytes() * 2);
+    EXPECT_EQ(placement.alignment, machine_info.pointer_align());
 }
 
 TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)
@@ -2687,7 +4796,62 @@ TEST(builtin_state, user_func_builtin)
     auto type = quxlang::with_context(parse_type_symbol("MODULE(main)::buz::.CONSTRUCTOR#[]"), mainmodule);
 
     auto val_builtin = c.get_function_builtin(type.get_as<quxlang::temploid_reference>(), std::nullopt);
-    GTEST_ASSERT_FALSE(val_builtin);
+    GTEST_ASSERT_EQ(val_builtin, quxlang::builtin_function_kind::not_builtin);
+}
+
+TEST(builtin_state, byte_assignment_is_intrinsic_and_has_no_generated_vm_routine)
+{
+    auto sources = make_main_module_source_bundle("");
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    quxlang::temploid_reference assignment_symbol{
+        .templexoid = quxlang::submember{.of = quxlang::byte_type{}, .name = "OPERATOR:="},
+    };
+    EXPECT_EQ(c.get_function_builtin(assignment_symbol, std::nullopt), quxlang::builtin_function_kind::builtin_intrinsic);
+
+    quxlang::initialization_reference assignment_ref{
+        .initializee = quxlang::submember{.of = quxlang::byte_type{}, .name = "OPERATOR:="},
+        .parameters = quxlang::instatype_from_invotype(quxlang::invotype{
+            .named = {
+                {"THIS", quxlang::make_wref(quxlang::byte_type{})},
+                {"OTHER", quxlang::byte_type{}},
+            },
+        }),
+        .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+    };
+
+    std::optional< quxlang::instanciation_reference > assignment_instanciation = c.get_instanciation(std::move(assignment_ref), std::nullopt);
+    ASSERT_TRUE(assignment_instanciation.has_value());
+    EXPECT_THROW(c.get_vm_procedure3(*assignment_instanciation, std::nullopt), quxlang::compiler_bug);
+}
+
+TEST(builtin_state, procedure_operator_uses_const_ref_or_const_pointer_but_not_ref_to_pointer)
+{
+    auto sources = make_main_module_source_bundle("");
+    test_querygraph_compiler c(sources, "linux-x64");
+
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+    quxlang::sigtype const proc_signature{
+        .params = quxlang::invotype{
+            .positional = {i32_type, i32_type},
+        },
+        .return_type = i32_type,
+    };
+    quxlang::type_symbol const proc_type = quxlang::procedure_type{.signature = proc_signature};
+    quxlang::type_symbol const proc_ptr_type = quxlang::ptrref_type{
+        .target = proc_type,
+        .ptr_class = quxlang::pointer_class::instance,
+        .qual = quxlang::qualifier::constant,
+    };
+
+    auto const proc_overloads = c.get_functum_builtin_overloads(quxlang::submember{.of = proc_type, .name = "OPERATOR()"}, std::nullopt);
+    ASSERT_EQ(proc_overloads.size(), 1);
+    EXPECT_EQ(proc_overloads.begin()->interface.named.at("THIS").type, quxlang::make_cref(proc_type));
+
+    auto const proc_ptr_overloads = c.get_functum_builtin_overloads(quxlang::submember{.of = proc_ptr_type, .name = "OPERATOR()"}, std::nullopt);
+    ASSERT_EQ(proc_ptr_overloads.size(), 1);
+    EXPECT_EQ(proc_ptr_overloads.begin()->interface.named.at("THIS").type, proc_ptr_type);
+    EXPECT_NE(proc_ptr_overloads.begin()->interface.named.at("THIS").type, quxlang::make_cref(proc_ptr_type));
 }
 
 TEST(quxlang, constexpr_call_func)
@@ -2936,7 +5100,7 @@ TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)
     ASSERT_TRUE(selected_template.has_value());
     EXPECT_EQ(c.get_symbol_type(*selected_template, std::nullopt), quxlang::symbol_kind::template_);
     EXPECT_TRUE(c.get_template_builtin(*selected_template, std::nullopt));
-    EXPECT_FALSE(c.get_function_builtin(*selected_template, std::nullopt));
+    EXPECT_EQ(c.get_function_builtin(*selected_template, std::nullopt), quxlang::builtin_function_kind::not_builtin);
 
     auto selected = quxlang::as< quxlang::instanciation_reference >(*resolved).temploid;
     EXPECT_EQ(selected, *selected_template);

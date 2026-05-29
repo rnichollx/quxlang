@@ -1009,8 +1009,7 @@ namespace quxlang
         {
             local_index source;
             local_index result;
-            bool require_exact = true;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_from_int, source, result, require_exact);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(float_from_int, source, result);
         };
 
         struct iconv

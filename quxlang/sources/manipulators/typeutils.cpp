@@ -1904,7 +1904,7 @@ namespace quxlang
         output += "PARAMETERS(";
         append_named_arguments_in_print_order(output, first, ref.named, [&](auto const& entry) {
             auto const& [name, arg] = entry;
-            output += "@" + name + " " + to_string(arg.type);
+            output += "@" + name + " " + to_string(arg.type) + "=%" + std::to_string(arg.local_index);
         });
         for (auto const& arg : ref.positional)
         {
@@ -1916,7 +1916,7 @@ namespace quxlang
             {
                 output += ", ";
             }
-            output += to_string(arg.type);
+            output += to_string(arg.type) + "=%" + std::to_string(arg.local_index);
         }
         output += ")";
         return output;

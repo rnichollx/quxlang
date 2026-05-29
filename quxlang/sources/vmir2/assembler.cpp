@@ -196,7 +196,7 @@ namespace quxlang::vmir2
             }
 
             output += block_name + " " + to_string(fnc.blocks.at(i).entry_state);
-            if (fnc.blocks.at(i).dbg_name.has_value())
+            if (print_comments && fnc.blocks.at(i).dbg_name.has_value())
             {
                 output += " // " + fnc.blocks.at(i).dbg_name.value();
             }
@@ -377,7 +377,7 @@ namespace quxlang::vmir2
             output += " BINDS %" + std::to_string(*slt.binding_of);
         }
 
-        if (slt.name)
+        if (print_comments && slt.name)
         {
             output += " // " + *slt.name;
         }
@@ -455,10 +455,13 @@ namespace quxlang::vmir2
         std::string result = "ACCESS_FIELD %" + std::to_string(inst.base_index) + ", %" + std::to_string(inst.store_index) + ", " + inst.field_name;
         // Use apply_visitor since both types have the same logic
 
-        result += " // type1=";
-        result += quxlang::to_string(m_what.local_types.at(inst.base_index).type);
-        result += " type2=";
-        result += quxlang::to_string(m_what.local_types.at(inst.store_index).type);
+        if (print_comments)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(m_what.local_types.at(inst.base_index).type);
+            result += " type2=";
+            result += quxlang::to_string(m_what.local_types.at(inst.store_index).type);
+        }
 
         return result;
     }
@@ -502,15 +505,18 @@ namespace quxlang::vmir2
         result += ", ";
         result += rpnx::enum_traits<conversion_class>::to_string(inst.convtype);
         // Helpful comment with types
-        result += " // from=" + quxlang::to_string(m_what.local_types.at(inst.from).type);
-        result += " to=" + quxlang::to_string(m_what.local_types.at(inst.to).type);
+        if (print_comments)
+        {
+            result += " // from=" + quxlang::to_string(m_what.local_types.at(inst.from).type);
+            result += " to=" + quxlang::to_string(m_what.local_types.at(inst.to).type);
+        }
         return result;
     }
 
     std::string assembler::to_string_internal(vmir2::unimplemented unimpl)
     {
         std::string result = "UNIMPLEMENTED";
-        if (unimpl.message.has_value())
+        if (print_comments && unimpl.message.has_value())
         {
             result += " // " + unimpl.message.value();
         }
@@ -629,10 +635,13 @@ namespace quxlang::vmir2
 
         // Use apply_visitor since both types have the same logic
 
-        result += " // type1=";
-        result += quxlang::to_string(m_what.local_types.at(inst.value_index).type);
-        result += " type2=";
-        result += quxlang::to_string(m_what.local_types.at(inst.reference_index).type);
+        if (print_comments)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(m_what.local_types.at(inst.value_index).type);
+            result += " type2=";
+            result += quxlang::to_string(m_what.local_types.at(inst.reference_index).type);
+        }
 
         return result;
     }
@@ -643,10 +652,13 @@ namespace quxlang::vmir2
 
         // Use apply_visitor since both types have the same logic
 
-        result += " // type1=";
-        result += quxlang::to_string(m_what.local_types.at(inst.source_index).type);
-        result += " type2=";
-        result += quxlang::to_string(m_what.local_types.at(inst.target_index).type);
+        if (print_comments)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(m_what.local_types.at(inst.source_index).type);
+            result += " type2=";
+            result += quxlang::to_string(m_what.local_types.at(inst.target_index).type);
+        }
 
         return result;
     }
@@ -920,7 +932,7 @@ namespace quxlang::vmir2
     }
     std::string assembler::to_string_internal(vmir2::float_from_int op)
     {
-        return std::string(op.require_exact ? "ITOF_EXACT %" : "ITOF_APPROX %") + std::to_string(op.source) + ", %" + std::to_string(op.result);
+        return "ITOF %" + std::to_string(op.source) + ", %" + std::to_string(op.result);
     }
     std::string assembler::to_string_internal(vmir2::float_ieee_eq op)
     {

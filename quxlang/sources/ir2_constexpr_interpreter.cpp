@@ -1,6 +1,7 @@
 // Copyright 2024-2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <functional>
 #include <utility>
 
 #include "quxlang/vmir2/ir2_constexpr_interpreter.hpp"
@@ -2794,10 +2795,114 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
 
     auto target_slot = output_local(lfr.to_value);
-    target_slot->data = load_from.data;
-    target_slot->ref = load_from.ref;
-    target_slot->constexpr_proxy_output_id = load_from.constexpr_proxy_output_id;
-    target_slot->interface_value = load_from.interface_value;
+    std::function< void(std::shared_ptr< local > const&) > revive_local_tree;
+    std::function< void(std::shared_ptr< local > const&, std::shared_ptr< local > const&) > copy_local_value;
+    revive_local_tree = [&](std::shared_ptr< local > const& target) -> void
+    {
+        for (auto const& [name, member] : target->struct_members)
+        {
+            if (member != nullptr && !member->alive())
+            {
+                revive_local_tree(member);
+            }
+        }
+        for (std::shared_ptr< local > const& member : target->array_members)
+        {
+            if (member != nullptr && !member->alive())
+            {
+                revive_local_tree(member);
+            }
+        }
+        if (!target->alive())
+        {
+            begin_lifetime(target);
+        }
+    };
+    copy_local_value = [&](std::shared_ptr< local > const& target, std::shared_ptr< local > const& source) -> void
+    {
+        target->data = source->data;
+        target->negative = source->negative;
+        target->stage = slot_stage::dead;
+        target->storage_initiated = source->storage_initiated;
+        target->readonly = source->readonly;
+        target->actual_type = source->actual_type;
+        target->procedure = source->procedure;
+        target->interface_value = source->interface_value;
+        target->ref = source->ref;
+        target->antestatal_static_symbol = source->antestatal_static_symbol;
+        target->constexpr_proxy_output_id = source->constexpr_proxy_output_id;
+        target->dtor = source->dtor;
+        target->delegates = source->delegates;
+        target->storage_active_type = source->storage_active_type;
+        target->storage_projection_type = source->storage_projection_type;
+        target->storage_alignment = source->storage_alignment;
+        target->init_count = source->init_count;
+        target->stored_object = nullptr;
+        target->storage_owner = std::nullopt;
+        target->initializer_of = std::nullopt;
+        target->array_init_member_of = std::nullopt;
+        target->storage_destroy_delegate = false;
+
+        if (source->struct_members.size() != target->struct_members.size())
+        {
+            target->struct_members.clear();
+            for (auto const& [name, source_member] : source->struct_members)
+            {
+                if (source_member == nullptr)
+                {
+                    throw compiler_bug("source struct member not initialized during load_from_ref");
+                }
+                type_symbol const member_type = source_member->actual_type.has_value() ? *source_member->actual_type : type_symbol(void_type{});
+                target->struct_members[name] = create_object_skeleton(member_type);
+                target->struct_members[name]->member_of = target;
+            }
+        }
+
+        for (auto const& [name, source_member] : source->struct_members)
+        {
+            if (source_member == nullptr)
+            {
+                throw compiler_bug("source struct member not initialized during load_from_ref");
+            }
+            if (!target->struct_members.contains(name) || target->struct_members.at(name) == nullptr)
+            {
+                type_symbol const member_type = source_member->actual_type.has_value() ? *source_member->actual_type : type_symbol(void_type{});
+                target->struct_members[name] = create_object_skeleton(member_type);
+            }
+            target->struct_members.at(name)->member_of = target;
+            copy_local_value(target->struct_members.at(name), source_member);
+        }
+
+        if (source->array_members.size() != target->array_members.size())
+        {
+            target->array_members.resize(source->array_members.size());
+        }
+        for (std::size_t i = 0; i < source->array_members.size(); ++i)
+        {
+            std::shared_ptr< local > const& source_member = source->array_members.at(i);
+            if (source_member == nullptr)
+            {
+                throw compiler_bug("source array member not initialized during load_from_ref");
+            }
+            if (target->array_members.at(i) == nullptr)
+            {
+                type_symbol const member_type = source_member->actual_type.has_value() ? *source_member->actual_type : type_symbol(void_type{});
+                target->array_members.at(i) = create_object_skeleton(member_type);
+            }
+            target->array_members.at(i)->member_of = target;
+            copy_local_value(target->array_members.at(i), source_member);
+        }
+
+        if (source->stage == slot_stage::full)
+        {
+            revive_local_tree(target);
+        }
+        else
+        {
+            target->stage = source->stage;
+        }
+    };
+    copy_local_value(target_slot, load_from_ptr);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::compare_exchange const& op)
@@ -2999,16 +3104,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     auto source_data = consume_local_as_data(op.source);
     auto result_local = output_local(op.result);
-    auto result = bytemath::fixed_float_from_int_le(get_fixed_float_options(result_type), get_fixed_int_options(source_type), std::move(source_data), op.require_exact);
+    auto result = bytemath::fixed_float_from_int_le(get_fixed_float_options(result_type), get_fixed_int_options(source_type), std::move(source_data), false);
     if (result.result_is_undefined)
     {
         throw constexpr_logic_execution_error("error executing ITOF: undefined behavior");
     }
-    if (op.require_exact && !result.result_is_exact)
-    {
-        throw constexpr_logic_execution_error("error executing ITOF: integer cannot be exactly represented by floating point type; use APPROXIMATE");
-    }
-    if (!op.require_exact && bytemath::unpack_fixed_float(get_fixed_float_options(result_type), result.data_bytes).kind == bytemath::fixed_float_kind::infinity)
+    if (bytemath::unpack_fixed_float(get_fixed_float_options(result_type), result.data_bytes).kind == bytemath::fixed_float_kind::infinity)
     {
         throw constexpr_logic_execution_error("error executing ITOF: integer is outside the finite floating point range");
     }
@@ -4244,11 +4345,11 @@ bool quxlang::vmir2::ir2_constexpr_interpreter::get_cr_bool()
 std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::get_cr_u64()
 {
     std::uint64_t result = 0;
-    if (this->implementation->constexpr_result_v.size() != 8)
+    if (this->implementation->constexpr_result_v.empty() || this->implementation->constexpr_result_v.size() > 8)
     {
-        throw quxlang::compiler_bug("expected uint64");
+        throw quxlang::compiler_bug("expected integer result no wider than uint64");
     }
-    for (std::size_t i = 0; i < 8; i++)
+    for (std::size_t i = 0; i < this->implementation->constexpr_result_v.size(); i++)
     {
         result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(this->implementation->constexpr_result_v[i])) << (i * 8));
     }
@@ -4594,12 +4695,12 @@ std::partial_ordering quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_i
 std::uint64_t quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::consume_u64(local_index slot)
 {
     auto data = consume_local_as_data(slot);
-    if (data.size() != 8)
+    if (data.empty() || data.size() > 8)
     {
-        throw quxlang::compiler_bug("expected uint64");
+        throw quxlang::compiler_bug("expected integer slot no wider than uint64");
     }
     std::uint64_t result = 0;
-    for (std::size_t i = 0; i < 8; i++)
+    for (std::size_t i = 0; i < data.size(); i++)
     {
         result |= (static_cast< std::uint64_t >(static_cast< std::uint8_t >(data[i])) << (i * 8));
     }
@@ -6257,7 +6358,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             throw compiler_bug("struct member not initialized");
         }
-        assert(member->alive());
+        if (!member->alive())
+        {
+            begin_lifetime(member);
+        }
     }
 
     for (std::size_t i = 0; i < object->array_members.size(); i++)
@@ -6267,7 +6371,10 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         {
             throw compiler_bug("array member not initialized");
         }
-        assert(member->alive());
+        if (!member->alive())
+        {
+            begin_lifetime(member);
+        }
     }
 
     object->stage = slot_stage::full;

@@ -3007,35 +3007,55 @@ namespace quxlang
             co_return co_await co_gen_argument_adaptation(bidx, vidx, target_type, allowed_adaptations::destination_rebinding);
         }
 
+        /**
+         * @pre The invocation argument shape is an existing, alread
+         * @param bidx
+         * @param what
+         * @param args
+         * @return
+         */
         auto co_gen_invoke_builtin(block_index& bidx, instanciation_reference what, codegen_invocation_args const& args) -> co_type< void >
         {
             /// THIS IS THE MAIN BIND POINT FOR NEW INSTRUCTIONS AND BUILTIN TYPES
             /// DO NOT GENERATE NEW FUNCTIONS THAT ONLY OUTPUT ONE INSTRUCTION THEN RETURN
             instatype concrete_params = co_await rpnx::querygraph::request< instanciation_concrete_params_query >(what);
             invotype concrete_call = invotype_from_instatype(concrete_params);
-            if (co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args))
+            builtin_function_kind const builtin_kind = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
+
+            if (builtin_kind == builtin_function_kind::not_builtin)
             {
-                co_return;
-            }
-            if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, concrete_call, args))
-            {
-                co_return;
+                throw compiler_bug("Expected builtin functanoid invocation, got non-builtin: " + to_string(what));
             }
 
-            if (auto intrinsic = this->intrinsic_instruction(what, concrete_call, args); intrinsic.has_value())
+            if (builtin_kind == builtin_function_kind::builtin_special)
             {
-                this->emit(bidx, intrinsic.value());
-                co_return;
-            }
-
-            if (typeis< submember >(what.temploid.templexoid))
-            {
-                submember const& member = as< submember >(what.temploid.templexoid);
-                if (member.name == "CONSTRUCTOR" && typeis< array_type >(member.of) && !args.positional.empty())
+                if (co_await this->co_try_emit_interface_builtin(bidx, what, concrete_call, args))
                 {
-                    co_await this->co_gen_inline_array_positional_ctor(bidx, what, args);
                     co_return;
                 }
+                if (co_await this->co_try_emit_nominal_integer_builtin(bidx, what, concrete_call, args))
+                {
+                    co_return;
+                }
+                if (typeis< submember >(what.temploid.templexoid))
+                {
+                    submember const& member = as< submember >(what.temploid.templexoid);
+                    if (member.name == "CONSTRUCTOR" && typeis< array_type >(member.of) && !args.positional.empty())
+                    {
+                        co_await this->co_gen_inline_array_positional_ctor(bidx, what, args);
+                        co_return;
+                    }
+                }
+            }
+            else if (builtin_kind == builtin_function_kind::builtin_intrinsic)
+            {
+                auto intrinsic = this->intrinsic_instruction(what, concrete_call, args);
+                if (!intrinsic.has_value())
+                {
+                    throw compiler_bug("Builtin intrinsic was not lowered to a VMIR instruction: " + to_string(what));
+                }
+                this->emit(bidx, intrinsic.value());
+                co_return;
             }
 
             // Generated routines are for COMPLEX operations only
@@ -4061,6 +4081,14 @@ namespace quxlang
                             lcv_result.target = get_local_index(args.named.at("THIS"));
                             return lcv_result;
                         }
+
+                        if (other.type_is< ptrref_type >() && other.as< ptrref_type >().ptr_class == pointer_class::ref && remove_ref(other) == *cls)
+                        {
+                            vmir2::load_from_ref lfr{};
+                            lfr.from_reference = get_local_index(other_slot_id);
+                            lfr.to_value = get_local_index(args.named.at("THIS"));
+                            return lfr;
+                        }
                     }
                     else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && other.type_is< numeric_literal_reference >())
                     {
@@ -4101,10 +4129,51 @@ namespace quxlang
                     }
                     else if (cls->template type_is< float_type >() && typeis_oneof< int_type, byte_type >(other))
                     {
+                        if (*ctor_input_name != "APPROXIMATE")
+                        {
+                            auto const& other_slot = this->state.genvalues.at(other_slot_id);
+                            if (other_slot.template type_is< codegen_literal >())
+                            {
+                                auto const& other_literal = other_slot.template get_as< codegen_literal >();
+                                bytemath::fixed_int_options int_opts{};
+                                if (other_literal.type.template type_is< byte_type >())
+                                {
+                                    int_opts.bits = 8;
+                                    int_opts.has_sign = false;
+                                }
+                                else if (other_literal.type.template type_is< int_type >())
+                                {
+                                    auto const& int_type_info = other_literal.type.template get_as< int_type >();
+                                    int_opts.bits = int_type_info.bits;
+                                    int_opts.has_sign = int_type_info.has_sign;
+                                }
+                                else
+                                {
+                                    throw compiler_bug("Expected integer literal source for float_from_int generation");
+                                }
+                                int_opts.overflow_undefined = false;
+
+                                auto const& float_type_info = cls->template get_as< float_type >();
+                                bytemath::fixed_float_options float_opts{
+                                    .bits = float_type_info.bits,
+                                    .exponent_bits = float_type_info.exponent_bits,
+                                };
+
+                                auto const converted = bytemath::fixed_float_from_int_le(float_opts, int_opts, other_literal.value, false);
+                                if (converted.result_is_undefined)
+                                {
+                                    throw semantic_compilation_error("integer is outside the finite floating point range");
+                                }
+                                if (!converted.result_is_exact)
+                                {
+                                    throw semantic_compilation_error("integer cannot be exactly represented by floating point type; use APPROXIMATE");
+                                }
+                            }
+                        }
+
                         vmir2::float_from_int result;
                         result.source = get_local_index(other_slot_id);
                         result.result = get_local_index(args.named.at("THIS"));
-                        result.require_exact = *ctor_input_name != "APPROXIMATE";
                         return result;
                     }
                     else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && typeis_oneof< int_type, byte_type >(other))
@@ -4187,14 +4256,14 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
                         auto const& other = call.named.at("OTHER");
                         auto const& this_ = call.named.at("THIS");
 
-                        if ((other == *cls) && this_ == make_wref(*cls))
+                        if ((other == *cls) && is_ref(this_) && remove_ref(this_) == *cls)
                         {
                             auto other_slot_id = args.named.at("OTHER");
                             auto this_slot_id = args.named.at("THIS");
@@ -4760,8 +4829,8 @@ namespace quxlang
 
         auto co_gen_invoke(block_index& bidx, instanciation_reference what, codegen_invocation_args args) -> co_type< void >
         {
-            auto is_builtin = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
-            if (is_builtin)
+            auto builtin_kind = co_await rpnx::querygraph::request< function_builtin_query >(what.temploid);
+            if (builtin_kind != builtin_function_kind::not_builtin)
             {
                 co_return co_await co_gen_invoke_builtin(bidx, what, args);
             }
@@ -4776,12 +4845,30 @@ namespace quxlang
                         throw compiler_bug("Interface invocation is missing THIS");
                     }
 
+                    value_index interface_value = args.named.at("THIS");
+                    type_symbol interface_value_type = this->current_type(bidx, interface_value);
+                    if (is_ref(interface_value_type))
+                    {
+                        type_symbol referenced_type = remove_ref(interface_value_type);
+                        if (referenced_type != member.of)
+                        {
+                            throw semantic_compilation_error(
+                                "Interface invocation expected THIS to reference " + to_string(member.of) + ", got " + to_string(interface_value_type));
+                        }
+                        interface_value = load_reference_value(bidx, interface_value, referenced_type);
+                    }
+                    else if (interface_value_type != member.of)
+                    {
+                        throw semantic_compilation_error(
+                            "Interface invocation expected THIS to be " + to_string(member.of) + ", got " + to_string(interface_value_type));
+                    }
+
                     interface_slot_key key = co_await interface_slot_key_from_functanoid(what);
                     codegen_invocation_args call_args = args;
                     call_args.named.erase("THIS");
 
                     vmir2::interface_invoke inv;
-                    inv.interface_value = get_local_index(args.named.at("THIS"));
+                    inv.interface_value = get_local_index(interface_value);
                     inv.slot = key;
                     inv.args = get_invocation_args(call_args);
                     if (co_await interface_slot_has_default_body(member.of, key))
@@ -9937,7 +10024,7 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block(0);
             co_await this->co_apply_lambda_operator_environment(current_block, func);
-            if (!co_await rpnx::querygraph::request< function_builtin_query >(func.temploid))
+            if (co_await rpnx::querygraph::request< function_builtin_query >(func.temploid) == builtin_function_kind::not_builtin)
             {
                 if (std::optional< lambda_symbol_info > lambda_constructor = parse_lambda_constructor_symbol(func.temploid.templexoid); lambda_constructor.has_value())
                 {

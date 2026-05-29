@@ -648,7 +648,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             {
                 auto const& proc = as< procedure_type >(ptr.target);
                 auto named = proc.signature.params.named;
-                named["THIS"] = make_cref(parent);
+                named["THIS"] = parent;
                 add_overload(proc.signature.params.positional, named, proc.signature.return_type.value_or(type_symbol(void_type{})));
             }
         }

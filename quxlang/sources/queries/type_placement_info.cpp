@@ -36,7 +36,11 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
         co_return co_await rpnx::querygraph::request< type_placement_info_query >(*atomic_value_type);
     }
 
-    if (type.template type_is< attached_type_reference >())
+    if (type.template type_is< void_type >())
+    {
+        co_return type_placement_info{.size = 0, .alignment = 1};
+    }
+    else if (type.template type_is< attached_type_reference >())
     {
         attached_type_reference const& attached = as< attached_type_reference >(type);
         if (typeis< void_type >(attached.carrying_type))
@@ -118,6 +122,15 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     {
         co_return type_placement_info{.size = 1, .alignment = 1};
     }
+    else if (type.template type_is< readonly_constant >())
+    {
+        std::uint64_t const pointer_size = machine_info.pointer_size_bytes();
+        std::uint64_t const pointer_align = machine_info.pointer_align();
+        co_return type_placement_info{
+            .size = pointer_size * 2,
+            .alignment = pointer_align,
+        };
+    }
     else if (type.template type_is< array_type >())
     {
         auto const& array = as< array_type >(type);
@@ -150,6 +163,6 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else
     {
-        throw quxlang::compiler_bug("Unimplemented");
+        throw quxlang::compiler_bug("Unimplemented type_placement_info for: " + quxlang::to_string(type));
     }
 }

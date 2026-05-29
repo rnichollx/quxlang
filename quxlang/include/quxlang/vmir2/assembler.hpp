@@ -16,6 +16,7 @@ namespace quxlang::vmir2
     {
       public:
         bool print_states = false;
+        bool print_comments = true;
         std::optional< vmir2::source_index > source_index;
 
         std::string to_string(vmir2::functanoid_routine3 inst);

@@ -20,9 +20,9 @@ rpnx::querygraph::coroutine< quxlang::function_param_names_spec > quxlang::funct
     // Builtin functions don't have any AST to work with, so we can't get the names of the parameters.
     // However, we have to return *something* because the code for argument generation is shared
     // between builtin and non-builtin functions.
-    auto is_builtin = co_await rpnx::querygraph::request< function_builtin_query >(input);
+    auto builtin_kind = co_await rpnx::querygraph::request< function_builtin_query >(input);
 
-    if (is_builtin)
+    if (builtin_kind != builtin_function_kind::not_builtin)
     {
         co_return result;
     }

@@ -149,10 +149,13 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/co_vmir_generator2_deps.hpp
         include/quxlang/data/basic_types.hpp
         include/quxlang/llvm-backend.hpp
+        sources/llvm-backend.cpp
         include/quxlang/profiling.hpp
         include/quxlang/llvm-backend-types.hpp
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
+
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils)
 
 
 add_library(quxlang-loaders
@@ -166,11 +169,15 @@ target_link_libraries(quxlang-loaders PUBLIC quxlang yaml-cpp::yaml-cpp)
 target_include_directories(quxlang PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(quxlang SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 target_include_directories(quxlang-loaders PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(quxlang PUBLIC cxx_std_23)
 target_compile_options(quxlang PRIVATE $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fconstexpr-steps=67108864>)
+target_compile_options(quxlang PRIVATE ${LLVM_DEFINITIONS})
+target_compile_definitions(quxlang PUBLIC QUXLANG_DEBUG_MESSAGES_ENABLED=false)
+target_link_libraries(quxlang PRIVATE ${QUXLANG_LLVM_LIBS})
 set_target_properties(quxlang PROPERTIES EXPORT_NAME quxlang)
 set_target_properties(quxlang-loaders PROPERTIES EXPORT_NAME quxlang-loaders)
 

@@ -108,7 +108,6 @@ namespace quxlang::vmir2
                     // other values no longer exist after the function returns
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = false;
-
                     state[param_slot_index].delegates = std::nullopt;
                 }
             }
@@ -128,7 +127,6 @@ namespace quxlang::vmir2
                     // DESTROY& values are destroyed, but their storage remains valid upon exit
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-
                     state[param_slot_index].delegates = std::nullopt;
                 }
                 else
@@ -180,7 +178,6 @@ namespace quxlang::vmir2
                     // but their storage remains valid
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-
                     state[param_slot_index].delegates = std::nullopt;
                 }
                 else if (param.type.template type_is< dvalue_slot >())
@@ -188,7 +185,6 @@ namespace quxlang::vmir2
                     // DESTROY&& values are destroyed, but their storage remains valid upon exit
                     state[param_slot_index].stage = slot_stage::dead;
                     state[param_slot_index].storage_valid = true;
-
                     state[param_slot_index].delegates = std::nullopt;
                 }
                 else
