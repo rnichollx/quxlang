@@ -4,7 +4,6 @@
 #define QUXLANG_QUERIES_SPECS_PROCEDURE_LINKSYMBOL_SPEC_HEADER_GUARD
 
 #include <quxlang/queries/procedure_linksymbol.hpp>
-
 #include <new>
 #include <rpnx/querygraph/querygraph.hpp>
 

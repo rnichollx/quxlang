@@ -5,6 +5,7 @@
 
 #include "data/machine.hpp"
 
+#include <quxlang/asm/asm.hpp>
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/class_layout.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
@@ -25,8 +26,19 @@ namespace quxlang::llvm_backend
         std::vector<std::byte> bitcode;
         std::string llvm_ir_text;
         std::string optimized_llvm_ir_text;
+        std::vector<std::byte> object_file;
+        std::vector<std::byte> optimized_object_file;
 
-        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, optimized_llvm_ir_text);
+        RPNX_MEMBER_METADATA(llvm_compiled_unit, bitcode, llvm_ir_text, optimized_llvm_ir_text, object_file, optimized_object_file);
+    };
+
+    /// llvm_assembled_procedure represents the emitted text and object bytes for one machine-specific asm procedure.
+    struct llvm_assembled_procedure
+    {
+        std::string assembly_text;
+        std::vector<std::byte> object_file;
+
+        RPNX_MEMBER_METADATA(llvm_assembled_procedure, assembly_text, object_file);
     };
 
     /// llvm_compilation_target represents the compilation information needed to compile something to llvm
@@ -44,8 +56,12 @@ namespace quxlang::llvm_backend
         type_symbol target_name;
         vmir2::functanoid_routine3 target_code;
         llvm_compilation_target machine_target;
+        /// whole_module requests that indirect helper definitions stay in the emitted module as linkonce_odr bodies.
+        bool whole_module = false;
         std::optional< rpnx::cow< vmir2::source_index > > source_index;
         std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
+        std::map<type_symbol, asm_procedure> asm_functions;
+        std::map<type_symbol, std::string> procedure_linksymbols;
         std::map<type_symbol, antestatal_value> antestatal_constants;
         std::map<type_symbol, std::vector< interface_slot_key > > interface_slots;
         std::map<type_symbol, enum_info> enum_infos;
@@ -53,7 +69,7 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, source_index, inlinable_functions, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, source_index, inlinable_functions, asm_functions, procedure_linksymbols, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
 
 

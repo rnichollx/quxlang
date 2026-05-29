@@ -313,18 +313,41 @@
   ASSERT(bad??);
 }
 
+::linux_write_syscall INCLUDE_IF(OS_LINUX && ARCH_X64) ASM_PROCEDURE X64
+  CALLABLE(RDI I32, RSI CONST=>> BYTE, RDX SZ; RETURN RAX SZ)
+{
+  MOV RAX, 1
+  SYSCALL
+  RET
+}
+
+::linux_write_syscall INCLUDE_IF(OS_LINUX && ARCH_X86) ASM_PROCEDURE X64
+  CALLABLE(EBX I32, ECX CONST=>> BYTE, EDX SZ; RETURN EAX SZ)
+{
+  MOV EAX, 4
+  INT 0x80
+  RET
+}
+
+::linux_write_syscall INCLUDE_IF(OS_LINUX && ARCH_ARM64) ASM_PROCEDURE ARM
+  CALLABLE(X0 I32, X1 CONST=>> BYTE, X2 SZ; RETURN X0 SZ)
+{
+  MOV X8, 64
+  SVC 0
+  RET
+}
+
+::hello_world_message INCLUDE_IF(OS_LINUX) STATIC STRING_CONSTANT := "hello world!";
+
+::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()
+{
+  VAR begin CONST=>> BYTE := hello_world_message.BEGIN();
+  VAR count SZ := (hello_world_message.END() - begin) AS ASSUME SZ;
+  linux_write_syscall(1, begin, count);
+}
+
 ::main FUNCTION(): I32
 {
-  VAR x I32;
-  x := 1;
-  VAR y I32;
-  y := 3;
-  ::foo_error( 3 ,  8 );
-  VAR z buz;
-  z.foo();
-  VAR a ->I32;
-  a := z.x <-;
-  a-> := a-> + 5;
-  VAR bz yak;
-  RETURN 4;
+  write_hello_world_linux();
+  RETURN 0;
 }

@@ -14,9 +14,16 @@ namespace quxlang::llvm
     {
     public:
         /**
-         * Lowers one VMIR2 compilation packet into textual LLVM IR plus bitcode bytes.
+         * Lowers one VMIR2 compilation packet into textual LLVM IR, bitcode, and object bytes.
          */
         auto compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit;
+
+        /**
+         * Converts one machine-specific asm procedure into textual assembler plus object bytes.
+         */
+        auto assemble(
+            quxlang::llvm_backend::llvm_compilation_target const& target,
+            quxlang::asm_procedure const& procedure) const -> quxlang::llvm_backend::llvm_assembled_procedure;
     };
 }
 

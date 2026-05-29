@@ -30,6 +30,15 @@ rpnx::querygraph::coroutine< quxlang::antestatal_static_value_spec > quxlang::an
     }
 
     auto variable_type = co_await rpnx::querygraph::request< variable_type_query >(input);
+    if (typeis< readonly_constant >(variable_type))
+    {
+        readonly_constant const& constant_type = as< readonly_constant >(variable_type);
+        if (constant_type.kind == constant_kind::string)
+        {
+            constexpr_string const string_value = co_await rpnx::querygraph::request< string_static_value_query >(input);
+            co_return antestatal_primitive{.value = string_value.bytes};
+        }
+    }
 
     constexpr_input2 constexpr_input;
     constexpr_input.expr = *decl.init_expr;

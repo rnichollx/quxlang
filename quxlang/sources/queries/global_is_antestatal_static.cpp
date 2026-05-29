@@ -25,6 +25,14 @@ rpnx::querygraph::coroutine< quxlang::global_is_antestatal_static_spec > quxlang
     }
 
     auto variable_type = co_await rpnx::querygraph::request< variable_type_query >(input);
+    if (typeis< readonly_constant >(variable_type))
+    {
+        readonly_constant const& constant_type = as< readonly_constant >(variable_type);
+        if (constant_type.kind == constant_kind::string)
+        {
+            co_return true;
+        }
+    }
     if (!(co_await rpnx::querygraph::request< type_is_antestatal_query >(variable_type)))
     {
         auto type_kind = co_await rpnx::querygraph::request< symbol_type_query >(variable_type);

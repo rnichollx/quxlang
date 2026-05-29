@@ -5,7 +5,6 @@
 
 #include "quxlang/data/compilation_result.hpp"
 
-#include "linkname.hpp"
 #include "quxlang/ast2/ast2_entity.hpp"
 #include <optional>
 #include <utility>
@@ -41,6 +40,8 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected architecture name");
         }
 
+        out.architecture = arch;
+
         skip_whitespace_and_comments(pos, end);
 
         std::optional< ast2_asm_callable > callable;
@@ -53,15 +54,6 @@ namespace quxlang::parsers
             skip_whitespace_and_comments(pos, end);
             goto loop;
         }
-        else if (auto linkname = try_parse_linkname(ctx); linkname.has_value())
-        {
-            out.linkname = std::move(linkname);
-            skip_whitespace_and_comments(pos, end);
-            goto loop;
-        }
-
-
-
         skip_whitespace_and_comments(pos, end);
 
         if (!skip_symbol_if_is(pos, end, "{"))
@@ -69,7 +61,7 @@ namespace quxlang::parsers
             throw syntax_compilation_error("Expected {");
         }
 
-        if (arch == "ARM")
+        if (arch == "ARM" || arch == "X64")
         {
             while (true)
             {

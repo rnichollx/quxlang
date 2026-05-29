@@ -32,10 +32,14 @@ namespace quxlang
 
     struct asm_procedure
     {
+        /// Target architecture tag as written in the source declaration, e.g. X64 or ARM.
+        std::string architecture;
+        /// Link-visible symbol name emitted for this assembly routine.
         std::string name;
+        /// Ordered statements that form the body of this assembly routine.
         std::vector< asm_statement > instructions;
 
-        RPNX_MEMBER_METADATA(asm_procedure, name, instructions);
+        RPNX_MEMBER_METADATA(asm_procedure, architecture, name, instructions);
     };
 
 

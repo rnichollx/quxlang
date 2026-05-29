@@ -26,7 +26,27 @@ namespace quxlang::parsers
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
-        skip_whitespace_and_comments(pos, end);
+        auto skip_inline_whitespace_and_comments = [&](auto& it) -> void
+        {
+            while (true)
+            {
+                while (it != end && (*it == ' ' || *it == '\t'))
+                {
+                    ++it;
+                }
+
+                auto comment_it = it;
+                if (skip_comment(comment_it, end))
+                {
+                    it = comment_it;
+                    continue;
+                }
+
+                return;
+            }
+        };
+
+        skip_inline_whitespace_and_comments(pos);
         std::optional< ast2_extern > exte = try_parse_ast2_extern(ctx);
         if (exte)
         {
@@ -84,6 +104,25 @@ namespace quxlang::parsers
     {
         auto& it = ctx.iter_pos;
         auto end = ctx.iter_end;
+        auto skip_inline_whitespace_and_comments = [&](auto& pos) -> void
+        {
+            while (true)
+            {
+                while (pos != end && (*pos == ' ' || *pos == '\t'))
+                {
+                    ++pos;
+                }
+
+                auto comment_it = pos;
+                if (skip_comment(comment_it, end))
+                {
+                    pos = comment_it;
+                    continue;
+                }
+
+                return;
+            }
+        };
 
       //  QUXLANG_DEBUG({std::cout << "try_parse_arm_asm_operand" << std::endl;});
         ast2_asm_operand ret;
@@ -91,7 +130,7 @@ namespace quxlang::parsers
 
     get_part:
 
-        skip_whitespace_and_comments(it, end);
+        skip_inline_whitespace_and_comments(it);
 
         if (skip_symbol_if_is(it, end, "["))
         {
@@ -143,6 +182,11 @@ namespace quxlang::parsers
             goto get_part;
         }
 
+        if (ret.components.empty())
+        {
+            return std::nullopt;
+        }
+
         return ret;
 
     }
@@ -167,11 +211,30 @@ namespace quxlang::parsers
 
         ret.opcode_mnemonic = kw;
 
-        int bracket_count = 0;
+        auto skip_inline_whitespace_and_comments = [&](auto& it) -> void
+        {
+            while (true)
+            {
+                while (it != end && (*it == ' ' || *it == '\t'))
+                {
+                    ++it;
+                }
+
+                if (!skip_comment(it, end))
+                {
+                    return;
+                }
+            }
+        };
+
         while (pos != end)
         {
-            auto pstart = pos;
-            skip_whitespace_and_comments(pos, end);
+            skip_inline_whitespace_and_comments(pos);
+            if (pos == end || *pos == '}' || *pos == '\n' || *pos == '\r')
+            {
+                break;
+            }
+
             if (skip_symbol_if_is(pos, end, ";"))
             {
                 break;
@@ -180,12 +243,15 @@ namespace quxlang::parsers
             auto operand = try_parse_arm_asm_operand(trial);
             if (!operand)
             {
-                throw syntax_compilation_error("expected operand");
+                break;
             }
 
             ret.operands.push_back(std::move(*operand));
 
-            skip_whitespace_and_comments(pos, end);
+            if (pos == end || *pos == '}' || *pos == '\n' || *pos == '\r')
+            {
+                break;
+            }
 
             if (skip_symbol_if_is(pos, end, ";"))
             {

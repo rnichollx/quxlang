@@ -63,6 +63,70 @@ namespace quxlang::qxc_detail
     {
         return make_artifact_output_path(build_dir, mangled_stem, ".opt.llvm");
     }
+
+    /**
+     * Builds a debug object output path whose individual filesystem components stay within the qxc filename budget.
+     */
+    inline auto make_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, mangled_stem, ".dbg.o");
+    }
+
+    /**
+     * Builds an optimized object output path whose individual filesystem components stay within the qxc filename budget.
+     */
+    inline auto make_optimized_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, mangled_stem, ".opt.o");
+    }
+
+    /**
+     * Builds an assembly text output path for one asm procedure.
+     */
+    inline auto make_asm_source_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, mangled_stem, ".s");
+    }
+
+    /**
+     * Builds an object output path for one standalone asm procedure.
+     */
+    inline auto make_asm_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, mangled_stem, ".o");
+    }
+
+    /**
+     * Builds an aggregated output-module LLVM path for one qxc output entry.
+     */
+    inline auto make_output_module_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".module.dbg.llvm");
+    }
+
+    /**
+     * Builds an aggregated optimized output-module LLVM path for one qxc output entry.
+     */
+    inline auto make_optimized_output_module_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".module.opt.llvm");
+    }
+
+    /**
+     * Builds an aggregated output-module debug object path for one qxc output entry.
+     */
+    inline auto make_output_module_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".module.dbg.o");
+    }
+
+    /**
+     * Builds an aggregated output-module optimized object path for one qxc output entry.
+     */
+    inline auto make_optimized_output_module_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".module.opt.o");
+    }
 }
 
 #endif // QUXLANG_SOURCES_APP_QXC_OUTPUT_PATHS_HEADER_GUARD

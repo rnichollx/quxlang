@@ -120,19 +120,20 @@ namespace quxlang
         std::vector< ast2_argument_interface > args;
 
         std::set< std::string > clobber;
+        std::optional< std::string > return_register_name;
         std::optional< type_symbol > return_type;
 
-        RPNX_MEMBER_METADATA(ast2_asm_callable, calling_conv, args, clobber, return_type);
+        RPNX_MEMBER_METADATA(ast2_asm_callable, calling_conv, args, clobber, return_register_name, return_type);
     };
 
     struct ast2_asm_procedure_declaration
     {
+        std::string architecture;
         std::vector< ast2_asm_instruction > instructions;
-        std::optional< std::string > linkname;
         std::vector< ast2_asm_callable > callable_interfaces;
         std::vector< type_symbol > imports;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, instructions, linkname, callable_interfaces, imports);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, architecture, instructions, callable_interfaces, imports);
     };
 
     struct ast2_namespace_declaration

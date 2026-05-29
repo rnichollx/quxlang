@@ -4,6 +4,8 @@
 
 #include <quxlang/exception.hpp>
 #include <quxlang/bytemath.hpp>
+#include <quxlang/backends/asm/arm_asm_converter.hpp>
+#include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/mangler.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
@@ -21,12 +23,32 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/Intrinsics.h>
+#include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/MC/MCAsmBackend.h>
+#include <llvm/MC/MCAsmInfo.h>
+#include <llvm/MC/MCCodeEmitter.h>
+#include <llvm/MC/MCContext.h>
+#include <llvm/MC/MCInstrInfo.h>
+#include <llvm/MC/MCObjectFileInfo.h>
+#include <llvm/MC/MCObjectWriter.h>
+#include <llvm/MC/MCParser/MCAsmParser.h>
+#include <llvm/MC/MCParser/MCTargetAsmParser.h>
+#include <llvm/MC/MCRegisterInfo.h>
+#include <llvm/MC/MCStreamer.h>
+#include <llvm/MC/MCSubtargetInfo.h>
+#include <llvm/MC/MCTargetOptions.h>
+#include <llvm/MC/TargetRegistry.h>
 #include <llvm/Passes/PassBuilder.h>
+#include <llvm/Support/CodeGen.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/SourceMgr.h>
+#include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
 #include <llvm/TargetParser/Triple.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/LowerMemIntrinsics.h>
@@ -98,9 +120,11 @@ namespace quxlang::llvm::detail
               builder(context, llvm::ConstantFolder(), llvm::IRBuilderCallbackInserter([this](llvm::Instruction* inst)
               {
                   annotate_inserted_instruction(inst);
-              }))
+              })),
+              target_machine(create_target_machine(input_packet.machine_target.machine))
         {
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
+            module->setDataLayout(target_machine->createDataLayout());
             vmir2_metadata_kind = context.getMDKindID("qux.vmir2");
             if (input.source_index.has_value())
             {
@@ -121,16 +145,36 @@ namespace quxlang::llvm::detail
 
         auto compile() -> quxlang::llvm_backend::llvm_compiled_unit
         {
-            declare_defined_function(input.target_name, input.target_code, llvm::GlobalValue::LinkOnceODRLinkage);
+            if (!input.asm_functions.contains(input.target_name))
+            {
+                declare_defined_function(input.target_name, input.target_code, llvm::GlobalValue::LinkOnceODRLinkage);
+            }
             for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& helper : input.inlinable_functions)
             {
-                declare_defined_function(helper.first, helper.second, llvm::GlobalValue::AvailableExternallyLinkage);
+                if (input.asm_functions.contains(helper.first))
+                {
+                    continue;
+                }
+                llvm::GlobalValue::LinkageTypes const helper_linkage =
+                    input.whole_module ? llvm::GlobalValue::LinkOnceODRLinkage : llvm::GlobalValue::AvailableExternallyLinkage;
+                declare_defined_function(helper.first, helper.second, helper_linkage);
             }
 
-            emit_defined_function(input.target_name, input.target_code);
+            if (!input.asm_functions.contains(input.target_name))
+            {
+                emit_defined_function(input.target_name, input.target_code);
+            }
             for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& helper : input.inlinable_functions)
             {
+                if (input.asm_functions.contains(helper.first))
+                {
+                    continue;
+                }
                 emit_defined_function(helper.first, helper.second);
+            }
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
+            {
+                module->appendModuleInlineAsm(assembly_text(helper.second));
             }
 
             if (debug_builder)
@@ -150,6 +194,7 @@ namespace quxlang::llvm::detail
                 llvm::raw_string_ostream ir_stream(result.llvm_ir_text);
                 module->print(ir_stream, nullptr);
             }
+            result.object_file = emit_module_object_file(*module);
             {
                 std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(*module);
                 std::vector< llvm::GlobalValue* > preserved_functions;
@@ -222,6 +267,7 @@ namespace quxlang::llvm::detail
 
                 llvm::raw_string_ostream ir_stream(result.optimized_llvm_ir_text);
                 optimized_module->print(ir_stream, nullptr);
+                result.optimized_object_file = emit_module_object_file(*optimized_module);
             }
             {
                 llvm::SmallVector< char, 0 > bitcode_buffer;
@@ -241,6 +287,7 @@ namespace quxlang::llvm::detail
         llvm::LLVMContext context;
         std::unique_ptr< llvm::Module > module;
         ir_builder_t builder;
+        std::unique_ptr< llvm::TargetMachine > target_machine;
         std::map< quxlang::type_symbol, llvm::Function* > functions;
         std::map< quxlang::type_symbol, callable_abi > function_abis;
         std::map< quxlang::type_symbol, llvm::GlobalVariable* > mutable_globals;
@@ -256,6 +303,144 @@ namespace quxlang::llvm::detail
         unsigned vmir2_metadata_kind = 0;
         std::optional< std::string > active_vmir2_metadata_text;
         std::uint64_t active_vmir2_metadata_counter = 0;
+
+        /**
+         * Ensures the LLVM target, MC, and asm subsystems needed for object emission are initialized once per process.
+         */
+        static void initialize_llvm_target_support(quxlang::output_info const& machine)
+        {
+            switch (machine.cpu_type)
+            {
+            case quxlang::cpu::x86_32:
+            case quxlang::cpu::x86_64:
+            {
+                static bool const initialized = []() -> bool
+                {
+                    ::LLVMInitializeX86TargetInfo();
+                    ::LLVMInitializeX86Target();
+                    ::LLVMInitializeX86TargetMC();
+                    ::LLVMInitializeX86AsmParser();
+                    ::LLVMInitializeX86AsmPrinter();
+                    return true;
+                }();
+                (void)initialized;
+                return;
+            }
+            case quxlang::cpu::arm_32:
+            {
+                static bool const initialized = []() -> bool
+                {
+                    ::LLVMInitializeARMTargetInfo();
+                    ::LLVMInitializeARMTarget();
+                    ::LLVMInitializeARMTargetMC();
+                    ::LLVMInitializeARMAsmParser();
+                    ::LLVMInitializeARMAsmPrinter();
+                    return true;
+                }();
+                (void)initialized;
+                return;
+            }
+            case quxlang::cpu::arm_64:
+            {
+                static bool const initialized = []() -> bool
+                {
+                    ::LLVMInitializeAArch64TargetInfo();
+                    ::LLVMInitializeAArch64Target();
+                    ::LLVMInitializeAArch64TargetMC();
+                    ::LLVMInitializeAArch64AsmParser();
+                    ::LLVMInitializeAArch64AsmPrinter();
+                    return true;
+                }();
+                (void)initialized;
+                return;
+            }
+            case quxlang::cpu::riscv_32:
+            case quxlang::cpu::riscv_64:
+            {
+                static bool const initialized = []() -> bool
+                {
+                    ::LLVMInitializeRISCVTargetInfo();
+                    ::LLVMInitializeRISCVTarget();
+                    ::LLVMInitializeRISCVTargetMC();
+                    ::LLVMInitializeRISCVAsmParser();
+                    ::LLVMInitializeRISCVAsmPrinter();
+                    return true;
+                }();
+                (void)initialized;
+                return;
+            }
+            case quxlang::cpu::none:
+                break;
+            }
+
+            throw quxlang::semantic_compilation_error("Unsupported LLVM target initialization CPU kind");
+        }
+
+        /**
+         * Creates one LLVM target machine for the requested qxc machine target.
+         */
+        static auto create_target_machine(quxlang::output_info const& machine) -> std::unique_ptr< llvm::TargetMachine >
+        {
+            initialize_llvm_target_support(machine);
+
+            std::string const triple_text = quxlang::lookup_llvm_triple(machine);
+            llvm::Triple triple(triple_text);
+            std::string target_error;
+            llvm::Target const* target = llvm::TargetRegistry::lookupTarget(triple, target_error);
+            if (target == nullptr)
+            {
+                throw quxlang::semantic_compilation_error("Failed to lookup LLVM target for " + triple_text + ": " + target_error);
+            }
+
+            llvm::TargetOptions options;
+            options.ExceptionModel = llvm::ExceptionHandling::DwarfCFI;
+            llvm::Reloc::Model reloc_model = llvm::Reloc::Model::Static;
+            llvm::CodeModel::Model code_model = llvm::CodeModel::Medium;
+            if (machine.cpu_type == quxlang::cpu::arm_64 || machine.cpu_type == quxlang::cpu::x86_64 || machine.cpu_type == quxlang::cpu::riscv_64)
+            {
+                code_model = llvm::CodeModel::Large;
+            }
+
+            llvm::TargetMachine* raw_machine = target->createTargetMachine(
+                triple,
+                "generic",
+                "",
+                options,
+                reloc_model,
+                code_model);
+            if (raw_machine == nullptr)
+            {
+                throw quxlang::semantic_compilation_error("Failed to create LLVM target machine for " + triple_text);
+            }
+            return std::unique_ptr< llvm::TargetMachine >(raw_machine);
+        }
+
+        /**
+         * Emits one LLVM module to a target object file byte buffer.
+         */
+        auto emit_module_object_file(llvm::Module const& source_module) -> std::vector< std::byte >
+        {
+            std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
+            object_module->setTargetTriple(module->getTargetTriple());
+            object_module->setDataLayout(target_machine->createDataLayout());
+
+            llvm::SmallVector< char, 0 > object_buffer;
+            llvm::raw_svector_ostream object_stream(object_buffer);
+            llvm::legacy::PassManager pass_manager;
+            if (target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
+            {
+                throw quxlang::semantic_compilation_error("Failed to emit LLVM object file for " + quxlang::to_string(input.target_name));
+            }
+            pass_manager.run(*object_module);
+
+            std::vector< std::byte > result;
+            result.resize(object_buffer.size());
+            for (std::size_t i = 0; i < object_buffer.size(); i++)
+            {
+                result[i] = static_cast< std::byte >(object_buffer[i]);
+            }
+            return result;
+        }
 
         /**
          * Attaches !qux.vmir2 metadata to one newly inserted LLVM instruction while a VMIR lowering context is active.
@@ -504,6 +689,11 @@ namespace quxlang::llvm::detail
             if (type.type_is< quxlang::array_initializer_type >())
             {
                 llvm::Type* fields[] = {opaque_pointer_type(), i64_type(), i64_type()};
+                return llvm::StructType::get(context, llvm::ArrayRef< llvm::Type* >(fields));
+            }
+            if (type.type_is< quxlang::readonly_constant >())
+            {
+                llvm::Type* fields[] = {opaque_pointer_type(), opaque_pointer_type()};
                 return llvm::StructType::get(context, llvm::ArrayRef< llvm::Type* >(fields));
             }
             if (type.type_is< quxlang::void_type >() || type.type_is< quxlang::constexpr_proxy >())
@@ -937,10 +1127,39 @@ namespace quxlang::llvm::detail
             return build_callable_abi(std::move(ordered));
         }
 
+        /**
+         * Returns the emitted linker-visible symbol name for one procedure symbol.
+         */
+        auto symbol_link_name(quxlang::type_symbol const& symbol) const -> std::string
+        {
+            std::map< quxlang::type_symbol, std::string >::const_iterator const found = input.procedure_linksymbols.find(symbol);
+            if (found != input.procedure_linksymbols.end())
+            {
+                return found->second;
+            }
+            return quxlang::mangle(symbol);
+        }
+
+        /**
+         * Converts one stored asm routine into textual assembler for the current target.
+         */
+        auto assembly_text(quxlang::asm_procedure const& procedure) const -> std::string
+        {
+            if (procedure.architecture == "ARM")
+            {
+                return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+            }
+            if (procedure.architecture == "X64")
+            {
+                return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+            }
+            throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
+        }
+
         void declare_defined_function(quxlang::type_symbol const& symbol, quxlang::vmir2::functanoid_routine3 const& routine, llvm::GlobalValue::LinkageTypes linkage)
         {
             callable_abi abi = callable_abi_from_routine(routine);
-            llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, quxlang::mangle(symbol), module.get());
+            llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, symbol_link_name(symbol), module.get());
             functions[symbol] = function;
             function_abis[symbol] = abi;
         }
@@ -953,7 +1172,7 @@ namespace quxlang::llvm::detail
                 return existing->second;
             }
 
-            llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, quxlang::mangle(symbol), module.get());
+            llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(symbol), module.get());
             functions[symbol] = function;
             function_abis[symbol] = abi;
             return function;
@@ -1278,6 +1497,33 @@ namespace quxlang::llvm::detail
                     throw quxlang::semantic_compilation_error("Expected pointer readonly antestatal initializer for " + quxlang::to_string(type));
                 }
                 return constant_pointer_from_antestatal_access(value.get_as< quxlang::antestatal_ptrref >().target, quxlang::remove_ptr(quxlang::remove_ref(type)));
+            }
+            if (type.type_is< quxlang::readonly_constant >())
+            {
+                if (!value.type_is< quxlang::antestatal_primitive >())
+                {
+                    throw quxlang::semantic_compilation_error("Expected primitive readonly constant initializer bytes");
+                }
+
+                std::vector< std::byte > const& bytes = value.get_as< quxlang::antestatal_primitive >().value;
+                llvm::GlobalVariable* payload = create_private_constant_bytes_global(bytes, quxlang::mangle(input.target_name));
+                llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
+                llvm::Constant* start_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(
+                    payload->getValueType(),
+                    payload,
+                    llvm::ArrayRef< llvm::Constant* >{zero, zero});
+                llvm::Constant* end_pointer = start_pointer;
+                if (!bytes.empty())
+                {
+                    end_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(
+                        i8_type(),
+                        start_pointer,
+                        llvm::ArrayRef< llvm::Constant* >{llvm::ConstantInt::get(i64_type(), bytes.size())});
+                }
+
+                return llvm::ConstantStruct::get(
+                    llvm::cast< llvm::StructType >(value_storage_type(type)),
+                    {start_pointer, end_pointer});
             }
 
             std::vector< std::byte > const bytes = materialize_antestatal_bytes(type, value);
@@ -2200,7 +2446,43 @@ namespace quxlang::llvm::detail
             quxlang::vmir2::state_map exit_state;
             quxlang::vmir2::codegen_state_engine state_engine(exit_state, state.routine->local_types, state.routine->parameters);
             state_engine.apply_normal_exit();
-            emit_transition_cleanup(state, ir_builder, current_state, exit_state);
+            for (std::pair< quxlang::vmir2::local_index const, quxlang::vmir2::slot_state > const& slot_entry : current_state)
+            {
+                quxlang::vmir2::local_index const slot = slot_entry.first;
+                quxlang::vmir2::slot_state const& slot_state = slot_entry.second;
+                bool const alive_in_target = exit_state.contains(slot) && exit_state.at(slot).alive();
+                if (alive_in_target || !slot_requires_edge_cleanup(state, slot, slot_state))
+                {
+                    if (alive_in_target || !slot_state.alive() || is_cleanup_alias(slot_state))
+                    {
+                        continue;
+                    }
+                }
+
+                if (alive_in_target || !slot_state.alive())
+                {
+                    continue;
+                }
+
+                quxlang::type_symbol const& slot_type = state.routine->local_types.at(local_slot_index(slot)).type;
+                if (slot_type.type_is< quxlang::initguard_lock_type >())
+                {
+                    emit_initguard_runtime_call(state, ir_builder, slot, true);
+                }
+                else if (!is_cleanup_alias(slot_state))
+                {
+                    std::optional< quxlang::type_symbol > const parameter_type = routine_parameter_type(state, slot);
+                    if (!parameter_type.has_value() || !parameter_type->type_is< quxlang::dvalue_slot >())
+                    {
+                        emit_slot_destructor_call(state, ir_builder, slot);
+                    }
+                }
+
+                if (!is_cleanup_alias(slot_state))
+                {
+                    poison_slot_storage(state, ir_builder, slot);
+                }
+            }
         }
 
         /**
@@ -4788,4 +5070,160 @@ auto quxlang::llvm::llvm_backend::compile(quxlang::llvm_backend::llvm_compilable
 {
     detail::llvm_module_codegen codegen(input);
     return codegen.compile();
+}
+
+auto quxlang::llvm::llvm_backend::assemble(
+    quxlang::llvm_backend::llvm_compilation_target const& target,
+    quxlang::asm_procedure const& procedure) const -> quxlang::llvm_backend::llvm_assembled_procedure
+{
+    auto assembly_text = [&]() -> std::string
+    {
+        if (procedure.architecture == "ARM")
+        {
+            return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+        }
+        if (procedure.architecture == "X64")
+        {
+            return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
+        }
+        throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
+    }();
+
+    switch (target.machine.cpu_type)
+    {
+    case quxlang::cpu::x86_32:
+    case quxlang::cpu::x86_64:
+    {
+        static bool const initialized = []() -> bool
+        {
+            ::LLVMInitializeX86TargetInfo();
+            ::LLVMInitializeX86Target();
+            ::LLVMInitializeX86TargetMC();
+            ::LLVMInitializeX86AsmParser();
+            ::LLVMInitializeX86AsmPrinter();
+            return true;
+        }();
+        (void)initialized;
+        break;
+    }
+    case quxlang::cpu::arm_32:
+    {
+        static bool const initialized = []() -> bool
+        {
+            ::LLVMInitializeARMTargetInfo();
+            ::LLVMInitializeARMTarget();
+            ::LLVMInitializeARMTargetMC();
+            ::LLVMInitializeARMAsmParser();
+            ::LLVMInitializeARMAsmPrinter();
+            return true;
+        }();
+        (void)initialized;
+        break;
+    }
+    case quxlang::cpu::arm_64:
+    {
+        static bool const initialized = []() -> bool
+        {
+            ::LLVMInitializeAArch64TargetInfo();
+            ::LLVMInitializeAArch64Target();
+            ::LLVMInitializeAArch64TargetMC();
+            ::LLVMInitializeAArch64AsmParser();
+            ::LLVMInitializeAArch64AsmPrinter();
+            return true;
+        }();
+        (void)initialized;
+        break;
+    }
+    case quxlang::cpu::riscv_32:
+    case quxlang::cpu::riscv_64:
+    {
+        static bool const initialized = []() -> bool
+        {
+            ::LLVMInitializeRISCVTargetInfo();
+            ::LLVMInitializeRISCVTarget();
+            ::LLVMInitializeRISCVTargetMC();
+            ::LLVMInitializeRISCVAsmParser();
+            ::LLVMInitializeRISCVAsmPrinter();
+            return true;
+        }();
+        (void)initialized;
+        break;
+    }
+    case quxlang::cpu::none:
+        throw quxlang::semantic_compilation_error("Unsupported LLVM target initialization CPU kind");
+    }
+
+    std::string const triple_text = quxlang::lookup_llvm_triple(target.machine);
+    ::llvm::Triple triple(triple_text);
+    std::string target_error;
+    ::llvm::Target const* llvm_target = ::llvm::TargetRegistry::lookupTarget(triple, target_error);
+    if (llvm_target == nullptr)
+    {
+        throw quxlang::semantic_compilation_error("Failed to lookup LLVM target for " + triple_text + ": " + target_error);
+    }
+
+    ::llvm::SourceMgr source_manager;
+    source_manager.AddNewSourceBuffer(::llvm::MemoryBuffer::getMemBufferCopy(assembly_text), ::llvm::SMLoc());
+
+    ::llvm::MCTargetOptions mc_options;
+    std::unique_ptr< ::llvm::MCSubtargetInfo > subtarget_info(llvm_target->createMCSubtargetInfo(triple, "generic", ""));
+    std::unique_ptr< ::llvm::MCRegisterInfo > register_info(llvm_target->createMCRegInfo(triple));
+    if (!subtarget_info || !register_info)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC target state for " + triple_text);
+    }
+
+    std::unique_ptr< ::llvm::MCAsmInfo > asm_info(llvm_target->createMCAsmInfo(*register_info, triple, mc_options));
+    if (!asm_info)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC asm info for " + triple_text);
+    }
+
+    ::llvm::MCContext machine_context(triple, asm_info.get(), register_info.get(), subtarget_info.get(), &source_manager, &mc_options);
+    std::unique_ptr< ::llvm::MCObjectFileInfo > object_file_info(llvm_target->createMCObjectFileInfo(machine_context, false, true));
+    machine_context.setObjectFileInfo(object_file_info.get());
+
+    std::unique_ptr< ::llvm::MCAsmBackend > asm_backend(llvm_target->createMCAsmBackend(*subtarget_info, *register_info, mc_options));
+    std::unique_ptr< ::llvm::MCInstrInfo > instruction_info(llvm_target->createMCInstrInfo());
+    if (!asm_backend || !instruction_info)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC backend for " + triple_text);
+    }
+
+    ::llvm::SmallVector< char, 0 > object_buffer;
+    auto object_stream = std::make_unique< ::llvm::raw_svector_ostream >(object_buffer);
+    std::unique_ptr< ::llvm::MCObjectWriter > object_writer(asm_backend->createObjectWriter(*object_stream));
+    std::unique_ptr< ::llvm::MCCodeEmitter > code_emitter(llvm_target->createMCCodeEmitter(*instruction_info, machine_context));
+    if (!object_writer || !code_emitter)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC object writer for " + triple_text);
+    }
+
+    std::unique_ptr< ::llvm::MCStreamer > streamer(
+        llvm_target->createMCObjectStreamer(triple, machine_context, std::move(asm_backend), std::move(object_writer), std::move(code_emitter), *subtarget_info));
+    if (!streamer)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC object streamer for " + triple_text);
+    }
+
+    ::llvm::MCAsmParser* parser = ::llvm::createMCAsmParser(source_manager, machine_context, *streamer, *asm_info);
+    std::unique_ptr< ::llvm::MCTargetAsmParser > target_parser(llvm_target->createMCAsmParser(*subtarget_info, *parser, *instruction_info, mc_options));
+    if (!target_parser)
+    {
+        throw quxlang::semantic_compilation_error("Failed to create LLVM MC asm parser for " + triple_text);
+    }
+    parser->setTargetParser(*target_parser);
+    if (parser->Run(false))
+    {
+        throw quxlang::semantic_compilation_error("LLVM MC assembly parsing failed for " + procedure.name);
+    }
+
+    quxlang::llvm_backend::llvm_assembled_procedure result;
+    result.assembly_text = std::move(assembly_text);
+    result.object_file.resize(object_buffer.size());
+    for (std::size_t i = 0; i < object_buffer.size(); i++)
+    {
+        result.object_file[i] = static_cast< std::byte >(object_buffer[i]);
+    }
+    return result;
 }

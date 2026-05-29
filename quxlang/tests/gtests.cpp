@@ -31,20 +31,26 @@
 #include <quxlang/queries/class_layout.hpp>
 #include <quxlang/queries/class_default_dtor.hpp>
 #include <quxlang/queries/argument_adaptation_rank.hpp>
+#include <quxlang/queries/antestatal_static_value.hpp>
+#include <quxlang/queries/asm_procedure_from_symbol.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/convertible_by_call.hpp>
 #include <quxlang/queries/ensig_argument_initialize.hpp>
 #include <quxlang/queries/function_builtin.hpp>
+#include <quxlang/queries/function_declaration.hpp>
+#include <quxlang/queries/functanoid_return_type.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
 #include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
 #include <quxlang/queries/functum_list_user_overload_declarations.hpp>
 #include <quxlang/queries/functum_user_overloads.hpp>
+#include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/instanciation_concrete_params.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/procedure_linksymbol.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/template_builtin.hpp>
 #include <quxlang/queries/templex_select_template.hpp>
@@ -490,6 +496,38 @@ TEST(parsing, parse_function_args)
     EXPECT_THROW(parse_function_args_text("(%...a I32, %b I32)"), std::logic_error);
     EXPECT_THROW(parse_function_args_text("(%...a I32, %...b I32)"), std::logic_error);
     EXPECT_THROW(parse_function_args_text("(@...a I32)"), std::logic_error);
+}
+
+TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_instructions)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE(RDI I32, RSI CONST=>> BYTE, RDX SZ; RETURN RAX SZ)
+{
+  MOV RAX, 1
+  SYSCALL
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    EXPECT_EQ(declaration.architecture, "X64");
+    ASSERT_EQ(declaration.callable_interfaces.size(), 1);
+    quxlang::ast2_asm_callable const& callable = declaration.callable_interfaces.front();
+    ASSERT_EQ(callable.args.size(), 3);
+    ASSERT_TRUE(callable.return_register_name.has_value());
+    EXPECT_EQ(*callable.return_register_name, "rax");
+    ASSERT_TRUE(callable.return_type.has_value());
+    EXPECT_EQ(*callable.return_type, parse_type_symbol("SZ"));
+    EXPECT_EQ(callable.args.at(0).type, parse_type_symbol("I32"));
+    EXPECT_EQ(callable.args.at(1).type, parse_type_symbol("CONST=>> BYTE"));
+    EXPECT_EQ(callable.args.at(2).type, parse_type_symbol("SZ"));
+    ASSERT_EQ(declaration.instructions.size(), 3);
+    EXPECT_EQ(declaration.instructions.at(0).opcode_mnemonic, "MOV");
+    EXPECT_EQ(declaration.instructions.at(1).opcode_mnemonic, "SYSCALL");
+    EXPECT_EQ(declaration.instructions.at(2).opcode_mnemonic, "RET");
 }
 
 TEST(parsing, parse_basic_types)
@@ -1069,6 +1107,80 @@ TEST(qxc, debug_llvm_output_path_uses_dbg_extension_and_spills_long_mangled_name
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
+TEST(qxc, output_module_debug_llvm_output_path_uses_module_dbg_extension)
+{
+    std::string output_name(240, 'x');
+    std::filesystem::path const build_dir = "build";
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_output_module_llvm_output_path(build_dir, output_name);
+    std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
+    std::vector< std::string > components;
+
+    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.dbg.llvm").size());
+    EXPECT_NE(output_path, build_dir / (output_name + ".module.dbg.llvm"));
+
+    for (std::filesystem::path const& component : relative_path)
+    {
+        components.push_back(component.string());
+    }
+
+    ASSERT_GE(components.size(), static_cast< std::size_t >(2));
+    for (std::size_t i = 0; i + 1 < components.size(); i++)
+    {
+        EXPECT_TRUE(components.at(i).ends_with(".dir"));
+        EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
+
+    EXPECT_TRUE(components.back().ends_with(".module.dbg.llvm"));
+    EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+}
+
+TEST(qxc, output_module_optimized_llvm_output_path_uses_module_opt_extension)
+{
+    std::string output_name(240, 'x');
+    std::filesystem::path const build_dir = "build";
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_optimized_output_module_llvm_output_path(build_dir, output_name);
+    std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
+    std::vector< std::string > components;
+
+    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.opt.llvm").size());
+    EXPECT_NE(output_path, build_dir / (output_name + ".module.opt.llvm"));
+
+    for (std::filesystem::path const& component : relative_path)
+    {
+        components.push_back(component.string());
+    }
+
+    ASSERT_GE(components.size(), static_cast< std::size_t >(2));
+    for (std::size_t i = 0; i + 1 < components.size(); i++)
+    {
+        EXPECT_TRUE(components.at(i).ends_with(".dir"));
+        EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+    }
+
+    EXPECT_TRUE(components.back().ends_with(".module.opt.llvm"));
+    EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
+}
+
+TEST(qxc, object_output_paths_use_expected_extensions)
+{
+    std::string const long_name(260, 'a');
+    std::filesystem::path const build_dir = "build";
+
+    std::filesystem::path const debug_object_path = quxlang::qxc_detail::make_object_output_path(build_dir, long_name);
+    std::filesystem::path const optimized_object_path = quxlang::qxc_detail::make_optimized_object_output_path(build_dir, long_name);
+    std::filesystem::path const asm_source_path = quxlang::qxc_detail::make_asm_source_output_path(build_dir, long_name);
+    std::filesystem::path const asm_object_path = quxlang::qxc_detail::make_asm_object_output_path(build_dir, long_name);
+    std::filesystem::path const module_debug_object_path = quxlang::qxc_detail::make_output_module_object_output_path(build_dir, long_name);
+    std::filesystem::path const module_optimized_object_path = quxlang::qxc_detail::make_optimized_output_module_object_output_path(build_dir, long_name);
+
+    EXPECT_TRUE(debug_object_path.filename().string().ends_with(".dbg.o"));
+    EXPECT_TRUE(optimized_object_path.filename().string().ends_with(".opt.o"));
+    EXPECT_TRUE(asm_source_path.filename().string().ends_with(".s"));
+    EXPECT_TRUE(asm_object_path.filename().string().ends_with(".o"));
+    EXPECT_TRUE(module_debug_object_path.filename().string().ends_with(".module.dbg.o"));
+    EXPECT_TRUE(module_optimized_object_path.filename().string().ends_with(".module.opt.o"));
+}
+
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
 {
     quxlang::type_symbol const root = quxlang::submember{
@@ -1334,6 +1446,131 @@ TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_b
     EXPECT_NE(result.llvm_ir_text.find("bitcast float"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("select i1"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("2143289344"), std::string::npos);
+}
+
+TEST(llvm_backend, compile_emits_debug_and_optimized_elf_object_files)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("object_emission_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
+    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(result.object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.object_file[3], std::byte{'F'});
+    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+}
+
+TEST(llvm_backend, whole_module_helpers_emit_linkonce_odr_definitions)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("whole_module_entry");
+    quxlang::type_symbol const helper_symbol = make_symbol("whole_module_helper");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::functanoid_routine3 helper_routine = routine;
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.inlinable_functions.emplace(helper_symbol, helper_routine);
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void @" + quxlang::mangle(helper_symbol) + "()"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("define available_externally void @" + quxlang::mangle(helper_symbol) + "()"), std::string::npos);
+}
+
+TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
+{
+    quxlang::asm_procedure procedure;
+    procedure.architecture = "X64";
+    procedure.name = "_S_test_asm";
+    procedure.instructions = {
+        quxlang::asm_instruction{
+            .opcode_mnemonic = "RET",
+            .operands = {},
+        },
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_assembled_procedure const result = backend.assemble(
+        quxlang::llvm_backend::llvm_compilation_target{
+            .machine = quxlang::output_info{
+                .cpu_type = quxlang::cpu::x86_64,
+                .os_type = quxlang::os::linux,
+                .binary_type = quxlang::binary::elf,
+            },
+            .optimization = quxlang::llvm_backend::optimization_level::debug,
+        },
+        procedure);
+
+    EXPECT_NE(result.assembly_text.find(".intel_syntax noprefix"), std::string::npos);
+    EXPECT_NE(result.assembly_text.find("_S_test_asm:"), std::string::npos);
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(result.object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.object_file[3], std::byte{'F'});
 }
 
 TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute_store)
@@ -3044,6 +3281,67 @@ TEST(llvm_backend, return_emits_destructor_cleanup)
     EXPECT_LT(call_position, ret_position);
 }
 
+TEST(llvm_backend, return_does_not_self_call_destroy_parameter_destructor)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const object_type = make_symbol("destroy_param_widget");
+    quxlang::instatype dtor_params;
+    dtor_params.named["THIS"] = quxlang::make_type_instantiation(quxlang::dvalue_slot{.target = object_type});
+    quxlang::type_symbol const dtor_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::submember{
+                .of = object_type,
+                .name = ".DESTRUCTOR",
+            },
+        },
+        .params = dtor_params,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = object_type},
+    };
+    routine.parameters.named["VALUE"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::dvalue_slot{.target = object_type},
+        .local_index = quxlang::vmir2::local_index(1),
+    };
+    routine.non_trivial_dtors[object_type] = dtor_symbol;
+    routine.blocks.resize(1);
+    routine.blocks[0].entry_state[quxlang::vmir2::local_index(1)] = quxlang::vmir2::slot_state{
+        .stage = quxlang::vmir2::slot_stage::full,
+        .storage_valid = true,
+        .nontrivial_dtor = quxlang::vmir2::dtor_spec{.func = dtor_symbol},
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = make_symbol("destroy_param_return_cleanup_test");
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[object_type] = quxlang::type_placement_info{
+        .size = 8,
+        .alignment = 8,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("call void @" + quxlang::mangle(dtor_symbol)), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("store [8 x i8] poison"), std::string::npos);
+}
+
 TEST(collector_tester, order_of_operations)
 {
     // quxlang::collector c;
@@ -4317,6 +4615,51 @@ TEST(quxlang, member_function_instantiation_uses_formal_thistype_and_concrete_pa
               parse_type_symbol("CONST& MODULE(main)::box"));
 }
 
+TEST(quxlang, asm_procedure_is_callable_and_uses_mangled_symbol_for_selected_overloads)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE(RAX I32, RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+{
+    MOV RAX, 1
+    SYSCALL
+    RET
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
+    auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
+    ASSERT_EQ(formal_ensigs.size(), 1);
+    EXPECT_EQ(formal_ensigs.begin()->first.interface.positional.size(), 4);
+
+    quxlang::temploid_reference const selected{
+        .templexoid = write_symbol,
+        .overload_id = 0,
+    };
+    auto declaration = graph.make_request< quxlang::function_declaration_query >(selected);
+    ASSERT_TRUE(declaration.has_value());
+    ASSERT_TRUE(declaration->definition.return_type.has_value());
+    EXPECT_EQ(*declaration->definition.return_type, parse_type_symbol("I32"));
+
+    quxlang::instanciation_reference const inst{
+        .temploid = selected,
+        .params = quxlang::instatype{
+            .positional = {
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+            },
+        },
+    };
+    EXPECT_EQ(graph.make_request< quxlang::functanoid_return_type_query >(inst), parse_type_symbol("I32"));
+    EXPECT_EQ(
+        graph.make_request< quxlang::procedure_linksymbol_query >(quxlang::ast2_procedure_ref{.cc = "", .functanoid = inst}),
+        quxlang::mangle(inst));
+}
+
 TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"(
@@ -4361,6 +4704,68 @@ TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
     quxlang::type_symbol nested_closure = quxlang::make_lambda_closure_symbol(outer_operator, 0);
     EXPECT_EQ(quxlang::to_string(nested_closure),
               "MODULE(main)::nested_lambda_formal_this_probe#[0]{}::__LAMBDA0::.OPERATOR()#[0]{@THIS MUT& THISTYPE}::__LAMBDA0");
+}
+
+TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE(RAX I32, RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+{
+    MOV RAX, 1
+    SYSCALL
+    RET
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::instanciation_reference const inst{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = parse_type_symbol("MODULE(main)::write"),
+            .overload_id = 0,
+        },
+        .params = quxlang::instatype{
+            .positional = {
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+            },
+        },
+    };
+
+    quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(inst);
+    EXPECT_EQ(assembled.name, quxlang::mangle(inst));
+    ASSERT_EQ(assembled.instructions.size(), 3);
+    ASSERT_TRUE(quxlang::typeis< quxlang::asm_instruction >(assembled.instructions.at(0)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::asm_instruction >(assembled.instructions.at(1)));
+    ASSERT_TRUE(quxlang::typeis< quxlang::asm_instruction >(assembled.instructions.at(2)));
+    EXPECT_EQ(quxlang::as< quxlang::asm_instruction >(assembled.instructions.at(0)).opcode_mnemonic, "MOV");
+    EXPECT_EQ(quxlang::as< quxlang::asm_instruction >(assembled.instructions.at(1)).opcode_mnemonic, "SYSCALL");
+    EXPECT_EQ(quxlang::as< quxlang::asm_instruction >(assembled.instructions.at(2)).opcode_mnemonic, "RET");
+}
+
+TEST(quxlang, static_string_constant_is_antestatal_static)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::hello STATIC STRING_CONSTANT := "hello";
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const symbol = parse_type_symbol("MODULE(main)::hello");
+    EXPECT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(symbol));
+
+    quxlang::antestatal_value const value = graph.make_request< quxlang::antestatal_static_value_query >(symbol);
+    ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(value));
+    std::vector< std::byte > const& bytes = quxlang::as< quxlang::antestatal_primitive >(value).value;
+    ASSERT_EQ(bytes.size(), static_cast< std::size_t >(5));
+    EXPECT_EQ(bytes.at(0), std::byte{'h'});
+    EXPECT_EQ(bytes.at(1), std::byte{'e'});
+    EXPECT_EQ(bytes.at(2), std::byte{'l'});
+    EXPECT_EQ(bytes.at(3), std::byte{'l'});
+    EXPECT_EQ(bytes.at(4), std::byte{'o'});
 }
 
 TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)

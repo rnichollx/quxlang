@@ -107,6 +107,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/asm/asm.hpp
         include/quxlang/parsers/parse_asm_procedure.hpp
         include/quxlang/backends/asm/arm_asm_converter.hpp
+        include/quxlang/backends/asm/x64_asm_converter.hpp
         include/quxlang/parsers/asm/asm_callable.hpp
         include/quxlang/parsers/asm/parse_register.hpp
         include/quxlang/backends/elf/elf.hpp
@@ -115,7 +116,6 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/parsers/string_literal.hpp
         include/quxlang/parsers/symbol.hpp
         include/quxlang/parsers/procedure_ref.hpp
-        include/quxlang/parsers/linkname.hpp
         include/quxlang/data/target_configuration.hpp
         include/quxlang/data/interp_value.hpp
         include/quxlang/parsers/declaration.hpp
@@ -155,7 +155,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
-llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils)
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter X86 AArch64 ARM RISCV)
 
 
 add_library(quxlang-loaders

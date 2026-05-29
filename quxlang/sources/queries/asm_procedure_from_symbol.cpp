@@ -12,7 +12,13 @@
 
 rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::asm_procedure_from_symbol_impl(type_symbol input)
 {
-    auto ast = co_await rpnx::querygraph::request< symboid_query >(input);
+    type_symbol declaration_symbol = input;
+    if (typeis< instanciation_reference >(input))
+    {
+        declaration_symbol = as< instanciation_reference >(input).temploid.templexoid;
+    }
+
+    auto ast = co_await rpnx::querygraph::request< symboid_query >(declaration_symbol);
 
     asm_procedure out;
 
@@ -22,16 +28,9 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
     }
 
     auto proc = as< ast2_asm_procedure_declaration >(ast);
+    out.architecture = proc.architecture;
 
-    if (proc.linkname.has_value())
-    {
-        out.name = *proc.linkname;
-    }
-
-    else
-    {
-        out.name = mangle(input);
-    }
+    out.name = mangle(input);
 
     for (auto const& inst : proc.instructions)
     {

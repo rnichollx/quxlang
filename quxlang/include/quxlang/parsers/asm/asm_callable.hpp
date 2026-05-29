@@ -63,6 +63,27 @@ namespace quxlang::parsers
                 break;
             }
 
+            if (skip_symbol_if_is(pos, end, ";"))
+            {
+                parsers::skip_whitespace_and_comments(pos, end);
+                if (!parsers::skip_keyword_if_is(pos, end, "RETURN"))
+                {
+                    throw syntax_compilation_error("Expected RETURN after ';' in CALLABLE expression");
+                }
+
+                parsers::skip_whitespace_and_comments(pos, end);
+                output.return_register_name = parse_register(pos, end);
+                parsers::skip_whitespace_and_comments(pos, end);
+                output.return_type = parsers::parse_type_symbol(trial);
+                parsers::skip_whitespace_and_comments(pos, end);
+
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after CALLABLE return declaration");
+                }
+                break;
+            }
+
             auto register_name = parse_register(pos, end);
 
             parsers::skip_whitespace_and_comments(pos, end);
@@ -75,6 +96,27 @@ namespace quxlang::parsers
 
             if (skip_symbol_if_is(pos, end, ")"))
             {
+                break;
+            }
+
+            if (skip_symbol_if_is(pos, end, ";"))
+            {
+                parsers::skip_whitespace_and_comments(pos, end);
+                if (!parsers::skip_keyword_if_is(pos, end, "RETURN"))
+                {
+                    throw syntax_compilation_error("Expected RETURN after ';' in CALLABLE expression");
+                }
+
+                parsers::skip_whitespace_and_comments(pos, end);
+                output.return_register_name = parse_register(pos, end);
+                parsers::skip_whitespace_and_comments(pos, end);
+                output.return_type = parsers::parse_type_symbol(trial);
+                parsers::skip_whitespace_and_comments(pos, end);
+
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after CALLABLE return declaration");
+                }
                 break;
             }
 
