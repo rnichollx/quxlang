@@ -1,0 +1,71 @@
+site_name: Quxlang
+site_description: Comprehensive language documentation for Quxlang.
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Philosophy:
+      - Overview: philosophy/overview.md
+      - Determinism: philosophy/determinism.md
+      - Performance and Safety: philosophy/performance-and-safety.md
+      - Scope and Compatibility: philosophy/scope-and-compatibility.md
+      - Operators and Reading Order: philosophy/operators-and-reading-order.md
+      - Control Flow: philosophy/control-flow.md
+      - Object Semantics: philosophy/object-semantics.md
+  - Language Tutorial:
+      - Build Setup: tutorial/setup.md
+      - First Program: tutorial/first-program.md
+      - Lexical Rules and Basic Syntax: tutorial/lexical-rules-and-basic-syntax.md
+      - Variables and Control Flow: tutorial/variables-and-control-flow.md
+      - Functions, Parameters, and Calls: tutorial/functions-parameters-and-calls.md
+      - Types, References, Arrays, and Pointers: tutorial/types-arrays-and-pointers.md
+      - Operators and Bitwise Operations: tutorial/operators-and-bitwise-operations.md
+      - Templates and Constraints: tutorial/templates-and-constraints.md
+      - Classes, Constructors, and Special Functions: tutorial/classes-constructors-and-special-functions.md
+      - Conditional Availability and Target-Specific Declarations: tutorial/conditional-availability-and-target-specific-declarations.md
+      - Modules and Larger Programs: tutorial/functions-and-modules.md
+  - Comparisons with C++:
+      - Surface Syntax and Reading Order: comparisons-with-cpp/assignment-keywords-and-notation.md
+      - Object Model, Aliasing, and Lifetime: comparisons-with-cpp/pointer-semantics-and-type-reading.md
+      - Calls, Conversions, and Overloads: comparisons-with-cpp/lifetime-conversions-and-call-semantics.md
+      - Modules, Builds, and Determinism: comparisons-with-cpp/modules-builds-and-determinism.md
+  - Language Reference:
+      - Lexical Conventions: reference/keywords-and-declarations.md
+      - Types and Qualifiers: reference/types-and-expressions.md
+      - Declarations and Storage: reference/declarations-and-storage.md
+      - Expressions and Operators: reference/expressions-and-operators.md
+      - Functions and Calls: reference/functions-and-calls.md
+      - Templates and Constraints: reference/templates-and-constraints.md
+      - Classes and Special Functions: reference/classes-and-special-functions.md
+      - Modules and Imports: reference/modules-and-imports.md
+  - Advanced Topics:
+      - ABI and Calling Conventions: advanced/abi-and-calling-conventions.md
+      - VMIR and VMIR2 Overview: advanced/vmir-and-vmir2-overview.md
+      - VMIR2 Instruction Semantics: advanced/vmir2-instruction-semantics.md
+      - VMIR2 to LLVM IR Lowering: advanced/vmir2-to-llvm-ir-lowering.md

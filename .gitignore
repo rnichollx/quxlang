@@ -19,6 +19,8 @@ cmake-*
 .DS_Store
 *-out
 local/
+venv
+site/
 
 dev-workspace-*/
 dev-workspace/
