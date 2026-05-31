@@ -32,8 +32,6 @@ namespace quxlang::parsers
         }
         parsers::skip_whitespace_and_comments(pos, end);
 
-        // TODO: Insert calling convention here?
-
         if (parsers::skip_keyword_if_is(pos, end, "CALLCONV"))
         {
             parsers::skip_whitespace_and_comments(pos, end);
@@ -47,7 +45,7 @@ namespace quxlang::parsers
 
         else
         {
-            output.calling_conv = "default";
+            output.calling_conv = "CCALL";
         }
 
         if (!skip_symbol_if_is(pos, end, "("))

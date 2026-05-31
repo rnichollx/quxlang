@@ -16,6 +16,7 @@
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/BinaryFormat/Dwarf.h>
+#include <llvm/IR/CallingConv.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/DebugInfoMetadata.h>
@@ -88,6 +89,8 @@ namespace quxlang::llvm::detail
 
     struct callable_abi
     {
+        /// Source-level calling convention used when declaring and calling this function.
+        std::string calling_convention = "DEFAULT";
         std::vector< abi_parameter > source_ordered;
         std::map< std::string, std::size_t > source_named_indices;
         std::vector< std::size_t > llvm_param_source_indices;
@@ -151,7 +154,7 @@ namespace quxlang::llvm::detail
                 {
                     continue;
                 }
-                declare_defined_asm_function(helper.first, helper.second, llvm::GlobalValue::LinkOnceODRLinkage);
+                declare_asm_callable_function(helper.first, helper.second);
             }
             if (!input.asm_functions.contains(input.target_name))
             {
@@ -168,14 +171,6 @@ namespace quxlang::llvm::detail
                 declare_defined_function(helper.first, helper.second, helper_linkage);
             }
 
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
-            {
-                if (!helper.second.callable_interface.has_value())
-                {
-                    continue;
-                }
-                emit_defined_asm_function(helper.first, helper.second);
-            }
             if (!input.asm_functions.contains(input.target_name))
             {
                 emit_defined_function(input.target_name, input.target_code);
@@ -190,10 +185,6 @@ namespace quxlang::llvm::detail
             }
             for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
             {
-                if (helper.second.callable_interface.has_value())
-                {
-                    continue;
-                }
                 module->appendModuleInlineAsm(assembly_text(helper.second));
             }
 
@@ -1118,6 +1109,39 @@ namespace quxlang::llvm::detail
             return abi;
         }
 
+        /**
+         * Maps one source-level calling convention tag to the corresponding LLVM call convention.
+         */
+        auto llvm_calling_convention(std::string const& calling_convention) const -> llvm::CallingConv::ID
+        {
+            std::string const normalized = upper_ascii(calling_convention);
+            if (normalized == "DEFAULT" || normalized == "CCALL")
+            {
+                return llvm::CallingConv::C;
+            }
+            if (normalized == "STDCALL")
+            {
+                return llvm::CallingConv::X86_StdCall;
+            }
+            throw quxlang::semantic_compilation_error("Unsupported LLVM calling convention: " + calling_convention);
+        }
+
+        /**
+         * Applies one ABI's calling convention to an LLVM function declaration or definition.
+         */
+        void apply_calling_convention(llvm::Function* function, callable_abi const& abi) const
+        {
+            function->setCallingConv(llvm_calling_convention(abi.calling_convention));
+        }
+
+        /**
+         * Applies one ABI's calling convention to an LLVM call instruction.
+         */
+        void apply_calling_convention(llvm::CallInst* call, callable_abi const& abi) const
+        {
+            call->setCallingConv(llvm_calling_convention(abi.calling_convention));
+        }
+
         auto callable_abi_from_routine(quxlang::vmir2::functanoid_routine3 const& routine) -> callable_abi
         {
             std::vector< routine_abi_parameter > routine_params = ordered_routine_parameters(routine);
@@ -1312,90 +1336,16 @@ namespace quxlang::llvm::detail
             throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
         }
 
-        auto lower_ascii(std::string text) const -> std::string
+        /**
+         * Uppercases ASCII letters in a copy of the input string.
+         */
+        auto upper_ascii(std::string text) const -> std::string
         {
             for (char& ch : text)
             {
-                ch = static_cast< char >(std::tolower(static_cast< unsigned char >(ch)));
+                ch = static_cast< char >(std::toupper(static_cast< unsigned char >(ch)));
             }
             return text;
-        }
-
-        auto inline_asm_body_text(quxlang::asm_procedure const& procedure) const -> std::string
-        {
-            std::string result;
-            bool first = true;
-            for (quxlang::asm_statement const& statement : procedure.instructions)
-            {
-                if (statement.type_is< quxlang::asm_label >())
-                {
-                    if (!first)
-                    {
-                        result += "\n";
-                    }
-                    result += statement.get_as< quxlang::asm_label >().name + ":";
-                    first = false;
-                    continue;
-                }
-
-                quxlang::asm_instruction const& inst = statement.get_as< quxlang::asm_instruction >();
-                if (lower_ascii(inst.opcode_mnemonic) == "ret")
-                {
-                    continue;
-                }
-
-                if (!first)
-                {
-                    result += "\n";
-                }
-                result += lower_ascii(inst.opcode_mnemonic);
-                for (std::size_t i = 0; i < inst.operands.size(); ++i)
-                {
-                    result += (i == 0 ? " " : ", ");
-                    result += inst.operands[i];
-                }
-                first = false;
-            }
-            return result;
-        }
-
-        auto asm_body_has_opcode(quxlang::asm_procedure const& procedure, std::string const& opcode) const -> bool
-        {
-            std::string const lowered_opcode = lower_ascii(opcode);
-            for (quxlang::asm_statement const& statement : procedure.instructions)
-            {
-                if (!statement.type_is< quxlang::asm_instruction >())
-                {
-                    continue;
-                }
-                if (lower_ascii(statement.get_as< quxlang::asm_instruction >().opcode_mnemonic) == lowered_opcode)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        auto llvm_inline_asm_register_name(quxlang::asm_procedure const& procedure, std::string const& register_name) const -> std::string
-        {
-            std::string lowered = lower_ascii(register_name);
-            if (lowered == "memory" || lowered == "flags" || lowered == "dirflag" || lowered == "fpsr")
-            {
-                return lowered;
-            }
-            if (procedure.architecture == "X64")
-            {
-                return lowered;
-            }
-            if (procedure.architecture == "ARM")
-            {
-                return lowered;
-            }
-            if (lowered == "eax" || lowered == "ebx" || lowered == "ecx" || lowered == "edx" || lowered == "esi" || lowered == "edi" || lowered == "ebp" || lowered == "esp")
-            {
-                return lowered;
-            }
-            throw quxlang::semantic_compilation_error("Unsupported asm callable register for LLVM lowering: " + register_name);
         }
 
         auto callable_abi_from_asm_callable(quxlang::asm_callable const& callable) -> callable_abi
@@ -1410,20 +1360,17 @@ namespace quxlang::llvm::detail
                     .type = callable.args.at(i).type,
                 });
             }
-
-            callable_abi abi = build_callable_abi(std::move(ordered));
-            llvm::Type* return_type = llvm::Type::getVoidTy(context);
             if (callable.return_type.has_value())
             {
-                return_type = abi_type(*callable.return_type);
+                ordered.push_back(abi_parameter{
+                    .name = "RETURN",
+                    .positional_index = std::nullopt,
+                    .type = quxlang::nvalue_slot{.target = *callable.return_type},
+                });
             }
-            std::vector< llvm::Type* > parameter_types;
-            parameter_types.reserve(abi.llvm_param_source_indices.size());
-            for (std::size_t source_index : abi.llvm_param_source_indices)
-            {
-                parameter_types.push_back(abi_type(abi.source_ordered.at(source_index).type));
-            }
-            abi.llvm_type = llvm::FunctionType::get(return_type, parameter_types, false);
+
+            callable_abi abi = build_callable_abi(std::move(ordered));
+            abi.calling_convention = callable.calling_conv;
             return abi;
         }
 
@@ -1431,19 +1378,21 @@ namespace quxlang::llvm::detail
         {
             callable_abi abi = callable_abi_from_routine(routine);
             llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, symbol_link_name(symbol), module.get());
+            apply_calling_convention(function, abi);
             functions[symbol] = function;
             function_abis[symbol] = abi;
         }
 
-        void declare_defined_asm_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure, llvm::GlobalValue::LinkageTypes linkage)
+        void declare_asm_callable_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure)
         {
             if (!procedure.callable_interface.has_value())
             {
-                throw quxlang::compiler_bug("declare_defined_asm_function called for a non-callable asm procedure");
+                throw quxlang::compiler_bug("declare_asm_callable_function called for a non-callable asm procedure");
             }
 
             callable_abi abi = callable_abi_from_asm_callable(*procedure.callable_interface);
-            llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, symbol_link_name(symbol), module.get());
+            llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(symbol), module.get());
+            apply_calling_convention(function, abi);
             functions[symbol] = function;
             function_abis[symbol] = abi;
         }
@@ -1457,6 +1406,7 @@ namespace quxlang::llvm::detail
             }
 
             llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(symbol), module.get());
+            apply_calling_convention(function, abi);
             functions[symbol] = function;
             function_abis[symbol] = abi;
             return function;
@@ -1472,105 +1422,6 @@ namespace quxlang::llvm::detail
         {
             llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {opaque_pointer_type()}, false);
             return llvm::cast< llvm::Function >(module->getOrInsertFunction("free", function_type).getCallee());
-        }
-
-        void emit_defined_asm_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure)
-        {
-            if (!procedure.callable_interface.has_value())
-            {
-                throw quxlang::compiler_bug("emit_defined_asm_function called for a non-callable asm procedure");
-            }
-
-            llvm::Function* function = functions.at(symbol);
-            callable_abi const& abi = function_abis.at(symbol);
-            llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", function);
-            builder.SetInsertPoint(entry_block);
-
-            std::vector< llvm::Type* > argument_types;
-            std::vector< llvm::Value* > arguments;
-            std::vector< std::string > constraints;
-            std::set< std::string > reserved_registers;
-            for (std::size_t i = 0; i < function->arg_size(); ++i)
-            {
-                llvm::Argument* argument = function->getArg(static_cast< unsigned >(i));
-                quxlang::asm_argument_binding const& binding = procedure.callable_interface->args.at(i);
-                argument_types.push_back(argument->getType());
-                arguments.push_back(argument);
-                std::string const constraint_register = llvm_inline_asm_register_name(procedure, binding.register_name);
-                constraints.push_back("{" + constraint_register + "}");
-                reserved_registers.insert(constraint_register);
-            }
-
-            llvm::Type* asm_return_type = llvm::Type::getVoidTy(context);
-            if (procedure.callable_interface->return_type.has_value())
-            {
-                asm_return_type = abi_type(*procedure.callable_interface->return_type);
-            }
-            if (procedure.callable_interface->return_register_name.has_value())
-            {
-                std::string const return_register = llvm_inline_asm_register_name(procedure, *procedure.callable_interface->return_register_name);
-                constraints.insert(constraints.begin(), "={" + return_register + "}");
-                reserved_registers.insert(return_register);
-            }
-
-            std::set< std::string > clobbers = procedure.callable_interface->clobber;
-            if (procedure.architecture == "X64" && asm_body_has_opcode(procedure, "syscall"))
-            {
-                clobbers.insert("RCX");
-                clobbers.insert("R11");
-            }
-            if (procedure.architecture == "ARM" && asm_body_has_opcode(procedure, "svc"))
-            {
-                clobbers.insert("X8");
-            }
-            if (procedure.architecture != "ARM" && asm_body_has_opcode(procedure, "int"))
-            {
-                clobbers.insert("FLAGS");
-                clobbers.insert("DIRFLAG");
-                clobbers.insert("FPSR");
-            }
-            clobbers.insert("MEMORY");
-
-            for (std::string const& clobber : clobbers)
-            {
-                std::string const lowered = llvm_inline_asm_register_name(procedure, clobber);
-                if (reserved_registers.contains(lowered))
-                {
-                    continue;
-                }
-                constraints.push_back("~{" + lowered + "}");
-            }
-
-            std::string constraint_text;
-            for (std::size_t i = 0; i < constraints.size(); ++i)
-            {
-                if (i != 0)
-                {
-                    constraint_text += ",";
-                }
-                constraint_text += constraints.at(i);
-            }
-
-            llvm::FunctionType* inline_asm_type = llvm::FunctionType::get(asm_return_type, argument_types, false);
-            llvm::InlineAsm::AsmDialect asm_dialect =
-                procedure.architecture == "ARM" ? llvm::InlineAsm::AD_ATT : llvm::InlineAsm::AD_Intel;
-            llvm::InlineAsm* inline_asm_value = llvm::InlineAsm::get(
-                inline_asm_type,
-                inline_asm_body_text(procedure),
-                constraint_text,
-                true,
-                false,
-                asm_dialect);
-
-            if (asm_return_type->isVoidTy())
-            {
-                builder.CreateCall(inline_asm_value, arguments);
-                builder.CreateRetVoid();
-                return;
-            }
-
-            llvm::Value* return_value = builder.CreateCall(inline_asm_value, arguments);
-            builder.CreateRet(return_value);
         }
 
         auto get_or_create_initguard_try_acquire() -> llvm::Function*
@@ -2679,7 +2530,7 @@ namespace quxlang::llvm::detail
             quxlang::vmir2::invocation_args args;
             args.named["THIS"] = slot;
             llvm::Function* callee = get_or_create_external_function(dtor_symbol, abi);
-            ir_builder.CreateCall(callee, ordered_call_arguments(state, ir_builder, abi, args));
+            apply_calling_convention(ir_builder.CreateCall(callee, ordered_call_arguments(state, ir_builder, abi, args)), abi);
         }
 
         /**
@@ -3181,11 +3032,12 @@ namespace quxlang::llvm::detail
             llvm::Value* typed_fn_ptr = builder.CreateBitCast(fn_ptr, llvm::PointerType::get(context, 0));
             if (abi.llvm_type->getReturnType()->isVoidTy())
             {
-                builder.CreateCall(abi.llvm_type, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args));
+                apply_calling_convention(builder.CreateCall(abi.llvm_type, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args)), abi);
             }
             else
             {
                 llvm::CallInst* call = builder.CreateCall(abi.llvm_type, typed_fn_ptr, ordered_call_arguments(state, builder, abi, inst.args));
+                apply_calling_convention(call, abi);
                 std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args);
                 if (!return_slot.has_value())
                 {
@@ -3208,11 +3060,12 @@ namespace quxlang::llvm::detail
                 llvm::Function* fallback = get_or_create_external_function(*inst.default_function, default_abi);
                 if (default_abi.llvm_type->getReturnType()->isVoidTy())
                 {
-                    builder.CreateCall(fallback, ordered_call_arguments(state, builder, default_abi, default_args));
+                    apply_calling_convention(builder.CreateCall(fallback, ordered_call_arguments(state, builder, default_abi, default_args)), default_abi);
                 }
                 else
                 {
                     llvm::CallInst* call = builder.CreateCall(fallback, ordered_call_arguments(state, builder, default_abi, default_args));
+                    apply_calling_convention(call, default_abi);
                     std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(default_abi, default_args);
                     if (!return_slot.has_value())
                     {
@@ -3257,6 +3110,7 @@ namespace quxlang::llvm::detail
             callable_abi abi = direct_callee_abi(inst.what, inst, state);
             llvm::Function* callee = get_or_create_external_function(inst.what, abi);
             llvm::CallInst* call = builder.CreateCall(callee, ordered_call_arguments(state, builder, abi, inst.args));
+            apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
                 store_slot_value(state, builder, *return_slot, call);
@@ -3301,6 +3155,7 @@ namespace quxlang::llvm::detail
             }
             llvm::Value* typed_callee = builder.CreateBitCast(callee_value, llvm::PointerType::get(context, 0));
             llvm::CallInst* call = builder.CreateCall(abi.llvm_type, typed_callee, ordered_call_arguments(state, builder, abi, inst.args));
+            apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
                 store_slot_value(state, builder, *return_slot, call);
