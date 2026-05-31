@@ -304,7 +304,7 @@ namespace quxlang
 
         codegen_state state;
         type_symbol ctx;
-        output_info machine_info;
+        machine_target_info machine_info;
 
         class source_location_scope
         {
@@ -428,7 +428,7 @@ namespace quxlang
         using handler_spec = typename CoroutineBaseType::spec_type;
 
       public:
-        co_vmir_generator2(output_info machine_info, type_symbol ctx) : ctx(std::move(ctx)), machine_info(std::move(machine_info))
+        co_vmir_generator2(machine_target_info machine_info, type_symbol ctx) : ctx(std::move(ctx)), machine_info(std::move(machine_info))
         {
         }
 
@@ -5384,7 +5384,7 @@ namespace quxlang
             {
                 co_return this->create_bool_value(bidx, false);
             }
-            output_info arch = machine_info;
+            machine_target_info arch = machine_info;
 
             if (kw.keyword == "ARCH_X64")
             {

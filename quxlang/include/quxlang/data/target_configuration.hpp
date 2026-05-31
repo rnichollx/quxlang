@@ -101,7 +101,7 @@ namespace quxlang
         std::map< std::string, module_configuration > module_configurations;
         // Key=LogicalModuleName Value=SourceModuleName
         //std::map< std::string, std::string > logical_module_mappings;
-        output_info target_output_config;
+        machine_target_info target_output_config;
 
         std::map< std::string, output_config > outputs;
 

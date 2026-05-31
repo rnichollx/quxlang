@@ -27,7 +27,7 @@ namespace quxlang
 
     enum class binary { none, elf, macho, pe, wasm };
 
-    struct output_info
+    struct machine_target_info
     {
         cpu cpu_type = cpu::none;
         os os_type = os::none;
@@ -62,7 +62,7 @@ namespace quxlang
             return pointer_size_bytes();
         }
 
-        RPNX_MEMBER_METADATA(output_info, cpu_type, os_type, binary_type);
+        RPNX_MEMBER_METADATA(machine_target_info, cpu_type, os_type, binary_type);
     };
 
 } // namespace quxlang

@@ -17,7 +17,7 @@ namespace quxlang
     class compiler_querygraph
     {
       public:
-        compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info,
+        compiler_querygraph(source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
                             std::optional< std::filesystem::path > dump_output_path = std::nullopt);
         ~compiler_querygraph();
 

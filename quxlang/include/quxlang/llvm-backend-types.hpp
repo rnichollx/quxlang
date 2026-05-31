@@ -45,7 +45,7 @@ namespace quxlang::llvm_backend
     /// llvm_compilation_target represents the compilation information needed to compile something to llvm
     struct llvm_compilation_target
     {
-        output_info machine;
+        machine_target_info machine;
         optimization_level optimization = optimization_level::debug;
 
         RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization);

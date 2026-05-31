@@ -751,7 +751,7 @@ namespace
      */
     auto build_llvm_packet_support_data(
         quxlang::compiler_querygraph& graph,
-        quxlang::output_info const& machine,
+        quxlang::machine_target_info const& machine,
         std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > const& routines) -> llvm_packet_support_data
     {
         llvm_packet_support_data result;

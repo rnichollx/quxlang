@@ -124,7 +124,7 @@ namespace quxlang
             return result;
         }
 
-        inline auto output_info_debug_string(output_info const& value) -> std::string
+        inline auto output_info_debug_string(machine_target_info const& value) -> std::string
         {
             std::string result = "output_info{cpu_type=";
             result += cpu_name(value.cpu_type);
@@ -428,9 +428,9 @@ namespace rpnx::querygraph
     };
 
     template <>
-    struct binary_traits< quxlang::output_info >
+    struct binary_traits< quxlang::machine_target_info >
     {
-        static auto serialize_to_binary(quxlang::output_info const& value) -> std::vector< std::byte >
+        static auto serialize_to_binary(quxlang::machine_target_info const& value) -> std::vector< std::byte >
         {
             return quxlang::querygraph_serialize(value);
         }
@@ -500,9 +500,9 @@ namespace rpnx::querygraph
     };
 
     template <>
-    struct debug_traits< quxlang::output_info >
+    struct debug_traits< quxlang::machine_target_info >
     {
-        static auto to_debug_string(quxlang::output_info const& value) -> std::string
+        static auto to_debug_string(quxlang::machine_target_info const& value) -> std::string
         {
             return quxlang::detail::output_info_debug_string(value);
         }

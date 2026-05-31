@@ -13,7 +13,7 @@ namespace quxlang
     {
         static constexpr auto query_id = "machine_info";
         using input_type = std::monostate;
-        using output_type = output_info;
+        using output_type = machine_target_info;
     };
 } // namespace quxlang
 

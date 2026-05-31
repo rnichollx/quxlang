@@ -323,7 +323,7 @@ namespace quxlang::llvm::detail
         /**
          * Ensures the LLVM target, MC, and asm subsystems needed for object emission are initialized once per process.
          */
-        static void initialize_llvm_target_support(quxlang::output_info const& machine)
+        static void initialize_llvm_target_support(quxlang::machine_target_info const& machine)
         {
             switch (machine.cpu_type)
             {
@@ -395,7 +395,7 @@ namespace quxlang::llvm::detail
         /**
          * Creates one LLVM target machine for the requested qxc machine target.
          */
-        static auto create_target_machine(quxlang::output_info const& machine) -> std::unique_ptr< llvm::TargetMachine >
+        static auto create_target_machine(quxlang::machine_target_info const& machine) -> std::unique_ptr< llvm::TargetMachine >
         {
             initialize_llvm_target_support(machine);
 

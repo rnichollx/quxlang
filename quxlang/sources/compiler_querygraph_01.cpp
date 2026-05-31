@@ -14,7 +14,7 @@
 #include <string>
 #include <utility>
 
-quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, output_info const& machine_info,
+quxlang::compiler_querygraph::compiler_querygraph(source_bundle const& bundle, std::string configured_target, machine_target_info const& machine_info,
                                                   std::optional< std::filesystem::path > dump_output_path)
     : m_dump_output_path(std::move(dump_output_path))
 {

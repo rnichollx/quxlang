@@ -126,7 +126,7 @@ namespace quxlang
             {
                 auto cpu = target_config_node["cpu"].as< std::string >();
 
-                quxlang::output_info info;
+                quxlang::machine_target_info info;
 
                 if (platform == "linux")
                 {

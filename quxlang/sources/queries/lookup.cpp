@@ -94,7 +94,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 {
     type_symbol context = input.context;
     type_symbol const& type = input.type;
-    output_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
 
 

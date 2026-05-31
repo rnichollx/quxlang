@@ -13,7 +13,7 @@
 
 namespace quxlang
 {
-    inline std::string lookup_llvm_triple(output_info const& info)
+    inline std::string lookup_llvm_triple(machine_target_info const& info)
     {
         std::string ret;
         "armv8-a-unknown-unknown-unknown";

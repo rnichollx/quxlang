@@ -51,7 +51,7 @@ namespace quxlang::detail
     class elf_link_session
     {
     public:
-        elf_link_session(quxlang::output_info const& machine_info, std::vector< std::byte > const& object_file_bytes, std::string entry_symbol_name)
+        elf_link_session(quxlang::machine_target_info const& machine_info, std::vector< std::byte > const& object_file_bytes, std::string entry_symbol_name)
             : machine(machine_info),
               object_bytes(object_file_bytes),
               entry_symbol(std::move(entry_symbol_name))
@@ -74,7 +74,7 @@ namespace quxlang::detail
         }
 
     private:
-        quxlang::output_info machine;
+        quxlang::machine_target_info machine;
         std::vector< std::byte > const& object_bytes;
         std::string entry_symbol;
         std::unique_ptr< llvm::MemoryBuffer > object_buffer;
@@ -783,7 +783,7 @@ namespace quxlang::detail
     };
 } // namespace quxlang::detail
 
-auto quxlang::elf_linker::link_linux_executable(quxlang::output_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const
+auto quxlang::elf_linker::link_linux_executable(quxlang::machine_target_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const
     -> std::vector< std::byte >
 {
     quxlang::detail::elf_link_session session(machine, object_file, entry_symbol);

@@ -10,7 +10,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
 {
     type_symbol const& type = input;
     std::string type_str = to_string(type);
-    output_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
+    machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     auto expr_u64 = [](expression const& expr) -> std::uint64_t
     {

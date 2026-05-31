@@ -25,7 +25,7 @@ namespace quxlang
          *
          * The entry symbol must be defined by the object, typically `_start`.
          */
-        auto link_linux_executable(output_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const -> std::vector< std::byte >;
+        auto link_linux_executable(machine_target_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const -> std::vector< std::byte >;
     };
 } // namespace quxlang
 
