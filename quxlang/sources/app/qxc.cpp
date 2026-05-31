@@ -1083,7 +1083,7 @@ int main(int argc, char** argv)
             };
 
             std::vector< output_entry > outputs_to_compile;
-            if (target_config.outputs.empty())
+            if (!target_config.outputs.has_value())
             {
                 outputs_to_compile.push_back(output_entry{
                     .output_name = "default",
@@ -1094,7 +1094,7 @@ int main(int argc, char** argv)
             }
             else
             {
-                for (auto const& [output_name, output_config] : target_config.outputs)
+                for (auto const& [output_name, output_config] : *target_config.outputs)
                 {
                     outputs_to_compile.push_back(output_entry{
                         .output_name = output_name,

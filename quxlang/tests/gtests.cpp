@@ -4898,6 +4898,17 @@ TEST(quxlang, user_defined_destructor_uses_user_overload_and_concrete_this)
               quxlang::type_symbol(quxlang::dvalue_slot{.target = parse_type_symbol("MODULE(main)::yak")}));
 }
 
+TEST(quxlang, source_loader_preserves_omitted_outputs_as_nullopt)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    auto sources = quxlang::load_bundle_sources_for_targets(testdata / "example", {});
+
+    ASSERT_FALSE(sources.targets.at("linux-x64").outputs.has_value());
+    ASSERT_FALSE(sources.targets.at("linux-arm64").outputs.has_value());
+    ASSERT_TRUE(sources.targets.at("linux-x86").outputs.has_value());
+    ASSERT_TRUE(sources.targets.at("linux-x86").outputs->contains("app"));
+}
+
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;

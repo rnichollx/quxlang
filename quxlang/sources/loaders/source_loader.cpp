@@ -176,50 +176,52 @@ namespace quxlang
 
                 output.targets[target_name] = target_output;
 
-                for (auto const& output : target_config_node["outputs"])
+                if (target_config_node["outputs"].IsDefined())
                 {
-                    std::string output_name = output.first.as< std::string >();
-                    auto output_config_node = output.second;
-                    output_config v_output_config;
-
-                    // Validate output-level keys
+                    target_output.outputs = std::map< std::string, output_config >{};
+                    for (auto const& output : target_config_node["outputs"])
                     {
-                        static const std::set<std::string> allowed_output_keys = {"type", "module", "main_functanoid"};
-                        for (auto const& kv : output_config_node)
+                        std::string output_name = output.first.as< std::string >();
+                        auto output_config_node = output.second;
+                        output_config v_output_config;
+
+                        // Validate output-level keys
                         {
-                            auto key = kv.first.as<std::string>();
-                            if (allowed_output_keys.count(key) == 0)
+                            static const std::set<std::string> allowed_output_keys = {"type", "module", "main_functanoid"};
+                            for (auto const& kv : output_config_node)
                             {
-                                throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
+                                auto key = kv.first.as<std::string>();
+                                if (allowed_output_keys.count(key) == 0)
+                                {
+                                    throw quxlang::semantic_compilation_error("Unknown field in target '" + target_name + "' output '" + output_name + "': " + key);
+                                }
                             }
                         }
-                    }
 
-                    auto output_type_str = output_config_node["type"].as< std::string >();
-                    if (output_type_str == "executable")
-                    {
-                        v_output_config.type = quxlang::output_kind::executable;
-                    }
-                    else
-                    {
-                        rpnx::unimplemented();
-                    }
+                        auto output_type_str = output_config_node["type"].as< std::string >();
+                        if (output_type_str == "executable")
+                        {
+                            v_output_config.type = quxlang::output_kind::executable;
+                        }
+                        else
+                        {
+                            rpnx::unimplemented();
+                        }
 
-                    if (output_config_node["module"].IsDefined())
-                    {
-                        v_output_config.module = output_config_node["module"].as< std::string >();
+                        if (output_config_node["module"].IsDefined())
+                        {
+                            v_output_config.module = output_config_node["module"].as< std::string >();
+                        }
+
+                        if (output_config_node["main_functanoid"].IsDefined())
+                        {
+                            v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
+                        }
+
+
+                        target_output.outputs->insert_or_assign(output_name, v_output_config);
                     }
-
-                    if (output_config_node["main_functanoid"].IsDefined())
-                    {
-                        v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
-                    }
-
-
-                    target_output.outputs[output_name] = v_output_config;
                 }
-
-
 
                 for (auto const& module_pair : target_config_node["modules"])
                 {

@@ -103,7 +103,7 @@ namespace quxlang
         //std::map< std::string, std::string > logical_module_mappings;
         machine_target_info target_output_config;
 
-        std::map< std::string, output_config > outputs;
+        std::optional< std::map< std::string, output_config > > outputs;
 
         RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, outputs);
     };
