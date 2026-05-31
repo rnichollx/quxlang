@@ -127,6 +127,22 @@ namespace quxlang::qxc_detail
     {
         return make_artifact_output_path(build_dir, output_name, ".module.opt.o");
     }
+
+    /**
+     * Builds one aggregated output executable debug ELF path for one qxc output entry.
+     */
+    inline auto make_output_executable_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".dbg.elf");
+    }
+
+    /**
+     * Builds one aggregated optimized output executable ELF path for one qxc output entry.
+     */
+    inline auto make_optimized_output_executable_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    {
+        return make_artifact_output_path(build_dir, output_name, ".opt.elf");
+    }
 }
 
 #endif // QUXLANG_SOURCES_APP_QXC_OUTPUT_PATHS_HEADER_GUARD

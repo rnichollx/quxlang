@@ -145,6 +145,14 @@ namespace quxlang::llvm::detail
 
         auto compile() -> quxlang::llvm_backend::llvm_compiled_unit
         {
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
+            {
+                if (!helper.second.callable_interface.has_value())
+                {
+                    continue;
+                }
+                declare_defined_asm_function(helper.first, helper.second, llvm::GlobalValue::LinkOnceODRLinkage);
+            }
             if (!input.asm_functions.contains(input.target_name))
             {
                 declare_defined_function(input.target_name, input.target_code, llvm::GlobalValue::LinkOnceODRLinkage);
@@ -160,6 +168,14 @@ namespace quxlang::llvm::detail
                 declare_defined_function(helper.first, helper.second, helper_linkage);
             }
 
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
+            {
+                if (!helper.second.callable_interface.has_value())
+                {
+                    continue;
+                }
+                emit_defined_asm_function(helper.first, helper.second);
+            }
             if (!input.asm_functions.contains(input.target_name))
             {
                 emit_defined_function(input.target_name, input.target_code);
@@ -174,7 +190,16 @@ namespace quxlang::llvm::detail
             }
             for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
             {
+                if (helper.second.callable_interface.has_value())
+                {
+                    continue;
+                }
                 module->appendModuleInlineAsm(assembly_text(helper.second));
+            }
+
+            if (should_emit_linux_start())
+            {
+                emit_linux_start();
             }
 
             if (debug_builder)
@@ -443,6 +468,124 @@ namespace quxlang::llvm::detail
         }
 
         /**
+         * Returns true when this aggregate LLVM packet should synthesize a Linux ELF process entrypoint.
+         */
+        auto should_emit_linux_start() const -> bool
+        {
+            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
+                   input.machine_target.machine.binary_type == quxlang::binary::elf;
+        }
+
+        /**
+         * Emits one Linux `_start` routine that calls the selected Qux main function and exits with its return code.
+         */
+        void emit_linux_start()
+        {
+            if (module->getFunction("_start") != nullptr)
+            {
+                throw quxlang::semantic_compilation_error("LLVM lowering attempted to redefine _start for " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Function* const main_function = declared_function(input.target_name);
+            if (main_function->arg_size() != 0)
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must not require arguments: " + quxlang::to_string(input.target_name));
+            }
+
+            llvm::Function* const start_function =
+                llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), false), llvm::GlobalValue::ExternalLinkage, "_start", module.get());
+            start_function->setDoesNotThrow();
+            start_function->addFnAttr(llvm::Attribute::NoReturn);
+
+            llvm::BasicBlock* const entry_block = llvm::BasicBlock::Create(context, "entry", start_function);
+            builder.SetInsertPoint(entry_block);
+
+            llvm::Value* exit_code_value = nullptr;
+            if (main_function->getReturnType()->isVoidTy())
+            {
+                builder.CreateCall(main_function, {});
+                exit_code_value = llvm::ConstantInt::get(pointer_integer_type(), 0);
+            }
+            else if (main_function->getReturnType()->isIntegerTy())
+            {
+                llvm::Value* const result = builder.CreateCall(main_function, {});
+                if (result->getType() == pointer_integer_type())
+                {
+                    exit_code_value = result;
+                }
+                else if (result->getType()->getIntegerBitWidth() < pointer_integer_type()->getIntegerBitWidth())
+                {
+                    exit_code_value = builder.CreateZExt(result, pointer_integer_type());
+                }
+                else if (result->getType()->getIntegerBitWidth() > pointer_integer_type()->getIntegerBitWidth())
+                {
+                    exit_code_value = builder.CreateTrunc(result, pointer_integer_type());
+                }
+                else
+                {
+                    exit_code_value = result;
+                }
+            }
+            else
+            {
+                throw quxlang::semantic_compilation_error("Executable entry functanoid must return VOID or an integer-like value: " + quxlang::to_string(input.target_name));
+            }
+
+            emit_linux_exit_syscall(exit_code_value);
+            builder.CreateUnreachable();
+        }
+
+        /**
+         * Emits the architecture-specific Linux process-exit syscall sequence for one exit code value.
+         */
+        void emit_linux_exit_syscall(llvm::Value* exit_code_value)
+        {
+            switch (input.machine_target.machine.cpu_type)
+            {
+            case quxlang::cpu::x86_64:
+            {
+                llvm::Type* arg_types[] = {pointer_integer_type()};
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
+                    exit_type,
+                    "movq $$60, %rax\n\tsyscall\n\tud2",
+                    "{rdi},~{rax},~{rcx},~{r11},~{memory}",
+                    true);
+                builder.CreateCall(exit_asm, {exit_code_value});
+                return;
+            }
+            case quxlang::cpu::x86_32:
+            {
+                llvm::Type* arg_types[] = {pointer_integer_type()};
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
+                    exit_type,
+                    "movl $$1, %eax\n\tint $$0x80\n\tud2",
+                    "{ebx},~{eax},~{memory}",
+                    true);
+                builder.CreateCall(exit_asm, {exit_code_value});
+                return;
+            }
+            case quxlang::cpu::arm_64:
+            {
+                llvm::Type* arg_types[] = {pointer_integer_type()};
+                llvm::FunctionType* const exit_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), llvm::ArrayRef< llvm::Type* >(arg_types), false);
+                llvm::InlineAsm* const exit_asm = llvm::InlineAsm::get(
+                    exit_type,
+                    "mov x8, #93\n\tsvc #0\n\tbrk #1",
+                    "{x0},~{x8},~{memory}",
+                    true);
+                builder.CreateCall(exit_asm, {exit_code_value});
+                return;
+            }
+            default:
+                break;
+            }
+
+            throw quxlang::semantic_compilation_error("Linux ELF _start lowering is not implemented for this CPU kind");
+        }
+
+        /**
          * Attaches !qux.vmir2 metadata to one newly inserted LLVM instruction while a VMIR lowering context is active.
          */
         void annotate_inserted_instruction(llvm::Instruction* instruction)
@@ -525,6 +668,19 @@ namespace quxlang::llvm::detail
         auto pointer_integer_type() -> llvm::IntegerType*
         {
             return llvm::IntegerType::get(context, input.machine_target.machine.pointer_size_bytes() * 8);
+        }
+
+        /**
+         * Returns one already-declared LLVM function by its Qux symbol.
+         */
+        auto declared_function(quxlang::type_symbol const& symbol) const -> llvm::Function*
+        {
+            std::map< quxlang::type_symbol, llvm::Function* >::const_iterator function_iter = functions.find(symbol);
+            if (function_iter == functions.end())
+            {
+                throw quxlang::semantic_compilation_error("Missing declared LLVM function for " + quxlang::to_string(symbol));
+            }
+            return function_iter->second;
         }
 
         auto bool_storage_type() -> llvm::IntegerType*
@@ -1156,9 +1312,137 @@ namespace quxlang::llvm::detail
             throw quxlang::semantic_compilation_error("Unsupported asm procedure architecture for LLVM lowering: " + procedure.architecture);
         }
 
+        auto lower_ascii(std::string text) const -> std::string
+        {
+            for (char& ch : text)
+            {
+                ch = static_cast< char >(std::tolower(static_cast< unsigned char >(ch)));
+            }
+            return text;
+        }
+
+        auto inline_asm_body_text(quxlang::asm_procedure const& procedure) const -> std::string
+        {
+            std::string result;
+            bool first = true;
+            for (quxlang::asm_statement const& statement : procedure.instructions)
+            {
+                if (statement.type_is< quxlang::asm_label >())
+                {
+                    if (!first)
+                    {
+                        result += "\n";
+                    }
+                    result += statement.get_as< quxlang::asm_label >().name + ":";
+                    first = false;
+                    continue;
+                }
+
+                quxlang::asm_instruction const& inst = statement.get_as< quxlang::asm_instruction >();
+                if (lower_ascii(inst.opcode_mnemonic) == "ret")
+                {
+                    continue;
+                }
+
+                if (!first)
+                {
+                    result += "\n";
+                }
+                result += lower_ascii(inst.opcode_mnemonic);
+                for (std::size_t i = 0; i < inst.operands.size(); ++i)
+                {
+                    result += (i == 0 ? " " : ", ");
+                    result += inst.operands[i];
+                }
+                first = false;
+            }
+            return result;
+        }
+
+        auto asm_body_has_opcode(quxlang::asm_procedure const& procedure, std::string const& opcode) const -> bool
+        {
+            std::string const lowered_opcode = lower_ascii(opcode);
+            for (quxlang::asm_statement const& statement : procedure.instructions)
+            {
+                if (!statement.type_is< quxlang::asm_instruction >())
+                {
+                    continue;
+                }
+                if (lower_ascii(statement.get_as< quxlang::asm_instruction >().opcode_mnemonic) == lowered_opcode)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        auto llvm_inline_asm_register_name(quxlang::asm_procedure const& procedure, std::string const& register_name) const -> std::string
+        {
+            std::string lowered = lower_ascii(register_name);
+            if (lowered == "memory" || lowered == "flags" || lowered == "dirflag" || lowered == "fpsr")
+            {
+                return lowered;
+            }
+            if (procedure.architecture == "X64")
+            {
+                return lowered;
+            }
+            if (procedure.architecture == "ARM")
+            {
+                return lowered;
+            }
+            if (lowered == "eax" || lowered == "ebx" || lowered == "ecx" || lowered == "edx" || lowered == "esi" || lowered == "edi" || lowered == "ebp" || lowered == "esp")
+            {
+                return lowered;
+            }
+            throw quxlang::semantic_compilation_error("Unsupported asm callable register for LLVM lowering: " + register_name);
+        }
+
+        auto callable_abi_from_asm_callable(quxlang::asm_callable const& callable) -> callable_abi
+        {
+            std::vector< abi_parameter > ordered;
+            ordered.reserve(callable.args.size());
+            for (std::size_t i = 0; i < callable.args.size(); ++i)
+            {
+                ordered.push_back(abi_parameter{
+                    .name = std::nullopt,
+                    .positional_index = i,
+                    .type = callable.args.at(i).type,
+                });
+            }
+
+            callable_abi abi = build_callable_abi(std::move(ordered));
+            llvm::Type* return_type = llvm::Type::getVoidTy(context);
+            if (callable.return_type.has_value())
+            {
+                return_type = abi_type(*callable.return_type);
+            }
+            std::vector< llvm::Type* > parameter_types;
+            parameter_types.reserve(abi.llvm_param_source_indices.size());
+            for (std::size_t source_index : abi.llvm_param_source_indices)
+            {
+                parameter_types.push_back(abi_type(abi.source_ordered.at(source_index).type));
+            }
+            abi.llvm_type = llvm::FunctionType::get(return_type, parameter_types, false);
+            return abi;
+        }
+
         void declare_defined_function(quxlang::type_symbol const& symbol, quxlang::vmir2::functanoid_routine3 const& routine, llvm::GlobalValue::LinkageTypes linkage)
         {
             callable_abi abi = callable_abi_from_routine(routine);
+            llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, symbol_link_name(symbol), module.get());
+            functions[symbol] = function;
+            function_abis[symbol] = abi;
+        }
+
+        void declare_defined_asm_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure, llvm::GlobalValue::LinkageTypes linkage)
+        {
+            if (!procedure.callable_interface.has_value())
+            {
+                throw quxlang::compiler_bug("declare_defined_asm_function called for a non-callable asm procedure");
+            }
+
+            callable_abi abi = callable_abi_from_asm_callable(*procedure.callable_interface);
             llvm::Function* function = llvm::Function::Create(abi.llvm_type, linkage, symbol_link_name(symbol), module.get());
             functions[symbol] = function;
             function_abis[symbol] = abi;
@@ -1188,6 +1472,105 @@ namespace quxlang::llvm::detail
         {
             llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {opaque_pointer_type()}, false);
             return llvm::cast< llvm::Function >(module->getOrInsertFunction("free", function_type).getCallee());
+        }
+
+        void emit_defined_asm_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure)
+        {
+            if (!procedure.callable_interface.has_value())
+            {
+                throw quxlang::compiler_bug("emit_defined_asm_function called for a non-callable asm procedure");
+            }
+
+            llvm::Function* function = functions.at(symbol);
+            callable_abi const& abi = function_abis.at(symbol);
+            llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", function);
+            builder.SetInsertPoint(entry_block);
+
+            std::vector< llvm::Type* > argument_types;
+            std::vector< llvm::Value* > arguments;
+            std::vector< std::string > constraints;
+            std::set< std::string > reserved_registers;
+            for (std::size_t i = 0; i < function->arg_size(); ++i)
+            {
+                llvm::Argument* argument = function->getArg(static_cast< unsigned >(i));
+                quxlang::asm_argument_binding const& binding = procedure.callable_interface->args.at(i);
+                argument_types.push_back(argument->getType());
+                arguments.push_back(argument);
+                std::string const constraint_register = llvm_inline_asm_register_name(procedure, binding.register_name);
+                constraints.push_back("{" + constraint_register + "}");
+                reserved_registers.insert(constraint_register);
+            }
+
+            llvm::Type* asm_return_type = llvm::Type::getVoidTy(context);
+            if (procedure.callable_interface->return_type.has_value())
+            {
+                asm_return_type = abi_type(*procedure.callable_interface->return_type);
+            }
+            if (procedure.callable_interface->return_register_name.has_value())
+            {
+                std::string const return_register = llvm_inline_asm_register_name(procedure, *procedure.callable_interface->return_register_name);
+                constraints.insert(constraints.begin(), "={" + return_register + "}");
+                reserved_registers.insert(return_register);
+            }
+
+            std::set< std::string > clobbers = procedure.callable_interface->clobber;
+            if (procedure.architecture == "X64" && asm_body_has_opcode(procedure, "syscall"))
+            {
+                clobbers.insert("RCX");
+                clobbers.insert("R11");
+            }
+            if (procedure.architecture == "ARM" && asm_body_has_opcode(procedure, "svc"))
+            {
+                clobbers.insert("X8");
+            }
+            if (procedure.architecture != "ARM" && asm_body_has_opcode(procedure, "int"))
+            {
+                clobbers.insert("FLAGS");
+                clobbers.insert("DIRFLAG");
+                clobbers.insert("FPSR");
+            }
+            clobbers.insert("MEMORY");
+
+            for (std::string const& clobber : clobbers)
+            {
+                std::string const lowered = llvm_inline_asm_register_name(procedure, clobber);
+                if (reserved_registers.contains(lowered))
+                {
+                    continue;
+                }
+                constraints.push_back("~{" + lowered + "}");
+            }
+
+            std::string constraint_text;
+            for (std::size_t i = 0; i < constraints.size(); ++i)
+            {
+                if (i != 0)
+                {
+                    constraint_text += ",";
+                }
+                constraint_text += constraints.at(i);
+            }
+
+            llvm::FunctionType* inline_asm_type = llvm::FunctionType::get(asm_return_type, argument_types, false);
+            llvm::InlineAsm::AsmDialect asm_dialect =
+                procedure.architecture == "ARM" ? llvm::InlineAsm::AD_ATT : llvm::InlineAsm::AD_Intel;
+            llvm::InlineAsm* inline_asm_value = llvm::InlineAsm::get(
+                inline_asm_type,
+                inline_asm_body_text(procedure),
+                constraint_text,
+                true,
+                false,
+                asm_dialect);
+
+            if (asm_return_type->isVoidTy())
+            {
+                builder.CreateCall(inline_asm_value, arguments);
+                builder.CreateRetVoid();
+                return;
+            }
+
+            llvm::Value* return_value = builder.CreateCall(inline_asm_value, arguments);
+            builder.CreateRet(return_value);
         }
 
         auto get_or_create_initguard_try_acquire() -> llvm::Function*

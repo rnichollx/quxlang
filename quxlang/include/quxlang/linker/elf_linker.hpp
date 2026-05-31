@@ -1,52 +1,32 @@
-// Copyright 2024 Ryan P. Nicholl, rnicholl@protonmail.com
+// Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #ifndef QUXLANG_LINKER_ELF_LINKER_HEADER_GUARD
 #define QUXLANG_LINKER_ELF_LINKER_HEADER_GUARD
 
-#include <cstdlib>
+#include <quxlang/data/machine.hpp>
+
+#include <cstddef>
+#include <string>
+#include <vector>
+
 namespace quxlang
 {
-
-    namespace elf
-    {
-
-        struct program_header
-        {
-            struct flags
-            {
-                bool read;
-                bool write;
-                bool execute;
-            };
-
-            enum class segment_type
-            {
-                null,
-                loadable,
-                dynamic,
-                interpreter,
-                note,
-                program_header_loc,
-                thread_local_storage,
-                gnu_exception_frame,
-                gnu_stack,
-                gnu_relocate_readonly,
-            };
-
-            std::size_t offset;
-            std::size_t virtual_address;
-            std::size_t physical_address;
-            std::size_t memory_size;
-
-        };
-    } // namespace elf
-
+    /**
+     * elf_linker links one Linux ELF relocatable object into one standalone executable image.
+     *
+     * The linker consumes the object bytes in memory and returns the final ELF file bytes
+     * without creating intermediate files.
+     */
     class elf_linker
     {
-
-      public:
-        elf_linker();
+    public:
+        /**
+         * Links one Linux ELF executable from the provided relocatable object bytes.
+         *
+         * The entry symbol must be defined by the object, typically `_start`.
+         */
+        auto link_linux_executable(output_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const -> std::vector< std::byte >;
     };
 } // namespace quxlang
 
-#endif // RPNX_QUXLANG_ELF_LINKER_HEADER
+#endif // QUXLANG_LINKER_ELF_LINKER_HEADER_GUARD

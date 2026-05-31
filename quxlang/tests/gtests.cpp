@@ -1181,6 +1181,18 @@ TEST(qxc, object_output_paths_use_expected_extensions)
     EXPECT_TRUE(module_optimized_object_path.filename().string().ends_with(".module.opt.o"));
 }
 
+TEST(qxc, output_executable_paths_use_expected_extensions)
+{
+    std::string const long_name(260, 'a');
+    std::filesystem::path const build_dir = "build";
+
+    std::filesystem::path const debug_executable_path = quxlang::qxc_detail::make_output_executable_output_path(build_dir, long_name);
+    std::filesystem::path const optimized_executable_path = quxlang::qxc_detail::make_optimized_output_executable_output_path(build_dir, long_name);
+
+    EXPECT_TRUE(debug_executable_path.filename().string().ends_with(".dbg.elf"));
+    EXPECT_TRUE(optimized_executable_path.filename().string().ends_with(".opt.elf"));
+}
+
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
 {
     quxlang::type_symbol const root = quxlang::submember{
@@ -1538,6 +1550,44 @@ TEST(llvm_backend, whole_module_helpers_emit_linkonce_odr_definitions)
 
     EXPECT_NE(result.llvm_ir_text.find("define linkonce_odr void @" + quxlang::mangle(helper_symbol) + "()"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("define available_externally void @" + quxlang::mangle(helper_symbol) + "()"), std::string::npos);
+}
+
+TEST(llvm_backend, linux_elf_executable_whole_module_emits_start_entrypoint)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("linux_start_entry");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.machine_target.machine = quxlang::output_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("call void @" + quxlang::mangle(routine_symbol) + "()"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
 }
 
 TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)

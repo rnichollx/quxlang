@@ -9,6 +9,7 @@
 #include <quxlang/data/basic_types.hpp>
 #include <quxlang/data/class_layout.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
+#include <quxlang/data/target_configuration.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/data/type_placement_info.hpp>
 #include <quxlang/vmir2/source_index.hpp>
@@ -58,6 +59,8 @@ namespace quxlang::llvm_backend
         llvm_compilation_target machine_target;
         /// whole_module requests that indirect helper definitions stay in the emitted module as linkonce_odr bodies.
         bool whole_module = false;
+        /// whole_module_output_kind describes the final artifact kind when this packet is one aggregate output module.
+        std::optional< output_kind > whole_module_output_kind;
         std::optional< rpnx::cow< vmir2::source_index > > source_index;
         std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
         std::map<type_symbol, asm_procedure> asm_functions;
@@ -69,7 +72,7 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, source_index, inlinable_functions, asm_functions, procedure_linksymbols, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, source_index, inlinable_functions, asm_functions, procedure_linksymbols, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
 
 

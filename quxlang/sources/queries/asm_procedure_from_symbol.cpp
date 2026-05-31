@@ -13,9 +13,16 @@
 rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::asm_procedure_from_symbol_impl(type_symbol input)
 {
     type_symbol declaration_symbol = input;
+    std::optional< std::uint64_t > selected_overload_id;
     if (typeis< instanciation_reference >(input))
     {
+        selected_overload_id = as< instanciation_reference >(input).temploid.overload_id;
         declaration_symbol = as< instanciation_reference >(input).temploid.templexoid;
+    }
+    else if (typeis< temploid_reference >(input))
+    {
+        selected_overload_id = as< temploid_reference >(input).overload_id;
+        declaration_symbol = as< temploid_reference >(input).templexoid;
     }
 
     auto ast = co_await rpnx::querygraph::request< symboid_query >(declaration_symbol);
@@ -31,6 +38,34 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
     out.architecture = proc.architecture;
 
     out.name = mangle(input);
+
+    if (!proc.callable_interfaces.empty())
+    {
+        std::uint64_t callable_index = selected_overload_id.value_or(0);
+        if (!selected_overload_id.has_value() && proc.callable_interfaces.size() != 1)
+        {
+            throw quxlang::compiler_bug("Callable asm procedure requires an explicit overload selection");
+        }
+        if (callable_index >= proc.callable_interfaces.size())
+        {
+            throw quxlang::compiler_bug("Asm procedure overload id is out of range");
+        }
+
+        ast2_asm_callable const& callable = proc.callable_interfaces.at(static_cast< std::size_t >(callable_index));
+        asm_callable selected_callable;
+        selected_callable.calling_conv = callable.calling_conv;
+        selected_callable.clobber = callable.clobber;
+        selected_callable.return_register_name = callable.return_register_name;
+        selected_callable.return_type = callable.return_type;
+        for (ast2_argument_interface const& argument : callable.args)
+        {
+            selected_callable.args.push_back(asm_argument_binding{
+                .register_name = argument.register_name,
+                .type = argument.type,
+            });
+        }
+        out.callable_interface = std::move(selected_callable);
+    }
 
     for (auto const& inst : proc.instructions)
     {

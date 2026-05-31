@@ -150,12 +150,14 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/basic_types.hpp
         include/quxlang/llvm-backend.hpp
         sources/llvm-backend.cpp
+        include/quxlang/linker/elf_linker.hpp
+        sources/linker/elf_linker.cpp
         include/quxlang/profiling.hpp
         include/quxlang/llvm-backend-types.hpp
 )
 add_library(Quxlang::quxlang ALIAS quxlang)
 
-llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter X86 AArch64 ARM RISCV)
+llvm_map_components_to_libnames(QUXLANG_LLVM_LIBS Core Support BitWriter Passes TransformUtils Target CodeGen MC MCParser AsmParser AsmPrinter Object X86 AArch64 ARM RISCV)
 
 
 add_library(quxlang-loaders

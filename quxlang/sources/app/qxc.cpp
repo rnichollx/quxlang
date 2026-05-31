@@ -26,6 +26,7 @@
 #include "quxlang/queries/type_placement_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
+#include "quxlang/linker/elf_linker.hpp"
 #include "quxlang/source_loader.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "quxlang/vmir2/routine_requirements.hpp"
@@ -631,6 +632,70 @@ namespace
     }
 
     /**
+     * Writes one aggregated output executable ELF file for qxc output.
+     */
+    auto write_output_executable_file(
+        std::filesystem::path const& build_dir,
+        std::string const& output_name,
+        std::vector< std::byte > const& file_bytes) -> std::filesystem::path
+    {
+        std::filesystem::path const executable_path = quxlang::qxc_detail::make_output_executable_output_path(build_dir, output_name);
+        std::filesystem::create_directories(executable_path.parent_path());
+
+        std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to open output executable file: " + executable_path.string());
+        }
+
+        outfile.write(reinterpret_cast< char const* >(file_bytes.data()), static_cast< std::streamsize >(file_bytes.size()));
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to write output executable file: " + executable_path.string());
+        }
+
+        std::filesystem::permissions(
+            executable_path,
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::owner_exec | std::filesystem::perms::group_read |
+                std::filesystem::perms::group_exec | std::filesystem::perms::others_read | std::filesystem::perms::others_exec,
+            std::filesystem::perm_options::replace);
+
+        return executable_path;
+    }
+
+    /**
+     * Writes one aggregated optimized output executable ELF file for qxc output.
+     */
+    auto write_optimized_output_executable_file(
+        std::filesystem::path const& build_dir,
+        std::string const& output_name,
+        std::vector< std::byte > const& file_bytes) -> std::filesystem::path
+    {
+        std::filesystem::path const executable_path = quxlang::qxc_detail::make_optimized_output_executable_output_path(build_dir, output_name);
+        std::filesystem::create_directories(executable_path.parent_path());
+
+        std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to open optimized output executable file: " + executable_path.string());
+        }
+
+        outfile.write(reinterpret_cast< char const* >(file_bytes.data()), static_cast< std::streamsize >(file_bytes.size()));
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to write optimized output executable file: " + executable_path.string());
+        }
+
+        std::filesystem::permissions(
+            executable_path,
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::owner_exec | std::filesystem::perms::group_read |
+                std::filesystem::perms::group_exec | std::filesystem::perms::others_read | std::filesystem::perms::others_exec,
+            std::filesystem::perm_options::replace);
+
+        return executable_path;
+    }
+
+    /**
      * Writes one aggregated optimized output-module LLVM object file for qxc output.
      */
     auto write_optimized_output_module_object_file(
@@ -1005,13 +1070,16 @@ int main(int argc, char** argv)
             quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
 
             std::filesystem::path const build_dir = output / target_name / "build";
+            std::filesystem::path const output_dir = output / target_name / "output";
             std::filesystem::create_directories(build_dir);
+            std::filesystem::create_directories(output_dir);
 
             struct output_entry
             {
                 std::string output_name;
                 std::string module_name;
                 std::string main_functanoid;
+                quxlang::output_kind type;
             };
 
             std::vector< output_entry > outputs_to_compile;
@@ -1021,6 +1089,7 @@ int main(int argc, char** argv)
                     .output_name = "default",
                     .module_name = "main",
                     .main_functanoid = "::main#()",
+                    .type = quxlang::output_kind::executable,
                 });
             }
             else
@@ -1031,6 +1100,7 @@ int main(int argc, char** argv)
                         .output_name = output_name,
                         .module_name = output_config.module.value_or("main"),
                         .main_functanoid = output_config.main_functanoid.value_or("::main#()"),
+                        .type = output_config.type,
                     });
                 }
             }
@@ -1336,6 +1406,7 @@ int main(int argc, char** argv)
                 output_module_unit.machine_target.machine = target_config.target_output_config;
                 output_module_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
                 output_module_unit.whole_module = true;
+                output_module_unit.whole_module_output_kind = output_entry.type;
                 output_module_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                 output_module_unit.procedure_linksymbols = output_tree.support.procedure_linksymbols;
                 output_module_unit.antestatal_constants = output_tree.support.antestatal_constants;
@@ -1369,6 +1440,25 @@ int main(int argc, char** argv)
                     std::cout << "Wrote optimized output-module LLVM: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_path.string() << std::endl;
                     std::cout << "Wrote output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << output_module_object_path.string() << std::endl;
                     std::cout << "Wrote optimized output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_object_path.string() << std::endl;
+                }
+
+                if (output_entry.type == quxlang::output_kind::executable && target_config.target_output_config.os_type == quxlang::os::linux &&
+                    target_config.target_output_config.binary_type == quxlang::binary::elf)
+                {
+                    quxlang::elf_linker linker;
+                    std::vector< std::byte > const executable_bytes =
+                        linker.link_linux_executable(target_config.target_output_config, output_module.object_file, "_start");
+                    std::vector< std::byte > const optimized_executable_bytes =
+                        linker.link_linux_executable(target_config.target_output_config, output_module.optimized_object_file, "_start");
+                    std::filesystem::path const executable_path =
+                        write_output_executable_file(output_dir, output_entry.output_name, executable_bytes);
+                    std::filesystem::path const optimized_executable_path =
+                        write_optimized_output_executable_file(output_dir, output_entry.output_name, optimized_executable_bytes);
+                    if (verbose)
+                    {
+                        std::cout << "Wrote output executable: " << target_name << "/" << output_entry.output_name << " -> " << executable_path.string() << std::endl;
+                        std::cout << "Wrote optimized output executable: " << target_name << "/" << output_entry.output_name << " -> " << optimized_executable_path.string() << std::endl;
+                    }
                 }
             }
             active_target_name.reset();
