@@ -2,7 +2,7 @@
 
 ## Progress status:
 
-qxc is able to compile and link a hello world program for linux targets, but it's not nearly well-tested enough to be used for production yet.
+`qxc` is able to compile and link a hello world program for linux targets, but it's not nearly well-tested enough to be used for production yet. Also, there is no standard library yet, so you will have fun writing assembler for every system call you need.
 
 ## Overview
 
