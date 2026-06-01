@@ -35,6 +35,11 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
     }
 
     auto proc = as< ast2_asm_procedure_declaration >(ast);
+    if (proc.kind == ast2_asm_declaration_kind::inline_function)
+    {
+        throw quxlang::semantic_compilation_error("ASM_INLINE_FUNCTION backend support is not implemented");
+    }
+
     out.architecture = proc.architecture;
 
     out.name = mangle(input);

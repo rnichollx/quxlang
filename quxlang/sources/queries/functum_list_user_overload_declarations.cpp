@@ -65,6 +65,11 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
     if (maybe_functum_ast.type_is< ast2_asm_procedure_declaration >())
     {
         ast2_asm_procedure_declaration const& asm_decl = maybe_functum_ast.get_as< ast2_asm_procedure_declaration >();
+        if (asm_decl.kind == ast2_asm_declaration_kind::inline_function)
+        {
+            co_return result;
+        }
+
         for (ast2_asm_callable const& callable : asm_decl.callable_interfaces)
         {
             ast2_function_declaration declaration;

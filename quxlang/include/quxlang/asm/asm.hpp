@@ -37,7 +37,7 @@ namespace quxlang
     struct asm_argument_binding
     {
         /// Target register name for this callable argument.
-        std::string register_name;
+        std::optional< std::string > register_name;
         /// Source-level parameter type corresponding to the bound register.
         type_symbol type;
 

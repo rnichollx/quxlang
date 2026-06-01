@@ -15,6 +15,7 @@
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
 RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_compilation_failure);
+RPNX_ENUM(quxlang, ast2_asm_declaration_kind, std::uint16_t, procedure, inline_function);
 
 namespace quxlang
 {
@@ -81,7 +82,7 @@ namespace quxlang
 
     struct ast2_argument_interface
     {
-        std::string register_name;
+        std::optional< std::string > register_name;
         type_symbol type;
 
         RPNX_MEMBER_METADATA(ast2_argument_interface, register_name, type);
@@ -128,12 +129,13 @@ namespace quxlang
 
     struct ast2_asm_procedure_declaration
     {
+        ast2_asm_declaration_kind kind = ast2_asm_declaration_kind::procedure;
         std::string architecture;
         std::vector< ast2_asm_instruction > instructions;
         std::vector< ast2_asm_callable > callable_interfaces;
         std::vector< type_symbol > imports;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, architecture, instructions, callable_interfaces, imports);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_asm_procedure_declaration, kind, architecture, instructions, callable_interfaces, imports);
     };
 
     struct ast2_namespace_declaration

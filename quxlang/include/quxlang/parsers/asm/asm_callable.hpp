@@ -18,7 +18,111 @@
 namespace quxlang::parsers
 {
 
-    inline std::optional< ast2_asm_callable > try_parse_asm_callable(parsing_context& ctx)
+    /**
+     * Parses the CALLABLE surface for ASM_PROCEDURE declarations.
+     *
+     * ASM_PROCEDURE follows a normal calling convention, so argument and return
+     * registers are not part of the source surface.
+     */
+    inline std::optional< ast2_asm_callable > try_parse_asm_procedure_callable(parsing_context& ctx)
+    {
+        ast2_asm_callable output;
+        auto trial = ctx;
+        auto& pos = trial.iter_pos;
+        auto end = trial.iter_end;
+
+        skip_whitespace_and_comments(pos, end);
+        if (!parsers::skip_keyword_if_is(pos, end, "CALLABLE"))
+        {
+            return std::nullopt;
+        }
+        parsers::skip_whitespace_and_comments(pos, end);
+
+        if (parsers::skip_keyword_if_is(pos, end, "CALLCONV"))
+        {
+            parsers::skip_whitespace_and_comments(pos, end);
+            std::string callconv = parsers::parse_keyword(pos, end);
+            if (callconv.empty())
+            {
+                throw syntax_compilation_error("Expected calling convention name in ASM_PROCEDURE CALLABLE expression");
+            }
+            output.calling_conv = std::move(callconv);
+            parsers::skip_whitespace_and_comments(pos, end);
+        }
+        else
+        {
+            output.calling_conv = "CCALL";
+        }
+
+        if (!skip_symbol_if_is(pos, end, "("))
+        {
+            throw syntax_compilation_error("Expected '(' in ASM_PROCEDURE CALLABLE expression");
+        }
+
+        bool parsing_return = false;
+        while (true)
+        {
+            parsers::skip_whitespace_and_comments(pos, end);
+            if (skip_symbol_if_is(pos, end, ")"))
+            {
+                break;
+            }
+
+            if (parsing_return || skip_symbol_if_is(pos, end, ";"))
+            {
+                parsing_return = true;
+                parsers::skip_whitespace_and_comments(pos, end);
+                if (!parsers::skip_keyword_if_is(pos, end, "RETURN"))
+                {
+                    throw syntax_compilation_error("Expected RETURN after ';' in ASM_PROCEDURE CALLABLE expression");
+                }
+
+                parsers::skip_whitespace_and_comments(pos, end);
+                output.return_type = parsers::parse_type_symbol(trial);
+                parsers::skip_whitespace_and_comments(pos, end);
+
+                if (!skip_symbol_if_is(pos, end, ")"))
+                {
+                    throw syntax_compilation_error("Expected ')' after ASM_PROCEDURE CALLABLE return declaration");
+                }
+                break;
+            }
+
+            type_symbol input_type = parsers::parse_type_symbol(trial);
+
+            output.args.push_back(ast2_argument_interface{.register_name = std::nullopt, .type = std::move(input_type)});
+
+            parsers::skip_whitespace_and_comments(pos, end);
+
+            if (skip_symbol_if_is(pos, end, ")"))
+            {
+                break;
+            }
+
+            if (skip_symbol_if_is(pos, end, ";"))
+            {
+                parsing_return = true;
+                continue;
+            }
+
+            if (!skip_symbol_if_is(pos, end, ","))
+            {
+                throw syntax_compilation_error("Expected ',' in ASM_PROCEDURE CALLABLE expression");
+            }
+        }
+
+        ctx.iter_pos = pos;
+        return std::move(output);
+
+    }
+
+    /**
+     * Parses the CALLABLE surface for ASM_INLINE_FUNCTION declarations.
+     *
+     * ASM_INLINE_FUNCTION keeps explicit register bindings and clobber metadata.
+     * Backend support is intentionally not provided yet.
+     */
+    inline std::optional< ast2_asm_callable > try_parse_asm_inline_callable(parsing_context& ctx)
     {
         ast2_asm_callable output;
         auto trial = ctx;
@@ -36,13 +140,12 @@ namespace quxlang::parsers
         {
             parsers::skip_whitespace_and_comments(pos, end);
 
-            std::string callconv = parsers::parse_identifier(pos, end);
+            std::string callconv = parsers::parse_keyword(pos, end);
 
             output.calling_conv = std::move(callconv);
 
             parsers::skip_whitespace_and_comments(pos, end);
         }
-
         else
         {
             output.calling_conv = "CCALL";
@@ -50,9 +153,10 @@ namespace quxlang::parsers
 
         if (!skip_symbol_if_is(pos, end, "("))
         {
-            throw syntax_compilation_error("Expected '(' in CALLABLE expression");
+            throw syntax_compilation_error("Expected '(' in ASM_INLINE_FUNCTION CALLABLE expression");
         }
 
+        bool parsing_sections = false;
         while (true)
         {
             parsers::skip_whitespace_and_comments(pos, end);
@@ -61,25 +165,73 @@ namespace quxlang::parsers
                 break;
             }
 
-            if (skip_symbol_if_is(pos, end, ";"))
+            if (parsing_sections || skip_symbol_if_is(pos, end, ";"))
             {
+                parsing_sections = true;
                 parsers::skip_whitespace_and_comments(pos, end);
-                if (!parsers::skip_keyword_if_is(pos, end, "RETURN"))
+                if (parsers::skip_keyword_if_is(pos, end, "RETURN"))
                 {
-                    throw syntax_compilation_error("Expected RETURN after ';' in CALLABLE expression");
+                    parsers::skip_whitespace_and_comments(pos, end);
+                    output.return_register_name = parse_register(pos, end);
+                    parsers::skip_whitespace_and_comments(pos, end);
+                    output.return_type = parsers::parse_type_symbol(trial);
+                    parsers::skip_whitespace_and_comments(pos, end);
+
+                    if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+
+                    if (!skip_symbol_if_is(pos, end, ";"))
+                    {
+                        throw syntax_compilation_error("Expected ';' or ')' after ASM_INLINE_FUNCTION CALLABLE return declaration");
+                    }
+                    continue;
+                }
+                if (parsers::skip_keyword_if_is(pos, end, "CLOBBER"))
+                {
+                    parsers::skip_whitespace_and_comments(pos, end);
+                    if (!skip_symbol_if_is(pos, end, "("))
+                    {
+                        throw syntax_compilation_error("Expected '(' after CLOBBER in ASM_INLINE_FUNCTION CALLABLE expression");
+                    }
+
+                    while (true)
+                    {
+                        parsers::skip_whitespace_and_comments(pos, end);
+                        if (skip_symbol_if_is(pos, end, ")"))
+                        {
+                            break;
+                        }
+
+                        output.clobber.insert(parse_register(pos, end));
+                        parsers::skip_whitespace_and_comments(pos, end);
+
+                        if (skip_symbol_if_is(pos, end, ")"))
+                        {
+                            break;
+                        }
+
+                        if (!skip_symbol_if_is(pos, end, ","))
+                        {
+                            throw syntax_compilation_error("Expected ',' in ASM_INLINE_FUNCTION clobber list");
+                        }
+                    }
+
+                    parsers::skip_whitespace_and_comments(pos, end);
+                    if (skip_symbol_if_is(pos, end, ")"))
+                    {
+                        break;
+                    }
+
+                    if (!skip_symbol_if_is(pos, end, ";"))
+                    {
+                        throw syntax_compilation_error("Expected ';' or ')' after ASM_INLINE_FUNCTION clobber list");
+                    }
+                    continue;
                 }
 
-                parsers::skip_whitespace_and_comments(pos, end);
-                output.return_register_name = parse_register(pos, end);
-                parsers::skip_whitespace_and_comments(pos, end);
-                output.return_type = parsers::parse_type_symbol(trial);
-                parsers::skip_whitespace_and_comments(pos, end);
-
-                if (!skip_symbol_if_is(pos, end, ")"))
-                {
-                    throw syntax_compilation_error("Expected ')' after CALLABLE return declaration");
-                }
-                break;
+                throw syntax_compilation_error("Expected RETURN or CLOBBER after ';' in ASM_INLINE_FUNCTION CALLABLE expression");
             }
 
             auto register_name = parse_register(pos, end);
@@ -88,7 +240,7 @@ namespace quxlang::parsers
 
             auto input_type = parsers::parse_type_symbol(trial);
 
-            output.args.push_back(ast2_argument_interface{.register_name = std::move(register_name), .type = std::move(input_type)});
+            output.args.push_back(ast2_argument_interface{.register_name = std::optional< std::string >(std::move(register_name)), .type = std::move(input_type)});
 
             parsers::skip_whitespace_and_comments(pos, end);
 
@@ -99,28 +251,13 @@ namespace quxlang::parsers
 
             if (skip_symbol_if_is(pos, end, ";"))
             {
-                parsers::skip_whitespace_and_comments(pos, end);
-                if (!parsers::skip_keyword_if_is(pos, end, "RETURN"))
-                {
-                    throw syntax_compilation_error("Expected RETURN after ';' in CALLABLE expression");
-                }
-
-                parsers::skip_whitespace_and_comments(pos, end);
-                output.return_register_name = parse_register(pos, end);
-                parsers::skip_whitespace_and_comments(pos, end);
-                output.return_type = parsers::parse_type_symbol(trial);
-                parsers::skip_whitespace_and_comments(pos, end);
-
-                if (!skip_symbol_if_is(pos, end, ")"))
-                {
-                    throw syntax_compilation_error("Expected ')' after CALLABLE return declaration");
-                }
-                break;
+                parsing_sections = true;
+                continue;
             }
 
             if (!skip_symbol_if_is(pos, end, ","))
             {
-                throw syntax_compilation_error("Expected ',' in CALLABLE expression");
+                throw syntax_compilation_error("Expected ',' in ASM_INLINE_FUNCTION CALLABLE expression");
             }
         }
 

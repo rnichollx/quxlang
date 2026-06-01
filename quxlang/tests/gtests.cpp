@@ -502,7 +502,7 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
 ::write ASM_PROCEDURE X64
-  CALLABLE(RDI I32, RSI CONST=>> BYTE, RDX SZ; RETURN RAX SZ)
+  CALLABLE CALLCONV CCALL(I32, CONST=>> BYTE, SZ; RETURN SZ)
 {
   MOV RAX, 1
   SYSCALL
@@ -513,13 +513,16 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
     ASSERT_EQ(file.declarations.size(), 1);
     quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
     quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
     EXPECT_EQ(declaration.architecture, "X64");
     ASSERT_EQ(declaration.callable_interfaces.size(), 1);
     quxlang::ast2_asm_callable const& callable = declaration.callable_interfaces.front();
     EXPECT_EQ(callable.calling_conv, "CCALL");
     ASSERT_EQ(callable.args.size(), 3);
-    ASSERT_TRUE(callable.return_register_name.has_value());
-    EXPECT_EQ(*callable.return_register_name, "rax");
+    EXPECT_FALSE(callable.args.at(0).register_name.has_value());
+    EXPECT_FALSE(callable.args.at(1).register_name.has_value());
+    EXPECT_FALSE(callable.args.at(2).register_name.has_value());
+    EXPECT_FALSE(callable.return_register_name.has_value());
     ASSERT_TRUE(callable.return_type.has_value());
     EXPECT_EQ(*callable.return_type, parse_type_symbol("SZ"));
     EXPECT_EQ(callable.args.at(0).type, parse_type_symbol("I32"));
@@ -529,6 +532,64 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
     EXPECT_EQ(declaration.instructions.at(0).opcode_mnemonic, "MOV");
     EXPECT_EQ(declaration.instructions.at(1).opcode_mnemonic, "SYSCALL");
     EXPECT_EQ(declaration.instructions.at(2).opcode_mnemonic, "RET");
+}
+
+TEST(parsing, parse_asm_procedure_rejects_register_bound_callable_arguments)
+{
+    EXPECT_THROW(parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(RDI I32; RETURN SZ)
+{
+  RET
+}
+)QX"), std::logic_error);
+}
+
+TEST(parsing, parse_asm_procedure_callable_defaults_to_ccall)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE(I32; RETURN SZ)
+{
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    ASSERT_EQ(declaration.callable_interfaces.size(), 1);
+    EXPECT_EQ(declaration.callable_interfaces.front().calling_conv, "CCALL");
+}
+
+TEST(parsing, parse_asm_inline_function_callable_registers_and_clobbers)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::write ASM_INLINE_FUNCTION X64
+  CALLABLE(RDI I32, RSI CONST=>> BYTE; RETURN RAX SZ; CLOBBER(RCX, R11))
+{
+  MOV RAX, 1
+  SYSCALL
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::inline_function);
+    ASSERT_EQ(declaration.callable_interfaces.size(), 1);
+    quxlang::ast2_asm_callable const& callable = declaration.callable_interfaces.front();
+    ASSERT_EQ(callable.args.size(), 2);
+    ASSERT_TRUE(callable.args.at(0).register_name.has_value());
+    ASSERT_TRUE(callable.args.at(1).register_name.has_value());
+    EXPECT_EQ(*callable.args.at(0).register_name, "rdi");
+    EXPECT_EQ(*callable.args.at(1).register_name, "rsi");
+    ASSERT_TRUE(callable.return_register_name.has_value());
+    EXPECT_EQ(*callable.return_register_name, "rax");
+    ASSERT_TRUE(callable.return_type.has_value());
+    EXPECT_EQ(*callable.return_type, parse_type_symbol("SZ"));
+    EXPECT_TRUE(callable.clobber.contains("rcx"));
+    EXPECT_TRUE(callable.clobber.contains("r11"));
 }
 
 TEST(parsing, parse_basic_types)
@@ -1643,10 +1704,9 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     quxlang::asm_callable callable;
     callable.calling_conv = "CCALL";
     callable.args.push_back(quxlang::asm_argument_binding{
-        .register_name = "rdi",
+        .register_name = std::nullopt,
         .type = i32_type,
     });
-    callable.return_register_name = "rax";
     callable.return_type = i32_type;
 
     quxlang::asm_procedure procedure;
@@ -4730,7 +4790,7 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_mangled_symbol_for_selected_ove
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_PROCEDURE X64
-  CALLABLE(RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+  CALLABLE CALLCONV CCALL(I32, I32, I32; RETURN I32)
 {
     MOV RAX, 1
     SYSCALL
@@ -4768,6 +4828,25 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_mangled_symbol_for_selected_ove
     EXPECT_EQ(
         graph.make_request< quxlang::procedure_linksymbol_query >(quxlang::ast2_procedure_ref{.cc = "", .functanoid = inst}),
         quxlang::mangle(inst));
+}
+
+TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::write ASM_INLINE_FUNCTION X64
+  CALLABLE(RDI I32; RETURN RAX I32; CLOBBER(RCX))
+{
+    MOV RAX, RDI
+    RET
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
+    auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
+    EXPECT_TRUE(formal_ensigs.empty());
+    EXPECT_THROW(graph.make_request< quxlang::asm_procedure_from_symbol_query >(write_symbol), quxlang::compilation_error);
 }
 
 TEST(quxlang, nested_lambda_symbols_use_formal_thistype)
@@ -4820,7 +4899,7 @@ TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
 ::write ASM_PROCEDURE X64
-  CALLABLE(RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+  CALLABLE CALLCONV CCALL(I32, I32, I32; RETURN I32)
 {
     MOV RAX, 1
     SYSCALL

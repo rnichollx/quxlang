@@ -24,12 +24,22 @@ namespace quxlang::parsers
 
         skip_whitespace_and_comments(pos, end);
 
-        if (!skip_keyword_if_is(pos, end, "ASM_PROCEDURE"))
+        ast2_asm_declaration_kind kind;
+        if (skip_keyword_if_is(pos, end, "ASM_PROCEDURE"))
+        {
+            kind = ast2_asm_declaration_kind::procedure;
+        }
+        else if (skip_keyword_if_is(pos, end, "ASM_INLINE_FUNCTION"))
+        {
+            kind = ast2_asm_declaration_kind::inline_function;
+        }
+        else
         {
             return std::nullopt;
         }
 
         ast2_asm_procedure_declaration out;
+        out.kind = kind;
 
         skip_whitespace_and_comments(pos, end);
 
@@ -48,7 +58,15 @@ namespace quxlang::parsers
 
         loop:
         skip_whitespace_and_comments(pos, end);
-        if ((callable = try_parse_asm_callable(ctx)).has_value())
+        if (kind == ast2_asm_declaration_kind::procedure)
+        {
+            callable = try_parse_asm_procedure_callable(ctx);
+        }
+        else
+        {
+            callable = try_parse_asm_inline_callable(ctx);
+        }
+        if (callable.has_value())
         {
             out.callable_interfaces.push_back(std::move(*callable));
             skip_whitespace_and_comments(pos, end);
