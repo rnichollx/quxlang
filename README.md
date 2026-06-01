@@ -2,12 +2,7 @@
 
 ## Progress status:
 
-You cannot compile _anything_ yet. The compiler _only_ runs things in a _constexpr virtual machine_ at the moment. QXVMIRv2 does not have an LLVM translator at the moment (unlike v1).
-
-It may seem strange to focus on constexpr VM first, but this is where all the _difficult_ parts of the compiler are tested. It also really helps me to avoid debugging middle-end issues when working on the front-end to have a working constexpr VM.
-
-
-Latest video: https://www.youtube.com/watch?v=pjHL4K-AuKo
+qxc is able to compile and link a hello world program for linux targets, but it's not nearly well-tested enough to be used for production yet.
 
 ## Overview
 
@@ -41,7 +36,7 @@ Other libraries
 * YAMLCpp (Suggest using my fork at https://github.com/rnichollx/yaml-cpp, it can be made to compile with the official one but some CMake / CBuild integration doesn't work)
 * GTest (For tests)
 * Benchmark (For benchmarks; using my fork https://github.com/rnichollx/google-benchmark is suggested, although this mostly only matters if you want to use CBuild/CSetup)
-* ~~LLVM v16.0.6~~ (will return later, currently the machine code generator was removed for IRv1 and and IRv2 will reimplement it)
+* LLVM v22
 
 If you follow quick setup guide below, CBuild/CSetup are also required, but it's just a wrapper around CMake, so you don't need it.
 
