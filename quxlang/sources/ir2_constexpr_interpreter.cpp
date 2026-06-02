@@ -5755,6 +5755,28 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (typeis< readonly_constant >(type))
     {
+        if (typeis< antestatal_primitive >(value))
+        {
+            auto const& raw_const_data_bytes = as< antestatal_primitive >(value).value;
+            std::vector< std::byte > const_data_bytes = raw_const_data_bytes;
+            if (const_data_bytes.empty())
+            {
+                const_data_bytes.push_back(std::byte{0});
+            }
+
+            auto target_data = constdata(const_data_bytes);
+            auto start_ptr_impl = make_pointer_to(target_data->array_members.at(0));
+            auto end_ptr_impl = raw_const_data_bytes.empty() ? start_ptr_impl : pointer_arith(start_ptr_impl, raw_const_data_bytes.size(), void_type{});
+            auto start_ptr_object = object->struct_members["__start"];
+            auto end_ptr_object = object->struct_members["__end"];
+            begin_lifetime(start_ptr_object);
+            start_ptr_object->ref = start_ptr_impl;
+            begin_lifetime(end_ptr_object);
+            end_ptr_object->ref = end_ptr_impl;
+            begin_lifetime(object);
+            return;
+        }
+
         if (!typeis< antestatal_struct >(value))
         {
             throw constexpr_logic_execution_error("antestatal readonly constant initializer has non-struct value");
