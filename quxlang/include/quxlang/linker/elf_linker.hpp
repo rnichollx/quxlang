@@ -6,6 +6,7 @@
 #include <quxlang/data/machine.hpp>
 
 #include <cstddef>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,11 @@ namespace quxlang
     struct elf_link_options
     {
         bool preserve_symbols = false;
+
+        /**
+         * Maps raw object-file symbol names to names written in the output ELF symbol table.
+         */
+        std::map< std::string, std::string > symbol_display_names;
     };
 
     /**

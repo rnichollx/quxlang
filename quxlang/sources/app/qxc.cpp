@@ -1446,8 +1446,27 @@ int main(int argc, char** argv)
                     target_config.target_output_config.binary_type == quxlang::binary::elf)
                 {
                     quxlang::elf_linker linker;
+                    std::map< std::string, std::string > symbol_display_names;
+                    auto add_symbol_display_name = [&symbol_display_names](quxlang::type_symbol const& symbol)
+                    {
+                        symbol_display_names.emplace(quxlang::mangle(symbol), quxlang::to_string(symbol));
+                    };
+                    add_symbol_display_name(entry_functanoid);
+                    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : output_tree.routines)
+                    {
+                        add_symbol_display_name(routine_entry.first);
+                    }
+                    for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& asm_entry : output_tree.asm_routines)
+                    {
+                        add_symbol_display_name(asm_entry.first);
+                    }
+                    for (std::pair< quxlang::type_symbol const, quxlang::antestatal_value > const& constant_entry : output_tree.support.antestatal_constants)
+                    {
+                        add_symbol_display_name(constant_entry.first);
+                    }
                     quxlang::elf_link_options const debug_link_options{
                         .preserve_symbols = true,
+                        .symbol_display_names = std::move(symbol_display_names),
                     };
                     std::vector< std::byte > const executable_bytes =
                         linker.link_linux_executable(target_config.target_output_config, output_module.object_file, "_start", debug_link_options);

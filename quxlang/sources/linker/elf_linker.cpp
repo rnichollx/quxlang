@@ -535,8 +535,15 @@ namespace quxlang::detail
                 }
 
                 llvm::object::ELFSymbolRef const symbol(generic_symbol);
+                std::string symbol_name = take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str();
+                std::map< std::string, std::string >::const_iterator display_name = options.symbol_display_names.find(symbol_name);
+                if (display_name != options.symbol_display_names.end())
+                {
+                    symbol_name = display_name->second;
+                }
+
                 result.push_back(output_symbol{
-                    .name = take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str(),
+                    .name = std::move(symbol_name),
                     .value = symbol_output_value(symbol, *section_index),
                     .size = symbol.getSize(),
                     .binding = symbol.getBinding(),
