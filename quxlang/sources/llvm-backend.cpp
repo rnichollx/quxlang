@@ -464,7 +464,7 @@ namespace quxlang::llvm::detail
         auto should_emit_linux_start() const -> bool
         {
             return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable && input.machine_target.machine.os_type == quxlang::os::linux &&
-                   input.machine_target.machine.binary_type == quxlang::binary::elf;
+                   input.machine_target.machine.binary_type == quxlang::binary::elf && !input.executable_entry_symbol.has_value();
         }
 
         /**

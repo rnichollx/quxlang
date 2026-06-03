@@ -562,6 +562,25 @@ TEST(parsing, parse_asm_procedure_callable_defaults_to_ccall)
     EXPECT_EQ(declaration.callable_interfaces.front().calling_conv, "CCALL");
 }
 
+TEST(parsing, parse_program_start_asm_procedure_global_declaration)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    EXPECT_EQ(global.name, "PROGRAM_START");
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    EXPECT_EQ(declaration.kind, quxlang::ast2_asm_declaration_kind::procedure);
+    EXPECT_EQ(declaration.architecture, "X64");
+    ASSERT_EQ(declaration.instructions.size(), 1);
+    EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "RET");
+}
+
 TEST(parsing, parse_asm_inline_function_callable_registers_and_clobbers)
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
@@ -1650,6 +1669,44 @@ TEST(llvm_backend, linux_elf_executable_whole_module_emits_start_entrypoint)
     EXPECT_NE(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("call void @" + quxlang::mangle(routine_symbol) + "()"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
+}
+
+TEST(llvm_backend, linux_elf_executable_uses_provided_entrypoint_without_generated_start)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("linux_start_entry");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.executable_entry_symbol = "_S_RUNTIME_PROGRAM_START";
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
 }
 
 TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)

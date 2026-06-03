@@ -61,6 +61,8 @@ namespace quxlang::llvm_backend
         bool whole_module = false;
         /// whole_module_output_kind describes the final artifact kind when this packet is one aggregate output module.
         std::optional< output_kind > whole_module_output_kind;
+        /// executable_entry_symbol names an externally provided process entrypoint for executable output modules.
+        std::optional< std::string > executable_entry_symbol;
         std::optional< rpnx::cow< vmir2::source_index > > source_index;
         std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
         std::map<type_symbol, asm_procedure> asm_functions;
@@ -72,7 +74,7 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, source_index, inlinable_functions, asm_functions, procedure_linksymbols, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_functions, procedure_linksymbols, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
 
 

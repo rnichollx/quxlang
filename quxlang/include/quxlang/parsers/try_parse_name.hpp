@@ -4,7 +4,9 @@
 #define QUXLANG_PARSERS_TRY_PARSE_NAME_HEADER_GUARD
 
 #include "quxlang/data/compilation_result.hpp"
+#include "quxlang/parsers/keyword.hpp"
 #include <string>
+#include <utility>
 
 namespace quxlang::parsers
 {
@@ -15,11 +17,21 @@ namespace quxlang::parsers
 
         if (skip_symbol_if_is(pos, end, "."))
         {
-            output = {{true, parse_subentity(pos, end)}};
+            std::string name = parse_subentity(pos, end);
+            if (name.empty() && skip_keyword_if_is(pos, end, "PROGRAM_START"))
+            {
+                name = "PROGRAM_START";
+            }
+            output = {{true, std::move(name)}};
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
-            output = {{false, parse_subentity(pos, end)}};
+            std::string name = parse_subentity(pos, end);
+            if (name.empty() && skip_keyword_if_is(pos, end, "PROGRAM_START"))
+            {
+                name = "PROGRAM_START";
+            }
+            output = {{false, std::move(name)}};
         }
 
         if (output.has_value() && output->second.empty())
