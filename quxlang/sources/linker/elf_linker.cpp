@@ -27,11 +27,20 @@ namespace quxlang::detail
 {
     namespace llvm = ::llvm;
 
+    /**
+     * linked_section stores one allocated input section after qxc linker layout.
+     */
     struct linked_section
     {
         std::string name;
+        std::uint32_t section_name_offset = 0;
         std::uint64_t input_index = 0;
+        std::uint32_t section_type = llvm::ELF::SHT_PROGBITS;
+        std::uint32_t section_link = 0;
+        std::uint32_t section_info = 0;
+        std::uint64_t entry_size = 0;
         std::uint64_t alignment = 1;
+        bool allocated = true;
         bool writable = false;
         bool executable = false;
         bool nobits = false;
@@ -42,19 +51,46 @@ namespace quxlang::detail
         std::uint64_t virtual_address = 0;
     };
 
+    /**
+     * load_segment stores one output PT_LOAD program header.
+     */
+    struct load_segment
+    {
+        std::uint64_t file_offset = 0;
+        std::uint64_t virtual_address = 0;
+        std::uint64_t file_size = 0;
+        std::uint64_t memory_size = 0;
+        std::uint32_t flags = 0;
+    };
+
     struct got_slot
     {
         std::uint64_t target_address = 0;
         std::size_t slot_index = 0;
     };
 
+    struct output_symbol
+    {
+        std::string name;
+        std::uint64_t value = 0;
+        std::uint64_t size = 0;
+        std::uint8_t binding = 0;
+        std::uint8_t type = 0;
+        std::uint8_t other = 0;
+        std::uint16_t section_index = 0;
+    };
+
     class elf_link_session
     {
     public:
-        elf_link_session(quxlang::machine_target_info const& machine_info, std::vector< std::byte > const& object_file_bytes, std::string entry_symbol_name)
+        elf_link_session(quxlang::machine_target_info const& machine_info,
+                         std::vector< std::byte > const& object_file_bytes,
+                         std::string entry_symbol_name,
+                         quxlang::elf_link_options link_options)
             : machine(machine_info),
               object_bytes(object_file_bytes),
-              entry_symbol(std::move(entry_symbol_name))
+              entry_symbol(std::move(entry_symbol_name)),
+              options(link_options)
         {
         }
 
@@ -70,6 +106,11 @@ namespace quxlang::detail
                 layout_sections();
             }
             apply_relocations();
+            if (options.preserve_symbols)
+            {
+                add_symbol_sections();
+                layout_sections();
+            }
             return build_executable_image();
         }
 
@@ -77,9 +118,12 @@ namespace quxlang::detail
         quxlang::machine_target_info machine;
         std::vector< std::byte > const& object_bytes;
         std::string entry_symbol;
+        quxlang::elf_link_options options;
         std::unique_ptr< llvm::MemoryBuffer > object_buffer;
         std::unique_ptr< llvm::object::ObjectFile > object_file;
         std::vector< linked_section > sections;
+        std::vector< load_segment > load_segments;
+        std::vector< std::byte > section_name_table;
         std::map< std::uint64_t, std::size_t > output_section_indices_by_input_index;
         std::map< std::uint64_t, got_slot > got_slots_by_target_address;
         std::optional< std::size_t > got_section_index;
@@ -87,6 +131,12 @@ namespace quxlang::detail
         std::uint64_t page_alignment = 0x1000;
         std::uint64_t file_size = 0;
         std::uint64_t memory_size = 0;
+        std::uint64_t section_name_table_file_offset = 0;
+        std::uint32_t section_name_table_name_offset = 0;
+        std::uint64_t section_header_offset = 0;
+        std::uint16_t program_header_count = 0;
+        std::uint16_t section_header_count = 0;
+        std::uint16_t section_header_string_table_index = 0;
 
         template < typename T >
         auto take_or_throw(llvm::Expected< T > value, std::string const& context) const -> T
@@ -191,7 +241,9 @@ namespace quxlang::detail
                 linked_section output_section;
                 output_section.name = name;
                 output_section.input_index = generic_section.getIndex();
+                output_section.section_type = section.getType();
                 output_section.alignment = std::max< std::uint64_t >(1, generic_section.getAlignment().value());
+                output_section.allocated = true;
                 output_section.writable = (section.getFlags() & llvm::ELF::SHF_WRITE) != 0;
                 output_section.executable = (section.getFlags() & llvm::ELF::SHF_EXECINSTR) != 0;
                 output_section.nobits = section.getType() == llvm::ELF::SHT_NOBITS;
@@ -219,6 +271,72 @@ namespace quxlang::detail
             return (value + mask) & ~mask;
         }
 
+        auto section_program_flags(linked_section const& section) const -> std::uint32_t
+        {
+            std::uint32_t flags = llvm::ELF::PF_R;
+            if (section.writable)
+            {
+                flags |= llvm::ELF::PF_W;
+            }
+            if (section.executable)
+            {
+                flags |= llvm::ELF::PF_X;
+            }
+            return flags;
+        }
+
+        auto count_loadable_section_runs() const -> std::uint16_t
+        {
+            std::uint16_t count = 0;
+            std::optional< std::uint32_t > current_flags;
+            auto count_section = [&](linked_section const& section)
+            {
+                if (!section.allocated)
+                {
+                    return;
+                }
+                std::uint32_t const flags = section_program_flags(section);
+                if (!current_flags.has_value() || *current_flags != flags)
+                {
+                    ++count;
+                    current_flags = flags;
+                }
+            };
+
+            for (linked_section const& section : sections)
+            {
+                if (!section.nobits)
+                {
+                    count_section(section);
+                }
+            }
+
+            for (linked_section const& section : sections)
+            {
+                if (section.nobits)
+                {
+                    count_section(section);
+                }
+            }
+
+            return count;
+        }
+
+        void rebuild_section_name_table()
+        {
+            section_name_table.clear();
+            section_name_table.push_back(std::byte{0});
+            for (linked_section& section : sections)
+            {
+                section.section_name_offset = static_cast< std::uint32_t >(section_name_table.size());
+                for (char const c : section.name)
+                {
+                    section_name_table.push_back(static_cast< std::byte >(c));
+                }
+                section_name_table.push_back(std::byte{0});
+            }
+        }
+
         void layout_sections()
         {
             switch (machine.cpu_type)
@@ -236,41 +354,311 @@ namespace quxlang::detail
 
             std::uint64_t const elf_header_size = machine.pointer_size_bytes() == 8 ? 64 : 52;
             std::uint64_t const program_header_size = machine.pointer_size_bytes() == 8 ? 56 : 32;
-            std::uint64_t const header_end = elf_header_size + program_header_size;
+            std::uint64_t const section_header_entry_size = machine.pointer_size_bytes() == 8 ? 64 : 40;
+            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs());
+            std::uint64_t const header_end = elf_header_size + program_header_size * program_header_count;
             std::uint64_t file_cursor = align_up(header_end, page_alignment);
             std::uint64_t memory_cursor = file_cursor;
 
+            load_segments.clear();
+            load_segments.push_back(load_segment{
+                .file_offset = 0,
+                .virtual_address = executable_base_address,
+                .file_size = header_end,
+                .memory_size = header_end,
+                .flags = llvm::ELF::PF_R,
+            });
+            std::optional< std::size_t > current_load_segment_index;
+
+            auto begin_or_continue_segment = [&](std::uint32_t flags)
+            {
+                if (current_load_segment_index.has_value() && load_segments.at(*current_load_segment_index).flags == flags)
+                {
+                    return;
+                }
+
+                file_cursor = align_up(file_cursor, page_alignment);
+                memory_cursor = align_up(memory_cursor, page_alignment);
+                current_load_segment_index = load_segments.size();
+                load_segments.push_back(load_segment{
+                    .file_offset = file_cursor,
+                    .virtual_address = executable_base_address + memory_cursor,
+                    .file_size = 0,
+                    .memory_size = 0,
+                    .flags = flags,
+                });
+            };
+
+            auto update_current_segment = [&]()
+            {
+                if (!current_load_segment_index.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("ELF linker internal segment layout error");
+                }
+
+                load_segment& segment = load_segments.at(*current_load_segment_index);
+                segment.file_size = file_cursor - segment.file_offset;
+                segment.memory_size = memory_cursor - (segment.virtual_address - executable_base_address);
+            };
+
             for (linked_section& section : sections)
             {
-                if (section.nobits)
+                if (!section.allocated || section.nobits)
                 {
                     continue;
                 }
 
+                begin_or_continue_segment(section_program_flags(section));
                 file_cursor = align_up(file_cursor, section.alignment);
                 memory_cursor = align_up(memory_cursor, section.alignment);
                 section.file_offset = file_cursor;
                 section.virtual_address = executable_base_address + memory_cursor;
                 file_cursor += section.contents.size();
                 memory_cursor += section.memory_size;
+                update_current_segment();
             }
-
-            file_size = file_cursor;
 
             for (linked_section& section : sections)
             {
-                if (!section.nobits)
+                if (!section.allocated || !section.nobits)
                 {
                     continue;
                 }
 
+                begin_or_continue_segment(section_program_flags(section));
                 memory_cursor = align_up(memory_cursor, section.alignment);
-                section.file_offset = file_size;
+                section.file_offset = file_cursor;
                 section.virtual_address = executable_base_address + memory_cursor;
                 memory_cursor += section.memory_size;
+                update_current_segment();
             }
 
             memory_size = memory_cursor;
+            for (linked_section& section : sections)
+            {
+                if (section.allocated)
+                {
+                    continue;
+                }
+
+                file_cursor = align_up(file_cursor, section.alignment);
+                section.file_offset = file_cursor;
+                section.virtual_address = 0;
+                file_cursor += section.contents.size();
+                section.memory_size = section.contents.size();
+            }
+
+            rebuild_section_name_table();
+            section_name_table_name_offset = static_cast< std::uint32_t >(section_name_table.size());
+            std::string const section_name_table_name = ".shstrtab";
+            for (char const c : section_name_table_name)
+            {
+                section_name_table.push_back(static_cast< std::byte >(c));
+            }
+            section_name_table.push_back(std::byte{0});
+
+            section_name_table_file_offset = file_cursor;
+            file_cursor += section_name_table.size();
+            section_header_offset = align_up(file_cursor, machine.pointer_size_bytes() == 8 ? 8 : 4);
+            section_header_count = static_cast< std::uint16_t >(sections.size() + 2);
+            section_header_string_table_index = static_cast< std::uint16_t >(sections.size() + 1);
+            file_cursor = section_header_offset + section_header_count * section_header_entry_size;
+            file_size = file_cursor;
+        }
+
+        auto section_flags(linked_section const& section) const -> std::uint64_t
+        {
+            if (!section.allocated)
+            {
+                return 0;
+            }
+
+            std::uint64_t flags = llvm::ELF::SHF_ALLOC;
+            if (section.writable)
+            {
+                flags |= llvm::ELF::SHF_WRITE;
+            }
+            if (section.executable)
+            {
+                flags |= llvm::ELF::SHF_EXECINSTR;
+            }
+            return flags;
+        }
+
+        auto symbol_output_section_index(llvm::object::SymbolRef const& symbol) const -> std::optional< std::uint16_t >
+        {
+            std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
+            if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
+            {
+                return static_cast< std::uint16_t >(llvm::ELF::SHN_UNDEF);
+            }
+
+            if ((flags & llvm::object::BasicSymbolRef::SF_Absolute) != 0)
+            {
+                return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
+            }
+
+            llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
+            if (section_iter == object_file->section_end())
+            {
+                return static_cast< std::uint16_t >(llvm::ELF::SHN_ABS);
+            }
+
+            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section_iter->getIndex());
+            if (output_section_iter == output_section_indices_by_input_index.end())
+            {
+                return std::nullopt;
+            }
+
+            return static_cast< std::uint16_t >(output_section_iter->second + 1);
+        }
+
+        auto symbol_output_value(llvm::object::SymbolRef const& symbol, std::uint16_t section_index) const -> std::uint64_t
+        {
+            if (section_index == llvm::ELF::SHN_UNDEF || section_index == llvm::ELF::SHN_ABS)
+            {
+                return take_or_throw(symbol.getAddress(), "Failed to read ELF symbol address");
+            }
+
+            return symbol_address(symbol);
+        }
+
+        auto build_output_symbols() const -> std::vector< output_symbol >
+        {
+            std::vector< output_symbol > result;
+            for (llvm::object::SymbolRef const& generic_symbol : object_file->symbols())
+            {
+                std::optional< std::uint16_t > const section_index = symbol_output_section_index(generic_symbol);
+                if (!section_index.has_value())
+                {
+                    continue;
+                }
+
+                llvm::object::ELFSymbolRef const symbol(generic_symbol);
+                result.push_back(output_symbol{
+                    .name = take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str(),
+                    .value = symbol_output_value(symbol, *section_index),
+                    .size = symbol.getSize(),
+                    .binding = symbol.getBinding(),
+                    .type = symbol.getELFType(),
+                    .other = symbol.getOther(),
+                    .section_index = *section_index,
+                });
+            }
+
+            return result;
+        }
+
+        auto build_symbol_string_table(std::vector< output_symbol >& symbols) const -> std::vector< std::byte >
+        {
+            std::vector< std::byte > string_table;
+            string_table.push_back(std::byte{0});
+            for (output_symbol& symbol : symbols)
+            {
+                if (symbol.name.empty())
+                {
+                    continue;
+                }
+
+                for (char const c : symbol.name)
+                {
+                    string_table.push_back(static_cast< std::byte >(c));
+                }
+                string_table.push_back(std::byte{0});
+            }
+            return string_table;
+        }
+
+        void write_symbol_table_64(std::vector< std::byte >& symbol_table, std::size_t index, output_symbol const& symbol, std::uint32_t name_offset) const
+        {
+            std::size_t const offset = index * 24;
+            write_u32(symbol_table, offset, name_offset);
+            symbol_table[offset + 4] = static_cast< std::byte >((symbol.binding << 4) | (symbol.type & 0xf));
+            symbol_table[offset + 5] = static_cast< std::byte >(symbol.other);
+            write_u16(symbol_table, offset + 6, symbol.section_index);
+            write_u64(symbol_table, offset + 8, symbol.value);
+            write_u64(symbol_table, offset + 16, symbol.size);
+        }
+
+        void write_symbol_table_32(std::vector< std::byte >& symbol_table, std::size_t index, output_symbol const& symbol, std::uint32_t name_offset) const
+        {
+            std::size_t const offset = index * 16;
+            write_u32(symbol_table, offset, name_offset);
+            write_u32(symbol_table, offset + 4, static_cast< std::uint32_t >(symbol.value));
+            write_u32(symbol_table, offset + 8, static_cast< std::uint32_t >(symbol.size));
+            symbol_table[offset + 12] = static_cast< std::byte >((symbol.binding << 4) | (symbol.type & 0xf));
+            symbol_table[offset + 13] = static_cast< std::byte >(symbol.other);
+            write_u16(symbol_table, offset + 14, symbol.section_index);
+        }
+
+        auto build_symbol_table(std::vector< output_symbol > const& symbols) const -> std::vector< std::byte >
+        {
+            std::size_t const entry_size = machine.pointer_size_bytes() == 8 ? 24 : 16;
+            std::vector< std::byte > symbol_table((symbols.size() + 1) * entry_size, std::byte{0});
+            std::uint32_t name_offset = 1;
+            for (std::size_t i = 0; i < symbols.size(); ++i)
+            {
+                output_symbol const& symbol = symbols.at(i);
+                std::uint32_t const current_name_offset = symbol.name.empty() ? 0 : name_offset;
+                if (machine.pointer_size_bytes() == 8)
+                {
+                    write_symbol_table_64(symbol_table, i + 1, symbol, current_name_offset);
+                }
+                else
+                {
+                    write_symbol_table_32(symbol_table, i + 1, symbol, current_name_offset);
+                }
+
+                if (!symbol.name.empty())
+                {
+                    name_offset += static_cast< std::uint32_t >(symbol.name.size() + 1);
+                }
+            }
+            return symbol_table;
+        }
+
+        auto first_nonlocal_symbol_index(std::vector< output_symbol > const& symbols) const -> std::uint32_t
+        {
+            for (std::size_t i = 0; i < symbols.size(); ++i)
+            {
+                if (symbols.at(i).binding != llvm::ELF::STB_LOCAL)
+                {
+                    return static_cast< std::uint32_t >(i + 1);
+                }
+            }
+            return static_cast< std::uint32_t >(symbols.size() + 1);
+        }
+
+        void add_symbol_sections()
+        {
+            std::vector< output_symbol > symbols = build_output_symbols();
+            std::vector< std::byte > string_table = build_symbol_string_table(symbols);
+            std::vector< std::byte > symbol_table = build_symbol_table(symbols);
+
+            linked_section string_table_section;
+            string_table_section.name = ".strtab";
+            string_table_section.section_type = llvm::ELF::SHT_STRTAB;
+            string_table_section.alignment = 1;
+            string_table_section.allocated = false;
+            string_table_section.synthetic = true;
+            string_table_section.contents = std::move(string_table);
+            string_table_section.memory_size = string_table_section.contents.size();
+
+            std::uint32_t const string_table_section_index = static_cast< std::uint32_t >(sections.size() + 1);
+            sections.push_back(std::move(string_table_section));
+
+            linked_section symbol_table_section;
+            symbol_table_section.name = ".symtab";
+            symbol_table_section.section_type = llvm::ELF::SHT_SYMTAB;
+            symbol_table_section.section_link = string_table_section_index;
+            symbol_table_section.section_info = first_nonlocal_symbol_index(symbols);
+            symbol_table_section.entry_size = machine.pointer_size_bytes() == 8 ? 24 : 16;
+            symbol_table_section.alignment = machine.pointer_size_bytes() == 8 ? 8 : 4;
+            symbol_table_section.allocated = false;
+            symbol_table_section.synthetic = true;
+            symbol_table_section.contents = std::move(symbol_table);
+            symbol_table_section.memory_size = symbol_table_section.contents.size();
+            sections.push_back(std::move(symbol_table_section));
         }
 
         auto symbol_address(llvm::object::SymbolRef const& symbol) const -> std::uint64_t
@@ -712,14 +1100,14 @@ namespace quxlang::detail
                 write_u32(output_file_bytes, 20, 1);
                 write_u64(output_file_bytes, 24, entry_point);
                 write_u64(output_file_bytes, 32, 64);
-                write_u64(output_file_bytes, 40, 0);
+                write_u64(output_file_bytes, 40, section_header_offset);
                 write_u32(output_file_bytes, 48, 0);
                 write_u16(output_file_bytes, 52, 64);
                 write_u16(output_file_bytes, 54, 56);
-                write_u16(output_file_bytes, 56, 1);
-                write_u16(output_file_bytes, 58, 0);
-                write_u16(output_file_bytes, 60, 0);
-                write_u16(output_file_bytes, 62, 0);
+                write_u16(output_file_bytes, 56, program_header_count);
+                write_u16(output_file_bytes, 58, 64);
+                write_u16(output_file_bytes, 60, section_header_count);
+                write_u16(output_file_bytes, 62, section_header_string_table_index);
                 return;
             }
 
@@ -736,56 +1124,203 @@ namespace quxlang::detail
             write_u32(output_file_bytes, 20, 1);
             write_u32(output_file_bytes, 24, static_cast< std::uint32_t >(entry_point));
             write_u32(output_file_bytes, 28, 52);
-            write_u32(output_file_bytes, 32, 0);
+            write_u32(output_file_bytes, 32, static_cast< std::uint32_t >(section_header_offset));
             write_u32(output_file_bytes, 36, 0);
             write_u16(output_file_bytes, 40, 52);
             write_u16(output_file_bytes, 42, 32);
-            write_u16(output_file_bytes, 44, 1);
-            write_u16(output_file_bytes, 46, 0);
-            write_u16(output_file_bytes, 48, 0);
-            write_u16(output_file_bytes, 50, 0);
+            write_u16(output_file_bytes, 44, program_header_count);
+            write_u16(output_file_bytes, 46, 40);
+            write_u16(output_file_bytes, 48, section_header_count);
+            write_u16(output_file_bytes, 50, section_header_string_table_index);
         }
 
+        /**
+         * Writes all PT_LOAD program headers for the already-computed file layout.
+         */
         void write_program_header(std::vector< std::byte >& output_file_bytes) const
         {
             if (machine.pointer_size_bytes() == 8)
             {
-                write_u32(output_file_bytes, 64, llvm::ELF::PT_LOAD);
-                write_u32(output_file_bytes, 68, llvm::ELF::PF_R | llvm::ELF::PF_W | llvm::ELF::PF_X);
-                write_u64(output_file_bytes, 72, 0);
-                write_u64(output_file_bytes, 80, executable_base_address);
-                write_u64(output_file_bytes, 88, executable_base_address);
-                write_u64(output_file_bytes, 96, file_size);
-                write_u64(output_file_bytes, 104, memory_size);
-                write_u64(output_file_bytes, 112, page_alignment);
+                for (std::size_t i = 0; i < load_segments.size(); ++i)
+                {
+                    load_segment const& segment = load_segments.at(i);
+                    std::size_t const offset = 64 + i * 56;
+                    write_u32(output_file_bytes, offset, llvm::ELF::PT_LOAD);
+                    write_u32(output_file_bytes, offset + 4, segment.flags);
+                    write_u64(output_file_bytes, offset + 8, segment.file_offset);
+                    write_u64(output_file_bytes, offset + 16, segment.virtual_address);
+                    write_u64(output_file_bytes, offset + 24, segment.virtual_address);
+                    write_u64(output_file_bytes, offset + 32, segment.file_size);
+                    write_u64(output_file_bytes, offset + 40, segment.memory_size);
+                    write_u64(output_file_bytes, offset + 48, page_alignment);
+                }
                 return;
             }
 
-            write_u32(output_file_bytes, 52, llvm::ELF::PT_LOAD);
-            write_u32(output_file_bytes, 56, 0);
-            write_u32(output_file_bytes, 60, static_cast< std::uint32_t >(executable_base_address));
-            write_u32(output_file_bytes, 64, static_cast< std::uint32_t >(executable_base_address));
-            write_u32(output_file_bytes, 68, static_cast< std::uint32_t >(file_size));
-            write_u32(output_file_bytes, 72, static_cast< std::uint32_t >(memory_size));
-            write_u32(output_file_bytes, 76, llvm::ELF::PF_R | llvm::ELF::PF_W | llvm::ELF::PF_X);
-            write_u32(output_file_bytes, 80, static_cast< std::uint32_t >(page_alignment));
+            for (std::size_t i = 0; i < load_segments.size(); ++i)
+            {
+                load_segment const& segment = load_segments.at(i);
+                std::size_t const offset = 52 + i * 32;
+                write_u32(output_file_bytes, offset, llvm::ELF::PT_LOAD);
+                write_u32(output_file_bytes, offset + 4, static_cast< std::uint32_t >(segment.file_offset));
+                write_u32(output_file_bytes, offset + 8, static_cast< std::uint32_t >(segment.virtual_address));
+                write_u32(output_file_bytes, offset + 12, static_cast< std::uint32_t >(segment.virtual_address));
+                write_u32(output_file_bytes, offset + 16, static_cast< std::uint32_t >(segment.file_size));
+                write_u32(output_file_bytes, offset + 20, static_cast< std::uint32_t >(segment.memory_size));
+                write_u32(output_file_bytes, offset + 24, segment.flags);
+                write_u32(output_file_bytes, offset + 28, static_cast< std::uint32_t >(page_alignment));
+            }
+        }
+
+        /**
+         * Writes one ELF64 section header entry at the given section-header table index.
+         */
+        void write_section_header_64(std::vector< std::byte >& output_file_bytes,
+                                     std::size_t index,
+                                     std::uint32_t name_offset,
+                                     std::uint32_t type,
+                                     std::uint64_t flags,
+                                     std::uint64_t address,
+                                     std::uint64_t offset,
+                                     std::uint64_t size,
+                                     std::uint64_t alignment,
+                                     std::uint32_t link,
+                                     std::uint32_t info,
+                                     std::uint64_t entry_size) const
+        {
+            std::size_t const entry_offset = static_cast< std::size_t >(section_header_offset) + index * 64;
+            write_u32(output_file_bytes, entry_offset, name_offset);
+            write_u32(output_file_bytes, entry_offset + 4, type);
+            write_u64(output_file_bytes, entry_offset + 8, flags);
+            write_u64(output_file_bytes, entry_offset + 16, address);
+            write_u64(output_file_bytes, entry_offset + 24, offset);
+            write_u64(output_file_bytes, entry_offset + 32, size);
+            write_u32(output_file_bytes, entry_offset + 40, link);
+            write_u32(output_file_bytes, entry_offset + 44, info);
+            write_u64(output_file_bytes, entry_offset + 48, alignment);
+            write_u64(output_file_bytes, entry_offset + 56, entry_size);
+        }
+
+        /**
+         * Writes one ELF32 section header entry at the given section-header table index.
+         */
+        void write_section_header_32(std::vector< std::byte >& output_file_bytes,
+                                     std::size_t index,
+                                     std::uint32_t name_offset,
+                                     std::uint32_t type,
+                                     std::uint64_t flags,
+                                     std::uint64_t address,
+                                     std::uint64_t offset,
+                                     std::uint64_t size,
+                                     std::uint64_t alignment,
+                                     std::uint32_t link,
+                                     std::uint32_t info,
+                                     std::uint64_t entry_size) const
+        {
+            std::size_t const entry_offset = static_cast< std::size_t >(section_header_offset) + index * 40;
+            write_u32(output_file_bytes, entry_offset, name_offset);
+            write_u32(output_file_bytes, entry_offset + 4, type);
+            write_u32(output_file_bytes, entry_offset + 8, static_cast< std::uint32_t >(flags));
+            write_u32(output_file_bytes, entry_offset + 12, static_cast< std::uint32_t >(address));
+            write_u32(output_file_bytes, entry_offset + 16, static_cast< std::uint32_t >(offset));
+            write_u32(output_file_bytes, entry_offset + 20, static_cast< std::uint32_t >(size));
+            write_u32(output_file_bytes, entry_offset + 24, link);
+            write_u32(output_file_bytes, entry_offset + 28, info);
+            write_u32(output_file_bytes, entry_offset + 32, static_cast< std::uint32_t >(alignment));
+            write_u32(output_file_bytes, entry_offset + 36, static_cast< std::uint32_t >(entry_size));
+        }
+
+        /**
+         * Writes section headers for loadable output sections and the final section-name string table.
+         */
+        void write_section_headers(std::vector< std::byte >& output_file_bytes) const
+        {
+            for (std::size_t i = 0; i < sections.size(); ++i)
+            {
+                linked_section const& section = sections.at(i);
+                if (machine.pointer_size_bytes() == 8)
+                {
+                    write_section_header_64(output_file_bytes,
+                                            i + 1,
+                                            section.section_name_offset,
+                                            section.section_type,
+                                            section_flags(section),
+                                            section.virtual_address,
+                                            section.file_offset,
+                                            section.memory_size,
+                                            section.alignment,
+                                            section.section_link,
+                                            section.section_info,
+                                            section.entry_size);
+                }
+                else
+                {
+                    write_section_header_32(output_file_bytes,
+                                            i + 1,
+                                            section.section_name_offset,
+                                            section.section_type,
+                                            section_flags(section),
+                                            section.virtual_address,
+                                            section.file_offset,
+                                            section.memory_size,
+                                            section.alignment,
+                                            section.section_link,
+                                            section.section_info,
+                                            section.entry_size);
+                }
+            }
+
+            if (machine.pointer_size_bytes() == 8)
+            {
+                write_section_header_64(output_file_bytes,
+                                        section_header_string_table_index,
+                                        section_name_table_name_offset,
+                                        llvm::ELF::SHT_STRTAB,
+                                        0,
+                                        0,
+                                        section_name_table_file_offset,
+                                        section_name_table.size(),
+                                        1,
+                                        0,
+                                        0,
+                                        0);
+                return;
+            }
+
+            write_section_header_32(output_file_bytes,
+                                    section_header_string_table_index,
+                                    section_name_table_name_offset,
+                                    llvm::ELF::SHT_STRTAB,
+                                    0,
+                                    0,
+                                    section_name_table_file_offset,
+                                    section_name_table.size(),
+                                    1,
+                                    0,
+                                    0,
+                                    0);
         }
 
         auto build_executable_image() const -> std::vector< std::byte >
         {
             std::vector< std::byte > output_file_bytes(static_cast< std::size_t >(file_size), std::byte{0});
             copy_section_contents(output_file_bytes);
+            std::copy(section_name_table.begin(), section_name_table.end(), output_file_bytes.begin() + static_cast< std::ptrdiff_t >(section_name_table_file_offset));
             std::uint64_t const entry_point = entry_address();
             write_elf_header(output_file_bytes, entry_point);
             write_program_header(output_file_bytes);
+            write_section_headers(output_file_bytes);
             return output_file_bytes;
         }
     };
 } // namespace quxlang::detail
 
-auto quxlang::elf_linker::link_linux_executable(quxlang::machine_target_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const
+auto quxlang::elf_linker::link_linux_executable(quxlang::machine_target_info const& machine,
+                                                std::vector< std::byte > const& object_file,
+                                                std::string const& entry_symbol,
+                                                quxlang::elf_link_options const& options) const
     -> std::vector< std::byte >
 {
-    quxlang::detail::elf_link_session session(machine, object_file, entry_symbol);
+    quxlang::detail::elf_link_session session(machine, object_file, entry_symbol, options);
     return session.link();
 }

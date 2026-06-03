@@ -1446,8 +1446,11 @@ int main(int argc, char** argv)
                     target_config.target_output_config.binary_type == quxlang::binary::elf)
                 {
                     quxlang::elf_linker linker;
+                    quxlang::elf_link_options const debug_link_options{
+                        .preserve_symbols = true,
+                    };
                     std::vector< std::byte > const executable_bytes =
-                        linker.link_linux_executable(target_config.target_output_config, output_module.object_file, "_start");
+                        linker.link_linux_executable(target_config.target_output_config, output_module.object_file, "_start", debug_link_options);
                     std::vector< std::byte > const optimized_executable_bytes =
                         linker.link_linux_executable(target_config.target_output_config, output_module.optimized_object_file, "_start");
                     std::filesystem::path const executable_path =

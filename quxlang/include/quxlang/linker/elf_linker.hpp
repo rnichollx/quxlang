@@ -12,6 +12,14 @@
 namespace quxlang
 {
     /**
+     * elf_link_options controls optional metadata emitted into the final ELF image.
+     */
+    struct elf_link_options
+    {
+        bool preserve_symbols = false;
+    };
+
+    /**
      * elf_linker links one Linux ELF relocatable object into one standalone executable image.
      *
      * The linker consumes the object bytes in memory and returns the final ELF file bytes
@@ -25,7 +33,10 @@ namespace quxlang
          *
          * The entry symbol must be defined by the object, typically `_start`.
          */
-        auto link_linux_executable(machine_target_info const& machine, std::vector< std::byte > const& object_file, std::string const& entry_symbol) const -> std::vector< std::byte >;
+        auto link_linux_executable(machine_target_info const& machine,
+                                   std::vector< std::byte > const& object_file,
+                                   std::string const& entry_symbol,
+                                   elf_link_options const& options = {}) const -> std::vector< std::byte >;
     };
 } // namespace quxlang
 
