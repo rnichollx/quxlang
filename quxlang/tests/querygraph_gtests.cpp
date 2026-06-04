@@ -12,6 +12,7 @@
 #include <quxlang/queries/constexpr_u64.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
+#include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/implementation_function_map.hpp>
@@ -33,6 +34,7 @@
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
+#include <quxlang/queries/type_is_trivially_default_constructible.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -801,6 +803,97 @@ TEST(querygraph_queries, type_is_antestatal_accepts_conservative_shapes)
     ASSERT_FALSE(graph.make_request< quxlang::type_is_antestatal_query >(storage_type));
     ASSERT_FALSE(graph.make_request< quxlang::type_is_antestatal_query >(proc_type));
     ASSERT_TRUE(graph.make_request< quxlang::type_is_antestatal_query >(proc_ptr));
+}
+
+TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_constructible_shapes)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
+::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
+::flags FLAGSET [read, write];
+::trivial_record CLASS { .x VAR I32; .values VAR [3]I32; }
+::blocked_record CLASS NO_IMPLICIT_DEFAULT_CONSTRUCTOR { .x VAR I32; }
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+    auto f32 = quxlang::type_symbol(quxlang::float_type{32});
+    quxlang::procedure_type procedure;
+    procedure.signature.return_type = i32;
+    auto procedure_type = quxlang::type_symbol(procedure);
+    auto pointer_type = quxlang::type_symbol(quxlang::ptrref_type{.target = i32, .ptr_class = quxlang::pointer_class::instance, .qual = quxlang::qualifier::mut});
+    auto storage_type = quxlang::type_symbol(quxlang::storage{.storable_types = {i32}});
+    auto i32_array = quxlang::type_symbol(quxlang::array_type{.element_type = i32, .element_count = quxlang::expression_numeric_literal{"4"}});
+    auto custom_array = quxlang::type_symbol(quxlang::array_type{.element_type = quxlang::subsymbol{main, "custom_record"}, .element_count = quxlang::expression_numeric_literal{"2"}});
+
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(i32));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::bool_type{}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(f32));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(pointer_type));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(procedure_type));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(storage_type));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(i32_array));
+
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "flags"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "zero_enum"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "nonzero_enum"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "trivial_record"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "blocked_record"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "custom_record"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(custom_array));
+}
+
+TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::trivial_global VAR I32;
+::trivial_array_global VAR [2]I32;
+::explicit_global VAR I32 := 0;
+::custom_global VAR custom_record;
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    EXPECT_EQ(graph.make_request< quxlang::global_init_type_query >(quxlang::subsymbol{main, "trivial_global"}), quxlang::initialization_type::init_trivial);
+    EXPECT_EQ(graph.make_request< quxlang::global_init_type_query >(quxlang::subsymbol{main, "trivial_array_global"}), quxlang::initialization_type::init_trivial);
+    EXPECT_EQ(graph.make_request< quxlang::global_init_type_query >(quxlang::subsymbol{main, "explicit_global"}), quxlang::initialization_type::init_with_guard);
+    EXPECT_EQ(graph.make_request< quxlang::global_init_type_query >(quxlang::subsymbol{main, "custom_global"}), quxlang::initialization_type::init_with_guard);
+}
+
+TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_globals)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::trivial_global VAR I32;
+::custom_global VAR custom_record;
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto routine_text = [&](std::string const& name)
+    {
+        quxlang::type_symbol const global = quxlang::subsymbol{main, name};
+        auto inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+            .initializee = quxlang::submember{global, "GET_REFERENCE"},
+            .parameters = {},
+            .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+        });
+        EXPECT_TRUE(inst.has_value());
+        quxlang::vmir2::functanoid_routine3 routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+        return quxlang::vmir2::assembler(routine).to_string(routine);
+    };
+
+    std::string const trivial_text = routine_text("trivial_global");
+    EXPECT_NE(trivial_text.find("GET_GLOBAL_REF"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("GET_GLOBAL_STORAGE"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("STORAGE_PUN"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("INITGUARD_TRY_ACQUIRE"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("CALL"), std::string::npos);
+
+    std::string const custom_text = routine_text("custom_global");
+    EXPECT_NE(custom_text.find("INITGUARD_TRY_ACQUIRE"), std::string::npos);
 }
 
 TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_constructor)

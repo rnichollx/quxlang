@@ -16,7 +16,6 @@ namespace quxlang
     inline std::string lookup_llvm_triple(machine_target_info const& info)
     {
         std::string ret;
-        "armv8-a-unknown-unknown-unknown";
         switch (info.cpu_type)
         {
         case cpu::x86_32:

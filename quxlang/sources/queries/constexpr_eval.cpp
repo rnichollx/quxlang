@@ -190,11 +190,28 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
         co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     };
 
+    auto add_zero_initialized_global_storages = [&](vmir2::functanoid_routine3 const& routine) -> constexpr_eval_coroutine::cosubroutine< void >
+    {
+        for (type_symbol const& symbol : vmir2::directly_referenced_global_roots(routine))
+        {
+            initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(symbol);
+            if (init_type != initialization_type::init_trivial)
+            {
+                continue;
+            }
+
+            type_symbol type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
+            layout_types.insert(type);
+            interp.add_zero_initialized_global(symbol, type);
+        }
+    };
+
     auto ir3 = co_await rpnx::querygraph::request< constexpr_routine_query >(input);
     layout_types.insert(input.type);
     enqueue_layouts(vmir2::directly_required_class_layouts(ir3));
     enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
     enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
+    co_await add_zero_initialized_global_storages(ir3);
 
     interp.add_functanoid3(void_type{}, ir3);
     loaded_functanoids.insert(type_symbol(void_type{}));
@@ -265,6 +282,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_spec > quxlang::constexpr_e
             loaded_functanoids.insert(funcname);
             enqueue_layouts(vmir2::directly_required_class_layouts(ir2_other));
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
+            co_await add_zero_initialized_global_storages(ir2_other);
             enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));
         }
     }

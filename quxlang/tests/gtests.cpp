@@ -1861,6 +1861,48 @@ TEST(llvm_backend, object_reference_emits_addressable_global_storage)
     EXPECT_NE(result.optimized_llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = global i32 0"), std::string::npos);
 }
 
+TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("trivial_global_storage_test");
+    quxlang::type_symbol const object_symbol = make_symbol("trivial_global_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_global_ref{
+        .symbol = object_symbol,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common global i32 0"), std::string::npos);
+}
+
 TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
 {
     quxlang::asm_procedure procedure;

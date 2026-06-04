@@ -560,3 +560,14 @@
    VAR y CONST->I32 := SNAPSHOT(ptr);
    ASSERT(y-> == 4);
 }
+
+
+::zint VAR I32;
+
+::test_default_init_global STATIC_TEST
+{
+   ASSERT(zint == 0);
+   zint := 1;
+   ASSERT(zint == 1);
+}
+

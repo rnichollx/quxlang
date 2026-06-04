@@ -14,6 +14,7 @@
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
 #include "quxlang/queries/functanoid_return_type.hpp"
+#include "quxlang/queries/global_init_type.hpp"
 #include "quxlang/queries/global_is_antestatal_static.hpp"
 #include "quxlang/queries/interface_slot_list.hpp"
 #include "quxlang/queries/instanciation.hpp"
@@ -825,6 +826,7 @@ namespace
         std::map< quxlang::type_symbol, std::string > procedure_linksymbols;
         std::map< quxlang::type_symbol, quxlang::type_symbol > object_reference_types;
         std::map< quxlang::type_symbol, quxlang::antestatal_value > antestatal_constants;
+        std::map< quxlang::type_symbol, quxlang::initialization_type > global_init_types;
         std::map< quxlang::type_symbol, std::vector< quxlang::interface_slot_key > > interface_slots;
         std::map< quxlang::type_symbol, quxlang::enum_info > enum_infos;
         std::map< quxlang::type_symbol, quxlang::flagset_info > flagset_infos;
@@ -891,6 +893,12 @@ namespace
                 enqueue_antestatal_global(antestatal_root);
             }
 
+            std::set< quxlang::type_symbol > const global_roots = quxlang::vmir2::directly_referenced_global_roots(routine);
+            for (quxlang::type_symbol const& global_root : global_roots)
+            {
+                result.global_init_types[global_root] = graph.make_request< quxlang::global_init_type_query >(global_root);
+            }
+
             for (std::pair< quxlang::static_snapshot_ref const, quxlang::vmir2::localdata_entry > const& snapshot_entry : routine.static_snapshots)
             {
                 quxlang::type_symbol const snapshot_symbol = quxlang::type_symbol(snapshot_entry.first);
@@ -916,6 +924,7 @@ namespace
 
             quxlang::type_symbol const object_type = graph.make_request< quxlang::variable_type_query >(object_reference);
             result.object_reference_types.emplace(object_reference, object_type);
+            result.global_init_types[object_reference] = graph.make_request< quxlang::global_init_type_query >(object_reference);
             enqueue_type(object_type);
             if (graph.make_request< quxlang::global_is_antestatal_static_query >(object_reference))
             {
@@ -1441,6 +1450,7 @@ int main(int argc, char** argv)
                     compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
                     compilable_unit.object_reference_types = tree.support.object_reference_types;
                     compilable_unit.antestatal_constants = tree.support.antestatal_constants;
+                    compilable_unit.global_init_types = tree.support.global_init_types;
                     compilable_unit.interface_slots = tree.support.interface_slots;
                     compilable_unit.enum_infos = tree.support.enum_infos;
                     compilable_unit.flagset_infos = tree.support.flagset_infos;
@@ -1581,6 +1591,7 @@ int main(int argc, char** argv)
                 output_module_unit.procedure_linksymbols = output_tree.support.procedure_linksymbols;
                 output_module_unit.object_reference_types = output_tree.support.object_reference_types;
                 output_module_unit.antestatal_constants = output_tree.support.antestatal_constants;
+                output_module_unit.global_init_types = output_tree.support.global_init_types;
                 output_module_unit.interface_slots = output_tree.support.interface_slots;
                 output_module_unit.enum_infos = output_tree.support.enum_infos;
                 output_module_unit.flagset_infos = output_tree.support.flagset_infos;

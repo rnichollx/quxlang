@@ -260,6 +260,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/functum_overloads_spec.hpp
         include/quxlang/queries/specs/functum_select_function_spec.hpp
         include/quxlang/queries/specs/functum_user_overloads_spec.hpp
+        include/quxlang/queries/specs/global_init_type_spec.hpp
         include/quxlang/queries/specs/global_is_antestatal_static_spec.hpp
         include/quxlang/queries/specs/global_is_serialoid_static_spec.hpp
         include/quxlang/queries/specs/global_is_string_static_spec.hpp
@@ -309,6 +310,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_is_serialoid_spec.hpp
         include/quxlang/queries/specs/type_is_stringlike_spec.hpp
         include/quxlang/queries/specs/type_is_implicitly_datatype_spec.hpp
+        include/quxlang/queries/specs/type_is_trivially_default_constructible_spec.hpp
         include/quxlang/queries/specs/type_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_serialize_spec.hpp
@@ -401,6 +403,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/functum_overloads.cpp
         sources/queries/functum_select_function.cpp
         sources/queries/functum_user_overloads.cpp
+        sources/queries/global_init_type.cpp
         sources/queries/global_is_antestatal_static.cpp
         sources/queries/global_is_serialoid_static.cpp
         sources/queries/global_is_string_static.cpp
@@ -456,6 +459,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/type_is_serialoid.cpp
         sources/queries/type_is_stringlike.cpp
         sources/queries/type_is_implicitly_datatype.cpp
+        sources/queries/type_is_trivially_default_constructible.cpp
         sources/queries/type_placement_info.cpp
         sources/queries/type_should_autogen_deserialize.cpp
         sources/queries/type_should_autogen_serialize.cpp

@@ -70,6 +70,7 @@ namespace quxlang
         struct constexpr_dealloc;
         struct constexpr_dealloc_multiple;
         struct get_global_storage;
+        struct get_global_ref;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
         struct initguard_release;
@@ -207,6 +208,7 @@ namespace quxlang
             constexpr_dealloc,
             constexpr_dealloc_multiple,
             get_global_storage,
+            get_global_ref,
             get_antestatal_ref,
             initguard_global_get_ref,
             initguard_release,
@@ -419,6 +421,14 @@ namespace quxlang
             local_index target_ref;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_storage, symbol, target_ref);
+        };
+
+        struct get_global_ref
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_ref, symbol, target_ref);
         };
 
         struct get_antestatal_ref

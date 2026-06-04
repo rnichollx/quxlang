@@ -39,6 +39,8 @@ namespace quxlang
             void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value);
             /// Adds an antestatal root with explicit mutability for constexpr localdata/static evaluation.
             void add_constexpr_antestatal_global(type_symbol symbol, type_symbol type, antestatal_value value, bool is_mutable);
+            /// Adds a global storage root whose active object is recursively zero-initialized.
+            void add_zero_initialized_global(type_symbol symbol, type_symbol type);
 
             std::set< type_symbol > const & missing_functanoids();
             std::set< type_symbol > const & missing_antestatal_globals();

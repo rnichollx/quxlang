@@ -392,6 +392,27 @@ auto quxlang::vmir2::directly_referenced_antestatal_globals(functanoid_routine3 
     return result;
 }
 
+auto quxlang::vmir2::directly_referenced_global_roots(functanoid_routine3 const& routine) -> std::set< type_symbol >
+{
+    std::set< type_symbol > result;
+    for (executable_block const& block : routine.blocks)
+    {
+        for (vm_instruction const& instruction : block.instructions)
+        {
+            if (instruction.type_is< get_global_storage >())
+            {
+                result.insert(instruction.as< get_global_storage >().symbol);
+            }
+            if (instruction.type_is< get_global_ref >())
+            {
+                result.insert(instruction.as< get_global_ref >().symbol);
+            }
+        }
+    }
+
+    return result;
+}
+
 auto quxlang::vmir2::directly_referenced_antestatal_globals(antestatal_value const& value, std::optional< type_symbol > type) -> std::set< type_symbol >
 {
     std::set< type_symbol > result;

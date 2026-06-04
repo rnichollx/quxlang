@@ -44,6 +44,8 @@ RPNX_ENUM(quxlang, lambda_capture_mode, std::uint8_t, reference, value);
 RPNX_ENUM(quxlang, runtime_condition, std::uint16_t, CONSTEXPR, NATIVE);
 /// Function-local compile-time storage class for STATIC and STATIC_VAR declarations.
 RPNX_ENUM(quxlang, function_static_kind, std::uint16_t, constant, mutable_);
+/// Describes how global variable storage becomes initialized before GET_REFERENCE returns it.
+RPNX_ENUM(quxlang, initialization_type, std::uint8_t, init_with_guard, init_program_startup, init_trivial);
 
 namespace quxlang
 {

@@ -222,8 +222,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::deque< stack_frame > stack;
     std::unordered_map< std::vector< std::byte >, std::shared_ptr< local >, rpnx::serial4::hash > global_constdata;
     std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > global_storages;
+    std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > global_objects;
     std::unordered_map< local*, type_symbol > global_storage_symbols;
     std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > antestatal_global_roots;
+    std::unordered_map< type_symbol, type_symbol, rpnx::serial4::hash > zero_initialized_global_types;
     std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > global_initguards;
     std::unordered_map< type_symbol, std::shared_ptr< local >, rpnx::serial4::hash > m_procedures;
     std::vector< constexpr_allocation > constexpr_allocations;
@@ -322,6 +324,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::shared_ptr< local > get_or_create_global_storage(type_symbol symbol, type_symbol storage_type);
     /** Ensures an antestatal global has a top-level object root for pointer identity. */
     void ensure_antestatal_global_object(type_symbol symbol, std::shared_ptr< local > const& storage_local, type_symbol storage_type);
+    /** Ensures a trivial global has a live zero-initialized object in its storage. */
+    void ensure_zero_initialized_global_object(type_symbol symbol, std::shared_ptr< local > const& storage_local, type_symbol storage_type);
+    /** Returns the direct zero-initialized object backing a trivial global. */
+    std::shared_ptr< local > get_or_create_zero_initialized_global_object(type_symbol symbol, type_symbol object_type);
     /** Returns the unique constexpr initguard object associated with a symbol, creating it on first use. */
     std::shared_ptr< local > get_or_create_initguard(type_symbol symbol);
     /** Decodes the current initguard state from the guard object's data payload. */
@@ -335,6 +341,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock);
     /** Materializes a reference to the unique constexpr storage backing the requested global symbol. */
     void do_get_global_storage(type_symbol symbol, local_index target_ref);
+    /** Materializes a reference to the direct constexpr object backing the requested trivial global symbol. */
+    void do_get_global_ref(type_symbol symbol, local_index target_ref);
     /** Materializes a reference to the unique constexpr initguard backing the requested symbol. */
     void do_initguard_global_get_ref(type_symbol symbol, local_index target_ref);
     /** Commits a successful initguard acquisition, transitioning the referenced guard to initialized. */
@@ -411,6 +419,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_dealloc const& cal);
     void exec_instr_val(vmir2::constexpr_dealloc_multiple const& cal);
     void exec_instr_val(vmir2::get_global_storage const& ggs);
+    void exec_instr_val(vmir2::get_global_ref const& ggr);
     void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_release const& igr);
@@ -2342,6 +2351,11 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     do_get_global_storage(ggs.symbol, ggs.target_ref);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_ref const& ggr)
+{
+    do_get_global_ref(ggr.symbol, ggr.target_ref);
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_antestatal_ref const& gar)
 {
     do_get_antestatal_ref(gar.symbol, gar.target_ref);
@@ -2364,6 +2378,20 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto storage_local = get_or_create_global_storage(symbol, storage_type);
     auto out_ref = output_local(target_ref);
     out_ref->ref = pointer_impl{.pointer_target = storage_local};
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_global_ref(type_symbol symbol, local_index target_ref)
+{
+    type_symbol const target_type = get_local_type(target_ref);
+    if (!is_ref(target_type))
+    {
+        throw compiler_bug("GET_GLOBAL_REF requires a reference-typed destination");
+    }
+
+    type_symbol const object_type = remove_ref(target_type);
+    std::shared_ptr< local > object = get_or_create_zero_initialized_global_object(symbol, object_type);
+    auto out_ref = output_local(target_ref);
+    out_ref->ref = pointer_impl{.pointer_target = object};
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_antestatal_ref(type_symbol symbol, local_index target_ref)
@@ -4274,6 +4302,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_antestatal_global(
         if (!is_mutable)
         {
             this->implementation->set_readonly_tree(root_it->second);
+        }
+    }
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::add_zero_initialized_global(type_symbol symbol, type_symbol type)
+{
+    this->implementation->zero_initialized_global_types[symbol] = type;
+    auto object_iter = this->implementation->global_objects.find(symbol);
+    if (object_iter != this->implementation->global_objects.end() && object_iter->second != nullptr)
+    {
+        if (object_iter->second->actual_type != type)
+        {
+            throw compiler_bug("zero-initialized global object type mismatch");
         }
     }
 }
@@ -6476,6 +6517,10 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     {
         ensure_antestatal_global_object(symbol, storage_local, storage_type);
     }
+    if (zero_initialized_global_types.contains(symbol))
+    {
+        ensure_zero_initialized_global_object(symbol, storage_local, storage_type);
+    }
 
     return storage_local;
 }
@@ -6501,6 +6546,62 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto object = get_or_create_antestatal_global(symbol, object_type);
     storage_local->storage_active_type = object_type;
     storage_local->stored_object = object;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::ensure_zero_initialized_global_object(type_symbol symbol, std::shared_ptr< local > const& storage_local, type_symbol storage_type)
+{
+    if (!storage_local)
+    {
+        throw compiler_bug("zero-initialized global storage root missing");
+    }
+    if (!typeis< storage >(storage_type))
+    {
+        throw compiler_bug("zero-initialized global storage must be STORAGE(T)");
+    }
+
+    auto const& storable_types = as< storage >(storage_type).storable_types;
+    if (storable_types.size() != 1)
+    {
+        throw compiler_bug("global storage should contain exactly one storable type");
+    }
+
+    type_symbol const& object_type = *storable_types.begin();
+    auto type_iter = zero_initialized_global_types.find(symbol);
+    if (type_iter == zero_initialized_global_types.end() || type_iter->second != object_type)
+    {
+        throw compiler_bug("zero-initialized global storage type mismatch");
+    }
+
+    if (storage_local->storage_active_type.has_value() || storage_local->stored_object != nullptr)
+    {
+        return;
+    }
+
+    auto object = create_object(object_type);
+    begin_lifetime_tree(object);
+    storage_local->storage_active_type = object_type;
+    storage_local->stored_object = object;
+}
+
+auto quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_zero_initialized_global_object(type_symbol symbol, type_symbol object_type) -> std::shared_ptr< local >
+{
+    std::unordered_map< type_symbol, type_symbol, rpnx::serial4::hash >::const_iterator type_iter = zero_initialized_global_types.find(symbol);
+    if (type_iter == zero_initialized_global_types.end())
+    {
+        zero_initialized_global_types[symbol] = object_type;
+    }
+    else if (type_iter->second != object_type)
+    {
+        throw compiler_bug("GET_GLOBAL_REF requires a registered zero-initialized global object");
+    }
+
+    std::shared_ptr< local >& object = global_objects[symbol];
+    if (object == nullptr)
+    {
+        object = create_object(object_type);
+        begin_lifetime_tree(object);
+    }
+    return object;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_initguard(type_symbol symbol)

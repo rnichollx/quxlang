@@ -42,6 +42,7 @@
 #include "quxlang/queries/function_primitive.hpp"
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
+#include "quxlang/queries/global_init_type.hpp"
 #include "quxlang/queries/global_is_string_static.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implementation_function_map.hpp"
@@ -8058,23 +8059,6 @@ namespace quxlang
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
 
-            auto lock_value = create_local_value(initguard_lock_type{});
-            auto initialized_block = this->generate_subblock(entry_block, "global_already_initialized");
-            auto acquire_block = this->generate_subblock(entry_block, "global_acquired");
-
-            this->set_terminator(entry_block, vmir2::initguard_try_acquire{
-                .symbol = global_symbol,
-                .target_lock = get_local_index(lock_value),
-                .target_acquired = acquire_block,
-                .target_already_initialized = initialized_block,
-            });
-
-            vmir2::slot_state lock_state;
-            lock_state.stage = vmir2::slot_stage::full;
-            lock_state.storage_valid = true;
-            this->block(acquire_block).entry_state[get_local_index(lock_value)] = lock_state;
-            this->block(acquire_block).current_state[get_local_index(lock_value)] = lock_state;
-
             auto emit_return_from_storage = [&](block_index& current_block) -> co_type< void >
             {
                 auto storage_ref = this->create_local_value(make_mref(global_storage_type));
@@ -8092,6 +8076,36 @@ namespace quxlang
 
                 co_await this->co_return_value(current_block, result_ref);
             };
+
+            initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(global_symbol);
+            if (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup)
+            {
+                auto result_ref = this->create_local_value((is_serialoid_static || is_string_static) ? make_cref(global_type) : make_mref(global_type));
+                this->emit(entry_block, vmir2::get_global_ref{
+                                               .symbol = global_symbol,
+                                               .target_ref = get_local_index(result_ref),
+                                           });
+                co_await this->co_return_value(entry_block, result_ref);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
+            auto lock_value = create_local_value(initguard_lock_type{});
+            auto initialized_block = this->generate_subblock(entry_block, "global_already_initialized");
+            auto acquire_block = this->generate_subblock(entry_block, "global_acquired");
+
+            this->set_terminator(entry_block, vmir2::initguard_try_acquire{
+                .symbol = global_symbol,
+                .target_lock = get_local_index(lock_value),
+                .target_acquired = acquire_block,
+                .target_already_initialized = initialized_block,
+            });
+
+            vmir2::slot_state lock_state;
+            lock_state.stage = vmir2::slot_stage::full;
+            lock_state.storage_valid = true;
+            this->block(acquire_block).entry_state[get_local_index(lock_value)] = lock_state;
+            this->block(acquire_block).current_state[get_local_index(lock_value)] = lock_state;
 
             auto init_functum = submember{.of = global_symbol, .name = "INIT"};
             auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));

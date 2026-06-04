@@ -1793,6 +1793,17 @@ namespace quxlang::llvm::detail
             return global;
         }
 
+        auto global_init_type(quxlang::type_symbol const& symbol) const -> quxlang::initialization_type
+        {
+            std::map< quxlang::type_symbol, quxlang::initialization_type >::const_iterator iter = input.global_init_types.find(symbol);
+            if (iter == input.global_init_types.end())
+            {
+                return quxlang::initialization_type::init_with_guard;
+            }
+
+            return iter->second;
+        }
+
         auto get_or_create_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
         {
             llvm::GlobalVariable* global = get_or_create_global(symbol, storage_type, false);
@@ -1800,6 +1811,13 @@ namespace quxlang::llvm::detail
             {
                 global->setInitializer(llvm::Constant::getNullValue(storage_type));
             }
+            return global;
+        }
+
+        auto get_or_create_common_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
+        {
+            llvm::GlobalVariable* global = get_or_create_zero_initialized_global(symbol, storage_type);
+            global->setLinkage(llvm::GlobalValue::CommonLinkage);
             return global;
         }
 
@@ -1866,6 +1884,12 @@ namespace quxlang::llvm::detail
                 if (input.antestatal_constants.contains(object_reference.first))
                 {
                     (void)get_or_create_constant_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
+                if (global_init_type(object_reference.first) == quxlang::initialization_type::init_trivial)
+                {
+                    (void)get_or_create_common_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
                     continue;
                 }
 
@@ -3508,7 +3532,33 @@ namespace quxlang::llvm::detail
             (void)current_block;
             quxlang::vmir2::get_global_storage const& inst = instruction;
             quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
-            llvm::GlobalVariable* global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
+            llvm::GlobalVariable* global = nullptr;
+            if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
+            {
+                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+            }
+            else
+            {
+                global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
+            }
+            store_reference_pointer(state, builder, inst.target_ref, global);
+            return;
+        }
+
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_global_ref const& instruction)
+        {
+            (void)current_block;
+            quxlang::vmir2::get_global_ref const& inst = instruction;
+            quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
+            llvm::GlobalVariable* global = nullptr;
+            if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
+            {
+                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+            }
+            else
+            {
+                global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
+            }
             store_reference_pointer(state, builder, inst.target_ref, global);
             return;
         }

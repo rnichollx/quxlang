@@ -274,6 +274,22 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         co_return std::pair(std::move(value_functanoids), std::move(value_antestatal_globals));
     };
 
+    auto add_zero_initialized_global_storages = [&](vmir2::functanoid_routine3 const& routine) -> rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec >::cosubroutine< void >
+    {
+        for (type_symbol const& symbol : vmir2::directly_referenced_global_roots(routine))
+        {
+            initialization_type const init_type = co_await rpnx::querygraph::request< global_init_type_query >(symbol);
+            if (init_type != initialization_type::init_trivial)
+            {
+                continue;
+            }
+
+            type_symbol type = co_await rpnx::querygraph::request< variable_type_query >(symbol);
+            layout_types.insert(type);
+            interp.add_zero_initialized_global(symbol, type);
+        }
+    };
+
     auto routine_result = co_await rpnx::querygraph::request< constexpr_routine_v3_query >(input);
     auto const& ir3 = routine_result.routine;
     if (input.expected_result_type.has_value() && !typeis< auto_temploidic >(*input.expected_result_type))
@@ -283,6 +299,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     enqueue_layouts(vmir2::directly_required_class_layouts(ir3));
     enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir3));
     enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir3));
+    co_await add_zero_initialized_global_storages(ir3);
     for (auto const& [_, localdata] : input.statics)
     {
         layout_types.insert(localdata.type);
@@ -368,6 +385,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             loaded_functanoids.insert(funcname);
             enqueue_layouts(vmir2::directly_required_class_layouts(ir2_other));
             enqueue_antestatal_globals(vmir2::directly_referenced_antestatal_globals(ir2_other));
+            co_await add_zero_initialized_global_storages(ir2_other);
             enqueue_functanoids(vmir2::directly_instantiated_functanoids(ir2_other));
         }
     }

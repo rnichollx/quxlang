@@ -69,13 +69,14 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, std::string> procedure_linksymbols;
         std::map<type_symbol, type_symbol> object_reference_types;
         std::map<type_symbol, antestatal_value> antestatal_constants;
+        std::map<type_symbol, initialization_type> global_init_types;
         std::map<type_symbol, std::vector< interface_slot_key > > interface_slots;
         std::map<type_symbol, enum_info> enum_infos;
         std::map<type_symbol, flagset_info> flagset_infos;
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_functions, procedure_linksymbols, object_reference_types, antestatal_constants, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_functions, procedure_linksymbols, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
 
 

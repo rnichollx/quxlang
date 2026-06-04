@@ -2,6 +2,7 @@
 
 #include "compiler_querygraph_internal.hpp"
 
+#include <quxlang/queries/specs/global_init_type_spec.hpp>
 #include <quxlang/queries/specs/global_is_antestatal_static_spec.hpp>
 #include <quxlang/queries/specs/global_is_serialoid_static_spec.hpp>
 #include <quxlang/queries/specs/global_is_string_static_spec.hpp>
@@ -14,6 +15,7 @@
 auto quxlang::detail::register_compiler_querygraph_handlers_9(compiler_querygraph& querygraph) -> void
 {
     auto& graph = querygraph.raw_graph();
+    graph.register_handler_function< global_init_type_spec >(global_init_type_impl);
     graph.register_handler_function< global_is_antestatal_static_spec >(global_is_antestatal_static_impl);
     graph.register_handler_function< global_is_serialoid_static_spec >(global_is_serialoid_static_impl);
     graph.register_handler_function< global_is_string_static_spec >(global_is_string_static_impl);

@@ -544,6 +544,10 @@ namespace quxlang::vmir2
         {
             output(ggs.target_ref);
         }
+        void apply_internal(vmir2::get_global_ref const& ggr)
+        {
+            output(ggr.target_ref);
+        }
         void apply_internal(vmir2::get_antestatal_ref const& gar)
         {
             output(gar.target_ref);
