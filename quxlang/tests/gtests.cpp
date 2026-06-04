@@ -581,6 +581,28 @@ TEST(parsing, parse_program_start_asm_procedure_global_declaration)
     EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "RET");
 }
 
+TEST(parsing, parse_asm_object_ref_main_function_operand)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  MOVABS RAX, OFFSET OBJECT_REF(MAIN_FUNCTION)
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    ASSERT_EQ(declaration.instructions.size(), 1);
+    ASSERT_EQ(declaration.instructions.front().operands.size(), 2);
+    quxlang::ast2_asm_operand const& operand = declaration.instructions.front().operands.at(1);
+    ASSERT_EQ(operand.components.size(), 2);
+    EXPECT_EQ(operand.components.at(0).get_as< std::string >(), "OFFSET ");
+    quxlang::ast2_object_ref const& object_ref = operand.components.at(1).get_as< quxlang::ast2_object_ref >();
+    ASSERT_TRUE(object_ref.object.type_is< quxlang::builtin_symbol >());
+    EXPECT_EQ(object_ref.object.get_as< quxlang::builtin_symbol >().name, "MAIN_FUNCTION");
+}
+
 TEST(parsing, parse_asm_inline_function_callable_registers_and_clobbers)
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
@@ -1707,6 +1729,136 @@ TEST(llvm_backend, linux_elf_executable_uses_provided_entrypoint_without_generat
 
     EXPECT_EQ(result.llvm_ir_text.find("define void @_start()"), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("movq $$60, %rax"), std::string::npos);
+}
+
+TEST(llvm_backend, main_function_object_reference_emits_pointer_global)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("linux_main_entry");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.parameters.named["RETURN"] = quxlang::vmir2::routine_parameter{
+        .type = quxlang::nvalue_slot{.target = i32_type},
+        .local_index = quxlang::vmir2::local_index(0),
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(0),
+        .value = "0",
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::procedure_type main_function_type;
+    main_function_type.signature.return_type = i32_type;
+    quxlang::type_symbol const main_function_object = quxlang::builtin_symbol{.name = "MAIN_FUNCTION"};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.whole_module = true;
+    packet.whole_module_output_kind = quxlang::output_kind::executable;
+    packet.object_reference_types.emplace(main_function_object, main_function_type);
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(main_function_object) + " = constant ptr @" + quxlang::mangle(routine_symbol)), std::string::npos);
+    EXPECT_NE(result.optimized_llvm_ir_text.find("@" + quxlang::mangle(main_function_object) + " = constant ptr @" + quxlang::mangle(routine_symbol)), std::string::npos);
+}
+
+TEST(llvm_backend, main_function_object_reference_emits_weak_null_for_non_executable_packet)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("non_executable_helper");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::procedure_type main_function_type;
+    main_function_type.signature.return_type = i32_type;
+    quxlang::type_symbol const main_function_object = quxlang::builtin_symbol{.name = "MAIN_FUNCTION"};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.object_reference_types.emplace(main_function_object, main_function_type);
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(main_function_object) + " = weak constant ptr null"), std::string::npos);
+    EXPECT_NE(result.optimized_llvm_ir_text.find("@" + quxlang::mangle(main_function_object) + " = weak constant ptr null"), std::string::npos);
+}
+
+TEST(llvm_backend, object_reference_emits_addressable_global_storage)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("object_reference_global_storage_test");
+    quxlang::type_symbol const object_symbol = make_symbol("referenced_global_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.object_reference_types.emplace(object_symbol, i32_type);
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = global i32 0"), std::string::npos);
+    EXPECT_NE(result.optimized_llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = global i32 0"), std::string::npos);
 }
 
 TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)

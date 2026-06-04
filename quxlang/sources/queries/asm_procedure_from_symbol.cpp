@@ -4,6 +4,7 @@
 #include <quxlang/queries/specs/asm_procedure_from_symbol_spec.hpp>
 
 #include "quxlang/manipulators/mangler.hpp"
+#include "quxlang/manipulators/typeutils.hpp"
 
 #include <quxlang/asm/asm.hpp>
 #include <quxlang/macros.hpp>
@@ -107,6 +108,22 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                     auto procedure_canonical = (co_await rpnx::querygraph::request< lookup_query >(proc_ctx)).value();
                     auto linkname = co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical});
                     operand_str += "=" + linkname;
+                }
+                else if (typeis< ast2_object_ref >(part))
+                {
+                    auto object_ref = as< ast2_object_ref >(part);
+
+                    contextual_type_reference object_ctx{
+                        .context = input,
+                        .type = object_ref.object,
+                    };
+
+                    auto object_canonical = co_await rpnx::querygraph::request< lookup_query >(object_ctx);
+                    if (!object_canonical.has_value())
+                    {
+                        throw quxlang::semantic_compilation_error("OBJECT_REF target could not be resolved: " + quxlang::to_string(object_ref.object));
+                    }
+                    operand_str += quxlang::mangle(*object_canonical);
                 }
                 else
                 {

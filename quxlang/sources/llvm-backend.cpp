@@ -171,6 +171,8 @@ namespace quxlang::llvm::detail
                 declare_defined_function(helper.first, helper.second, helper_linkage);
             }
 
+            emit_object_reference_globals();
+
             if (!input.asm_functions.contains(input.target_name))
             {
                 emit_defined_function(input.target_name, input.target_code);
@@ -219,6 +221,13 @@ namespace quxlang::llvm::detail
                     if (!function.isDeclaration())
                     {
                         preserved_functions.push_back(&function);
+                    }
+                }
+                for (llvm::GlobalVariable& global : optimized_module->globals())
+                {
+                    if (!global.isDeclaration())
+                    {
+                        preserved_functions.push_back(&global);
                     }
                 }
                 llvm::appendToUsed(*optimized_module, preserved_functions);
@@ -1782,6 +1791,86 @@ namespace quxlang::llvm::detail
                 quxlang::mangle(symbol));
             globals[symbol] = global;
             return global;
+        }
+
+        auto get_or_create_zero_initialized_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type) -> llvm::GlobalVariable*
+        {
+            llvm::GlobalVariable* global = get_or_create_global(symbol, storage_type, false);
+            if (global->isDeclaration())
+            {
+                global->setInitializer(llvm::Constant::getNullValue(storage_type));
+            }
+            return global;
+        }
+
+        auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) const -> bool
+        {
+            return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
+        }
+
+        auto should_emit_main_function_object_target() const -> bool
+        {
+            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable;
+        }
+
+        auto get_or_create_main_function_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
+            if (existing != constant_globals.end())
+            {
+                return existing->second;
+            }
+
+            if (!object_type.type_is< quxlang::procedure_type >())
+            {
+                throw quxlang::semantic_compilation_error("MAIN_FUNCTION object must have a PROCEDURE type");
+            }
+
+            llvm::Type* storage_type = value_storage_type(object_type);
+            llvm::Constant* initializer = llvm::Constant::getNullValue(storage_type);
+            llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::WeakAnyLinkage;
+
+            if (should_emit_main_function_object_target())
+            {
+                llvm::Function* const main_function = declared_function(input.target_name);
+                if (main_function->arg_size() != 0 || !main_function->getReturnType()->isIntegerTy(32))
+                {
+                    throw quxlang::semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + quxlang::to_string(input.target_name));
+                }
+
+                initializer = llvm::ConstantExpr::getPointerCast(main_function, storage_type);
+                linkage = llvm::GlobalValue::ExternalLinkage;
+            }
+
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(
+                *module,
+                storage_type,
+                true,
+                linkage,
+                initializer,
+                quxlang::mangle(symbol));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
+        void emit_object_reference_globals()
+        {
+            for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_reference : input.object_reference_types)
+            {
+                if (is_main_function_object_symbol(object_reference.first))
+                {
+                    (void)get_or_create_main_function_object_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
+                if (input.antestatal_constants.contains(object_reference.first))
+                {
+                    (void)get_or_create_constant_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
+                (void)get_or_create_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
+            }
         }
 
         /**

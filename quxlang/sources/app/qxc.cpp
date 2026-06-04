@@ -13,6 +13,7 @@
 #include "quxlang/queries/class_layout.hpp"
 #include "quxlang/queries/enum_info.hpp"
 #include "quxlang/queries/flagset_info.hpp"
+#include "quxlang/queries/functanoid_return_type.hpp"
 #include "quxlang/queries/global_is_antestatal_static.hpp"
 #include "quxlang/queries/interface_slot_list.hpp"
 #include "quxlang/queries/instanciation.hpp"
@@ -203,6 +204,33 @@ namespace
     }
 
     using functanoid_reference_locations = std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >;
+    using object_reference_locations = std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >;
+
+    auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) -> bool
+    {
+        return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
+    }
+
+    auto main_function_object_type() -> quxlang::type_symbol
+    {
+        quxlang::procedure_type procedure;
+        procedure.signature.return_type = quxlang::int_type{.bits = 32, .has_sign = true};
+        return procedure;
+    }
+
+    void validate_executable_entry_signature(quxlang::compiler_querygraph& graph, quxlang::instanciation_reference const& entry_functanoid)
+    {
+        if (!entry_functanoid.params.positional.empty() || !entry_functanoid.params.named.empty())
+        {
+            throw quxlang::semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + quxlang::to_string(entry_functanoid));
+        }
+
+        quxlang::type_symbol const return_type = graph.make_request< quxlang::functanoid_return_type_query >(entry_functanoid);
+        if (return_type != quxlang::type_symbol(quxlang::int_type{.bits = 32, .has_sign = true}))
+        {
+            throw quxlang::semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + quxlang::to_string(entry_functanoid));
+        }
+    }
 
     /**
      * Records a concrete functanoid dependency and the source location that referenced it.
@@ -306,6 +334,47 @@ namespace
                         quxlang::ast2_procedure_ref const& procedure_ref = component.get_as< quxlang::ast2_procedure_ref >();
                         record_referenced_functanoid(graph, result, procedure_ref.functanoid, std::nullopt);
                     }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    auto directly_referenced_object_locations(
+        quxlang::compiler_querygraph& graph,
+        quxlang::type_symbol const& context,
+        quxlang::ast2_asm_procedure_declaration const& routine) -> object_reference_locations
+    {
+        object_reference_locations result;
+
+        for (quxlang::ast2_asm_instruction const& instruction : routine.instructions)
+        {
+            for (quxlang::ast2_asm_operand const& operand : instruction.operands)
+            {
+                for (quxlang::ast2_asm_operand_component const& component : operand.components)
+                {
+                    if (!component.type_is< quxlang::ast2_object_ref >())
+                    {
+                        continue;
+                    }
+
+                    quxlang::ast2_object_ref const& object_ref = component.get_as< quxlang::ast2_object_ref >();
+                    std::optional< quxlang::type_symbol > canonical_object = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+                        .context = context,
+                        .type = object_ref.object,
+                    });
+                    if (!canonical_object.has_value())
+                    {
+                        throw quxlang::semantic_compilation_error("OBJECT_REF target could not be resolved: " + quxlang::to_string(object_ref.object));
+                    }
+                    if (!is_main_function_object_symbol(*canonical_object) &&
+                        graph.make_request< quxlang::symbol_type_query >(*canonical_object) != quxlang::symbol_kind::global_variable)
+                    {
+                        throw quxlang::semantic_compilation_error("OBJECT_REF target is not a global object: " + quxlang::to_string(*canonical_object));
+                    }
+
+                    result.emplace(*canonical_object, std::nullopt);
                 }
             }
         }
@@ -754,6 +823,7 @@ namespace
     struct llvm_packet_support_data
     {
         std::map< quxlang::type_symbol, std::string > procedure_linksymbols;
+        std::map< quxlang::type_symbol, quxlang::type_symbol > object_reference_types;
         std::map< quxlang::type_symbol, quxlang::antestatal_value > antestatal_constants;
         std::map< quxlang::type_symbol, std::vector< quxlang::interface_slot_key > > interface_slots;
         std::map< quxlang::type_symbol, quxlang::enum_info > enum_infos;
@@ -769,6 +839,7 @@ namespace
     {
         std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > routines;
         std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
+        std::set< quxlang::type_symbol > object_references;
         quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
         llvm_packet_support_data support;
     };
@@ -779,7 +850,8 @@ namespace
     auto build_llvm_packet_support_data(
         quxlang::compiler_querygraph& graph,
         quxlang::machine_target_info const& machine,
-        std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > const& routines) -> llvm_packet_support_data
+        std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > const& routines,
+        std::set< quxlang::type_symbol > const& object_references) -> llvm_packet_support_data
     {
         llvm_packet_support_data result;
 
@@ -824,6 +896,30 @@ namespace
                 quxlang::type_symbol const snapshot_symbol = quxlang::type_symbol(snapshot_entry.first);
                 result.antestatal_constants[snapshot_symbol] = snapshot_entry.second.value;
                 enqueue_type(snapshot_entry.second.type);
+            }
+        }
+
+        for (quxlang::type_symbol const& object_reference : object_references)
+        {
+            if (is_main_function_object_symbol(object_reference))
+            {
+                quxlang::type_symbol const object_type = main_function_object_type();
+                result.object_reference_types.emplace(object_reference, object_type);
+                enqueue_type(object_type);
+                continue;
+            }
+
+            if (graph.make_request< quxlang::symbol_type_query >(object_reference) != quxlang::symbol_kind::global_variable)
+            {
+                throw quxlang::semantic_compilation_error("OBJECT_REF target is not a global object: " + quxlang::to_string(object_reference));
+            }
+
+            quxlang::type_symbol const object_type = graph.make_request< quxlang::variable_type_query >(object_reference);
+            result.object_reference_types.emplace(object_reference, object_type);
+            enqueue_type(object_type);
+            if (graph.make_request< quxlang::global_is_antestatal_static_query >(object_reference))
+            {
+                enqueue_antestatal_global(object_reference);
             }
         }
 
@@ -1146,6 +1242,7 @@ int main(int argc, char** argv)
                 std::set< quxlang::type_symbol > queued_functanoids;
                 std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > tree_routines;
                 std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
+                std::set< quxlang::type_symbol > object_references;
                 quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
                 tree_routines.emplace(root_symbol, root_routine);
 
@@ -1187,6 +1284,12 @@ int main(int argc, char** argv)
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
                     {
                         dependency_graph[asm_symbol].insert(referenced_functanoid.first);
+                    }
+
+                    object_reference_locations const referenced_objects = directly_referenced_object_locations(graph, asm_symbol, declaration);
+                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_object : referenced_objects)
+                    {
+                        object_references.insert(referenced_object.first);
                     }
                 };
 
@@ -1282,8 +1385,9 @@ int main(int argc, char** argv)
                 collected_routine_tree result;
                 result.routines = std::move(tree_routines);
                 result.asm_routines = std::move(asm_routines);
+                result.object_references = std::move(object_references);
                 result.dependency_graph = std::move(dependency_graph);
-                result.support = build_llvm_packet_support_data(graph, target_config.target_output_config, result.routines);
+                result.support = build_llvm_packet_support_data(graph, target_config.target_output_config, result.routines, result.object_references);
                 for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : result.routines)
                 {
                     quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
@@ -1335,6 +1439,7 @@ int main(int argc, char** argv)
                     compilable_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
                     compilable_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                     compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
+                    compilable_unit.object_reference_types = tree.support.object_reference_types;
                     compilable_unit.antestatal_constants = tree.support.antestatal_constants;
                     compilable_unit.interface_slots = tree.support.interface_slots;
                     compilable_unit.enum_infos = tree.support.enum_infos;
@@ -1450,6 +1555,10 @@ int main(int argc, char** argv)
                 }
 
                 quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_name, output_entry.main_functanoid);
+                if (output_entry.type == quxlang::output_kind::executable)
+                {
+                    validate_executable_entry_signature(graph, entry_functanoid);
+                }
                 quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
                 collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start);
                 emit_routine_tree(output_tree);
@@ -1470,6 +1579,7 @@ int main(int argc, char** argv)
                 }
                 output_module_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                 output_module_unit.procedure_linksymbols = output_tree.support.procedure_linksymbols;
+                output_module_unit.object_reference_types = output_tree.support.object_reference_types;
                 output_module_unit.antestatal_constants = output_tree.support.antestatal_constants;
                 output_module_unit.interface_slots = output_tree.support.interface_slots;
                 output_module_unit.enum_infos = output_tree.support.enum_infos;
@@ -1524,6 +1634,10 @@ int main(int argc, char** argv)
                     for (std::pair< quxlang::type_symbol const, quxlang::antestatal_value > const& constant_entry : output_tree.support.antestatal_constants)
                     {
                         add_symbol_display_name(constant_entry.first);
+                    }
+                    for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_entry : output_tree.support.object_reference_types)
+                    {
+                        add_symbol_display_name(object_entry.first);
                     }
                     quxlang::elf_link_options const debug_link_options{
                         .preserve_symbols = true,

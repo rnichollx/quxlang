@@ -5,6 +5,8 @@ linux-x64:
   platform: linux
   cpu: x64
   modules:
+    RUNTIME:
+      source: runtime
     foolib:
       source: foolib1_0
     barlib:
@@ -18,6 +20,8 @@ linux-x64:
 
 linux-arm64:
   modules:
+    RUNTIME:
+      source: runtime
     foolib:
       source: foolib1_0
     barlib:
@@ -32,6 +36,8 @@ linux-arm64:
 
 linux-x86:
   modules:
+    RUNTIME:
+      source: runtime
     foolib:
       source: foolib1_0
     barlib:
@@ -56,5 +62,4 @@ linux-x86:
 #      source: main_experimental_windows
 #  platform: windows
 #  cpu: x64
-
 

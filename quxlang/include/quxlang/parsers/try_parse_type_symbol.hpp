@@ -73,6 +73,10 @@ namespace quxlang::parsers
             }
             output = std::move(m);
         }
+        else if (skip_keyword_if_is(pos, end, "MAIN_FUNCTION"))
+        {
+            output = builtin_symbol{.name = "MAIN_FUNCTION"};
+        }
         else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
         {
             output = numeric_literal_reference{};

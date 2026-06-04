@@ -377,6 +377,11 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             co_return builtin_symbol{fb.name};
         }
 
+        if (fb.name == "MAIN_FUNCTION")
+        {
+            co_return builtin_symbol{.name = "MAIN_FUNCTION"};
+        }
+
         std::string str = "Could not find '" + fb.name + "'";
         co_return std::nullopt;
     }

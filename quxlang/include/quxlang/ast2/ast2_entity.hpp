@@ -34,6 +34,7 @@ namespace quxlang
     struct ast2_module_declaration;
     struct ast2_static_test;
     struct ast2_extern;
+    struct ast2_object_ref;
     struct ast2_asm_procedure_declaration;
     struct functum;
     struct member_subdeclaroid;
@@ -80,6 +81,13 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_procedure_ref, cc, functanoid);
     };
 
+    struct ast2_object_ref
+    {
+        type_symbol object;
+
+        RPNX_MEMBER_METADATA(ast2_object_ref, object);
+    };
+
     struct ast2_argument_interface
     {
         std::optional< std::string > register_name;
@@ -88,7 +96,7 @@ namespace quxlang
         RPNX_MEMBER_METADATA(ast2_argument_interface, register_name, type);
     };
 
-    using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref >;
+    using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref, ast2_object_ref >;
 
     struct ast2_asm_operand
     {

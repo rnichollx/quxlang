@@ -9,6 +9,7 @@
 #include "quxlang/asm/asm.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/parsers/extern.hpp"
+#include "quxlang/parsers/object_ref.hpp"
 
 #include <iostream>
 #include <optional>
@@ -59,15 +60,22 @@ namespace quxlang::parsers
             return std::move(*proc);
         }
 
+        std::optional< ast2_object_ref > object = try_parse_ast2_object_ref(ctx);
+        if (object)
+        {
+            return std::move(*object);
+        }
+
         std::string outstr;
 
         while (pos != end &&
 
-               // We need to exclude "EXTERNAL" and "PROCEDURE" because they need to be
+               // We need to exclude structured references because they need to be
                // replaced with their linker symbol during conversion from AST2_ASM_INSTRUCTION
                // to ASM_INSTRUCTION
                next_keyword(pos, end) != "EXTERNAL" &&
-               next_keyword(pos, end) != "PROCEDURE" &&
+               next_keyword(pos, end) != "PROCEDURE_REF" &&
+               next_keyword(pos, end) != "OBJECT_REF" &&
 
                // We also need to exclude the comma, because it is a separator between components,
                // but only sometimes. However, the case where it is part of an operand is handled
@@ -172,6 +180,10 @@ namespace quxlang::parsers
                 else if (typeis< ast2_procedure_ref >(*comp))
                 {
                     std::cout << "comp: PROCEDURE" << std::endl;
+                }
+                else if (typeis< ast2_object_ref >(*comp))
+                {
+                    std::cout << "comp: OBJECT" << std::endl;
                 }
                 else
                 {
