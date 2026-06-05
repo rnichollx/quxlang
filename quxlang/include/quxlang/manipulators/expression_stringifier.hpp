@@ -9,10 +9,8 @@
 
 namespace quxlang
 {
-
     std::string to_string(expression const& expr);
     std::string to_string(expression const& expr, bool print_locations);
-
 } // namespace quxlang
 
 #endif // QUXLANG_EXPRESSION_STRINGIFIER_HEADER_GUARD
