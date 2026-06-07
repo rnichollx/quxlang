@@ -2,14 +2,23 @@
 
 #include <quxlang/queries/specs/run_static_tests_spec.hpp>
 
-rpnx::querygraph::coroutine< quxlang::run_static_tests_spec > quxlang::run_static_tests_impl(type_symbol input)
+rpnx::querygraph::coroutine< quxlang::run_static_tests_spec > quxlang::run_static_tests_impl(std::monostate)
 {
-    auto tests = co_await rpnx::querygraph::request< list_static_tests_query >(input);
-
-    for (type_symbol const& test : tests)
+    target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
+    if (!target_config.run_static_tests)
     {
-        co_await rpnx::querygraph::request< run_static_test_query >(test);
+        co_return std::monostate{};
     }
 
-    co_return true;
+    for (std::pair< std::string const, module_configuration > const& module_entry : target_config.module_configurations)
+    {
+        type_symbol const module_symbol = absolute_module_reference{.module_name = module_entry.first};
+        std::set< type_symbol > const tests = co_await rpnx::querygraph::request< list_static_tests_query >(module_symbol);
+        for (type_symbol const& test : tests)
+        {
+            co_await rpnx::querygraph::request< run_static_test_query >(test);
+        }
+    }
+
+    co_return std::monostate{};
 }

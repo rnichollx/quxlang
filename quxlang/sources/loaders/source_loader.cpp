@@ -109,7 +109,7 @@ namespace quxlang
 
             // Validate target-level keys
             {
-                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "outputs", "modules"};
+                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "backend", "backend_llvm_options", "run_static_tests", "outputs", "modules"};
                 for (auto const& kv : target_config_node)
                 {
                     auto key = kv.first.as<std::string>();
@@ -174,6 +174,62 @@ namespace quxlang
                 target_configuration target_output;
                 target_output.target_output_config = info;
 
+                auto parse_backend_llvm_options = [](YAML::Node const& backend_llvm_options_node, std::string const& context) -> quxlang::backend_llvm_options
+                {
+                    quxlang::backend_llvm_options output;
+                    static const std::set<std::string> allowed_llvm_option_keys = {"mode"};
+                    for (auto const& kv : backend_llvm_options_node)
+                    {
+                        std::string const key = kv.first.as<std::string>();
+                        if (allowed_llvm_option_keys.count(key) == 0)
+                        {
+                            throw quxlang::semantic_compilation_error("Unknown field in " + context + " backend_llvm_options: " + key);
+                        }
+                    }
+
+                    if (backend_llvm_options_node["mode"].IsDefined())
+                    {
+                        std::string const mode = backend_llvm_options_node["mode"].as< std::string >();
+                        if (mode == "optimize")
+                        {
+                            output.mode = quxlang::backend_llvm_mode::optimize;
+                        }
+                        else if (mode == "debug")
+                        {
+                            output.mode = quxlang::backend_llvm_mode::debug;
+                        }
+                        else
+                        {
+                            throw quxlang::semantic_compilation_error("Unknown/unsupported LLVM backend mode " + mode);
+                        }
+                    }
+
+                    return output;
+                };
+
+                if (target_config_node["backend"].IsDefined())
+                {
+                    std::string const backend = target_config_node["backend"].as< std::string >();
+                    if (backend == "llvm")
+                    {
+                        target_output.backend = quxlang::backend_kind::llvm;
+                    }
+                    else
+                    {
+                        throw quxlang::semantic_compilation_error("Unknown/unsupported backend " + backend);
+                    }
+                }
+
+                if (target_config_node["backend_llvm_options"].IsDefined())
+                {
+                    target_output.llvm_options = parse_backend_llvm_options(target_config_node["backend_llvm_options"], "target '" + target_name + "'");
+                }
+
+                if (target_config_node["run_static_tests"].IsDefined())
+                {
+                    target_output.run_static_tests = target_config_node["run_static_tests"].as< bool >();
+                }
+
                 output.targets[target_name] = target_output;
 
                 if (target_config_node["outputs"].IsDefined())
@@ -187,7 +243,7 @@ namespace quxlang
 
                         // Validate output-level keys
                         {
-                            static const std::set<std::string> allowed_output_keys = {"type", "module", "main_functanoid"};
+                            static const std::set<std::string> allowed_output_keys = {"type", "module", "main_functanoid", "backend_llvm_options"};
                             for (auto const& kv : output_config_node)
                             {
                                 auto key = kv.first.as<std::string>();
@@ -218,6 +274,11 @@ namespace quxlang
                             v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
                         }
 
+                        if (output_config_node["backend_llvm_options"].IsDefined())
+                        {
+                            v_output_config.llvm_options =
+                                parse_backend_llvm_options(output_config_node["backend_llvm_options"], "target '" + target_name + "' output '" + output_name + "'");
+                        }
 
                         target_output.outputs->insert_or_assign(output_name, v_output_config);
                     }

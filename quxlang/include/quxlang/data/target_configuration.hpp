@@ -13,6 +13,9 @@
 #include <string>
 #include <rpnx/variant.hpp>
 
+RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm);
+RPNX_ENUM(quxlang, backend_llvm_mode, std::uint8_t, optimize, debug);
+
 namespace quxlang
 {
     struct source_file_name
@@ -78,6 +81,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(module_configuration, source, import_mappings, option_values);
     };
 
+    /// backend_llvm_options contains the LLVM-specific backend options for one target.
+    struct backend_llvm_options
+    {
+        backend_llvm_mode mode = backend_llvm_mode::optimize;
+
+        RPNX_MEMBER_METADATA(backend_llvm_options, mode);
+    };
+
     enum class output_kind
     {
         executable,
@@ -86,26 +97,31 @@ namespace quxlang
         image,
     };
 
+    /// output_config contains the configuration for one named target output.
     struct output_config
     {
         output_kind type;
         std::optional<std::string> module;
         std::optional<std::string> main_functanoid;
+        std::optional< backend_llvm_options > llvm_options;
 
-        RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid);
+        RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid, llvm_options);
     };
 
-
+    /// target_configuration contains all compile options for one configured qxc target.
     struct target_configuration
     {
         std::map< std::string, module_configuration > module_configurations;
         // Key=LogicalModuleName Value=SourceModuleName
         //std::map< std::string, std::string > logical_module_mappings;
         machine_target_info target_output_config;
+        backend_kind backend = backend_kind::llvm;
+        backend_llvm_options llvm_options;
+        bool run_static_tests = true;
 
         std::optional< std::map< std::string, output_config > > outputs;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, outputs);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, run_static_tests, outputs);
     };
 
 

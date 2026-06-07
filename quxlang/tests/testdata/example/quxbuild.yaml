@@ -43,12 +43,16 @@ linux-x86:
     barlib:
       source: barlib2_0
     main:
+      options:
+        option_num: 5
       source: main
   platform: linux
   cpu: x86
   outputs:
     app:
       type: executable
+      backend_llvm_options:
+        mode: debug
 
 #windows:
 #  modules:
@@ -62,4 +66,3 @@ linux-x86:
 #      source: main_experimental_windows
 #  platform: windows
 #  cpu: x64
-

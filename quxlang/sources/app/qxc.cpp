@@ -20,6 +20,7 @@
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/list_static_tests.hpp"
 #include "quxlang/queries/lookup.hpp"
+#include "quxlang/queries/output_binary_artifacts.hpp"
 #include "quxlang/queries/procedure_linksymbol.hpp"
 #include "quxlang/queries/static_test_vmir.hpp"
 #include "quxlang/queries/symboid.hpp"
@@ -46,6 +47,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -89,6 +91,11 @@ namespace
         std::set< std::string > targets;
         for (int i = 3; i < arg_count; i++)
         {
+            if (std::string_view(arg_values[i]) == "--debug-compile-output")
+            {
+                continue;
+            }
+
             std::stringstream target_stream(arg_values[i]);
             std::string target_name;
             while (std::getline(target_stream, target_name, ','))
@@ -101,6 +108,22 @@ namespace
         }
 
         return targets;
+    }
+
+    /**
+     * Returns true when qxc should emit detailed VMIR/LLVM/object diagnostic artifacts.
+     */
+    auto parse_debug_compile_output(int arg_count, char** arg_values) -> bool
+    {
+        for (int i = 3; i < arg_count; i++)
+        {
+            if (std::string_view(arg_values[i]) == "--debug-compile-output")
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -793,6 +816,38 @@ namespace
     }
 
     /**
+     * Writes one final qxc output artifact using the configured output name directly.
+     */
+    auto write_final_output_file(
+        std::filesystem::path const& output_dir,
+        std::string const& output_name,
+        std::vector< std::byte > const& file_bytes) -> std::filesystem::path
+    {
+        std::filesystem::path const executable_path = output_dir / output_name;
+        std::filesystem::create_directories(executable_path.parent_path());
+
+        std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to open output executable file: " + executable_path.string());
+        }
+
+        outfile.write(reinterpret_cast< char const* >(file_bytes.data()), static_cast< std::streamsize >(file_bytes.size()));
+        if (!outfile)
+        {
+            throw quxlang::compilation_error("Failed to write output executable file: " + executable_path.string());
+        }
+
+        std::filesystem::permissions(
+            executable_path,
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::owner_exec | std::filesystem::perms::group_read |
+                std::filesystem::perms::group_exec | std::filesystem::perms::others_read | std::filesystem::perms::others_exec,
+            std::filesystem::perm_options::replace);
+
+        return executable_path;
+    }
+
+    /**
      * Writes one aggregated optimized output-module LLVM object file for qxc output.
      */
     auto write_optimized_output_module_object_file(
@@ -1177,11 +1232,12 @@ int main(int argc, char** argv)
         bool verbose = true;
         if (argc < 3)
         {
-            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [targets,...]");
+            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output] [targets,...]");
         }
 
         std::filesystem::path input = argv[1];
         std::filesystem::path output = argv[2];
+        bool const debug_compile_output = parse_debug_compile_output(argc, argv);
 
         std::optional< std::set< std::string > > configured_targets = parse_target_filters(argc, argv);
         input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, configured_targets));
@@ -1201,8 +1257,27 @@ int main(int argc, char** argv)
 
             quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
 
-            std::filesystem::path const build_dir = output / target_name / "build";
-            std::filesystem::path const output_dir = output / target_name / "output";
+            std::filesystem::path const build_dir = output / "build" / target_name;
+            std::filesystem::path const output_dir = output / "output" / target_name;
+            if (!debug_compile_output)
+            {
+                std::filesystem::create_directories(output_dir);
+                std::map< std::string, quxlang::output_binary_artifact > const artifacts =
+                    graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+
+                for (std::pair< std::string const, quxlang::output_binary_artifact > const& artifact_entry : artifacts)
+                {
+                    std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second.bytes);
+                    if (verbose)
+                    {
+                        std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
+                    }
+                }
+
+                active_target_name.reset();
+                continue;
+            }
+
             std::filesystem::create_directories(build_dir);
             std::filesystem::create_directories(output_dir);
 

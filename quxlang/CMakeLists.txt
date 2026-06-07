@@ -275,12 +275,19 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/interpret_value_spec.hpp
         include/quxlang/queries/specs/interface_defaultable_spec.hpp
         include/quxlang/queries/specs/interface_slot_list_spec.hpp
-        include/quxlang/queries/specs/output_binaries_spec.hpp
-        include/quxlang/queries/specs/output_binary_spec.hpp
+        include/quxlang/queries/specs/llvm_compiled_output_spec.hpp
+        include/quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp
+        include/quxlang/queries/specs/output_binaries_information_spec.hpp
+        include/quxlang/queries/specs/output_binary_artifact_spec.hpp
+        include/quxlang/queries/specs/output_binary_artifacts_spec.hpp
+        include/quxlang/queries/specs/output_binary_information_spec.hpp
+        include/quxlang/queries/specs/output_llvm_backend_options_spec.hpp
         include/quxlang/queries/specs/output_llvm_input_spec.hpp
         include/quxlang/queries/specs/output_list_spec.hpp
         include/quxlang/queries/specs/output_optimized_llvm_spec.hpp
         include/quxlang/queries/specs/output_unoptimized_llvm_spec.hpp
+        include/quxlang/queries/specs/target_backend_spec.hpp
+        include/quxlang/queries/specs/target_llvm_backend_options_spec.hpp
         include/quxlang/queries/specs/list_builtin_constructors_spec.hpp
         include/quxlang/queries/specs/list_static_tests_spec.hpp
         include/quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp
@@ -427,12 +434,19 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/module_options_map.cpp
         sources/queries/module_source_name.cpp
         sources/queries/module_sources.cpp
-        sources/queries/output_binaries.cpp
-        sources/queries/output_binary.cpp
+        sources/queries/llvm_compiled_output.cpp
+        sources/queries/llvm_output_binary_artifact.cpp
+        sources/queries/output_binaries_information.cpp
+        sources/queries/output_binary_artifact.cpp
+        sources/queries/output_binary_artifacts.cpp
+        sources/queries/output_binary_information.cpp
+        sources/queries/output_llvm_backend_options.cpp
         sources/queries/output_llvm_input.cpp
         sources/queries/output_list.cpp
         sources/queries/output_optimized_llvm.cpp
         sources/queries/output_unoptimized_llvm.cpp
+        sources/queries/target_backend.cpp
+        sources/queries/target_llvm_backend_options.cpp
         sources/queries/parse_file.cpp
         sources/queries/procedure_linksymbol.cpp
         sources/queries/run_static_test.cpp

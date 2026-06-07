@@ -22,6 +22,10 @@
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
 #include <quxlang/queries/module_sources.hpp>
+#include <quxlang/queries/output_binaries_information.hpp>
+#include <quxlang/queries/output_binary_information.hpp>
+#include <quxlang/queries/output_llvm_backend_options.hpp>
+#include <quxlang/queries/output_llvm_input.hpp>
 #include <quxlang/queries/output_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
@@ -31,6 +35,8 @@
 #include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/source_file_name.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/target_backend.hpp>
+#include <quxlang/queries/target_llvm_backend_options.hpp>
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
@@ -173,6 +179,117 @@ TEST(querygraph_queries, output_list_returns_default_when_outputs_are_omitted)
     std::set< std::string > outputs = graph.make_request< quxlang::output_list_query >(std::monostate{});
 
     ASSERT_EQ(outputs, (std::set< std::string >{"default"}));
+}
+
+TEST(querygraph_queries, output_binary_information_returns_configured_output)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("app");
+
+    EXPECT_EQ(output.output_name, "app");
+    EXPECT_EQ(output.module_name, "main");
+    EXPECT_EQ(output.main_functanoid, "main");
+    EXPECT_EQ(output.type, quxlang::output_kind::executable);
+}
+
+TEST(querygraph_queries, output_binary_information_returns_default_output)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("default");
+
+    EXPECT_EQ(output.output_name, "default");
+    EXPECT_EQ(output.module_name, "main");
+    EXPECT_EQ(output.main_functanoid, "::main#()");
+    EXPECT_EQ(output.type, quxlang::output_kind::executable);
+}
+
+TEST(querygraph_queries, output_binaries_information_returns_all_outputs)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    std::map< std::string, quxlang::output_query_output > outputs = graph.make_request< quxlang::output_binaries_information_query >(std::monostate{});
+
+    ASSERT_EQ(outputs.size(), static_cast< std::size_t >(2));
+    ASSERT_TRUE(outputs.contains("app"));
+    ASSERT_TRUE(outputs.contains("util"));
+    EXPECT_EQ(outputs.at("util").module_name, "util");
+    EXPECT_EQ(outputs.at("util").main_functanoid, "::main#()");
+    EXPECT_EQ(outputs.at("util").type, quxlang::output_kind::shared_library);
+}
+
+TEST(querygraph_queries, output_binary_information_rejects_unknown_output)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    EXPECT_THROW(graph.make_request< quxlang::output_binary_information_query >("missing"), quxlang::compilation_error);
+}
+
+TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    EXPECT_EQ(graph.make_request< quxlang::target_backend_query >(std::monostate{}), quxlang::backend_kind::llvm);
+    EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).mode, quxlang::backend_llvm_mode::optimize);
+    EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").mode, quxlang::backend_llvm_mode::optimize);
+}
+
+TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_options)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).mode, quxlang::backend_llvm_mode::debug);
+    EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").mode, quxlang::backend_llvm_mode::debug);
+}
+
+TEST(querygraph_queries, output_llvm_backend_options_uses_output_override)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    bundle.targets.at("x64").llvm_options.mode = quxlang::backend_llvm_mode::debug;
+    bundle.targets.at("x64").outputs->at("app").llvm_options = quxlang::backend_llvm_options{.mode = quxlang::backend_llvm_mode::optimize};
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    EXPECT_EQ(graph.make_request< quxlang::target_llvm_backend_options_query >(std::monostate{}).mode, quxlang::backend_llvm_mode::debug);
+    EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").mode, quxlang::backend_llvm_mode::optimize);
+    EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("util").mode, quxlang::backend_llvm_mode::debug);
+}
+
+TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object_refs)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = R"QX(
+::first VAR I32;
+::second VAR I32;
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  MOVABS RAX, OFFSET OBJECT_REF(first)
+  MOVABS RBX, OFFSET OBJECT_REF(second)
+}
+)QX"};
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >("default");
+    quxlang::type_symbol const first = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+        .name = "first",
+    };
+    quxlang::type_symbol const second = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+        .name = "second",
+    };
+
+    EXPECT_TRUE(unit.object_reference_types.contains(first));
+    EXPECT_TRUE(unit.object_reference_types.contains(second));
 }
 
 TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)

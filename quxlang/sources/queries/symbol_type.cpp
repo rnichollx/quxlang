@@ -191,6 +191,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::static_test;
         }
+        else if (typeis< ast2_asm_procedure_declaration >(s))
+        {
+            co_return symbol_kind::functum;
+        }
         else if (typeis< ast2_option >(s))
         {
             co_return symbol_kind::option;

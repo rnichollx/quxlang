@@ -5237,6 +5237,8 @@ TEST(quxlang, source_loader_preserves_omitted_outputs_as_nullopt)
     ASSERT_FALSE(sources.targets.at("linux-arm64").outputs.has_value());
     ASSERT_TRUE(sources.targets.at("linux-x86").outputs.has_value());
     ASSERT_TRUE(sources.targets.at("linux-x86").outputs->contains("app"));
+    ASSERT_TRUE(sources.targets.at("linux-x86").outputs->at("app").llvm_options.has_value());
+    ASSERT_EQ(sources.targets.at("linux-x86").outputs->at("app").llvm_options->mode, quxlang::backend_llvm_mode::debug);
 }
 
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
