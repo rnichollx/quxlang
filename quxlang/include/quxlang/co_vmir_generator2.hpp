@@ -1168,9 +1168,9 @@ namespace quxlang
                     throw semantic_compilation_error("Error: symbol " + func_str + " is not a functum");
                 }
             }
-            auto instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
+            auto const& instanciation = co_await rpnx::querygraph::request< instanciation_query >(functanoid_unnormalized);
 
-            auto functum_overloeads = co_await rpnx::querygraph::request< functum_overloads_query >(func);
+            auto const & functum_overloeads = co_await rpnx::querygraph::request< functum_overloads_query >(func);
 
             for (auto const& overload : functum_overloeads)
             {

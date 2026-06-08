@@ -49,7 +49,7 @@ namespace quxlang
 
         if (duration > profile_threshold)
         {
-            std::cerr << "[quxlang:" << src.file_name() << ":" << src.line() << "] ";
+            std::cerr << "[quxlang:" << src.file_name() << ":" << src.line() << "] SLOW ";
             auto const context_str = context();
             if (!context_str.empty())
             {

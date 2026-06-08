@@ -320,7 +320,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
             }
         }
 
-        run_under_profiling_void("run_static_test exec3",
+        run_under_profiling_void([&] { return "run_static_test " + quxlang::to_string(input); },
                                  [&]
                                  {
                                      interp.exec3(void_type{});
