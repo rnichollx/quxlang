@@ -513,6 +513,10 @@ namespace quxlang::parsers
             }
             return dvalue_slot{parse_type_symbol(ctx)};
         }
+        else if (skip_keyword_if_is(pos, end, "UINTPTR"))
+        {
+            return size_type{};
+        }
         else if (skip_keyword_if_is(pos, end, "SZ"))
         {
             return size_type{};

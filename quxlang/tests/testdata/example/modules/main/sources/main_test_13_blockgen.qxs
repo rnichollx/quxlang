@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::blockgen_test STATIC_TEST {
 
   ASSERT(blockgen_additional_statements_after_return() == 1);

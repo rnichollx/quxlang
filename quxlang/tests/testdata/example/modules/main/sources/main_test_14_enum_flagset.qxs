@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::nullable_choice ENUM [none = NULL, x, y];
 
 ::default_choice ENUM [x = 7, y DEFAULT, z];

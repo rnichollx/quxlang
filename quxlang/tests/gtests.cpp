@@ -162,10 +162,20 @@ static quxlang::parsers::parsing_context test_parsing_context(std::string const&
     return quxlang::parsers::make_unlocated_parsing_context(input);
 }
 
-static quxlang::ast2_file_declaration parse_file_text(std::string const& input)
+static std::string with_test_language_declaration(std::string input)
+{
+    return "LANGUAGE QUXLANG EN 0.0;\n\n" + std::move(input);
+}
+
+static quxlang::ast2_file_declaration parse_file_text_raw(std::string const& input)
 {
     auto ctx = test_parsing_context(input);
     return quxlang::parsers::parse_file(ctx);
+}
+
+static quxlang::ast2_file_declaration parse_file_text(std::string input)
+{
+    return parse_file_text_raw(with_test_language_declaration(std::move(input)));
 }
 
 static std::optional< quxlang::ast2_class_declaration > try_parse_class_text(std::string const& input)
@@ -238,6 +248,12 @@ TEST(parsing, parse_empty_class)
     std::optional< quxlang::ast2_class_declaration > cl = try_parse_class_text(test_string);
 
     ASSERT_TRUE(cl.has_value());
+}
+
+TEST(parsing, parse_file_requires_language_declaration)
+{
+    EXPECT_THROW(parse_file_text_raw("::main VAR I32;"), std::logic_error);
+    EXPECT_NO_THROW(parse_file_text_raw("LANGUAGE QUXLANG EN 0.0; ::main VAR I32;"));
 }
 
 TEST(parsing, parse_interface_declaration)
@@ -641,6 +657,7 @@ TEST(parsing, parse_basic_types)
 
     ASSERT_TRUE(parse_type_symbol("I64") == type_symbol(int_type{64, true}));
     ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(ptrref_type{int_type{64, true}}));
+    ASSERT_TRUE(parse_type_symbol("UINTPTR") == type_symbol(size_type{}));
     ASSERT_TRUE(parse_type_symbol("STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
     ASSERT_TRUE(parse_type_symbol("STORAGE(I64, I32)") == parse_type_symbol("STORAGE(I32, I64)"));
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
@@ -883,6 +900,32 @@ TEST(parsing, parse_global_static_variable_declaration)
     ASSERT_TRUE(variable_decl.init_expr.has_value());
     ASSERT_EQ(quxlang::to_string(*variable_decl.init_expr), "4");
     ASSERT_TRUE(variable_decl.init_args.empty());
+}
+
+TEST(parsing, parse_global_per_thread_variable_declaration)
+{
+    std::string test_string = "::foo PER_THREAD VAR I32;";
+
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    ASSERT_TRUE(quxlang::typeis< quxlang::global_subdeclaroid >(file.declarations.front()));
+
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    ASSERT_EQ(decl.name, "foo");
+    ASSERT_TRUE(quxlang::typeis< quxlang::ast2_variable_declaration >(decl.decl));
+
+    auto const& variable_decl = quxlang::as< quxlang::ast2_variable_declaration >(decl.decl);
+    ASSERT_EQ(variable_decl.type, quxlang::type_symbol(quxlang::int_type{32, true}));
+    ASSERT_TRUE(variable_decl.keyword_tags.contains("PER_THREAD"));
+    ASSERT_FALSE(variable_decl.keyword_tags.contains("STATIC"));
+    ASSERT_FALSE(variable_decl.init_expr.has_value());
+    ASSERT_TRUE(variable_decl.init_args.empty());
+}
+
+TEST(parsing, reject_member_per_thread_variable_declaration)
+{
+    EXPECT_THROW(parse_file_text("::foo CLASS { .bar PER_THREAD VAR I32; }"), std::logic_error);
 }
 
 TEST(parsing, parse_function_local_static_statements)
@@ -4805,7 +4848,7 @@ namespace
         sources.targets["linux-x64"] = target;
 
         quxlang::module_source main_module;
-        main_module.files["main.qxs"] = quxlang::source_file{.contents = std::move(source)};
+        main_module.files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(std::move(source))};
         sources.module_sources["main"] = std::move(main_module);
 
         return sources;
@@ -4849,7 +4892,7 @@ TEST(quxlang, compiler_graph_resolves_main_source_bundle)
 
     auto module = graph.make_request< quxlang::module_sources_query >("main");
     ASSERT_TRUE(module.files.contains("main.qxs"));
-    ASSERT_EQ(module.files.at("main.qxs").get().contents, "::main VAR I32;");
+    ASSERT_EQ(module.files.at("main.qxs").get().contents, with_test_language_declaration("::main VAR I32;"));
 }
 
 TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
@@ -5638,14 +5681,14 @@ TEST(quxlang, user_constructor_other_same_type_is_rejected)
     sources.targets["linux-x64"] = target;
 
     quxlang::module_source main_module;
-    main_module.files["main.qxs"] = quxlang::source_file{.contents = R"(
+    main_module.files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"(
 ::bad_ctor CLASS
 {
     .CONSTRUCTOR FUNCTION(@OTHER bad_ctor)
     {
     }
 }
-)"};
+)")};
     sources.module_sources["main"] = main_module;
 
     test_querygraph_compiler c(sources, "linux-x64");

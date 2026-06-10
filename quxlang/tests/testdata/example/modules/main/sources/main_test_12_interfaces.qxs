@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::interface_integer INTERFACE DEFAULTABLE
 {
     .value FUNCTION(%x I32): I32;

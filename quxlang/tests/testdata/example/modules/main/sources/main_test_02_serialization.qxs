@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::primitive_serialize_test STATIC_TEST
 {
    VAR output [4]BYTE;

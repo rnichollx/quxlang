@@ -60,6 +60,11 @@
 
 namespace
 {
+    auto with_test_language_declaration(std::string contents) -> std::string
+    {
+        return "LANGUAGE QUXLANG EN 0.0;\n\n" + std::move(contents);
+    }
+
     auto make_test_source_bundle() -> quxlang::source_bundle
     {
         quxlang::source_bundle bundle;
@@ -88,9 +93,9 @@ namespace
         bundle.targets["x64"] = x64;
         bundle.targets["arm64"] = arm64;
 
-        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = "::main VAR I32;"};
-        bundle.module_sources["main_arm64"].files["main.qxs"] = quxlang::source_file{.contents = "::main VAR I64;"};
-        bundle.module_sources["util_shared"].files["util.qxs"] = quxlang::source_file{.contents = "::util VAR I32;"};
+        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
+        bundle.module_sources["main_arm64"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I64;")};
+        bundle.module_sources["util_shared"].files["util.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::util VAR I32;")};
 
         return bundle;
     }
@@ -106,7 +111,7 @@ namespace
         x64.module_configurations["main"].source = "main_x64";
 
         bundle.targets["x64"] = x64;
-        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = std::move(contents)};
+        bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(std::move(contents))};
 
         return bundle;
     }
@@ -143,7 +148,7 @@ TEST(querygraph_queries, source_bundle_returns_injected_bundle)
     ASSERT_TRUE(resolved.targets.contains("x64"));
     ASSERT_TRUE(resolved.targets.contains("arm64"));
     ASSERT_TRUE(resolved.module_sources.contains("main_x64"));
-    ASSERT_EQ(resolved.module_sources.at("main_x64").files.at("main.qxs").get().contents, "::main VAR I32;");
+    ASSERT_EQ(resolved.module_sources.at("main_x64").files.at("main.qxs").get().contents, with_test_language_declaration("::main VAR I32;"));
 }
 
 TEST(querygraph_queries, machine_info_returns_injected_output_info)
@@ -269,7 +274,7 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
 {
     quxlang::source_bundle bundle = make_single_main_source_bundle("::main FUNCTION(): I32 { RETURN 0; }");
     bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
-    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = R"QX(
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
 ::first VAR I32;
 ::second VAR I32;
 ::PROGRAM_START ASM_PROCEDURE X64
@@ -277,7 +282,7 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
   MOVABS RAX, OFFSET OBJECT_REF(first)
   MOVABS RBX, OFFSET OBJECT_REF(second)
 }
-)QX"};
+)QX")};
 
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
@@ -439,7 +444,7 @@ TEST(querygraph_queries, module_sources_returns_source_files_for_logical_module)
     auto resolved = graph.make_request< quxlang::module_sources_query >("util");
 
     ASSERT_TRUE(resolved.files.contains("util.qxs"));
-    ASSERT_EQ(resolved.files.at("util.qxs").get().contents, "::util VAR I32;");
+    ASSERT_EQ(resolved.files.at("util.qxs").get().contents, with_test_language_declaration("::util VAR I32;"));
 }
 
 TEST(querygraph_queries, source_file_index_assigns_deterministic_global_ids)

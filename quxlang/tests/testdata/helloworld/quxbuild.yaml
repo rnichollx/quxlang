@@ -1,0 +1,33 @@
+linux-x64:
+  platform: linux
+  cpu: x64
+  backend: llvm
+  backend_llvm_options:
+    mode: debug
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    main:
+      source: main
+  outputs:
+    app:
+      type: executable
+
+linux-arm64:
+  platform: linux
+  cpu: ARM64
+  backend: llvm
+  backend_llvm_options:
+    mode: debug
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    main:
+      source: main
+  outputs:
+    app:
+      type: executable

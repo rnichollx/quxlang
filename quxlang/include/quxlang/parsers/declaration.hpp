@@ -84,6 +84,11 @@ namespace quxlang::parsers
 
         if (member)
         {
+            if (decl.type_is< ast2_variable_declaration >() && decl.get_as< ast2_variable_declaration >().keyword_tags.contains("PER_THREAD"))
+            {
+                throw syntax_compilation_error("PER_THREAD variables must be global declarations");
+            }
+
             output = member_subdeclaroid {
                 .decl = std::move(decl),
                 .name = std::move(name),

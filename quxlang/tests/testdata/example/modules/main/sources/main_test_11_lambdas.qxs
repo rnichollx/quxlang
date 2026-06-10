@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::lambda_no_capture_call FUNCTION(): I32
 {
   RETURN (-< :I32 = 7)();

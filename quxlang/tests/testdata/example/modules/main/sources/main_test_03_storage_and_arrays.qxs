@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::arrytest_cls CLASS
 {
   .val VAR I32;

@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::literal_string_static STATIC STRING_CONSTANT := "hello";
 ::copied_string_static STATIC STRING_CONSTANT := literal_string_static;
 

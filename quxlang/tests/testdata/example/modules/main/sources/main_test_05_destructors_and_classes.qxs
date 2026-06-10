@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::symmetric_comparison_operators_test STATIC_TEST
 {
     VAR x I32 := 5;

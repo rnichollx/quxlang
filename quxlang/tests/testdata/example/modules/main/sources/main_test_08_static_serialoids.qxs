@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 ::static_structural_probe CLASS
 {
   .a VAR I32;

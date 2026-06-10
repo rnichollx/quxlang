@@ -1,3 +1,5 @@
+LANGUAGE QUXLANG EN 0.0;
+
 
 ::imported_function FUNCTION(): I32
 {

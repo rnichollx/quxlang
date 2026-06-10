@@ -1,0 +1,7 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::main FUNCTION(): I32
+{
+  RETURN 0;
+}

@@ -185,6 +185,8 @@ namespace
         out.reserve(target_lines * 72);
 
         std::size_t line_count = 0;
+        append_line(out, line_count, "LANGUAGE QUXLANG EN 0.0;");
+        append_line(out, line_count, "");
         append_line(out, line_count, "::" + random_name(rng, "outer") + " NAMESPACE");
         append_line(out, line_count, "{");
         append_line(out, line_count, "::" + random_name(rng, "inner") + " NAMESPACE");
