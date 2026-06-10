@@ -109,4 +109,4 @@ What works or mostly works:
  
 ## Note regarding "Qux"
 
-Quxlang is _always_ the complete name, referred to as "Quxlang" similar to how "lang" is part of the name of "Erlang", never as "Qux" nor as "QuxLang". The "L" in Quxlang should never be capitalized (unless Quxlang is written using ALL CAPS). There is another project called "Qux" which is an archived programming language project; that is a different project entirely, and Quxlang is not related to that project aside from having a similar name.
+Quxlang is _always_ the complete name, referred to as "Quxlang" (similar to how "lang" is part of the name of "Erlang"), never as "Qux" nor as "QuxLang". The "L" in Quxlang should never be capitalized (unless Quxlang is written using ALL CAPS). There is another project called "Qux" which is an archived programming language project; that is a different project entirely, and Quxlang is not related to that project aside from having a similar name.
