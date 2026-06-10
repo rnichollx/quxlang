@@ -32,7 +32,13 @@ linux-arm64:
       source: main
   platform: linux
   cpu: ARM64
-
+  outputs:
+    app:
+      type: executable
+    app.dbg:
+      type: executable
+      backend_llvm_options:
+        mode: debug
 
 linux-x86:
   modules:
@@ -50,6 +56,8 @@ linux-x86:
   cpu: x86
   outputs:
     app:
+      type: executable
+    app-dbg:
       type: executable
       backend_llvm_options:
         mode: debug

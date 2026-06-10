@@ -1,0 +1,90 @@
+::atomic_load_store FUNCTION(%value I32): I32
+{
+    VAR x ATOMIC#I32;
+    x.STORE#ATOMIC_RELEASE(value);
+    RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_fetch_integer_ops FUNCTION(%seed I32): I32
+{
+    VAR x ATOMIC#I32 := seed;
+    VAR total I32 := x.FETCH_ADD#ATOMIC_ACQREL(1);
+    total += x.FETCH_SUB#ATOMIC_ACQREL(2);
+    total += x.FETCH_AND#ATOMIC_ACQREL(255);
+    total += x.FETCH_OR#ATOMIC_ACQREL(16);
+    total += x.FETCH_XOR#ATOMIC_ACQREL(3);
+    RETURN total;
+}
+
+::atomic_void_integer_ops FUNCTION(%seed I32): I32
+{
+    VAR x ATOMIC#I32 := seed;
+    x.ADD#ATOMIC_RELEASE(1);
+    x.SUB#ATOMIC_RELEASE(2);
+    x.AND#ATOMIC_RELEASE(255);
+    x.OR#ATOMIC_RELEASE(16);
+    x.XOR#ATOMIC_RELEASE(3);
+    RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_compare_exchange_ops FUNCTION(%seed I32, %desired I32): BOOL
+{
+    VAR x ATOMIC#I32 := seed;
+    VAR expected I32 := seed;
+    RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, desired);
+}
+
+::atomic_i24_load_store FUNCTION(%value I24): I24
+{
+    VAR x ATOMIC#I24;
+    x.STORE#ATOMIC_RELEASE(value);
+    RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_i24_fetch_integer_ops FUNCTION(%seed I24): I24
+{
+    VAR x ATOMIC#I24 := seed;
+    VAR total I24 := x.FETCH_ADD#ATOMIC_ACQREL(1);
+    total += x.FETCH_SUB#ATOMIC_ACQREL(2);
+    total += x.FETCH_AND#ATOMIC_ACQREL(255);
+    total += x.FETCH_OR#ATOMIC_ACQREL(16);
+    total += x.FETCH_XOR#ATOMIC_ACQREL(3);
+    RETURN total;
+}
+
+::atomic_i24_void_integer_ops FUNCTION(%seed I24): I24
+{
+    VAR x ATOMIC#I24 := seed;
+    x.ADD#ATOMIC_RELEASE(1);
+    x.SUB#ATOMIC_RELEASE(2);
+    x.AND#ATOMIC_RELEASE(255);
+    x.OR#ATOMIC_RELEASE(16);
+    x.XOR#ATOMIC_RELEASE(3);
+    RETURN x.LOAD#ATOMIC_ACQUIRE();
+}
+
+::atomic_i24_compare_exchange_ops FUNCTION(%seed I24, %desired I24): BOOL
+{
+    VAR x ATOMIC#I24 := seed;
+    VAR expected I24 := seed;
+    RETURN x.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, desired);
+}
+
+::main FUNCTION(): I32
+{
+    VAR total I32 := atomic_load_store(5);
+    total += atomic_fetch_integer_ops(total);
+    total += atomic_void_integer_ops(total);
+    IF (atomic_compare_exchange_ops(total, 9))
+    {
+        total += 1;
+    }
+    total += atomic_i24_load_store(5);
+    total += atomic_i24_fetch_integer_ops(5);
+    total += atomic_i24_void_integer_ops(5);
+    IF (atomic_i24_compare_exchange_ops(5, 9))
+    {
+        total += 1;
+    }
+    RETURN total;
+}

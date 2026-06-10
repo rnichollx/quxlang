@@ -68,6 +68,7 @@
 #include <cstdint>
 #include <limits>
 #include <random>
+#include <stdexcept>
 #include <variant>
 
 struct foo
@@ -1284,18 +1285,6 @@ TEST(qxc, object_output_paths_use_expected_extensions)
     EXPECT_TRUE(module_optimized_object_path.filename().string().ends_with(".module.opt.o"));
 }
 
-TEST(qxc, output_executable_paths_use_expected_extensions)
-{
-    std::string const long_name(260, 'a');
-    std::filesystem::path const build_dir = "build";
-
-    std::filesystem::path const debug_executable_path = quxlang::qxc_detail::make_output_executable_output_path(build_dir, long_name);
-    std::filesystem::path const optimized_executable_path = quxlang::qxc_detail::make_optimized_output_executable_output_path(build_dir, long_name);
-
-    EXPECT_TRUE(debug_executable_path.filename().string().ends_with(".dbg.elf"));
-    EXPECT_TRUE(optimized_executable_path.filename().string().ends_with(".opt.elf"));
-}
-
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
 {
     quxlang::type_symbol const root = quxlang::submember{
@@ -1963,7 +1952,6 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     quxlang::asm_procedure procedure;
     procedure.architecture = "X64";
     procedure.name = quxlang::mangle(routine_symbol);
-    procedure.callable_interface = std::move(callable);
     procedure.instructions = {
         quxlang::asm_instruction{
             .opcode_mnemonic = "MOV",
@@ -1977,6 +1965,7 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
 
     quxlang::llvm_backend::llvm_compilable_unit packet;
     packet.target_name = routine_symbol;
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
     packet.asm_functions.emplace(routine_symbol, std::move(procedure));
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
@@ -5076,9 +5065,11 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_mangled_symbol_for_selected_ove
         },
     };
     EXPECT_EQ(graph.make_request< quxlang::functanoid_return_type_query >(inst), parse_type_symbol("I32"));
-    EXPECT_EQ(
-        graph.make_request< quxlang::procedure_linksymbol_query >(quxlang::ast2_procedure_ref{.cc = "", .functanoid = inst}),
-        quxlang::mangle(inst));
+
+    quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(inst);
+    EXPECT_EQ(assembled.name, quxlang::mangle(write_symbol));
+    ASSERT_TRUE(assembled.callable_interface.has_value());
+    EXPECT_EQ(assembled.callable_interface->calling_conv, "CCALL");
 }
 
 TEST(quxlang, asm_inline_function_parses_but_is_not_callable)
@@ -5175,7 +5166,7 @@ TEST(quxlang, asm_procedure_query_accepts_instantiated_overload_symbol)
     };
 
     quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(inst);
-    EXPECT_EQ(assembled.name, quxlang::mangle(inst));
+    EXPECT_EQ(assembled.name, quxlang::mangle(parse_type_symbol("MODULE(main)::write")));
     ASSERT_TRUE(assembled.callable_interface.has_value());
     EXPECT_EQ(assembled.callable_interface->calling_conv, "CCALL");
     ASSERT_EQ(assembled.instructions.size(), 3);
@@ -5397,6 +5388,27 @@ TEST(quxlang, string_constant_has_two_pointer_logical_placement)
 
     EXPECT_EQ(placement.size, machine_info.pointer_size_bytes() * 2);
     EXPECT_EQ(placement.alignment, machine_info.pointer_align());
+}
+
+TEST(quxlang, machine_target_info_models_atomic_alignment_and_native_width)
+{
+    quxlang::machine_target_info none_target;
+    EXPECT_THROW(none_target.max_native_atomic_storage_bits(), std::invalid_argument);
+    EXPECT_THROW(none_target.atomic_integer_alignment_for_bits(32), std::invalid_argument);
+
+    quxlang::machine_target_info x86_32_target{.cpu_type = quxlang::cpu::x86_32};
+    EXPECT_EQ(x86_32_target.max_native_atomic_storage_bits(), 32);
+    EXPECT_EQ(x86_32_target.atomic_integer_alignment_for_bits(24), 4);
+    EXPECT_EQ(x86_32_target.atomic_integer_alignment_for_bits(128), 16);
+
+    quxlang::machine_target_info arm_64_target{.cpu_type = quxlang::cpu::arm_64};
+    EXPECT_EQ(arm_64_target.max_native_atomic_storage_bits(), 64);
+    EXPECT_EQ(arm_64_target.atomic_integer_alignment_for_bits(24), 4);
+    EXPECT_EQ(arm_64_target.atomic_integer_alignment_for_bits(128), 16);
+
+    quxlang::machine_target_info riscv_32_target{.cpu_type = quxlang::cpu::riscv_32};
+    EXPECT_EQ(riscv_32_target.max_native_atomic_storage_bits(), 32);
+    EXPECT_EQ(riscv_32_target.atomic_integer_alignment_for_bits(64), 8);
 }
 
 TEST(quxlang, class_layout_keeps_attached_field_type_with_attached_storage)

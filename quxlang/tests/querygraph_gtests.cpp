@@ -4,6 +4,7 @@
 
 #include <quxlang/compiler_querygraph.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
+#include <quxlang/source_loader.hpp>
 #include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
@@ -26,6 +27,7 @@
 #include <quxlang/queries/output_binary_information.hpp>
 #include <quxlang/queries/output_llvm_backend_options.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
+#include <quxlang/queries/output_unoptimized_llvm.hpp>
 #include <quxlang/queries/output_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
@@ -50,6 +52,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
 #include <map>
 #include <optional>
 #include <set>
@@ -290,6 +293,40 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
 
     EXPECT_TRUE(unit.object_reference_types.contains(first));
     EXPECT_TRUE(unit.object_reference_types.contains(second));
+}
+
+TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)
+{
+    std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
+    quxlang::source_bundle sources = quxlang::load_bundle_sources_for_targets(testdata / "llvm_gentest", {});
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+
+    EXPECT_NE(llvm_ir.find("store atomic i32"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("load atomic i32"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw add ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw sub ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw and ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw or ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw xor ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("cmpxchg ptr"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("atomicrmw.loop"), std::string::npos);
+    EXPECT_EQ(llvm_ir.find("store atomic i24"), std::string::npos);
+    EXPECT_EQ(llvm_ir.find("load atomic i24"), std::string::npos);
+
+    for (std::string const prefix : {"atomicrmw ", "cmpxchg ptr"})
+    {
+        std::size_t position = llvm_ir.find(prefix);
+        while (position != std::string::npos)
+        {
+            std::size_t const line_end = llvm_ir.find('\n', position);
+            std::string const line = llvm_ir.substr(position, line_end - position);
+            EXPECT_EQ(line.find("i24"), std::string::npos) << line;
+            position = llvm_ir.find(prefix, line_end);
+        }
+    }
 }
 
 TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)

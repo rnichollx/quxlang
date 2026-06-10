@@ -29,7 +29,6 @@
 #include "quxlang/queries/type_placement_info.hpp"
 #include "quxlang/queries/variable_type.hpp"
 #include "quxlang/queries/vm_procedure3.hpp"
-#include "quxlang/linker/elf_linker.hpp"
 #include "quxlang/source_loader.hpp"
 #include "quxlang/vmir2/assembler.hpp"
 #include "quxlang/vmir2/routine_requirements.hpp"
@@ -752,70 +751,6 @@ namespace
     }
 
     /**
-     * Writes one aggregated output executable ELF file for qxc output.
-     */
-    auto write_output_executable_file(
-        std::filesystem::path const& build_dir,
-        std::string const& output_name,
-        std::vector< std::byte > const& file_bytes) -> std::filesystem::path
-    {
-        std::filesystem::path const executable_path = quxlang::qxc_detail::make_output_executable_output_path(build_dir, output_name);
-        std::filesystem::create_directories(executable_path.parent_path());
-
-        std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
-        if (!outfile)
-        {
-            throw quxlang::compilation_error("Failed to open output executable file: " + executable_path.string());
-        }
-
-        outfile.write(reinterpret_cast< char const* >(file_bytes.data()), static_cast< std::streamsize >(file_bytes.size()));
-        if (!outfile)
-        {
-            throw quxlang::compilation_error("Failed to write output executable file: " + executable_path.string());
-        }
-
-        std::filesystem::permissions(
-            executable_path,
-            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::owner_exec | std::filesystem::perms::group_read |
-                std::filesystem::perms::group_exec | std::filesystem::perms::others_read | std::filesystem::perms::others_exec,
-            std::filesystem::perm_options::replace);
-
-        return executable_path;
-    }
-
-    /**
-     * Writes one aggregated optimized output executable ELF file for qxc output.
-     */
-    auto write_optimized_output_executable_file(
-        std::filesystem::path const& build_dir,
-        std::string const& output_name,
-        std::vector< std::byte > const& file_bytes) -> std::filesystem::path
-    {
-        std::filesystem::path const executable_path = quxlang::qxc_detail::make_optimized_output_executable_output_path(build_dir, output_name);
-        std::filesystem::create_directories(executable_path.parent_path());
-
-        std::ofstream outfile(executable_path, std::ios::binary | std::ios::trunc);
-        if (!outfile)
-        {
-            throw quxlang::compilation_error("Failed to open optimized output executable file: " + executable_path.string());
-        }
-
-        outfile.write(reinterpret_cast< char const* >(file_bytes.data()), static_cast< std::streamsize >(file_bytes.size()));
-        if (!outfile)
-        {
-            throw quxlang::compilation_error("Failed to write optimized output executable file: " + executable_path.string());
-        }
-
-        std::filesystem::permissions(
-            executable_path,
-            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write | std::filesystem::perms::owner_exec | std::filesystem::perms::group_read |
-                std::filesystem::perms::group_exec | std::filesystem::perms::others_read | std::filesystem::perms::others_exec,
-            std::filesystem::perm_options::replace);
-
-        return executable_path;
-    }
-
-    /**
      * Writes one final qxc output artifact using the configured output name directly.
      */
     auto write_final_output_file(
@@ -895,6 +830,7 @@ namespace
     struct collected_routine_tree
     {
         std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > routines;
+        std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
         std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
         std::set< quxlang::type_symbol > object_references;
         quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
@@ -1325,6 +1261,7 @@ int main(int argc, char** argv)
                 std::vector< std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > > pending_functanoids;
                 std::set< quxlang::type_symbol > queued_functanoids;
                 std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > tree_routines;
+                std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
                 std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
                 std::set< quxlang::type_symbol > object_references;
                 quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
@@ -1345,13 +1282,30 @@ int main(int argc, char** argv)
                         quxlang::ast2_asm_procedure_declaration const& declaration,
                         std::vector< quxlang::trace_frame > dependency_traceback) -> void
                 {
-                    if (asm_routines.contains(asm_symbol))
+                    quxlang::type_symbol asm_body_symbol = asm_symbol;
+                    if (asm_symbol.type_is< quxlang::instanciation_reference >())
+                    {
+                        asm_body_symbol = asm_symbol.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+                    }
+
+                    if (asm_symbol.type_is< quxlang::instanciation_reference >() && !asm_callable_interfaces.contains(asm_symbol))
+                    {
+                        quxlang::asm_procedure selected_procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_symbol);
+                        if (!selected_procedure.callable_interface.has_value())
+                        {
+                            throw quxlang::compiler_bug("Selected asm procedure has no callable interface: " + quxlang::to_string(asm_symbol));
+                        }
+                        asm_callable_interfaces.emplace(asm_symbol, *selected_procedure.callable_interface);
+                        dependency_graph[asm_symbol].insert(asm_body_symbol);
+                    }
+
+                    if (asm_routines.contains(asm_body_symbol))
                     {
                         return;
                     }
 
-                    quxlang::asm_procedure procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_symbol);
-                    asm_routines.emplace(asm_symbol, std::move(procedure));
+                    quxlang::asm_procedure procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_body_symbol);
+                    asm_routines.emplace(asm_body_symbol, std::move(procedure));
 
                     functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, declaration);
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
@@ -1363,14 +1317,14 @@ int main(int argc, char** argv)
                         }
                         enqueue_functanoid(
                             referenced_symbol.as< quxlang::instanciation_reference >(),
-                            make_dependency_traceback(dependency_traceback, asm_symbol, referenced_functanoid.second));
+                            make_dependency_traceback(dependency_traceback, asm_body_symbol, referenced_functanoid.second));
                     }
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
                     {
-                        dependency_graph[asm_symbol].insert(referenced_functanoid.first);
+                        dependency_graph[asm_body_symbol].insert(referenced_functanoid.first);
                     }
 
-                    object_reference_locations const referenced_objects = directly_referenced_object_locations(graph, asm_symbol, declaration);
+                    object_reference_locations const referenced_objects = directly_referenced_object_locations(graph, asm_body_symbol, declaration);
                     for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_object : referenced_objects)
                     {
                         object_references.insert(referenced_object.first);
@@ -1412,7 +1366,7 @@ int main(int argc, char** argv)
                     quxlang::instanciation_reference functanoid = std::move(pending_functanoid.first);
                     std::vector< quxlang::trace_frame > dependency_traceback = std::move(pending_functanoid.second);
                     quxlang::type_symbol functanoid_symbol = functanoid;
-                    if (tree_routines.contains(functanoid_symbol) || asm_routines.contains(functanoid_symbol))
+                    if (tree_routines.contains(functanoid_symbol) || asm_callable_interfaces.contains(functanoid_symbol))
                     {
                         continue;
                     }
@@ -1468,6 +1422,7 @@ int main(int argc, char** argv)
 
                 collected_routine_tree result;
                 result.routines = std::move(tree_routines);
+                result.asm_callable_interfaces = std::move(asm_callable_interfaces);
                 result.asm_routines = std::move(asm_routines);
                 result.object_references = std::move(object_references);
                 result.dependency_graph = std::move(dependency_graph);
@@ -1480,6 +1435,16 @@ int main(int argc, char** argv)
                 for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& routine_entry : result.asm_routines)
                 {
                     quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
+                    result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
+                }
+                for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& routine_entry : result.asm_callable_interfaces)
+                {
+                    quxlang::type_symbol asm_body_symbol = routine_entry.first;
+                    if (routine_entry.first.type_is< quxlang::instanciation_reference >())
+                    {
+                        asm_body_symbol = routine_entry.first.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+                    }
+                    quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = asm_body_symbol};
                     result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
                 }
                 return result;
@@ -1543,6 +1508,15 @@ int main(int argc, char** argv)
                             continue;
                         }
                         compilable_unit.inlinable_functions.insert(*helper_iter);
+                    }
+                    for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
+                    {
+                        std::map< quxlang::type_symbol, quxlang::asm_callable >::const_iterator helper_iter = tree.asm_callable_interfaces.find(helper_symbol);
+                        if (helper_iter == tree.asm_callable_interfaces.end())
+                        {
+                            continue;
+                        }
+                        compilable_unit.asm_callable_interfaces.insert(*helper_iter);
                     }
                     for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
                     {
@@ -1680,6 +1654,7 @@ int main(int argc, char** argv)
                     }
                     output_module_unit.inlinable_functions.insert(routine_entry);
                 }
+                output_module_unit.asm_callable_interfaces = output_tree.asm_callable_interfaces;
                 output_module_unit.asm_functions = output_tree.asm_routines;
 
                 quxlang::llvm_backend::llvm_compiled_unit const output_module = llvm_backend.compile(output_module_unit);
@@ -1699,50 +1674,11 @@ int main(int argc, char** argv)
                     std::cout << "Wrote optimized output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_object_path.string() << std::endl;
                 }
 
-                if (output_entry.type == quxlang::output_kind::executable && target_config.target_output_config.os_type == quxlang::os::linux &&
-                    target_config.target_output_config.binary_type == quxlang::binary::elf)
+                quxlang::output_binary_artifact const artifact = graph.make_request< quxlang::output_binary_artifact_query >(output_entry.output_name);
+                std::filesystem::path const executable_path = write_final_output_file(output_dir, output_entry.output_name, artifact.bytes);
+                if (verbose)
                 {
-                    quxlang::elf_linker linker;
-                    std::map< std::string, std::string > symbol_display_names;
-                    auto add_symbol_display_name = [&symbol_display_names](quxlang::type_symbol const& symbol)
-                    {
-                        symbol_display_names.emplace(quxlang::mangle(symbol), quxlang::to_string(symbol));
-                    };
-                    add_symbol_display_name(entry_functanoid);
-                    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : output_tree.routines)
-                    {
-                        add_symbol_display_name(routine_entry.first);
-                    }
-                    for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& asm_entry : output_tree.asm_routines)
-                    {
-                        add_symbol_display_name(asm_entry.first);
-                    }
-                    for (std::pair< quxlang::type_symbol const, quxlang::antestatal_value > const& constant_entry : output_tree.support.antestatal_constants)
-                    {
-                        add_symbol_display_name(constant_entry.first);
-                    }
-                    for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_entry : output_tree.support.object_reference_types)
-                    {
-                        add_symbol_display_name(object_entry.first);
-                    }
-                    quxlang::elf_link_options const debug_link_options{
-                        .preserve_symbols = true,
-                        .symbol_display_names = std::move(symbol_display_names),
-                    };
-                    std::string const entry_symbol = executable_entry_symbol.value_or("_start");
-                    std::vector< std::byte > const executable_bytes =
-                        linker.link_linux_executable(target_config.target_output_config, output_module.object_file, entry_symbol, debug_link_options);
-                    std::vector< std::byte > const optimized_executable_bytes =
-                        linker.link_linux_executable(target_config.target_output_config, output_module.optimized_object_file, entry_symbol);
-                    std::filesystem::path const executable_path =
-                        write_output_executable_file(output_dir, output_entry.output_name, executable_bytes);
-                    std::filesystem::path const optimized_executable_path =
-                        write_optimized_output_executable_file(output_dir, output_entry.output_name, optimized_executable_bytes);
-                    if (verbose)
-                    {
-                        std::cout << "Wrote output executable: " << target_name << "/" << output_entry.output_name << " -> " << executable_path.string() << std::endl;
-                        std::cout << "Wrote optimized output executable: " << target_name << "/" << output_entry.output_name << " -> " << optimized_executable_path.string() << std::endl;
-                    }
+                    std::cout << "Wrote output executable: " << target_name << "/" << output_entry.output_name << " -> " << executable_path.string() << std::endl;
                 }
             }
             active_target_name.reset();

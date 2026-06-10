@@ -43,15 +43,11 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
     out.architecture = proc.architecture;
 
-    out.name = mangle(input);
+    out.name = mangle(declaration_symbol);
 
-    if (!proc.callable_interfaces.empty())
+    if (!proc.callable_interfaces.empty() && (selected_overload_id.has_value() || proc.callable_interfaces.size() == 1))
     {
         std::uint64_t callable_index = selected_overload_id.value_or(0);
-        if (!selected_overload_id.has_value() && proc.callable_interfaces.size() != 1)
-        {
-            throw quxlang::compiler_bug("Callable asm procedure requires an explicit overload selection");
-        }
         if (callable_index >= proc.callable_interfaces.size())
         {
             throw quxlang::compiler_bug("Asm procedure overload id is out of range");

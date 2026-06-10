@@ -358,7 +358,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             pending_functanoids.pop_back();
 
             type_symbol const functanoid_symbol = type_symbol(pending_functanoid.first);
-            if (functanoid_symbol == entry_functanoid_symbol || output_module_unit.inlinable_functions.contains(functanoid_symbol) || output_module_unit.asm_functions.contains(functanoid_symbol))
+            if (functanoid_symbol == entry_functanoid_symbol || output_module_unit.inlinable_functions.contains(functanoid_symbol) || output_module_unit.asm_callable_interfaces.contains(functanoid_symbol))
             {
                 continue;
             }
@@ -379,7 +379,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             co_yield rpnx::querygraph::dependency(symboid_requests.back().second);
         }
 
-        std::vector< std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > > > asm_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > > > asm_body_requests;
+        std::vector< std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > > > asm_callable_requests;
+        std::set< type_symbol > requested_asm_bodies;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< vm_procedure3_query > > > vm_requests;
         std::vector< std::vector< trace_frame > > vm_tracebacks;
         std::vector< std::pair< type_symbol, rpnx::querygraph::request< lookup_query > > > object_lookup_requests;
@@ -387,14 +389,24 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         for (std::size_t i = 0; i < round_functanoids.size(); ++i)
         {
             type_symbol const functanoid_symbol = type_symbol(round_functanoids.at(i).first);
+            type_symbol asm_declaration_symbol = functanoid_symbol;
+            if (functanoid_symbol.type_is< instanciation_reference >())
+            {
+                asm_declaration_symbol = functanoid_symbol.get_as< instanciation_reference >().temploid.templexoid;
+            }
             ast2_symboid const& symboid = co_await symboid_requests.at(i).second;
             if (symboid.type_is< ast2_asm_procedure_declaration >())
             {
                 ast2_asm_procedure_declaration const& declaration = symboid.get_as< ast2_asm_procedure_declaration >();
-                asm_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(functanoid_symbol)));
-                co_yield rpnx::querygraph::dependency(asm_requests.back().second);
-                enqueue_asm_references(functanoid_symbol, declaration, round_functanoids.at(i).second);
-                enqueue_asm_object_lookup_requests(object_lookup_requests, functanoid_symbol, declaration);
+                if (!output_module_unit.asm_functions.contains(asm_declaration_symbol) && requested_asm_bodies.insert(asm_declaration_symbol).second)
+                {
+                    asm_body_requests.push_back(std::make_pair(asm_declaration_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(asm_declaration_symbol)));
+                    co_yield rpnx::querygraph::dependency(asm_body_requests.back().second);
+                }
+                asm_callable_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(functanoid_symbol)));
+                co_yield rpnx::querygraph::dependency(asm_callable_requests.back().second);
+                enqueue_asm_references(asm_declaration_symbol, declaration, round_functanoids.at(i).second);
+                enqueue_asm_object_lookup_requests(object_lookup_requests, asm_declaration_symbol, declaration);
                 continue;
             }
 
@@ -408,9 +420,18 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             co_yield rpnx::querygraph::dependency(lookup_request.second);
         }
 
-        for (std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > >& asm_request : asm_requests)
+        for (std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > >& asm_request : asm_body_requests)
         {
             output_module_unit.asm_functions.emplace(asm_request.first, co_await asm_request.second);
+        }
+        for (std::pair< type_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query > >& asm_request : asm_callable_requests)
+        {
+            asm_procedure const selected_procedure = co_await asm_request.second;
+            if (!selected_procedure.callable_interface.has_value())
+            {
+                throw compiler_bug("Selected asm procedure has no callable interface: " + to_string(asm_request.first));
+            }
+            output_module_unit.asm_callable_interfaces.emplace(asm_request.first, *selected_procedure.callable_interface);
         }
         co_await await_object_lookup_requests(object_lookup_requests);
 
@@ -797,6 +818,17 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         procedure_linksymbol_requests.push_back(std::make_pair(
             routine_entry.first,
             rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = routine_entry.first})));
+    }
+    for (std::pair< type_symbol const, asm_callable > const& routine_entry : output_module_unit.asm_callable_interfaces)
+    {
+        type_symbol asm_declaration_symbol = routine_entry.first;
+        if (routine_entry.first.type_is< instanciation_reference >())
+        {
+            asm_declaration_symbol = routine_entry.first.get_as< instanciation_reference >().temploid.templexoid;
+        }
+        procedure_linksymbol_requests.push_back(std::make_pair(
+            routine_entry.first,
+            rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = asm_declaration_symbol})));
     }
     for (std::pair< type_symbol, rpnx::querygraph::request< procedure_linksymbol_query > >& linksymbol_request : procedure_linksymbol_requests)
     {

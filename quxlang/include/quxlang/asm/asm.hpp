@@ -66,7 +66,7 @@ namespace quxlang
         std::string architecture;
         /// Link-visible symbol name emitted for this assembly routine.
         std::string name;
-        /// Selected callable surface for this instantiated asm routine, if it is callable from Qux.
+        /// Selected callable surface when this value is used to inspect one callable asm overload.
         std::optional< asm_callable > callable_interface;
         /// Ordered statements that form the body of this assembly routine.
         std::vector< asm_statement > instructions;

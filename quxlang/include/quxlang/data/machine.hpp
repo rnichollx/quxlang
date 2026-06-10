@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <quxlang/exception.hpp>
 #include <rpnx/macros.hpp>
 #include <stdexcept>
 
@@ -37,6 +38,8 @@ namespace quxlang
         {
             switch (cpu_type)
             {
+            case cpu::none:
+                throw std::invalid_argument("Pointer size requires a CPU target");
             case cpu::x86_32:
             case cpu::arm_32:
             case cpu::riscv_32:
@@ -45,11 +48,9 @@ namespace quxlang
             case cpu::arm_64:
             case cpu::riscv_64:
                 return 8;
-            default:
-                throw std::invalid_argument("pointer_size");
             }
 
-
+            throw quxlang::compiler_bug("Pointer size is not implemented for this CPU");
         };
 
         constexpr std::uint64_t max_int_align() const noexcept
@@ -57,7 +58,154 @@ namespace quxlang
             return 8;
         }
 
-        constexpr std::uint64_t pointer_align() const noexcept
+        /**
+         * Returns the largest atomic storage width modeled as native for this target.
+         */
+        constexpr std::uint64_t max_native_atomic_storage_bits() const
+        {
+            switch (cpu_type)
+            {
+            case cpu::none:
+                throw std::invalid_argument("Native atomic size requires a CPU target");
+            case cpu::x86_32:
+            case cpu::arm_32:
+            case cpu::riscv_32:
+                return 32;
+            case cpu::x86_64:
+            case cpu::arm_64:
+            case cpu::riscv_64:
+                return 64;
+            }
+
+            throw quxlang::compiler_bug("Native atomic size is not implemented for this CPU");
+        }
+
+        /**
+         * Returns the target ABI alignment for an integer type with the given bit count.
+         */
+        constexpr std::uint64_t integer_alignment_for_bits(std::uint64_t bit_count) const
+        {
+            std::uint64_t byte_count = bit_count / 8;
+            if (bit_count % 8 != 0)
+            {
+                byte_count += 1;
+            }
+            if (byte_count == 0)
+            {
+                byte_count = 1;
+            }
+
+            switch (cpu_type)
+            {
+            case cpu::none:
+                throw std::invalid_argument("Integer alignment requires a CPU target");
+            case cpu::x86_32:
+            case cpu::arm_32:
+            case cpu::riscv_32:
+            {
+                std::uint64_t alignment = 1;
+                while (alignment * 2 <= byte_count && alignment * 2 <= 4)
+                {
+                    alignment *= 2;
+                }
+                return alignment;
+            }
+            case cpu::x86_64:
+            case cpu::arm_64:
+            case cpu::riscv_64:
+            {
+                std::uint64_t alignment = 1;
+                while (alignment * 2 <= byte_count && alignment * 2 <= 8)
+                {
+                    alignment *= 2;
+                }
+                return alignment;
+            }
+            }
+
+            throw quxlang::compiler_bug("Integer alignment is not implemented for this CPU");
+        }
+
+        /**
+         * Returns the target-required alignment for an atomic integer type with the given bit count.
+         */
+        constexpr std::uint64_t atomic_integer_alignment_for_bits(std::uint64_t bit_count) const
+        {
+            std::uint64_t storage_byte_count = 1;
+            while (storage_byte_count * 8 < bit_count)
+            {
+                storage_byte_count *= 2;
+            }
+
+            switch (cpu_type)
+            {
+            case cpu::none:
+                throw std::invalid_argument("Atomic integer alignment requires a CPU target");
+            case cpu::x86_32:
+            case cpu::x86_64:
+            case cpu::arm_32:
+            case cpu::arm_64:
+            case cpu::riscv_32:
+            case cpu::riscv_64:
+            {
+                if (storage_byte_count > 16)
+                {
+                    throw quxlang::compiler_bug("Atomic integer alignment is not implemented for this bit width");
+                }
+                return storage_byte_count;
+            }
+            }
+
+            throw quxlang::compiler_bug("Atomic integer alignment is not implemented for this CPU");
+        }
+
+        /**
+         * Returns the target ABI alignment for a floating-point type with the given bit count.
+         */
+        constexpr std::uint64_t float_alignment_for_bits(std::uint64_t bit_count) const
+        {
+            std::uint64_t byte_count = bit_count / 8;
+            if (bit_count % 8 != 0)
+            {
+                byte_count += 1;
+            }
+            if (byte_count == 0)
+            {
+                byte_count = 1;
+            }
+
+            switch (cpu_type)
+            {
+            case cpu::none:
+                throw std::invalid_argument("Float alignment requires a CPU target");
+            case cpu::x86_32:
+            case cpu::arm_32:
+            case cpu::riscv_32:
+            {
+                std::uint64_t alignment = 1;
+                while (alignment * 2 <= byte_count && alignment * 2 <= 4)
+                {
+                    alignment *= 2;
+                }
+                return alignment;
+            }
+            case cpu::x86_64:
+            case cpu::arm_64:
+            case cpu::riscv_64:
+            {
+                std::uint64_t alignment = 1;
+                while (alignment * 2 <= byte_count && alignment * 2 <= 8)
+                {
+                    alignment *= 2;
+                }
+                return alignment;
+            }
+            }
+
+            throw quxlang::compiler_bug("Float alignment is not implemented for this CPU");
+        }
+
+        constexpr std::uint64_t pointer_align() const
         {
             return pointer_size_bytes();
         }

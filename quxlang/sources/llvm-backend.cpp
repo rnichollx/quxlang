@@ -148,12 +148,8 @@ namespace quxlang::llvm::detail
 
         auto compile() -> quxlang::llvm_backend::llvm_compiled_unit
         {
-            for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
+            for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& helper : input.asm_callable_interfaces)
             {
-                if (!helper.second.callable_interface.has_value())
-                {
-                    continue;
-                }
                 declare_asm_callable_function(helper.first, helper.second);
             }
             if (!input.asm_functions.contains(input.target_name))
@@ -829,6 +825,10 @@ namespace quxlang::llvm::detail
         {
             if (std::optional< quxlang::type_symbol > const atomic_value_type = quxlang::atomic_type_argument(type); atomic_value_type.has_value())
             {
+                if (atomic_value_type->type_is< quxlang::int_type >())
+                {
+                    return llvm::IntegerType::get(context, static_cast< unsigned >(slot_size(type) * 8));
+                }
                 return value_storage_type(*atomic_value_type);
             }
 
@@ -1392,15 +1392,15 @@ namespace quxlang::llvm::detail
             function_abis[symbol] = abi;
         }
 
-        void declare_asm_callable_function(quxlang::type_symbol const& symbol, quxlang::asm_procedure const& procedure)
+        void declare_asm_callable_function(quxlang::type_symbol const& symbol, quxlang::asm_callable const& callable)
         {
-            if (!procedure.callable_interface.has_value())
+            callable_abi abi = callable_abi_from_asm_callable(callable);
+            std::string const link_name = symbol_link_name(symbol);
+            llvm::Function* function = module->getFunction(link_name);
+            if (function == nullptr)
             {
-                throw quxlang::compiler_bug("declare_asm_callable_function called for a non-callable asm procedure");
+                function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, link_name, module.get());
             }
-
-            callable_abi abi = callable_abi_from_asm_callable(*procedure.callable_interface);
-            llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(symbol), module.get());
             apply_calling_convention(function, abi);
             functions[symbol] = function;
             function_abis[symbol] = abi;
@@ -1414,7 +1414,12 @@ namespace quxlang::llvm::detail
                 return existing->second;
             }
 
-            llvm::Function* function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, symbol_link_name(symbol), module.get());
+            std::string const link_name = symbol_link_name(symbol);
+            llvm::Function* function = module->getFunction(link_name);
+            if (function == nullptr)
+            {
+                function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, link_name, module.get());
+            }
             apply_calling_convention(function, abi);
             functions[symbol] = function;
             function_abis[symbol] = abi;
@@ -2182,6 +2187,11 @@ namespace quxlang::llvm::detail
 
         void store_slot_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, llvm::Value* value)
         {
+            quxlang::type_symbol const& type = state.routine->local_types.at(local_slot_index(slot)).type;
+            if (quxlang::is_atomic_type(type))
+            {
+                value = logical_atomic_value_to_storage(ir_builder, type, value);
+            }
             ir_builder.CreateStore(value, value_address(state, slot));
         }
 
@@ -2235,11 +2245,6 @@ namespace quxlang::llvm::detail
 
         auto slot_alignment(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            if (std::optional< quxlang::type_symbol > const atomic_value_type = quxlang::atomic_type_argument(type); atomic_value_type.has_value())
-            {
-                return slot_alignment(*atomic_value_type);
-            }
-
             std::map< quxlang::type_symbol, quxlang::type_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
@@ -2266,11 +2271,6 @@ namespace quxlang::llvm::detail
 
         auto slot_size(quxlang::type_symbol const& type) const -> std::uint64_t
         {
-            if (std::optional< quxlang::type_symbol > const atomic_value_type = quxlang::atomic_type_argument(type); atomic_value_type.has_value())
-            {
-                return slot_size(*atomic_value_type);
-            }
-
             std::map< quxlang::type_symbol, quxlang::type_placement_info >::const_iterator iter = input.type_placements.find(type);
             if (iter != input.type_placements.end())
             {
@@ -2304,6 +2304,65 @@ namespace quxlang::llvm::detail
                 throw quxlang::semantic_compilation_error("Expected integer-like slot for LLVM lowering: " + quxlang::to_string(type));
             }
             return load_slot_value(state, ir_builder, slot);
+        }
+
+        /**
+         * Converts one integer bit pattern to the requested LLVM integer width without changing its low bits.
+         */
+        auto integer_bits_to_width(ir_builder_t& ir_builder, llvm::Value* value, llvm::IntegerType* destination_type) -> llvm::Value*
+        {
+            llvm::IntegerType* const source_type = llvm::cast< llvm::IntegerType >(value->getType());
+            if (source_type == destination_type)
+            {
+                return value;
+            }
+            if (source_type->getBitWidth() > destination_type->getBitWidth())
+            {
+                return ir_builder.CreateTrunc(value, destination_type);
+            }
+            return ir_builder.CreateZExt(value, destination_type);
+        }
+
+        /**
+         * Converts a logical atomic integer value to the widened LLVM storage width used for atomic memory operations.
+         */
+        auto logical_atomic_value_to_storage(ir_builder_t& ir_builder, quxlang::type_symbol const& atomic_type, llvm::Value* value) -> llvm::Value*
+        {
+            llvm::Type* llvm_storage_type = value_storage_type(atomic_type);
+            if (std::optional< quxlang::type_symbol > const atomic_value_type = quxlang::atomic_type_argument(atomic_type); atomic_value_type.has_value())
+            {
+                if (!atomic_value_type->type_is< quxlang::int_type >())
+                {
+                    llvm_storage_type = value_storage_type(*atomic_value_type);
+                }
+            }
+            if (value->getType() == llvm_storage_type)
+            {
+                return value;
+            }
+            if (!value->getType()->isIntegerTy() || !llvm_storage_type->isIntegerTy())
+            {
+                throw quxlang::semantic_compilation_error("Atomic storage coercion requires integer LLVM values");
+            }
+            return integer_bits_to_width(ir_builder, value, llvm::cast< llvm::IntegerType >(llvm_storage_type));
+        }
+
+        /**
+         * Converts a widened LLVM atomic storage value back to the logical ATOMIC#T value width.
+         */
+        auto storage_atomic_value_to_logical(ir_builder_t& ir_builder, quxlang::type_symbol const& atomic_type, llvm::Value* value) -> llvm::Value*
+        {
+            quxlang::type_symbol const logical_type = quxlang::atomic_storage_type_or_self(atomic_type);
+            llvm::Type* const llvm_logical_type = value_storage_type(logical_type);
+            if (value->getType() == llvm_logical_type)
+            {
+                return value;
+            }
+            if (!value->getType()->isIntegerTy() || !llvm_logical_type->isIntegerTy())
+            {
+                throw quxlang::semantic_compilation_error("Atomic logical coercion requires integer LLVM values");
+            }
+            return integer_bits_to_width(ir_builder, value, llvm::cast< llvm::IntegerType >(llvm_logical_type));
         }
 
         auto scalar_one(llvm::Type* type) -> llvm::Constant*
@@ -2643,7 +2702,7 @@ namespace quxlang::llvm::detail
             quxlang::vmir2::invocation_args args;
             args.named["THIS"] = slot;
             llvm::Function* callee = get_or_create_external_function(dtor_symbol, abi);
-            apply_calling_convention(ir_builder.CreateCall(callee, ordered_call_arguments(state, ir_builder, abi, args)), abi);
+            apply_calling_convention(ir_builder.CreateCall(abi.llvm_type, callee, ordered_call_arguments(state, ir_builder, abi, args)), abi);
         }
 
         /**
@@ -2994,6 +3053,152 @@ namespace quxlang::llvm::detail
             throw quxlang::semantic_compilation_error("Unknown compare_exchange failure ordering for LLVM lowering");
         }
 
+        /**
+         * Converts a VMIR read-modify-write access mode into the corresponding LLVM atomic ordering.
+         */
+        auto llvm_rmw_ordering(quxlang::atomic_access_mode mode) const -> llvm::AtomicOrdering
+        {
+            switch (mode)
+            {
+            case quxlang::atomic_access_mode::atomic_relaxed:
+                return llvm::AtomicOrdering::Monotonic;
+            case quxlang::atomic_access_mode::atomic_release:
+                return llvm::AtomicOrdering::Release;
+            case quxlang::atomic_access_mode::atomic_acquire:
+                return llvm::AtomicOrdering::Acquire;
+            case quxlang::atomic_access_mode::atomic_acqrel:
+                return llvm::AtomicOrdering::AcquireRelease;
+            case quxlang::atomic_access_mode::atomic_seqcst:
+                return llvm::AtomicOrdering::SequentiallyConsistent;
+            case quxlang::atomic_access_mode::nonatomic:
+                throw quxlang::semantic_compilation_error("Nonatomic read-modify-write cannot use atomic ordering");
+            }
+
+            throw quxlang::semantic_compilation_error("Unknown read-modify-write ordering for LLVM lowering");
+        }
+
+        /**
+         * Chooses the failure ordering for the cmpxchg loop used to lower non-native-width atomic RMW operations.
+         */
+        auto llvm_rmw_cmpxchg_failure_ordering(quxlang::atomic_access_mode mode) const -> llvm::AtomicOrdering
+        {
+            switch (mode)
+            {
+            case quxlang::atomic_access_mode::atomic_relaxed:
+            case quxlang::atomic_access_mode::atomic_release:
+                return llvm::AtomicOrdering::Monotonic;
+            case quxlang::atomic_access_mode::atomic_acquire:
+            case quxlang::atomic_access_mode::atomic_acqrel:
+                return llvm::AtomicOrdering::Acquire;
+            case quxlang::atomic_access_mode::atomic_seqcst:
+                return llvm::AtomicOrdering::SequentiallyConsistent;
+            case quxlang::atomic_access_mode::nonatomic:
+                throw quxlang::semantic_compilation_error("Nonatomic read-modify-write cannot use atomic cmpxchg failure ordering");
+            }
+
+            throw quxlang::semantic_compilation_error("Unknown read-modify-write cmpxchg failure ordering for LLVM lowering");
+        }
+
+        /**
+         * Emits an LLVM atomicrmw instruction and optionally stores its returned old value.
+         */
+        void emit_atomic_rmw(
+            function_codegen_state& state,
+            llvm::BasicBlock*& current_block,
+            quxlang::vmir2::local_index target,
+            quxlang::vmir2::local_index value,
+            quxlang::atomic_access_mode access_mode,
+            std::optional< quxlang::vmir2::local_index > old_value,
+            llvm::AtomicRMWInst::BinOp op)
+        {
+            llvm::Value* pointer = load_reference_pointer(state, builder, target);
+            quxlang::type_symbol const atomic_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(target)).type);
+            if (!quxlang::is_atomic_type(atomic_type))
+            {
+                throw quxlang::semantic_compilation_error("Atomic read-modify-write target is not an atomic type");
+            }
+
+            quxlang::type_symbol const logical_type = quxlang::atomic_storage_type_or_self(atomic_type);
+            llvm::Type* const logical_llvm_type = value_storage_type(logical_type);
+            llvm::Type* const storage_llvm_type = value_storage_type(atomic_type);
+            std::uint64_t const storage_alignment = slot_alignment(atomic_type);
+            if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
+            {
+                std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
+                                                       ? input.machine_target.machine.pointer_size_bytes() * 8
+                                                       : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                {
+                    throw quxlang::compiler_bug("Non-native atomic read-modify-write lowering is not implemented for storage width " + std::to_string(storage_bits));
+                }
+            }
+            llvm::Value* rhs = integer_value(state, builder, value);
+            if (logical_llvm_type == storage_llvm_type)
+            {
+                llvm::AtomicRMWInst* rmw = builder.CreateAtomicRMW(op, pointer, rhs, llvm::Align(storage_alignment), llvm_rmw_ordering(access_mode));
+                rmw->setVolatile(false);
+                if (old_value.has_value())
+                {
+                    store_slot_value(state, builder, *old_value, rmw);
+                }
+                return;
+            }
+
+            if (!logical_llvm_type->isIntegerTy() || !storage_llvm_type->isIntegerTy())
+            {
+                throw quxlang::semantic_compilation_error("Non-native-width atomic read-modify-write requires integer storage");
+            }
+
+            llvm::BasicBlock* loop_block = llvm::BasicBlock::Create(context, "atomicrmw.loop", state.function);
+            llvm::BasicBlock* continue_block = llvm::BasicBlock::Create(context, "atomicrmw.cont", state.function);
+            builder.CreateBr(loop_block);
+
+            builder.SetInsertPoint(loop_block);
+            llvm::LoadInst* current_storage_load = builder.CreateLoad(storage_llvm_type, pointer);
+            current_storage_load->setAtomic(llvm_rmw_cmpxchg_failure_ordering(access_mode));
+            current_storage_load->setAlignment(llvm::Align(storage_alignment));
+            llvm::Value* current_logical_value = storage_atomic_value_to_logical(builder, atomic_type, current_storage_load);
+            llvm::Value* updated_logical_value = nullptr;
+            switch (op)
+            {
+            case llvm::AtomicRMWInst::Add:
+                updated_logical_value = builder.CreateAdd(current_logical_value, rhs);
+                break;
+            case llvm::AtomicRMWInst::Sub:
+                updated_logical_value = builder.CreateSub(current_logical_value, rhs);
+                break;
+            case llvm::AtomicRMWInst::And:
+                updated_logical_value = builder.CreateAnd(current_logical_value, rhs);
+                break;
+            case llvm::AtomicRMWInst::Or:
+                updated_logical_value = builder.CreateOr(current_logical_value, rhs);
+                break;
+            case llvm::AtomicRMWInst::Xor:
+                updated_logical_value = builder.CreateXor(current_logical_value, rhs);
+                break;
+            default:
+                throw quxlang::semantic_compilation_error("Unsupported non-native-width atomic read-modify-write operation");
+            }
+            llvm::Value* updated_storage_value = logical_atomic_value_to_storage(builder, atomic_type, updated_logical_value);
+            llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(
+                pointer,
+                current_storage_load,
+                updated_storage_value,
+                llvm::Align(storage_alignment),
+                llvm_rmw_ordering(access_mode),
+                llvm_rmw_cmpxchg_failure_ordering(access_mode));
+            cmpxchg->setVolatile(false);
+            llvm::Value* matched = builder.CreateExtractValue(cmpxchg, 1);
+            builder.CreateCondBr(matched, continue_block, loop_block);
+
+            current_block = continue_block;
+            builder.SetInsertPoint(current_block);
+            if (old_value.has_value())
+            {
+                store_slot_value(state, builder, *old_value, current_logical_value);
+            }
+        }
+
         auto parse_float_constant(llvm::Type* llvm_type, std::string const& text) -> llvm::Constant*
         {
             llvm::APFloat float_value(0.0);
@@ -3173,11 +3378,11 @@ namespace quxlang::llvm::detail
                 llvm::Function* fallback = get_or_create_external_function(*inst.default_function, default_abi);
                 if (default_abi.llvm_type->getReturnType()->isVoidTy())
                 {
-                    apply_calling_convention(builder.CreateCall(fallback, ordered_call_arguments(state, builder, default_abi, default_args)), default_abi);
+                    apply_calling_convention(builder.CreateCall(default_abi.llvm_type, fallback, ordered_call_arguments(state, builder, default_abi, default_args)), default_abi);
                 }
                 else
                 {
-                    llvm::CallInst* call = builder.CreateCall(fallback, ordered_call_arguments(state, builder, default_abi, default_args));
+                    llvm::CallInst* call = builder.CreateCall(default_abi.llvm_type, fallback, ordered_call_arguments(state, builder, default_abi, default_args));
                     apply_calling_convention(call, default_abi);
                     std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(default_abi, default_args);
                     if (!return_slot.has_value())
@@ -3222,7 +3427,7 @@ namespace quxlang::llvm::detail
             quxlang::vmir2::invoke const& inst = instruction;
             callable_abi abi = direct_callee_abi(inst.what, inst, state);
             llvm::Function* callee = get_or_create_external_function(inst.what, abi);
-            llvm::CallInst* call = builder.CreateCall(callee, ordered_call_arguments(state, builder, abi, inst.args));
+            llvm::CallInst* call = builder.CreateCall(abi.llvm_type, callee, ordered_call_arguments(state, builder, abi, inst.args));
             apply_calling_convention(call, abi);
             if (std::optional< quxlang::vmir2::local_index > return_slot = call_return_slot(abi, inst.args); return_slot.has_value())
             {
@@ -3452,14 +3657,30 @@ namespace quxlang::llvm::detail
             (void)current_block;
             quxlang::vmir2::load_from_ref const& inst = instruction;
             quxlang::type_symbol reference_type = state.routine->local_types.at(local_slot_index(inst.from_reference)).type;
-            quxlang::type_symbol value_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(reference_type));
+            quxlang::type_symbol value_type = quxlang::remove_ref(reference_type);
             llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.from_reference);
             llvm::LoadInst* load = builder.CreateLoad(value_storage_type(value_type), pointer_value);
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_load_ordering(inst.access_mode); ordering.has_value())
             {
+                llvm::Type* const storage_llvm_type = value_storage_type(value_type);
+                if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
+                {
+                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
+                                                           ? input.machine_target.machine.pointer_size_bytes() * 8
+                                                           : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    {
+                        throw quxlang::compiler_bug("Non-native atomic load lowering is not implemented for storage width " + std::to_string(storage_bits));
+                    }
+                }
                 load->setAtomic(*ordering);
+                load->setAlignment(llvm::Align(slot_alignment(value_type)));
             }
             llvm::Value* loaded_value = load;
+            if (quxlang::is_atomic_type(value_type))
+            {
+                loaded_value = storage_atomic_value_to_logical(builder, value_type, loaded_value);
+            }
             store_slot_value(state, builder, inst.to_value, loaded_value);
             return;
         }
@@ -3631,11 +3852,28 @@ namespace quxlang::llvm::detail
             (void)current_block;
             quxlang::vmir2::store_to_ref const& inst = instruction;
             llvm::Value* destination = load_reference_pointer(state, builder, inst.to_reference);
+            quxlang::type_symbol const destination_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.to_reference)).type);
             llvm::Value* source_value = load_slot_value(state, builder, inst.from_value);
+            if (quxlang::is_atomic_type(destination_type))
+            {
+                source_value = logical_atomic_value_to_storage(builder, destination_type, source_value);
+            }
             llvm::StoreInst* store = builder.CreateStore(source_value, destination);
             if (std::optional< llvm::AtomicOrdering > const ordering = llvm_store_ordering(inst.access_mode); ordering.has_value())
             {
+                llvm::Type* const storage_llvm_type = value_storage_type(destination_type);
+                if (storage_llvm_type->isIntegerTy() || storage_llvm_type->isPointerTy())
+                {
+                    std::uint64_t const storage_bits = storage_llvm_type->isPointerTy()
+                                                           ? input.machine_target.machine.pointer_size_bytes() * 8
+                                                           : llvm::cast< llvm::IntegerType >(storage_llvm_type)->getBitWidth();
+                    if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                    {
+                        throw quxlang::compiler_bug("Non-native atomic store lowering is not implemented for storage width " + std::to_string(storage_bits));
+                    }
+                }
                 store->setAtomic(*ordering);
+                store->setAlignment(llvm::Align(slot_alignment(destination_type)));
             }
             return;
         }
@@ -3644,11 +3882,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::compare_exchange const& instruction)
         {
             quxlang::vmir2::compare_exchange const& inst = instruction;
-            quxlang::type_symbol const target_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_reference)).type));
+            quxlang::type_symbol const atomic_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_reference)).type);
+            quxlang::type_symbol const target_type = quxlang::atomic_storage_type_or_self(atomic_type);
             llvm::Value* target_pointer = load_reference_pointer(state, builder, inst.target_reference);
             llvm::Value* expected_pointer = load_reference_pointer(state, builder, inst.expected_reference);
             llvm::Value* desired_value = load_slot_value(state, builder, inst.desired_value);
-            llvm::Type* storage_type = value_storage_type(target_type);
+            llvm::Type* storage_type = value_storage_type(atomic_type);
 
             bool const use_atomic_cmpxchg = inst.success_mode != quxlang::atomic_access_mode::nonatomic || inst.failure_mode != quxlang::atomic_access_mode::nonatomic;
             if (use_atomic_cmpxchg)
@@ -3657,13 +3896,22 @@ namespace quxlang::llvm::detail
                 {
                     throw quxlang::semantic_compilation_error("Atomic compare_exchange requires integer or pointer storage in LLVM lowering");
                 }
+                std::uint64_t const storage_bits = storage_type->isPointerTy()
+                                                       ? input.machine_target.machine.pointer_size_bytes() * 8
+                                                       : llvm::cast< llvm::IntegerType >(storage_type)->getBitWidth();
+                if (storage_bits > input.machine_target.machine.max_native_atomic_storage_bits())
+                {
+                    throw quxlang::compiler_bug("Non-native atomic compare_exchange lowering is not implemented for storage width " + std::to_string(storage_bits));
+                }
 
-                llvm::Value* expected_value = builder.CreateLoad(storage_type, expected_pointer);
+                llvm::Value* expected_value = builder.CreateLoad(value_storage_type(target_type), expected_pointer);
+                expected_value = logical_atomic_value_to_storage(builder, atomic_type, expected_value);
+                desired_value = logical_atomic_value_to_storage(builder, atomic_type, desired_value);
                 llvm::AtomicCmpXchgInst* cmpxchg = builder.CreateAtomicCmpXchg(
                     target_pointer,
                     expected_value,
                     desired_value,
-                    llvm::Align(slot_alignment(target_type)),
+                    llvm::Align(slot_alignment(atomic_type)),
                     llvm_cmpxchg_success_ordering(inst.success_mode),
                     llvm_cmpxchg_failure_ordering(inst.failure_mode));
                 cmpxchg->setVolatile(false);
@@ -3676,7 +3924,7 @@ namespace quxlang::llvm::detail
                 builder.CreateCondBr(matched, continue_block, failure_block);
 
                 builder.SetInsertPoint(failure_block);
-                builder.CreateStore(observed_value, expected_pointer);
+                builder.CreateStore(storage_atomic_value_to_logical(builder, atomic_type, observed_value), expected_pointer);
                 builder.CreateBr(continue_block);
 
                 current_block = continue_block;
@@ -3686,7 +3934,12 @@ namespace quxlang::llvm::detail
             }
 
             llvm::Value* observed_value = builder.CreateLoad(storage_type, target_pointer);
-            llvm::Value* expected_value = builder.CreateLoad(storage_type, expected_pointer);
+            llvm::Value* expected_value = builder.CreateLoad(value_storage_type(target_type), expected_pointer);
+            if (quxlang::is_atomic_type(atomic_type))
+            {
+                expected_value = logical_atomic_value_to_storage(builder, atomic_type, expected_value);
+                desired_value = logical_atomic_value_to_storage(builder, atomic_type, desired_value);
+            }
             llvm::Value* matched = nullptr;
             if (storage_type->isIntegerTy() || storage_type->isPointerTy())
             {
@@ -3711,6 +3964,10 @@ namespace quxlang::llvm::detail
             builder.CreateBr(continue_block);
 
             builder.SetInsertPoint(failure_block);
+            if (quxlang::is_atomic_type(atomic_type))
+            {
+                observed_value = storage_atomic_value_to_logical(builder, atomic_type, observed_value);
+            }
             builder.CreateStore(observed_value, expected_pointer);
             builder.CreateBr(continue_block);
 
@@ -3794,8 +4051,13 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_add const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Add);
+                return;
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             builder.CreateStore(builder.CreateAdd(current_value, rhs), pointer);
@@ -3810,8 +4072,13 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_sub const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Sub);
+                return;
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             builder.CreateStore(builder.CreateSub(current_value, rhs), pointer);
@@ -3826,8 +4093,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_mul const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic integer multiplication is not supported by LLVM lowering");
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             builder.CreateStore(builder.CreateMul(current_value, rhs), pointer);
@@ -3842,8 +4113,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_div const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic integer division is not supported by LLVM lowering");
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             bool is_signed = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
@@ -3859,8 +4134,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_int_mod const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic integer modulo is not supported by LLVM lowering");
+            }
             llvm::Value* pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), pointer);
             llvm::Value* rhs = integer_value(state, builder, instruction.value);
             bool is_signed = pointee_type.type_is< quxlang::int_type >() && pointee_type.get_as< quxlang::int_type >().has_sign;
@@ -4200,8 +4479,13 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_and const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::And);
+                return;
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4220,8 +4504,13 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_or const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Or);
+                return;
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4240,8 +4529,13 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_xor const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                emit_atomic_rmw(state, current_block, instruction.target, instruction.value, instruction.access_mode, instruction.old_value, llvm::AtomicRMWInst::Xor);
+                return;
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4260,8 +4554,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nand const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic bitwise NAND is not supported by LLVM lowering");
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4280,8 +4578,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nor const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic bitwise NOR is not supported by LLVM lowering");
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4300,8 +4602,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_nxor const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic bitwise NXOR is not supported by LLVM lowering");
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4320,8 +4626,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_implies const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic bitwise implies is not supported by LLVM lowering");
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -4340,8 +4650,12 @@ namespace quxlang::llvm::detail
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::mut_bitwise_implied const& instruction)
         {
             (void)current_block;
+            if (instruction.access_mode != quxlang::atomic_access_mode::nonatomic)
+            {
+                throw quxlang::semantic_compilation_error("Atomic bitwise implied is not supported by LLVM lowering");
+            }
             llvm::Value* target_pointer = load_reference_pointer(state, builder, instruction.target);
-            quxlang::type_symbol pointee_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type);
+            quxlang::type_symbol pointee_type = quxlang::atomic_storage_type_or_self(quxlang::remove_ref(state.routine->local_types.at(local_slot_index(instruction.target)).type));
             llvm::Value* current_value = builder.CreateLoad(value_storage_type(pointee_type), target_pointer);
             llvm::Value* rhs_value = integer_value(state, builder, instruction.value);
             if (current_value->getType() != rhs_value->getType())
@@ -5341,6 +5655,7 @@ namespace quxlang::llvm::detail
                 }
                 llvm::Type* storage_type = value_storage_type(routine.local_types[i].type);
                 state.locals[i].storage = prologue.CreateAlloca(storage_type, nullptr, "slot" + std::to_string(i));
+                llvm::cast< llvm::AllocaInst >(state.locals[i].storage)->setAlignment(llvm::Align(slot_alignment(routine.local_types[i].type)));
             }
 
             llvm::Function::arg_iterator arg_iter = function->arg_begin();
