@@ -420,6 +420,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_dealloc_multiple const& cal);
     void exec_instr_val(vmir2::get_global_storage const& ggs);
     void exec_instr_val(vmir2::get_global_ref const& ggr);
+    void exec_instr_val(vmir2::get_tls_storage const& gts);
+    void exec_instr_val(vmir2::get_tls_ref const& gtr);
     void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_release const& igr);
@@ -2354,6 +2356,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_ref const& ggr)
 {
     do_get_global_ref(ggr.symbol, ggr.target_ref);
+}
+
+/** Rejects GET_TLS_STORAGE until thread-local constexpr storage semantics exist. */
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_tls_storage const&)
+{
+    throw constexpr_logic_execution_error("GET_TLS_STORAGE is not implemented in constexpr interpreter");
+}
+
+/** Rejects GET_TLS_REF until thread-local constexpr reference semantics exist. */
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_tls_ref const&)
+{
+    throw constexpr_logic_execution_error("GET_TLS_REF is not implemented in constexpr interpreter");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_antestatal_ref const& gar)

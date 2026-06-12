@@ -548,6 +548,14 @@ namespace quxlang::vmir2
         {
             output(ggr.target_ref);
         }
+        void apply_internal(vmir2::get_tls_storage const& gts)
+        {
+            output(gts.target_ref);
+        }
+        void apply_internal(vmir2::get_tls_ref const& gtr)
+        {
+            output(gtr.target_ref);
+        }
         void apply_internal(vmir2::get_antestatal_ref const& gar)
         {
             output(gar.target_ref);

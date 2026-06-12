@@ -3784,6 +3784,24 @@ namespace quxlang::llvm::detail
             return;
         }
 
+        /** Rejects GET_TLS_STORAGE until native TLS lowering is implemented. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_tls_storage const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::compiler_bug("GET_TLS_STORAGE lowering is not implemented");
+        }
+
+        /** Rejects GET_TLS_REF until native TLS lowering is implemented. */
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_tls_ref const& instruction)
+        {
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::compiler_bug("GET_TLS_REF lowering is not implemented");
+        }
+
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_antestatal_ref const& instruction)
         {

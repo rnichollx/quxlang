@@ -435,6 +435,16 @@ namespace quxlang::vmir2
         return "GET_GLOBAL_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
     }
 
+    std::string assembler::to_string_internal(vmir2::get_tls_storage inst)
+    {
+        return "GET_TLS_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+    }
+
+    std::string assembler::to_string_internal(vmir2::get_tls_ref inst)
+    {
+        return "GET_TLS_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+    }
+
     std::string assembler::to_string_internal(vmir2::get_antestatal_ref inst)
     {
         return "GET_ANTESTATAL_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);

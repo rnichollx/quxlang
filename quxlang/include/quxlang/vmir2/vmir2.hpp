@@ -71,6 +71,8 @@ namespace quxlang
         struct constexpr_dealloc_multiple;
         struct get_global_storage;
         struct get_global_ref;
+        struct get_tls_storage;
+        struct get_tls_ref;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
         struct initguard_release;
@@ -209,6 +211,8 @@ namespace quxlang
             constexpr_dealloc_multiple,
             get_global_storage,
             get_global_ref,
+            get_tls_storage,
+            get_tls_ref,
             get_antestatal_ref,
             initguard_global_get_ref,
             initguard_release,
@@ -429,6 +433,24 @@ namespace quxlang
             local_index target_ref;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_ref, symbol, target_ref);
+        };
+
+        /** Materializes a reference to one thread-local storage slot for the requested symbol. */
+        struct get_tls_storage
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_tls_storage, symbol, target_ref);
+        };
+
+        /** Materializes a direct reference to one thread-local object for the requested symbol. */
+        struct get_tls_ref
+        {
+            type_symbol symbol;
+            local_index target_ref;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_tls_ref, symbol, target_ref);
         };
 
         struct get_antestatal_ref

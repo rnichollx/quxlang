@@ -407,6 +407,14 @@ auto quxlang::vmir2::directly_referenced_global_roots(functanoid_routine3 const&
             {
                 result.insert(instruction.as< get_global_ref >().symbol);
             }
+            if (instruction.type_is< get_tls_storage >())
+            {
+                result.insert(instruction.as< get_tls_storage >().symbol);
+            }
+            if (instruction.type_is< get_tls_ref >())
+            {
+                result.insert(instruction.as< get_tls_ref >().symbol);
+            }
         }
     }
 
