@@ -5,7 +5,7 @@
 
 #include <quxlang/llvm-backend-types.hpp>
 
-namespace quxlang::llvm
+namespace quxlang::llvm_backend
 {
     /**
      * Builds textual LLVM IR and bitcode for one VMIR2 compilation packet.

@@ -1251,7 +1251,7 @@ int main(int argc, char** argv)
             std::set< quxlang::type_symbol > compiled_vmir2_routines;
             std::set< quxlang::type_symbol > compiled_llvm_routines;
             std::set< quxlang::type_symbol > compiled_asm_routines;
-            quxlang::llvm::llvm_backend llvm_backend;
+            quxlang::llvm_backend::llvm_backend llvm_backend;
             auto collect_routine_tree =
                 [&](quxlang::type_symbol root_symbol,
                     quxlang::vmir2::functanoid_routine3 const& root_routine,

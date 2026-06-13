@@ -67,9 +67,8 @@
 #include <utility>
 #include <vector>
 
-namespace quxlang::llvm::detail
+namespace quxlang::llvm_backend::detail
 {
-    namespace llvm = ::llvm;
     using ir_builder_t = llvm::IRBuilder< llvm::ConstantFolder, llvm::IRBuilderCallbackInserter >;
 
     struct abi_parameter
@@ -5774,15 +5773,15 @@ namespace quxlang::llvm::detail
             }
         }
     };
-} // namespace quxlang::llvm::detail
+} // namespace quxlang::llvm_backend::detail
 
-auto quxlang::llvm::llvm_backend::compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit
+auto quxlang::llvm_backend::llvm_backend::compile(quxlang::llvm_backend::llvm_compilable_unit const& input) const -> quxlang::llvm_backend::llvm_compiled_unit
 {
     detail::llvm_module_codegen codegen(input);
     return codegen.compile();
 }
 
-auto quxlang::llvm::llvm_backend::assemble(
+auto quxlang::llvm_backend::llvm_backend::assemble(
     quxlang::llvm_backend::llvm_compilation_target const& target,
     quxlang::asm_procedure const& procedure) const -> quxlang::llvm_backend::llvm_assembled_procedure
 {
