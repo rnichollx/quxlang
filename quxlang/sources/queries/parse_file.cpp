@@ -32,16 +32,20 @@ rpnx::querygraph::coroutine< quxlang::parse_file_spec > quxlang::parse_file_impl
 
     auto const& content = file_iter->second->contents;
     auto const& source_file_index = co_await rpnx::querygraph::request< source_file_index_query >(std::monostate{});
+    auto const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
     auto const file_id_iter = source_file_index.file_to_id.find(input);
     if (file_id_iter == source_file_index.file_to_id.end())
     {
         throw quxlang::compiler_bug(std::format("parse_file_query could not resolve source file id for '{}/{}'", input.source_module, input.relative_path));
     }
     auto const file_id = file_id_iter->second;
+    auto const runtime_module_iter = target_config.module_configurations.find("RUNTIME");
+    bool const parsing_runtime_module = runtime_module_iter != target_config.module_configurations.end() && runtime_module_iter->second.source == input.source_module;
 
     parsers::parsing_context ctx{
         .file_id = file_id,
         .source_locations_enabled = true,
+        .parsing_runtime_module = parsing_runtime_module,
         .iter_begin = content.begin(),
         .iter_pos = content.begin(),
         .iter_end = content.end(),

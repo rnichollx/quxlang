@@ -1329,6 +1329,19 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
+         * Returns the concrete symbol initialized for one runtime procedure reference.
+         */
+        auto runtime_procedure_symbol(quxlang::llvm_backend::runtime_procedure_reference const& reference) const -> quxlang::type_symbol const&
+        {
+            std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol >::const_iterator const found = input.runtime_procedures.find(reference);
+            if (found == input.runtime_procedures.end())
+            {
+                throw quxlang::semantic_compilation_error("Missing initialized runtime procedure for LLVM lowering");
+            }
+            return found->second;
+        }
+
+        /**
          * Converts one stored asm routine into textual assembler for the current target.
          */
         auto assembly_text(quxlang::asm_procedure const& procedure) const -> std::string
@@ -1775,6 +1788,96 @@ namespace quxlang::llvm_backend::detail
 
             std::vector< std::byte > const bytes = materialize_antestatal_bytes(type, value);
             return constant_byte_array(bytes);
+        }
+
+        /**
+         * Converts a source string to the byte payload used by STRING_CONSTANT values.
+         */
+        auto runtime_string_bytes(std::string const& text) const -> std::vector< std::byte >
+        {
+            std::vector< std::byte > bytes;
+            bytes.reserve(text.size());
+            for (char const ch : text)
+            {
+                bytes.push_back(static_cast< std::byte >(static_cast< unsigned char >(ch)));
+            }
+            return bytes;
+        }
+
+        /**
+         * Materializes a private immutable STRING_CONSTANT object for runtime support calls.
+         */
+        auto create_private_runtime_string_constant(std::string const& text, std::string const& name_stem) -> llvm::GlobalVariable*
+        {
+            quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
+            quxlang::antestatal_value const value = quxlang::antestatal_primitive{.value = runtime_string_bytes(text)};
+            llvm::Constant* const initializer = create_antestatal_constant_initializer(string_constant_type, value);
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
+                *module,
+                initializer->getType(),
+                true,
+                llvm::GlobalValue::PrivateLinkage,
+                initializer,
+                name_stem + "$strconst$" + std::to_string(helper_counter++));
+            global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            global->setAlignment(llvm::Align(slot_alignment(string_constant_type)));
+            return global;
+        }
+
+        /**
+         * Returns the LLVM value for one source-order MODULE(RUNTIME)::ASSERT_FAIL argument.
+         */
+        auto runtime_assert_fail_argument_value(quxlang::llvm_backend::runtime_assert_fail_call_arguments const& args, abi_parameter const& parameter) -> llvm::Value*
+        {
+            if (!parameter.name.has_value())
+            {
+                throw quxlang::semantic_compilation_error("Runtime ASSERT_FAIL argument must be named");
+            }
+
+            std::string const& name = *parameter.name;
+            if (name == "expr")
+            {
+                llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.expr, quxlang::mangle(input.target_name));
+                return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
+            }
+            if (name == "file")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.file);
+            }
+            if (name == "line")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.line);
+            }
+            if (name == "column")
+            {
+                return llvm::ConstantInt::get(pointer_integer_type(), args.column);
+            }
+            if (name == "tag")
+            {
+                if (!args.tag.has_value())
+                {
+                    return llvm::ConstantPointerNull::get(opaque_pointer_type());
+                }
+
+                llvm::GlobalVariable* const object = create_private_runtime_string_constant(*args.tag, quxlang::mangle(input.target_name));
+                return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
+            }
+
+            throw quxlang::semantic_compilation_error("Unknown Runtime ASSERT_FAIL argument: " + name);
+        }
+
+        /**
+         * Returns MODULE(RUNTIME)::ASSERT_FAIL call operands in selected ABI order.
+         */
+        auto runtime_assert_fail_call_arguments(quxlang::llvm_backend::runtime_assert_fail_call_arguments const& args, callable_abi const& abi) -> std::vector< llvm::Value* >
+        {
+            std::vector< llvm::Value* > values;
+            values.reserve(abi.llvm_param_source_indices.size());
+            for (std::size_t const source_index : abi.llvm_param_source_indices)
+            {
+                values.push_back(runtime_assert_fail_argument_value(args, abi.source_ordered.at(source_index)));
+            }
+            return values;
         }
 
         auto get_or_create_global(quxlang::type_symbol const& symbol, llvm::Type* storage_type, bool is_constant) -> llvm::GlobalVariable*
@@ -2382,9 +2485,17 @@ namespace quxlang::llvm_backend::detail
             return llvm::Constant::getNullValue(type);
         }
 
-        auto field_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index base_slot, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
+        /**
+         * Returns the address of a field within a runtime aggregate at an already-known base pointer.
+         */
+        auto field_address_from_base_pointer(
+            function_codegen_state& state,
+            ir_builder_t& ir_builder,
+            llvm::Value* base_pointer,
+            quxlang::type_symbol base_type,
+            std::string const& field_name,
+            quxlang::type_symbol const& field_type) -> llvm::Value*
         {
-            quxlang::type_symbol base_type = state.routine->local_types.at(local_slot_index(base_slot)).type;
             if (quxlang::is_ref(base_type))
             {
                 base_type = quxlang::remove_ref(base_type);
@@ -2400,7 +2511,6 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("Missing class layout for LLVM lowering: " + quxlang::to_string(base_type));
             }
 
-            llvm::Value* base_pointer = load_reference_pointer(state, ir_builder, base_slot);
             for (quxlang::class_field_info const& field : layout_iter->second.fields)
             {
                 if (field.name == field_name)
@@ -2412,6 +2522,24 @@ namespace quxlang::llvm_backend::detail
             }
 
             throw quxlang::semantic_compilation_error("Unknown field '" + field_name + "' in layout for " + quxlang::to_string(base_type));
+        }
+
+        /**
+         * Returns the address of a field within the object referenced by a VMIR reference slot.
+         */
+        auto referenced_field_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index base_slot, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
+        {
+            quxlang::type_symbol const& base_type = state.routine->local_types.at(local_slot_index(base_slot)).type;
+            return field_address_from_base_pointer(state, ir_builder, load_reference_pointer(state, ir_builder, base_slot), base_type, field_name, field_type);
+        }
+
+        /**
+         * Returns the address of a field within a VMIR value slot's own stack storage.
+         */
+        auto stored_value_field_address(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index base_slot, std::string const& field_name, quxlang::type_symbol const& field_type) -> llvm::Value*
+        {
+            quxlang::type_symbol const& base_type = state.routine->local_types.at(local_slot_index(base_slot)).type;
+            return field_address_from_base_pointer(state, ir_builder, value_address(state, base_slot), base_type, field_name, field_type);
         }
 
         /**
@@ -2442,8 +2570,8 @@ namespace quxlang::llvm_backend::detail
                 end_pointer = ir_builder.CreateInBoundsGEP(i8_type(), start_pointer, llvm::ConstantInt::get(i64_type(), value.size()));
             }
 
-            ir_builder.CreateStore(start_pointer, field_address(state, ir_builder, target, "__start", byte_pointer_type));
-            ir_builder.CreateStore(end_pointer, field_address(state, ir_builder, target, "__end", byte_pointer_type));
+            ir_builder.CreateStore(start_pointer, stored_value_field_address(state, ir_builder, target, "__start", byte_pointer_type));
+            ir_builder.CreateStore(end_pointer, stored_value_field_address(state, ir_builder, target, "__end", byte_pointer_type));
         }
 
         auto direct_callee_abi(quxlang::type_symbol const& callee, quxlang::vmir2::invoke const& call, function_codegen_state const& state) -> callable_abi
@@ -3298,7 +3426,7 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::access_field const& inst = instruction;
             quxlang::type_symbol field_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.store_index)).type);
-            store_reference_pointer(state, builder, inst.store_index, field_address(state, builder, inst.base_index, inst.field_name, field_type));
+            store_reference_pointer(state, builder, inst.store_index, referenced_field_address(state, builder, inst.base_index, inst.field_name, field_type));
             return;
         }
 
@@ -5346,8 +5474,19 @@ namespace quxlang::llvm_backend::detail
             builder.CreateCondBr(truth_value(state, builder, inst.condition), continue_block, fail_block);
 
             builder.SetInsertPoint(fail_block);
-            llvm::Function* trap = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::trap);
-            builder.CreateCall(trap);
+            quxlang::vmir2::source_index const empty_source_index;
+            quxlang::vmir2::source_index const& source_index = input.source_index.has_value() ? input.source_index->get() : empty_source_index;
+            quxlang::llvm_backend::runtime_procedure_reference const fail_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail};
+            quxlang::type_symbol const& fail_symbol = runtime_procedure_symbol(fail_reference);
+            if (!fail_symbol.type_is< quxlang::instanciation_reference >())
+            {
+                throw quxlang::semantic_compilation_error("Runtime ASSERT_FAIL did not initialize to a concrete procedure: " + quxlang::to_string(fail_symbol));
+            }
+            callable_abi const fail_abi = callable_abi_from_instanciation_reference(fail_symbol.get_as< quxlang::instanciation_reference >(), std::nullopt);
+            llvm::Function* const fail_function = get_or_create_external_function(fail_symbol, fail_abi);
+            quxlang::llvm_backend::runtime_assert_fail_call_arguments const fail_arguments = quxlang::llvm_backend::runtime_assert_fail_arguments(inst, source_index);
+            llvm::CallInst* const call = builder.CreateCall(fail_abi.llvm_type, fail_function, runtime_assert_fail_call_arguments(fail_arguments, fail_abi));
+            apply_calling_convention(call, fail_abi);
             builder.CreateUnreachable();
 
             current_block = continue_block;

@@ -7,6 +7,7 @@
 
 #include "quxlang/cow.hpp"
 #include "quxlang/exception.hpp"
+#include "quxlang/linker/elf_linker.hpp"
 #include "quxlang/llvm-backend.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "qxc_llvm_inlining.hpp"
@@ -176,6 +177,14 @@ static quxlang::ast2_file_declaration parse_file_text_raw(std::string const& inp
 static quxlang::ast2_file_declaration parse_file_text(std::string input)
 {
     return parse_file_text_raw(with_test_language_declaration(std::move(input)));
+}
+
+static quxlang::ast2_file_declaration parse_runtime_file_text(std::string input)
+{
+    std::string source = with_test_language_declaration(std::move(input));
+    auto ctx = test_parsing_context(source);
+    ctx.parsing_runtime_module = true;
+    return quxlang::parsers::parse_file(ctx);
 }
 
 static std::optional< quxlang::ast2_class_declaration > try_parse_class_text(std::string const& input)
@@ -581,7 +590,7 @@ TEST(parsing, parse_asm_procedure_callable_defaults_to_ccall)
 
 TEST(parsing, parse_program_start_asm_procedure_global_declaration)
 {
-    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+    quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
 ::PROGRAM_START ASM_PROCEDURE X64
 {
   RET
@@ -598,9 +607,43 @@ TEST(parsing, parse_program_start_asm_procedure_global_declaration)
     EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "RET");
 }
 
+TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
+{
+    EXPECT_THROW(parse_file_text(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX"), std::logic_error);
+
+    EXPECT_THROW(parse_file_text(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+)QX"), std::logic_error);
+}
+
+TEST(parsing, parse_runtime_declared_symbols_in_runtime_module)
+{
+    quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 2);
+    EXPECT_EQ(file.declarations.at(0).get_as< quxlang::global_subdeclaroid >().name, "ASSERT_FAIL");
+    EXPECT_EQ(file.declarations.at(1).get_as< quxlang::global_subdeclaroid >().name, "PROGRAM_START");
+}
+
 TEST(parsing, parse_asm_object_ref_main_function_operand)
 {
-    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+    quxlang::ast2_file_declaration const file = parse_runtime_file_text(R"QX(
 ::PROGRAM_START ASM_PROCEDURE X64
 {
   MOVABS RAX, OFFSET OBJECT_REF(MAIN_FUNCTION)
@@ -968,6 +1011,34 @@ TEST(parsing, parse_function_local_static_statements)
     ASSERT_TRUE(quxlang::typeis< quxlang::expression_snapshot >(*quxlang::as< quxlang::function_var_statement >(statements.at(7)).equals_initializer));
     ASSERT_TRUE(quxlang::typeis< quxlang::function_static_if_statement >(statements.at(8)));
     ASSERT_TRUE(quxlang::typeis< quxlang::function_static_while_statement >(statements.at(9)));
+}
+
+TEST(parsing, parse_assert_statement_preserves_expression_text)
+{
+    std::string test_string = R"QX(
+::foo STATIC_TEST
+{
+  ASSERT( (TRUE), "tag");
+  ASSERT(FALSE);
+}
+)QX";
+
+    quxlang::ast2_file_declaration file = parse_file_text(test_string);
+    ASSERT_EQ(file.declarations.size(), 1);
+    auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& statements = test.definition.body.statements;
+
+    ASSERT_EQ(statements.size(), 2);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_assert_statement >(statements.at(0)));
+    auto const& tagged_assert = quxlang::as< quxlang::function_assert_statement >(statements.at(0));
+    ASSERT_EQ(tagged_assert.expr_text, "(TRUE)");
+    ASSERT_EQ(tagged_assert.tagline, std::optional< std::string >{"tag"});
+
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_assert_statement >(statements.at(1)));
+    auto const& untagged_assert = quxlang::as< quxlang::function_assert_statement >(statements.at(1));
+    ASSERT_EQ(untagged_assert.expr_text, "FALSE");
+    ASSERT_FALSE(untagged_assert.tagline.has_value());
 }
 
 TEST(parsing, parse_for_statement_clauses)
@@ -1933,6 +2004,157 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
     EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common global i32 0"), std::string::npos);
+}
+
+TEST(elf_linker, common_symbols_are_allocated_in_bss)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("common_symbol_link_test");
+    quxlang::type_symbol const object_symbol = make_symbol("common_global_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_global_ref{
+        .symbol = object_symbol,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::machine_target_info const machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
+    packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+
+    quxlang::elf_linker linker;
+    std::vector< std::byte > const executable = linker.link_linux_executable(
+        machine,
+        compiled.object_file,
+        quxlang::mangle(routine_symbol),
+        quxlang::elf_link_options{.preserve_symbols = true});
+
+    auto const read_u16 = [&](std::size_t offset) -> std::uint16_t
+    {
+        return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+               (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+    };
+    auto const read_u32 = [&](std::size_t offset) -> std::uint32_t
+    {
+        return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
+               (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+    };
+    auto const read_u64 = [&](std::size_t offset) -> std::uint64_t
+    {
+        std::uint64_t value = 0;
+        for (std::size_t i = 0; i < 8; ++i)
+        {
+            value |= std::uint64_t(std::to_integer< std::uint8_t >(executable.at(offset + i))) << (i * 8);
+        }
+        return value;
+    };
+    auto const read_string = [&](std::size_t offset) -> std::string
+    {
+        std::string result;
+        for (std::size_t i = offset; i < executable.size() && executable.at(i) != std::byte{0}; ++i)
+        {
+            result.push_back(static_cast< char >(std::to_integer< std::uint8_t >(executable.at(i))));
+        }
+        return result;
+    };
+
+    ASSERT_EQ(executable.at(0), std::byte{0x7f});
+    ASSERT_EQ(executable.at(1), std::byte{'E'});
+    ASSERT_EQ(executable.at(2), std::byte{'L'});
+    ASSERT_EQ(executable.at(3), std::byte{'F'});
+    ASSERT_EQ(executable.at(4), std::byte{2});
+
+    std::size_t const section_header_offset = static_cast< std::size_t >(read_u64(40));
+    std::size_t const section_header_entry_size = read_u16(58);
+    std::size_t const section_header_count = read_u16(60);
+    std::size_t const section_name_table_index = read_u16(62);
+    ASSERT_EQ(section_header_entry_size, 64U);
+    ASSERT_LT(section_name_table_index, section_header_count);
+
+    auto const section_header = [&](std::size_t index) -> std::size_t
+    {
+        return section_header_offset + index * section_header_entry_size;
+    };
+
+    std::size_t const section_name_table_header = section_header(section_name_table_index);
+    std::size_t const section_name_table_offset = static_cast< std::size_t >(read_u64(section_name_table_header + 24));
+    auto const section_name = [&](std::size_t index) -> std::string
+    {
+        std::size_t const header = section_header(index);
+        return read_string(section_name_table_offset + read_u32(header));
+    };
+
+    std::optional< std::size_t > symbol_table_index;
+    std::optional< std::size_t > lbss_index;
+    for (std::size_t i = 1; i < section_header_count; ++i)
+    {
+        std::string const name = section_name(i);
+        if (name == ".symtab")
+        {
+            symbol_table_index = i;
+        }
+        else if (name == ".lbss")
+        {
+            lbss_index = i;
+        }
+    }
+    ASSERT_TRUE(symbol_table_index.has_value());
+    ASSERT_TRUE(lbss_index.has_value());
+
+    std::size_t const symbol_table_header = section_header(*symbol_table_index);
+    std::size_t const symbol_table_offset = static_cast< std::size_t >(read_u64(symbol_table_header + 24));
+    std::size_t const symbol_table_size = static_cast< std::size_t >(read_u64(symbol_table_header + 32));
+    std::size_t const symbol_table_entry_size = static_cast< std::size_t >(read_u64(symbol_table_header + 56));
+    std::size_t const string_table_index = read_u32(symbol_table_header + 40);
+    ASSERT_EQ(symbol_table_entry_size, 24U);
+    ASSERT_LT(string_table_index, section_header_count);
+
+    std::size_t const string_table_header = section_header(string_table_index);
+    std::size_t const string_table_offset = static_cast< std::size_t >(read_u64(string_table_header + 24));
+    std::string const linked_symbol_name = quxlang::mangle(object_symbol);
+    std::size_t const lbss_header = section_header(*lbss_index);
+    std::uint64_t const lbss_address = read_u64(lbss_header + 16);
+    bool found_symbol = false;
+    for (std::size_t offset = symbol_table_offset + symbol_table_entry_size; offset < symbol_table_offset + symbol_table_size; offset += symbol_table_entry_size)
+    {
+        if (read_string(string_table_offset + read_u32(offset)) != linked_symbol_name)
+        {
+            continue;
+        }
+
+        found_symbol = true;
+        EXPECT_EQ(read_u16(offset + 6), *lbss_index);
+        EXPECT_EQ(read_u64(offset + 8), lbss_address);
+        EXPECT_EQ(read_u64(offset + 16), 4U);
+    }
+    EXPECT_TRUE(found_symbol);
 }
 
 TEST(llvm_backend, assemble_emits_asm_text_and_elf_object_file)
@@ -3126,6 +3348,99 @@ TEST(llvm_backend, initval_string_constant_materializes_private_payload_and_end_
     EXPECT_NE(result.llvm_ir_text.find("i64 3"), std::string::npos);
 }
 
+TEST(llvm_backend, native_assert_failure_calls_single_runtime_assert_fail_symbol)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+    auto const count_occurrences = [](std::string const& text, std::string const& needle) -> std::size_t
+    {
+        std::size_t count = 0;
+        std::size_t offset = 0;
+        while ((offset = text.find(needle, offset)) != std::string::npos)
+        {
+            count++;
+            offset += needle.size();
+        }
+        return count;
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("assert_runtime_call_test");
+    quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
+    quxlang::type_symbol const byte_pointer_type = quxlang::ptrref_type{
+        .target = quxlang::byte_type{},
+        .ptr_class = quxlang::pointer_class::array,
+        .qual = quxlang::qualifier::constant,
+    };
+    quxlang::type_symbol const runtime_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = quxlang::llvm_backend::runtime_procedure_initializee(quxlang::llvm_backend::runtime_procedure::assert_fail),
+        },
+        .params = quxlang::llvm_backend::runtime_assert_fail_parameters(),
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::bool_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_zero{
+        .target = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::assert_instr{
+        .condition = quxlang::vmir2::local_index(1),
+        .expr_text = "FALSE",
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_zero{
+        .target = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::assert_instr{
+        .condition = quxlang::vmir2::local_index(2),
+        .expr_text = "FALSE",
+        .tag = std::string{"runtime tag"},
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[string_constant_type] = quxlang::type_placement_info{
+        .size = 16,
+        .alignment = 8,
+    };
+    packet.class_layouts[string_constant_type] = quxlang::class_layout{
+        .fields = {
+            quxlang::class_field_info{.name = "__start", .type = byte_pointer_type, .offset = 0},
+            quxlang::class_field_info{.name = "__end", .type = byte_pointer_type, .offset = 8},
+        },
+        .size = 16,
+        .align = 8,
+    };
+    packet.runtime_procedures.emplace(
+        quxlang::llvm_backend::runtime_procedure_reference{.procedure = quxlang::llvm_backend::runtime_procedure::assert_fail},
+        runtime_symbol);
+    packet.procedure_linksymbols.emplace(runtime_symbol, "runtime_assert_fail");
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(count_occurrences(result.llvm_ir_text, "call void @runtime_assert_fail"), 2);
+    EXPECT_NE(result.llvm_ir_text.find("ptr null"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("private unnamed_addr constant [11 x i8] c\"runtime tag\""), std::string::npos);
+    EXPECT_EQ(result.llvm_ir_text.find("@llvm.trap"), std::string::npos);
+}
+
 TEST(llvm_backend, enums_lower_to_integer_storage_and_unsigned_comparisons)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
@@ -3975,12 +4290,12 @@ TEST(source_locations, vmir_instruction_and_terminator_locations_print_automatic
 
     quxlang::vmir2::vm_instruction located_instruction = quxlang::vmir2::assert_instr{
         .condition = quxlang::vmir2::local_index(1),
-        .message = "ok",
+        .expr_text = "ok",
         .location = loc,
     };
     quxlang::vmir2::vm_instruction unlocated_instruction = quxlang::vmir2::assert_instr{
         .condition = quxlang::vmir2::local_index(1),
-        .message = "ok",
+        .expr_text = "ok",
     };
     quxlang::vmir2::vm_terminator located_terminator = quxlang::vmir2::ret{.location = loc};
 
@@ -4190,10 +4505,10 @@ TEST(vmir_constexpr_interpreter, atomic_load_store_and_rmw_execute_single_thread
             },
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "5"},
             quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(4), .b = quxlang::vmir2::local_index(6), .result = quxlang::vmir2::local_index(7)},
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .message = "FETCH_ADD old value"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .expr_text = "FETCH_ADD old value"},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(8), .value = "7"},
             quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(5), .b = quxlang::vmir2::local_index(8), .result = quxlang::vmir2::local_index(9)},
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(9), .message = "atomic load after RMW"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(9), .expr_text = "atomic load after RMW"},
         },
         .terminator = quxlang::vmir2::ret{},
     });
@@ -4242,12 +4557,12 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
                 .failure_mode = quxlang::atomic_access_mode::atomic_acquire,
             },
             quxlang::vmir2::to_bool_not{.from = quxlang::vmir2::local_index(7), .to = quxlang::vmir2::local_index(8)},
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(8), .message = "first CAS should fail"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(8), .expr_text = "first CAS should fail"},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
             quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(5), .to_value = quxlang::vmir2::local_index(9)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "7"},
             quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .message = "failed CAS updates expected"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .expr_text = "failed CAS updates expected"},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(4), .reference_index = quxlang::vmir2::local_index(5)},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(6), .value = "9"},
@@ -4259,12 +4574,12 @@ TEST(vmir_constexpr_interpreter, atomic_compare_exchange_updates_expected_on_fai
                 .success_mode = quxlang::atomic_access_mode::atomic_acqrel,
                 .failure_mode = quxlang::atomic_access_mode::atomic_acquire,
             },
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .message = "second CAS should succeed"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(7), .expr_text = "second CAS should succeed"},
             quxlang::vmir2::make_reference{.value_index = quxlang::vmir2::local_index(1), .reference_index = quxlang::vmir2::local_index(2)},
             quxlang::vmir2::load_from_ref{.from_reference = quxlang::vmir2::local_index(2), .to_value = quxlang::vmir2::local_index(9)},
             quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(10), .value = "9"},
             quxlang::vmir2::cmp_eq{.a = quxlang::vmir2::local_index(9), .b = quxlang::vmir2::local_index(10), .result = quxlang::vmir2::local_index(11)},
-            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .message = "successful CAS updates target"},
+            quxlang::vmir2::assert_instr{.condition = quxlang::vmir2::local_index(11), .expr_text = "successful CAS updates target"},
         },
         .terminator = quxlang::vmir2::ret{},
     });

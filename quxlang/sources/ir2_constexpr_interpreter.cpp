@@ -6825,7 +6825,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     if (data == std::vector< std::byte >{std::byte{0}})
     {
-        throw constexpr_logic_execution_error("assertion failed: " + asrt.message);
+        std::string message = asrt.expr_text;
+        if (asrt.tag.has_value())
+        {
+            message = *asrt.tag + ": " + message;
+        }
+        throw constexpr_logic_execution_error("assertion failed: " + message);
     }
 }
 

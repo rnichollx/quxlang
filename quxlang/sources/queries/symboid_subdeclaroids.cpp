@@ -29,6 +29,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_subdeclaroids_spec > quxlang::symb
     {
         co_return as< ast2_module_declaration >(sym).declarations;
     }
+    else if (typeis< ast2_namespace_declaration >(sym))
+    {
+        co_return as< ast2_namespace_declaration >(sym).declarations;
+    }
     else if (typeis< ast2_template_declaration >(sym))
     {
         // Templates don't have subdeclaroids, only a template instanciation could,

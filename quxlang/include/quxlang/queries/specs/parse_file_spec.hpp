@@ -6,6 +6,7 @@
 #include <quxlang/queries/parse_file.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
+#include <quxlang/queries/target_configuration.hpp>
 
 #include <rpnx/querygraph/querygraph.hpp>
 
@@ -14,7 +15,7 @@ namespace quxlang
     struct parse_file_spec
     {
         using query = parse_file_query;
-        using dependencies = rpnx::typelist< source_bundle_query, source_file_index_query >;
+        using dependencies = rpnx::typelist< source_bundle_query, source_file_index_query, target_configuration_query >;
     };
 
     rpnx::querygraph::coroutine< parse_file_spec > parse_file_impl(source_file_name input);

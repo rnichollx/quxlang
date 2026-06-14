@@ -10,6 +10,7 @@
 #include <quxlang/data/class_layout.hpp>
 #include <quxlang/data/enum_flagset_info.hpp>
 #include <quxlang/data/target_configuration.hpp>
+#include <quxlang/exception.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/data/type_placement_info.hpp>
 #include <quxlang/vmir2/source_index.hpp>
@@ -18,9 +19,30 @@
 #include <rpnx/cow.hpp>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
+RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail);
 
 namespace quxlang::llvm_backend
 {
+    /// Identifies one initialized runtime procedure instantiation needed by LLVM lowering.
+    struct runtime_procedure_reference
+    {
+        runtime_procedure procedure;
+
+        RPNX_MEMBER_METADATA(runtime_procedure_reference, procedure);
+    };
+
+    /// Runtime values passed to MODULE(RUNTIME)::ASSERT_FAIL for one failed ASSERT.
+    struct runtime_assert_fail_call_arguments
+    {
+        std::string expr;
+        std::size_t file = 0;
+        std::size_t line = 0;
+        std::size_t column = 0;
+        std::optional< std::string > tag;
+
+        RPNX_MEMBER_METADATA(runtime_assert_fail_call_arguments, expr, file, line, column, tag);
+    };
+
     /// llvm_compiled_unit represents the results of compiling some functanoid to LLVM
     struct llvm_compiled_unit
     {
@@ -69,6 +91,8 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, asm_callable> asm_callable_interfaces;
         /// Asm procedure bodies, keyed by the declaration symbol that owns the emitted machine-code label.
         std::map<type_symbol, asm_procedure> asm_functions;
+        /// Runtime procedure instantiations needed by lowering, keyed by abstract runtime role.
+        std::map<runtime_procedure_reference, type_symbol> runtime_procedures;
         std::map<type_symbol, std::string> procedure_linksymbols;
         std::map<type_symbol, type_symbol> object_reference_types;
         std::map<type_symbol, antestatal_value> antestatal_constants;
@@ -79,8 +103,97 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, procedure_linksymbols, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
+
+    /// Returns the source-level runtime procedure symbol for one abstract runtime procedure.
+    inline auto runtime_procedure_initializee(runtime_procedure procedure) -> type_symbol
+    {
+        switch (procedure)
+        {
+        case runtime_procedure::assert_fail:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "ASSERT_FAIL",
+            };
+        }
+        throw compiler_bug("unknown runtime procedure");
+    }
+
+    /// Returns the constant type used by runtime ASSERT_FAIL string parameters.
+    inline auto runtime_string_constant_type() -> type_symbol
+    {
+        return readonly_constant{.kind = constant_kind::string};
+    }
+
+    /// Returns the constant pointer type used by runtime ASSERT_FAIL's tag parameter.
+    inline auto runtime_string_constant_cptr_type() -> type_symbol
+    {
+        return ptrref_type{
+            .target = runtime_string_constant_type(),
+            .ptr_class = pointer_class::instance,
+            .qual = qualifier::constant,
+        };
+    }
+
+    /// Returns the fixed call signature used to initialize MODULE(RUNTIME)::ASSERT_FAIL.
+    inline auto runtime_assert_fail_parameters() -> instatype
+    {
+        type_symbol const string_constant_type = runtime_string_constant_type();
+        type_symbol const tag_type = runtime_string_constant_cptr_type();
+        type_symbol const sz_type = size_type{};
+
+        instatype parameters;
+        parameters.named["expr"] = make_type_instantiation(string_constant_type);
+        parameters.named["file"] = make_type_instantiation(sz_type);
+        parameters.named["line"] = make_type_instantiation(sz_type);
+        parameters.named["column"] = make_type_instantiation(sz_type);
+        parameters.named["tag"] = make_type_instantiation(tag_type);
+        return parameters;
+    }
+
+    /// Returns the initialization request for one abstract runtime procedure.
+    inline auto runtime_procedure_initialization(runtime_procedure procedure) -> initialization_reference
+    {
+        initialization_reference initialization{
+            .initializee = runtime_procedure_initializee(procedure),
+        };
+
+        switch (procedure)
+        {
+        case runtime_procedure::assert_fail:
+            initialization.parameters = runtime_assert_fail_parameters();
+            return initialization;
+        }
+        throw compiler_bug("unknown runtime procedure");
+    }
+
+    /// Builds the runtime ASSERT_FAIL call argument payload for one VMIR ASSERT instruction.
+    inline auto runtime_assert_fail_arguments(vmir2::assert_instr const& instruction, vmir2::source_index const& source_index) -> runtime_assert_fail_call_arguments
+    {
+        std::size_t file = 0;
+        std::size_t line = 0;
+        std::size_t column = 0;
+        if (instruction.location.has_value())
+        {
+            file = instruction.location->file_id;
+            auto const file_iter = source_index.files.find(instruction.location->file_id);
+            if (file_iter != source_index.files.end())
+            {
+                vmir2::source_position const position = file_iter->second.position(instruction.location->begin_index);
+                line = position.line;
+                column = position.column;
+            }
+        }
+
+        return runtime_assert_fail_call_arguments{
+            .expr = instruction.expr_text,
+            .file = file,
+            .line = line,
+            .column = column,
+            .tag = instruction.tag,
+        };
+    }
 
 
 }

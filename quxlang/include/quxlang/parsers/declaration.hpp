@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 #include <quxlang/ast2/ast2_entity.hpp>
+#include <quxlang/keywords.hpp>
 
 #include <quxlang/parsers/declaration.hpp>
 #include <quxlang/parsers/doc.hpp>
@@ -74,6 +75,10 @@ namespace quxlang::parsers
             return output;
         }
         auto [member, name] = std::move(*name_opt);
+        if (!member && !ctx.parsing_runtime_module && keywords::runtime_only_declared_symbols.contains(name))
+        {
+            throw syntax_compilation_error("Runtime declaration ::" + name + " is only allowed in the runtime module");
+        }
 
         skip_whitespace_and_comments(pos, end);
 

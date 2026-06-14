@@ -72,6 +72,9 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     target_configuration const& target_config = co_await target_config_request;
     backend_llvm_options const llvm_options = co_await llvm_options_request;
     machine_target_info const machine = co_await machine_request;
+    source_file_index const file_index = co_await source_file_index_request;
+    source_bundle const bundle = co_await source_bundle_request;
+    vmir2::source_index const source_index(file_index, bundle);
 
     if (!target_config.module_configurations.contains(output_info.module_name))
     {
@@ -168,6 +171,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     std::set< type_symbol > queued_functanoids;
     queued_functanoids.insert(entry_functanoid_symbol);
     std::set< type_symbol > object_references;
+    std::set< llvm_backend::runtime_procedure_reference > pending_runtime_procedures;
 
     auto make_dependency_traceback =
         [](std::vector< trace_frame > const& caller_traceback, type_symbol const& caller, std::optional< source_location > location) -> std::vector< trace_frame >
@@ -232,6 +236,15 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                             if (concrete_instruction.default_function.has_value())
                             {
                                 enqueue_functanoid(caller, *concrete_instruction.default_function, location, traceback);
+                            }
+                        }
+                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::assert_instr >)
+                        {
+                            (void)concrete_instruction;
+                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::assert_fail};
+                            if (!output_module_unit.runtime_procedures.contains(reference))
+                            {
+                                pending_runtime_procedures.insert(std::move(reference));
                             }
                         }
                     });
@@ -349,8 +362,85 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         co_await await_object_lookup_requests(runtime_object_lookup_requests);
     }
 
-    while (!pending_functanoids.empty())
+    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty())
     {
+        while (!pending_runtime_procedures.empty())
+        {
+            std::vector< llvm_backend::runtime_procedure_reference > round_runtime_procedures;
+            while (!pending_runtime_procedures.empty())
+            {
+                round_runtime_procedures.push_back(*pending_runtime_procedures.begin());
+                pending_runtime_procedures.erase(pending_runtime_procedures.begin());
+            }
+
+            std::vector< std::pair< llvm_backend::runtime_procedure_reference, rpnx::querygraph::request< lookup_query > > > runtime_lookup_requests;
+            for (llvm_backend::runtime_procedure_reference const& runtime_reference : round_runtime_procedures)
+            {
+                if (output_module_unit.runtime_procedures.contains(runtime_reference))
+                {
+                    continue;
+                }
+                if (!target_config.module_configurations.contains("RUNTIME"))
+                {
+                    throw semantic_compilation_error("Native ASSERT lowering requires MODULE(RUNTIME)::ASSERT_FAIL");
+                }
+                initialization_reference runtime_init = llvm_backend::runtime_procedure_initialization(runtime_reference.procedure);
+                runtime_init.context = absolute_module_reference{.module_name = "RUNTIME"};
+                runtime_lookup_requests.push_back(std::make_pair(runtime_reference, rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                                                                                     .context = absolute_module_reference{.module_name = "RUNTIME"},
+                                                                                     .type = std::move(runtime_init),
+                                                                                 })));
+                co_yield rpnx::querygraph::dependency(runtime_lookup_requests.back().second);
+            }
+
+            std::vector< std::pair< llvm_backend::runtime_procedure_reference, rpnx::querygraph::request< instanciation_query > > > runtime_instanciation_requests;
+            for (std::pair< llvm_backend::runtime_procedure_reference, rpnx::querygraph::request< lookup_query > >& request : runtime_lookup_requests)
+            {
+                std::optional< type_symbol > const runtime_lookup = co_await request.second;
+                if (!runtime_lookup.has_value())
+                {
+                    throw semantic_compilation_error("Could not resolve runtime procedure: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
+                }
+                if (runtime_lookup->type_is< instanciation_reference >())
+                {
+                    output_module_unit.runtime_procedures.emplace(request.first, *runtime_lookup);
+                    enqueue_functanoid(
+                        llvm_backend::runtime_procedure_initializee(request.first.procedure),
+                        *runtime_lookup,
+                        std::nullopt,
+                        {});
+                    continue;
+                }
+                if (!runtime_lookup->type_is< initialization_reference >())
+                {
+                    throw semantic_compilation_error("Runtime procedure did not resolve to an initialization reference: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
+                }
+                runtime_instanciation_requests.push_back(std::make_pair(request.first, rpnx::querygraph::request< instanciation_query >(runtime_lookup->as< initialization_reference >())));
+                co_yield rpnx::querygraph::dependency(runtime_instanciation_requests.back().second);
+            }
+
+            for (std::pair< llvm_backend::runtime_procedure_reference, rpnx::querygraph::request< instanciation_query > >& request : runtime_instanciation_requests)
+            {
+                std::optional< instanciation_reference > const runtime_instanciation = co_await request.second;
+                if (!runtime_instanciation.has_value())
+                {
+                    throw semantic_compilation_error("Could not initialize runtime procedure: " + to_string(llvm_backend::runtime_procedure_initializee(request.first.procedure)));
+                }
+                type_symbol const runtime_symbol = *runtime_instanciation;
+                output_module_unit.runtime_procedures.emplace(request.first, runtime_symbol);
+                enqueue_functanoid(
+                    llvm_backend::runtime_procedure_initializee(request.first.procedure),
+                    runtime_symbol,
+                    std::nullopt,
+                    {});
+            }
+        }
+
+        if (pending_functanoids.empty())
+        {
+            continue;
+        }
+
         std::vector< std::pair< instanciation_reference, std::vector< trace_frame > > > round_functanoids;
         while (!pending_functanoids.empty())
         {
@@ -830,6 +920,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             routine_entry.first,
             rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = asm_declaration_symbol})));
     }
+    for (std::pair< llvm_backend::runtime_procedure_reference const, type_symbol > const& routine_entry : output_module_unit.runtime_procedures)
+    {
+        procedure_linksymbol_requests.push_back(std::make_pair(
+            routine_entry.second,
+            rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = routine_entry.second})));
+    }
     for (std::pair< type_symbol, rpnx::querygraph::request< procedure_linksymbol_query > >& linksymbol_request : procedure_linksymbol_requests)
     {
         co_yield rpnx::querygraph::dependency(linksymbol_request.second);
@@ -839,9 +935,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         output_module_unit.procedure_linksymbols.emplace(linksymbol_request.first, co_await linksymbol_request.second);
     }
 
-    source_file_index const file_index = co_await source_file_index_request;
-    source_bundle const bundle = co_await source_bundle_request;
-    output_module_unit.source_index = rpnx::cow< vmir2::source_index >(vmir2::source_index(file_index, bundle));
+    output_module_unit.source_index = rpnx::cow< vmir2::source_index >(source_index);
 
     co_return output_module_unit;
 }

@@ -80,6 +80,13 @@ namespace quxlang::detail
         std::uint16_t section_index = 0;
     };
 
+    struct common_symbol_allocation
+    {
+        std::uint64_t offset = 0;
+        std::uint64_t size = 0;
+        std::uint64_t alignment = 1;
+    };
+
     class elf_link_session
     {
     public:
@@ -99,11 +106,13 @@ namespace quxlang::detail
             validate_machine();
             open_object();
             collect_sections();
+            collect_common_symbols();
             layout_sections();
             collect_arm64_got_slots();
             if (got_section_index.has_value())
             {
                 layout_sections();
+                refresh_arm64_got_slots();
             }
             apply_relocations();
             if (options.preserve_symbols)
@@ -125,7 +134,9 @@ namespace quxlang::detail
         std::vector< load_segment > load_segments;
         std::vector< std::byte > section_name_table;
         std::map< std::uint64_t, std::size_t > output_section_indices_by_input_index;
+        std::map< std::string, common_symbol_allocation > common_symbol_allocations;
         std::map< std::uint64_t, got_slot > got_slots_by_target_address;
+        std::optional< std::size_t > common_bss_section_index;
         std::optional< std::size_t > got_section_index;
         std::uint64_t executable_base_address = 0;
         std::uint64_t page_alignment = 0x1000;
@@ -259,6 +270,66 @@ namespace quxlang::detail
                 output_section_indices_by_input_index[output_section.input_index] = sections.size();
                 sections.push_back(std::move(output_section));
             }
+        }
+
+        auto is_common_symbol(llvm::object::SymbolRef const& symbol) const -> bool
+        {
+            std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
+            return (flags & llvm::object::BasicSymbolRef::SF_Common) != 0;
+        }
+
+        auto symbol_name(llvm::object::SymbolRef const& symbol) const -> std::string
+        {
+            return take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str();
+        }
+
+        void collect_common_symbols()
+        {
+            common_symbol_allocations.clear();
+            common_bss_section_index.reset();
+
+            std::uint64_t offset = 0;
+            std::uint64_t max_alignment = 1;
+            for (llvm::object::SymbolRef const& generic_symbol : object_file->symbols())
+            {
+                if (!is_common_symbol(generic_symbol))
+                {
+                    continue;
+                }
+
+                llvm::object::ELFSymbolRef const symbol(generic_symbol);
+                std::uint64_t const size = symbol.getSize();
+                std::uint64_t const alignment = std::max< std::uint64_t >(1, take_or_throw(generic_symbol.getAddress(), "Failed to read ELF common symbol alignment"));
+                offset = align_up(offset, alignment);
+                common_symbol_allocations.emplace(
+                    symbol_name(generic_symbol),
+                    common_symbol_allocation{
+                        .offset = offset,
+                        .size = size,
+                        .alignment = alignment,
+                    });
+                offset += size;
+                max_alignment = std::max(max_alignment, alignment);
+            }
+
+            if (offset == 0)
+            {
+                return;
+            }
+
+            linked_section common_bss;
+            common_bss.name = ".lbss";
+            common_bss.input_index = static_cast< std::uint64_t >(sections.size() + 1);
+            common_bss.section_type = llvm::ELF::SHT_NOBITS;
+            common_bss.alignment = max_alignment;
+            common_bss.allocated = true;
+            common_bss.writable = true;
+            common_bss.executable = false;
+            common_bss.nobits = true;
+            common_bss.synthetic = true;
+            common_bss.memory_size = offset;
+            common_bss_section_index = sections.size();
+            sections.push_back(std::move(common_bss));
         }
 
         auto align_up(std::uint64_t value, std::uint64_t alignment) const -> std::uint64_t
@@ -487,6 +558,15 @@ namespace quxlang::detail
 
         auto symbol_output_section_index(llvm::object::SymbolRef const& symbol) const -> std::optional< std::uint16_t >
         {
+            if (is_common_symbol(symbol))
+            {
+                if (!common_bss_section_index.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("ELF common symbol has no allocated output section");
+                }
+                return static_cast< std::uint16_t >(*common_bss_section_index + 1);
+            }
+
             std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
             if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
             {
@@ -670,6 +750,22 @@ namespace quxlang::detail
 
         auto symbol_address(llvm::object::SymbolRef const& symbol) const -> std::uint64_t
         {
+            if (is_common_symbol(symbol))
+            {
+                if (!common_bss_section_index.has_value())
+                {
+                    throw quxlang::semantic_compilation_error("ELF common symbol has no allocated output section");
+                }
+
+                std::map< std::string, common_symbol_allocation >::const_iterator const allocation_iter = common_symbol_allocations.find(symbol_name(symbol));
+                if (allocation_iter == common_symbol_allocations.end())
+                {
+                    throw quxlang::semantic_compilation_error("ELF common symbol allocation was not found");
+                }
+
+                return sections.at(*common_bss_section_index).virtual_address + allocation_iter->second.offset;
+            }
+
             std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
             if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
             {
@@ -811,6 +907,63 @@ namespace quxlang::detail
             for (std::pair< std::uint64_t const, got_slot > const& slot_entry : got_slots_by_target_address)
             {
                 write_u64(sections.at(*got_section_index).contents, slot_entry.second.slot_index * 8, slot_entry.second.target_address);
+            }
+        }
+
+        void refresh_arm64_got_slots()
+        {
+            if (!got_section_index.has_value())
+            {
+                return;
+            }
+
+            linked_section& got_section = sections.at(*got_section_index);
+            std::fill(got_section.contents.begin(), got_section.contents.end(), std::byte{0});
+            got_slots_by_target_address.clear();
+
+            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            {
+                llvm::object::ELFSectionRef const elf_section(generic_section);
+                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                {
+                    continue;
+                }
+
+                llvm::object::section_iterator const relocated_section_iter =
+                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section for GOT refresh");
+                if (relocated_section_iter == object_file->section_end() ||
+                    output_section_indices_by_input_index.find(relocated_section_iter->getIndex()) == output_section_indices_by_input_index.end())
+                {
+                    continue;
+                }
+
+                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                {
+                    std::uint64_t const relocation_type = relocation.getType();
+                    if (relocation_type != llvm::ELF::R_AARCH64_ADR_GOT_PAGE && relocation_type != llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
+                    {
+                        continue;
+                    }
+
+                    linked_section const& output_section = sections.at(output_section_indices_by_input_index.at(relocated_section_iter->getIndex()));
+                    std::uint64_t const target_address =
+                        relocation_target_address(relocation) + relocation_addend(output_section, generic_section, relocation);
+                    if (got_slots_by_target_address.contains(target_address))
+                    {
+                        continue;
+                    }
+
+                    std::size_t const slot_index = got_slots_by_target_address.size();
+                    if ((slot_index + 1) * 8 > got_section.contents.size())
+                    {
+                        throw quxlang::semantic_compilation_error("AArch64 GOT refresh changed the slot count");
+                    }
+                    got_slots_by_target_address[target_address] = got_slot{
+                        .target_address = target_address,
+                        .slot_index = slot_index,
+                    };
+                    write_u64(got_section.contents, slot_index * 8, target_address);
+                }
             }
         }
 

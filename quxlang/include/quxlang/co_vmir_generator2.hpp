@@ -8524,7 +8524,7 @@ namespace quxlang
         auto emit_nominal_integer_assert_false(block_index& current_block, std::string message) -> void
         {
             value_index false_value = this->create_bool_value(current_block, false);
-            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(false_value), .message = std::move(message)});
+            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(false_value), .expr_text = std::move(message)});
         }
 
         auto co_emit_nominal_padding_validation(block_index& current_block, type_symbol const& storage_type, value_index storage_value, std::uint64_t bits, std::uint64_t storage_bytes) -> co_type< void >
@@ -8546,7 +8546,7 @@ namespace quxlang
             value_index zero_value = create_nominal_integer_const(current_block, storage_type, 0);
             value_index condition = this->create_local_value(bool_type{});
             this->emit(current_block, vmir2::cmp_eq{.a = get_local_index(masked_value), .b = get_local_index(zero_value), .result = get_local_index(condition)});
-            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(condition), .message = "nominal integer deserialization padding bits are nonzero"});
+            this->emit(current_block, vmir2::assert_instr{.condition = get_local_index(condition), .expr_text = "nominal integer deserialization padding bits are nonzero"});
             co_return;
         }
 
@@ -10782,8 +10782,7 @@ namespace quxlang
             block_index condition_block = this->generate_subblock(current_block, "if_statement_condition");
             this->generate_jump(current_block, condition_block);
             value_index cond = co_await co_generate_bool_expr(condition_block, asrt.condition);
-            auto assert_string = quxlang::to_string(asrt.condition);
-            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .message = asrt.tagline.value_or("NO_MESSAGE_TAG") + ": " + assert_string, .location = asrt.location};
+            vmir2::assert_instr asrt_instr{.condition = get_local_index(cond), .expr_text = asrt.expr_text, .tag = asrt.tagline, .location = asrt.location};
             this->emit(condition_block, asrt_instr);
             this->generate_jump(condition_block, after_block);
             current_block = after_block;

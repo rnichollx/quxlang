@@ -499,7 +499,14 @@ namespace quxlang::vmir2
     {
         std::string message;
         // TODO: Escape the message so it wont look weird if it has quotes in it
-        message = "\"" + asrt.message + "\"";
+        if (asrt.tag.has_value())
+        {
+            message = "\"" + *asrt.tag + ": " + asrt.expr_text + "\"";
+        }
+        else
+        {
+            message = "\"" + asrt.expr_text + "\"";
+        }
 
         return "ASSERT %" + std::to_string(asrt.condition) + ", " + message;
     }

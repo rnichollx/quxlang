@@ -1,7 +1,10 @@
 LANGUAGE QUXLANG EN 0.0;
 
+::bif PER_THREAD VAR I32;
 
 ::main FUNCTION(): I32
 {
+  ASSERT(5 == bif);
+
   RETURN 0;
 }

@@ -630,8 +630,9 @@ namespace quxlang
         struct assert_instr
         {
             local_index condition;
-            std::string message;
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(assert_instr, condition, message);
+            std::string expr_text;
+            std::optional< std::string > tag;
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(assert_instr, condition, expr_text, tag);
         };
 
         // Defers a non-trivial destructor call.

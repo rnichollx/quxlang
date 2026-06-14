@@ -1129,9 +1129,10 @@ namespace quxlang
     struct function_assert_statement
     {
         expression condition;
+        std::string expr_text;
         std::optional< std::string > tagline;
 
-        QUX_AST_METADATA(function_assert_statement, condition, tagline);
+        QUX_AST_METADATA(function_assert_statement, condition, expr_text, tagline);
     };
 
     struct function_runtime_statement

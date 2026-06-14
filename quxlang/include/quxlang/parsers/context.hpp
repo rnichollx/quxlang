@@ -14,6 +14,7 @@ namespace quxlang::parsers
     {
         std::uint64_t file_id = {};
         bool source_locations_enabled = false;
+        bool parsing_runtime_module = false;
 
         parse_iterator iter_begin;
         parse_iterator iter_pos;

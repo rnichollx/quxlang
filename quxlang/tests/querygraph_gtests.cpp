@@ -19,6 +19,7 @@
 #include <quxlang/queries/implementation_function_map.hpp>
 #include <quxlang/queries/implementation_interface_type.hpp>
 #include <quxlang/queries/machine_info.hpp>
+#include <quxlang/queries/module_ast.hpp>
 #include <quxlang/queries/module_options_map.hpp>
 #include <quxlang/queries/module_source_name.hpp>
 #include <quxlang/queries/module_source_name_map.hpp>
@@ -300,6 +301,56 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
     EXPECT_TRUE(unit.object_reference_types.contains(second));
 }
 
+TEST(querygraph_queries, parse_file_rejects_runtime_declared_symbols_in_non_runtime_module)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    EXPECT_THROW(graph.make_request< quxlang::module_ast_query >("main"), std::logic_error);
+}
+
+TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_functanoid)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::main FUNCTION(): I32
+{
+  ASSERT(FALSE);
+  ASSERT(FALSE, "runtime tag");
+  RETURN 0;
+}
+)QX");
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX")};
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >("default");
+    quxlang::llvm_backend::runtime_procedure_reference const assert_fail_ref{
+        .procedure = quxlang::llvm_backend::runtime_procedure::assert_fail,
+    };
+
+    ASSERT_EQ(unit.runtime_procedures.size(), 1);
+    ASSERT_TRUE(unit.runtime_procedures.contains(assert_fail_ref));
+    quxlang::type_symbol const& assert_fail_symbol = unit.runtime_procedures.at(assert_fail_ref);
+    EXPECT_TRUE(assert_fail_symbol.type_is< quxlang::instanciation_reference >());
+    EXPECT_TRUE(unit.inlinable_functions.contains(assert_fail_symbol));
+    EXPECT_TRUE(unit.procedure_linksymbols.contains(assert_fail_symbol));
+}
+
 TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
@@ -493,6 +544,26 @@ TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
+}
+
+TEST(querygraph_queries, nested_namespace_subdeclaroids_resolve)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"(
+::outer NAMESPACE
+{
+  ::inner NAMESPACE
+  {
+    ::value VAR I32;
+  }
+}
+)");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol outer = quxlang::subsymbol{main, "outer"};
+    quxlang::type_symbol inner = quxlang::subsymbol{outer, "inner"};
+    quxlang::type_symbol value = quxlang::subsymbol{inner, "value"};
+
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(value), quxlang::symbol_kind::global_variable);
 }
 
 TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)

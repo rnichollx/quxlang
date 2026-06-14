@@ -191,14 +191,22 @@ namespace quxlang::parsers
 
         function_assert_statement asrt_statement;
 
+        skip_whitespace_and_comments(pos, end);
+        auto expression_begin = pos;
         asrt_statement.condition = parse_expression(ctx);
+        asrt_statement.expr_text = std::string(expression_begin, pos);
 
         skip_whitespace_and_comments(pos, end);
 
         if (skip_symbol_if_is(pos, end, ","))
         {
             skip_whitespace_and_comments(pos, end);
-            asrt_statement.tagline = try_parse_string_literal(pos, end).value_or("NO_MESSAGE");
+            std::optional< std::string > const tagline = try_parse_string_literal(pos, end);
+            if (!tagline.has_value())
+            {
+                throw syntax_compilation_error("Expected assertion message string");
+            }
+            asrt_statement.tagline = *tagline;
         }
         if (!skip_symbol_if_is(pos, end, ")"))
         {
