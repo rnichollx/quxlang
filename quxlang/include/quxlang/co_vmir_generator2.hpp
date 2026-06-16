@@ -8062,8 +8062,10 @@ namespace quxlang
             auto emit_return_from_storage = [&](block_index& current_block) -> co_type< void >
             {
                 auto storage_ref = this->create_local_value(make_mref(global_storage_type));
-                this->emit(current_block, vmir2::get_global_storage{
+                this->emit(current_block, vmir2::get_object_ref{
                                               .symbol = global_symbol,
+                                              .type = vmir2::access_type::storage,
+                                              .class_ = vmir2::access_class::global,
                                               .target_ref = get_local_index(storage_ref),
                                           });
 
@@ -8081,8 +8083,10 @@ namespace quxlang
             if (init_type == initialization_type::init_trivial || init_type == initialization_type::init_program_startup)
             {
                 auto result_ref = this->create_local_value((is_serialoid_static || is_string_static) ? make_cref(global_type) : make_mref(global_type));
-                this->emit(entry_block, vmir2::get_global_ref{
+                this->emit(entry_block, vmir2::get_object_ref{
                                                .symbol = global_symbol,
+                                               .type = vmir2::access_type::object,
+                                               .class_ = vmir2::access_class::global,
                                                .target_ref = get_local_index(result_ref),
                                            });
                 co_await this->co_return_value(entry_block, result_ref);
@@ -8096,6 +8100,7 @@ namespace quxlang
 
             this->set_terminator(entry_block, vmir2::initguard_try_acquire{
                 .symbol = global_symbol,
+                .class_ = vmir2::access_class::global,
                 .target_lock = get_local_index(lock_value),
                 .target_acquired = acquire_block,
                 .target_already_initialized = initialized_block,
@@ -8109,8 +8114,10 @@ namespace quxlang
 
             auto init_functum = submember{.of = global_symbol, .name = "INIT"};
             auto init_storage_ref = this->create_local_value(make_mref(global_storage_type));
-            this->emit(acquire_block, vmir2::get_global_storage{
+            this->emit(acquire_block, vmir2::get_object_ref{
                                           .symbol = global_symbol,
+                                          .type = vmir2::access_type::storage,
+                                          .class_ = vmir2::access_class::global,
                                           .target_ref = get_local_index(init_storage_ref),
                                       });
             co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});

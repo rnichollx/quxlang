@@ -1116,8 +1116,8 @@ TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_global
     };
 
     std::string const trivial_text = routine_text("trivial_global");
-    EXPECT_NE(trivial_text.find("GET_GLOBAL_REF"), std::string::npos);
-    EXPECT_EQ(trivial_text.find("GET_GLOBAL_STORAGE"), std::string::npos);
+    EXPECT_NE(trivial_text.find("GET_OBJECT_REF GLOBAL, OBJECT"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("GET_OBJECT_REF GLOBAL, STORAGE"), std::string::npos);
     EXPECT_EQ(trivial_text.find("STORAGE_PUN"), std::string::npos);
     EXPECT_EQ(trivial_text.find("INITGUARD_TRY_ACQUIRE"), std::string::npos);
     EXPECT_EQ(trivial_text.find("CALL"), std::string::npos);

@@ -1928,6 +1928,20 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
+        /** Applies the requested VMIR access class to an LLVM global declaration or definition. */
+        void apply_access_class(llvm::GlobalVariable* global, quxlang::vmir2::access_class class_) const
+        {
+            switch (class_)
+            {
+            case quxlang::vmir2::access_class::global:
+                return;
+            case quxlang::vmir2::access_class::thread:
+                global->setThreadLocal(true);
+                return;
+            }
+            throw quxlang::compiler_bug("unknown object access class");
+        }
+
         auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) const -> bool
         {
             return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
@@ -2036,11 +2050,12 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
-        auto get_or_create_initguard_global(quxlang::type_symbol const& symbol) -> llvm::GlobalVariable*
+        auto get_or_create_initguard_global(quxlang::type_symbol const& symbol, quxlang::vmir2::access_class class_) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = initguard_globals.find(symbol);
             if (existing != initguard_globals.end())
             {
+                apply_access_class(existing->second, class_);
                 return existing->second;
             }
 
@@ -2051,6 +2066,7 @@ namespace quxlang::llvm_backend::detail
                 llvm::GlobalValue::ExternalLinkage,
                 nullptr,
                 quxlang::mangle(symbol) + "$initguard");
+            apply_access_class(global, class_);
             initguard_globals[symbol] = global;
             return global;
         }
@@ -3875,58 +3891,29 @@ namespace quxlang::llvm_backend::detail
         }
 
 
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_global_storage const& instruction)
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_object_ref const& instruction)
         {
             (void)current_block;
-            quxlang::vmir2::get_global_storage const& inst = instruction;
+            quxlang::vmir2::get_object_ref const& inst = instruction;
             quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
             llvm::GlobalVariable* global = nullptr;
-            if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
+            switch (inst.type)
             {
-                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+            case quxlang::vmir2::access_type::storage:
+            case quxlang::vmir2::access_type::object:
+                if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
+                {
+                    global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
+                }
+                else
+                {
+                    global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
+                }
+                apply_access_class(global, inst.class_);
+                store_reference_pointer(state, builder, inst.target_ref, global);
+                return;
             }
-            else
-            {
-                global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
-            }
-            store_reference_pointer(state, builder, inst.target_ref, global);
-            return;
-        }
-
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_global_ref const& instruction)
-        {
-            (void)current_block;
-            quxlang::vmir2::get_global_ref const& inst = instruction;
-            quxlang::type_symbol target_type = quxlang::remove_ref(state.routine->local_types.at(local_slot_index(inst.target_ref)).type);
-            llvm::GlobalVariable* global = nullptr;
-            if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
-            {
-                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
-            }
-            else
-            {
-                global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
-            }
-            store_reference_pointer(state, builder, inst.target_ref, global);
-            return;
-        }
-
-        /** Rejects GET_TLS_STORAGE until native TLS lowering is implemented. */
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_tls_storage const& instruction)
-        {
-            (void)state;
-            (void)current_block;
-            (void)instruction;
-            throw quxlang::compiler_bug("GET_TLS_STORAGE lowering is not implemented");
-        }
-
-        /** Rejects GET_TLS_REF until native TLS lowering is implemented. */
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::get_tls_ref const& instruction)
-        {
-            (void)state;
-            (void)current_block;
-            (void)instruction;
-            throw quxlang::compiler_bug("GET_TLS_REF lowering is not implemented");
+            throw quxlang::compiler_bug("unknown GET_OBJECT_REF access type");
         }
 
 
@@ -3945,7 +3932,7 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::initguard_global_get_ref const& inst = instruction;
-            store_reference_pointer(state, builder, inst.target_ref, get_or_create_initguard_global(inst.symbol));
+            store_reference_pointer(state, builder, inst.target_ref, get_or_create_initguard_global(inst.symbol, quxlang::vmir2::access_class::global));
             return;
         }
 
@@ -5678,7 +5665,7 @@ namespace quxlang::llvm_backend::detail
             if (terminator.type_is< quxlang::vmir2::initguard_try_acquire >())
             {
                 quxlang::vmir2::initguard_try_acquire const& inst = terminator.as< quxlang::vmir2::initguard_try_acquire >();
-                llvm::Value* guard_pointer = get_or_create_initguard_global(inst.symbol);
+                llvm::Value* guard_pointer = get_or_create_initguard_global(inst.symbol, inst.class_);
                 llvm::Value* acquired = builder.CreateCall(get_or_create_initguard_try_acquire(), {builder.CreateBitCast(guard_pointer, opaque_pointer_type())});
                 llvm::BasicBlock* acquired_block = state.blocks.at(inst.target_acquired);
                 llvm::BasicBlock* initialized_block = state.blocks.at(inst.target_already_initialized);

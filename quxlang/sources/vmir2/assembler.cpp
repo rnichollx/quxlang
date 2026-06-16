@@ -28,6 +28,32 @@ namespace quxlang::vmir2
         throw std::logic_error("unknown atomic access mode");
     }
 
+    /// Returns the assembly spelling for a VMIR object access type.
+    auto access_type_assembly_name(access_type type) -> std::string
+    {
+        switch (type)
+        {
+        case access_type::object:
+            return "OBJECT";
+        case access_type::storage:
+            return "STORAGE";
+        }
+        throw std::logic_error("unknown access type");
+    }
+
+    /// Returns the assembly spelling for a VMIR object access class.
+    auto access_class_assembly_name(access_class class_) -> std::string
+    {
+        switch (class_)
+        {
+        case access_class::global:
+            return "GLOBAL";
+        case access_class::thread:
+            return "THREAD";
+        }
+        throw std::logic_error("unknown access class");
+    }
+
     /// Formats an optional old-value output for read-modify-write instructions.
     auto rmw_old_value_suffix(std::optional< local_index > old_value) -> std::string
     {
@@ -425,24 +451,9 @@ namespace quxlang::vmir2
         return "CONSTEXPR_DEALLOC_MULTIPLE " + quxlang::to_string(inst.storage_type) + ", %" + std::to_string(inst.pointer) + ", %" + std::to_string(inst.count);
     }
 
-    std::string assembler::to_string_internal(vmir2::get_global_storage inst)
+    std::string assembler::to_string_internal(vmir2::get_object_ref inst)
     {
-        return "GET_GLOBAL_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
-    }
-
-    std::string assembler::to_string_internal(vmir2::get_global_ref inst)
-    {
-        return "GET_GLOBAL_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
-    }
-
-    std::string assembler::to_string_internal(vmir2::get_tls_storage inst)
-    {
-        return "GET_TLS_STORAGE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
-    }
-
-    std::string assembler::to_string_internal(vmir2::get_tls_ref inst)
-    {
-        return "GET_TLS_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
+        return "GET_OBJECT_REF " + access_class_assembly_name(inst.class_) + ", " + access_type_assembly_name(inst.type) + ", " + quxlang::to_string(inst.symbol) + ", %" + std::to_string(inst.target_ref);
     }
 
     std::string assembler::to_string_internal(vmir2::get_antestatal_ref inst)
@@ -738,7 +749,7 @@ namespace quxlang::vmir2
     std::string assembler::to_string_internal(vmir2::initguard_try_acquire inst)
     {
         std::string result;
-        result += "INITGUARD_TRY_ACQUIRE " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_lock) + ", !" + std::to_string(inst.target_acquired) + ", !" + std::to_string(inst.target_already_initialized);
+        result += "INITGUARD_TRY_ACQUIRE " + access_class_assembly_name(inst.class_) + ", " + quxlang::to_string(inst.symbol) + ", %" + std::to_string(inst.target_lock) + ", !" + std::to_string(inst.target_acquired) + ", !" + std::to_string(inst.target_already_initialized);
         return result;
     }
 

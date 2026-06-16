@@ -540,21 +540,9 @@ namespace quxlang::vmir2
             consume(cdl.pointer);
             consume(cdl.count);
         }
-        void apply_internal(vmir2::get_global_storage const& ggs)
+        void apply_internal(vmir2::get_object_ref const& gor)
         {
-            output(ggs.target_ref);
-        }
-        void apply_internal(vmir2::get_global_ref const& ggr)
-        {
-            output(ggr.target_ref);
-        }
-        void apply_internal(vmir2::get_tls_storage const& gts)
-        {
-            output(gts.target_ref);
-        }
-        void apply_internal(vmir2::get_tls_ref const& gtr)
-        {
-            output(gtr.target_ref);
+            output(gor.target_ref);
         }
         void apply_internal(vmir2::get_antestatal_ref const& gar)
         {

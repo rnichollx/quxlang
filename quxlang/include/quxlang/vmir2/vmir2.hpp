@@ -23,6 +23,8 @@ RPNX_ENUM(quxlang::vmir2, slot_kind, std::uint16_t, invalid, positional_arg, nam
 
 RPNX_ENUM(quxlang::vmir2, slot_stage, std::uint16_t, dead, partial, full);
 RPNX_ENUM(quxlang::vmir2, conversion_class, std::uint16_t, checked, partial, assume);
+RPNX_ENUM(quxlang::vmir2, access_type, std::uint8_t, object, storage);
+RPNX_ENUM(quxlang::vmir2, access_class, std::uint8_t, global, thread);
 
 /// Controls whether constexpr_set_result2 materializes a value slot or the object behind a reference slot.
 RPNX_ENUM(quxlang::vmir2, constexpr_result_target_mode, std::uint8_t, value, referenced_object);
@@ -69,10 +71,7 @@ namespace quxlang
         struct constexpr_alloc_multiple;
         struct constexpr_dealloc;
         struct constexpr_dealloc_multiple;
-        struct get_global_storage;
-        struct get_global_ref;
-        struct get_tls_storage;
-        struct get_tls_ref;
+        struct get_object_ref;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
         struct initguard_release;
@@ -209,10 +208,7 @@ namespace quxlang
             constexpr_alloc_multiple,
             constexpr_dealloc,
             constexpr_dealloc_multiple,
-            get_global_storage,
-            get_global_ref,
-            get_tls_storage,
-            get_tls_ref,
+            get_object_ref,
             get_antestatal_ref,
             initguard_global_get_ref,
             initguard_release,
@@ -419,38 +415,15 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(constexpr_dealloc_multiple, storage_type, pointer, count);
         };
 
-        struct get_global_storage
+        /** Materializes a reference to one global or thread-local object or storage slot. */
+        struct get_object_ref
         {
             type_symbol symbol;
+            access_type type;
+            access_class class_;
             local_index target_ref;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_storage, symbol, target_ref);
-        };
-
-        struct get_global_ref
-        {
-            type_symbol symbol;
-            local_index target_ref;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_global_ref, symbol, target_ref);
-        };
-
-        /** Materializes a reference to one thread-local storage slot for the requested symbol. */
-        struct get_tls_storage
-        {
-            type_symbol symbol;
-            local_index target_ref;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_tls_storage, symbol, target_ref);
-        };
-
-        /** Materializes a direct reference to one thread-local object for the requested symbol. */
-        struct get_tls_ref
-        {
-            type_symbol symbol;
-            local_index target_ref;
-
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_tls_ref, symbol, target_ref);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(get_object_ref, symbol, type, class_, target_ref);
         };
 
         struct get_antestatal_ref
@@ -1438,11 +1411,12 @@ namespace quxlang
         struct initguard_try_acquire
         {
             type_symbol symbol;
+            access_class class_;
             local_index target_lock;
             block_index target_acquired;
             block_index target_already_initialized;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_try_acquire, symbol, target_lock, target_acquired, target_already_initialized);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_try_acquire, symbol, class_, target_lock, target_acquired, target_already_initialized);
         };
 
         struct vm_slot

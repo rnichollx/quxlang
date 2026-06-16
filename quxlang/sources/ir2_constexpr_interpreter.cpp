@@ -339,10 +339,10 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void set_initguard_lock(std::shared_ptr< local > const& lock, std::shared_ptr< local > const& guard);
     /** Aborts an in-flight acquisition when a live initguard lock unwinds out of scope. */
     void abort_initguard_lock_if_needed(type_symbol slot_type, std::shared_ptr< local > const& lock);
-    /** Materializes a reference to the unique constexpr storage backing the requested global symbol. */
-    void do_get_global_storage(type_symbol symbol, local_index target_ref);
-    /** Materializes a reference to the direct constexpr object backing the requested trivial global symbol. */
-    void do_get_global_ref(type_symbol symbol, local_index target_ref);
+    /** Materializes a reference to the unique constexpr storage backing the requested object symbol. */
+    void do_get_object_storage(type_symbol symbol, local_index target_ref);
+    /** Materializes a reference to the direct constexpr object backing the requested trivial object symbol. */
+    void do_get_object_ref(type_symbol symbol, local_index target_ref);
     /** Materializes a reference to the unique constexpr initguard backing the requested symbol. */
     void do_initguard_global_get_ref(type_symbol symbol, local_index target_ref);
     /** Commits a successful initguard acquisition, transitioning the referenced guard to initialized. */
@@ -350,7 +350,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /** Aborts an active initguard acquisition, returning the referenced guard to the uninitialized state. */
     void do_initguard_abort(local_index lock_slot);
     /** Attempts to acquire a symbol's initguard and branches based on whether initialization is required. */
-    void do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized);
+    void do_initguard_try_acquire(type_symbol symbol, vmir2::access_class class_, local_index target_lock, block_index target_acquired, block_index target_already_initialized);
     /** Resolves a live storage object from a storage reference local without changing the reference's lifetime. */
     std::shared_ptr< local > get_storage_local_from_reference(local_index storage_ref, std::string const& instruction_name);
     /** Materializes a reference to a precomputed antestatal global object. */
@@ -418,10 +418,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::constexpr_alloc_multiple const& cal);
     void exec_instr_val(vmir2::constexpr_dealloc const& cal);
     void exec_instr_val(vmir2::constexpr_dealloc_multiple const& cal);
-    void exec_instr_val(vmir2::get_global_storage const& ggs);
-    void exec_instr_val(vmir2::get_global_ref const& ggr);
-    void exec_instr_val(vmir2::get_tls_storage const& gts);
-    void exec_instr_val(vmir2::get_tls_ref const& gtr);
+    void exec_instr_val(vmir2::get_object_ref const& gor);
     void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
     void exec_instr_val(vmir2::initguard_release const& igr);
@@ -2348,26 +2345,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     do_constexpr_dealloc(cal.storage_type, ptr, count);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_storage const& ggs)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_object_ref const& gor)
 {
-    do_get_global_storage(ggs.symbol, ggs.target_ref);
-}
-
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_global_ref const& ggr)
-{
-    do_get_global_ref(ggr.symbol, ggr.target_ref);
-}
-
-/** Rejects GET_TLS_STORAGE until thread-local constexpr storage semantics exist. */
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_tls_storage const&)
-{
-    throw constexpr_logic_execution_error("GET_TLS_STORAGE is not implemented in constexpr interpreter");
-}
-
-/** Rejects GET_TLS_REF until thread-local constexpr reference semantics exist. */
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_tls_ref const&)
-{
-    throw constexpr_logic_execution_error("GET_TLS_REF is not implemented in constexpr interpreter");
+    switch (gor.type)
+    {
+    case vmir2::access_type::storage:
+        do_get_object_storage(gor.symbol, gor.target_ref);
+        return;
+    case vmir2::access_type::object:
+        do_get_object_ref(gor.symbol, gor.target_ref);
+        return;
+    }
+    throw compiler_bug("unknown GET_OBJECT_REF access type");
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::get_antestatal_ref const& gar)
@@ -2375,18 +2364,18 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     do_get_antestatal_ref(gar.symbol, gar.target_ref);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_global_storage(type_symbol symbol, local_index target_ref)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_object_storage(type_symbol symbol, local_index target_ref)
 {
     auto const target_type = get_local_type(target_ref);
     if (!is_ref(target_type))
     {
-        throw compiler_bug("GET_GLOBAL_STORAGE requires a reference-typed destination");
+        throw compiler_bug("GET_OBJECT_REF STORAGE requires a reference-typed destination");
     }
 
     auto const storage_type = remove_ref(target_type);
     if (!typeis< storage >(storage_type))
     {
-        throw compiler_bug("GET_GLOBAL_STORAGE requires a destination of type QUAL& STORAGE(T)");
+        throw compiler_bug("GET_OBJECT_REF STORAGE requires a destination of type QUAL& STORAGE(T)");
     }
 
     auto storage_local = get_or_create_global_storage(symbol, storage_type);
@@ -2394,12 +2383,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     out_ref->ref = pointer_impl{.pointer_target = storage_local};
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_global_ref(type_symbol symbol, local_index target_ref)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_get_object_ref(type_symbol symbol, local_index target_ref)
 {
     type_symbol const target_type = get_local_type(target_ref);
     if (!is_ref(target_type))
     {
-        throw compiler_bug("GET_GLOBAL_REF requires a reference-typed destination");
+        throw compiler_bug("GET_OBJECT_REF OBJECT requires a reference-typed destination");
     }
 
     type_symbol const object_type = remove_ref(target_type);
@@ -2467,11 +2456,12 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_try_acquire const& ita)
 {
-    do_initguard_try_acquire(ita.symbol, ita.target_lock, ita.target_acquired, ita.target_already_initialized);
+    do_initguard_try_acquire(ita.symbol, ita.class_, ita.target_lock, ita.target_acquired, ita.target_already_initialized);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_try_acquire(type_symbol symbol, local_index target_lock, block_index target_acquired, block_index target_already_initialized)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_try_acquire(type_symbol symbol, vmir2::access_class class_, local_index target_lock, block_index target_acquired, block_index target_already_initialized)
 {
+    (void)class_;
     if (has_constexpr_antestatal_global(symbol))
     {
         transition(target_already_initialized);
@@ -6606,7 +6596,7 @@ auto quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     else if (type_iter->second != object_type)
     {
-        throw compiler_bug("GET_GLOBAL_REF requires a registered zero-initialized global object");
+        throw compiler_bug("GET_OBJECT_REF OBJECT requires a registered zero-initialized object");
     }
 
     std::shared_ptr< local >& object = global_objects[symbol];

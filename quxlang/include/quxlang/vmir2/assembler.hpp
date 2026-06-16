@@ -91,10 +91,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::constexpr_alloc_multiple inst);
         std::string to_string_internal(vmir2::constexpr_dealloc inst);
         std::string to_string_internal(vmir2::constexpr_dealloc_multiple inst);
-        std::string to_string_internal(vmir2::get_global_storage inst);
-        std::string to_string_internal(vmir2::get_global_ref inst);
-        std::string to_string_internal(vmir2::get_tls_storage inst);
-        std::string to_string_internal(vmir2::get_tls_ref inst);
+        std::string to_string_internal(vmir2::get_object_ref inst);
         std::string to_string_internal(vmir2::get_antestatal_ref inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
         std::string to_string_internal(vmir2::initguard_release inst);

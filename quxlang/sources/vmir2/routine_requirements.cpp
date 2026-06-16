@@ -399,21 +399,9 @@ auto quxlang::vmir2::directly_referenced_global_roots(functanoid_routine3 const&
     {
         for (vm_instruction const& instruction : block.instructions)
         {
-            if (instruction.type_is< get_global_storage >())
+            if (instruction.type_is< get_object_ref >())
             {
-                result.insert(instruction.as< get_global_storage >().symbol);
-            }
-            if (instruction.type_is< get_global_ref >())
-            {
-                result.insert(instruction.as< get_global_ref >().symbol);
-            }
-            if (instruction.type_is< get_tls_storage >())
-            {
-                result.insert(instruction.as< get_tls_storage >().symbol);
-            }
-            if (instruction.type_is< get_tls_ref >())
-            {
-                result.insert(instruction.as< get_tls_ref >().symbol);
+                result.insert(instruction.as< get_object_ref >().symbol);
             }
         }
     }

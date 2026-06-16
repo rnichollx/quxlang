@@ -60,6 +60,7 @@
 #include <quxlang/queries/vm_procedure3.hpp>
 #include "graph_dump_test_utils.hpp"
 #include <quxlang/vmir2/ir2_constexpr_interpreter.hpp>
+#include <quxlang/vmir2/routine_requirements.hpp>
 
 #include "rpnx/serialization4.hpp"
 
@@ -70,6 +71,7 @@
 #include <limits>
 #include <random>
 #include <stdexcept>
+#include <string_view>
 #include <variant>
 
 struct foo
@@ -119,6 +121,35 @@ namespace
             },
             .params = std::move(params),
         };
+    }
+
+    auto byte_vector_contains_ascii(std::vector< std::byte > const& bytes, std::string_view needle) -> bool
+    {
+        if (needle.empty())
+        {
+            return true;
+        }
+        if (bytes.size() < needle.size())
+        {
+            return false;
+        }
+        for (std::size_t offset = 0; offset <= bytes.size() - needle.size(); ++offset)
+        {
+            bool matched = true;
+            for (std::size_t i = 0; i < needle.size(); ++i)
+            {
+                if (std::to_integer< unsigned char >(bytes[offset + i]) != static_cast< unsigned char >(needle[i]))
+                {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     auto test_atomic_mode_instanciation(quxlang::type_symbol atomic_type, std::string member_name, std::string mode_name) -> quxlang::type_symbol
@@ -1984,8 +2015,10 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
         quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
     };
     routine.blocks.resize(1);
-    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_global_ref{
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_object_ref{
         .symbol = object_symbol,
+        .type = quxlang::vmir2::access_type::object,
+        .class_ = quxlang::vmir2::access_class::global,
         .target_ref = quxlang::vmir2::local_index(1),
     });
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
@@ -2004,6 +2037,101 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
     EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common global i32 0"), std::string::npos);
+}
+
+TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_section)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("thread_object_reference_test");
+    quxlang::type_symbol const object_symbol = make_symbol("thread_local_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_object_ref{
+        .symbol = object_symbol,
+        .type = quxlang::vmir2::access_type::object,
+        .class_ = quxlang::vmir2::access_class::thread,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common thread_local global i32 0"), std::string::npos);
+    EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, ".tbss") || byte_vector_contains_ascii(result.object_file, ".tdata"));
+}
+
+TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("thread_initguard_test");
+    quxlang::type_symbol const object_symbol = make_symbol("thread_guarded_i32");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::initguard_lock_type{}},
+    };
+    routine.blocks.resize(3);
+    routine.blocks[0].terminator = quxlang::vmir2::initguard_try_acquire{
+        .symbol = object_symbol,
+        .class_ = quxlang::vmir2::access_class::thread,
+        .target_lock = quxlang::vmir2::local_index(1),
+        .target_acquired = quxlang::vmir2::block_index(1),
+        .target_already_initialized = quxlang::vmir2::block_index(2),
+    };
+    routine.blocks[1].instructions.push_back(quxlang::vmir2::initguard_release{.lock = quxlang::vmir2::local_index(1)});
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+    quxlang::vmir2::slot_state lock_state;
+    lock_state.stage = quxlang::vmir2::slot_stage::full;
+    lock_state.storage_valid = true;
+    routine.blocks[1].entry_state[quxlang::vmir2::local_index(1)] = lock_state;
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find(quxlang::mangle(object_symbol) + "$initguard"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("thread_local global"), std::string::npos);
 }
 
 TEST(elf_linker, common_symbols_are_allocated_in_bss)
@@ -2026,8 +2154,10 @@ TEST(elf_linker, common_symbols_are_allocated_in_bss)
         quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
     };
     routine.blocks.resize(1);
-    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_global_ref{
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_object_ref{
         .symbol = object_symbol,
+        .type = quxlang::vmir2::access_type::object,
+        .class_ = quxlang::vmir2::access_class::global,
         .target_ref = quxlang::vmir2::local_index(1),
     });
     routine.blocks[0].terminator = quxlang::vmir2::ret{};
@@ -4365,6 +4495,62 @@ TEST(vmir2_assembler, routine_parameters_print_assigned_slots)
     EXPECT_NE(result.find("[Parameters]:\n    PARAMETERS(@THIS I32=%1, @flag BOOL=%2, BYTE=%3)\n"), std::string::npos);
 }
 
+TEST(vmir2_assembler, get_object_ref_prints_and_requires_all_access_modes)
+{
+    auto i32 = test_i32_type();
+    quxlang::storage storage_type;
+    storage_type.storable_types.insert(i32);
+
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = name};
+    };
+
+    quxlang::type_symbol const global_object = make_symbol("global_object");
+    quxlang::type_symbol const global_storage = make_symbol("global_storage");
+    quxlang::type_symbol const thread_object = make_symbol("thread_object");
+    quxlang::type_symbol const thread_storage = make_symbol("thread_storage");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)},
+        quxlang::vmir2::local_type{.type = quxlang::initguard_lock_type{}},
+    };
+    routine.blocks.resize(3);
+    routine.blocks[0].instructions = {
+        quxlang::vmir2::get_object_ref{.symbol = global_object, .type = quxlang::vmir2::access_type::object, .class_ = quxlang::vmir2::access_class::global, .target_ref = quxlang::vmir2::local_index(1)},
+        quxlang::vmir2::get_object_ref{.symbol = global_storage, .type = quxlang::vmir2::access_type::storage, .class_ = quxlang::vmir2::access_class::global, .target_ref = quxlang::vmir2::local_index(2)},
+        quxlang::vmir2::get_object_ref{.symbol = thread_object, .type = quxlang::vmir2::access_type::object, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(3)},
+        quxlang::vmir2::get_object_ref{.symbol = thread_storage, .type = quxlang::vmir2::access_type::storage, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(4)},
+    };
+    routine.blocks[0].terminator = quxlang::vmir2::initguard_try_acquire{
+        .symbol = thread_object,
+        .class_ = quxlang::vmir2::access_class::thread,
+        .target_lock = quxlang::vmir2::local_index(5),
+        .target_acquired = quxlang::vmir2::block_index(1),
+        .target_already_initialized = quxlang::vmir2::block_index(2),
+    };
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+
+    std::string const text = quxlang::vmir2::assembler(routine).to_string(routine);
+    EXPECT_NE(text.find("GET_OBJECT_REF GLOBAL, OBJECT"), std::string::npos);
+    EXPECT_NE(text.find("GET_OBJECT_REF GLOBAL, STORAGE"), std::string::npos);
+    EXPECT_NE(text.find("GET_OBJECT_REF THREAD, OBJECT"), std::string::npos);
+    EXPECT_NE(text.find("GET_OBJECT_REF THREAD, STORAGE"), std::string::npos);
+    EXPECT_NE(text.find("INITGUARD_TRY_ACQUIRE THREAD"), std::string::npos);
+
+    std::set< quxlang::type_symbol > const roots = quxlang::vmir2::directly_referenced_global_roots(routine);
+    EXPECT_TRUE(roots.contains(global_object));
+    EXPECT_TRUE(roots.contains(global_storage));
+    EXPECT_TRUE(roots.contains(thread_object));
+    EXPECT_TRUE(roots.contains(thread_storage));
+}
+
 TEST(vmir_constexpr_interpreter, localdata_get_antestatal_ref_sets_result_zero)
 {
     auto symbol = quxlang::type_symbol(quxlang::static_local_ref{.functanoid = quxlang::void_type{}, .name = "x", .generation = 1});
@@ -4389,6 +4575,103 @@ TEST(vmir_constexpr_interpreter, localdata_get_antestatal_ref_sets_result_zero)
     interp.exec3(quxlang::void_type{});
 
     expect_i32_value(interp.get_cr_antestatal_value(), std::byte{7});
+}
+
+TEST(vmir_constexpr_interpreter, thread_object_ref_uses_single_thread_global_object)
+{
+    auto symbol = quxlang::type_symbol(quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "thread_object"});
+    auto i32 = test_i32_type();
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::get_object_ref{.symbol = symbol, .type = quxlang::vmir2::access_type::object, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(1)},
+            quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(1), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_zero_initialized_global(symbol, i32);
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    expect_i32_value(interp.get_cr_antestatal_value(), std::byte{0});
+}
+
+TEST(vmir_constexpr_interpreter, thread_storage_ref_uses_single_thread_global_storage)
+{
+    auto symbol = quxlang::type_symbol(quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "thread_storage"});
+    auto i32 = test_i32_type();
+    quxlang::storage storage_type;
+    storage_type.storable_types.insert(i32);
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(storage_type)},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32)},
+    };
+    routine.blocks.push_back(quxlang::vmir2::executable_block{
+        .instructions = {
+            quxlang::vmir2::get_object_ref{.symbol = symbol, .type = quxlang::vmir2::access_type::storage, .class_ = quxlang::vmir2::access_class::thread, .target_ref = quxlang::vmir2::local_index(1)},
+            quxlang::vmir2::storage_pun{.from_storage = quxlang::vmir2::local_index(1), .as_type = i32, .to_reference = quxlang::vmir2::local_index(2)},
+            quxlang::vmir2::constexpr_set_result2{.target = quxlang::vmir2::local_index(2), .target_mode = quxlang::vmir2::constexpr_result_target_mode::referenced_object},
+        },
+        .terminator = quxlang::vmir2::ret{},
+    });
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_zero_initialized_global(symbol, i32);
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    expect_i32_value(interp.get_cr_antestatal_value(), std::byte{0});
+}
+
+TEST(vmir_constexpr_interpreter, thread_initguard_try_acquire_uses_single_thread_guard)
+{
+    auto symbol = quxlang::type_symbol(quxlang::submember{.of = quxlang::absolute_module_reference{"main"}, .name = "thread_guarded"});
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::initguard_lock_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::int_type{8, false}},
+    };
+    routine.blocks.resize(3);
+    routine.blocks[0].terminator = quxlang::vmir2::initguard_try_acquire{
+        .symbol = symbol,
+        .class_ = quxlang::vmir2::access_class::thread,
+        .target_lock = quxlang::vmir2::local_index(1),
+        .target_acquired = quxlang::vmir2::block_index(1),
+        .target_already_initialized = quxlang::vmir2::block_index(2),
+    };
+    routine.blocks[1].instructions = {
+        quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "7"},
+        quxlang::vmir2::constexpr_set_result{.target = quxlang::vmir2::local_index(2)},
+        quxlang::vmir2::initguard_release{.lock = quxlang::vmir2::local_index(1)},
+    };
+    routine.blocks[1].terminator = quxlang::vmir2::ret{};
+    quxlang::vmir2::slot_state lock_state;
+    lock_state.stage = quxlang::vmir2::slot_stage::full;
+    lock_state.storage_valid = true;
+    routine.blocks[1].entry_state[quxlang::vmir2::local_index(1)] = lock_state;
+    routine.blocks[2].instructions = {
+        quxlang::vmir2::load_const_int{.target = quxlang::vmir2::local_index(2), .value = "9"},
+        quxlang::vmir2::constexpr_set_result{.target = quxlang::vmir2::local_index(2)},
+    };
+    routine.blocks[2].terminator = quxlang::vmir2::ret{};
+
+    quxlang::vmir2::ir2_constexpr_interpreter interp;
+    interp.add_functanoid3(quxlang::void_type{}, routine);
+    interp.exec3(quxlang::void_type{});
+
+    EXPECT_EQ(interp.get_cr_u64(), 7);
 }
 
 TEST(vmir_constexpr_interpreter, localdata_mutability_controls_store_to_ref)
