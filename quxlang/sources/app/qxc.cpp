@@ -228,6 +228,8 @@ namespace
 
     using functanoid_reference_locations = std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >;
     using object_reference_locations = std::map< quxlang::type_symbol, std::optional< quxlang::source_location > >;
+    using runtime_procedure_reference_locations =
+        std::map< quxlang::llvm_backend::runtime_procedure_reference, std::optional< quxlang::source_location > >;
 
     auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) -> bool
     {
@@ -268,6 +270,21 @@ namespace
 
         quxlang::type_symbol concrete_symbol = *concrete;
         std::pair< functanoid_reference_locations::iterator, bool > insertion = result.emplace(concrete_symbol, location);
+        if (!insertion.second && !insertion.first->second.has_value() && location.has_value())
+        {
+            insertion.first->second = location;
+        }
+    }
+
+    /**
+     * Records an abstract runtime procedure dependency and the source location that required it.
+     */
+    void record_referenced_runtime_procedure(
+        runtime_procedure_reference_locations& result,
+        quxlang::llvm_backend::runtime_procedure_reference const& reference,
+        std::optional< quxlang::source_location > location)
+    {
+        std::pair< runtime_procedure_reference_locations::iterator, bool > insertion = result.emplace(reference, location);
         if (!insertion.second && !insertion.first->second.has_value() && location.has_value())
         {
             insertion.first->second = location;
@@ -330,6 +347,41 @@ namespace
                             {
                                 record_referenced_functanoid(graph, result, *concrete_instruction.default_function, location);
                             }
+                        }
+                    });
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Finds abstract runtime procedures required by native lowering of one VMIR2 routine.
+     */
+    auto directly_referenced_runtime_procedure_locations(quxlang::vmir2::functanoid_routine3 const& routine) -> runtime_procedure_reference_locations
+    {
+        runtime_procedure_reference_locations result;
+
+        for (quxlang::vmir2::executable_block const& block : routine.blocks)
+        {
+            for (quxlang::vmir2::vm_instruction const& instruction : block.instructions)
+            {
+                std::optional< quxlang::source_location > const location = quxlang::vmir2::get_location(instruction);
+                rpnx::apply_visitor< void >(
+                    instruction,
+                    [&](auto const& concrete_instruction) -> void
+                    {
+                        using instruction_type = std::decay_t< decltype(concrete_instruction) >;
+
+                        if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::assert_instr >)
+                        {
+                            (void)concrete_instruction;
+                            record_referenced_runtime_procedure(
+                                result,
+                                quxlang::llvm_backend::runtime_procedure_reference{
+                                    .procedure = quxlang::llvm_backend::runtime_procedure::assert_fail,
+                                },
+                                location);
                         }
                     });
             }
@@ -491,6 +543,49 @@ namespace
         }
 
         return runtime_start;
+    }
+
+    /**
+     * Resolves one abstract runtime procedure role to the concrete functanoid initialized for a target.
+     */
+    auto resolve_runtime_procedure_symbol(
+        quxlang::compiler_querygraph& graph,
+        quxlang::target_configuration const& target_config,
+        quxlang::llvm_backend::runtime_procedure_reference const& reference) -> quxlang::type_symbol
+    {
+        if (!target_config.module_configurations.contains("RUNTIME"))
+        {
+            throw quxlang::semantic_compilation_error("Native ASSERT lowering requires MODULE(RUNTIME)::ASSERT_FAIL");
+        }
+
+        quxlang::initialization_reference runtime_init = quxlang::llvm_backend::runtime_procedure_initialization(reference.procedure);
+        runtime_init.context = quxlang::absolute_module_reference{.module_name = "RUNTIME"};
+        std::optional< quxlang::type_symbol > runtime_lookup = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+            .context = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+            .type = std::move(runtime_init),
+        });
+
+        if (!runtime_lookup.has_value())
+        {
+            throw quxlang::semantic_compilation_error("Could not resolve runtime procedure: " + quxlang::to_string(quxlang::llvm_backend::runtime_procedure_initializee(reference.procedure)));
+        }
+        if (runtime_lookup->type_is< quxlang::instanciation_reference >())
+        {
+            return *runtime_lookup;
+        }
+        if (!runtime_lookup->type_is< quxlang::initialization_reference >())
+        {
+            throw quxlang::semantic_compilation_error("Runtime procedure did not resolve to an initialization reference: " + quxlang::to_string(quxlang::llvm_backend::runtime_procedure_initializee(reference.procedure)));
+        }
+
+        std::optional< quxlang::instanciation_reference > runtime_instanciation =
+            graph.make_request< quxlang::instanciation_query >(runtime_lookup->as< quxlang::initialization_reference >());
+        if (!runtime_instanciation.has_value())
+        {
+            throw quxlang::semantic_compilation_error("Could not initialize runtime procedure: " + quxlang::to_string(quxlang::llvm_backend::runtime_procedure_initializee(reference.procedure)));
+        }
+
+        return *runtime_instanciation;
     }
 
     /**
@@ -832,6 +927,7 @@ namespace
         std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > routines;
         std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
         std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
+        std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol > runtime_procedures;
         std::set< quxlang::type_symbol > object_references;
         quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
         llvm_packet_support_data support;
@@ -1262,9 +1358,17 @@ int main(int argc, char** argv)
                 std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > tree_routines;
                 std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
                 std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
+                std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol > runtime_procedures;
                 std::set< quxlang::type_symbol > object_references;
                 quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
                 tree_routines.emplace(root_symbol, root_routine);
+
+                struct pending_runtime_procedure_entry
+                {
+                    quxlang::llvm_backend::runtime_procedure_reference reference;
+                    quxlang::type_symbol caller;
+                    std::vector< quxlang::trace_frame > traceback;
+                };
 
                 auto enqueue_functanoid = [&](quxlang::instanciation_reference const& functanoid, std::vector< quxlang::trace_frame > traceback) -> void
                 {
@@ -1274,6 +1378,32 @@ int main(int argc, char** argv)
                         return;
                     }
                     pending_functanoids.push_back(std::make_pair(functanoid, std::move(traceback)));
+                };
+                std::vector< pending_runtime_procedure_entry > pending_runtime_procedures;
+                auto enqueue_runtime_procedure =
+                    [&](quxlang::llvm_backend::runtime_procedure_reference const& reference,
+                        quxlang::type_symbol const& caller,
+                        std::vector< quxlang::trace_frame > traceback) -> void
+                {
+                    pending_runtime_procedures.push_back(pending_runtime_procedure_entry{
+                        .reference = reference,
+                        .caller = caller,
+                        .traceback = std::move(traceback),
+                    });
+                };
+                auto enqueue_runtime_procedure_dependencies =
+                    [&](quxlang::type_symbol const& caller,
+                        quxlang::vmir2::functanoid_routine3 const& routine,
+                        std::vector< quxlang::trace_frame > const& traceback) -> void
+                {
+                    runtime_procedure_reference_locations const referenced_runtime_procedures = directly_referenced_runtime_procedure_locations(routine);
+                    for (std::pair< quxlang::llvm_backend::runtime_procedure_reference const, std::optional< quxlang::source_location > > const& referenced_runtime_procedure : referenced_runtime_procedures)
+                    {
+                        enqueue_runtime_procedure(
+                            referenced_runtime_procedure.first,
+                            caller,
+                            make_dependency_traceback(traceback, caller, referenced_runtime_procedure.second));
+                    }
                 };
 
                 auto collect_asm_routine =
@@ -1346,6 +1476,7 @@ int main(int argc, char** argv)
                 {
                     dependency_graph[root_symbol].insert(referenced_functanoid.first);
                 }
+                enqueue_runtime_procedure_dependencies(root_symbol, root_routine, root_traceback);
 
                 if (runtime_program_start.has_value())
                 {
@@ -1357,8 +1488,38 @@ int main(int argc, char** argv)
                     collect_asm_routine(*runtime_program_start, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), {});
                 }
 
-                while (!pending_functanoids.empty())
+                while (!pending_functanoids.empty() || !pending_runtime_procedures.empty())
                 {
+                    while (!pending_runtime_procedures.empty())
+                    {
+                        pending_runtime_procedure_entry pending_runtime_procedure = std::move(pending_runtime_procedures.back());
+                        pending_runtime_procedures.pop_back();
+
+                        std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol >::const_iterator const existing_runtime =
+                            runtime_procedures.find(pending_runtime_procedure.reference);
+                        quxlang::type_symbol runtime_symbol;
+                        if (existing_runtime == runtime_procedures.end())
+                        {
+                            runtime_symbol = resolve_runtime_procedure_symbol(graph, target_config, pending_runtime_procedure.reference);
+                            runtime_procedures.emplace(pending_runtime_procedure.reference, runtime_symbol);
+                        }
+                        else
+                        {
+                            runtime_symbol = existing_runtime->second;
+                        }
+
+                        dependency_graph[pending_runtime_procedure.caller].insert(runtime_symbol);
+                        if (!runtime_symbol.type_is< quxlang::instanciation_reference >())
+                        {
+                            throw quxlang::compiler_bug("Runtime procedure did not resolve to a functanoid: " + quxlang::to_string(runtime_symbol));
+                        }
+                        enqueue_functanoid(runtime_symbol.as< quxlang::instanciation_reference >(), std::move(pending_runtime_procedure.traceback));
+                    }
+                    if (pending_functanoids.empty())
+                    {
+                        continue;
+                    }
+
                     std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > pending_functanoid = std::move(pending_functanoids.back());
                     pending_functanoids.pop_back();
 
@@ -1417,12 +1578,14 @@ int main(int argc, char** argv)
                     {
                         dependency_graph[functanoid_symbol].insert(referenced_functanoid.first);
                     }
+                    enqueue_runtime_procedure_dependencies(functanoid_symbol, procedure, dependency_traceback);
                 }
 
                 collected_routine_tree result;
                 result.routines = std::move(tree_routines);
                 result.asm_callable_interfaces = std::move(asm_callable_interfaces);
                 result.asm_routines = std::move(asm_routines);
+                result.runtime_procedures = std::move(runtime_procedures);
                 result.object_references = std::move(object_references);
                 result.dependency_graph = std::move(dependency_graph);
                 result.support = build_llvm_packet_support_data(graph, target_config.target_output_config, result.routines, result.object_references);
@@ -1487,6 +1650,7 @@ int main(int argc, char** argv)
                     compilable_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
                     compilable_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                     compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
+                    compilable_unit.runtime_procedures = tree.runtime_procedures;
                     compilable_unit.object_reference_types = tree.support.object_reference_types;
                     compilable_unit.antestatal_constants = tree.support.antestatal_constants;
                     compilable_unit.global_init_types = tree.support.global_init_types;
@@ -1637,6 +1801,7 @@ int main(int argc, char** argv)
                 }
                 output_module_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                 output_module_unit.procedure_linksymbols = output_tree.support.procedure_linksymbols;
+                output_module_unit.runtime_procedures = output_tree.runtime_procedures;
                 output_module_unit.object_reference_types = output_tree.support.object_reference_types;
                 output_module_unit.antestatal_constants = output_tree.support.antestatal_constants;
                 output_module_unit.global_init_types = output_tree.support.global_init_types;

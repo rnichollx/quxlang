@@ -14,7 +14,10 @@ linux-x64:
   outputs:
     app:
       type: executable
-
+    app.dbg:
+      backend_llvm_options:
+        mode: debug
+      type: executable
 linux-arm64:
   platform: linux
   cpu: ARM64
@@ -30,4 +33,8 @@ linux-arm64:
       source: main
   outputs:
     app:
+      type: executable
+    app.dbg:
+      backend_llvm_options:
+        mode: debug
       type: executable
