@@ -5425,6 +5425,26 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.os_type == os::macos);
             }
 
+            if (kw.keyword == "BINARY_ELF")
+            {
+                co_return this->create_bool_value(bidx, arch.binary_type == binary::elf);
+            }
+
+            if (kw.keyword == "BINARY_MACHO")
+            {
+                co_return this->create_bool_value(bidx, arch.binary_type == binary::macho);
+            }
+
+            if (kw.keyword == "BINARY_PE")
+            {
+                co_return this->create_bool_value(bidx, arch.binary_type == binary::pe);
+            }
+
+            if (kw.keyword == "BINARY_WASM")
+            {
+                co_return this->create_bool_value(bidx, arch.binary_type == binary::wasm);
+            }
+
             if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "ASSUME")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});

@@ -11,6 +11,7 @@
 #include <quxlang/queries/constexpr_eval_v3.hpp>
 #include <quxlang/queries/constexpr_routine.hpp>
 #include <quxlang/queries/constexpr_u64.hpp>
+#include <quxlang/queries/declaroids.hpp>
 #include <quxlang/queries/enum_info.hpp>
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/global_init_type.hpp>
@@ -164,6 +165,63 @@ TEST(querygraph_queries, machine_info_returns_injected_output_info)
     ASSERT_EQ(resolved.cpu_type, quxlang::cpu::x86_64);
     ASSERT_EQ(resolved.os_type, quxlang::os::linux);
     ASSERT_EQ(resolved.binary_type, quxlang::binary::elf);
+}
+
+TEST(querygraph_queries, binary_keywords_reflect_elf_machine_binary_type)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    EXPECT_TRUE(graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_value_keyword{"BINARY_ELF"},
+        .context = context,
+    }));
+    EXPECT_FALSE(graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_value_keyword{"BINARY_MACHO"},
+        .context = context,
+    }));
+}
+
+TEST(querygraph_queries, binary_keywords_reflect_macho_machine_binary_type)
+{
+    quxlang::source_bundle bundle;
+    quxlang::target_configuration target;
+    target.target_output_config.cpu_type = quxlang::cpu::arm_64;
+    target.target_output_config.os_type = quxlang::os::macos;
+    target.target_output_config.binary_type = quxlang::binary::macho;
+    target.module_configurations["main"].source = "main_macho";
+
+    bundle.targets["macho"] = target;
+    bundle.module_sources["main_macho"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
+
+    quxlang::compiler_querygraph graph(bundle, "macho", bundle.targets.at("macho").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    EXPECT_TRUE(graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_value_keyword{"BINARY_MACHO"},
+        .context = context,
+    }));
+    EXPECT_FALSE(graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_value_keyword{"BINARY_ELF"},
+        .context = context,
+    }));
+}
+
+TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
+{
+    auto bundle = make_single_main_source_bundle(R"QX(
+::selected INCLUDE_IF(BINARY_ELF) VAR I32;
+::filtered INCLUDE_IF(BINARY_MACHO) VAR I32;
+)QX");
+    auto graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
+    quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
+
+    EXPECT_EQ(graph.make_request< quxlang::declaroids_query >(selected).size(), 1);
+    EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
 }
 
 TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)

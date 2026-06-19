@@ -11,6 +11,35 @@
 #include <fstream>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
+
+namespace
+{
+    /**
+     * Parses a quxbuild target binary value into the internal binary type enum.
+     */
+    auto parse_binary_type(std::string const& binary) -> quxlang::binary
+    {
+        if (binary == "elf")
+        {
+            return quxlang::binary::elf;
+        }
+        if (binary == "macho")
+        {
+            return quxlang::binary::macho;
+        }
+        if (binary == "pe")
+        {
+            return quxlang::binary::pe;
+        }
+        if (binary == "wasm")
+        {
+            return quxlang::binary::wasm;
+        }
+
+        throw quxlang::semantic_compilation_error("Unknown/unsupported binary " + binary);
+    }
+} // namespace
+
 namespace quxlang
 {
     source_bundle load_bundle_sources_for_targets(std::filesystem::path const& path, std::optional< std::set< std::string > > configured_targets)
@@ -109,7 +138,7 @@ namespace quxlang
 
             // Validate target-level keys
             {
-                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "backend", "backend_llvm_options", "run_static_tests", "outputs", "modules"};
+                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "binary", "backend", "backend_llvm_options", "run_static_tests", "outputs", "modules"};
                 for (auto const& kv : target_config_node)
                 {
                     auto key = kv.first.as<std::string>();
@@ -147,6 +176,12 @@ namespace quxlang
                 {
                     throw quxlang::semantic_compilation_error("Unknown/unsupported platform " + platform);
                     rpnx::unimplemented();
+                }
+
+                if (target_config_node["binary"].IsDefined())
+                {
+                    std::string const binary = target_config_node["binary"].as< std::string >();
+                    info.binary_type = parse_binary_type(binary);
                 }
 
                 if (cpu == "x64")

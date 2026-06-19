@@ -80,7 +80,12 @@ namespace quxlang
                 "OS_WINDOWS",
                 "OS_LINUX",
                 "OS_BSD",
-                "OS_MACOS"
+                "OS_MACOS",
+
+                "BINARY_ELF",
+                "BINARY_MACHO",
+                "BINARY_PE",
+                "BINARY_WASM"
             };
             // clang-format on
 

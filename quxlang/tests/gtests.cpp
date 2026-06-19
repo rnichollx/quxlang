@@ -68,6 +68,8 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <random>
 #include <stdexcept>
@@ -5873,6 +5875,58 @@ TEST(quxlang, source_loader_preserves_omitted_outputs_as_nullopt)
     ASSERT_EQ(sources.targets.at("linux-x86").outputs->at("app").llvm_options->mode, quxlang::backend_llvm_mode::debug);
 }
 
+TEST(quxlang, source_loader_parses_explicit_binary_and_platform_defaults)
+{
+    std::filesystem::path const root = temp_output_file().replace_extension("");
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "modules" / "main" / "sources");
+
+    {
+        std::ofstream quxbuild(root / "quxbuild.yaml");
+        quxbuild << R"YAML(
+linux-default:
+  platform: linux
+  cpu: x64
+  modules:
+    main:
+      source: main
+linux-explicit:
+  platform: linux
+  cpu: x64
+  binary: macho
+  modules:
+    main:
+      source: main
+windows-default:
+  platform: windows
+  cpu: x64
+  modules:
+    main:
+      source: main
+macos-default:
+  platform: macos
+  cpu: ARM64
+  modules:
+    main:
+      source: main
+)YAML";
+    }
+
+    {
+        std::ofstream source(root / "modules" / "main" / "sources" / "main.qxs");
+        source << "LANGUAGE QUXLANG EN 0.0;\n\n::main VAR I32;\n";
+    }
+
+    auto sources = quxlang::load_bundle_sources_for_targets(root, {});
+
+    EXPECT_EQ(sources.targets.at("linux-default").target_output_config.binary_type, quxlang::binary::elf);
+    EXPECT_EQ(sources.targets.at("linux-explicit").target_output_config.binary_type, quxlang::binary::macho);
+    EXPECT_EQ(sources.targets.at("windows-default").target_output_config.binary_type, quxlang::binary::pe);
+    EXPECT_EQ(sources.targets.at("macos-default").target_output_config.binary_type, quxlang::binary::macho);
+
+    std::filesystem::remove_all(root);
+}
+
 TEST(quxlang, ensig_argument_initialize_materializes_value_for_template_reference)
 {
     std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
@@ -6224,6 +6278,10 @@ TEST(quxlang, constexpr_result_bool)
     ASSERT_TRUE(get_constexpr_bool("FALSE <= FALSE"));
     ASSERT_TRUE(get_constexpr_bool("TRUE >= TRUE"));
     ASSERT_TRUE(get_constexpr_bool("(FALSE < TRUE) == (TRUE > FALSE)"));
+    ASSERT_TRUE(get_constexpr_bool("BINARY_ELF"));
+    ASSERT_FALSE(get_constexpr_bool("BINARY_MACHO"));
+    ASSERT_FALSE(get_constexpr_bool("BINARY_PE"));
+    ASSERT_FALSE(get_constexpr_bool("BINARY_WASM"));
     ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^> (3 AS BYTE)) == 251"));
     ASSERT_TRUE(get_constexpr_bool("((6 AS BYTE) #^< (3 AS BYTE)) == 254"));
     ASSERT_FALSE(get_constexpr_bool("IS_INTEGRAL(BYTE)"));
