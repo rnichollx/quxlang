@@ -14,7 +14,7 @@ namespace quxlang
     {
         static constexpr auto query_id = "llvm_output_binary_artifact";
         using input_type = std::string;
-        using output_type = output_binary_artifact;
+        using output_type = std::vector<std::byte>;
     };
 } // namespace quxlang
 

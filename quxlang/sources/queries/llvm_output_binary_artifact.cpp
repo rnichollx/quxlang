@@ -55,11 +55,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
         };
 
         elf_linker linker;
-        co_return output_binary_artifact{
-            .output_name = output_info.output_name,
-            .type = output_info.type,
-            .bytes = linker.link_linux_executable(target_config.target_output_config, object_file, entry_symbol, link_options),
-        };
+        co_return linker.link_linux_executable(target_config.target_output_config, object_file, entry_symbol, link_options);
     }
 
     throw quxlang::semantic_compilation_error("LLVM output kind is not supported for output '" + input + "'");

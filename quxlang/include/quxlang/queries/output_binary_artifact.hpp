@@ -12,22 +12,14 @@
 
 namespace quxlang
 {
-    /// output_binary_artifact is the final byte artifact for one qxc output.
-    struct output_binary_artifact
-    {
-        std::string output_name;
-        output_kind type = output_kind::executable;
-        std::vector< std::byte > bytes;
 
-        RPNX_MEMBER_METADATA(output_binary_artifact, output_name, type, bytes);
-    };
 
     /// output_binary_artifact_query returns the final artifact for one configured output.
     struct output_binary_artifact_query
     {
         static constexpr auto query_id = "output_binary_artifact";
         using input_type = std::string;
-        using output_type = output_binary_artifact;
+        using output_type = std::vector< std::byte >;
     };
 } // namespace quxlang
 

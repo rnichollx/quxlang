@@ -15,7 +15,7 @@ namespace quxlang
     {
         static constexpr auto query_id = "output_binary_artifacts";
         using input_type = std::monostate;
-        using output_type = std::map< std::string, output_binary_artifact >;
+        using output_type = std::map< std::string, std::vector<std::byte> >;
     };
 } // namespace quxlang
 

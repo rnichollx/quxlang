@@ -17,9 +17,13 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <memory>
+#include <utility>
 
 rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static_test_impl(type_symbol input)
 {
+
+
     auto const& sym = co_await rpnx::querygraph::request< symboid_query >(input);
     if (!typeis< ast2_static_test >(sym))
     {

@@ -1168,15 +1168,14 @@ int main(int argc, char** argv)
         bool verbose = true;
         if (argc < 3)
         {
-            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output] [targets,...]");
+            throw quxlang::compilation_error("Usage: qxc <input directory> <output directory> [--debug-compile-output]");
         }
 
         std::filesystem::path input = argv[1];
         std::filesystem::path output = argv[2];
         bool const debug_compile_output = parse_debug_compile_output(argc, argv);
 
-        std::optional< std::set< std::string > > configured_targets = parse_target_filters(argc, argv);
-        input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, configured_targets));
+        input_srcs.emplace(quxlang::load_bundle_sources_for_targets(input, std::nullopt));
         file_index.emplace(make_source_file_index(*input_srcs));
         source_index.emplace(*file_index, *input_srcs);
 
@@ -1195,26 +1194,26 @@ int main(int argc, char** argv)
 
             std::filesystem::path const build_dir = output / "build" / target_name;
             std::filesystem::path const output_dir = output / "output" / target_name;
+
+            std::filesystem::create_directories(output_dir);
+            std::map< std::string, std::vector<std::byte> > const artifacts =
+                graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+
+            for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
+            {
+                std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second);
+                if (verbose)
+                {
+                    std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
+                }
+            }
+
             if (!debug_compile_output)
             {
-                std::filesystem::create_directories(output_dir);
-                std::map< std::string, quxlang::output_binary_artifact > const artifacts =
-                    graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
-
-                for (std::pair< std::string const, quxlang::output_binary_artifact > const& artifact_entry : artifacts)
-                {
-                    std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second.bytes);
-                    if (verbose)
-                    {
-                        std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
-                    }
-                }
-
                 active_target_name.reset();
                 continue;
             }
 
-            std::filesystem::create_directories(build_dir);
             std::filesystem::create_directories(output_dir);
 
             struct output_entry
@@ -1674,8 +1673,8 @@ int main(int argc, char** argv)
                     std::cout << "Wrote optimized output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_object_path.string() << std::endl;
                 }
 
-                quxlang::output_binary_artifact const artifact = graph.make_request< quxlang::output_binary_artifact_query >(output_entry.output_name);
-                std::filesystem::path const executable_path = write_final_output_file(output_dir, output_entry.output_name, artifact.bytes);
+                std::vector<std::byte> artifact = graph.make_request< quxlang::output_binary_artifact_query >(output_entry.output_name);
+                std::filesystem::path const executable_path = write_final_output_file(output_dir, output_entry.output_name, artifact);
                 if (verbose)
                 {
                     std::cout << "Wrote output executable: " << target_name << "/" << output_entry.output_name << " -> " << executable_path.string() << std::endl;
