@@ -4,6 +4,7 @@
 #define QUXLANG_MANIPULATORS_LLVM_LOOKUP_HEADER_GUARD
 
 #include "quxlang/data/machine.hpp"
+#include "quxlang/exception.hpp"
 #include <string>
 
 #ifdef linux
@@ -13,11 +14,16 @@
 
 namespace quxlang
 {
+    /**
+     * Builds the LLVM target triple for the requested CPU, OS, and binary format.
+     */
     inline std::string lookup_llvm_triple(machine_target_info const& info)
     {
         std::string ret;
         switch (info.cpu_type)
         {
+        case cpu::none:
+            throw compiler_bug("LLVM target triple requires a CPU target");
         case cpu::x86_32:
             ret += "i386";
             break;
@@ -68,11 +74,28 @@ namespace quxlang
         case os::solaris:
             ret += "solaris";
             break;
-        default:
-            ret += "unknown";
+        case os::none:
+            throw compiler_bug("LLVM target triple requires an OS target");
         }
 
         ret += "-unknown";
+
+        switch (info.binary_type)
+        {
+        case binary::none:
+            throw compiler_bug("LLVM target triple requires a binary type");
+        case binary::elf:
+            ret += "-elf";
+            break;
+        case binary::macho:
+            ret += "-macho";
+            break;
+        case binary::pe:
+            ret += "-coff";
+            break;
+        case binary::wasm:
+            throw compiler_bug("LLVM target triple does not support Quxlang binary type wasm yet");
+        }
 
         return ret;
     }

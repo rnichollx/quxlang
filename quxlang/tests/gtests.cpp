@@ -9,6 +9,7 @@
 #include "quxlang/exception.hpp"
 #include "quxlang/linker/elf_linker.hpp"
 #include "quxlang/llvm-backend.hpp"
+#include "quxlang/manipulators/llvm_lookup.hpp"
 #include "quxlang/manipulators/mangler.hpp"
 #include "qxc_llvm_inlining.hpp"
 #include "qxc_output_paths.hpp"
@@ -1749,6 +1750,160 @@ TEST(llvm_backend, compile_emits_debug_and_optimized_elf_object_files)
     EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
     EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
     EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+}
+
+TEST(llvm_backend, llvm_triple_includes_explicit_binary_format)
+{
+    EXPECT_EQ(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        }),
+        "x86_64-unknown-linux-unknown-elf");
+    EXPECT_EQ(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::macho,
+        }),
+        "x86_64-unknown-linux-unknown-macho");
+    EXPECT_EQ(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::windows,
+            .binary_type = quxlang::binary::pe,
+        }),
+        "x86_64-unknown-windows-unknown-coff");
+}
+
+TEST(llvm_backend, llvm_triple_rejects_unsupported_binary_format)
+{
+    EXPECT_THROW(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::none,
+        }),
+        quxlang::compiler_bug);
+    EXPECT_THROW(
+        quxlang::lookup_llvm_triple(quxlang::machine_target_info{
+            .cpu_type = quxlang::cpu::x86_64,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::wasm,
+        }),
+        quxlang::compiler_bug);
+}
+
+TEST(llvm_backend, compile_emits_macho_object_file_when_binary_type_is_macho)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("macho_object_emission_test");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::macos,
+        .binary_type = quxlang::binary::macho,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("target triple = \"x86_64-unknown-darwin-unknown-macho\""), std::string::npos);
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
+    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(result.object_file[0], std::byte{0xcf});
+    EXPECT_EQ(result.object_file[1], std::byte{0xfa});
+    EXPECT_EQ(result.object_file[2], std::byte{0xed});
+    EXPECT_EQ(result.object_file[3], std::byte{0xfe});
+    EXPECT_EQ(result.optimized_object_file[0], std::byte{0xcf});
+    EXPECT_EQ(result.optimized_object_file[1], std::byte{0xfa});
+    EXPECT_EQ(result.optimized_object_file[2], std::byte{0xed});
+    EXPECT_EQ(result.optimized_object_file[3], std::byte{0xfe});
+}
+
+TEST(llvm_backend, compile_emits_coff_object_file_when_binary_type_is_pe)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("coff_object_emission_test");
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::windows,
+        .binary_type = quxlang::binary::pe,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("target triple = \"x86_64-unknown-windows-unknown-coff\""), std::string::npos);
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(2));
+    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(result.object_file[0], std::byte{0x64});
+    EXPECT_EQ(result.object_file[1], std::byte{0x86});
+    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x64});
+    EXPECT_EQ(result.optimized_object_file[1], std::byte{0x86});
+}
+
+TEST(llvm_backend, compile_rejects_unsupported_binary_format)
+{
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "unsupported_binary_object_emission_test",
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::wasm,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    EXPECT_THROW(backend.compile(packet), quxlang::compiler_bug);
 }
 
 TEST(llvm_backend, whole_module_helpers_emit_linkonce_odr_definitions)
