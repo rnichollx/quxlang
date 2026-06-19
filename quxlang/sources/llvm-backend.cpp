@@ -1936,7 +1936,7 @@ namespace quxlang::llvm_backend::detail
             case quxlang::vmir2::access_class::global:
                 return;
             case quxlang::vmir2::access_class::thread:
-                global->setThreadLocal(true);
+                global->setThreadLocalMode(llvm::GlobalValue::LocalExecTLSModel);
                 return;
             }
             throw quxlang::compiler_bug("unknown object access class");

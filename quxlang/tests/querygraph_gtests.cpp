@@ -15,6 +15,7 @@
 #include <quxlang/queries/flagset_info.hpp>
 #include <quxlang/queries/global_init_type.hpp>
 #include <quxlang/queries/global_is_antestatal_static.hpp>
+#include <quxlang/queries/global_is_per_thread.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/implementation_function_map.hpp>
 #include <quxlang/queries/implementation_interface_type.hpp>
@@ -1124,6 +1125,62 @@ TEST(querygraph_queries, global_get_reference_omits_initguard_for_trivial_global
 
     std::string const custom_text = routine_text("custom_global");
     EXPECT_NE(custom_text.find("INITGUARD_TRY_ACQUIRE"), std::string::npos);
+}
+
+TEST(querygraph_queries, global_get_reference_uses_thread_access_for_per_thread_globals)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::plain_global VAR I32;
+::thread_trivial PER_THREAD VAR I32;
+::thread_custom PER_THREAD VAR custom_record;
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    EXPECT_FALSE(graph.make_request< quxlang::global_is_per_thread_query >(quxlang::subsymbol{main, "plain_global"}));
+    EXPECT_TRUE(graph.make_request< quxlang::global_is_per_thread_query >(quxlang::subsymbol{main, "thread_trivial"}));
+    EXPECT_TRUE(graph.make_request< quxlang::global_is_per_thread_query >(quxlang::subsymbol{main, "thread_custom"}));
+
+    auto routine_text = [&](std::string const& name)
+    {
+        quxlang::type_symbol const global = quxlang::subsymbol{main, name};
+        auto inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+            .initializee = quxlang::submember{global, "GET_REFERENCE"},
+            .parameters = {},
+            .adaptations = quxlang::allowed_adaptations::destination_rebinding,
+        });
+        EXPECT_TRUE(inst.has_value());
+        quxlang::vmir2::functanoid_routine3 routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+        return quxlang::vmir2::assembler(routine).to_string(routine);
+    };
+
+    std::string const trivial_text = routine_text("thread_trivial");
+    EXPECT_NE(trivial_text.find("GET_OBJECT_REF THREAD, OBJECT"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("GET_OBJECT_REF GLOBAL"), std::string::npos);
+    EXPECT_EQ(trivial_text.find("INITGUARD_TRY_ACQUIRE"), std::string::npos);
+
+    std::string const custom_text = routine_text("thread_custom");
+    EXPECT_NE(custom_text.find("INITGUARD_TRY_ACQUIRE THREAD"), std::string::npos);
+    EXPECT_NE(custom_text.find("GET_OBJECT_REF THREAD, STORAGE"), std::string::npos);
+    EXPECT_EQ(custom_text.find("GET_OBJECT_REF GLOBAL"), std::string::npos);
+}
+
+TEST(querygraph_queries, output_llvm_marks_per_thread_global_thread_local)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::bif PER_THREAD VAR I32;
+
+::main FUNCTION(): I32
+{
+  RETURN bif;
+}
+)");
+    auto graph = make_x64_graph(bundle);
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+
+    EXPECT_NE(llvm_ir.find("thread_local(localexec) global i32 0"), std::string::npos);
 }
 
 TEST(querygraph_queries, static_classification_keywords_and_user_deserialize_constructor)

@@ -2080,7 +2080,7 @@ TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_sectio
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
-    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common thread_local global i32 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("@" + quxlang::mangle(object_symbol) + " = common thread_local(localexec) global i32 0"), std::string::npos);
     EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, ".tbss") || byte_vector_contains_ascii(result.object_file, ".tdata"));
 }
 
@@ -2131,7 +2131,7 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
     EXPECT_NE(result.llvm_ir_text.find(quxlang::mangle(object_symbol) + "$initguard"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("thread_local global"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("thread_local(localexec) global"), std::string::npos);
 }
 
 TEST(elf_linker, common_symbols_are_allocated_in_bss)

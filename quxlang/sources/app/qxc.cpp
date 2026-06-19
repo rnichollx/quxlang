@@ -1275,50 +1275,61 @@ int main(int argc, char** argv)
         file_index.emplace(make_source_file_index(*input_srcs));
         source_index.emplace(*file_index, *input_srcs);
 
+        bool any_failure = false;
         for (auto const& [target_name, target_config] : input_srcs->targets)
         {
             active_target_name = target_name;
-            if (verbose)
+            try
             {
-                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-                {
-                    std::cout << "Compiling Target: " << target_name << std::endl;
-                }
-            }
-
-            quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
-
-            std::filesystem::path const build_dir = output / "build" / target_name;
-            std::filesystem::path const output_dir = output / "output" / target_name;
-
-            std::filesystem::create_directories(output_dir);
-            std::map< std::string, std::vector<std::byte> > const artifacts =
-                graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
-
-            for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
-            {
-                std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second);
                 if (verbose)
                 {
-                    std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
+                    if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
+                    {
+                        std::cout << "Compiling Target: " << target_name << std::endl;
+                    }
                 }
-            }
 
-            if (!debug_compile_output)
-            {
-                active_target_name.reset();
-                continue;
-            }
+                quxlang::compiler_querygraph graph(*input_srcs, target_name, target_config.target_output_config);
 
-            std::filesystem::create_directories(output_dir);
+                std::filesystem::path const build_dir = output / "build" / target_name;
+                std::filesystem::path const output_dir = output / "output" / target_name;
 
-            struct output_entry
-            {
-                std::string output_name;
-                std::string module_name;
-                std::string main_functanoid;
-                quxlang::output_kind type;
-            };
+                std::filesystem::create_directories(output_dir);
+                try
+                {
+                    std::map< std::string, std::vector<std::byte> > const artifacts =
+                        graph.make_request< quxlang::output_binary_artifacts_query >(std::monostate{});
+
+                    for (std::pair< std::string const, std::vector<std::byte> > const& artifact_entry : artifacts)
+                    {
+                        std::filesystem::path const executable_path = write_final_output_file(output_dir, artifact_entry.first, artifact_entry.second);
+                        if (verbose)
+                        {
+                            std::cout << "Wrote output executable: " << target_name << "/" << artifact_entry.first << " -> " << executable_path.string() << std::endl;
+                        }
+                    }
+                }
+                catch (quxlang::compilation_error const& error)
+                {
+                    print_compilation_error(std::cerr, error, source_index.has_value() ? &*source_index : nullptr, active_target_name);
+                    any_failure = true;
+                }
+
+                if (!debug_compile_output)
+                {
+                    active_target_name.reset();
+                    continue;
+                }
+
+                std::filesystem::create_directories(output_dir);
+
+                struct output_entry
+                {
+                    std::string output_name;
+                    std::string module_name;
+                    std::string main_functanoid;
+                    quxlang::output_kind type;
+                };
 
             std::vector< output_entry > outputs_to_compile;
             if (!target_config.outputs.has_value())
@@ -1838,17 +1849,18 @@ int main(int argc, char** argv)
                     std::cout << "Wrote optimized output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_object_path.string() << std::endl;
                 }
 
-                std::vector<std::byte> artifact = graph.make_request< quxlang::output_binary_artifact_query >(output_entry.output_name);
-                std::filesystem::path const executable_path = write_final_output_file(output_dir, output_entry.output_name, artifact);
-                if (verbose)
-                {
-                    std::cout << "Wrote output executable: " << target_name << "/" << output_entry.output_name << " -> " << executable_path.string() << std::endl;
-                }
             }
             active_target_name.reset();
+            }
+            catch (quxlang::compilation_error const& error)
+            {
+                print_compilation_error(std::cerr, error, source_index.has_value() ? &*source_index : nullptr, active_target_name);
+                any_failure = true;
+                active_target_name.reset();
+            }
         }
 
-        return 0;
+        return any_failure ? 1 : 0;
     }
     catch (quxlang::compilation_error const& error)
     {

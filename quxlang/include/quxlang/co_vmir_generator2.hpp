@@ -43,6 +43,7 @@
 #include "quxlang/queries/functum_overloads.hpp"
 #include "quxlang/queries/functum_select_function.hpp"
 #include "quxlang/queries/global_init_type.hpp"
+#include "quxlang/queries/global_is_per_thread.hpp"
 #include "quxlang/queries/global_is_string_static.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implementation_function_map.hpp"
@@ -8055,6 +8056,8 @@ namespace quxlang
 
             bool const is_serialoid_static = co_await rpnx::querygraph::request< global_is_serialoid_static_query >(global_symbol);
             bool const is_string_static = co_await rpnx::querygraph::request< global_is_string_static_query >(global_symbol);
+            bool const is_per_thread = co_await rpnx::querygraph::request< global_is_per_thread_query >(global_symbol);
+            vmir2::access_class const access_class = is_per_thread ? vmir2::access_class::thread : vmir2::access_class::global;
 
             storage global_storage_type;
             global_storage_type.storable_types.insert(global_type);
@@ -8065,7 +8068,7 @@ namespace quxlang
                 this->emit(current_block, vmir2::get_object_ref{
                                               .symbol = global_symbol,
                                               .type = vmir2::access_type::storage,
-                                              .class_ = vmir2::access_class::global,
+                                              .class_ = access_class,
                                               .target_ref = get_local_index(storage_ref),
                                           });
 
@@ -8086,7 +8089,7 @@ namespace quxlang
                 this->emit(entry_block, vmir2::get_object_ref{
                                                .symbol = global_symbol,
                                                .type = vmir2::access_type::object,
-                                               .class_ = vmir2::access_class::global,
+                                               .class_ = access_class,
                                                .target_ref = get_local_index(result_ref),
                                            });
                 co_await this->co_return_value(entry_block, result_ref);
@@ -8100,7 +8103,7 @@ namespace quxlang
 
             this->set_terminator(entry_block, vmir2::initguard_try_acquire{
                 .symbol = global_symbol,
-                .class_ = vmir2::access_class::global,
+                .class_ = access_class,
                 .target_lock = get_local_index(lock_value),
                 .target_acquired = acquire_block,
                 .target_already_initialized = initialized_block,
@@ -8117,7 +8120,7 @@ namespace quxlang
             this->emit(acquire_block, vmir2::get_object_ref{
                                           .symbol = global_symbol,
                                           .type = vmir2::access_type::storage,
-                                          .class_ = vmir2::access_class::global,
+                                          .class_ = access_class,
                                           .target_ref = get_local_index(init_storage_ref),
                                       });
             co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});

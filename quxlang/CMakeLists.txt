@@ -262,6 +262,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/functum_user_overloads_spec.hpp
         include/quxlang/queries/specs/global_init_type_spec.hpp
         include/quxlang/queries/specs/global_is_antestatal_static_spec.hpp
+        include/quxlang/queries/specs/global_is_per_thread_spec.hpp
         include/quxlang/queries/specs/global_is_serialoid_static_spec.hpp
         include/quxlang/queries/specs/global_is_string_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
@@ -412,6 +413,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/functum_user_overloads.cpp
         sources/queries/global_init_type.cpp
         sources/queries/global_is_antestatal_static.cpp
+        sources/queries/global_is_per_thread.cpp
         sources/queries/global_is_serialoid_static.cpp
         sources/queries/global_is_string_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
