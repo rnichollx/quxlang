@@ -342,7 +342,7 @@ LANGUAGE QUXLANG EN 0.0;
   RET
 }
 
-::hello_world_message INCLUDE_IF(OS_LINUX) STATIC STRING_CONSTANT := "hello world!";
+::hello_world_message STATIC STRING_CONSTANT := "hello world!";
 
 ::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()
 {

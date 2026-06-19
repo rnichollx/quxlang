@@ -18,11 +18,10 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
 {
-  write(@fd stdout, @msg "Assert failed: ");
+  write(@msg "Assert failed: ", @fd stdout);
   write(@fd stdout, @msg expr);
   exit(@code 1);
 }
-
 
 
 ::linux INCLUDE_IF(OS_LINUX) NAMESPACE
