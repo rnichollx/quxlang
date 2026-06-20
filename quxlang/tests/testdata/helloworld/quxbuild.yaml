@@ -3,7 +3,7 @@ linux-x64:
   cpu: x64
   backend: llvm
   backend_llvm_options:
-    mode: debug
+    mode: optimize
   modules:
     RUNTIME:
       source: runtime
@@ -23,7 +23,7 @@ linux-arm64:
   cpu: ARM64
   backend: llvm
   backend_llvm_options:
-    mode: debug
+    mode: optimize
   modules:
     RUNTIME:
       source: runtime

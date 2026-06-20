@@ -23,6 +23,7 @@
 #include "quxlang/queries/llvm_compiled_output.hpp"
 #include "quxlang/queries/output_binaries_information.hpp"
 #include "quxlang/queries/output_binary_artifacts.hpp"
+#include "quxlang/queries/output_llvm_backend_options.hpp"
 #include "quxlang/queries/output_optimized_llvm.hpp"
 #include "quxlang/queries/output_unoptimized_llvm.hpp"
 #include "quxlang/queries/procedure_linksymbol.hpp"
@@ -127,6 +128,19 @@ namespace
         }
 
         return false;
+    }
+
+    /**
+     * Converts configured LLVM backend options into the qxc LLVM backend optimization level.
+     */
+    auto configured_llvm_optimization_level(quxlang::backend_llvm_options const& options)
+        -> quxlang::llvm_backend::optimization_level
+    {
+        if (options.mode == quxlang::backend_llvm_mode::debug)
+        {
+            return quxlang::llvm_backend::optimization_level::debug;
+        }
+        return quxlang::llvm_backend::optimization_level::release;
     }
 
     /**
@@ -1599,7 +1613,8 @@ int main(int argc, char** argv)
                 };
 
                 auto emit_routine_tree =
-                    [&](collected_routine_tree const& tree) -> void
+                    [&](collected_routine_tree const& tree,
+                        quxlang::llvm_backend::optimization_level const optimization_level) -> void
                 {
                     for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : tree.routines)
                     {
@@ -1633,7 +1648,7 @@ int main(int argc, char** argv)
                         compilable_unit.target_name = routine_symbol;
                         compilable_unit.target_code = routine;
                         compilable_unit.machine_target.machine = target_config.target_output_config;
-                        compilable_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
+                        compilable_unit.machine_target.optimization = optimization_level;
                         compilable_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
                         compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
                         compilable_unit.runtime_procedures = tree.runtime_procedures;
@@ -1705,7 +1720,7 @@ int main(int argc, char** argv)
                             llvm_backend.assemble(
                                 quxlang::llvm_backend::llvm_compilation_target{
                                     .machine = target_config.target_output_config,
-                                    .optimization = quxlang::llvm_backend::optimization_level::debug,
+                                    .optimization = optimization_level,
                                 },
                                 routine_entry.second);
                         std::filesystem::path const asm_path = write_asm_source_file(build_dir, routine_symbol, assembled.assembly_text);
@@ -1744,7 +1759,9 @@ int main(int argc, char** argv)
                         }
 
                         quxlang::vmir2::functanoid_routine3 static_test_routine = graph.make_request< quxlang::static_test_vmir_query >(static_test_symbol);
-                        emit_routine_tree(collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt));
+                        emit_routine_tree(
+                            collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt),
+                            configured_llvm_optimization_level(target_config.llvm_options));
                     }
                 }
 
@@ -1770,7 +1787,9 @@ int main(int argc, char** argv)
                     }
                     quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
                     collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start);
-                    emit_routine_tree(output_tree);
+                    quxlang::backend_llvm_options const output_llvm_options =
+                        graph.make_request< quxlang::output_llvm_backend_options_query >(output_entry.output_name);
+                    emit_routine_tree(output_tree, configured_llvm_optimization_level(output_llvm_options));
 
                     std::string const input_output_module_llvm = graph.make_request< quxlang::output_unoptimized_llvm_query >(output_entry.output_name);
                     std::string const final_output_module_llvm = graph.make_request< quxlang::output_optimized_llvm_query >(output_entry.output_name);
