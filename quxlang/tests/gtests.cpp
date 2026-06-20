@@ -2336,6 +2336,154 @@ TEST(llvm_backend, thread_object_ref_emits_thread_local_global_and_object_sectio
     EXPECT_TRUE(byte_vector_contains_ascii(result.object_file, ".tbss") || byte_vector_contains_ascii(result.object_file, ".tdata"));
 }
 
+TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
+{
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("thread_local_link_test");
+    quxlang::type_symbol const object_symbol = make_symbol("linked_thread_local_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+    std::vector< quxlang::cpu > const cpu_types = {quxlang::cpu::x86_64, quxlang::cpu::arm_64};
+    std::uint32_t constexpr elf_pt_tls = 7;
+    std::uint32_t constexpr elf_pf_r = 4;
+    std::uint32_t constexpr elf_sht_nobits = 8;
+    std::uint64_t constexpr elf_shf_tls = 0x400;
+
+    for (quxlang::cpu const cpu_type : cpu_types)
+    {
+        quxlang::vmir2::functanoid_routine3 routine;
+        routine.local_types = {
+            quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+            quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+        };
+        routine.blocks.resize(1);
+        routine.blocks[0].instructions.push_back(quxlang::vmir2::get_object_ref{
+            .symbol = object_symbol,
+            .type = quxlang::vmir2::access_type::object,
+            .class_ = quxlang::vmir2::access_class::thread,
+            .target_ref = quxlang::vmir2::local_index(1),
+        });
+        routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+        quxlang::machine_target_info const machine{
+            .cpu_type = cpu_type,
+            .os_type = quxlang::os::linux,
+            .binary_type = quxlang::binary::elf,
+        };
+
+        quxlang::llvm_backend::llvm_compilable_unit packet;
+        packet.target_name = routine_symbol;
+        packet.target_code = routine;
+        packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
+        packet.machine_target.machine = machine;
+
+        quxlang::llvm_backend::llvm_backend backend;
+        quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+        ASSERT_TRUE(byte_vector_contains_ascii(compiled.object_file, ".tbss"));
+
+        quxlang::elf_linker linker;
+        std::vector< std::byte > const executable = linker.link_linux_executable(
+            machine,
+            compiled.object_file,
+            quxlang::to_string(routine_symbol),
+            quxlang::elf_link_options{});
+
+        auto read_u16 = [&](std::size_t offset) -> std::uint16_t
+        {
+            return std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+                   (std::uint16_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8);
+        };
+        auto read_u32 = [&](std::size_t offset) -> std::uint32_t
+        {
+            return std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset))) |
+                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 1))) << 8) |
+                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 2))) << 16) |
+                   (std::uint32_t(std::to_integer< std::uint8_t >(executable.at(offset + 3))) << 24);
+        };
+        auto read_u64 = [&](std::size_t offset) -> std::uint64_t
+        {
+            std::uint64_t value = 0;
+            for (std::size_t i = 0; i < 8; ++i)
+            {
+                value |= std::uint64_t(std::to_integer< std::uint8_t >(executable.at(offset + i))) << (i * 8);
+            }
+            return value;
+        };
+        auto read_string = [&](std::size_t offset) -> std::string
+        {
+            std::string result;
+            for (std::size_t i = offset; i < executable.size() && executable.at(i) != std::byte{0}; ++i)
+            {
+                result.push_back(static_cast< char >(std::to_integer< std::uint8_t >(executable.at(i))));
+            }
+            return result;
+        };
+
+        ASSERT_EQ(executable.at(0), std::byte{0x7f});
+        ASSERT_EQ(executable.at(1), std::byte{'E'});
+        ASSERT_EQ(executable.at(2), std::byte{'L'});
+        ASSERT_EQ(executable.at(3), std::byte{'F'});
+        ASSERT_EQ(executable.at(4), std::byte{2});
+
+        std::size_t const program_header_offset = static_cast< std::size_t >(read_u64(32));
+        std::size_t const program_header_entry_size = read_u16(54);
+        std::size_t const program_header_count = read_u16(56);
+        ASSERT_EQ(program_header_entry_size, 56U);
+
+        bool found_tls_program_header = false;
+        for (std::size_t i = 0; i < program_header_count; ++i)
+        {
+            std::size_t const header = program_header_offset + i * program_header_entry_size;
+            if (read_u32(header) != elf_pt_tls)
+            {
+                continue;
+            }
+
+            found_tls_program_header = true;
+            EXPECT_EQ(read_u32(header + 4), elf_pf_r);
+            EXPECT_EQ(read_u64(header + 32), 0U);
+            EXPECT_GE(read_u64(header + 40), 4U);
+            EXPECT_GE(read_u64(header + 48), 4U);
+        }
+        EXPECT_TRUE(found_tls_program_header);
+
+        std::size_t const section_header_offset = static_cast< std::size_t >(read_u64(40));
+        std::size_t const section_header_entry_size = read_u16(58);
+        std::size_t const section_header_count = read_u16(60);
+        std::size_t const section_name_table_index = read_u16(62);
+        ASSERT_EQ(section_header_entry_size, 64U);
+        ASSERT_LT(section_name_table_index, section_header_count);
+
+        auto section_header = [&](std::size_t index) -> std::size_t
+        {
+            return section_header_offset + index * section_header_entry_size;
+        };
+
+        std::size_t const section_name_table_header = section_header(section_name_table_index);
+        std::size_t const section_name_table_offset = static_cast< std::size_t >(read_u64(section_name_table_header + 24));
+        bool found_tls_bss = false;
+        for (std::size_t i = 1; i < section_header_count; ++i)
+        {
+            std::size_t const header = section_header(i);
+            if (read_string(section_name_table_offset + read_u32(header)) != ".tbss")
+            {
+                continue;
+            }
+
+            found_tls_bss = true;
+            EXPECT_EQ(read_u32(header + 4), elf_sht_nobits);
+            EXPECT_NE(read_u64(header + 8) & elf_shf_tls, 0U);
+        }
+        EXPECT_TRUE(found_tls_bss);
+    }
+}
+
 TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol

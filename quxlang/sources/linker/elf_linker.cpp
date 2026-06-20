@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -43,6 +44,7 @@ namespace quxlang::detail
         bool allocated = true;
         bool writable = false;
         bool executable = false;
+        bool tls = false;
         bool nobits = false;
         bool synthetic = false;
         std::vector< std::byte > contents;
@@ -61,6 +63,18 @@ namespace quxlang::detail
         std::uint64_t file_size = 0;
         std::uint64_t memory_size = 0;
         std::uint32_t flags = 0;
+    };
+
+    /**
+     * tls_segment stores the output PT_TLS image bounds after section layout.
+     */
+    struct tls_segment
+    {
+        std::uint64_t file_offset = 0;
+        std::uint64_t virtual_address = 0;
+        std::uint64_t file_size = 0;
+        std::uint64_t memory_size = 0;
+        std::uint64_t alignment = 1;
     };
 
     struct got_slot
@@ -132,6 +146,7 @@ namespace quxlang::detail
         std::unique_ptr< llvm::object::ObjectFile > object_file;
         std::vector< linked_section > sections;
         std::vector< load_segment > load_segments;
+        std::optional< tls_segment > tls_segment_info;
         std::vector< std::byte > section_name_table;
         std::map< std::uint64_t, std::size_t > output_section_indices_by_input_index;
         std::map< std::string, common_symbol_allocation > common_symbol_allocations;
@@ -257,6 +272,7 @@ namespace quxlang::detail
                 output_section.allocated = true;
                 output_section.writable = (section.getFlags() & llvm::ELF::SHF_WRITE) != 0;
                 output_section.executable = (section.getFlags() & llvm::ELF::SHF_EXECINSTR) != 0;
+                output_section.tls = (section.getFlags() & llvm::ELF::SHF_TLS) != 0;
                 output_section.nobits = section.getType() == llvm::ELF::SHT_NOBITS;
                 output_section.synthetic = false;
                 output_section.memory_size = generic_section.getSize();
@@ -393,6 +409,71 @@ namespace quxlang::detail
             return count;
         }
 
+        /**
+         * Returns true when any allocated output section participates in the static TLS block.
+         */
+        auto has_tls_sections() const -> bool
+        {
+            for (linked_section const& section : sections)
+            {
+                if (section.allocated && section.tls)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * Computes the output TLS program-header bounds from laid-out TLS sections.
+         */
+        void compute_tls_segment()
+        {
+            tls_segment_info.reset();
+
+            std::optional< std::uint64_t > start_virtual_address;
+            std::uint64_t start_file_offset = 0;
+            std::uint64_t initialized_end_virtual_address = 0;
+            std::uint64_t memory_end_virtual_address = 0;
+            std::uint64_t max_alignment = 1;
+
+            for (linked_section const& section : sections)
+            {
+                if (!section.allocated || !section.tls)
+                {
+                    continue;
+                }
+
+                if (!start_virtual_address.has_value() || section.virtual_address < *start_virtual_address)
+                {
+                    start_virtual_address = section.virtual_address;
+                    start_file_offset = section.file_offset;
+                }
+
+                max_alignment = std::max(max_alignment, section.alignment);
+                memory_end_virtual_address = std::max(memory_end_virtual_address, section.virtual_address + section.memory_size);
+                if (!section.nobits)
+                {
+                    initialized_end_virtual_address = std::max(initialized_end_virtual_address, section.virtual_address + section.contents.size());
+                }
+            }
+
+            if (!start_virtual_address.has_value())
+            {
+                return;
+            }
+
+            std::uint64_t const file_size =
+                initialized_end_virtual_address > *start_virtual_address ? initialized_end_virtual_address - *start_virtual_address : 0;
+            tls_segment_info = tls_segment{
+                .file_offset = start_file_offset,
+                .virtual_address = *start_virtual_address,
+                .file_size = file_size,
+                .memory_size = memory_end_virtual_address - *start_virtual_address,
+                .alignment = max_alignment,
+            };
+        }
+
         void rebuild_section_name_table()
         {
             section_name_table.clear();
@@ -426,7 +507,7 @@ namespace quxlang::detail
             std::uint64_t const elf_header_size = machine.pointer_size_bytes() == 8 ? 64 : 52;
             std::uint64_t const program_header_size = machine.pointer_size_bytes() == 8 ? 56 : 32;
             std::uint64_t const section_header_entry_size = machine.pointer_size_bytes() == 8 ? 64 : 40;
-            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs());
+            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0));
             std::uint64_t const header_end = elf_header_size + program_header_size * program_header_count;
             std::uint64_t file_cursor = align_up(header_end, page_alignment);
             std::uint64_t memory_cursor = file_cursor;
@@ -504,6 +585,7 @@ namespace quxlang::detail
                 update_current_segment();
             }
 
+            compute_tls_segment();
             memory_size = memory_cursor;
             for (linked_section& section : sections)
             {
@@ -552,6 +634,10 @@ namespace quxlang::detail
             if (section.executable)
             {
                 flags |= llvm::ELF::SHF_EXECINSTR;
+            }
+            if (section.tls)
+            {
+                flags |= llvm::ELF::SHF_TLS;
             }
             return flags;
         }
@@ -789,7 +875,10 @@ namespace quxlang::detail
             return output_section.virtual_address + section_relative_address;
         }
 
-        auto relocation_target_address(llvm::object::RelocationRef const& relocation) const -> std::uint64_t
+        /**
+         * Returns the symbol referenced by an ELF relocation.
+         */
+        auto relocation_target_symbol(llvm::object::RelocationRef const& relocation) const -> llvm::object::SymbolRef
         {
             llvm::object::symbol_iterator const symbol_iter = relocation.getSymbol();
             if (symbol_iter == object_file->symbol_end())
@@ -797,7 +886,118 @@ namespace quxlang::detail
                 throw quxlang::semantic_compilation_error("ELF relocation has no target symbol");
             }
 
-            return symbol_address(*symbol_iter);
+            return *symbol_iter;
+        }
+
+        auto relocation_target_address(llvm::object::RelocationRef const& relocation) const -> std::uint64_t
+        {
+            return symbol_address(relocation_target_symbol(relocation));
+        }
+
+        /**
+         * Returns true when the input symbol has ELF TLS symbol type.
+         */
+        auto symbol_is_tls(llvm::object::SymbolRef const& symbol) const -> bool
+        {
+            llvm::object::ELFSymbolRef const elf_symbol(symbol);
+            return elf_symbol.getELFType() == llvm::ELF::STT_TLS;
+        }
+
+        /**
+         * Converts a checked unsigned 64-bit value to signed 64-bit form.
+         */
+        auto checked_i64(std::uint64_t value, std::string const& context) const -> std::int64_t
+        {
+            if (value > static_cast< std::uint64_t >(std::numeric_limits< std::int64_t >::max()))
+            {
+                throw quxlang::semantic_compilation_error(context);
+            }
+            return static_cast< std::int64_t >(value);
+        }
+
+        /**
+         * Returns a TLS symbol offset relative to the start of the output TLS segment.
+         */
+        auto tls_symbol_offset(llvm::object::SymbolRef const& symbol) const -> std::uint64_t
+        {
+            if (!tls_segment_info.has_value())
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS relocation requested without a PT_TLS segment");
+            }
+            if (is_common_symbol(symbol))
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS common symbols are not supported");
+            }
+            if (!symbol_is_tls(symbol))
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS relocation targeted a non-TLS symbol");
+            }
+
+            llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF TLS symbol section");
+            if (section_iter == object_file->section_end())
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS relocation targeted an absolute symbol");
+            }
+
+            std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(section_iter->getIndex());
+            if (output_section_iter == output_section_indices_by_input_index.end())
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS relocation targeted an unsupported section");
+            }
+
+            linked_section const& output_section = sections.at(output_section_iter->second);
+            if (!output_section.tls)
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS symbol is not in a TLS output section");
+            }
+
+            std::uint64_t const section_relative_address = take_or_throw(symbol.getAddress(), "Failed to read ELF TLS symbol address") - section_iter->getAddress();
+            return output_section.virtual_address - tls_segment_info->virtual_address + section_relative_address;
+        }
+
+        /**
+         * Computes a target ABI thread-pointer-relative offset for a TLS symbol.
+         */
+        auto tls_thread_pointer_offset(llvm::object::SymbolRef const& symbol) const -> std::int64_t
+        {
+            if (!tls_segment_info.has_value())
+            {
+                throw quxlang::semantic_compilation_error("ELF TLS relocation requested without a PT_TLS segment");
+            }
+
+            std::uint64_t const symbol_offset = tls_symbol_offset(symbol);
+            std::uint64_t const alignment_mask = tls_segment_info->alignment - 1;
+            switch (machine.cpu_type)
+            {
+            case quxlang::cpu::x86_32:
+            case quxlang::cpu::x86_64:
+            {
+                std::uint64_t const alignment_adjustment = (0 - tls_segment_info->virtual_address - tls_segment_info->memory_size) & alignment_mask;
+                return checked_i64(symbol_offset, "ELF TLS symbol offset is too large") -
+                       checked_i64(tls_segment_info->memory_size, "ELF TLS segment is too large") -
+                       checked_i64(alignment_adjustment, "ELF TLS alignment adjustment is too large");
+            }
+            case quxlang::cpu::arm_64:
+            {
+                std::uint64_t const thread_control_block_size = machine.pointer_size_bytes() * 2;
+                std::uint64_t const alignment_adjustment = (tls_segment_info->virtual_address - thread_control_block_size) & alignment_mask;
+                return checked_i64(symbol_offset, "ELF TLS symbol offset is too large") +
+                       checked_i64(thread_control_block_size, "ELF TLS thread-control-block offset is too large") +
+                       checked_i64(alignment_adjustment, "ELF TLS alignment adjustment is too large");
+            }
+            default:
+                break;
+            }
+
+            throw quxlang::semantic_compilation_error("ELF TLS relocation is unsupported for this target");
+        }
+
+        /**
+         * Computes the target ABI thread-pointer-relative offset for a TLS relocation.
+         */
+        auto relocation_target_tls_thread_pointer_offset(llvm::object::RelocationRef const& relocation) const -> std::int64_t
+        {
+            return tls_thread_pointer_offset(relocation_target_symbol(relocation));
         }
 
         auto relocation_addend(linked_section const& section, llvm::object::SectionRef const& relocation_section, llvm::object::RelocationRef const& relocation) const
@@ -1021,6 +1221,19 @@ namespace quxlang::detail
             write_u64(section.contents, offset, target_value);
         }
 
+        /**
+         * Writes a checked signed 32-bit relocation result.
+         */
+        void patch_signed32(linked_section& section, std::size_t offset, std::int64_t value, std::string const& context) const
+        {
+            if (value < std::numeric_limits< std::int32_t >::min() || value > std::numeric_limits< std::int32_t >::max())
+            {
+                throw quxlang::semantic_compilation_error(context);
+            }
+
+            write_u32(section.contents, offset, static_cast< std::uint32_t >(value));
+        }
+
         void patch_i386_abs32(linked_section& section, std::size_t offset, std::uint64_t target_value) const
         {
             write_u32(section.contents, offset, static_cast< std::uint32_t >(target_value));
@@ -1088,6 +1301,23 @@ namespace quxlang::detail
             write_u32(section.contents, offset, instruction);
         }
 
+        /**
+         * Applies an AArch64 ADD-immediate TLS relocation.
+         */
+        void patch_aarch64_tlsle_add_tprel(linked_section& section, std::size_t offset, std::uint64_t target_value, bool high_bits) const
+        {
+            if (high_bits && target_value >= (std::uint64_t{1} << 24))
+            {
+                throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL_HI12 relocation is out of range");
+            }
+
+            std::uint64_t const immediate = high_bits ? target_value >> 12 : target_value;
+            std::uint32_t instruction = read_u32(section.contents, offset);
+            instruction &= ~(std::uint32_t(0xfff) << 10);
+            instruction |= static_cast< std::uint32_t >(immediate & 0xfff) << 10;
+            write_u32(section.contents, offset, instruction);
+        }
+
         auto got_slot_address(std::uint64_t target_value) const -> std::uint64_t
         {
             if (!got_section_index.has_value())
@@ -1138,7 +1368,6 @@ namespace quxlang::detail
                 {
                     std::uint64_t const offset = relocation.getOffset();
                     std::int64_t const addend = relocation_addend(section, generic_section, relocation);
-                    std::uint64_t const symbol_value = relocation_target_address(relocation);
                     std::uint64_t const place_address = section.virtual_address + offset;
                     std::uint64_t const relocation_type = relocation.getType();
 
@@ -1147,61 +1376,111 @@ namespace quxlang::detail
                     case quxlang::cpu::x86_64:
                         if (relocation_type == llvm::ELF::R_X86_64_64)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_x86_64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_X86_64_TPOFF32)
+                        {
+                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
+                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "x86_64 TLS TPOFF32 relocation is out of range");
                             continue;
                         }
                         break;
                     case quxlang::cpu::x86_32:
                         if (relocation_type == llvm::ELF::R_386_32)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_i386_abs32(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_386_PLT32 || relocation_type == llvm::ELF::R_386_PC32)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_i386_pc32(section, static_cast< std::size_t >(offset), static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_386_TLS_LE || relocation_type == llvm::ELF::R_386_TLS_TPOFF)
+                        {
+                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
+                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_386_TLS_LE_32 || relocation_type == llvm::ELF::R_386_TLS_TPOFF32)
+                        {
+                            std::int64_t const target_offset = -relocation_target_tls_thread_pointer_offset(relocation) + addend;
+                            patch_signed32(section, static_cast< std::size_t >(offset), target_offset, "i386 TLS relocation is out of range");
                             continue;
                         }
                         break;
                     case quxlang::cpu::arm_64:
                         if (relocation_type == llvm::ELF::R_AARCH64_ABS64)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G0_NC)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 0);
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G1_NC)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 16);
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G2_NC)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 32);
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_MOVW_UABS_G3)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_movw(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend), 48);
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_CALL26 || relocation_type == llvm::ELF::R_AARCH64_JUMP26)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_branch26(section, static_cast< std::size_t >(offset), place_address, symbol_value + static_cast< std::uint64_t >(addend));
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_ADR_GOT_PAGE)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_adr_got_page(section, static_cast< std::size_t >(offset), place_address, got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_AARCH64_LD64_GOT_LO12_NC)
                         {
+                            std::uint64_t const symbol_value = relocation_target_address(relocation);
                             patch_aarch64_ld64_got_lo12(section, static_cast< std::size_t >(offset), got_slot_address(symbol_value + static_cast< std::uint64_t >(addend)));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_HI12)
+                        {
+                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
+                            if (target_offset < 0)
+                            {
+                                throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
+                            }
+                            patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), true);
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12 ||
+                            relocation_type == llvm::ELF::R_AARCH64_TLSLE_ADD_TPREL_LO12_NC)
+                        {
+                            std::int64_t const target_offset = relocation_target_tls_thread_pointer_offset(relocation) + addend;
+                            if (target_offset < 0)
+                            {
+                                throw quxlang::semantic_compilation_error("AArch64 TLSLE ADD_TPREL relocation is negative");
+                            }
+                            patch_aarch64_tlsle_add_tprel(section, static_cast< std::size_t >(offset), static_cast< std::uint64_t >(target_offset), false);
                             continue;
                         }
                         break;
@@ -1295,7 +1574,7 @@ namespace quxlang::detail
         }
 
         /**
-         * Writes all PT_LOAD program headers for the already-computed file layout.
+         * Writes all program headers for the already-computed file layout.
          */
         void write_program_header(std::vector< std::byte >& output_file_bytes) const
         {
@@ -1314,6 +1593,18 @@ namespace quxlang::detail
                     write_u64(output_file_bytes, offset + 40, segment.memory_size);
                     write_u64(output_file_bytes, offset + 48, page_alignment);
                 }
+                if (tls_segment_info.has_value())
+                {
+                    std::size_t const offset = 64 + load_segments.size() * 56;
+                    write_u32(output_file_bytes, offset, llvm::ELF::PT_TLS);
+                    write_u32(output_file_bytes, offset + 4, llvm::ELF::PF_R);
+                    write_u64(output_file_bytes, offset + 8, tls_segment_info->file_offset);
+                    write_u64(output_file_bytes, offset + 16, tls_segment_info->virtual_address);
+                    write_u64(output_file_bytes, offset + 24, tls_segment_info->virtual_address);
+                    write_u64(output_file_bytes, offset + 32, tls_segment_info->file_size);
+                    write_u64(output_file_bytes, offset + 40, tls_segment_info->memory_size);
+                    write_u64(output_file_bytes, offset + 48, tls_segment_info->alignment);
+                }
                 return;
             }
 
@@ -1329,6 +1620,18 @@ namespace quxlang::detail
                 write_u32(output_file_bytes, offset + 20, static_cast< std::uint32_t >(segment.memory_size));
                 write_u32(output_file_bytes, offset + 24, segment.flags);
                 write_u32(output_file_bytes, offset + 28, static_cast< std::uint32_t >(page_alignment));
+            }
+            if (tls_segment_info.has_value())
+            {
+                std::size_t const offset = 52 + load_segments.size() * 32;
+                write_u32(output_file_bytes, offset, llvm::ELF::PT_TLS);
+                write_u32(output_file_bytes, offset + 4, static_cast< std::uint32_t >(tls_segment_info->file_offset));
+                write_u32(output_file_bytes, offset + 8, static_cast< std::uint32_t >(tls_segment_info->virtual_address));
+                write_u32(output_file_bytes, offset + 12, static_cast< std::uint32_t >(tls_segment_info->virtual_address));
+                write_u32(output_file_bytes, offset + 16, static_cast< std::uint32_t >(tls_segment_info->file_size));
+                write_u32(output_file_bytes, offset + 20, static_cast< std::uint32_t >(tls_segment_info->memory_size));
+                write_u32(output_file_bytes, offset + 24, llvm::ELF::PF_R);
+                write_u32(output_file_bytes, offset + 28, static_cast< std::uint32_t >(tls_segment_info->alignment));
             }
         }
 
