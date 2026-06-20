@@ -123,7 +123,7 @@ namespace quxlang::llvm_backend::detail
               {
                   annotate_inserted_instruction(inst);
               })),
-              target_machine(create_target_machine(input_packet.machine_target.machine))
+              target_machine(create_target_machine(input_packet.machine_target.machine, input_packet.machine_target.optimization))
         {
             module->setTargetTriple(llvm::Triple(quxlang::lookup_llvm_triple(input.machine_target.machine)));
             module->setDataLayout(target_machine->createDataLayout());
@@ -207,7 +207,8 @@ namespace quxlang::llvm_backend::detail
                 llvm::raw_string_ostream ir_stream(result.llvm_ir_text);
                 module->print(ir_stream, nullptr);
             }
-            result.object_file = emit_module_object_file(*module);
+            result.object_file = emit_module_object_file(*module, input.machine_target.optimization);
+            if (input.machine_target.optimization == quxlang::llvm_backend::optimization_level::release)
             {
                 std::unique_ptr< llvm::Module > optimized_module = llvm::CloneModule(*module);
                 std::vector< llvm::GlobalValue* > preserved_functions;
@@ -287,7 +288,12 @@ namespace quxlang::llvm_backend::detail
 
                 llvm::raw_string_ostream ir_stream(result.optimized_llvm_ir_text);
                 optimized_module->print(ir_stream, nullptr);
-                result.optimized_object_file = emit_module_object_file(*optimized_module);
+                result.optimized_object_file = emit_module_object_file(*optimized_module, quxlang::llvm_backend::optimization_level::release);
+            }
+            else
+            {
+                result.optimized_llvm_ir_text = result.llvm_ir_text;
+                result.optimized_object_file = result.object_file;
             }
             {
                 llvm::SmallVector< char, 0 > bitcode_buffer;
@@ -397,9 +403,27 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Creates one LLVM target machine for the requested qxc machine target.
+         * Returns the LLVM machine-code optimization level for one Quxlang LLVM backend mode.
          */
-        static auto create_target_machine(quxlang::machine_target_info const& machine) -> std::unique_ptr< llvm::TargetMachine >
+        static auto llvm_codegen_opt_level(quxlang::llvm_backend::optimization_level optimization) -> llvm::CodeGenOptLevel
+        {
+            switch (optimization)
+            {
+            case quxlang::llvm_backend::optimization_level::debug:
+                return llvm::CodeGenOptLevel::None;
+            case quxlang::llvm_backend::optimization_level::release:
+                return llvm::CodeGenOptLevel::Default;
+            }
+
+            throw quxlang::compiler_bug("Unsupported LLVM backend optimization level");
+        }
+
+        /**
+         * Creates one LLVM target machine for the requested qxc machine target and optimization mode.
+         */
+        static auto create_target_machine(
+            quxlang::machine_target_info const& machine,
+            quxlang::llvm_backend::optimization_level optimization) -> std::unique_ptr< llvm::TargetMachine >
         {
             initialize_llvm_target_support(machine);
 
@@ -421,13 +445,15 @@ namespace quxlang::llvm_backend::detail
                 code_model = llvm::CodeModel::Large;
             }
 
+            llvm::CodeGenOptLevel const opt_level = llvm_codegen_opt_level(optimization);
             llvm::TargetMachine* raw_machine = target->createTargetMachine(
                 triple,
                 "generic",
                 "",
                 options,
                 reloc_model,
-                code_model);
+                code_model,
+                opt_level);
             if (raw_machine == nullptr)
             {
                 throw quxlang::semantic_compilation_error("Failed to create LLVM target machine for " + triple_text);
@@ -438,16 +464,19 @@ namespace quxlang::llvm_backend::detail
         /**
          * Emits one LLVM module to a target object file byte buffer.
          */
-        auto emit_module_object_file(llvm::Module const& source_module) -> std::vector< std::byte >
+        auto emit_module_object_file(
+            llvm::Module const& source_module,
+            quxlang::llvm_backend::optimization_level optimization) -> std::vector< std::byte >
         {
+            std::unique_ptr< llvm::TargetMachine > object_target_machine = create_target_machine(input.machine_target.machine, optimization);
             std::unique_ptr< llvm::Module > object_module = llvm::CloneModule(source_module);
             object_module->setTargetTriple(module->getTargetTriple());
-            object_module->setDataLayout(target_machine->createDataLayout());
+            object_module->setDataLayout(object_target_machine->createDataLayout());
 
             llvm::SmallVector< char, 0 > object_buffer;
             llvm::raw_svector_ostream object_stream(object_buffer);
             llvm::legacy::PassManager pass_manager;
-            if (target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
+            if (object_target_machine->addPassesToEmitFile(pass_manager, object_stream, nullptr, llvm::CodeGenFileType::ObjectFile))
             {
                 throw quxlang::semantic_compilation_error("Failed to emit LLVM object file for " + quxlang::to_string(input.target_name));
             }

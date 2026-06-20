@@ -20,7 +20,11 @@
 #include "quxlang/queries/instanciation.hpp"
 #include "quxlang/queries/list_static_tests.hpp"
 #include "quxlang/queries/lookup.hpp"
+#include "quxlang/queries/llvm_compiled_output.hpp"
+#include "quxlang/queries/output_binaries_information.hpp"
 #include "quxlang/queries/output_binary_artifacts.hpp"
+#include "quxlang/queries/output_optimized_llvm.hpp"
+#include "quxlang/queries/output_unoptimized_llvm.hpp"
 #include "quxlang/queries/procedure_linksymbol.hpp"
 #include "quxlang/queries/static_test_vmir.hpp"
 #include "quxlang/queries/symboid.hpp"
@@ -614,11 +618,11 @@ namespace
     /**
      * Writes one textual LLVM IR file for qxc output.
      */
-    auto write_llvm_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
+    auto write_input_llvm_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
     {
-        std::filesystem::path const ir_path = quxlang::qxc_detail::make_llvm_output_path(build_dir, quxlang::mangle(functanoid_symbol));
+        std::filesystem::path const ir_path = quxlang::qxc_detail::make_input_llvm_output_path(build_dir, quxlang::mangle(functanoid_symbol));
         std::filesystem::create_directories(ir_path.parent_path());
-        std::string const symbol_comment = "; Qux symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
+        std::string const symbol_comment = "; Quxlang symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
 
         std::ofstream outfile(ir_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
@@ -637,36 +641,36 @@ namespace
     }
 
     /**
-     * Writes one optimized textual LLVM IR file for qxc output.
+     * Writes one final textual LLVM IR file for qxc output.
      */
-    auto write_optimized_llvm_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
+    auto write_final_llvm_text_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::string const& ir_text) -> std::filesystem::path
     {
-        std::filesystem::path const ir_path = quxlang::qxc_detail::make_optimized_llvm_output_path(build_dir, quxlang::mangle(functanoid_symbol));
+        std::filesystem::path const ir_path = quxlang::qxc_detail::make_final_llvm_output_path(build_dir, quxlang::mangle(functanoid_symbol));
         std::filesystem::create_directories(ir_path.parent_path());
-        std::string const symbol_comment = "; Qux symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
+        std::string const symbol_comment = "; Quxlang symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
 
         std::ofstream outfile(ir_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to open optimized LLVM output file: " + ir_path.string());
+            throw quxlang::compilation_error("Failed to open final LLVM output file: " + ir_path.string());
         }
 
         outfile.write(symbol_comment.data(), static_cast< std::streamsize >(symbol_comment.size()));
         outfile.write(ir_text.data(), static_cast< std::streamsize >(ir_text.size()));
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to write optimized LLVM output file: " + ir_path.string());
+            throw quxlang::compilation_error("Failed to write final LLVM output file: " + ir_path.string());
         }
 
         return ir_path;
     }
 
     /**
-     * Writes one LLVM object file for qxc output.
+     * Writes one input LLVM object file for qxc output.
      */
-    auto write_object_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::vector< std::byte > const& object_bytes) -> std::filesystem::path
+    auto write_input_object_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::vector< std::byte > const& object_bytes) -> std::filesystem::path
     {
-        std::filesystem::path const object_path = quxlang::qxc_detail::make_object_output_path(build_dir, quxlang::mangle(functanoid_symbol));
+        std::filesystem::path const object_path = quxlang::qxc_detail::make_input_object_output_path(build_dir, quxlang::mangle(functanoid_symbol));
         std::filesystem::create_directories(object_path.parent_path());
 
         std::ofstream outfile(object_path, std::ios::binary | std::ios::trunc);
@@ -685,24 +689,24 @@ namespace
     }
 
     /**
-     * Writes one optimized LLVM object file for qxc output.
+     * Writes one final LLVM object file for qxc output.
      */
-    auto write_optimized_object_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::vector< std::byte > const& object_bytes)
+    auto write_final_object_file(std::filesystem::path const& build_dir, quxlang::type_symbol const& functanoid_symbol, std::vector< std::byte > const& object_bytes)
         -> std::filesystem::path
     {
-        std::filesystem::path const object_path = quxlang::qxc_detail::make_optimized_object_output_path(build_dir, quxlang::mangle(functanoid_symbol));
+        std::filesystem::path const object_path = quxlang::qxc_detail::make_final_object_output_path(build_dir, quxlang::mangle(functanoid_symbol));
         std::filesystem::create_directories(object_path.parent_path());
 
         std::ofstream outfile(object_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to open optimized LLVM object output file: " + object_path.string());
+            throw quxlang::compilation_error("Failed to open final LLVM object output file: " + object_path.string());
         }
 
         outfile.write(reinterpret_cast< char const* >(object_bytes.data()), static_cast< std::streamsize >(object_bytes.size()));
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to write optimized LLVM object output file: " + object_path.string());
+            throw quxlang::compilation_error("Failed to write final LLVM object output file: " + object_path.string());
         }
 
         return object_path;
@@ -715,7 +719,7 @@ namespace
     {
         std::filesystem::path const asm_path = quxlang::qxc_detail::make_asm_source_output_path(build_dir, quxlang::mangle(functanoid_symbol));
         std::filesystem::create_directories(asm_path.parent_path());
-        std::string const symbol_comment = "# Qux symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
+        std::string const symbol_comment = "# Quxlang symbol: " + quxlang::to_string(functanoid_symbol) + "\n\n";
 
         std::ofstream outfile(asm_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
@@ -758,19 +762,19 @@ namespace
     }
 
     /**
-     * Writes one aggregated output-module LLVM IR file for qxc output.
+     * Writes one aggregated input output-module LLVM IR file for qxc output.
      */
-    auto write_output_module_llvm_text_file(
+    auto write_output_module_input_llvm_text_file(
         std::filesystem::path const& build_dir,
         std::string const& output_name,
         quxlang::type_symbol const& entry_symbol,
         std::string const& ir_text) -> std::filesystem::path
     {
-        std::filesystem::path const ir_path = quxlang::qxc_detail::make_output_module_llvm_output_path(build_dir, output_name);
+        std::filesystem::path const ir_path = quxlang::qxc_detail::make_output_module_input_llvm_output_path(build_dir, output_name);
         std::filesystem::create_directories(ir_path.parent_path());
         std::string const header_comment =
-            "; Qux output module: " + output_name + "\n"
-            "; Qux entry: " + quxlang::to_string(entry_symbol) + "\n\n";
+            "; Quxlang output module: " + output_name + "\n"
+            "; Quxlang entry: " + quxlang::to_string(entry_symbol) + "\n\n";
 
         std::ofstream outfile(ir_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
@@ -789,45 +793,45 @@ namespace
     }
 
     /**
-     * Writes one aggregated optimized output-module LLVM IR file for qxc output.
+     * Writes one aggregated final output-module LLVM IR file for qxc output.
      */
-    auto write_optimized_output_module_llvm_text_file(
+    auto write_output_module_final_llvm_text_file(
         std::filesystem::path const& build_dir,
         std::string const& output_name,
         quxlang::type_symbol const& entry_symbol,
         std::string const& ir_text) -> std::filesystem::path
     {
-        std::filesystem::path const ir_path = quxlang::qxc_detail::make_optimized_output_module_llvm_output_path(build_dir, output_name);
+        std::filesystem::path const ir_path = quxlang::qxc_detail::make_output_module_final_llvm_output_path(build_dir, output_name);
         std::filesystem::create_directories(ir_path.parent_path());
         std::string const header_comment =
-            "; Qux output module: " + output_name + "\n"
-            "; Qux entry: " + quxlang::to_string(entry_symbol) + "\n\n";
+            "; Quxlang output module: " + output_name + "\n"
+            "; Quxlang entry: " + quxlang::to_string(entry_symbol) + "\n\n";
 
         std::ofstream outfile(ir_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to open optimized output-module LLVM file: " + ir_path.string());
+            throw quxlang::compilation_error("Failed to open final output-module LLVM file: " + ir_path.string());
         }
 
         outfile.write(header_comment.data(), static_cast< std::streamsize >(header_comment.size()));
         outfile.write(ir_text.data(), static_cast< std::streamsize >(ir_text.size()));
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to write optimized output-module LLVM file: " + ir_path.string());
+            throw quxlang::compilation_error("Failed to write final output-module LLVM file: " + ir_path.string());
         }
 
         return ir_path;
     }
 
     /**
-     * Writes one aggregated output-module LLVM object file for qxc output.
+     * Writes one aggregated input output-module LLVM object file for qxc output.
      */
-    auto write_output_module_object_file(
+    auto write_output_module_input_object_file(
         std::filesystem::path const& build_dir,
         std::string const& output_name,
         std::vector< std::byte > const& object_bytes) -> std::filesystem::path
     {
-        std::filesystem::path const object_path = quxlang::qxc_detail::make_output_module_object_output_path(build_dir, output_name);
+        std::filesystem::path const object_path = quxlang::qxc_detail::make_output_module_input_object_output_path(build_dir, output_name);
         std::filesystem::create_directories(object_path.parent_path());
 
         std::ofstream outfile(object_path, std::ios::binary | std::ios::trunc);
@@ -878,26 +882,26 @@ namespace
     }
 
     /**
-     * Writes one aggregated optimized output-module LLVM object file for qxc output.
+     * Writes one aggregated final output-module LLVM object file for qxc output.
      */
-    auto write_optimized_output_module_object_file(
+    auto write_output_module_final_object_file(
         std::filesystem::path const& build_dir,
         std::string const& output_name,
         std::vector< std::byte > const& object_bytes) -> std::filesystem::path
     {
-        std::filesystem::path const object_path = quxlang::qxc_detail::make_optimized_output_module_object_output_path(build_dir, output_name);
+        std::filesystem::path const object_path = quxlang::qxc_detail::make_output_module_final_object_output_path(build_dir, output_name);
         std::filesystem::create_directories(object_path.parent_path());
 
         std::ofstream outfile(object_path, std::ios::binary | std::ios::trunc);
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to open optimized output-module LLVM object file: " + object_path.string());
+            throw quxlang::compilation_error("Failed to open final output-module LLVM object file: " + object_path.string());
         }
 
         outfile.write(reinterpret_cast< char const* >(object_bytes.data()), static_cast< std::streamsize >(object_bytes.size()));
         if (!outfile)
         {
-            throw quxlang::compilation_error("Failed to write optimized output-module LLVM object file: " + object_path.string());
+            throw quxlang::compilation_error("Failed to write final output-module LLVM object file: " + object_path.string());
         }
 
         return object_path;
@@ -1323,258 +1327,127 @@ int main(int argc, char** argv)
 
                 std::filesystem::create_directories(output_dir);
 
-                struct output_entry
+                std::map< std::string, quxlang::output_query_output > const outputs_to_compile =
+                    graph.make_request< quxlang::output_binaries_information_query >(std::monostate{});
+                std::set< quxlang::type_symbol > compiled_vmir2_routines;
+                std::set< quxlang::type_symbol > compiled_llvm_routines;
+                std::set< quxlang::type_symbol > compiled_asm_routines;
+                quxlang::llvm_backend::llvm_backend llvm_backend;
+                auto collect_routine_tree =
+                    [&](quxlang::type_symbol root_symbol,
+                        quxlang::vmir2::functanoid_routine3 const& root_routine,
+                        std::vector< quxlang::trace_frame > root_traceback,
+                        std::optional< quxlang::type_symbol > runtime_program_start) -> collected_routine_tree
                 {
-                    std::string output_name;
-                    std::string module_name;
-                    std::string main_functanoid;
-                    quxlang::output_kind type;
-                };
+                    std::vector< std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > > pending_functanoids;
+                    std::set< quxlang::type_symbol > queued_functanoids;
+                    std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > tree_routines;
+                    std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
+                    std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
+                    std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol > runtime_procedures;
+                    std::set< quxlang::type_symbol > object_references;
+                    quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
+                    tree_routines.emplace(root_symbol, root_routine);
 
-            std::vector< output_entry > outputs_to_compile;
-            if (!target_config.outputs.has_value())
-            {
-                outputs_to_compile.push_back(output_entry{
-                    .output_name = "default",
-                    .module_name = "main",
-                    .main_functanoid = "::main#()",
-                    .type = quxlang::output_kind::executable,
-                });
-            }
-            else
-            {
-                for (auto const& [output_name, output_config] : *target_config.outputs)
-                {
-                    outputs_to_compile.push_back(output_entry{
-                        .output_name = output_name,
-                        .module_name = output_config.module.value_or("main"),
-                        .main_functanoid = output_config.main_functanoid.value_or("::main#()"),
-                        .type = output_config.type,
-                    });
-                }
-            }
-
-            std::set< quxlang::type_symbol > compiled_vmir2_routines;
-            std::set< quxlang::type_symbol > compiled_llvm_routines;
-            std::set< quxlang::type_symbol > compiled_asm_routines;
-            quxlang::llvm_backend::llvm_backend llvm_backend;
-            auto collect_routine_tree =
-                [&](quxlang::type_symbol root_symbol,
-                    quxlang::vmir2::functanoid_routine3 const& root_routine,
-                    std::vector< quxlang::trace_frame > root_traceback,
-                    std::optional< quxlang::type_symbol > runtime_program_start) -> collected_routine_tree
-            {
-                std::vector< std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > > pending_functanoids;
-                std::set< quxlang::type_symbol > queued_functanoids;
-                std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 > tree_routines;
-                std::map< quxlang::type_symbol, quxlang::asm_callable > asm_callable_interfaces;
-                std::map< quxlang::type_symbol, quxlang::asm_procedure > asm_routines;
-                std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol > runtime_procedures;
-                std::set< quxlang::type_symbol > object_references;
-                quxlang::qxc_detail::llvm_inlining_dependency_graph dependency_graph;
-                tree_routines.emplace(root_symbol, root_routine);
-
-                struct pending_runtime_procedure_entry
-                {
-                    quxlang::llvm_backend::runtime_procedure_reference reference;
-                    quxlang::type_symbol caller;
-                    std::vector< quxlang::trace_frame > traceback;
-                };
-
-                auto enqueue_functanoid = [&](quxlang::instanciation_reference const& functanoid, std::vector< quxlang::trace_frame > traceback) -> void
-                {
-                    quxlang::type_symbol functanoid_symbol = functanoid;
-                    if (!queued_functanoids.insert(functanoid_symbol).second)
+                    struct pending_runtime_procedure_entry
                     {
-                        return;
-                    }
-                    pending_functanoids.push_back(std::make_pair(functanoid, std::move(traceback)));
-                };
-                std::vector< pending_runtime_procedure_entry > pending_runtime_procedures;
-                auto enqueue_runtime_procedure =
-                    [&](quxlang::llvm_backend::runtime_procedure_reference const& reference,
-                        quxlang::type_symbol const& caller,
-                        std::vector< quxlang::trace_frame > traceback) -> void
-                {
-                    pending_runtime_procedures.push_back(pending_runtime_procedure_entry{
-                        .reference = reference,
-                        .caller = caller,
-                        .traceback = std::move(traceback),
-                    });
-                };
-                auto enqueue_runtime_procedure_dependencies =
-                    [&](quxlang::type_symbol const& caller,
-                        quxlang::vmir2::functanoid_routine3 const& routine,
-                        std::vector< quxlang::trace_frame > const& traceback) -> void
-                {
-                    runtime_procedure_reference_locations const referenced_runtime_procedures = directly_referenced_runtime_procedure_locations(routine);
-                    for (std::pair< quxlang::llvm_backend::runtime_procedure_reference const, std::optional< quxlang::source_location > > const& referenced_runtime_procedure : referenced_runtime_procedures)
-                    {
-                        enqueue_runtime_procedure(
-                            referenced_runtime_procedure.first,
-                            caller,
-                            make_dependency_traceback(traceback, caller, referenced_runtime_procedure.second));
-                    }
-                };
+                        quxlang::llvm_backend::runtime_procedure_reference reference;
+                        quxlang::type_symbol caller;
+                        std::vector< quxlang::trace_frame > traceback;
+                    };
 
-                auto collect_asm_routine =
-                    [&](quxlang::type_symbol const& asm_symbol,
-                        quxlang::ast2_asm_procedure_declaration const& declaration,
-                        std::vector< quxlang::trace_frame > dependency_traceback) -> void
-                {
-                    quxlang::type_symbol asm_body_symbol = asm_symbol;
-                    if (asm_symbol.type_is< quxlang::instanciation_reference >())
+                    auto enqueue_functanoid = [&](quxlang::instanciation_reference const& functanoid, std::vector< quxlang::trace_frame > traceback) -> void
                     {
-                        asm_body_symbol = asm_symbol.get_as< quxlang::instanciation_reference >().temploid.templexoid;
-                    }
-
-                    if (asm_symbol.type_is< quxlang::instanciation_reference >() && !asm_callable_interfaces.contains(asm_symbol))
-                    {
-                        quxlang::asm_procedure selected_procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_symbol);
-                        if (!selected_procedure.callable_interface.has_value())
+                        quxlang::type_symbol functanoid_symbol = functanoid;
+                        if (!queued_functanoids.insert(functanoid_symbol).second)
                         {
-                            throw quxlang::compiler_bug("Selected asm procedure has no callable interface: " + quxlang::to_string(asm_symbol));
+                            return;
                         }
-                        asm_callable_interfaces.emplace(asm_symbol, *selected_procedure.callable_interface);
-                        dependency_graph[asm_symbol].insert(asm_body_symbol);
-                    }
-
-                    if (asm_routines.contains(asm_body_symbol))
+                        pending_functanoids.push_back(std::make_pair(functanoid, std::move(traceback)));
+                    };
+                    std::vector< pending_runtime_procedure_entry > pending_runtime_procedures;
+                    auto enqueue_runtime_procedure =
+                        [&](quxlang::llvm_backend::runtime_procedure_reference const& reference,
+                            quxlang::type_symbol const& caller,
+                            std::vector< quxlang::trace_frame > traceback) -> void
                     {
-                        return;
-                    }
-
-                    quxlang::asm_procedure procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_body_symbol);
-                    asm_routines.emplace(asm_body_symbol, std::move(procedure));
-
-                    functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, declaration);
-                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                        pending_runtime_procedures.push_back(pending_runtime_procedure_entry{
+                            .reference = reference,
+                            .caller = caller,
+                            .traceback = std::move(traceback),
+                        });
+                    };
+                    auto enqueue_runtime_procedure_dependencies =
+                        [&](quxlang::type_symbol const& caller,
+                            quxlang::vmir2::functanoid_routine3 const& routine,
+                            std::vector< quxlang::trace_frame > const& traceback) -> void
                     {
-                        quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
-                        if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
+                        runtime_procedure_reference_locations const referenced_runtime_procedures = directly_referenced_runtime_procedure_locations(routine);
+                        for (std::pair< quxlang::llvm_backend::runtime_procedure_reference const, std::optional< quxlang::source_location > > const& referenced_runtime_procedure : referenced_runtime_procedures)
                         {
-                            throw quxlang::compiler_bug("ASM dependency scan returned a non-instanciation reference: " + quxlang::to_string(referenced_symbol));
+                            enqueue_runtime_procedure(
+                                referenced_runtime_procedure.first,
+                                caller,
+                                make_dependency_traceback(traceback, caller, referenced_runtime_procedure.second));
                         }
-                        enqueue_functanoid(
-                            referenced_symbol.as< quxlang::instanciation_reference >(),
-                            make_dependency_traceback(dependency_traceback, asm_body_symbol, referenced_functanoid.second));
-                    }
-                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
-                    {
-                        dependency_graph[asm_body_symbol].insert(referenced_functanoid.first);
-                    }
+                    };
 
-                    object_reference_locations const referenced_objects = directly_referenced_object_locations(graph, asm_body_symbol, declaration);
-                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_object : referenced_objects)
+                    auto collect_asm_routine =
+                        [&](quxlang::type_symbol const& asm_symbol,
+                            quxlang::ast2_asm_procedure_declaration const& declaration,
+                            std::vector< quxlang::trace_frame > dependency_traceback) -> void
                     {
-                        object_references.insert(referenced_object.first);
-                    }
-                };
-
-                functanoid_reference_locations const root_dependencies = directly_referenced_functanoid_locations(graph, root_routine);
-                for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
-                {
-                    quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
-                    if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
-                    {
-                        throw quxlang::compiler_bug("VMIR2 dependency scan returned a non-instanciation reference: " + quxlang::to_string(referenced_symbol));
-                    }
-                    enqueue_functanoid(
-                        referenced_symbol.as< quxlang::instanciation_reference >(),
-                        make_dependency_traceback(root_traceback, root_symbol, referenced_functanoid.second));
-                }
-                for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
-                {
-                    dependency_graph[root_symbol].insert(referenced_functanoid.first);
-                }
-                enqueue_runtime_procedure_dependencies(root_symbol, root_routine, root_traceback);
-
-                if (runtime_program_start.has_value())
-                {
-                    quxlang::ast2_symboid const symboid = graph.make_request< quxlang::symboid_query >(*runtime_program_start);
-                    if (!symboid.type_is< quxlang::ast2_asm_procedure_declaration >())
-                    {
-                        throw quxlang::compiler_bug("Runtime PROGRAM_START was not an ASM_PROCEDURE after qxc resolved it");
-                    }
-                    collect_asm_routine(*runtime_program_start, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), {});
-                }
-
-                while (!pending_functanoids.empty() || !pending_runtime_procedures.empty())
-                {
-                    while (!pending_runtime_procedures.empty())
-                    {
-                        pending_runtime_procedure_entry pending_runtime_procedure = std::move(pending_runtime_procedures.back());
-                        pending_runtime_procedures.pop_back();
-
-                        std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol >::const_iterator const existing_runtime =
-                            runtime_procedures.find(pending_runtime_procedure.reference);
-                        quxlang::type_symbol runtime_symbol;
-                        if (existing_runtime == runtime_procedures.end())
+                        quxlang::type_symbol asm_body_symbol = asm_symbol;
+                        if (asm_symbol.type_is< quxlang::instanciation_reference >())
                         {
-                            runtime_symbol = resolve_runtime_procedure_symbol(graph, target_config, pending_runtime_procedure.reference);
-                            runtime_procedures.emplace(pending_runtime_procedure.reference, runtime_symbol);
-                        }
-                        else
-                        {
-                            runtime_symbol = existing_runtime->second;
+                            asm_body_symbol = asm_symbol.get_as< quxlang::instanciation_reference >().temploid.templexoid;
                         }
 
-                        dependency_graph[pending_runtime_procedure.caller].insert(runtime_symbol);
-                        if (!runtime_symbol.type_is< quxlang::instanciation_reference >())
+                        if (asm_symbol.type_is< quxlang::instanciation_reference >() && !asm_callable_interfaces.contains(asm_symbol))
                         {
-                            throw quxlang::compiler_bug("Runtime procedure did not resolve to a functanoid: " + quxlang::to_string(runtime_symbol));
+                            quxlang::asm_procedure selected_procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_symbol);
+                            if (!selected_procedure.callable_interface.has_value())
+                            {
+                                throw quxlang::compiler_bug("Selected asm procedure has no callable interface: " + quxlang::to_string(asm_symbol));
+                            }
+                            asm_callable_interfaces.emplace(asm_symbol, *selected_procedure.callable_interface);
+                            dependency_graph[asm_symbol].insert(asm_body_symbol);
                         }
-                        enqueue_functanoid(runtime_symbol.as< quxlang::instanciation_reference >(), std::move(pending_runtime_procedure.traceback));
-                    }
-                    if (pending_functanoids.empty())
-                    {
-                        continue;
-                    }
 
-                    std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > pending_functanoid = std::move(pending_functanoids.back());
-                    pending_functanoids.pop_back();
+                        if (asm_routines.contains(asm_body_symbol))
+                        {
+                            return;
+                        }
 
-                    quxlang::instanciation_reference functanoid = std::move(pending_functanoid.first);
-                    std::vector< quxlang::trace_frame > dependency_traceback = std::move(pending_functanoid.second);
-                    quxlang::type_symbol functanoid_symbol = functanoid;
-                    if (tree_routines.contains(functanoid_symbol) || asm_callable_interfaces.contains(functanoid_symbol))
-                    {
-                        continue;
-                    }
+                        quxlang::asm_procedure procedure = graph.make_request< quxlang::asm_procedure_from_symbol_query >(asm_body_symbol);
+                        asm_routines.emplace(asm_body_symbol, std::move(procedure));
 
-                    if (verbose)
-                    {
-                        std::cout << "Compiling VMIR2 function: " << quxlang::to_string(functanoid_symbol) << std::endl;
-                    }
+                        functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, declaration);
+                        for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                        {
+                            quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
+                            if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
+                            {
+                                throw quxlang::compiler_bug("ASM dependency scan returned a non-instanciation reference: " + quxlang::to_string(referenced_symbol));
+                            }
+                            enqueue_functanoid(
+                                referenced_symbol.as< quxlang::instanciation_reference >(),
+                                make_dependency_traceback(dependency_traceback, asm_body_symbol, referenced_functanoid.second));
+                        }
+                        for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                        {
+                            dependency_graph[asm_body_symbol].insert(referenced_functanoid.first);
+                        }
 
-                    quxlang::type_symbol asm_declaration_symbol = functanoid_symbol;
-                    if (functanoid_symbol.type_is< quxlang::instanciation_reference >())
-                    {
-                        asm_declaration_symbol = functanoid_symbol.get_as< quxlang::instanciation_reference >().temploid.templexoid;
-                    }
+                        object_reference_locations const referenced_objects = directly_referenced_object_locations(graph, asm_body_symbol, declaration);
+                        for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_object : referenced_objects)
+                        {
+                            object_references.insert(referenced_object.first);
+                        }
+                    };
 
-                    quxlang::ast2_symboid const symboid = graph.make_request< quxlang::symboid_query >(asm_declaration_symbol);
-                    if (symboid.type_is< quxlang::ast2_asm_procedure_declaration >())
-                    {
-                        collect_asm_routine(functanoid_symbol, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), std::move(dependency_traceback));
-                        continue;
-                    }
-
-                    quxlang::vmir2::functanoid_routine3 procedure;
-                    try
-                    {
-                        procedure = graph.make_request< quxlang::vm_procedure3_query >(functanoid);
-                    }
-                    catch (quxlang::compilation_error& error)
-                    {
-                        error.traceback.insert(error.traceback.end(), dependency_traceback.begin(), dependency_traceback.end());
-                        throw;
-                    }
-
-                    tree_routines.emplace(functanoid_symbol, procedure);
-
-                    functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, procedure);
-                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                    functanoid_reference_locations const root_dependencies = directly_referenced_functanoid_locations(graph, root_routine);
+                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
                     {
                         quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
                         if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
@@ -1583,274 +1456,343 @@ int main(int argc, char** argv)
                         }
                         enqueue_functanoid(
                             referenced_symbol.as< quxlang::instanciation_reference >(),
-                            make_dependency_traceback(dependency_traceback, functanoid_symbol, referenced_functanoid.second));
+                            make_dependency_traceback(root_traceback, root_symbol, referenced_functanoid.second));
                     }
-                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                    for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : root_dependencies)
                     {
-                        dependency_graph[functanoid_symbol].insert(referenced_functanoid.first);
+                        dependency_graph[root_symbol].insert(referenced_functanoid.first);
                     }
-                    enqueue_runtime_procedure_dependencies(functanoid_symbol, procedure, dependency_traceback);
-                }
+                    enqueue_runtime_procedure_dependencies(root_symbol, root_routine, root_traceback);
 
-                collected_routine_tree result;
-                result.routines = std::move(tree_routines);
-                result.asm_callable_interfaces = std::move(asm_callable_interfaces);
-                result.asm_routines = std::move(asm_routines);
-                result.runtime_procedures = std::move(runtime_procedures);
-                result.object_references = std::move(object_references);
-                result.dependency_graph = std::move(dependency_graph);
-                result.support = build_llvm_packet_support_data(graph, target_config.target_output_config, result.routines, result.object_references);
-                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : result.routines)
-                {
-                    quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
-                    result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
-                }
-                for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& routine_entry : result.asm_routines)
-                {
-                    quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
-                    result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
-                }
-                for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& routine_entry : result.asm_callable_interfaces)
-                {
-                    quxlang::type_symbol asm_body_symbol = routine_entry.first;
-                    if (routine_entry.first.type_is< quxlang::instanciation_reference >())
+                    if (runtime_program_start.has_value())
                     {
-                        asm_body_symbol = routine_entry.first.get_as< quxlang::instanciation_reference >().temploid.templexoid;
-                    }
-                    quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = asm_body_symbol};
-                    result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
-                }
-                return result;
-            };
-
-            auto emit_routine_tree =
-                [&](collected_routine_tree const& tree) -> void
-            {
-                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : tree.routines)
-                {
-                    quxlang::type_symbol const& routine_symbol = routine_entry.first;
-                    quxlang::vmir2::functanoid_routine3 const& routine = routine_entry.second;
-                    if (compiled_vmir2_routines.contains(routine_symbol))
-                    {
-                        continue;
+                        quxlang::ast2_symboid const symboid = graph.make_request< quxlang::symboid_query >(*runtime_program_start);
+                        if (!symboid.type_is< quxlang::ast2_asm_procedure_declaration >())
+                        {
+                            throw quxlang::compiler_bug("Runtime PROGRAM_START was not an ASM_PROCEDURE after qxc resolved it");
+                        }
+                        collect_asm_routine(*runtime_program_start, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), {});
                     }
 
-                    quxlang::vmir2::assembler assembler(routine, *source_index);
-                    std::string const vmir_text = assembler.to_string(routine);
-                    std::filesystem::path const vmir_path = write_vmir2_text_file(build_dir, routine_symbol, vmir_text);
-                    if (verbose)
+                    while (!pending_functanoids.empty() || !pending_runtime_procedures.empty())
                     {
-                        std::cout << "Wrote VMIR2: " << quxlang::to_string(routine_symbol) << " -> " << vmir_path.string() << std::endl;
-                    }
-                    compiled_vmir2_routines.insert(routine_symbol);
-                }
+                        while (!pending_runtime_procedures.empty())
+                        {
+                            pending_runtime_procedure_entry pending_runtime_procedure = std::move(pending_runtime_procedures.back());
+                            pending_runtime_procedures.pop_back();
 
-                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : tree.routines)
-                {
-                    quxlang::type_symbol const& routine_symbol = routine_entry.first;
-                    quxlang::vmir2::functanoid_routine3 const& routine = routine_entry.second;
-                    if (compiled_llvm_routines.contains(routine_symbol))
-                    {
-                        continue;
-                    }
+                            std::map< quxlang::llvm_backend::runtime_procedure_reference, quxlang::type_symbol >::const_iterator const existing_runtime =
+                                runtime_procedures.find(pending_runtime_procedure.reference);
+                            quxlang::type_symbol runtime_symbol;
+                            if (existing_runtime == runtime_procedures.end())
+                            {
+                                runtime_symbol = resolve_runtime_procedure_symbol(graph, target_config, pending_runtime_procedure.reference);
+                                runtime_procedures.emplace(pending_runtime_procedure.reference, runtime_symbol);
+                            }
+                            else
+                            {
+                                runtime_symbol = existing_runtime->second;
+                            }
 
-                    quxlang::llvm_backend::llvm_compilable_unit compilable_unit;
-                    compilable_unit.target_name = routine_symbol;
-                    compilable_unit.target_code = routine;
-                    compilable_unit.machine_target.machine = target_config.target_output_config;
-                    compilable_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
-                    compilable_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
-                    compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
-                    compilable_unit.runtime_procedures = tree.runtime_procedures;
-                    compilable_unit.object_reference_types = tree.support.object_reference_types;
-                    compilable_unit.antestatal_constants = tree.support.antestatal_constants;
-                    compilable_unit.global_init_types = tree.support.global_init_types;
-                    compilable_unit.interface_slots = tree.support.interface_slots;
-                    compilable_unit.enum_infos = tree.support.enum_infos;
-                    compilable_unit.flagset_infos = tree.support.flagset_infos;
-                    compilable_unit.class_layouts = tree.support.class_layouts;
-                    compilable_unit.type_placements = tree.support.type_placements;
-
-                    std::set< quxlang::type_symbol > const inlinable_symbols =
-                        quxlang::qxc_detail::collect_potentially_inlinable_functanoids(tree.dependency_graph, routine_symbol);
-
-                    for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
-                    {
-                        std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 >::const_iterator helper_iter = tree.routines.find(helper_symbol);
-                        if (helper_iter == tree.routines.end())
+                            dependency_graph[pending_runtime_procedure.caller].insert(runtime_symbol);
+                            if (!runtime_symbol.type_is< quxlang::instanciation_reference >())
+                            {
+                                throw quxlang::compiler_bug("Runtime procedure did not resolve to a functanoid: " + quxlang::to_string(runtime_symbol));
+                            }
+                            enqueue_functanoid(runtime_symbol.as< quxlang::instanciation_reference >(), std::move(pending_runtime_procedure.traceback));
+                        }
+                        if (pending_functanoids.empty())
                         {
                             continue;
                         }
-                        compilable_unit.inlinable_functions.insert(*helper_iter);
-                    }
-                    for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
-                    {
-                        std::map< quxlang::type_symbol, quxlang::asm_callable >::const_iterator helper_iter = tree.asm_callable_interfaces.find(helper_symbol);
-                        if (helper_iter == tree.asm_callable_interfaces.end())
+
+                        std::pair< quxlang::instanciation_reference, std::vector< quxlang::trace_frame > > pending_functanoid = std::move(pending_functanoids.back());
+                        pending_functanoids.pop_back();
+
+                        quxlang::instanciation_reference functanoid = std::move(pending_functanoid.first);
+                        std::vector< quxlang::trace_frame > dependency_traceback = std::move(pending_functanoid.second);
+                        quxlang::type_symbol functanoid_symbol = functanoid;
+                        if (tree_routines.contains(functanoid_symbol) || asm_callable_interfaces.contains(functanoid_symbol))
                         {
                             continue;
                         }
-                        compilable_unit.asm_callable_interfaces.insert(*helper_iter);
+
+                        if (verbose)
+                        {
+                            std::cout << "Compiling VMIR2 function: " << quxlang::to_string(functanoid_symbol) << std::endl;
+                        }
+
+                        quxlang::type_symbol asm_declaration_symbol = functanoid_symbol;
+                        if (functanoid_symbol.type_is< quxlang::instanciation_reference >())
+                        {
+                            asm_declaration_symbol = functanoid_symbol.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+                        }
+
+                        quxlang::ast2_symboid const symboid = graph.make_request< quxlang::symboid_query >(asm_declaration_symbol);
+                        if (symboid.type_is< quxlang::ast2_asm_procedure_declaration >())
+                        {
+                            collect_asm_routine(functanoid_symbol, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), std::move(dependency_traceback));
+                            continue;
+                        }
+
+                        quxlang::vmir2::functanoid_routine3 procedure;
+                        try
+                        {
+                            procedure = graph.make_request< quxlang::vm_procedure3_query >(functanoid);
+                        }
+                        catch (quxlang::compilation_error& error)
+                        {
+                            error.traceback.insert(error.traceback.end(), dependency_traceback.begin(), dependency_traceback.end());
+                            throw;
+                        }
+
+                        tree_routines.emplace(functanoid_symbol, procedure);
+
+                        functanoid_reference_locations const referenced_functanoids = directly_referenced_functanoid_locations(graph, procedure);
+                        for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                        {
+                            quxlang::type_symbol const& referenced_symbol = referenced_functanoid.first;
+                            if (!referenced_symbol.type_is< quxlang::instanciation_reference >())
+                            {
+                                throw quxlang::compiler_bug("VMIR2 dependency scan returned a non-instanciation reference: " + quxlang::to_string(referenced_symbol));
+                            }
+                            enqueue_functanoid(
+                                referenced_symbol.as< quxlang::instanciation_reference >(),
+                                make_dependency_traceback(dependency_traceback, functanoid_symbol, referenced_functanoid.second));
+                        }
+                        for (std::pair< quxlang::type_symbol const, std::optional< quxlang::source_location > > const& referenced_functanoid : referenced_functanoids)
+                        {
+                            dependency_graph[functanoid_symbol].insert(referenced_functanoid.first);
+                        }
+                        enqueue_runtime_procedure_dependencies(functanoid_symbol, procedure, dependency_traceback);
                     }
-                    for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
+
+                    collected_routine_tree result;
+                    result.routines = std::move(tree_routines);
+                    result.asm_callable_interfaces = std::move(asm_callable_interfaces);
+                    result.asm_routines = std::move(asm_routines);
+                    result.runtime_procedures = std::move(runtime_procedures);
+                    result.object_references = std::move(object_references);
+                    result.dependency_graph = std::move(dependency_graph);
+                    result.support = build_llvm_packet_support_data(graph, target_config.target_output_config, result.routines, result.object_references);
+                    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : result.routines)
                     {
-                        std::map< quxlang::type_symbol, quxlang::asm_procedure >::const_iterator helper_iter = tree.asm_routines.find(helper_symbol);
-                        if (helper_iter == tree.asm_routines.end())
+                        quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
+                        result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
+                    }
+                    for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& routine_entry : result.asm_routines)
+                    {
+                        quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = routine_entry.first};
+                        result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
+                    }
+                    for (std::pair< quxlang::type_symbol const, quxlang::asm_callable > const& routine_entry : result.asm_callable_interfaces)
+                    {
+                        quxlang::type_symbol asm_body_symbol = routine_entry.first;
+                        if (routine_entry.first.type_is< quxlang::instanciation_reference >())
+                        {
+                            asm_body_symbol = routine_entry.first.get_as< quxlang::instanciation_reference >().temploid.templexoid;
+                        }
+                        quxlang::ast2_procedure_ref procedure_ref{.cc = "", .functanoid = asm_body_symbol};
+                        result.support.procedure_linksymbols.emplace(routine_entry.first, graph.make_request< quxlang::procedure_linksymbol_query >(procedure_ref));
+                    }
+                    return result;
+                };
+
+                auto emit_routine_tree =
+                    [&](collected_routine_tree const& tree) -> void
+                {
+                    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : tree.routines)
+                    {
+                        quxlang::type_symbol const& routine_symbol = routine_entry.first;
+                        quxlang::vmir2::functanoid_routine3 const& routine = routine_entry.second;
+                        if (compiled_vmir2_routines.contains(routine_symbol))
                         {
                             continue;
                         }
-                        compilable_unit.asm_functions.insert(*helper_iter);
+
+                        quxlang::vmir2::assembler assembler(routine, *source_index);
+                        std::string const vmir_text = assembler.to_string(routine);
+                        std::filesystem::path const vmir_path = write_vmir2_text_file(build_dir, routine_symbol, vmir_text);
+                        if (verbose)
+                        {
+                            std::cout << "Wrote VMIR2: " << quxlang::to_string(routine_symbol) << " -> " << vmir_path.string() << std::endl;
+                        }
+                        compiled_vmir2_routines.insert(routine_symbol);
                     }
 
-                    quxlang::llvm_backend::llvm_compiled_unit const llvm_unit = llvm_backend.compile(compilable_unit);
-                    std::filesystem::path const llvm_path = write_llvm_text_file(build_dir, routine_symbol, llvm_unit.llvm_ir_text);
-                    std::filesystem::path const optimized_llvm_path = write_optimized_llvm_text_file(build_dir, routine_symbol, llvm_unit.optimized_llvm_ir_text);
-                    std::filesystem::path const object_path = write_object_file(build_dir, routine_symbol, llvm_unit.object_file);
-                    std::filesystem::path const optimized_object_path = write_optimized_object_file(build_dir, routine_symbol, llvm_unit.optimized_object_file);
+                    for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : tree.routines)
+                    {
+                        quxlang::type_symbol const& routine_symbol = routine_entry.first;
+                        quxlang::vmir2::functanoid_routine3 const& routine = routine_entry.second;
+                        if (compiled_llvm_routines.contains(routine_symbol))
+                        {
+                            continue;
+                        }
+
+                        quxlang::llvm_backend::llvm_compilable_unit compilable_unit;
+                        compilable_unit.target_name = routine_symbol;
+                        compilable_unit.target_code = routine;
+                        compilable_unit.machine_target.machine = target_config.target_output_config;
+                        compilable_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
+                        compilable_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
+                        compilable_unit.procedure_linksymbols = tree.support.procedure_linksymbols;
+                        compilable_unit.runtime_procedures = tree.runtime_procedures;
+                        compilable_unit.object_reference_types = tree.support.object_reference_types;
+                        compilable_unit.antestatal_constants = tree.support.antestatal_constants;
+                        compilable_unit.global_init_types = tree.support.global_init_types;
+                        compilable_unit.interface_slots = tree.support.interface_slots;
+                        compilable_unit.enum_infos = tree.support.enum_infos;
+                        compilable_unit.flagset_infos = tree.support.flagset_infos;
+                        compilable_unit.class_layouts = tree.support.class_layouts;
+                        compilable_unit.type_placements = tree.support.type_placements;
+
+                        std::set< quxlang::type_symbol > const inlinable_symbols =
+                            quxlang::qxc_detail::collect_potentially_inlinable_functanoids(tree.dependency_graph, routine_symbol);
+
+                        for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
+                        {
+                            std::map< quxlang::type_symbol, quxlang::vmir2::functanoid_routine3 >::const_iterator helper_iter = tree.routines.find(helper_symbol);
+                            if (helper_iter == tree.routines.end())
+                            {
+                                continue;
+                            }
+                            compilable_unit.inlinable_functions.insert(*helper_iter);
+                        }
+                        for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
+                        {
+                            std::map< quxlang::type_symbol, quxlang::asm_callable >::const_iterator helper_iter = tree.asm_callable_interfaces.find(helper_symbol);
+                            if (helper_iter == tree.asm_callable_interfaces.end())
+                            {
+                                continue;
+                            }
+                            compilable_unit.asm_callable_interfaces.insert(*helper_iter);
+                        }
+                        for (quxlang::type_symbol const& helper_symbol : inlinable_symbols)
+                        {
+                            std::map< quxlang::type_symbol, quxlang::asm_procedure >::const_iterator helper_iter = tree.asm_routines.find(helper_symbol);
+                            if (helper_iter == tree.asm_routines.end())
+                            {
+                                continue;
+                            }
+                            compilable_unit.asm_functions.insert(*helper_iter);
+                        }
+
+                        quxlang::llvm_backend::llvm_compiled_unit const llvm_unit = llvm_backend.compile(compilable_unit);
+                        std::filesystem::path const input_llvm_path = write_input_llvm_text_file(build_dir, routine_symbol, llvm_unit.llvm_ir_text);
+                        std::filesystem::path const final_llvm_path = write_final_llvm_text_file(build_dir, routine_symbol, llvm_unit.optimized_llvm_ir_text);
+                        std::filesystem::path const input_object_path = write_input_object_file(build_dir, routine_symbol, llvm_unit.object_file);
+                        std::filesystem::path const final_object_path = write_final_object_file(build_dir, routine_symbol, llvm_unit.optimized_object_file);
+                        if (verbose)
+                        {
+                            std::cout << "Wrote input functanoid LLVM: " << quxlang::to_string(routine_symbol) << " -> " << input_llvm_path.string() << std::endl;
+                            std::cout << "Wrote final functanoid LLVM: " << quxlang::to_string(routine_symbol) << " -> " << final_llvm_path.string() << std::endl;
+                            std::cout << "Wrote input functanoid LLVM object: " << quxlang::to_string(routine_symbol) << " -> " << input_object_path.string() << std::endl;
+                            std::cout << "Wrote final functanoid LLVM object: " << quxlang::to_string(routine_symbol) << " -> " << final_object_path.string() << std::endl;
+                        }
+
+                        compiled_llvm_routines.insert(routine_symbol);
+                    }
+
+                    for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& routine_entry : tree.asm_routines)
+                    {
+                        quxlang::type_symbol const& routine_symbol = routine_entry.first;
+                        if (compiled_asm_routines.contains(routine_symbol))
+                        {
+                            continue;
+                        }
+
+                        quxlang::llvm_backend::llvm_assembled_procedure const assembled =
+                            llvm_backend.assemble(
+                                quxlang::llvm_backend::llvm_compilation_target{
+                                    .machine = target_config.target_output_config,
+                                    .optimization = quxlang::llvm_backend::optimization_level::debug,
+                                },
+                                routine_entry.second);
+                        std::filesystem::path const asm_path = write_asm_source_file(build_dir, routine_symbol, assembled.assembly_text);
+                        std::filesystem::path const asm_object_path = write_asm_object_file(build_dir, routine_symbol, assembled.object_file);
+                        if (verbose)
+                        {
+                            std::cout << "Wrote asm source: " << quxlang::to_string(routine_symbol) << " -> " << asm_path.string() << std::endl;
+                            std::cout << "Wrote asm object: " << quxlang::to_string(routine_symbol) << " -> " << asm_object_path.string() << std::endl;
+                        }
+
+                        compiled_asm_routines.insert(routine_symbol);
+                    }
+                };
+
+                for (auto const& [module_name, _] : target_config.module_configurations)
+                {
+                    quxlang::type_symbol const module_symbol = quxlang::absolute_module_reference{.module_name = module_name};
+                    std::set< quxlang::type_symbol > const static_tests = graph.make_request< quxlang::list_static_tests_query >(module_symbol);
+                    for (quxlang::type_symbol const& static_test_symbol : static_tests)
+                    {
+                        auto sym = graph.make_request< quxlang::symboid_query >(static_test_symbol);
+                        if (!sym.type_is< quxlang::ast2_static_test >())
+                        {
+                            throw quxlang::compiler_bug("list_static_tests returned a non-static-test symbol: " + quxlang::to_string(static_test_symbol));
+                        }
+
+                        quxlang::ast2_static_test const& static_test_decl = sym.get_as< quxlang::ast2_static_test >();
+                        if (static_test_decl.expected_mode == quxlang::static_test_expected_mode::expect_compilation_failure)
+                        {
+                            continue;
+                        }
+
+                        if (verbose)
+                        {
+                            std::cout << "Compiling STATIC_TEST VMIR2: " << quxlang::to_string(static_test_symbol) << std::endl;
+                        }
+
+                        quxlang::vmir2::functanoid_routine3 static_test_routine = graph.make_request< quxlang::static_test_vmir_query >(static_test_symbol);
+                        emit_routine_tree(collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt));
+                    }
+                }
+
+                std::optional< quxlang::type_symbol > const runtime_program_start = try_resolve_runtime_program_start(graph, target_config);
+
+                for (std::pair< std::string const, quxlang::output_query_output > const& output_pair : outputs_to_compile)
+                {
+                    quxlang::output_query_output const& output_entry = output_pair.second;
+                    if (!target_config.module_configurations.contains(output_entry.module_name))
+                    {
+                        throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + output_entry.module_name + "'");
+                    }
+
                     if (verbose)
                     {
-                        std::cout << "Wrote LLVM: " << quxlang::to_string(routine_symbol) << " -> " << llvm_path.string() << std::endl;
-                        std::cout << "Wrote optimized LLVM: " << quxlang::to_string(routine_symbol) << " -> " << optimized_llvm_path.string() << std::endl;
-                        std::cout << "Wrote LLVM object: " << quxlang::to_string(routine_symbol) << " -> " << object_path.string() << std::endl;
-                        std::cout << "Wrote optimized LLVM object: " << quxlang::to_string(routine_symbol) << " -> " << optimized_object_path.string() << std::endl;
+                        std::cout << "Compiling VMIR2 output: " << target_name << "/" << output_entry.output_name << std::endl;
                     }
 
-                    compiled_llvm_routines.insert(routine_symbol);
-                }
-
-                for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& routine_entry : tree.asm_routines)
-                {
-                    quxlang::type_symbol const& routine_symbol = routine_entry.first;
-                    if (compiled_asm_routines.contains(routine_symbol))
+                    quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_name, output_entry.main_functanoid);
+                    if (output_entry.type == quxlang::output_kind::executable)
                     {
-                        continue;
+                        validate_executable_entry_signature(graph, entry_functanoid);
                     }
+                    quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
+                    collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start);
+                    emit_routine_tree(output_tree);
 
-                    quxlang::llvm_backend::llvm_assembled_procedure const assembled =
-                        llvm_backend.assemble(
-                            quxlang::llvm_backend::llvm_compilation_target{
-                                .machine = target_config.target_output_config,
-                                .optimization = quxlang::llvm_backend::optimization_level::debug,
-                            },
-                            routine_entry.second);
-                    std::filesystem::path const asm_path = write_asm_source_file(build_dir, routine_symbol, assembled.assembly_text);
-                    std::filesystem::path const asm_object_path = write_asm_object_file(build_dir, routine_symbol, assembled.object_file);
+                    std::string const input_output_module_llvm = graph.make_request< quxlang::output_unoptimized_llvm_query >(output_entry.output_name);
+                    std::string const final_output_module_llvm = graph.make_request< quxlang::output_optimized_llvm_query >(output_entry.output_name);
+                    quxlang::llvm_backend::llvm_compiled_unit const output_module = graph.make_request< quxlang::llvm_compiled_output_query >(output_entry.output_name);
+                    std::filesystem::path const input_output_module_path =
+                        write_output_module_input_llvm_text_file(build_dir, output_entry.output_name, entry_functanoid, input_output_module_llvm);
+                    std::filesystem::path const final_output_module_path =
+                        write_output_module_final_llvm_text_file(build_dir, output_entry.output_name, entry_functanoid, final_output_module_llvm);
+                    std::filesystem::path const input_output_module_object_path =
+                        write_output_module_input_object_file(build_dir, output_entry.output_name, output_module.object_file);
+                    std::filesystem::path const final_output_module_object_path =
+                        write_output_module_final_object_file(build_dir, output_entry.output_name, output_module.optimized_object_file);
                     if (verbose)
                     {
-                        std::cout << "Wrote asm source: " << quxlang::to_string(routine_symbol) << " -> " << asm_path.string() << std::endl;
-                        std::cout << "Wrote asm object: " << quxlang::to_string(routine_symbol) << " -> " << asm_object_path.string() << std::endl;
+                        std::cout << "Wrote input output-module LLVM: " << target_name << "/" << output_entry.output_name << " -> " << input_output_module_path.string() << std::endl;
+                        std::cout << "Wrote final output-module LLVM: " << target_name << "/" << output_entry.output_name << " -> " << final_output_module_path.string() << std::endl;
+                        std::cout << "Wrote input output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << input_output_module_object_path.string() << std::endl;
+                        std::cout << "Wrote final output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << final_output_module_object_path.string() << std::endl;
                     }
 
-                    compiled_asm_routines.insert(routine_symbol);
                 }
-            };
-
-            for (auto const& [module_name, _] : target_config.module_configurations)
-            {
-                quxlang::type_symbol const module_symbol = quxlang::absolute_module_reference{.module_name = module_name};
-                std::set< quxlang::type_symbol > const static_tests = graph.make_request< quxlang::list_static_tests_query >(module_symbol);
-                for (quxlang::type_symbol const& static_test_symbol : static_tests)
-                {
-                    auto sym = graph.make_request< quxlang::symboid_query >(static_test_symbol);
-                    if (!sym.type_is< quxlang::ast2_static_test >())
-                    {
-                        throw quxlang::compiler_bug("list_static_tests returned a non-static-test symbol: " + quxlang::to_string(static_test_symbol));
-                    }
-
-                    quxlang::ast2_static_test const& static_test_decl = sym.get_as< quxlang::ast2_static_test >();
-                    if (static_test_decl.expected_mode == quxlang::static_test_expected_mode::expect_compilation_failure)
-                    {
-                        continue;
-                    }
-
-                    if (verbose)
-                    {
-                        std::cout << "Compiling STATIC_TEST VMIR2: " << quxlang::to_string(static_test_symbol) << std::endl;
-                    }
-
-                    quxlang::vmir2::functanoid_routine3 static_test_routine = graph.make_request< quxlang::static_test_vmir_query >(static_test_symbol);
-                    emit_routine_tree(collect_routine_tree(static_test_symbol, static_test_routine, {}, std::nullopt));
-                }
-            }
-
-            std::optional< quxlang::type_symbol > const runtime_program_start = try_resolve_runtime_program_start(graph, target_config);
-
-            for (output_entry const& output_entry : outputs_to_compile)
-            {
-                if (!target_config.module_configurations.contains(output_entry.module_name))
-                {
-                    throw quxlang::semantic_compilation_error("Target '" + target_name + "' output '" + output_entry.output_name + "' references unknown module '" + output_entry.module_name + "'");
-                }
-
-                if (verbose)
-                {
-                    std::cout << "Compiling VMIR2 output: " << target_name << "/" << output_entry.output_name << std::endl;
-                }
-
-                quxlang::instanciation_reference entry_functanoid = resolve_entry_functanoid(graph, output_entry.module_name, output_entry.main_functanoid);
-                if (output_entry.type == quxlang::output_kind::executable)
-                {
-                    validate_executable_entry_signature(graph, entry_functanoid);
-                }
-                quxlang::vmir2::functanoid_routine3 entry_routine = graph.make_request< quxlang::vm_procedure3_query >(entry_functanoid);
-                collected_routine_tree const output_tree = collect_routine_tree(entry_functanoid, entry_routine, {}, runtime_program_start);
-                emit_routine_tree(output_tree);
-
-                quxlang::llvm_backend::llvm_compilable_unit output_module_unit;
-                output_module_unit.target_name = entry_functanoid;
-                output_module_unit.target_code = entry_routine;
-                output_module_unit.machine_target.machine = target_config.target_output_config;
-                output_module_unit.machine_target.optimization = quxlang::llvm_backend::optimization_level::debug;
-                output_module_unit.whole_module = true;
-                output_module_unit.whole_module_output_kind = output_entry.type;
-                std::optional< std::string > executable_entry_symbol;
-                if (runtime_program_start.has_value() && output_entry.type == quxlang::output_kind::executable && target_config.target_output_config.os_type == quxlang::os::linux &&
-                    target_config.target_output_config.binary_type == quxlang::binary::elf)
-                {
-                    executable_entry_symbol = quxlang::mangle(*runtime_program_start);
-                    output_module_unit.executable_entry_symbol = executable_entry_symbol;
-                }
-                output_module_unit.source_index = rpnx::cow< quxlang::vmir2::source_index >(*source_index);
-                output_module_unit.procedure_linksymbols = output_tree.support.procedure_linksymbols;
-                output_module_unit.runtime_procedures = output_tree.runtime_procedures;
-                output_module_unit.object_reference_types = output_tree.support.object_reference_types;
-                output_module_unit.antestatal_constants = output_tree.support.antestatal_constants;
-                output_module_unit.global_init_types = output_tree.support.global_init_types;
-                output_module_unit.interface_slots = output_tree.support.interface_slots;
-                output_module_unit.enum_infos = output_tree.support.enum_infos;
-                output_module_unit.flagset_infos = output_tree.support.flagset_infos;
-                output_module_unit.class_layouts = output_tree.support.class_layouts;
-                output_module_unit.type_placements = output_tree.support.type_placements;
-                for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& routine_entry : output_tree.routines)
-                {
-                    if (routine_entry.first == quxlang::type_symbol(entry_functanoid))
-                    {
-                        continue;
-                    }
-                    output_module_unit.inlinable_functions.insert(routine_entry);
-                }
-                output_module_unit.asm_callable_interfaces = output_tree.asm_callable_interfaces;
-                output_module_unit.asm_functions = output_tree.asm_routines;
-
-                quxlang::llvm_backend::llvm_compiled_unit const output_module = llvm_backend.compile(output_module_unit);
-                std::filesystem::path const output_module_path =
-                    write_output_module_llvm_text_file(build_dir, output_entry.output_name, entry_functanoid, output_module.llvm_ir_text);
-                std::filesystem::path const optimized_output_module_path =
-                    write_optimized_output_module_llvm_text_file(build_dir, output_entry.output_name, entry_functanoid, output_module.optimized_llvm_ir_text);
-                std::filesystem::path const output_module_object_path =
-                    write_output_module_object_file(build_dir, output_entry.output_name, output_module.object_file);
-                std::filesystem::path const optimized_output_module_object_path =
-                    write_optimized_output_module_object_file(build_dir, output_entry.output_name, output_module.optimized_object_file);
-                if (verbose)
-                {
-                    std::cout << "Wrote output-module LLVM: " << target_name << "/" << output_entry.output_name << " -> " << output_module_path.string() << std::endl;
-                    std::cout << "Wrote optimized output-module LLVM: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_path.string() << std::endl;
-                    std::cout << "Wrote output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << output_module_object_path.string() << std::endl;
-                    std::cout << "Wrote optimized output-module LLVM object: " << target_name << "/" << output_entry.output_name << " -> " << optimized_output_module_object_path.string() << std::endl;
-                }
-
-            }
-            active_target_name.reset();
+                active_target_name.reset();
             }
             catch (quxlang::compilation_error const& error)
             {

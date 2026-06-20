@@ -1285,11 +1285,11 @@ TEST(qxc, vmir2_output_path_spills_long_mangled_names_into_subdirectories)
         EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
     }
 
-    EXPECT_TRUE(components.back().ends_with(".vmir2"));
+    EXPECT_TRUE(components.back().ends_with(".functanoid.vmir2"));
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
-TEST(qxc, optimized_llvm_output_path_spills_long_mangled_names_into_subdirectories)
+TEST(qxc, final_functanoid_llvm_output_path_spills_long_mangled_names_into_subdirectories)
 {
     quxlang::type_symbol symbol = quxlang::submember{
         .of = parse_type_symbol("MODULE(main)::string"),
@@ -1301,12 +1301,12 @@ TEST(qxc, optimized_llvm_output_path_spills_long_mangled_names_into_subdirectori
     }
     std::string const mangled_name = quxlang::mangle(symbol);
     std::filesystem::path const build_dir = "build";
-    std::filesystem::path const output_path = quxlang::qxc_detail::make_optimized_llvm_output_path(build_dir, mangled_name);
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_final_llvm_output_path(build_dir, mangled_name);
     std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
     std::vector< std::string > components;
 
-    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".opt.llvm").size());
-    EXPECT_NE(output_path, build_dir / (mangled_name + ".opt.llvm"));
+    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".functanoid.final.llvm").size());
+    EXPECT_NE(output_path, build_dir / (mangled_name + ".functanoid.final.llvm"));
 
     for (std::filesystem::path const& component : relative_path)
     {
@@ -1320,11 +1320,11 @@ TEST(qxc, optimized_llvm_output_path_spills_long_mangled_names_into_subdirectori
         EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
     }
 
-    EXPECT_TRUE(components.back().ends_with(".opt.llvm"));
+    EXPECT_TRUE(components.back().ends_with(".functanoid.final.llvm"));
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
-TEST(qxc, debug_llvm_output_path_uses_dbg_extension_and_spills_long_mangled_names_into_subdirectories)
+TEST(qxc, input_functanoid_llvm_output_path_spills_long_mangled_names_into_subdirectories)
 {
     quxlang::type_symbol symbol = quxlang::submember{
         .of = parse_type_symbol("MODULE(main)::string"),
@@ -1336,12 +1336,12 @@ TEST(qxc, debug_llvm_output_path_uses_dbg_extension_and_spills_long_mangled_name
     }
     std::string const mangled_name = quxlang::mangle(symbol);
     std::filesystem::path const build_dir = "build";
-    std::filesystem::path const output_path = quxlang::qxc_detail::make_llvm_output_path(build_dir, mangled_name);
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_input_llvm_output_path(build_dir, mangled_name);
     std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
     std::vector< std::string > components;
 
-    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".dbg.llvm").size());
-    EXPECT_NE(output_path, build_dir / (mangled_name + ".dbg.llvm"));
+    ASSERT_GT(mangled_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".functanoid.input.llvm").size());
+    EXPECT_NE(output_path, build_dir / (mangled_name + ".functanoid.input.llvm"));
 
     for (std::filesystem::path const& component : relative_path)
     {
@@ -1355,20 +1355,20 @@ TEST(qxc, debug_llvm_output_path_uses_dbg_extension_and_spills_long_mangled_name
         EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
     }
 
-    EXPECT_TRUE(components.back().ends_with(".dbg.llvm"));
+    EXPECT_TRUE(components.back().ends_with(".functanoid.input.llvm"));
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
-TEST(qxc, output_module_debug_llvm_output_path_uses_module_dbg_extension)
+TEST(qxc, output_module_input_llvm_output_path_uses_module_input_extension)
 {
     std::string output_name(240, 'x');
     std::filesystem::path const build_dir = "build";
-    std::filesystem::path const output_path = quxlang::qxc_detail::make_output_module_llvm_output_path(build_dir, output_name);
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_output_module_input_llvm_output_path(build_dir, output_name);
     std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
     std::vector< std::string > components;
 
-    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.dbg.llvm").size());
-    EXPECT_NE(output_path, build_dir / (output_name + ".module.dbg.llvm"));
+    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.input.llvm").size());
+    EXPECT_NE(output_path, build_dir / (output_name + ".module.input.llvm"));
 
     for (std::filesystem::path const& component : relative_path)
     {
@@ -1382,20 +1382,20 @@ TEST(qxc, output_module_debug_llvm_output_path_uses_module_dbg_extension)
         EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
     }
 
-    EXPECT_TRUE(components.back().ends_with(".module.dbg.llvm"));
+    EXPECT_TRUE(components.back().ends_with(".module.input.llvm"));
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
-TEST(qxc, output_module_optimized_llvm_output_path_uses_module_opt_extension)
+TEST(qxc, output_module_final_llvm_output_path_uses_module_final_extension)
 {
     std::string output_name(240, 'x');
     std::filesystem::path const build_dir = "build";
-    std::filesystem::path const output_path = quxlang::qxc_detail::make_optimized_output_module_llvm_output_path(build_dir, output_name);
+    std::filesystem::path const output_path = quxlang::qxc_detail::make_output_module_final_llvm_output_path(build_dir, output_name);
     std::filesystem::path const relative_path = output_path.lexically_relative(build_dir);
     std::vector< std::string > components;
 
-    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.opt.llvm").size());
-    EXPECT_NE(output_path, build_dir / (output_name + ".module.opt.llvm"));
+    ASSERT_GT(output_name.size(), quxlang::qxc_detail::max_vmir2_path_component_length - std::string(".module.final.llvm").size());
+    EXPECT_NE(output_path, build_dir / (output_name + ".module.final.llvm"));
 
     for (std::filesystem::path const& component : relative_path)
     {
@@ -1409,7 +1409,7 @@ TEST(qxc, output_module_optimized_llvm_output_path_uses_module_opt_extension)
         EXPECT_LE(components.at(i).size(), quxlang::qxc_detail::max_vmir2_path_component_length);
     }
 
-    EXPECT_TRUE(components.back().ends_with(".module.opt.llvm"));
+    EXPECT_TRUE(components.back().ends_with(".module.final.llvm"));
     EXPECT_LE(components.back().size(), quxlang::qxc_detail::max_vmir2_path_component_length);
 }
 
@@ -1418,19 +1418,19 @@ TEST(qxc, object_output_paths_use_expected_extensions)
     std::string const long_name(260, 'a');
     std::filesystem::path const build_dir = "build";
 
-    std::filesystem::path const debug_object_path = quxlang::qxc_detail::make_object_output_path(build_dir, long_name);
-    std::filesystem::path const optimized_object_path = quxlang::qxc_detail::make_optimized_object_output_path(build_dir, long_name);
+    std::filesystem::path const input_object_path = quxlang::qxc_detail::make_input_object_output_path(build_dir, long_name);
+    std::filesystem::path const final_object_path = quxlang::qxc_detail::make_final_object_output_path(build_dir, long_name);
     std::filesystem::path const asm_source_path = quxlang::qxc_detail::make_asm_source_output_path(build_dir, long_name);
     std::filesystem::path const asm_object_path = quxlang::qxc_detail::make_asm_object_output_path(build_dir, long_name);
-    std::filesystem::path const module_debug_object_path = quxlang::qxc_detail::make_output_module_object_output_path(build_dir, long_name);
-    std::filesystem::path const module_optimized_object_path = quxlang::qxc_detail::make_optimized_output_module_object_output_path(build_dir, long_name);
+    std::filesystem::path const module_input_object_path = quxlang::qxc_detail::make_output_module_input_object_output_path(build_dir, long_name);
+    std::filesystem::path const module_final_object_path = quxlang::qxc_detail::make_output_module_final_object_output_path(build_dir, long_name);
 
-    EXPECT_TRUE(debug_object_path.filename().string().ends_with(".dbg.o"));
-    EXPECT_TRUE(optimized_object_path.filename().string().ends_with(".opt.o"));
+    EXPECT_TRUE(input_object_path.filename().string().ends_with(".functanoid.input.o"));
+    EXPECT_TRUE(final_object_path.filename().string().ends_with(".functanoid.final.o"));
     EXPECT_TRUE(asm_source_path.filename().string().ends_with(".s"));
     EXPECT_TRUE(asm_object_path.filename().string().ends_with(".o"));
-    EXPECT_TRUE(module_debug_object_path.filename().string().ends_with(".module.dbg.o"));
-    EXPECT_TRUE(module_optimized_object_path.filename().string().ends_with(".module.opt.o"));
+    EXPECT_TRUE(module_input_object_path.filename().string().ends_with(".module.input.o"));
+    EXPECT_TRUE(module_final_object_path.filename().string().ends_with(".module.final.o"));
 }
 
 TEST(qxc, llvm_inlining_is_limited_to_depth_two)
@@ -1700,7 +1700,7 @@ TEST(llvm_backend, canonicalize_float_preserves_non_nan_bits_and_rewrites_nans_b
     EXPECT_NE(result.llvm_ir_text.find("2143289344"), std::string::npos);
 }
 
-TEST(llvm_backend, compile_emits_debug_and_optimized_elf_object_files)
+TEST(llvm_backend, debug_compile_keeps_final_elf_outputs_equal_to_input_outputs)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -1742,10 +1742,63 @@ TEST(llvm_backend, compile_emits_debug_and_optimized_elf_object_files)
 
     ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
     ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(result.llvm_ir_text, result.optimized_llvm_ir_text);
+    EXPECT_EQ(result.object_file, result.optimized_object_file);
     EXPECT_EQ(result.object_file[0], std::byte{0x7f});
     EXPECT_EQ(result.object_file[1], std::byte{'E'});
     EXPECT_EQ(result.object_file[2], std::byte{'L'});
     EXPECT_EQ(result.object_file[3], std::byte{'F'});
+    EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
+    EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
+    EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});
+    EXPECT_EQ(result.optimized_object_file[3], std::byte{'F'});
+}
+
+TEST(llvm_backend, release_compile_emits_optimized_final_elf_outputs)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("release_object_emission_test");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "7",
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.machine_target.optimization = quxlang::llvm_backend::optimization_level::release;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    ASSERT_GE(result.object_file.size(), static_cast< std::size_t >(4));
+    ASSERT_GE(result.optimized_object_file.size(), static_cast< std::size_t >(4));
+    EXPECT_NE(result.llvm_ir_text, result.optimized_llvm_ir_text);
+    EXPECT_NE(result.object_file, result.optimized_object_file);
     EXPECT_EQ(result.optimized_object_file[0], std::byte{0x7f});
     EXPECT_EQ(result.optimized_object_file[1], std::byte{'E'});
     EXPECT_EQ(result.optimized_object_file[2], std::byte{'L'});

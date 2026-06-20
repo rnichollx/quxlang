@@ -45,39 +45,39 @@ namespace quxlang::qxc_detail
      */
     inline auto make_vmir2_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, mangled_stem, ".vmir2");
+        return make_artifact_output_path(build_dir, mangled_stem, ".functanoid.vmir2");
     }
 
     /**
-     * Builds a textual LLVM output path whose individual filesystem components stay within the qxc filename budget.
+     * Builds an input textual LLVM output path whose individual filesystem components stay within the qxc filename budget.
      */
-    inline auto make_llvm_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    inline auto make_input_llvm_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, mangled_stem, ".dbg.llvm");
+        return make_artifact_output_path(build_dir, mangled_stem, ".functanoid.input.llvm");
     }
 
     /**
-     * Builds an optimized textual LLVM output path whose individual filesystem components stay within the qxc filename budget.
+     * Builds a final textual LLVM output path whose individual filesystem components stay within the qxc filename budget.
      */
-    inline auto make_optimized_llvm_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    inline auto make_final_llvm_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, mangled_stem, ".opt.llvm");
+        return make_artifact_output_path(build_dir, mangled_stem, ".functanoid.final.llvm");
     }
 
     /**
-     * Builds a debug object output path whose individual filesystem components stay within the qxc filename budget.
+     * Builds an input object output path whose individual filesystem components stay within the qxc filename budget.
      */
-    inline auto make_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    inline auto make_input_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, mangled_stem, ".dbg.o");
+        return make_artifact_output_path(build_dir, mangled_stem, ".functanoid.input.o");
     }
 
     /**
-     * Builds an optimized object output path whose individual filesystem components stay within the qxc filename budget.
+     * Builds a final object output path whose individual filesystem components stay within the qxc filename budget.
      */
-    inline auto make_optimized_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
+    inline auto make_final_object_output_path(std::filesystem::path const& build_dir, std::string const& mangled_stem) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, mangled_stem, ".opt.o");
+        return make_artifact_output_path(build_dir, mangled_stem, ".functanoid.final.o");
     }
 
     /**
@@ -97,35 +97,35 @@ namespace quxlang::qxc_detail
     }
 
     /**
-     * Builds an aggregated output-module LLVM path for one qxc output entry.
+     * Builds an aggregated input output-module LLVM path for one qxc output entry.
      */
-    inline auto make_output_module_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    inline auto make_output_module_input_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, output_name, ".module.dbg.llvm");
+        return make_artifact_output_path(build_dir, output_name, ".module.input.llvm");
     }
 
     /**
-     * Builds an aggregated optimized output-module LLVM path for one qxc output entry.
+     * Builds an aggregated final output-module LLVM path for one qxc output entry.
      */
-    inline auto make_optimized_output_module_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    inline auto make_output_module_final_llvm_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, output_name, ".module.opt.llvm");
+        return make_artifact_output_path(build_dir, output_name, ".module.final.llvm");
     }
 
     /**
-     * Builds an aggregated output-module debug object path for one qxc output entry.
+     * Builds an aggregated input output-module object path for one qxc output entry.
      */
-    inline auto make_output_module_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    inline auto make_output_module_input_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, output_name, ".module.dbg.o");
+        return make_artifact_output_path(build_dir, output_name, ".module.input.o");
     }
 
     /**
-     * Builds an aggregated output-module optimized object path for one qxc output entry.
+     * Builds an aggregated output-module final object path for one qxc output entry.
      */
-    inline auto make_optimized_output_module_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
+    inline auto make_output_module_final_object_output_path(std::filesystem::path const& build_dir, std::string const& output_name) -> std::filesystem::path
     {
-        return make_artifact_output_path(build_dir, output_name, ".module.opt.o");
+        return make_artifact_output_path(build_dir, output_name, ".module.final.o");
     }
 
 }
