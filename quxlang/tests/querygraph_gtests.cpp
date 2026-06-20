@@ -408,6 +408,7 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
     EXPECT_TRUE(assert_fail_symbol.type_is< quxlang::instanciation_reference >());
     EXPECT_TRUE(unit.inlinable_functions.contains(assert_fail_symbol));
     EXPECT_TRUE(unit.procedure_linksymbols.contains(assert_fail_symbol));
+    EXPECT_EQ(unit.procedure_linksymbols.at(assert_fail_symbol), quxlang::to_string(assert_fail_symbol));
 }
 
 TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)

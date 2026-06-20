@@ -2,7 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/linker/elf_linker.hpp>
-#include <quxlang/manipulators/mangler.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/output_llvm_input.hpp>
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
 
@@ -26,7 +26,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
             std::map< std::string, std::string > result;
             auto add_symbol_display_name = [&result](type_symbol const& symbol)
             {
-                result.emplace(mangle(symbol), to_string(symbol));
+                result.emplace(to_string(symbol), to_string(symbol));
             };
 
             add_symbol_display_name(llvm_input.target_name);

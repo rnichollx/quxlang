@@ -4,6 +4,7 @@
 #define QUXLANG_BACKENDS_ASM_ARM_ASM_CONVERTER_HEADER_GUARD
 
 #include "quxlang/asm/asm.hpp"
+#include "quxlang/backends/asm/symbol_format.hpp"
 #include "quxlang/variant_utils.hpp"
 #include "rpnx/unimplemented.hpp"
 #include <string>
@@ -25,10 +26,11 @@ namespace quxlang
     template < typename It >
     inline std::string convert_to_arm_asm(It begin, It end, std::string name)
     {
+        std::string const asm_name = format_asm_symbol_name(name);
         std::string result = ".text\n";
-        result += ".global " + name + "\n";
+        result += ".global " + asm_name + "\n";
 
-        result += name + ":\n";
+        result += asm_name + ":\n";
         It pos = begin;
 
         while (pos != end)

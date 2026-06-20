@@ -7,7 +7,6 @@
 #include <quxlang/backends/asm/arm_asm_converter.hpp>
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
-#include <quxlang/manipulators/mangler.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
@@ -118,7 +117,7 @@ namespace quxlang::llvm_backend::detail
     public:
         explicit llvm_module_codegen(quxlang::llvm_backend::llvm_compilable_unit const& input_packet)
             : input(input_packet),
-              module(std::make_unique< llvm::Module >(quxlang::mangle(input_packet.target_name), context)),
+              module(std::make_unique< llvm::Module >(quxlang::to_string(input_packet.target_name), context)),
               builder(context, llvm::ConstantFolder(), llvm::IRBuilderCallbackInserter([this](llvm::Instruction* inst)
               {
                   annotate_inserted_instruction(inst);
@@ -1354,7 +1353,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return found->second;
             }
-            return quxlang::mangle(symbol);
+            return quxlang::to_string(symbol);
         }
 
         /**
@@ -1766,7 +1765,7 @@ namespace quxlang::llvm_backend::detail
                     true,
                     llvm::GlobalValue::PrivateLinkage,
                     interface_constant,
-                    quxlang::mangle(interface_value.interface_type) + "$iface$const$" + std::to_string(helper_counter++));
+                    quxlang::to_string(interface_value.interface_type) + "$iface$const$" + std::to_string(helper_counter++));
                 return llvm::ConstantExpr::getPointerCast(global, opaque_pointer_type());
             }
 
@@ -1795,7 +1794,7 @@ namespace quxlang::llvm_backend::detail
                 }
 
                 std::vector< std::byte > const& bytes = value.get_as< quxlang::antestatal_primitive >().value;
-                llvm::GlobalVariable* payload = create_private_constant_bytes_global(bytes, quxlang::mangle(input.target_name));
+                llvm::GlobalVariable* payload = create_private_constant_bytes_global(bytes, quxlang::to_string(input.target_name));
                 llvm::Constant* zero = llvm::ConstantInt::get(i64_type(), 0);
                 llvm::Constant* start_pointer = llvm::ConstantExpr::getInBoundsGetElementPtr(
                     payload->getValueType(),
@@ -1866,7 +1865,7 @@ namespace quxlang::llvm_backend::detail
             std::string const& name = *parameter.name;
             if (name == "expr")
             {
-                llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.expr, quxlang::mangle(input.target_name));
+                llvm::GlobalVariable* const object = create_private_runtime_string_constant(args.expr, quxlang::to_string(input.target_name));
                 return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
             }
             if (name == "file")
@@ -1888,7 +1887,7 @@ namespace quxlang::llvm_backend::detail
                     return llvm::ConstantPointerNull::get(opaque_pointer_type());
                 }
 
-                llvm::GlobalVariable* const object = create_private_runtime_string_constant(*args.tag, quxlang::mangle(input.target_name));
+                llvm::GlobalVariable* const object = create_private_runtime_string_constant(*args.tag, quxlang::to_string(input.target_name));
                 return llvm::ConstantExpr::getPointerCast(object, opaque_pointer_type());
             }
 
@@ -1924,7 +1923,7 @@ namespace quxlang::llvm_backend::detail
                 is_constant,
                 llvm::GlobalValue::ExternalLinkage,
                 nullptr,
-                quxlang::mangle(symbol));
+                quxlang::to_string(symbol));
             globals[symbol] = global;
             return global;
         }
@@ -2016,7 +2015,7 @@ namespace quxlang::llvm_backend::detail
                 true,
                 linkage,
                 initializer,
-                quxlang::mangle(symbol));
+                quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -2074,7 +2073,7 @@ namespace quxlang::llvm_backend::detail
                 true,
                 linkage,
                 initializer,
-                quxlang::mangle(symbol));
+                quxlang::to_string(symbol));
             constant_globals[symbol] = global;
             return global;
         }
@@ -2094,7 +2093,7 @@ namespace quxlang::llvm_backend::detail
                 false,
                 llvm::GlobalValue::ExternalLinkage,
                 nullptr,
-                quxlang::mangle(symbol) + "$initguard");
+                quxlang::to_string(symbol) + "$initguard");
             apply_access_class(global, class_);
             initguard_globals[symbol] = global;
             return global;
@@ -2128,7 +2127,7 @@ namespace quxlang::llvm_backend::detail
                 interface_slot_indices[interface_type][slots[i]] = i + 1;
             }
 
-            llvm::StructType* struct_type = llvm::StructType::create(context, fields, quxlang::mangle(interface_type) + "$interface");
+            llvm::StructType* struct_type = llvm::StructType::create(context, fields, quxlang::to_string(interface_type) + "$interface");
             interface_structs[interface_type] = struct_type;
             return struct_type;
         }
@@ -2258,8 +2257,8 @@ namespace quxlang::llvm_backend::detail
             llvm::DISubroutineType* const subroutine_type = debug_builder->createSubroutineType(debug_builder->getOrCreateTypeArray({}));
             llvm::DISubprogram* const subprogram = debug_builder->createFunction(
                 file,
-                quxlang::mangle(symbol),
-                quxlang::mangle(symbol),
+                quxlang::to_string(symbol),
+                quxlang::to_string(symbol),
                 file,
                 line,
                 subroutine_type,
@@ -2604,7 +2603,7 @@ namespace quxlang::llvm_backend::detail
                 .qual = quxlang::qualifier::constant,
             };
 
-            llvm::GlobalVariable* payload = create_private_constant_bytes_global(value, quxlang::mangle(input.target_name));
+            llvm::GlobalVariable* payload = create_private_constant_bytes_global(value, quxlang::to_string(input.target_name));
             llvm::Value* start_pointer = ir_builder.CreateInBoundsGEP(
                 payload->getValueType(),
                 payload,
@@ -3487,7 +3486,7 @@ namespace quxlang::llvm_backend::detail
                 true,
                 llvm::GlobalValue::PrivateLinkage,
                 value,
-                quxlang::mangle(inst.interface_type) + "$iface$" + std::to_string(helper_counter++));
+                quxlang::to_string(inst.interface_type) + "$iface$" + std::to_string(helper_counter++));
             store_slot_value(state, builder, inst.target, builder.CreateBitCast(global, opaque_pointer_type()));
             return;
         }

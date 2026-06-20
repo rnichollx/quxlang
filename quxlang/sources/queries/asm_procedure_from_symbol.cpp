@@ -3,10 +3,10 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/asm_procedure_from_symbol_spec.hpp>
 
-#include "quxlang/manipulators/mangler.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
 #include <quxlang/asm/asm.hpp>
+#include <quxlang/backends/asm/symbol_format.hpp>
 #include <quxlang/macros.hpp>
 
 
@@ -43,7 +43,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
     out.architecture = proc.architecture;
 
-    out.name = mangle(declaration_symbol);
+    out.name = to_string(declaration_symbol);
 
     if (!proc.callable_interfaces.empty() && (selected_overload_id.has_value() || proc.callable_interfaces.size() == 1))
     {
@@ -103,7 +103,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
                     auto procedure_canonical = (co_await rpnx::querygraph::request< lookup_query >(proc_ctx)).value();
                     auto linkname = co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical});
-                    operand_str += "=" + linkname;
+                    operand_str += "=" + format_asm_symbol_name(linkname);
                 }
                 else if (typeis< ast2_object_ref >(part))
                 {
@@ -119,7 +119,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                     {
                         throw quxlang::semantic_compilation_error("OBJECT_REF target could not be resolved: " + quxlang::to_string(object_ref.object));
                     }
-                    operand_str += quxlang::mangle(*object_canonical);
+                    operand_str += quxlang::format_asm_symbol_name(quxlang::to_string(*object_canonical));
                 }
                 else
                 {

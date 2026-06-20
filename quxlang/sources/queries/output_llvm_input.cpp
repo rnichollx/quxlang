@@ -3,7 +3,6 @@
 #include <quxlang/ast2/ast2_entity.hpp>
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/exception.hpp>
-#include <quxlang/manipulators/mangler.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/queries/specs/output_llvm_input_spec.hpp>
@@ -337,7 +336,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             runtime_program_start = *runtime_program_start_candidate;
             if (output_info.type == output_kind::executable && machine.os_type == os::linux && machine.binary_type == binary::elf)
             {
-                output_module_unit.executable_entry_symbol = mangle(*runtime_program_start);
+                output_module_unit.executable_entry_symbol = to_string(*runtime_program_start);
             }
         }
     }

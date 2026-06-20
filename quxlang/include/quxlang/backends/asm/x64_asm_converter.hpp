@@ -17,11 +17,12 @@ namespace quxlang
     template < typename It >
     inline std::string convert_to_x64_asm(It begin, It end, std::string const& name)
     {
+        std::string const asm_name = format_asm_symbol_name(name);
         std::string result = ".text\n";
         result += ".intel_syntax noprefix\n";
-        result += ".global " + name + "\n";
-        result += ".type " + name + ", @function\n";
-        result += name + ":\n";
+        result += ".global " + asm_name + "\n";
+        result += ".type " + asm_name + ", @function\n";
+        result += asm_name + ":\n";
 
         It pos = begin;
         while (pos != end)
