@@ -4259,7 +4259,8 @@ namespace quxlang
 
             if (member->name == "OPERATOR:=")
             {
-                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >() || cls->template type_is< ptrref_type >())
+                if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >()
+                    || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -10156,6 +10157,23 @@ namespace quxlang
             this->generate_entry_block();
             block_index current_block(0);
             co_await co_generate_function_block(current_block, test.definition.body, "static_test_body");
+
+            this->generate_return(current_block);
+
+            this->validate_no_pending_gotos();
+            co_await co_generate_dtors();
+
+            co_return get_result();
+        }
+
+        /**
+         * Generates the VMIR2 routine for one runtime UNIT_TEST declaration.
+         */
+        [[nodiscard]] auto co_generate_unit_test(ast2_unit_test const& test) -> co_type< vmir2::functanoid_routine3 >
+        {
+            this->generate_entry_block();
+            block_index current_block(0);
+            co_await co_generate_function_block(current_block, test.definition.body, "unit_test_body");
 
             this->generate_return(current_block);
 

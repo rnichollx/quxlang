@@ -13,6 +13,7 @@
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/instanciation.hpp>
+#include <quxlang/queries/list_unit_tests.hpp>
 #include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/machine_info.hpp>
 #include <quxlang/queries/output_binary_information.hpp>
@@ -25,7 +26,9 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
+#include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
+#include <quxlang/queries/unit_test_vmir.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 
@@ -47,6 +50,7 @@ namespace quxlang
             global_is_antestatal_static_query,
             interface_slot_list_query,
             instanciation_query,
+            list_unit_tests_query,
             lookup_query,
             machine_info_query,
             output_binary_information_query,
@@ -56,8 +60,10 @@ namespace quxlang
             symboid_query,
             symbol_type_query,
             target_configuration_query,
+            temploid_formal_ensig_query,
             output_llvm_backend_options_query,
             type_placement_info_query,
+            unit_test_vmir_query,
             variable_type_query,
             vm_procedure3_query >;
     };

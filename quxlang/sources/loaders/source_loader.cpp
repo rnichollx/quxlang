@@ -312,6 +312,10 @@ namespace quxlang
                         {
                             v_output_config.type = quxlang::output_kind::executable;
                         }
+                        else if (output_type_str == "unit_test_suite")
+                        {
+                            v_output_config.type = quxlang::output_kind::unit_test_suite;
+                        }
                         else
                         {
                             rpnx::unimplemented();
@@ -324,6 +328,10 @@ namespace quxlang
 
                         if (output_config_node["main_functanoid"].IsDefined())
                         {
+                            if (v_output_config.type == quxlang::output_kind::unit_test_suite)
+                            {
+                                throw quxlang::semantic_compilation_error("Output '" + output_name + "' of type unit_test_suite cannot configure main_functanoid");
+                            }
                             v_output_config.main_functanoid = output_config_node["main_functanoid"].as< std::string >();
                         }
 

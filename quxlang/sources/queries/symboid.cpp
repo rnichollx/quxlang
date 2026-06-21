@@ -59,6 +59,10 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         {
             return as< ast2_static_test >(decl);
         }
+        else if (typeis< ast2_unit_test >(decl))
+        {
+            return as< ast2_unit_test >(decl);
+        }
         else
         {
             throw compiler_bug("Unsupported selected template declaroid");

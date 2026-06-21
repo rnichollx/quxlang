@@ -97,14 +97,15 @@ namespace quxlang
         shared_library,
         static_library,
         image,
+        unit_test_suite,
     };
 
     /// output_config contains the configuration for one named target output.
     struct output_config
     {
         output_kind type;
-        std::optional<std::string> module;
-        std::optional<std::string> main_functanoid;
+        std::optional< std::string > module;
+        std::optional< std::string > main_functanoid;
         std::optional< backend_llvm_options > llvm_options;
 
         RPNX_MEMBER_METADATA(output_config, type, module, main_functanoid, llvm_options);

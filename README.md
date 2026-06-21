@@ -43,6 +43,8 @@ If you follow quick setup guide below, CBuild/CSetup are also required, but it's
 
 ## Quick Setup Guide
 
+Update: This quick setup no longer works due to being missing several llvm options. See misc/exmample_workspace/cbuild_workspace for a starting point.
+
 Install Go, libc++, and clang.
 
 Then run the following commands to install CBuild/CSetup:

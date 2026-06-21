@@ -37,6 +37,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::functum;
         }
+        if (builtin.name == "UNIT_TEST_COUNT" || builtin.name == "UNIT_TEST_NAMES" || builtin.name == "UNIT_TEST_PROC")
+        {
+            co_return symbol_kind::global_variable;
+        }
         co_return symbol_kind::noexist;
     }
 
@@ -191,6 +195,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::static_test;
         }
+        else if (typeis< ast2_unit_test >(s))
+        {
+            co_return symbol_kind::unit_test;
+        }
         else if (typeis< ast2_asm_procedure_declaration >(s))
         {
             co_return symbol_kind::functum;
@@ -270,6 +278,10 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        else if (typeis< ast2_static_test >(selected_ast))
        {
           co_return symbol_kind::static_test;
+       }
+       else if (typeis< ast2_unit_test >(selected_ast))
+       {
+          co_return symbol_kind::unit_test;
        }
        else
        {

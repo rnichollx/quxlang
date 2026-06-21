@@ -381,6 +381,10 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         {
             co_return builtin_symbol{.name = "MAIN_FUNCTION"};
         }
+        if (fb.name == "UNIT_TEST_COUNT" || fb.name == "UNIT_TEST_NAMES" || fb.name == "UNIT_TEST_PROC")
+        {
+            co_return builtin_symbol{.name = fb.name};
+        }
 
         std::string str = "Could not find '" + fb.name + "'";
         co_return std::nullopt;
@@ -552,6 +556,24 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             co_return std::nullopt;
         }
         output.temploid.templexoid = *templexoid_canonical;
+
+        assert(!type_is_contextual(output));
+        co_return output;
+    }
+    else if (type.template type_is< temploid_reference >())
+    {
+        auto const& selection = as< temploid_reference >(type);
+        temploid_reference output = selection;
+
+        auto templexoid_canonical = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+            .context = context,
+            .type = selection.templexoid,
+        });
+        if (!templexoid_canonical.has_value())
+        {
+            co_return std::nullopt;
+        }
+        output.templexoid = *templexoid_canonical;
 
         assert(!type_is_contextual(output));
         co_return output;

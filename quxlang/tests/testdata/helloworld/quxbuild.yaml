@@ -18,6 +18,8 @@ linux-x64:
       backend_llvm_options:
         mode: debug
       type: executable
+    tests:
+      type: unit_test_suite
 linux-arm64:
   platform: linux
   cpu: ARM64

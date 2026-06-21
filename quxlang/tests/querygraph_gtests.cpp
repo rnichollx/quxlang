@@ -3,7 +3,9 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/llvm-backend-types.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
+#include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/source_loader.hpp>
 #include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
@@ -68,6 +70,17 @@ namespace
         return "LANGUAGE QUXLANG EN 0.0;\n\n" + std::move(contents);
     }
 
+    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
+    {
+        quxlang::parsers::parsing_context ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        quxlang::type_symbol result = quxlang::parsers::parse_type_symbol(ctx);
+        if (ctx.iter_pos != ctx.iter_end)
+        {
+            throw quxlang::syntax_compilation_error("Input not fully parsed");
+        }
+        return result;
+    }
+
     auto make_test_source_bundle() -> quxlang::source_bundle
     {
         quxlang::source_bundle bundle;
@@ -116,6 +129,30 @@ namespace
         bundle.targets["x64"] = x64;
         bundle.module_sources["main_x64"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(std::move(contents))};
 
+        return bundle;
+    }
+
+    auto make_unit_test_suite_source_bundle(std::string main_contents) -> quxlang::source_bundle
+    {
+        quxlang::source_bundle bundle = make_single_main_source_bundle(std::move(main_contents));
+        quxlang::target_configuration& target = bundle.targets.at("x64");
+        target.outputs = std::map< std::string, quxlang::output_config >{
+            {"tests", quxlang::output_config{.type = quxlang::output_kind::unit_test_suite, .module = "main"}},
+        };
+        target.module_configurations["RUNTIME"].source = "runtime_x64";
+        bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+
+::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
+{
+  MOVABS RAX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
+  MOVABS RBX, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
+  MOVABS RCX, OFFSET OBJECT_REF(UNIT_TEST_PROC)
+  RET
+}
+)QX")};
         return bundle;
     }
 
@@ -351,7 +388,8 @@ TEST(querygraph_queries, output_binary_information_returns_configured_output)
 
     EXPECT_EQ(output.output_name, "app");
     EXPECT_EQ(output.module_name, "main");
-    EXPECT_EQ(output.main_functanoid, "main");
+    ASSERT_TRUE(output.main_functanoid.has_value());
+    EXPECT_EQ(*output.main_functanoid, parse_type_symbol_text("main"));
     EXPECT_EQ(output.type, quxlang::output_kind::executable);
 }
 
@@ -364,7 +402,8 @@ TEST(querygraph_queries, output_binary_information_returns_default_output)
 
     EXPECT_EQ(output.output_name, "default");
     EXPECT_EQ(output.module_name, "main");
-    EXPECT_EQ(output.main_functanoid, "::main#()");
+    ASSERT_TRUE(output.main_functanoid.has_value());
+    EXPECT_EQ(*output.main_functanoid, parse_type_symbol_text("::main#()"));
     EXPECT_EQ(output.type, quxlang::output_kind::executable);
 }
 
@@ -379,8 +418,22 @@ TEST(querygraph_queries, output_binaries_information_returns_all_outputs)
     ASSERT_TRUE(outputs.contains("app"));
     ASSERT_TRUE(outputs.contains("util"));
     EXPECT_EQ(outputs.at("util").module_name, "util");
-    EXPECT_EQ(outputs.at("util").main_functanoid, "::main#()");
+    ASSERT_TRUE(outputs.at("util").main_functanoid.has_value());
+    EXPECT_EQ(*outputs.at("util").main_functanoid, parse_type_symbol_text("::main#()"));
     EXPECT_EQ(outputs.at("util").type, quxlang::output_kind::shared_library);
+}
+
+TEST(querygraph_queries, output_binary_information_returns_unit_test_suite_without_main)
+{
+    quxlang::source_bundle bundle = make_unit_test_suite_source_bundle("::case_a UNIT_TEST { }");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::output_query_output output = graph.make_request< quxlang::output_binary_information_query >("tests");
+
+    EXPECT_EQ(output.output_name, "tests");
+    EXPECT_EQ(output.module_name, "main");
+    EXPECT_FALSE(output.main_functanoid.has_value());
+    EXPECT_EQ(output.type, quxlang::output_kind::unit_test_suite);
 }
 
 TEST(querygraph_queries, output_binary_information_rejects_unknown_output)
@@ -549,6 +602,55 @@ TEST(querygraph_queries, output_llvm_input_preserves_multiple_runtime_asm_object
 
     EXPECT_TRUE(unit.object_reference_types.contains(first));
     EXPECT_TRUE(unit.object_reference_types.contains(second));
+}
+
+TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
+{
+    quxlang::source_bundle bundle = make_unit_test_suite_source_bundle(R"QX(
+::case_a UNIT_TEST
+{
+  ASSERT(TRUE);
+}
+
+::nested NAMESPACE {
+  ::case_b UNIT_TEST
+  {
+  }
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >("tests");
+
+    ASSERT_TRUE(unit.whole_module_output_kind.has_value());
+    EXPECT_EQ(*unit.whole_module_output_kind, quxlang::output_kind::unit_test_suite);
+    ASSERT_TRUE(unit.executable_entry_symbol.has_value());
+    quxlang::type_symbol const runtime_start = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{.module_name = "RUNTIME"},
+        .name = "UNIT_TESTING_PROGRAM_START",
+    };
+    EXPECT_EQ(*unit.executable_entry_symbol, quxlang::to_string(runtime_start));
+
+    quxlang::type_symbol const case_a = parse_type_symbol_text("MODULE(main)::case_a");
+    quxlang::type_symbol const case_b = parse_type_symbol_text("MODULE(main)::nested::case_b");
+    ASSERT_EQ(unit.unit_tests.size(), static_cast< std::size_t >(2));
+    EXPECT_EQ(unit.unit_tests.at(0).name, quxlang::to_string(case_a));
+    EXPECT_EQ(unit.unit_tests.at(0).procedure_symbol, case_a);
+    EXPECT_EQ(unit.unit_tests.at(1).name, quxlang::to_string(case_b));
+    EXPECT_EQ(unit.unit_tests.at(1).procedure_symbol, case_b);
+    EXPECT_TRUE(unit.inlinable_functions.contains(case_a));
+    EXPECT_TRUE(unit.inlinable_functions.contains(case_b));
+    EXPECT_FALSE(unit.object_reference_types.contains(quxlang::builtin_symbol{.name = "MAIN_FUNCTION"}));
+
+    quxlang::type_symbol const count_object = quxlang::builtin_symbol{.name = "UNIT_TEST_COUNT"};
+    quxlang::type_symbol const names_object = quxlang::builtin_symbol{.name = "UNIT_TEST_NAMES"};
+    quxlang::type_symbol const proc_object = quxlang::builtin_symbol{.name = "UNIT_TEST_PROC"};
+    ASSERT_TRUE(unit.object_reference_types.contains(count_object));
+    ASSERT_TRUE(unit.object_reference_types.contains(names_object));
+    ASSERT_TRUE(unit.object_reference_types.contains(proc_object));
+    EXPECT_EQ(unit.object_reference_types.at(count_object), quxlang::llvm_backend::unit_test_count_object_type());
+    EXPECT_EQ(unit.object_reference_types.at(names_object), quxlang::llvm_backend::unit_test_names_object_type());
+    EXPECT_EQ(unit.object_reference_types.at(proc_object), quxlang::llvm_backend::unit_test_proc_object_type());
 }
 
 TEST(querygraph_queries, parse_file_rejects_runtime_declared_symbols_in_non_runtime_module)

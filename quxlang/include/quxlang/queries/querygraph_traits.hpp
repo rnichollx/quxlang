@@ -375,7 +375,7 @@ namespace rpnx
     {
         static auto constexpr strings()
         {
-            return std::vector< std::string >{"executable", "shared_library", "static_library", "image"};
+            return std::vector< std::string >{"executable", "shared_library", "static_library", "image", "unit_test_suite"};
         }
 
         static auto constexpr to_string(quxlang::output_kind value) -> std::string

@@ -390,6 +390,16 @@ namespace quxlang
 
     type_symbol with_context(type_symbol const& ref, type_symbol const& context);
 
+    /**
+     * Returns true when an overload's declared parameter list still contains template-dependent types.
+     */
+    bool overload_has_unspecialized_parameters(temploid_ensig const& ensig);
+
+    /**
+     * Builds concrete instantiation parameters from an overload's declared non-template parameter types.
+     */
+    instatype instantiate_declared_overload(temploid_ensig const& ensig);
+
     inline bool is_primitive(type_symbol sym)
     {
         return typeis< int_type >(sym) || typeis< float_type >(sym) || typeis< bool_type >(sym) || typeis< ptrref_type >(sym) || typeis< readonly_constant >(sym) || typeis< byte_type >(sym);

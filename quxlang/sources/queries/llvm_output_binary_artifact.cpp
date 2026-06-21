@@ -16,7 +16,7 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
     llvm_backend::llvm_compilable_unit const llvm_input = co_await rpnx::querygraph::request< output_llvm_input_query >(input);
     llvm_backend::llvm_compiled_unit const compiled = co_await rpnx::querygraph::request< llvm_compiled_output_query >(input);
 
-    if (output_info.type == output_kind::executable && target_config.target_output_config.os_type == os::linux && target_config.target_output_config.binary_type == binary::elf)
+    if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && target_config.target_output_config.os_type == os::linux && target_config.target_output_config.binary_type == binary::elf)
     {
         std::vector< std::byte > const& object_file =
             llvm_options.mode == backend_llvm_mode::debug ? compiled.object_file : compiled.optimized_object_file;

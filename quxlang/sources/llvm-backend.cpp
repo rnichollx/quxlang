@@ -1835,11 +1835,20 @@ namespace quxlang::llvm_backend::detail
         /**
          * Materializes a private immutable STRING_CONSTANT object for runtime support calls.
          */
-        auto create_private_runtime_string_constant(std::string const& text, std::string const& name_stem) -> llvm::GlobalVariable*
+        auto create_runtime_string_constant_initializer(std::string const& text) -> llvm::Constant*
         {
             quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
             quxlang::antestatal_value const value = quxlang::antestatal_primitive{.value = runtime_string_bytes(text)};
-            llvm::Constant* const initializer = create_antestatal_constant_initializer(string_constant_type, value);
+            return create_antestatal_constant_initializer(string_constant_type, value);
+        }
+
+        /**
+         * Materializes a private immutable STRING_CONSTANT object for runtime support calls.
+         */
+        auto create_private_runtime_string_constant(std::string const& text, std::string const& name_stem) -> llvm::GlobalVariable*
+        {
+            quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
+            llvm::Constant* const initializer = create_runtime_string_constant_initializer(text);
             llvm::GlobalVariable* const global = new llvm::GlobalVariable(
                 *module,
                 initializer->getType(),
@@ -1980,6 +1989,11 @@ namespace quxlang::llvm_backend::detail
             return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::executable;
         }
 
+        auto should_emit_unit_test_objects() const -> bool
+        {
+            return input.whole_module && input.whole_module_output_kind == quxlang::output_kind::unit_test_suite;
+        }
+
         auto get_or_create_main_function_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
         {
             std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
@@ -2020,10 +2034,190 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
+        auto unit_test_object_linkage() const -> llvm::GlobalValue::LinkageTypes
+        {
+            if (should_emit_unit_test_objects())
+            {
+                return llvm::GlobalValue::ExternalLinkage;
+            }
+            return llvm::GlobalValue::WeakAnyLinkage;
+        }
+
+        auto create_unit_test_names_array_pointer() -> llvm::Constant*
+        {
+            if (!should_emit_unit_test_objects() || input.unit_tests.empty())
+            {
+                return llvm::ConstantPointerNull::get(opaque_pointer_type());
+            }
+
+            quxlang::type_symbol const string_constant_type = quxlang::llvm_backend::runtime_string_constant_type();
+            llvm::Type* const element_type = value_storage_type(string_constant_type);
+            std::vector< llvm::Constant* > entries;
+            entries.reserve(input.unit_tests.size());
+            for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
+            {
+                entries.push_back(create_runtime_string_constant_initializer(unit_test.name));
+            }
+
+            llvm::ArrayType* const array_type = llvm::ArrayType::get(element_type, entries.size());
+            llvm::Constant* const initializer = llvm::ConstantArray::get(array_type, entries);
+            llvm::GlobalVariable* const table = new llvm::GlobalVariable(
+                *module,
+                array_type,
+                true,
+                llvm::GlobalValue::PrivateLinkage,
+                initializer,
+                quxlang::to_string(input.target_name) + "$unit_test_names$" + std::to_string(helper_counter++));
+            table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            table->setAlignment(llvm::Align(slot_alignment(string_constant_type)));
+
+            llvm::Constant* const zero = llvm::ConstantInt::get(i64_type(), 0);
+            llvm::Constant* const first = llvm::ConstantExpr::getInBoundsGetElementPtr(
+                array_type,
+                table,
+                llvm::ArrayRef< llvm::Constant* >{zero, zero});
+            return llvm::ConstantExpr::getPointerCast(first, opaque_pointer_type());
+        }
+
+        auto create_unit_test_proc_array_pointer() -> llvm::Constant*
+        {
+            if (!should_emit_unit_test_objects() || input.unit_tests.empty())
+            {
+                return llvm::ConstantPointerNull::get(opaque_pointer_type());
+            }
+
+            std::vector< llvm::Constant* > entries;
+            entries.reserve(input.unit_tests.size());
+            for (quxlang::llvm_backend::unit_test_entry const& unit_test : input.unit_tests)
+            {
+                entries.push_back(llvm::ConstantExpr::getPointerCast(declared_function(unit_test.procedure_symbol), opaque_pointer_type()));
+            }
+
+            llvm::ArrayType* const array_type = llvm::ArrayType::get(opaque_pointer_type(), entries.size());
+            llvm::Constant* const initializer = llvm::ConstantArray::get(array_type, entries);
+            llvm::GlobalVariable* const table = new llvm::GlobalVariable(
+                *module,
+                array_type,
+                true,
+                llvm::GlobalValue::PrivateLinkage,
+                initializer,
+                quxlang::to_string(input.target_name) + "$unit_test_proc$" + std::to_string(helper_counter++));
+            table->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            table->setAlignment(llvm::Align(input.machine_target.machine.pointer_align()));
+
+            llvm::Constant* const zero = llvm::ConstantInt::get(i64_type(), 0);
+            llvm::Constant* const first = llvm::ConstantExpr::getInBoundsGetElementPtr(
+                array_type,
+                table,
+                llvm::ArrayRef< llvm::Constant* >{zero, zero});
+            return llvm::ConstantExpr::getPointerCast(first, opaque_pointer_type());
+        }
+
+        auto get_or_create_unit_test_count_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
+            if (existing != constant_globals.end())
+            {
+                return existing->second;
+            }
+
+            if (object_type != quxlang::llvm_backend::unit_test_count_object_type())
+            {
+                throw quxlang::semantic_compilation_error("UNIT_TEST_COUNT object must have type SZ");
+            }
+
+            llvm::Type* const storage_type = value_storage_type(object_type);
+            llvm::Constant* const initializer = llvm::ConstantInt::get(
+                llvm::cast< llvm::IntegerType >(storage_type),
+                should_emit_unit_test_objects() ? input.unit_tests.size() : 0);
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
+                *module,
+                storage_type,
+                true,
+                unit_test_object_linkage(),
+                initializer,
+                quxlang::to_string(symbol));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
+        auto get_or_create_unit_test_names_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
+            if (existing != constant_globals.end())
+            {
+                return existing->second;
+            }
+
+            if (object_type != quxlang::llvm_backend::unit_test_names_object_type())
+            {
+                throw quxlang::semantic_compilation_error("UNIT_TEST_NAMES object must have type CONST=>> STRING_CONSTANT");
+            }
+
+            llvm::Type* const storage_type = value_storage_type(object_type);
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
+                *module,
+                storage_type,
+                true,
+                unit_test_object_linkage(),
+                create_unit_test_names_array_pointer(),
+                quxlang::to_string(symbol));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
+        auto get_or_create_unit_test_proc_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            std::map< quxlang::type_symbol, llvm::GlobalVariable* >::const_iterator existing = constant_globals.find(symbol);
+            if (existing != constant_globals.end())
+            {
+                return existing->second;
+            }
+
+            if (object_type != quxlang::llvm_backend::unit_test_proc_object_type())
+            {
+                throw quxlang::semantic_compilation_error("UNIT_TEST_PROC object must have type CONST=>> PROCEDURE()");
+            }
+
+            llvm::Type* const storage_type = value_storage_type(object_type);
+            llvm::GlobalVariable* const global = new llvm::GlobalVariable(
+                *module,
+                storage_type,
+                true,
+                unit_test_object_linkage(),
+                create_unit_test_proc_array_pointer(),
+                quxlang::to_string(symbol));
+            constant_globals[symbol] = global;
+            return global;
+        }
+
+        auto get_or_create_unit_test_object_global(quxlang::type_symbol const& symbol, quxlang::type_symbol const& object_type) -> llvm::GlobalVariable*
+        {
+            if (quxlang::llvm_backend::is_unit_test_count_object_symbol(symbol))
+            {
+                return get_or_create_unit_test_count_object_global(symbol, object_type);
+            }
+            if (quxlang::llvm_backend::is_unit_test_names_object_symbol(symbol))
+            {
+                return get_or_create_unit_test_names_object_global(symbol, object_type);
+            }
+            if (quxlang::llvm_backend::is_unit_test_proc_object_symbol(symbol))
+            {
+                return get_or_create_unit_test_proc_object_global(symbol, object_type);
+            }
+            throw quxlang::compiler_bug("not a unit-test builtin object: " + quxlang::to_string(symbol));
+        }
+
         void emit_object_reference_globals()
         {
             for (std::pair< quxlang::type_symbol const, quxlang::type_symbol > const& object_reference : input.object_reference_types)
             {
+                if (quxlang::llvm_backend::is_unit_test_object_symbol(object_reference.first))
+                {
+                    (void)get_or_create_unit_test_object_global(object_reference.first, object_reference.second);
+                    continue;
+                }
+
                 if (is_main_function_object_symbol(object_reference.first))
                 {
                     (void)get_or_create_main_function_object_global(object_reference.first, object_reference.second);

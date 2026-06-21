@@ -93,17 +93,46 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
                 }
                 else if (typeis< ast2_procedure_ref >(part))
                 {
-                    auto proc = as< ast2_procedure_ref >(part);
+                    ast2_procedure_ref const procedure_ref = as< ast2_procedure_ref >(part);
 
                     contextual_type_reference proc_ctx{
                         .context = input,
-                        .type = proc.functanoid,
+                        .type = procedure_ref.functanoid,
                         // TODO: calling convention?
                     };
 
-                    auto procedure_canonical = (co_await rpnx::querygraph::request< lookup_query >(proc_ctx)).value();
-                    auto linkname = co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc=proc.cc, .functanoid=procedure_canonical});
-                    operand_str += "=" + format_asm_symbol_name(linkname);
+                    type_symbol procedure_canonical = (co_await rpnx::querygraph::request< lookup_query >(proc_ctx)).value();
+                    if (typeis< temploid_reference >(procedure_canonical))
+                    {
+                        temploid_reference const& selection = as< temploid_reference >(procedure_canonical);
+                        std::optional< temploid_ensig > const formal_ensig = co_await rpnx::querygraph::request< temploid_formal_ensig_query >(selection);
+                        if (!formal_ensig.has_value())
+                        {
+                            throw quxlang::semantic_compilation_error("Cannot resolve selected PROCEDURE_REF overload: " + quxlang::to_string(procedure_ref.functanoid));
+                        }
+                        if (overload_has_unspecialized_parameters(*formal_ensig))
+                        {
+                            throw quxlang::semantic_compilation_error("Cannot emit uninstantiated PROCEDURE_REF target: " + quxlang::to_string(procedure_ref.functanoid));
+                        }
+                        procedure_canonical = instanciation_reference{
+                            .temploid = selection,
+                            .params = instantiate_declared_overload(*formal_ensig),
+                        };
+                    }
+                    else if (typeis< initialization_reference >(procedure_canonical))
+                    {
+                        std::optional< instanciation_reference > const instanciation = co_await rpnx::querygraph::request< instanciation_query >(as< initialization_reference >(procedure_canonical));
+                        if (!instanciation.has_value())
+                        {
+                            throw quxlang::semantic_compilation_error("PROCEDURE_REF target is not callable as a concrete function: " + quxlang::to_string(procedure_ref.functanoid));
+                        }
+                        procedure_canonical = *instanciation;
+                    }
+
+                    std::string const linkname =
+                        co_await rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = procedure_ref.cc, .functanoid = procedure_canonical});
+                    std::string const formatted_symbol = format_asm_symbol_name(linkname);
+                    operand_str += proc.architecture == "ARM" ? "=" + formatted_symbol : formatted_symbol;
                 }
                 else if (typeis< ast2_object_ref >(part))
                 {

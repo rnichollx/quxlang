@@ -13,23 +13,36 @@ namespace quxlang::parsers
     template < typename It >
     std::optional< std::pair< bool, std::string > > try_parse_name(It& pos, It end)
     {
+        auto parse_runtime_entry_name = [](It& current, It finish) -> std::string
+        {
+            if (skip_keyword_if_is(current, finish, "PROGRAM_START"))
+            {
+                return "PROGRAM_START";
+            }
+            if (skip_keyword_if_is(current, finish, "UNIT_TESTING_PROGRAM_START"))
+            {
+                return "UNIT_TESTING_PROGRAM_START";
+            }
+            return {};
+        };
+
         std::optional< std::pair< bool, std::string > > output;
 
         if (skip_symbol_if_is(pos, end, "."))
         {
             std::string name = parse_subentity(pos, end);
-            if (name.empty() && skip_keyword_if_is(pos, end, "PROGRAM_START"))
+            if (name.empty())
             {
-                name = "PROGRAM_START";
+                name = parse_runtime_entry_name(pos, end);
             }
             output = {{true, std::move(name)}};
         }
         else if (skip_symbol_if_is(pos, end, "::"))
         {
             std::string name = parse_subentity(pos, end);
-            if (name.empty() && skip_keyword_if_is(pos, end, "PROGRAM_START"))
+            if (name.empty())
             {
-                name = "PROGRAM_START";
+                name = parse_runtime_entry_name(pos, end);
             }
             output = {{false, std::move(name)}};
         }

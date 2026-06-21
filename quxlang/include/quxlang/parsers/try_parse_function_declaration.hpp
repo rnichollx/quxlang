@@ -90,6 +90,34 @@ namespace quxlang::parsers
         return out;
     }
 
+    /**
+     * Attempts to parse a UNIT_TEST declaration body.
+     */
+    inline std::optional< ast2_unit_test > try_parse_unit_test(parsing_context& ctx)
+    {
+        auto& pos = ctx.iter_pos;
+        auto end = ctx.iter_end;
+        auto begin = pos;
+
+        std::optional< ast2_unit_test > out;
+
+        if (!skip_keyword_if_is(pos, end, "UNIT_TEST"))
+        {
+            return out;
+        }
+        out = ast2_unit_test{};
+
+        skip_whitespace_and_comments(pos, end);
+        if (skip_keyword_if_is(pos, end, "EXPECT_FAIL") || skip_keyword_if_is(pos, end, "EXPECT_COMPILATION_FAILURE"))
+        {
+            throw syntax_compilation_error("UNIT_TEST does not support expectation modifiers");
+        }
+
+        out->definition.body = parse_function_block(ctx);
+        out->location = ctx.get_location_optional(begin, pos);
+        return out;
+    }
+
 } // namespace quxlang::parsers
 
 #endif // TRY_PARSE_FUNCTION_DECLARATION_HPP

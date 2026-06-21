@@ -2931,3 +2931,44 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
         });
     return ref;
 }
+
+bool quxlang::overload_has_unspecialized_parameters(temploid_ensig const& ensig)
+{
+    for (argif const& param : ensig.interface.positional)
+    {
+        if (is_template(param.type))
+        {
+            return true;
+        }
+    }
+
+    for (auto const& [name, param] : ensig.interface.named)
+    {
+        (void)name;
+        if (is_template(param.type))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+quxlang::instatype quxlang::instantiate_declared_overload(temploid_ensig const& ensig)
+{
+    instatype result;
+    for (argif const& param : ensig.interface.positional)
+    {
+        if (!param.is_pack)
+        {
+            result.positional.push_back(make_type_instantiation(param.type));
+        }
+    }
+
+    for (auto const& [name, param] : ensig.interface.named)
+    {
+        result.named[name] = make_type_instantiation(param.type);
+    }
+
+    return result;
+}

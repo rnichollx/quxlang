@@ -291,6 +291,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/target_llvm_backend_options_spec.hpp
         include/quxlang/queries/specs/list_builtin_constructors_spec.hpp
         include/quxlang/queries/specs/list_static_tests_spec.hpp
+        include/quxlang/queries/specs/list_unit_tests_spec.hpp
         include/quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp
         include/quxlang/queries/specs/lookup_spec.hpp
         include/quxlang/queries/specs/module_ast_spec.hpp
@@ -322,6 +323,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/type_placement_info_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_deserialize_spec.hpp
         include/quxlang/queries/specs/type_should_autogen_serialize_spec.hpp
+        include/quxlang/queries/specs/unit_test_vmir_spec.hpp
         include/quxlang/queries/specs/uintpointer_type_spec.hpp
         include/quxlang/queries/specs/user_assignment_exists_spec.hpp
         include/quxlang/queries/specs/user_copy_ctor_exists_spec.hpp
@@ -430,6 +432,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/interface_slot_list.cpp
         sources/queries/list_builtin_constructors.cpp
         sources/queries/list_static_tests.cpp
+        sources/queries/list_unit_tests.cpp
         sources/queries/list_user_functum_formal_paratypes.cpp
         sources/queries/lookup.cpp
         sources/queries/module_ast.cpp
@@ -468,6 +471,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/template_instanciation.cpp
         sources/queries/temploid_formal_ensig.cpp
         sources/queries/templex_builtins.cpp
+        sources/queries/unit_test_vmir.cpp
         sources/queries/templex_builtin_templates.cpp
         sources/queries/templex_initialize.cpp
         sources/queries/templex_select_template.cpp

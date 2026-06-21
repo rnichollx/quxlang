@@ -4,7 +4,6 @@
 #include <quxlang/data/contextual_type_reference.hpp>
 #include <quxlang/exception.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
-#include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/queries/specs/output_llvm_input_spec.hpp>
 #include <quxlang/vmir2/routine_requirements.hpp>
 #include <quxlang/vmir2/source_index.hpp>
@@ -18,17 +17,6 @@
 
 namespace
 {
-    auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
-    {
-        auto ctx = quxlang::parsers::make_unlocated_parsing_context(text);
-        auto result = quxlang::parsers::parse_type_symbol(ctx);
-        if (ctx.iter_pos != ctx.iter_end)
-        {
-            throw quxlang::syntax_compilation_error("Input not fully parsed");
-        }
-        return result;
-    }
-
     auto is_main_function_object_symbol(quxlang::type_symbol const& symbol) -> bool
     {
         return symbol.type_is< quxlang::builtin_symbol >() && symbol.get_as< quxlang::builtin_symbol >().name == "MAIN_FUNCTION";
@@ -48,6 +36,34 @@ namespace
             return quxlang::llvm_backend::optimization_level::debug;
         }
         return quxlang::llvm_backend::optimization_level::release;
+    }
+
+    auto runtime_start_name(quxlang::output_kind kind) -> std::string
+    {
+        if (kind == quxlang::output_kind::unit_test_suite)
+        {
+            return "UNIT_TESTING_PROGRAM_START";
+        }
+        return "PROGRAM_START";
+    }
+
+    auto unit_test_suite_root_symbol(quxlang::type_symbol const& module_context) -> quxlang::type_symbol
+    {
+        return quxlang::subsymbol{
+            .of = module_context,
+            .name = "__UNIT_TEST_SUITE_ROOT",
+        };
+    }
+
+    auto make_empty_unit_test_suite_root_routine() -> quxlang::vmir2::functanoid_routine3
+    {
+        quxlang::vmir2::functanoid_routine3 routine;
+        routine.blocks.push_back(quxlang::vmir2::executable_block{
+            .terminator = quxlang::vmir2::ret{},
+            .dbg_name = "unit_test_suite_root",
+        });
+        routine.block_names.emplace(quxlang::vmir2::block_index(0), "unit_test_suite_root");
+        return routine;
     }
 } // namespace
 
@@ -81,94 +97,146 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
 
     type_symbol const module_context = absolute_module_reference{.module_name = output_info.module_name};
-    type_symbol parsed_entry = parse_type_symbol_text(output_info.main_functanoid);
-    type_symbol contextual_entry = with_context(parsed_entry, module_context);
-    rpnx::querygraph::request< lookup_query > entry_lookup_request(contextual_type_reference{
-        .context = module_context,
-        .type = contextual_entry,
-    });
-    co_yield rpnx::querygraph::dependency(entry_lookup_request);
+    std::optional< instanciation_reference > entry_functanoid;
+    std::optional< type_symbol > entry_functanoid_symbol;
+    std::vector< std::pair< type_symbol, rpnx::querygraph::request< unit_test_vmir_query > > > unit_test_requests;
 
-    std::optional< type_symbol > const resolved_entry = co_await entry_lookup_request;
-    if (!resolved_entry.has_value())
+    if (output_info.type == output_kind::unit_test_suite)
     {
-        throw semantic_compilation_error("Could not resolve main functanoid '" + output_info.main_functanoid + "' in module '" + output_info.module_name + "'");
-    }
+        if (output_info.main_functanoid.has_value())
+        {
+            throw semantic_compilation_error("Output '" + output_info.output_name + "' of type unit_test_suite cannot configure main_functanoid");
+        }
 
-    std::optional< instanciation_reference > entry_instanciation;
-    if (resolved_entry->type_is< instanciation_reference >())
-    {
-        entry_instanciation = resolved_entry->as< instanciation_reference >();
+        rpnx::querygraph::request< list_unit_tests_query > unit_test_list_request(module_context);
+        co_yield rpnx::querygraph::dependency(unit_test_list_request);
+        std::set< type_symbol > const unit_tests = co_await unit_test_list_request;
+        for (type_symbol const& unit_test : unit_tests)
+        {
+            unit_test_requests.push_back(std::make_pair(unit_test, rpnx::querygraph::request< unit_test_vmir_query >(unit_test)));
+            co_yield rpnx::querygraph::dependency(unit_test_requests.back().second);
+        }
     }
     else
     {
-        initialization_reference empty_call;
-        if (resolved_entry->type_is< initialization_reference >())
+        if (!output_info.main_functanoid.has_value())
         {
-            empty_call = resolved_entry->as< initialization_reference >();
+            throw semantic_compilation_error("Output '" + output_info.output_name + "' requires a main functanoid");
+        }
+
+        type_symbol const contextual_entry = with_context(*output_info.main_functanoid, module_context);
+        rpnx::querygraph::request< lookup_query > entry_lookup_request(contextual_type_reference{
+            .context = module_context,
+            .type = contextual_entry,
+        });
+        co_yield rpnx::querygraph::dependency(entry_lookup_request);
+
+        std::optional< type_symbol > const resolved_entry = co_await entry_lookup_request;
+        if (!resolved_entry.has_value())
+        {
+            throw semantic_compilation_error("Could not resolve main functanoid '" + to_string(*output_info.main_functanoid) + "' in module '" + output_info.module_name + "'");
+        }
+
+        if (resolved_entry->type_is< instanciation_reference >())
+        {
+            entry_functanoid = resolved_entry->as< instanciation_reference >();
         }
         else
         {
-            empty_call.initializee = *resolved_entry;
+            initialization_reference empty_call;
+            if (resolved_entry->type_is< initialization_reference >())
+            {
+                empty_call = resolved_entry->as< initialization_reference >();
+            }
+            else
+            {
+                empty_call.initializee = *resolved_entry;
+            }
+
+            rpnx::querygraph::request< instanciation_query > entry_instanciation_request(std::move(empty_call));
+            co_yield rpnx::querygraph::dependency(entry_instanciation_request);
+            entry_functanoid = co_await entry_instanciation_request;
         }
 
-        rpnx::querygraph::request< instanciation_query > entry_instanciation_request(std::move(empty_call));
-        co_yield rpnx::querygraph::dependency(entry_instanciation_request);
-        entry_instanciation = co_await entry_instanciation_request;
-    }
-
-    if (!entry_instanciation.has_value())
-    {
-        throw semantic_compilation_error("Main functanoid '" + output_info.main_functanoid + "' in module '" + output_info.module_name + "' is not callable as a concrete function");
-    }
-
-    instanciation_reference const entry_functanoid = *entry_instanciation;
-    if (output_info.type == output_kind::executable)
-    {
-        if (!entry_functanoid.params.positional.empty() || !entry_functanoid.params.named.empty())
+        if (!entry_functanoid.has_value())
         {
-            throw semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + to_string(entry_functanoid));
+            throw semantic_compilation_error("Main functanoid '" + to_string(*output_info.main_functanoid) + "' in module '" + output_info.module_name + "' is not callable as a concrete function");
         }
 
-        rpnx::querygraph::request< functanoid_return_type_query > entry_return_type_request(entry_functanoid);
-        co_yield rpnx::querygraph::dependency(entry_return_type_request);
-        type_symbol const return_type = co_await entry_return_type_request;
-        if (return_type != type_symbol(int_type{.bits = 32, .has_sign = true}))
+        if (output_info.type == output_kind::executable)
         {
-            throw semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + to_string(entry_functanoid));
+            if (!entry_functanoid->params.positional.empty() || !entry_functanoid->params.named.empty())
+            {
+                throw semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + to_string(*entry_functanoid));
+            }
+
+            rpnx::querygraph::request< functanoid_return_type_query > entry_return_type_request(*entry_functanoid);
+            co_yield rpnx::querygraph::dependency(entry_return_type_request);
+            type_symbol const return_type = co_await entry_return_type_request;
+            if (return_type != type_symbol(int_type{.bits = 32, .has_sign = true}))
+            {
+                throw semantic_compilation_error("Executable entry functanoid must have signature PROCEDURE(: I32): " + to_string(*entry_functanoid));
+            }
         }
+
+        entry_functanoid_symbol = type_symbol(*entry_functanoid);
     }
 
     llvm_backend::llvm_compilable_unit output_module_unit;
-    type_symbol const entry_functanoid_symbol = type_symbol(entry_functanoid);
-    output_module_unit.target_name = entry_functanoid;
+    output_module_unit.target_name = entry_functanoid_symbol.value_or(unit_test_suite_root_symbol(module_context));
     output_module_unit.machine_target.machine = machine;
     output_module_unit.machine_target.optimization = llvm_optimization_level(llvm_options);
     output_module_unit.whole_module = true;
     output_module_unit.whole_module_output_kind = output_info.type;
 
-    rpnx::querygraph::request< vm_procedure3_query > entry_routine_request(entry_functanoid);
-    co_yield rpnx::querygraph::dependency(entry_routine_request);
+    std::optional< rpnx::querygraph::request< vm_procedure3_query > > entry_routine_request;
+    if (entry_functanoid.has_value())
+    {
+        entry_routine_request.emplace(*entry_functanoid);
+        co_yield rpnx::querygraph::dependency(*entry_routine_request);
+    }
 
     std::optional< type_symbol > runtime_program_start_candidate;
     std::optional< rpnx::querygraph::request< symboid_query > > runtime_program_start_request;
+    std::string const selected_runtime_start_name = runtime_start_name(output_info.type);
     if (target_config.module_configurations.contains("RUNTIME"))
     {
         type_symbol runtime_start = subsymbol{
             .of = absolute_module_reference{.module_name = "RUNTIME"},
-            .name = "PROGRAM_START",
+            .name = selected_runtime_start_name,
         };
         runtime_program_start_candidate = runtime_start;
         runtime_program_start_request.emplace(runtime_start);
         co_yield rpnx::querygraph::dependency(*runtime_program_start_request);
     }
 
-    output_module_unit.target_code = co_await entry_routine_request;
+    if (entry_routine_request.has_value())
+    {
+        output_module_unit.target_code = co_await *entry_routine_request;
+    }
+    else
+    {
+        output_module_unit.target_code = make_empty_unit_test_suite_root_routine();
+    }
+
+    for (std::pair< type_symbol, rpnx::querygraph::request< unit_test_vmir_query > >& unit_test_request : unit_test_requests)
+    {
+        vmir2::functanoid_routine3 unit_test_routine = co_await unit_test_request.second;
+        output_module_unit.unit_tests.push_back(llvm_backend::unit_test_entry{
+            .name = to_string(unit_test_request.first),
+            .procedure_symbol = unit_test_request.first,
+        });
+        output_module_unit.inlinable_functions.emplace(unit_test_request.first, std::move(unit_test_routine));
+    }
+
     std::optional< type_symbol > runtime_program_start;
 
     std::vector< std::pair< instanciation_reference, std::vector< trace_frame > > > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
-    queued_functanoids.insert(entry_functanoid_symbol);
+    if (entry_functanoid_symbol.has_value())
+    {
+        queued_functanoids.insert(*entry_functanoid_symbol);
+    }
     std::set< type_symbol > object_references;
     std::set< llvm_backend::runtime_procedure_reference > pending_runtime_procedures;
 
@@ -264,7 +332,8 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    auto enqueue_asm_references = [&](type_symbol const& caller, ast2_asm_procedure_declaration const& routine, std::vector< trace_frame > const& traceback) -> void
+    auto co_enqueue_asm_references =
+        [&](type_symbol const& caller, ast2_asm_procedure_declaration const& routine, std::vector< trace_frame > const& traceback) -> rpnx::querygraph::cosubroutine_impl< output_llvm_input_spec, void >
     {
         for (ast2_asm_instruction const& instruction : routine.instructions)
         {
@@ -275,7 +344,70 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                     if (component.type_is< ast2_procedure_ref >())
                     {
                         ast2_procedure_ref const& procedure_ref = component.get_as< ast2_procedure_ref >();
-                        enqueue_functanoid(caller, procedure_ref.functanoid, std::nullopt, traceback);
+                        rpnx::querygraph::request< lookup_query > lookup_request(contextual_type_reference{
+                            .context = caller,
+                            .type = procedure_ref.functanoid,
+                        });
+                        co_yield rpnx::querygraph::dependency(lookup_request);
+
+                        std::optional< type_symbol > const resolved_procedure = co_await lookup_request;
+                        if (!resolved_procedure.has_value())
+                        {
+                            throw semantic_compilation_error("PROCEDURE_REF target could not be resolved: " + to_string(procedure_ref.functanoid));
+                        }
+
+                        if (resolved_procedure->type_is< instanciation_reference >())
+                        {
+                            enqueue_functanoid(caller, *resolved_procedure, std::nullopt, traceback);
+                            continue;
+                        }
+
+                        if (resolved_procedure->type_is< temploid_reference >())
+                        {
+                            temploid_reference const& selection = resolved_procedure->get_as< temploid_reference >();
+                            rpnx::querygraph::request< temploid_formal_ensig_query > formal_ensig_request(selection);
+                            co_yield rpnx::querygraph::dependency(formal_ensig_request);
+
+                            std::optional< temploid_ensig > const formal_ensig = co_await formal_ensig_request;
+                            if (!formal_ensig.has_value())
+                            {
+                                throw semantic_compilation_error("Cannot resolve selected PROCEDURE_REF overload: " + to_string(procedure_ref.functanoid));
+                            }
+                            if (overload_has_unspecialized_parameters(*formal_ensig))
+                            {
+                                throw semantic_compilation_error("Cannot emit uninstantiated PROCEDURE_REF target: " + to_string(procedure_ref.functanoid));
+                            }
+
+                            enqueue_functanoid(
+                                caller,
+                                instanciation_reference{
+                                    .temploid = selection,
+                                    .params = instantiate_declared_overload(*formal_ensig),
+                                },
+                                std::nullopt,
+                                traceback);
+                            continue;
+                        }
+
+                        initialization_reference procedure_call;
+                        if (resolved_procedure->type_is< initialization_reference >())
+                        {
+                            procedure_call = resolved_procedure->get_as< initialization_reference >();
+                        }
+                        else
+                        {
+                            procedure_call.initializee = *resolved_procedure;
+                        }
+
+                        rpnx::querygraph::request< instanciation_query > instanciation_request(procedure_call);
+                        co_yield rpnx::querygraph::dependency(instanciation_request);
+
+                        std::optional< instanciation_reference > const instanciation = co_await instanciation_request;
+                        if (!instanciation.has_value())
+                        {
+                            throw semantic_compilation_error("PROCEDURE_REF target is not callable as a concrete function: " + to_string(procedure_ref.functanoid));
+                        }
+                        enqueue_functanoid(caller, *instanciation, std::nullopt, traceback);
                     }
                 }
             }
@@ -322,7 +454,11 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
-    enqueue_vmir_references(entry_functanoid_symbol, output_module_unit.target_code, {});
+    enqueue_vmir_references(output_module_unit.target_name, output_module_unit.target_code, {});
+    for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine_entry : output_module_unit.inlinable_functions)
+    {
+        enqueue_vmir_references(routine_entry.first, routine_entry.second, {});
+    }
 
     if (runtime_program_start_request.has_value())
     {
@@ -331,14 +467,23 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         {
             if (!runtime_symboid.type_is< ast2_asm_procedure_declaration >())
             {
-                throw semantic_compilation_error("RUNTIME::PROGRAM_START must be an ASM_PROCEDURE");
+                throw semantic_compilation_error("RUNTIME::" + selected_runtime_start_name + " must be an ASM_PROCEDURE");
             }
             runtime_program_start = *runtime_program_start_candidate;
-            if (output_info.type == output_kind::executable && machine.os_type == os::linux && machine.binary_type == binary::elf)
+            if ((output_info.type == output_kind::executable || output_info.type == output_kind::unit_test_suite) && machine.os_type == os::linux && machine.binary_type == binary::elf)
             {
                 output_module_unit.executable_entry_symbol = to_string(*runtime_program_start);
             }
         }
+    }
+    else if (output_info.type == output_kind::unit_test_suite)
+    {
+        throw semantic_compilation_error("unit_test_suite output requires MODULE(RUNTIME)::UNIT_TESTING_PROGRAM_START");
+    }
+
+    if (output_info.type == output_kind::unit_test_suite && !runtime_program_start.has_value())
+    {
+        throw semantic_compilation_error("unit_test_suite output requires MODULE(RUNTIME)::UNIT_TESTING_PROGRAM_START");
     }
 
     if (runtime_program_start.has_value())
@@ -350,7 +495,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
 
         ast2_symboid const& runtime_symboid = co_await *runtime_program_start_request;
         ast2_asm_procedure_declaration const& runtime_declaration = runtime_symboid.get_as< ast2_asm_procedure_declaration >();
-        enqueue_asm_references(*runtime_program_start, runtime_declaration, {});
+        co_await co_enqueue_asm_references(*runtime_program_start, runtime_declaration, {});
         enqueue_asm_object_lookup_requests(runtime_object_lookup_requests, *runtime_program_start, runtime_declaration);
         for (std::pair< type_symbol, rpnx::querygraph::request< lookup_query > >& lookup_request : runtime_object_lookup_requests)
         {
@@ -447,7 +592,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             pending_functanoids.pop_back();
 
             type_symbol const functanoid_symbol = type_symbol(pending_functanoid.first);
-            if (functanoid_symbol == entry_functanoid_symbol || output_module_unit.inlinable_functions.contains(functanoid_symbol) || output_module_unit.asm_callable_interfaces.contains(functanoid_symbol))
+            if ((entry_functanoid_symbol.has_value() && functanoid_symbol == *entry_functanoid_symbol) || output_module_unit.inlinable_functions.contains(functanoid_symbol) || output_module_unit.asm_callable_interfaces.contains(functanoid_symbol))
             {
                 continue;
             }
@@ -494,7 +639,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 }
                 asm_callable_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(functanoid_symbol)));
                 co_yield rpnx::querygraph::dependency(asm_callable_requests.back().second);
-                enqueue_asm_references(asm_declaration_symbol, declaration, round_functanoids.at(i).second);
+                co_await co_enqueue_asm_references(asm_declaration_symbol, declaration, round_functanoids.at(i).second);
                 enqueue_asm_object_lookup_requests(object_lookup_requests, asm_declaration_symbol, declaration);
                 continue;
             }
@@ -594,6 +739,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
 
     std::vector< std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > > > object_kind_requests;
+    if (output_info.type == output_kind::unit_test_suite)
+    {
+        object_references.insert(builtin_symbol{.name = "UNIT_TEST_COUNT"});
+        object_references.insert(builtin_symbol{.name = "UNIT_TEST_NAMES"});
+        object_references.insert(builtin_symbol{.name = "UNIT_TEST_PROC"});
+    }
     for (type_symbol const& object_reference : object_references)
     {
         if (is_main_function_object_symbol(object_reference))
@@ -601,6 +752,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             type_symbol const object_type = main_function_object_type();
             output_module_unit.object_reference_types.emplace(object_reference, object_type);
             enqueue_type(object_type);
+            continue;
+        }
+        if (std::optional< type_symbol > const unit_test_object_type = llvm_backend::unit_test_object_type(object_reference); unit_test_object_type.has_value())
+        {
+            output_module_unit.object_reference_types.emplace(object_reference, *unit_test_object_type);
+            enqueue_type(*unit_test_object_type);
             continue;
         }
         object_kind_requests.push_back(std::make_pair(object_reference, rpnx::querygraph::request< symbol_type_query >(object_reference)));
@@ -893,9 +1050,12 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     }
 
     std::vector< std::pair< type_symbol, rpnx::querygraph::request< procedure_linksymbol_query > > > procedure_linksymbol_requests;
-    procedure_linksymbol_requests.push_back(std::make_pair(
-        entry_functanoid_symbol,
-        rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = entry_functanoid_symbol})));
+    if (entry_functanoid_symbol.has_value())
+    {
+        procedure_linksymbol_requests.push_back(std::make_pair(
+            *entry_functanoid_symbol,
+            rpnx::querygraph::request< procedure_linksymbol_query >(ast2_procedure_ref{.cc = "", .functanoid = *entry_functanoid_symbol})));
+    }
     for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine_entry : output_module_unit.inlinable_functions)
     {
         procedure_linksymbol_requests.push_back(std::make_pair(

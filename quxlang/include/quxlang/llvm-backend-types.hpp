@@ -18,6 +18,8 @@
 #include <rpnx/macros.hpp>
 #include <rpnx/cow.hpp>
 
+#include <string_view>
+
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
 RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail);
 
@@ -73,6 +75,15 @@ namespace quxlang::llvm_backend
         RPNX_MEMBER_METADATA(llvm_compilation_target, machine, optimization);
     };
 
+    /// One UNIT_TEST entry emitted into a runtime unit-test suite table.
+    struct unit_test_entry
+    {
+        std::string name;
+        type_symbol procedure_symbol;
+
+        RPNX_MEMBER_METADATA(unit_test_entry, name, procedure_symbol);
+    };
+
     /// llvm_compilable_unit represents a unit of code for llvm to compile with all required input information
     struct llvm_compilable_unit
     {
@@ -85,6 +96,8 @@ namespace quxlang::llvm_backend
         std::optional< output_kind > whole_module_output_kind;
         /// executable_entry_symbol names an externally provided process entrypoint for executable output modules.
         std::optional< std::string > executable_entry_symbol;
+        /// Unit tests exposed to MODULE(RUNTIME)::UNIT_TESTING_PROGRAM_START in unit_test_suite outputs.
+        std::vector< unit_test_entry > unit_tests;
         std::optional< rpnx::cow< vmir2::source_index > > source_index;
         std::map<type_symbol, vmir2::functanoid_routine3> inlinable_functions;
         /// Selected callable ABI surfaces for asm procedures, keyed by the concrete called functanoid symbol.
@@ -103,8 +116,32 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, class_layout> class_layouts;
         std::map<type_symbol, type_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, class_layouts, type_placements);
     };
+
+    /// Returns true when a type symbol names the requested builtin object.
+    inline auto builtin_symbol_named(type_symbol const& symbol, std::string_view name) -> bool
+    {
+        return symbol.type_is< builtin_symbol >() && symbol.get_as< builtin_symbol >().name == name;
+    }
+
+    /// Returns true when symbol is the UNIT_TEST_COUNT builtin object.
+    inline auto is_unit_test_count_object_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "UNIT_TEST_COUNT");
+    }
+
+    /// Returns true when symbol is the UNIT_TEST_NAMES builtin object.
+    inline auto is_unit_test_names_object_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "UNIT_TEST_NAMES");
+    }
+
+    /// Returns true when symbol is the UNIT_TEST_PROC builtin object.
+    inline auto is_unit_test_proc_object_symbol(type_symbol const& symbol) -> bool
+    {
+        return builtin_symbol_named(symbol, "UNIT_TEST_PROC");
+    }
 
     /// Returns the source-level runtime procedure symbol for one abstract runtime procedure.
     inline auto runtime_procedure_initializee(runtime_procedure procedure) -> type_symbol
@@ -124,6 +161,56 @@ namespace quxlang::llvm_backend
     inline auto runtime_string_constant_type() -> type_symbol
     {
         return readonly_constant{.kind = constant_kind::string};
+    }
+
+    /// Returns the object type of UNIT_TEST_COUNT.
+    inline auto unit_test_count_object_type() -> type_symbol
+    {
+        return size_type{};
+    }
+
+    /// Returns the object type of UNIT_TEST_NAMES.
+    inline auto unit_test_names_object_type() -> type_symbol
+    {
+        return ptrref_type{
+            .target = runtime_string_constant_type(),
+            .ptr_class = pointer_class::array,
+            .qual = qualifier::constant,
+        };
+    }
+
+    /// Returns the object type of UNIT_TEST_PROC.
+    inline auto unit_test_proc_object_type() -> type_symbol
+    {
+        return ptrref_type{
+            .target = procedure_type{},
+            .ptr_class = pointer_class::array,
+            .qual = qualifier::constant,
+        };
+    }
+
+    /// Returns true when symbol is one of the unit-test suite builtin objects.
+    inline auto is_unit_test_object_symbol(type_symbol const& symbol) -> bool
+    {
+        return is_unit_test_count_object_symbol(symbol) || is_unit_test_names_object_symbol(symbol) || is_unit_test_proc_object_symbol(symbol);
+    }
+
+    /// Returns the object type of a unit-test suite builtin object when applicable.
+    inline auto unit_test_object_type(type_symbol const& symbol) -> std::optional< type_symbol >
+    {
+        if (is_unit_test_count_object_symbol(symbol))
+        {
+            return unit_test_count_object_type();
+        }
+        if (is_unit_test_names_object_symbol(symbol))
+        {
+            return unit_test_names_object_type();
+        }
+        if (is_unit_test_proc_object_symbol(symbol))
+        {
+            return unit_test_proc_object_type();
+        }
+        return std::nullopt;
     }
 
     /// Returns the constant pointer type used by runtime ASSERT_FAIL's tag parameter.

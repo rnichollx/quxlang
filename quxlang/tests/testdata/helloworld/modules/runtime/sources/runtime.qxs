@@ -2,10 +2,14 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::stdout STATIC I32 := 1;
 
+::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
+{
+  linux::syscall::write(fd, begin, end - begin AS ASSUME SZ);
+}
 
 ::write FUNCTION(@fd I32, @msg STRING_CONSTANT)
 {
-  linux::syscall::write(fd, msg.BEGIN(), msg.END() - msg.BEGIN() AS ASSUME SZ);
+  write_bytes(@fd fd, @begin msg.BEGIN(), @end msg.END());
 }
 
 ::exit FUNCTION(@code I32)
@@ -18,8 +22,15 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
 {
+  IF (active_test.BEGIN()??)
+  {
+     write(@fd stdout, @msg "FAILED: ");
+     write(@fd stdout, @msg active_test);
+     write(@fd stdout, @msg "\n");
+  }
   write(@msg "Assert failed: ", @fd stdout);
   write(@fd stdout, @msg expr);
+  write(@msg "\n", @fd stdout);
   exit(@code 1);
 }
 
@@ -86,6 +97,37 @@ LANGUAGE QUXLANG EN 0.0;
   MOV RAX, [RAX]
   CALL RAX
   MOV RDI, RAX
+  MOV RAX, 60
+  SYSCALL
+}
+
+::active_test VAR STRING_CONSTANT;
+
+::unit_testing_program_main FUNCTION(%count SZ, %names CONST=>> STRING_CONSTANT, %procs CONST=>> PROCEDURE())
+{
+  VAR i SZ := 0;
+  WHILE (i < count)
+  {
+    active_test := names[i];
+    procs[i]();
+    write(@fd stdout, @msg "PASSED: ");
+    write(@fd stdout, @msg names[i]);
+    write(@fd stdout, @msg "\n");
+    i++;
+  }
+}
+
+::UNIT_TESTING_PROGRAM_START INCLUDE_IF(OS_LINUX && ARCH_X64) ASM_PROCEDURE X64
+{
+  MOVABS RDI, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
+  MOV RDI, [RDI]
+  MOVABS RSI, OFFSET OBJECT_REF(UNIT_TEST_NAMES)
+  MOV RSI, [RSI]
+  MOVABS RDX, OFFSET OBJECT_REF(UNIT_TEST_PROC)
+  MOV RDX, [RDX]
+  MOVABS RAX, OFFSET PROCEDURE_REF("", unit_testing_program_main#[0])
+  CALL RAX
+  MOV RDI, 0
   MOV RAX, 60
   SYSCALL
 }

@@ -77,6 +77,18 @@ namespace quxlang::parsers
         {
             output = builtin_symbol{.name = "MAIN_FUNCTION"};
         }
+        else if (skip_keyword_if_is(pos, end, "UNIT_TEST_COUNT"))
+        {
+            output = builtin_symbol{.name = "UNIT_TEST_COUNT"};
+        }
+        else if (skip_keyword_if_is(pos, end, "UNIT_TEST_NAMES"))
+        {
+            output = builtin_symbol{.name = "UNIT_TEST_NAMES"};
+        }
+        else if (skip_keyword_if_is(pos, end, "UNIT_TEST_PROC"))
+        {
+            output = builtin_symbol{.name = "UNIT_TEST_PROC"};
+        }
         else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
         {
             output = numeric_literal_reference{};

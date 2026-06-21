@@ -2,6 +2,21 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::bif PER_THREAD VAR I32;
 
+::hello_world_unit_test UNIT_TEST
+{
+  ASSERT(TRUE);
+}
+
+::hello_world_second_unit_test UNIT_TEST
+{
+  ASSERT(TRUE);
+}
+
+
+::ze_failing_unit_test UNIT_TEST
+{
+  ASSERT(4 == 5);
+}
 
 
 

@@ -4,6 +4,7 @@
 
 #include <quxlang/queries/specs/list_builtin_constructors_spec.hpp>
 #include <quxlang/queries/specs/list_static_tests_spec.hpp>
+#include <quxlang/queries/specs/list_unit_tests_spec.hpp>
 #include <quxlang/queries/specs/list_user_functum_formal_paratypes_spec.hpp>
 #include <quxlang/queries/specs/lookup_spec.hpp>
 #include <quxlang/queries/specs/module_ast_spec.hpp>
@@ -15,6 +16,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_11(compiler_querygra
     auto& graph = querygraph.raw_graph();
     graph.register_handler_function< list_builtin_constructors_spec >(list_builtin_constructors_impl);
     graph.register_handler_function< list_static_tests_spec >(list_static_tests_impl);
+    graph.register_handler_function< list_unit_tests_spec >(list_unit_tests_impl);
     graph.register_handler_function< list_user_functum_formal_paratypes_spec >(list_user_functum_formal_paratypes_impl);
     graph.register_handler_function< lookup_spec >(lookup_impl);
     graph.register_handler_function< module_ast_spec >(module_ast_impl);
