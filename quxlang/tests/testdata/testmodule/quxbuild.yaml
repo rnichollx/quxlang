@@ -1,0 +1,120 @@
+# The quxbuild.yaml file defines 1 or more top level targets.
+# Each target must define a list of modules, a platform, and a cpu type.
+
+helloworld-linux-x64:
+  platform: linux
+  cpu: x64
+  backend: llvm
+  backend_llvm_options:
+    mode: optimize
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    main:
+      source: helloworld_main
+  outputs:
+    app:
+      type: executable
+    app.dbg:
+      type: executable
+      backend_llvm_options:
+        mode: debug
+
+helloworld-linux-arm64:
+  platform: linux
+  cpu: ARM64
+  backend: llvm
+  backend_llvm_options:
+    mode: optimize
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    main:
+      source: helloworld_main
+  outputs:
+    app:
+      type: executable
+    app.dbg:
+      type: executable
+      backend_llvm_options:
+        mode: debug
+
+tests-linux-x64:
+  platform: linux
+  cpu: x64
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    default:
+      type: executable
+      module: tests
+    tests:
+      type: unit_test_suite
+      module: tests
+
+tests-linux-arm64:
+  platform: linux
+  cpu: ARM64
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    app:
+      type: executable
+      module: tests
+    app.dbg:
+      type: executable
+      module: tests
+      backend_llvm_options:
+        mode: debug
+
+tests-linux-x86:
+  platform: linux
+  cpu: x86
+  modules:
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_0
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    app:
+      type: executable
+      module: tests
+    app-dbg:
+      type: executable
+      module: tests
+      backend_llvm_options:
+        mode: debug

@@ -21,6 +21,15 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT( x[2].val == 5 );
 }
 
+::array_default_constructor_test_unit_test UNIT_TEST
+{
+    VAR x [3]arrytest_cls;
+
+    ASSERT( x[0].val == 5 );
+    ASSERT( x[1].val == 5 );
+    ASSERT( x[2].val == 5 );
+}
+
 ::array_positional_element_cls CLASS
 {
   .val VAR I32;
@@ -44,7 +53,25 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT( y[1].val == 7 );
 }
 
+::array_positional_constructor_test_unit_test UNIT_TEST
+{
+    VAR x [3]I32 :(1, 2, 3);
+
+    ASSERT( x[0] == 1 );
+    ASSERT( x[1] == 2 );
+    ASSERT( x[2] == 3 );
+
+    VAR y [2]array_positional_element_cls :(4, 7);
+    ASSERT( y[0].val == 4 );
+    ASSERT( y[1].val == 7 );
+}
+
 ::array_zero_length_positional_default_test STATIC_TEST
+{
+    VAR x [0]I32 :();
+}
+
+::array_zero_length_positional_default_test_unit_test UNIT_TEST
 {
     VAR x [0]I32 :();
 }
@@ -94,6 +121,28 @@ LANGUAGE QUXLANG EN 0.0;
 
 }
 
+::runtime_statement_branching_test_unit_test UNIT_TEST
+{
+
+   VAR x I32;
+
+   RUNTIME CONSTEXPR {
+      x := 10;
+   } ELSE {
+      x := 20;
+   }
+   ASSERT( x == 10 );
+
+   RUNTIME NATIVE {
+      x := 30;
+   } ELSE {
+      x := 40;
+   }
+
+   ASSERT( x == 40 );
+
+}
+
 
 
 
@@ -115,6 +164,11 @@ LANGUAGE QUXLANG EN 0.0;
 ::option_num OPTION NUMBER DEFAULT(42);
 
 ::option_test STATIC_TEST
+{
+  ASSERT(option_num == 5);
+}
+
+::option_test_unit_test UNIT_TEST
 {
   ASSERT(option_num == 5);
 }
@@ -163,6 +217,11 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(storage_buz_helper() == 10);
 }
 
+::storage_buz_lifetime_test_unit_test UNIT_TEST
+{
+  ASSERT(storage_buz_helper() == 10);
+}
+
 ::constexpr_alloc_i32_helper FUNCTION(): I32
 {
   VAR slot_ptr -> STORAGE(I32) := CONSTEXPR_ALLOC#I32();
@@ -179,6 +238,11 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(constexpr_alloc_i32_helper() == 123);
 }
 
+::constexpr_alloc_i32_test_unit_test UNIT_TEST
+{
+  ASSERT(constexpr_alloc_i32_helper() == 123);
+}
+
 ::constexpr_alloc_buz_helper FUNCTION(): I32
 {
   VAR slot_ptr -> STORAGE(buz) := CONSTEXPR_ALLOC#buz();
@@ -191,6 +255,11 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 ::constexpr_alloc_buz_test STATIC_TEST
+{
+  ASSERT(constexpr_alloc_buz_helper() == 9);
+}
+
+::constexpr_alloc_buz_test_unit_test UNIT_TEST
 {
   ASSERT(constexpr_alloc_buz_helper() == 9);
 }
@@ -221,7 +290,19 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(constexpr_multialloc_helper() == 27);
 }
 
+::constexpr_multialloc_test_unit_test UNIT_TEST
+{
+  ASSERT(constexpr_multialloc_helper() == 27);
+}
+
 ::constexpr_multialloc_zero_count_test STATIC_TEST
+{
+  VAR count SZ := 0;
+  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(slots, count);
+}
+
+::constexpr_multialloc_zero_count_test_unit_test UNIT_TEST
 {
   VAR count SZ := 0;
   VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
@@ -235,6 +316,20 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 ::constexpr_multialloc_container_test STATIC_TEST
+{
+  VAR buffer byte_storage_buffer;
+  buffer.count := 2;
+  buffer.data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(buffer.count);
+  PLACE AT(buffer.data->) BYTE := 4;
+  PLACE AT((buffer.data + 1)->) BYTE := 8;
+  ASSERT((PUN (buffer.data->) AS BYTE) == 4);
+  ASSERT((PUN ((buffer.data + 1)->) AS BYTE) == 8);
+  DESTROY AT((buffer.data + 1)->) BYTE;
+  DESTROY AT(buffer.data->) BYTE;
+  CONSTEXPR_DEALLOC_MULTIPLE#BYTE(buffer.data, buffer.count);
+}
+
+::constexpr_multialloc_container_test_unit_test UNIT_TEST
 {
   VAR buffer byte_storage_buffer;
   buffer.count := 2;

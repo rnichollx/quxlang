@@ -164,6 +164,17 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(str3 == static_string);
 }
 
+::string_tests_unit_test UNIT_TEST
+{
+  VAR str1 string := "Hello, ";
+  VAR str2 string := "world!";
+  VAR str3 string := str1 + str2;
+
+  ASSERT(str3 == "Hello, world!");
+
+  ASSERT(str3 == static_string);
+}
+
 ::get_static_string FUNCTION(): string
 {
    RETURN ("Hello, " AS string) + ("world!" AS string);

@@ -6,6 +6,13 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(blockgen_additional_statement_after_continue() == 5);
 }
 
+::blockgen_test_unit_test UNIT_TEST
+{
+
+  ASSERT(blockgen_additional_statements_after_return() == 1);
+  ASSERT(blockgen_additional_statement_after_continue() == 5);
+}
+
 
 ::blockgen_additional_statements_after_return FUNCTION(): I32
 {

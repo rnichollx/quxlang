@@ -1,5 +1,5 @@
 cmake-build-*
-example-out
+testmodule-out
 build
 out
 .*

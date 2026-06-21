@@ -42,6 +42,24 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(default_choice::x > default_choice::z);
 }
 
+::enum_default_booliate_and_ordering_test_unit_test UNIT_TEST
+{
+  VAR nullable nullable_choice;
+  ASSERT(nullable == nullable_choice::none);
+  ASSERT(nullable?!);
+  ASSERT((nullable??) == FALSE);
+
+  nullable := nullable_choice::x;
+  ASSERT(nullable??);
+  ASSERT((nullable?!) == FALSE);
+  ASSERT(nullable_choice::x < nullable_choice::y);
+
+  VAR defaulted default_choice;
+  ASSERT(defaulted == default_choice::y);
+  ASSERT(default_choice::y < default_choice::z);
+  ASSERT(default_choice::x > default_choice::z);
+}
+
 ::enum_without_default_constructor_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
   VAR bad no_default_choice;
@@ -88,7 +106,41 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(from_raw == access_flags::read_write);
 }
 
+::flagset_defaults_ops_membership_and_casts_test_unit_test UNIT_TEST
+{
+  VAR flags access_flags;
+  ASSERT(flags?!);
+  ASSERT(flags?? !!);
+
+  flags := access_flags::read;
+  ASSERT(flags??);
+  ASSERT((flags?!) == FALSE);
+  ASSERT(flags.read);
+  ASSERT(flags.write!!);
+
+  flags #||= access_flags::write;
+  ASSERT(flags.read);
+  ASSERT(flags.write);
+  ASSERT(flags == access_flags::read_write);
+  ASSERT((flags #&& access_flags::read) == access_flags::read);
+
+  VAR raw U8 := access_flags::exec AS U8;
+  ASSERT(raw == 16);
+
+  VAR from_raw access_flags := (3 AS U8) AS access_flags;
+  ASSERT(from_raw == access_flags::read_write);
+}
+
 ::flagset_composite_membership_test STATIC_TEST
+{
+  VAR none compound_flags;
+  ASSERT((none.read_write) == FALSE);
+
+  VAR both compound_flags := compound_flags::read_write;
+  ASSERT(both.read_write);
+}
+
+::flagset_composite_membership_test_unit_test UNIT_TEST
 {
   VAR none compound_flags;
   ASSERT((none.read_write) == FALSE);
@@ -119,6 +171,19 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(output[0] == 5);
 }
 
+::enum_unknown_deserialize_allowed_test_unit_test UNIT_TEST
+{
+  VAR input [1]BYTE;
+  input[0] := 5;
+
+  VAR value wire_choice_unknown_ok;
+  value.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+
+  VAR output [1]BYTE;
+  value.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 5);
+}
+
 ::enum_reserved_deserialize_rejected_even_when_unknown_allowed_test STATIC_TEST EXPECT_FAIL
 {
   VAR input [1]BYTE;
@@ -129,6 +194,21 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 ::flagset_unknown_bits_roundtrip_test STATIC_TEST
+{
+  VAR input [1]BYTE;
+  input[0] := 8;
+
+  VAR flags wire_flags;
+  flags.DESERIALIZE(@INPUT_ITERATOR input[& 0]);
+  ASSERT(flags??);
+  ASSERT((flags.read) == FALSE);
+
+  VAR output [1]BYTE;
+  flags.SERIALIZE(@OUTPUT_ITERATOR output[& 0]);
+  ASSERT(output[0] == 8);
+}
+
+::flagset_unknown_bits_roundtrip_test_unit_test UNIT_TEST
 {
   VAR input [1]BYTE;
   input[0] := 8;
