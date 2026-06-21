@@ -2412,7 +2412,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return input.machine_target.machine.pointer_align();
             }
-            return 1;
+            throw quxlang::semantic_compilation_error("Missing type placement for LLVM lowering alignment: " + quxlang::to_string(type));
         }
 
         auto slot_size(quxlang::type_symbol const& type) const -> std::uint64_t
@@ -2438,7 +2438,7 @@ namespace quxlang::llvm_backend::detail
             {
                 return input.machine_target.machine.pointer_size_bytes();
             }
-            return 1;
+            throw quxlang::semantic_compilation_error("Missing type placement for LLVM lowering size: " + quxlang::to_string(type));
         }
 
         auto integer_value(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot) -> llvm::Value*
