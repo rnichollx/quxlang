@@ -62,6 +62,7 @@
 #include "quxlang/queries/string_static_value.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
+#include "quxlang/queries/target_configuration.hpp"
 #include "quxlang/queries/temploid_formal_ensig.hpp"
 #include "quxlang/queries/type_is_serialoid.hpp"
 #include "quxlang/queries/type_is_stringlike.hpp"
@@ -6898,6 +6899,16 @@ namespace quxlang
 
         [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_unimplemented_statement const& st) -> co_type< void >
         {
+            target_configuration const& target_config = co_await rpnx::querygraph::request< target_configuration_query >(std::monostate{});
+            if (target_config.unimplemented_mode == quxlang::unimplemented_mode::error)
+            {
+                std::string message = "UNIMPLEMENTED statement reached during codegen";
+                if (st.error_message.has_value())
+                {
+                    message += ": " + st.error_message.value();
+                }
+                throw semantic_compilation_error(std::move(message));
+            }
             this->emit(current_block, vmir2::unimplemented{.message = st.error_message});
             co_return;
         }

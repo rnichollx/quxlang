@@ -15,6 +15,8 @@
 
 RPNX_ENUM(quxlang, backend_kind, std::uint8_t, llvm);
 RPNX_ENUM(quxlang, backend_llvm_mode, std::uint8_t, optimize, debug);
+/// Controls how UNIMPLEMENTED statements are handled when VMIR is generated.
+RPNX_ENUM(quxlang, unimplemented_mode, std::uint8_t, trap, error);
 
 namespace quxlang
 {
@@ -117,11 +119,13 @@ namespace quxlang
         machine_target_info target_output_config;
         backend_kind backend = backend_kind::llvm;
         backend_llvm_options llvm_options;
+        /// How codegen handles a reached UNIMPLEMENTED statement for this target.
+        quxlang::unimplemented_mode unimplemented_mode = quxlang::unimplemented_mode::trap;
         bool run_static_tests = true;
 
         std::optional< std::map< std::string, output_config > > outputs;
 
-        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, run_static_tests, outputs);
+        RPNX_MEMBER_METADATA(target_configuration, module_configurations, target_output_config, backend, llvm_options, unimplemented_mode, run_static_tests, outputs);
     };
 
 

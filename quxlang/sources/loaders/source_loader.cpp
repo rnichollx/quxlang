@@ -138,7 +138,8 @@ namespace quxlang
 
             // Validate target-level keys
             {
-                static const std::set<std::string> allowed_target_keys = {"platform", "cpu", "binary", "backend", "backend_llvm_options", "run_static_tests", "outputs", "modules"};
+                static const std::set<std::string> allowed_target_keys = {
+                    "platform", "cpu", "binary", "backend", "backend_llvm_options", "unimplemented_mode", "run_static_tests", "outputs", "modules"};
                 for (auto const& kv : target_config_node)
                 {
                     auto key = kv.first.as<std::string>();
@@ -258,6 +259,23 @@ namespace quxlang
                 if (target_config_node["backend_llvm_options"].IsDefined())
                 {
                     target_output.llvm_options = parse_backend_llvm_options(target_config_node["backend_llvm_options"], "target '" + target_name + "'");
+                }
+
+                if (target_config_node["unimplemented_mode"].IsDefined())
+                {
+                    std::string const mode = target_config_node["unimplemented_mode"].as< std::string >();
+                    if (mode == "trap")
+                    {
+                        target_output.unimplemented_mode = quxlang::unimplemented_mode::trap;
+                    }
+                    else if (mode == "error")
+                    {
+                        target_output.unimplemented_mode = quxlang::unimplemented_mode::error;
+                    }
+                    else
+                    {
+                        throw quxlang::semantic_compilation_error("Unknown/unsupported unimplemented_mode " + mode);
+                    }
                 }
 
                 if (target_config_node["run_static_tests"].IsDefined())

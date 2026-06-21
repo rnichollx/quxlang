@@ -401,6 +401,51 @@ TEST(querygraph_queries, target_backend_and_llvm_options_return_defaults)
     EXPECT_EQ(graph.make_request< quxlang::output_llvm_backend_options_query >("app").mode, quxlang::backend_llvm_mode::optimize);
 }
 
+TEST(querygraph_queries, unimplemented_statement_default_trap_mode_emits_unimplemented_instruction)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::probe FUNCTION(): I32
+{
+  UNIMPLEMENTED;
+  RETURN 0;
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
+
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    quxlang::vmir2::functanoid_routine3 routine = graph.make_request< quxlang::vm_procedure3_query >(*inst);
+    std::string const routine_text = quxlang::vmir2::assembler(routine).to_string(routine);
+    EXPECT_NE(routine_text.find("UNIMPLEMENTED"), std::string::npos);
+}
+
+TEST(querygraph_queries, unimplemented_statement_error_mode_rejects_during_codegen)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::probe FUNCTION(): I32
+{
+  UNIMPLEMENTED;
+  RETURN 0;
+}
+)QX");
+    bundle.targets.at("x64").unimplemented_mode = quxlang::unimplemented_mode::error;
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
+
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*inst), quxlang::compilation_error);
+}
+
 TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_options)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();

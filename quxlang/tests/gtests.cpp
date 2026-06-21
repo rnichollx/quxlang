@@ -6292,12 +6292,14 @@ linux-explicit:
   platform: linux
   cpu: x64
   binary: macho
+  unimplemented_mode: error
   modules:
     main:
       source: main
 windows-default:
   platform: windows
   cpu: x64
+  unimplemented_mode: trap
   modules:
     main:
       source: main
@@ -6318,8 +6320,11 @@ macos-default:
     auto sources = quxlang::load_bundle_sources_for_targets(root, {});
 
     EXPECT_EQ(sources.targets.at("linux-default").target_output_config.binary_type, quxlang::binary::elf);
+    EXPECT_EQ(sources.targets.at("linux-default").unimplemented_mode, quxlang::unimplemented_mode::trap);
     EXPECT_EQ(sources.targets.at("linux-explicit").target_output_config.binary_type, quxlang::binary::macho);
+    EXPECT_EQ(sources.targets.at("linux-explicit").unimplemented_mode, quxlang::unimplemented_mode::error);
     EXPECT_EQ(sources.targets.at("windows-default").target_output_config.binary_type, quxlang::binary::pe);
+    EXPECT_EQ(sources.targets.at("windows-default").unimplemented_mode, quxlang::unimplemented_mode::trap);
     EXPECT_EQ(sources.targets.at("macos-default").target_output_config.binary_type, quxlang::binary::macho);
 
     std::filesystem::remove_all(root);
