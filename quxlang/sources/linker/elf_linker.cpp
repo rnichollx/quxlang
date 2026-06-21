@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -122,6 +123,11 @@ namespace quxlang::detail
             collect_sections();
             collect_common_symbols();
             layout_sections();
+            std::set< std::string > const undefined_symbols = collect_undefined_relocation_symbols();
+            if (!undefined_symbols.empty())
+            {
+                throw quxlang::semantic_compilation_error(undefined_symbols_message(undefined_symbols));
+            }
             collect_arm64_got_slots();
             if (got_section_index.has_value())
             {
@@ -297,6 +303,51 @@ namespace quxlang::detail
         auto symbol_name(llvm::object::SymbolRef const& symbol) const -> std::string
         {
             return take_or_throw(symbol.getName(), "Failed to read ELF symbol name").str();
+        }
+
+        /**
+         * Returns the user-facing spelling for one raw object-file symbol name.
+         */
+        auto display_symbol_name(std::string const& raw_symbol_name) const -> std::string
+        {
+            std::map< std::string, std::string >::const_iterator const display_name = options.symbol_display_names.find(raw_symbol_name);
+            if (display_name == options.symbol_display_names.end())
+            {
+                return raw_symbol_name;
+            }
+            if (display_name->second == raw_symbol_name)
+            {
+                return raw_symbol_name;
+            }
+            return display_name->second + " (" + raw_symbol_name + ")";
+        }
+
+        /**
+         * Returns true when an ELF symbol reference is undefined.
+         */
+        auto symbol_is_undefined(llvm::object::SymbolRef const& symbol) const -> bool
+        {
+            std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
+            return (flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0;
+        }
+
+        /**
+         * Formats the undefined-symbol linker diagnostic.
+         */
+        auto undefined_symbols_message(std::set< std::string > const& undefined_symbols) const -> std::string
+        {
+            std::string message = undefined_symbols.size() == 1 ? "Undefined symbol during ELF link: " : "Undefined symbols during ELF link: ";
+            bool first = true;
+            for (std::string const& raw_symbol_name : undefined_symbols)
+            {
+                if (!first)
+                {
+                    message += ", ";
+                }
+                message += display_symbol_name(raw_symbol_name);
+                first = false;
+            }
+            return message;
         }
 
         void collect_common_symbols()
@@ -855,7 +906,7 @@ namespace quxlang::detail
             std::uint32_t const flags = take_or_throw(symbol.getFlags(), "Failed to read ELF symbol flags");
             if ((flags & llvm::object::BasicSymbolRef::SF_Undefined) != 0)
             {
-                throw quxlang::semantic_compilation_error("Undefined symbol during ELF link");
+                throw quxlang::semantic_compilation_error(undefined_symbols_message({symbol_name(symbol)}));
             }
 
             llvm::object::section_iterator const section_iter = take_or_throw(symbol.getSection(), "Failed to read ELF symbol section");
@@ -887,6 +938,51 @@ namespace quxlang::detail
             }
 
             return *symbol_iter;
+        }
+
+        /**
+         * Returns every undefined symbol targeted by a relocation the linker would apply.
+         */
+        auto collect_undefined_relocation_symbols() const -> std::set< std::string >
+        {
+            std::set< std::string > result;
+            for (llvm::object::SectionRef const& generic_section : object_file->sections())
+            {
+                llvm::object::ELFSectionRef const elf_section(generic_section);
+                if (elf_section.getType() != llvm::ELF::SHT_RELA && elf_section.getType() != llvm::ELF::SHT_REL)
+                {
+                    continue;
+                }
+
+                llvm::object::section_iterator const relocated_section_iter =
+                    take_or_throw(generic_section.getRelocatedSection(), "Failed to identify relocated ELF section");
+                if (relocated_section_iter == object_file->section_end())
+                {
+                    continue;
+                }
+
+                std::map< std::uint64_t, std::size_t >::const_iterator output_section_iter = output_section_indices_by_input_index.find(relocated_section_iter->getIndex());
+                if (output_section_iter == output_section_indices_by_input_index.end())
+                {
+                    continue;
+                }
+
+                linked_section const& section = sections.at(output_section_iter->second);
+                if (section.nobits)
+                {
+                    continue;
+                }
+
+                for (llvm::object::RelocationRef const& relocation : generic_section.relocations())
+                {
+                    llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
+                    if (symbol_is_undefined(target_symbol))
+                    {
+                        result.insert(symbol_name(target_symbol));
+                    }
+                }
+            }
+            return result;
         }
 
         auto relocation_target_address(llvm::object::RelocationRef const& relocation) const -> std::uint64_t

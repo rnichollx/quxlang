@@ -712,6 +712,36 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
+         * Returns the backend-owned placement for the internal array-initializer runtime record.
+         */
+        auto array_initializer_storage_placement() const -> quxlang::type_placement_info
+        {
+            std::uint64_t const pointer_size = input.machine_target.machine.pointer_size_bytes();
+            std::uint64_t const pointer_align = input.machine_target.machine.pointer_align();
+            std::uint64_t const integer64_size = 8;
+            std::uint64_t const integer64_align = input.machine_target.machine.integer_alignment_for_bits(64);
+
+            std::uint64_t const record_align = std::max(pointer_align, integer64_align);
+            std::uint64_t record_size = pointer_size;
+            if (record_size % integer64_align != 0)
+            {
+                record_size += integer64_align - (record_size % integer64_align);
+            }
+            record_size += integer64_size;
+            if (record_size % integer64_align != 0)
+            {
+                record_size += integer64_align - (record_size % integer64_align);
+            }
+            record_size += integer64_size;
+            if (record_size % record_align != 0)
+            {
+                record_size += record_align - (record_size % record_align);
+            }
+
+            return quxlang::type_placement_info{.size = record_size, .alignment = record_align};
+        }
+
+        /**
          * Produces the integer key used for standard Qux float comparisons.
          *
          * This implements the existing strong ordering model:
@@ -2590,6 +2620,10 @@ namespace quxlang::llvm_backend::detail
             {
                 return std::max< std::uint64_t >(iter->second.alignment, 1);
             }
+            if (type.type_is< quxlang::array_initializer_type >())
+            {
+                return array_initializer_storage_placement().alignment;
+            }
             if (type.type_is< quxlang::int_type >())
             {
                 return std::max< std::uint64_t >(type.get_as< quxlang::int_type >().bits / 8, 1);
@@ -2615,6 +2649,10 @@ namespace quxlang::llvm_backend::detail
             if (iter != input.type_placements.end())
             {
                 return iter->second.size;
+            }
+            if (type.type_is< quxlang::array_initializer_type >())
+            {
+                return array_initializer_storage_placement().size;
             }
             if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >())
             {

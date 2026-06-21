@@ -3121,6 +3121,54 @@ TEST(llvm_backend, init_zero_does_not_emit_memset_intrinsics)
     EXPECT_EQ(result.optimized_llvm_ir_text.find("llvm.memset"), std::string::npos);
 }
 
+TEST(llvm_backend, array_initializer_local_does_not_require_type_placement)
+{
+    quxlang::type_symbol const routine_symbol = quxlang::submember{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "array_initializer_local_test",
+    };
+    quxlang::type_symbol const array_type = parse_type_symbol("[3] BYTE");
+    quxlang::type_symbol const initializer_type = quxlang::array_initializer_type{
+        .element_type = quxlang::byte_type{},
+        .count = 3,
+    };
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = array_type},
+        quxlang::vmir2::local_type{.type = initializer_type},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::array_init_start{
+        .on_value = quxlang::vmir2::local_index(1),
+        .initializer = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::array_init_finish{
+        .initializer = quxlang::vmir2::local_index(2),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+    packet.type_placements[array_type] = quxlang::type_placement_info{
+        .size = 3,
+        .alignment = 1,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find("alloca { ptr, i64, i64 }, align 8"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("store i64 3"), std::string::npos);
+}
+
 TEST(llvm_backend, swap_on_references_swaps_pointee_values)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
