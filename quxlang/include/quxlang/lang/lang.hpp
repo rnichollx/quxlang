@@ -85,7 +85,14 @@ namespace quxlang
                 "BINARY_ELF",
                 "BINARY_MACHO",
                 "BINARY_PE",
-                "BINARY_WASM"
+                "BINARY_WASM",
+
+                "UNWIND_FORMAT_IS_NONE",
+                "UNWIND_FORMAT_IS_DWARF_EH_FRAME",
+                "UNWIND_FORMAT_IS_ARM_EHABI",
+                "UNWIND_FORMAT_IS_WINDOWS_SEH",
+                "UNWIND_FORMAT_IS_SJLJ",
+                "UNWIND_FORMAT_IS_WASM"
             };
             // clang-format on
 

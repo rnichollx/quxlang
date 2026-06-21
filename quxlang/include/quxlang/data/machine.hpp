@@ -28,6 +28,9 @@ namespace quxlang
 
     enum class binary { none, elf, macho, pe, wasm };
 
+    /// unwind_format names the runtime unwind information format emitted by the backend.
+    enum class unwind_format { none, dwarf_eh_frame, arm_ehabi, windows_seh, sjlj, wasm };
+
     struct machine_target_info
     {
         cpu cpu_type = cpu::none;
@@ -212,6 +215,53 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(machine_target_info, cpu_type, os_type, binary_type);
     };
+
+    /**
+     * Returns the runtime unwind format emitted by the current backend policy.
+     */
+    constexpr inline auto current_codegen_unwind_format(machine_target_info const& info) -> unwind_format
+    {
+        switch (info.cpu_type)
+        {
+        case cpu::x86_32:
+        case cpu::x86_64:
+        case cpu::arm_32:
+        case cpu::arm_64:
+        case cpu::riscv_32:
+        case cpu::riscv_64:
+            break;
+        case cpu::none:
+            throw compiler_bug("Unwind format requires a CPU target");
+        }
+
+        switch (info.os_type)
+        {
+        case os::linux:
+        case os::windows:
+        case os::macos:
+        case os::freebsd:
+        case os::netbsd:
+        case os::openbsd:
+        case os::solaris:
+            break;
+        case os::none:
+            throw compiler_bug("Unwind format requires an OS target");
+        }
+
+        switch (info.binary_type)
+        {
+        case binary::elf:
+        case binary::macho:
+        case binary::pe:
+            return unwind_format::dwarf_eh_frame;
+        case binary::wasm:
+            throw compiler_bug("Unwind format does not support wasm targets yet");
+        case binary::none:
+            throw compiler_bug("Unwind format requires a binary target");
+        }
+
+        throw compiler_bug("Unwind format is not implemented for this target");
+    }
 
 } // namespace quxlang
 #endif // RPNX_QUXLANG_MACHINE_HEADER

@@ -3,7 +3,7 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT itanium;
 
 
-::unwind_personality_proc INCLUDE_IF(ABI_EH_ITANIUM_EH_FRAME) PROCEDURE CC("ccc") IMPL unwind_handler;
+::unwind_personality_proc INCLUDE_IF(UNWIND_FORMAT_IS_DWARF_EH_FRAME) PROCEDURE CC("ccc") IMPL unwind_handler;
 
 ::unwind_action BITMASK STORAGE(I32)
 {

@@ -224,6 +224,99 @@ TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
     EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
 }
 
+TEST(querygraph_queries, unwind_format_keywords_reflect_current_linux_elf_codegen_policy)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle("::main VAR I32;");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto evaluate = [&](std::string const& keyword) -> bool
+    {
+        return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+            .expr = quxlang::expression_value_keyword{.keyword = keyword},
+            .context = context,
+        });
+    };
+
+    EXPECT_TRUE(evaluate("UNWIND_FORMAT_IS_DWARF_EH_FRAME"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_NONE"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_ARM_EHABI"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_WINDOWS_SEH"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_SJLJ"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_WASM"));
+}
+
+TEST(querygraph_queries, unwind_format_keywords_reflect_current_windows_pe_codegen_policy)
+{
+    quxlang::source_bundle bundle;
+    quxlang::target_configuration target;
+    target.target_output_config.cpu_type = quxlang::cpu::x86_64;
+    target.target_output_config.os_type = quxlang::os::windows;
+    target.target_output_config.binary_type = quxlang::binary::pe;
+    target.module_configurations["main"].source = "main_windows";
+
+    bundle.targets["windows"] = target;
+    bundle.module_sources["main_windows"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
+
+    quxlang::compiler_querygraph graph(bundle, "windows", bundle.targets.at("windows").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto evaluate = [&](std::string const& keyword) -> bool
+    {
+        return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+            .expr = quxlang::expression_value_keyword{.keyword = keyword},
+            .context = context,
+        });
+    };
+
+    EXPECT_TRUE(evaluate("UNWIND_FORMAT_IS_DWARF_EH_FRAME"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_WINDOWS_SEH"));
+}
+
+TEST(querygraph_queries, unwind_format_keywords_reflect_current_arm32_elf_codegen_policy)
+{
+    quxlang::source_bundle bundle;
+    quxlang::target_configuration target;
+    target.target_output_config.cpu_type = quxlang::cpu::arm_32;
+    target.target_output_config.os_type = quxlang::os::linux;
+    target.target_output_config.binary_type = quxlang::binary::elf;
+    target.module_configurations["main"].source = "main_arm32";
+
+    bundle.targets["arm32"] = target;
+    bundle.module_sources["main_arm32"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
+
+    quxlang::compiler_querygraph graph(bundle, "arm32", bundle.targets.at("arm32").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+    quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+
+    auto evaluate = [&](std::string const& keyword) -> bool
+    {
+        return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+            .expr = quxlang::expression_value_keyword{.keyword = keyword},
+            .context = context,
+        });
+    };
+
+    EXPECT_TRUE(evaluate("UNWIND_FORMAT_IS_DWARF_EH_FRAME"));
+    EXPECT_FALSE(evaluate("UNWIND_FORMAT_IS_ARM_EHABI"));
+}
+
+TEST(querygraph_queries, unwind_format_keywords_filter_include_if_declarations)
+{
+    auto bundle = make_single_main_source_bundle(R"QX(
+::selected INCLUDE_IF(UNWIND_FORMAT_IS_DWARF_EH_FRAME) VAR I32;
+::filtered INCLUDE_IF(UNWIND_FORMAT_IS_WINDOWS_SEH) VAR I32;
+)QX");
+    auto graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const selected = quxlang::type_symbol(quxlang::subsymbol{main, "selected"});
+    quxlang::type_symbol const filtered = quxlang::type_symbol(quxlang::subsymbol{main, "filtered"});
+
+    EXPECT_EQ(graph.make_request< quxlang::declaroids_query >(selected).size(), 1);
+    EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
+}
+
 TEST(querygraph_queries, output_list_returns_configured_outputs_for_target)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();

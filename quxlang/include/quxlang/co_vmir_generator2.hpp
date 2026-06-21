@@ -5445,6 +5445,37 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.binary_type == binary::wasm);
             }
 
+            if (kw.keyword == "UNWIND_FORMAT_IS_NONE" ||
+                kw.keyword == "UNWIND_FORMAT_IS_DWARF_EH_FRAME" ||
+                kw.keyword == "UNWIND_FORMAT_IS_ARM_EHABI" ||
+                kw.keyword == "UNWIND_FORMAT_IS_WINDOWS_SEH" ||
+                kw.keyword == "UNWIND_FORMAT_IS_SJLJ" ||
+                kw.keyword == "UNWIND_FORMAT_IS_WASM")
+            {
+                unwind_format const format = current_codegen_unwind_format(arch);
+                if (kw.keyword == "UNWIND_FORMAT_IS_NONE")
+                {
+                    co_return this->create_bool_value(bidx, format == unwind_format::none);
+                }
+                if (kw.keyword == "UNWIND_FORMAT_IS_DWARF_EH_FRAME")
+                {
+                    co_return this->create_bool_value(bidx, format == unwind_format::dwarf_eh_frame);
+                }
+                if (kw.keyword == "UNWIND_FORMAT_IS_ARM_EHABI")
+                {
+                    co_return this->create_bool_value(bidx, format == unwind_format::arm_ehabi);
+                }
+                if (kw.keyword == "UNWIND_FORMAT_IS_WINDOWS_SEH")
+                {
+                    co_return this->create_bool_value(bidx, format == unwind_format::windows_seh);
+                }
+                if (kw.keyword == "UNWIND_FORMAT_IS_SJLJ")
+                {
+                    co_return this->create_bool_value(bidx, format == unwind_format::sjlj);
+                }
+                co_return this->create_bool_value(bidx, format == unwind_format::wasm);
+            }
+
             if (kw.keyword == "THIS" || kw.keyword == "OTHER" || kw.keyword == "EXPLICIT" || kw.keyword == "ASSUME")
             {
                 auto result = co_await this->co_lookup_symbol(bidx, freebound_identifier{.name = kw.keyword});
