@@ -281,6 +281,12 @@ namespace quxlang::vmir2
         for (auto& [k, v] : state)
         {
             output += this->to_string(k, v);
+            if (!first)
+            {
+                output += ", ";
+            }
+
+            first = false;
         }
 
         output += " >]";

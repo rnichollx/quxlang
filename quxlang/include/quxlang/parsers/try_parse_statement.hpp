@@ -15,6 +15,7 @@
 #include <quxlang/parsers/try_parse_expression_statement.hpp>
 #include <quxlang/parsers/fwd.hpp> // added forward declarations
 #include <quxlang/parsers/parse_runtime_statement.hpp>
+#include <quxlang/parsers/string_literal.hpp>
 
 #include <utility>
 
@@ -71,6 +72,19 @@ namespace quxlang::parsers
                 throw syntax_compilation_error("Expected ';' after UNIMPLEMENTED statement");
             }
             function_unimplemented_statement st;
+            st.location = ctx.get_location_optional(begin, pos);
+            return std::optional< function_statement >{std::move(st)};
+        }
+        else if (skip_keyword_if_is(pos, end, "COMPILATION_ERROR"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            function_compilation_error_statement st;
+            st.message = try_parse_string_literal(pos, end);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ";"))
+            {
+                throw syntax_compilation_error("Expected ';' after COMPILATION_ERROR statement");
+            }
             st.location = ctx.get_location_optional(begin, pos);
             return std::optional< function_statement >{std::move(st)};
         }

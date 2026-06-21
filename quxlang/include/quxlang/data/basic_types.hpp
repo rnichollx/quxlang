@@ -1083,6 +1083,7 @@ namespace quxlang
     struct function_assert_statement;
     struct function_var_statement;
     struct function_unimplemented_statement;
+    struct function_compilation_error_statement;
     struct function_place_statement;
     struct function_destroy_statement;
     struct function_runtime_statement;
@@ -1096,7 +1097,7 @@ namespace quxlang
     struct function_label_block_statement;
     struct function_goto_statement;
 
-    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement >;
+    using function_statement = rpnx::variant< function_block, function_expression_statement, function_if_statement, function_while_statement, function_for_statement, function_var_statement, function_return_statement, function_assert_statement, function_unimplemented_statement, function_compilation_error_statement, function_place_statement, function_destroy_statement, function_runtime_statement, function_static_eval_statement, function_static_if_statement, function_static_while_statement, function_break_statement, function_continue_statement, function_label_statement, function_label_block_statement, function_goto_statement >;
 
     struct function_var_statement
     {
@@ -1116,6 +1117,14 @@ namespace quxlang
         std::optional< std::string > error_message;
 
         QUX_AST_METADATA(function_unimplemented_statement, error_message);
+    };
+
+    /// Statement that rejects VMIR generation when the statement is reached.
+    struct function_compilation_error_statement
+    {
+        std::optional< std::string > message;
+
+        QUX_AST_METADATA(function_compilation_error_statement, message);
     };
 
     struct function_block

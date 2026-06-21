@@ -6913,6 +6913,17 @@ namespace quxlang
             co_return;
         }
 
+        [[nodiscard]] auto co_generate_statement_ovl(block_index& current_block, function_compilation_error_statement const& st) -> co_type< void >
+        {
+            (void)current_block;
+            std::string message = "COMPILATION_ERROR statement reached during codegen";
+            if (st.message.has_value())
+            {
+                message += ": " + st.message.value();
+            }
+            throw semantic_compilation_error(std::move(message));
+        }
+
         [[nodiscard]] auto find_labeled_break_target(std::string const& label_name) const -> std::optional< block_index >
         {
             for (auto it = this->state.break_controls.rbegin(); it != this->state.break_controls.rend(); ++it)

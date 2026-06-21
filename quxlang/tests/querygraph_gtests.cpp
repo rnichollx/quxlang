@@ -446,6 +446,59 @@ TEST(querygraph_queries, unimplemented_statement_error_mode_rejects_during_codeg
     EXPECT_THROW(graph.make_request< quxlang::vm_procedure3_query >(*inst), quxlang::compilation_error);
 }
 
+TEST(querygraph_queries, compilation_error_statement_rejects_during_codegen)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::probe FUNCTION(): I32
+{
+  COMPILATION_ERROR "intentional failure";
+  RETURN 0;
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
+
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    try
+    {
+        (void)graph.make_request< quxlang::vm_procedure3_query >(*inst);
+        FAIL() << "Expected COMPILATION_ERROR to reject codegen";
+    }
+    catch (quxlang::compilation_error const& error)
+    {
+        EXPECT_NE(std::string(error.what()).find("intentional failure"), std::string::npos);
+    }
+}
+
+TEST(querygraph_queries, compilation_error_statement_skipped_by_static_if_does_not_error)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::probe FUNCTION(): I32
+{
+  STATIC_IF(FALSE)
+  {
+    COMPILATION_ERROR "skipped failure";
+  }
+  RETURN 0;
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const probe = quxlang::type_symbol(quxlang::subsymbol{main, "probe"});
+
+    std::optional< quxlang::instanciation_reference > const inst = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = probe,
+    });
+    ASSERT_TRUE(inst.has_value());
+
+    EXPECT_NO_THROW((void)graph.make_request< quxlang::vm_procedure3_query >(*inst));
+}
+
 TEST(querygraph_queries, output_llvm_backend_options_falls_back_to_target_options)
 {
     quxlang::source_bundle bundle = make_test_source_bundle();
