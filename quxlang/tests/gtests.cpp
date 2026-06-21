@@ -4315,6 +4315,10 @@ TEST(llvm_backend, atomic_load_store_preserve_requested_orderings)
         .os_type = quxlang::os::linux,
         .binary_type = quxlang::binary::elf,
     };
+    packet.type_placements[atomic_i32] = quxlang::type_placement_info{
+        .size = 4,
+        .alignment = packet.machine_target.machine.atomic_integer_alignment_for_bits(32),
+    };
 
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
