@@ -2681,16 +2681,14 @@ TEST(elf_linker, local_tls_relocations_emit_tls_program_header)
 
 TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
 {
-    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
-    {
-        return quxlang::submember{
-            .of = quxlang::absolute_module_reference{"main"},
-            .name = name,
-        };
+    quxlang::type_symbol const routine_symbol = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "thread_initguard_test",
     };
-
-    quxlang::type_symbol const routine_symbol = make_symbol("thread_initguard_test");
-    quxlang::type_symbol const object_symbol = make_symbol("thread_guarded_i32");
+    quxlang::type_symbol const object_symbol = quxlang::subsymbol{
+        .of = quxlang::absolute_module_reference{"main"},
+        .name = "thread_guarded_i32",
+    };
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
@@ -2725,8 +2723,8 @@ TEST(llvm_backend, thread_initguard_try_acquire_emits_thread_local_guard)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
-    EXPECT_NE(result.llvm_ir_text.find(quxlang::to_string(object_symbol) + "$initguard"), std::string::npos);
-    EXPECT_NE(result.llvm_ir_text.find("thread_local(localexec) global"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("MODULE(main)::thread_guarded_i32::INITGUARD"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("common thread_local(localexec) global i64 0"), std::string::npos);
 }
 
 TEST(elf_linker, common_symbols_are_allocated_in_bss)

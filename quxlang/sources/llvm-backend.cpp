@@ -1995,6 +1995,17 @@ namespace quxlang::llvm_backend::detail
             return global;
         }
 
+        /**
+         * Returns the LLVM global symbol name used for the initguard protecting one global.
+         */
+        auto initguard_global_symbol_name(quxlang::type_symbol const& symbol) const -> std::string
+        {
+            return quxlang::to_string(quxlang::type_symbol(quxlang::subsymbol{
+                .of = symbol,
+                .name = "INITGUARD",
+            }));
+        }
+
         /** Applies the requested VMIR access class to an LLVM global declaration or definition. */
         void apply_access_class(llvm::GlobalVariable* global, quxlang::vmir2::access_class class_) const
         {
@@ -2315,9 +2326,9 @@ namespace quxlang::llvm_backend::detail
                 *module,
                 value_storage_type(quxlang::initguard_type{}),
                 false,
-                llvm::GlobalValue::ExternalLinkage,
-                nullptr,
-                quxlang::to_string(symbol) + "$initguard");
+                llvm::GlobalValue::CommonLinkage,
+                llvm::Constant::getNullValue(value_storage_type(quxlang::initguard_type{})),
+                initguard_global_symbol_name(symbol));
             apply_access_class(global, class_);
             initguard_globals[symbol] = global;
             return global;
