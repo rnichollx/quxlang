@@ -1,0 +1,114 @@
+sources:
+    benchmark:
+        git:
+            repository: https://github.com/rnichollx/google-benchmark.git
+            revision: a3e04a2e8465784962c543edcf718c8f41f1943e
+    cow:
+        git:
+            repository: https://gitlab.com/rpnx/cow.git
+            revision: d99f760b1d8640ba02f4a13050ec7e657bf85055
+    datastructures:
+        git:
+            repository: https://gitlab.com/rpnx/datastructures.git
+    googletest:
+        git:
+            repository: https://github.com/rnichollx/googletest.git
+            revision: 0ccfdbb8ce09abf507836e310ccf4562a92223cb
+    llvm:
+        git:
+            repository: https://github.com/llvm/llvm-project.git
+            revision: llvmorg-22.1.6
+    metalib:
+        git:
+            repository: https://gitlab.com/rpnx/metalib.git
+    querygraph:
+        git:
+            repository: https://gitlab.com/rpnx/querygraph.git
+    quxlang:
+        local: ../../quxlang
+    serialization:
+        git:
+            repository: https://gitlab.com/rpnx/serialization.git
+    yaml-cpp:
+        git:
+            repository: https://github.com/rnichollx/yaml-cpp.git
+            revision: d1f45aa4d71f308a37024a23a2b91413b1951d38
+targets:
+    benchmark:
+        source: benchmark
+        depends: []
+        project_type: CMake
+        cmake_options:
+            BENCHMARK_ENABLE_TESTING: "Off"
+    cow:
+        source: cow
+        depends:
+            - googletest
+        project_type: CMake
+        cmake_package_name: RPNXCow
+    datastructures:
+        source: datastructures
+        depends:
+            - googletest
+            - benchmark
+        project_type: CMake
+        cmake_package_name: RPNXDataStructures
+    googletest:
+        source: googletest
+        depends: []
+        project_type: CMake
+        cmake_package_name: GTest
+        staged: true
+    llvm:
+        source: llvm/llvm
+        depends: []
+        project_type: CMake
+        cmake_package_name: LLVM
+        staged: true
+        cmake_options:
+            LLVM_ADDITIONAL_BUILD_TYPES: DebugASAN;DebugTSAN
+            LLVM_ENABLE_EH: "on"
+            LLVM_ENABLE_RTTI: "on"
+        cxx_standard: "17"
+    metalib:
+        source: metalib
+        depends: []
+        project_type: CMake
+        cmake_package_name: RPNXMetalib
+        cxx_standard: "23"
+    querygraph:
+        source: querygraph
+        depends:
+            - datastructures
+        project_type: CMake
+    quxlang:
+        source: quxlang
+        depends:
+            - cow
+            - benchmark
+            - googletest
+            - llvm
+            - yaml-cpp
+            - datastructures
+            - metalib
+            - serialization
+            - querygraph
+        project_type: ""
+    serialization:
+        source: serialization
+        depends:
+            - rpnxmetalib
+            - googletest
+        project_type: CMake
+        cmake_package_name: RPNXSerialization
+    yaml-cpp:
+        source: yaml-cpp
+        depends: []
+        project_type: CMake
+cmake_binary: null
+cxx_version: "23"
+configurations:
+    - Debug
+    - Release
+    - DebugASAN
+    - DebugTSAN
