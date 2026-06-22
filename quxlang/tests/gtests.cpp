@@ -16,6 +16,7 @@
 
 
 #include <quxlang/data/basic_types.hpp>
+#include <quxlang/data/compilation_result.hpp>
 #include <quxlang/macros.hpp>
 #include <quxlang/parsers/parse_expression.hpp>
 #include <quxlang/parsers/parse_symbol.hpp>
@@ -3364,7 +3365,7 @@ TEST(llvm_backend, swap_on_references_swaps_pointee_values)
     EXPECT_NE(result.llvm_ir_text.find("store i8"), std::string::npos);
 }
 
-TEST(llvm_backend, native_illegal_constexpr_instructions_trap_instead_of_lowering_runtime_helpers)
+TEST(llvm_backend, native_constexpr_allocator_instruction_throws_lowering_error)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
     {
@@ -3374,7 +3375,7 @@ TEST(llvm_backend, native_illegal_constexpr_instructions_trap_instead_of_lowerin
         };
     };
 
-    quxlang::type_symbol const routine_symbol = make_symbol("constexpr_native_illegal_trap_test");
+    quxlang::type_symbol const routine_symbol = make_symbol("constexpr_native_illegal_lowering_test");
     quxlang::type_symbol const byte_type = quxlang::byte_type{};
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
@@ -3402,11 +3403,18 @@ TEST(llvm_backend, native_illegal_constexpr_instructions_trap_instead_of_lowerin
     };
 
     quxlang::llvm_backend::llvm_backend backend;
-    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
-
-    EXPECT_NE(result.llvm_ir_text.find("call void @llvm.trap()"), std::string::npos);
-    EXPECT_EQ(result.llvm_ir_text.find("malloc"), std::string::npos);
-    EXPECT_EQ(result.llvm_ir_text.find("free"), std::string::npos);
+    try
+    {
+        (void)backend.compile(packet);
+        FAIL() << "expected lowering error";
+    }
+    catch (quxlang::compilation_error const& err)
+    {
+        EXPECT_TRUE(err.structured_error.type_is< quxlang::lowering_error >());
+        EXPECT_NE(std::string(err.what()).find("CONSTEXPR_ALLOC"), std::string::npos);
+        ASSERT_FALSE(err.traceback.empty());
+        EXPECT_NE(err.traceback.front().trace_context.find(quxlang::to_string(routine_symbol)), std::string::npos);
+    }
 }
 
 TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
@@ -3420,24 +3428,25 @@ TEST(llvm_backend, runtime_constexpr_omits_constexpr_only_blocks_in_native_ir)
     };
 
     quxlang::type_symbol const routine_symbol = make_symbol("runtime_constexpr_native_path_test");
-    quxlang::type_symbol const i32 = quxlang::int_type{
-        .bits = 32,
-        .has_sign = true,
-    };
+    quxlang::type_symbol const byte_type = quxlang::byte_type{};
 
     quxlang::vmir2::functanoid_routine3 routine;
     routine.local_types = {
         quxlang::vmir2::local_type{.type = quxlang::void_type{}},
-        quxlang::vmir2::local_type{.type = i32},
+        quxlang::vmir2::local_type{.type = quxlang::ptrref_type{
+            .target = byte_type,
+            .ptr_class = quxlang::pointer_class::instance,
+            .qual = quxlang::qualifier::mut,
+        }},
     };
     routine.blocks.resize(3);
     routine.blocks[0].terminator = quxlang::vmir2::runtime_constexpr{
         .target_constexpr = quxlang::vmir2::block_index(1),
         .target_native = quxlang::vmir2::block_index(2),
     };
-    routine.blocks[1].instructions.push_back(quxlang::vmir2::load_const_int{
-        .target = quxlang::vmir2::local_index(1),
-        .value = "7",
+    routine.blocks[1].instructions.push_back(quxlang::vmir2::constexpr_alloc{
+        .storage_type = byte_type,
+        .result = quxlang::vmir2::local_index(1),
     });
     routine.blocks[1].terminator = quxlang::vmir2::ret{};
     routine.blocks[2].terminator = quxlang::vmir2::ret{};

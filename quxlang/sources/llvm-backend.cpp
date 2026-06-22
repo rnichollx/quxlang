@@ -169,7 +169,7 @@ namespace quxlang::llvm_backend::detail
 
             if (!input.asm_functions.contains(input.target_name))
             {
-                emit_defined_function(input.target_name, input.target_code);
+                emit_defined_function_with_traceback(input.target_name, input.target_code);
             }
             for (std::pair< quxlang::type_symbol const, quxlang::vmir2::functanoid_routine3 > const& helper : input.inlinable_functions)
             {
@@ -177,7 +177,7 @@ namespace quxlang::llvm_backend::detail
                 {
                     continue;
                 }
-                emit_defined_function(helper.first, helper.second);
+                emit_defined_function_with_traceback(helper.first, helper.second);
             }
             for (std::pair< quxlang::type_symbol const, quxlang::asm_procedure > const& helper : input.asm_functions)
             {
@@ -3709,19 +3709,6 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Emits an unconditional trap for a VMIR instruction that is invalid in native LLVM lowering.
-         */
-        void emit_runtime_illegal_instruction_trap(function_codegen_state& state, llvm::BasicBlock*& current_block, std::string const& continue_name)
-        {
-            llvm::BasicBlock* unreachable_continue = llvm::BasicBlock::Create(context, continue_name, state.function);
-            llvm::Function* trap = llvm::Intrinsic::getOrInsertDeclaration(module.get(), llvm::Intrinsic::trap);
-            builder.CreateCall(trap);
-            builder.CreateUnreachable();
-            current_block = unreachable_continue;
-            builder.SetInsertPoint(current_block);
-        }
-
-        /**
          * Lowers one concrete VMIR instruction alternative.
          */
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::access_field const& instruction)
@@ -3950,25 +3937,37 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_set_result const& instruction)
         {
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_set_result.cont");
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("CONSTEXPR_SET_RESULT cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_set_result2 const& instruction)
         {
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_set_result2.cont");
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("CONSTEXPR_SET_RESULT2 cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_make_proxy const& instruction)
         {
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_make_proxy.cont");
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("CONSTEXPR_MAKE_PROXY cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_output_byte const& instruction)
         {
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_output_byte.cont");
+            (void)state;
+            (void)current_block;
+            (void)instruction;
+            throw quxlang::lowering_compilation_error("CONSTEXPR_OUTPUT_BYTE cannot be lowered to native code");
         }
 
 
@@ -4152,29 +4151,37 @@ namespace quxlang::llvm_backend::detail
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_alloc const& instruction)
         {
+            (void)state;
+            (void)current_block;
             (void)instruction;
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_alloc.cont");
+            throw quxlang::lowering_compilation_error("CONSTEXPR_ALLOC cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_alloc_multiple const& instruction)
         {
+            (void)state;
+            (void)current_block;
             (void)instruction;
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_alloc_multiple.cont");
+            throw quxlang::lowering_compilation_error("CONSTEXPR_ALLOC_MULTIPLE cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_dealloc const& instruction)
         {
+            (void)state;
+            (void)current_block;
             (void)instruction;
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_dealloc.cont");
+            throw quxlang::lowering_compilation_error("CONSTEXPR_DEALLOC cannot be lowered to native code");
         }
 
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_dealloc_multiple const& instruction)
         {
+            (void)state;
+            (void)current_block;
             (void)instruction;
-            emit_runtime_illegal_instruction_trap(state, current_block, "constexpr_dealloc_multiple.cont");
+            throw quxlang::lowering_compilation_error("CONSTEXPR_DEALLOC_MULTIPLE cannot be lowered to native code");
         }
 
 
@@ -6182,6 +6189,25 @@ namespace quxlang::llvm_backend::detail
                         builder.CreateUnreachable();
                     }
                 }
+            }
+        }
+
+        /**
+         * Emits a defined VMIR routine and annotates lowering diagnostics with the routine symbol.
+         */
+        void emit_defined_function_with_traceback(quxlang::type_symbol const& symbol, quxlang::vmir2::functanoid_routine3 const& routine)
+        {
+            try
+            {
+                emit_defined_function(symbol, routine);
+            }
+            catch (quxlang::compilation_error& error)
+            {
+                error.traceback.push_back(quxlang::trace_frame{
+                    .trace_context = "lowering routine " + quxlang::to_string(symbol),
+                    .location = std::nullopt,
+                });
+                throw;
             }
         }
     };

@@ -38,6 +38,16 @@ namespace quxlang
     };
 
     /**
+     * Diagnostic emitted when compiler IR cannot be lowered to the requested backend target.
+     */
+    struct lowering_error
+    {
+        std::string message;
+
+        RPNX_MEMBER_METADATA(lowering_error, message);
+    };
+
+    /**
      * Compiler-facing diagnostic that can be cached and rethrown as a
      * canonical querygraph error.
      */
@@ -46,7 +56,7 @@ namespace quxlang
         std::string message = "compilation error";
         std::vector< trace_frame > traceback;
 
-        rpnx::variant< syntax_error, semantic_error > structured_error;
+        rpnx::variant< syntax_error, semantic_error, lowering_error > structured_error;
 
         compilation_error() : std::logic_error("compilation error")
         {
@@ -71,6 +81,16 @@ namespace quxlang
     {
         compilation_error error(message);
         error.structured_error = semantic_error{std::move(message)};
+        return error;
+    }
+
+    /**
+     * Builds a compilation_error for a lowering diagnostic message.
+     */
+    inline auto lowering_compilation_error(std::string message) -> compilation_error
+    {
+        compilation_error error(message);
+        error.structured_error = lowering_error{std::move(message)};
         return error;
     }
 
