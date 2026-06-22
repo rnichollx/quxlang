@@ -346,7 +346,36 @@ namespace
                                 },
                                 location);
                         }
+                        else if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::initguard_complete >)
+                        {
+                            (void)concrete_instruction;
+                            record_referenced_runtime_procedure(
+                                result,
+                                quxlang::llvm_backend::runtime_procedure_reference{
+                                    .procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete,
+                                },
+                                location);
+                        }
+                        else if constexpr (std::is_same_v< instruction_type, quxlang::vmir2::initguard_abort >)
+                        {
+                            (void)concrete_instruction;
+                            record_referenced_runtime_procedure(
+                                result,
+                                quxlang::llvm_backend::runtime_procedure_reference{
+                                    .procedure = quxlang::llvm_backend::runtime_procedure::initguard_abort,
+                                },
+                                location);
+                        }
                     });
+            }
+            if (block.terminator.has_value() && block.terminator->type_is< quxlang::vmir2::initguard_try_acquire >())
+            {
+                record_referenced_runtime_procedure(
+                    result,
+                    quxlang::llvm_backend::runtime_procedure_reference{
+                        .procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire,
+                    },
+                    quxlang::vmir2::get_location(*block.terminator));
             }
         }
 

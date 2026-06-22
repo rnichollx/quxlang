@@ -34,6 +34,40 @@ LANGUAGE QUXLANG EN 0.0;
   exit(@code 1);
 }
 
+::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  WHILE (TRUE)
+  {
+    VAR state UINTPTR := guard.LOAD#ATOMIC_ACQUIRE();
+    IF (state == 2)
+    {
+      RETURN FALSE;
+    }
+    IF (state == 0)
+    {
+      VAR expected UINTPTR := 0;
+      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, 1))
+      {
+        RETURN TRUE;
+      }
+    }
+    ELSE IF (state != 1)
+    {
+      ASSERT(FALSE, "Invalid initguard state");
+    }
+  }
+}
+
+::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+{
+  guard.STORE#ATOMIC_RELEASE(2);
+}
+
+::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+{
+  guard.STORE#ATOMIC_RELEASE(0);
+}
+
 ::linux INCLUDE_IF(OS_LINUX) NAMESPACE
 {
   ::syscall NAMESPACE

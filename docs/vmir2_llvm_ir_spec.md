@@ -349,7 +349,7 @@ The slot order must be stable for a given interface type.
 | `get_global_storage` | materialize the address of mutable global storage |
 | `get_antestatal_ref` | materialize the address of readonly antestatal storage |
 | `initguard_global_get_ref` | materialize the address of the initguard backing object |
-| `initguard_release` | call the initguard release runtime helper |
+| `initguard_complete` | call the initguard completion runtime helper |
 | `initguard_abort` | call the initguard abort runtime helper |
 
 ### Destruction, lifetime, and assertions

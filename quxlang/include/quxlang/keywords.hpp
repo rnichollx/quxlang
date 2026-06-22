@@ -37,13 +37,29 @@ namespace quxlang
 
         inline std::set< std::string > get_subentity_keywords()
         {
-            return {"CONSTRUCTOR", "DESTRUCTOR", "OPERATOR", "SERIALIZE", "DESERIALIZE", "BEGIN", "END", "ASSERT_FAIL", "UNIT_TESTING_PROGRAM_START"};
+            return {
+                "CONSTRUCTOR",
+                "DESTRUCTOR",
+                "OPERATOR",
+                "SERIALIZE",
+                "DESERIALIZE",
+                "BEGIN",
+                "END",
+                "ASSERT_FAIL",
+                "INITGUARD_ABORT",
+                "INITGUARD_COMPLETE",
+                "INITGUARD_TRY_ACQUIRE",
+                "UNIT_TESTING_PROGRAM_START",
+            };
         }
 
         static const std::set< std::string > subentity_keywords = get_subentity_keywords();
 
         std::set< std::string > const runtime_only_declared_symbols = {
             "ASSERT_FAIL",
+            "INITGUARD_ABORT",
+            "INITGUARD_COMPLETE",
+            "INITGUARD_TRY_ACQUIRE",
             "PROGRAM_START",
             "UNIT_TESTING_PROGRAM_START",
         };

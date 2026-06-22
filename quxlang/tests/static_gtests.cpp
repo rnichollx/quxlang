@@ -24,8 +24,8 @@
 
 namespace
 {
-    std::string const static_test_target = "linux-arm64";
-    std::string const static_test_suite_name = "Module_main_linux_arm64";
+    std::string const static_test_target = "tests-linux-arm64";
+    std::string const static_test_suite_name = "Module_tests_linux_arm64";
 
     /// Identifies the source location GoogleTest should report for a discovered STATIC_TEST.
     struct static_test_gtest_location
@@ -60,14 +60,14 @@ namespace
 
     auto main_static_test_module() -> quxlang::type_symbol
     {
-        return quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"main"});
+        return quxlang::with_context(quxlang::context_reference{}, quxlang::absolute_module_reference{"tests"});
     }
 
     /// Returns the filesystem root corresponding to the loaded source bundle.
     auto static_test_source_root() -> std::filesystem::path
     {
         std::filesystem::path testdata = QUXLANG_TESTS_TESTDDATA_PATH;
-        return std::filesystem::absolute(testdata / "example").lexically_normal();
+        return std::filesystem::absolute(testdata / "testmodule").lexically_normal();
     }
 
     auto load_static_test_sources() -> quxlang::source_bundle
@@ -244,7 +244,7 @@ namespace
     {
         quxlang::source_bundle sources = load_static_test_sources();
         quxlang::target_configuration const& target = sources.targets.at(static_test_target);
-        std::string const& source_module_name = target.module_configurations.at("main").source;
+        std::string const& source_module_name = target.module_configurations.at("tests").source;
         quxlang::module_source const& main_sources = sources.module_sources.at(source_module_name);
         std::filesystem::path source_root = static_test_source_root();
 
@@ -271,7 +271,7 @@ namespace
     auto main_static_test_gtest_name(quxlang::type_symbol const& symbol) -> std::string
     {
         std::string name = quxlang::to_string(symbol);
-        std::string const module_prefix = "MODULE(main)::";
+        std::string const module_prefix = "MODULE(tests)::";
         if (name.starts_with(module_prefix))
         {
             name.erase(0, module_prefix.size());

@@ -215,6 +215,10 @@ namespace quxlang::parsers
         }
         else if (skip_keyword_if_is(pos, end, "INITGUARD"))
         {
+            if (!ctx.parsing_runtime_module)
+            {
+                throw syntax_compilation_error("INITGUARD type can only be named by the runtime module");
+            }
             output = initguard_type{};
         }
         else if (skip_keyword_if_is(pos, end, "INITGUARD_LOCK"))

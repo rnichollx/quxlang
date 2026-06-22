@@ -127,6 +127,62 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         if (typeis< submember >(inst.temploid.templexoid))
         {
             submember const& member = as< submember >(inst.temploid.templexoid);
+            if (typeis< initguard_type >(member.of))
+            {
+                type_symbol const state_type = uintptr_type;
+                std::string const& member_name = member.name;
+                if (member_name == "COMPARE_EXCHANGE")
+                {
+                    auto success_arg = inst.params.named.find("SUCCESS");
+                    auto failure_arg = inst.params.named.find("FAILURE");
+                    if (success_arg == inst.params.named.end() || failure_arg == inst.params.named.end() || inst.params.named.size() != 2 || !inst.params.positional.empty())
+                    {
+                        co_return allowed_operations;
+                    }
+
+                    std::optional< atomic_access_mode > success_mode = atomic_mode_from_type(parameter_instantiation_type(success_arg->second));
+                    std::optional< atomic_access_mode > failure_mode = atomic_mode_from_type(parameter_instantiation_type(failure_arg->second));
+                    if (!success_mode.has_value() || !failure_mode.has_value() || !valid_cas_failure_mode_for_success(*success_mode, *failure_mode))
+                    {
+                        co_return allowed_operations;
+                    }
+
+                    add_overload({make_mref(state_type), state_type}, {{"THIS", make_mref(member.of)}}, bool_type{});
+                    co_return allowed_operations;
+                }
+
+                auto mode_arg = inst.params.named.find("T");
+                if (mode_arg == inst.params.named.end() || inst.params.named.size() != 1 || !inst.params.positional.empty())
+                {
+                    co_return allowed_operations;
+                }
+
+                std::optional< atomic_access_mode > mode = atomic_mode_from_type(parameter_instantiation_type(mode_arg->second));
+                if (!mode.has_value())
+                {
+                    co_return allowed_operations;
+                }
+
+                if (member_name == "LOAD")
+                {
+                    if (valid_load_mode(*mode))
+                    {
+                        add_overload({}, {{"THIS", make_cref(member.of)}}, state_type);
+                    }
+                    co_return allowed_operations;
+                }
+                if (member_name == "STORE")
+                {
+                    if (valid_store_mode(*mode))
+                    {
+                        add_overload({state_type}, {{"THIS", make_mref(member.of)}}, void_type{});
+                    }
+                    co_return allowed_operations;
+                }
+
+                co_return allowed_operations;
+            }
+
             std::optional< type_symbol > const atomic_value_type = atomic_type_argument(member.of);
             if (atomic_value_type.has_value())
             {

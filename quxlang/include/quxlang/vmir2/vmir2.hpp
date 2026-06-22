@@ -74,7 +74,7 @@ namespace quxlang
         struct get_object_ref;
         struct get_antestatal_ref;
         struct initguard_global_get_ref;
-        struct initguard_release;
+        struct initguard_complete;
         struct initguard_abort;
         struct dereference_pointer;
         struct load_const_zero;
@@ -211,7 +211,7 @@ namespace quxlang
             get_object_ref,
             get_antestatal_ref,
             initguard_global_get_ref,
-            initguard_release,
+            initguard_complete,
             initguard_abort,
             load_const_zero,
             load_const_bool,
@@ -442,11 +442,11 @@ namespace quxlang
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_global_get_ref, symbol, target_ref);
         };
 
-        struct initguard_release
+        struct initguard_complete
         {
             local_index lock;
 
-            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_release, lock);
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(initguard_complete, lock);
         };
 
         struct initguard_abort

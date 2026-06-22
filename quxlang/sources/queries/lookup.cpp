@@ -107,7 +107,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
     auto current_module = get_root_module(context).value_or(void_type{});
 
-    if (type.type_is< byte_type >() || type.type_is< float_type >())
+    if (type.type_is< byte_type >() || type.type_is< float_type >() || type.type_is< initguard_type >() || type.type_is< initguard_lock_type >())
     {
         co_return type;
     }

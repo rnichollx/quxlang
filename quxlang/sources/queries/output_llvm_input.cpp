@@ -314,7 +314,34 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                                 pending_runtime_procedures.insert(std::move(reference));
                             }
                         }
+                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::initguard_complete >)
+                        {
+                            (void)concrete_instruction;
+                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_complete};
+                            if (!output_module_unit.runtime_procedures.contains(reference))
+                            {
+                                pending_runtime_procedures.insert(std::move(reference));
+                            }
+                        }
+                        else if constexpr (std::is_same_v< std::decay_t< decltype(concrete_instruction) >, vmir2::initguard_abort >)
+                        {
+                            (void)concrete_instruction;
+                            llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_abort};
+                            if (!output_module_unit.runtime_procedures.contains(reference))
+                            {
+                                pending_runtime_procedures.insert(std::move(reference));
+                            }
+                        }
                     });
+            }
+
+            if (block.terminator.has_value() && block.terminator->type_is< vmir2::initguard_try_acquire >())
+            {
+                llvm_backend::runtime_procedure_reference reference{.procedure = llvm_backend::runtime_procedure::initguard_try_acquire};
+                if (!output_module_unit.runtime_procedures.contains(reference))
+                {
+                    pending_runtime_procedures.insert(std::move(reference));
+                }
             }
 
             for (std::pair< vmir2::local_index const, vmir2::slot_state > const& slot_entry : block.entry_state)

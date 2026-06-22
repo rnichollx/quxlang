@@ -472,9 +472,9 @@ namespace quxlang::vmir2
         return "INITGUARD_GLOBAL_GET_REF " + quxlang::to_string(inst.symbol) + " -> %" + std::to_string(inst.target_ref);
     }
 
-    std::string assembler::to_string_internal(vmir2::initguard_release inst)
+    std::string assembler::to_string_internal(vmir2::initguard_complete inst)
     {
-        return "INITGUARD_RELEASE %" + std::to_string(inst.lock);
+        return "INITGUARD_COMPLETE %" + std::to_string(inst.lock);
     }
 
     std::string assembler::to_string_internal(vmir2::initguard_abort inst)

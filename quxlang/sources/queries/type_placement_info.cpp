@@ -156,7 +156,7 @@ rpnx::querygraph::coroutine< quxlang::type_placement_info_spec > quxlang::type_p
     }
     else if (type.template type_is< initguard_type >() || type.template type_is< initguard_lock_type >())
     {
-        co_return type_placement_info{.size = 8, .alignment = 8};
+        co_return type_placement_info{.size = machine_info.pointer_size_bytes(), .alignment = machine_info.pointer_align()};
     }
     else if (type.template type_is< constexpr_proxy >())
     {

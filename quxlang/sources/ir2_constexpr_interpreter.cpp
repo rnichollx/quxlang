@@ -346,7 +346,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     /** Materializes a reference to the unique constexpr initguard backing the requested symbol. */
     void do_initguard_global_get_ref(type_symbol symbol, local_index target_ref);
     /** Commits a successful initguard acquisition, transitioning the referenced guard to initialized. */
-    void do_initguard_release(local_index lock_slot);
+    void do_initguard_complete(local_index lock_slot);
     /** Aborts an active initguard acquisition, returning the referenced guard to the uninitialized state. */
     void do_initguard_abort(local_index lock_slot);
     /** Attempts to acquire a symbol's initguard and branches based on whether initialization is required. */
@@ -421,7 +421,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::get_object_ref const& gor);
     void exec_instr_val(vmir2::get_antestatal_ref const& gar);
     void exec_instr_val(vmir2::initguard_global_get_ref const& igr);
-    void exec_instr_val(vmir2::initguard_release const& igr);
+    void exec_instr_val(vmir2::initguard_complete const& igr);
     void exec_instr_val(vmir2::initguard_abort const& iga);
     void exec_instr_val(vmir2::dereference_pointer const& drp);
     void exec_instr_val(vmir2::load_from_ref const& lfr);
@@ -1554,34 +1554,34 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     guard_ref->ref = pointer_impl{.pointer_target = guard};
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_release const& igr)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::initguard_complete const& igr)
 {
-    do_initguard_release(igr.lock);
+    do_initguard_complete(igr.lock);
 }
 
-void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_release(local_index lock_slot)
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::do_initguard_complete(local_index lock_slot)
 {
     auto lock = consume_local(lock_slot);
     if (!lock)
     {
-        throw constexpr_logic_execution_error("INITGUARD_RELEASE on invalid lock");
+        throw constexpr_logic_execution_error("INITGUARD_COMPLETE on invalid lock");
     }
 
     if (!lock->ref.has_value() || !lock->ref->pointer_target.has_value())
     {
-        throw constexpr_logic_execution_error("INITGUARD_RELEASE on non-lock value");
+        throw constexpr_logic_execution_error("INITGUARD_COMPLETE on non-lock value");
     }
 
     auto guard = lock->ref->pointer_target->lock();
     lock->ref = std::nullopt;
     if (!guard)
     {
-        throw constexpr_logic_execution_error("INITGUARD_RELEASE on expired guard");
+        throw constexpr_logic_execution_error("INITGUARD_COMPLETE on expired guard");
     }
 
     if (get_initguard_state(guard) != initguard_state::initializing)
     {
-        throw constexpr_logic_execution_error("INITGUARD_RELEASE on guard that is not initializing");
+        throw constexpr_logic_execution_error("INITGUARD_COMPLETE on guard that is not initializing");
     }
 
     set_initguard_state(guard, initguard_state::initialized);

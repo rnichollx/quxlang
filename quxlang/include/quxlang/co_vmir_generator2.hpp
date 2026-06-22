@@ -3430,7 +3430,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || is_atomic_type(of_type);
+            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || is_atomic_type(of_type);
         }
 
         /// Converts a canonical atomic access-mode type into a VMIR access mode.
@@ -3702,11 +3702,11 @@ namespace quxlang
                 return std::nullopt;
             }
 
-            if (std::optional< type_symbol > atomic_value_type = atomic_type_argument(*cls); atomic_value_type.has_value())
+            if (std::optional< type_symbol > atomic_value_type = atomic_type_argument(*cls); atomic_value_type.has_value() || cls->type_is< initguard_type >())
             {
                 if (member->name == "CONSTRUCTOR")
                 {
-                    if (call.named.contains("OTHER") && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
+                    if (atomic_value_type.has_value() && call.named.contains("OTHER") && args.named.contains("THIS") && args.named.contains("OTHER") && args.size() == 2)
                     {
                         type_symbol const& other_type = call.named.at("OTHER");
                         if (is_ref(other_type) && remove_ref(other_type) == *atomic_value_type)
@@ -8198,7 +8198,7 @@ namespace quxlang
                                           .target_ref = get_local_index(init_storage_ref),
                                       });
             co_await this->co_gen_call_functum(acquire_block, init_functum, codegen_invocation_args{.named = {{"STORAGE", init_storage_ref}}});
-            this->emit(acquire_block, vmir2::initguard_release{.lock = get_local_index(lock_value)});
+            this->emit(acquire_block, vmir2::initguard_complete{.lock = get_local_index(lock_value)});
             co_await emit_return_from_storage(acquire_block);
 
             co_await emit_return_from_storage(initialized_block);

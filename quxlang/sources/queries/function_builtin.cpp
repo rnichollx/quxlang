@@ -89,6 +89,15 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     }
 
     submember const& member = as< submember >(classified_symbol);
+    if (typeis< initguard_type >(member.of))
+    {
+        if (member.name == "LOAD" || member.name == "STORE" || member.name == "COMPARE_EXCHANGE")
+        {
+            co_return builtin_function_kind::builtin_intrinsic;
+        }
+        co_return builtin_function_kind::not_builtin;
+    }
+
     symbol_kind const parent_kind = co_await rpnx::querygraph::request< symbol_type_query >(member.of);
     if (parent_kind == symbol_kind::interface_ || parent_kind == symbol_kind::enum_ || parent_kind == symbol_kind::flagset_ || parent_kind == symbol_kind::global_variable)
     {

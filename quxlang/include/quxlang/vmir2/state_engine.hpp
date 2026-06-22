@@ -552,7 +552,7 @@ namespace quxlang::vmir2
         {
             output(igr.target_ref);
         }
-        void apply_internal(vmir2::initguard_release const& igr)
+        void apply_internal(vmir2::initguard_complete const& igr)
         {
             consume(igr.lock);
         }

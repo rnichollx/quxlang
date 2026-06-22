@@ -94,7 +94,7 @@ namespace quxlang::vmir2
         std::string to_string_internal(vmir2::get_object_ref inst);
         std::string to_string_internal(vmir2::get_antestatal_ref inst);
         std::string to_string_internal(vmir2::initguard_global_get_ref inst);
-        std::string to_string_internal(vmir2::initguard_release inst);
+        std::string to_string_internal(vmir2::initguard_complete inst);
         std::string to_string_internal(vmir2::initguard_abort inst);
         std::string to_string_internal(vmir2::swap swp);
         std::string to_string_internal(vmir2::load_from_ref inst);

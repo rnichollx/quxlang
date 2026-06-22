@@ -21,7 +21,7 @@
 #include <string_view>
 
 RPNX_ENUM(quxlang::llvm_backend, optimization_level, std::uint64_t, debug, release);
-RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail);
+RPNX_ENUM(quxlang::llvm_backend, runtime_procedure, std::uint64_t, assert_fail, initguard_try_acquire, initguard_complete, initguard_abort);
 
 namespace quxlang::llvm_backend
 {
@@ -153,6 +153,21 @@ namespace quxlang::llvm_backend
                 .of = absolute_module_reference{.module_name = "RUNTIME"},
                 .name = "ASSERT_FAIL",
             };
+        case runtime_procedure::initguard_try_acquire:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "INITGUARD_TRY_ACQUIRE",
+            };
+        case runtime_procedure::initguard_complete:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "INITGUARD_COMPLETE",
+            };
+        case runtime_procedure::initguard_abort:
+            return subsymbol{
+                .of = absolute_module_reference{.module_name = "RUNTIME"},
+                .name = "INITGUARD_ABORT",
+            };
         }
         throw compiler_bug("unknown runtime procedure");
     }
@@ -239,6 +254,33 @@ namespace quxlang::llvm_backend
         return parameters;
     }
 
+    /// Returns the fixed call signature used to initialize MODULE(RUNTIME)'s initguard procedures.
+    inline auto runtime_initguard_parameters() -> instatype
+    {
+        instatype parameters;
+        parameters.named["guard"] = make_type_instantiation(ptrref_type{
+            .target = initguard_type{},
+            .ptr_class = pointer_class::ref,
+            .qual = qualifier::mut,
+        });
+        return parameters;
+    }
+
+    /// Returns the direct LLVM return slot type for one runtime procedure when it returns a value.
+    inline auto runtime_procedure_return_type(runtime_procedure procedure) -> std::optional< type_symbol >
+    {
+        switch (procedure)
+        {
+        case runtime_procedure::assert_fail:
+        case runtime_procedure::initguard_complete:
+        case runtime_procedure::initguard_abort:
+            return std::nullopt;
+        case runtime_procedure::initguard_try_acquire:
+            return bool_type{};
+        }
+        throw compiler_bug("unknown runtime procedure");
+    }
+
     /// Returns the initialization request for one abstract runtime procedure.
     inline auto runtime_procedure_initialization(runtime_procedure procedure) -> initialization_reference
     {
@@ -250,6 +292,11 @@ namespace quxlang::llvm_backend
         {
         case runtime_procedure::assert_fail:
             initialization.parameters = runtime_assert_fail_parameters();
+            return initialization;
+        case runtime_procedure::initguard_try_acquire:
+        case runtime_procedure::initguard_complete:
+        case runtime_procedure::initguard_abort:
+            initialization.parameters = runtime_initguard_parameters();
             return initialization;
         }
         throw compiler_bug("unknown runtime procedure");

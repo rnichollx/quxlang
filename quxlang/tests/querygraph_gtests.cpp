@@ -81,6 +81,19 @@ namespace
         return result;
     }
 
+    /// Counts non-overlapping substring occurrences in generated text.
+    auto count_substrings(std::string const& text, std::string const& needle) -> std::size_t
+    {
+        std::size_t count = 0;
+        std::size_t position = text.find(needle);
+        while (position != std::string::npos)
+        {
+            ++count;
+            position = text.find(needle, position + needle.size());
+        }
+        return count;
+    }
+
     auto make_test_source_bundle() -> quxlang::source_bundle
     {
         quxlang::source_bundle bundle;
@@ -702,6 +715,130 @@ TEST(querygraph_queries, output_llvm_input_initializes_one_runtime_assert_fail_f
     EXPECT_TRUE(unit.inlinable_functions.contains(assert_fail_symbol));
     EXPECT_TRUE(unit.procedure_linksymbols.contains(assert_fail_symbol));
     EXPECT_EQ(unit.procedure_linksymbols.at(assert_fail_symbol), quxlang::to_string(assert_fail_symbol));
+}
+
+TEST(querygraph_queries, output_llvm_input_initializes_initguard_runtime_functanoids)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_global VAR custom_record;
+
+::main FUNCTION(): I32
+{
+  RETURN custom_global.x;
+}
+)QX");
+    bundle.targets.at("x64").module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  RETURN TRUE;
+}
+
+::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
+::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX")};
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+    quxlang::llvm_backend::llvm_compilable_unit const unit = graph.make_request< quxlang::output_llvm_input_query >("default");
+
+    quxlang::llvm_backend::runtime_procedure_reference const try_acquire_ref{
+        .procedure = quxlang::llvm_backend::runtime_procedure::initguard_try_acquire,
+    };
+    quxlang::llvm_backend::runtime_procedure_reference const complete_ref{
+        .procedure = quxlang::llvm_backend::runtime_procedure::initguard_complete,
+    };
+
+    ASSERT_TRUE(unit.runtime_procedures.contains(try_acquire_ref));
+    ASSERT_TRUE(unit.runtime_procedures.contains(complete_ref));
+    EXPECT_TRUE(unit.runtime_procedures.at(try_acquire_ref).type_is< quxlang::instanciation_reference >());
+    EXPECT_TRUE(unit.runtime_procedures.at(complete_ref).type_is< quxlang::instanciation_reference >());
+    EXPECT_TRUE(unit.inlinable_functions.contains(unit.runtime_procedures.at(try_acquire_ref)));
+    EXPECT_TRUE(unit.inlinable_functions.contains(unit.runtime_procedures.at(complete_ref)));
+}
+
+TEST(querygraph_queries, runtime_initguard_implementation_uses_atomic_busy_loop)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::custom_record CLASS { .x VAR I32; .CONSTRUCTOR FUNCTION() { } }
+::custom_global VAR custom_record;
+
+::main FUNCTION(): I32
+{
+  RETURN custom_global.x;
+}
+)QX");
+    quxlang::target_configuration& target = bundle.targets.at("x64");
+    target.outputs = std::map< std::string, quxlang::output_config >{
+        {"default", quxlang::output_config{.type = quxlang::output_kind::executable, .module = "main", .main_functanoid = "main"}},
+    };
+    target.module_configurations["RUNTIME"].source = "runtime_x64";
+    bundle.module_sources["runtime_x64"].files["runtime.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(R"QX(
+::ASSERT_FAIL FUNCTION(@expr STRING_CONSTANT, @file SZ, @line SZ, @column SZ, @tag CONST -> STRING_CONSTANT)
+{
+}
+
+::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  WHILE (TRUE)
+  {
+    VAR state UINTPTR := guard.LOAD#ATOMIC_ACQUIRE();
+    IF (state == 2)
+    {
+      RETURN FALSE;
+    }
+    IF (state == 0)
+    {
+      VAR expected UINTPTR := 0;
+      IF (guard.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, 1))
+      {
+        RETURN TRUE;
+      }
+    }
+    ELSE IF (state != 1)
+    {
+      ASSERT(FALSE, "Invalid initguard state");
+    }
+  }
+}
+
+::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+{
+  guard.STORE#ATOMIC_RELEASE(2);
+}
+
+::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+{
+  guard.STORE#ATOMIC_RELEASE(0);
+}
+
+::PROGRAM_START ASM_PROCEDURE X64
+{
+  RET
+}
+)QX")};
+
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+
+    EXPECT_NE(llvm_ir.find("load atomic i64"), std::string::npos);
+    EXPECT_NE(llvm_ir.find("cmpxchg ptr"), std::string::npos);
+    EXPECT_GE(count_substrings(llvm_ir, "store atomic i64"), 1U);
+    EXPECT_NE(llvm_ir.find(" release,"), std::string::npos);
+    EXPECT_EQ(llvm_ir.find("pthread"), std::string::npos);
+    EXPECT_EQ(llvm_ir.find("futex"), std::string::npos);
+    EXPECT_EQ(llvm_ir.find("WaitOnAddress"), std::string::npos);
 }
 
 TEST(querygraph_queries, llvm_gentest_atomic_operations_generate_valid_llvm_ir)

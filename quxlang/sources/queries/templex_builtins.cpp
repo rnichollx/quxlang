@@ -14,7 +14,8 @@ rpnx::querygraph::coroutine< quxlang::templex_builtins_spec > quxlang::templex_b
     {
         submember const& member = as< submember >(input);
         std::optional< type_symbol > const atomic_value_type = atomic_type_argument(member.of);
-        if (!atomic_value_type.has_value())
+        bool const initguard_member = typeis< initguard_type >(member.of);
+        if (!atomic_value_type.has_value() && !initguard_member)
         {
             co_return results;
         }

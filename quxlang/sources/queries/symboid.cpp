@@ -115,7 +115,7 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         auto inst = co_await rpnx::querygraph::request< instanciation_query >(init);
         if (!inst.has_value())
         {
-            throw quxlang::compiler_bug("symboid resolver received a non-canonical initialization_reference that could not be canonicalized");
+            throw quxlang::compiler_bug("symboid resolver received a non-canonical initialization_reference that could not be canonicalized: " + to_string(input));
         }
         co_return co_await rpnx::querygraph::request< symboid_query >(*inst);
     }

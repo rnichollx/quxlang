@@ -957,7 +957,7 @@ namespace quxlang::llvm_backend::detail
             }
             if (type.type_is< quxlang::initguard_type >())
             {
-                return i64_type();
+                return pointer_integer_type();
             }
             if (std::optional< unsigned > const nominal_bits = nominal_integer_bit_width(type); nominal_bits.has_value())
             {
@@ -1508,22 +1508,43 @@ namespace quxlang::llvm_backend::detail
             return llvm::cast< llvm::Function >(module->getOrInsertFunction("free", function_type).getCallee());
         }
 
-        auto get_or_create_initguard_try_acquire() -> llvm::Function*
+        /**
+         * Builds the concrete LLVM callable ABI for one initguard runtime procedure.
+         */
+        auto initguard_runtime_abi(quxlang::llvm_backend::runtime_procedure procedure) -> callable_abi
         {
-            llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getInt1Ty(context), {opaque_pointer_type()}, false);
-            return llvm::cast< llvm::Function >(module->getOrInsertFunction("__quxlang_vmir2_initguard_try_acquire", function_type).getCallee());
+            std::vector< abi_parameter > ordered;
+            ordered.push_back(abi_parameter{
+                .name = "guard",
+                .positional_index = std::nullopt,
+                .type = quxlang::ptrref_type{
+                    .target = quxlang::initguard_type{},
+                    .ptr_class = quxlang::pointer_class::ref,
+                    .qual = quxlang::qualifier::mut,
+                },
+            });
+
+            std::optional< quxlang::type_symbol > const return_type = quxlang::llvm_backend::runtime_procedure_return_type(procedure);
+            if (return_type.has_value())
+            {
+                ordered.push_back(abi_parameter{
+                    .name = "RETURN",
+                    .positional_index = std::nullopt,
+                    .type = quxlang::nvalue_slot{.target = *return_type},
+                });
+            }
+
+            return build_callable_abi(std::move(ordered));
         }
 
-        auto get_or_create_initguard_release() -> llvm::Function*
+        /**
+         * Resolves one abstract initguard runtime procedure to its concrete external LLVM function.
+         */
+        auto get_or_create_initguard_runtime_function(quxlang::llvm_backend::runtime_procedure procedure, callable_abi const& abi) -> llvm::Function*
         {
-            llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {opaque_pointer_type()}, false);
-            return llvm::cast< llvm::Function >(module->getOrInsertFunction("__quxlang_vmir2_initguard_release", function_type).getCallee());
-        }
-
-        auto get_or_create_initguard_abort() -> llvm::Function*
-        {
-            llvm::FunctionType* function_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {opaque_pointer_type()}, false);
-            return llvm::cast< llvm::Function >(module->getOrInsertFunction("__quxlang_vmir2_initguard_abort", function_type).getCallee());
+            quxlang::llvm_backend::runtime_procedure_reference const reference{.procedure = procedure};
+            quxlang::type_symbol const& symbol = runtime_procedure_symbol(reference);
+            return get_or_create_external_function(symbol, abi);
         }
 
         /**
@@ -3120,17 +3141,18 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Emits an initguard release or abort runtime call for a live lock slot.
+         * Emits an initguard complete or abort runtime call for a live lock slot.
          */
         void emit_initguard_runtime_call(function_codegen_state& state, ir_builder_t& ir_builder, quxlang::vmir2::local_index slot, bool abort_lock)
         {
             llvm::Value* lock_value = load_slot_value(state, ir_builder, slot);
-            if (abort_lock)
-            {
-                ir_builder.CreateCall(get_or_create_initguard_abort(), {lock_value});
-                return;
-            }
-            ir_builder.CreateCall(get_or_create_initguard_release(), {lock_value});
+            quxlang::llvm_backend::runtime_procedure const procedure = abort_lock
+                                                                            ? quxlang::llvm_backend::runtime_procedure::initguard_abort
+                                                                            : quxlang::llvm_backend::runtime_procedure::initguard_complete;
+            callable_abi const abi = initguard_runtime_abi(procedure);
+            llvm::Function* callee = get_or_create_initguard_runtime_function(procedure, abi);
+            llvm::CallInst* call = ir_builder.CreateCall(abi.llvm_type, callee, {lock_value});
+            apply_calling_convention(call, abi);
         }
 
         /**
@@ -4208,7 +4230,7 @@ namespace quxlang::llvm_backend::detail
         }
 
 
-        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::initguard_release const& instruction)
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::initguard_complete const& instruction)
         {
             (void)current_block;
             emit_initguard_runtime_call(state, builder, instruction.lock, false);
@@ -5937,7 +5959,13 @@ namespace quxlang::llvm_backend::detail
             {
                 quxlang::vmir2::initguard_try_acquire const& inst = terminator.as< quxlang::vmir2::initguard_try_acquire >();
                 llvm::Value* guard_pointer = get_or_create_initguard_global(inst.symbol, inst.class_);
-                llvm::Value* acquired = builder.CreateCall(get_or_create_initguard_try_acquire(), {builder.CreateBitCast(guard_pointer, opaque_pointer_type())});
+                callable_abi const try_acquire_abi = initguard_runtime_abi(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire);
+                llvm::Function* try_acquire = get_or_create_initguard_runtime_function(quxlang::llvm_backend::runtime_procedure::initguard_try_acquire, try_acquire_abi);
+                llvm::CallInst* try_acquire_call = builder.CreateCall(try_acquire_abi.llvm_type, try_acquire, {guard_pointer});
+                apply_calling_convention(try_acquire_call, try_acquire_abi);
+                llvm::Value* acquired = builder.CreateICmpNE(
+                    try_acquire_call,
+                    llvm::ConstantInt::get(llvm::cast< llvm::IntegerType >(try_acquire_call->getType()), 0));
                 llvm::BasicBlock* acquired_block = state.blocks.at(inst.target_acquired);
                 llvm::BasicBlock* initialized_block = state.blocks.at(inst.target_already_initialized);
                 llvm::BasicBlock* initialized_edge = cleanup_edge_target(
