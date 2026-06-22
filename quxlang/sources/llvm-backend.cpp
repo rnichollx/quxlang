@@ -2292,13 +2292,7 @@ namespace quxlang::llvm_backend::detail
                     continue;
                 }
 
-                if (global_init_type(object_reference.first) == quxlang::initialization_type::init_trivial)
-                {
-                    (void)get_or_create_common_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
-                    continue;
-                }
-
-                (void)get_or_create_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
+                (void)get_or_create_common_zero_initialized_global(object_reference.first, value_storage_type(object_reference.second));
             }
         }
 
@@ -4194,14 +4188,7 @@ namespace quxlang::llvm_backend::detail
             {
             case quxlang::vmir2::access_type::storage:
             case quxlang::vmir2::access_type::object:
-                if (global_init_type(inst.symbol) == quxlang::initialization_type::init_trivial)
-                {
-                    global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
-                }
-                else
-                {
-                    global = get_or_create_global(inst.symbol, value_storage_type(target_type), false);
-                }
+                global = get_or_create_common_zero_initialized_global(inst.symbol, value_storage_type(target_type));
                 apply_access_class(global, inst.class_);
                 store_reference_pointer(state, builder, inst.target_ref, global);
                 return;

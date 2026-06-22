@@ -164,6 +164,9 @@ LANGUAGE QUXLANG EN 0.0;
   WHILE (i < count)
   {
     active_test := names[i];
+    write(@fd stdout, @msg "Testing: ");
+    write(@fd stdout, @msg active_test);
+    write(@fd stdout, @msg "\n");
     procs[i]();
     write(@fd stdout, @msg "PASSED: ");
     write(@fd stdout, @msg names[i]);

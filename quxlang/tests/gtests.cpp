@@ -2502,8 +2502,8 @@ TEST(llvm_backend, object_reference_emits_addressable_global_storage)
     quxlang::llvm_backend::llvm_backend backend;
     quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
 
-    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = global i32 0"), std::string::npos);
-    EXPECT_NE(result.optimized_llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = global i32 0"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
+    EXPECT_NE(result.optimized_llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
 }
 
 TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
@@ -2538,6 +2538,51 @@ TEST(llvm_backend, trivial_global_storage_uses_common_zero_initialized_storage)
     packet.target_name = routine_symbol;
     packet.target_code = routine;
     packet.global_init_types[object_symbol] = quxlang::initialization_type::init_trivial;
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find(llvm_ir_symbol_reference(object_symbol) + " = common global i32 0"), std::string::npos);
+}
+
+TEST(llvm_backend, guarded_global_storage_uses_common_zero_initialized_storage)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("guarded_global_storage_test");
+    quxlang::type_symbol const object_symbol = make_symbol("guarded_global_i32");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = quxlang::make_mref(i32_type)},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].instructions.push_back(quxlang::vmir2::get_object_ref{
+        .symbol = object_symbol,
+        .type = quxlang::vmir2::access_type::object,
+        .class_ = quxlang::vmir2::access_class::global,
+        .target_ref = quxlang::vmir2::local_index(1),
+    });
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = routine_symbol;
+    packet.target_code = routine;
+    packet.object_reference_types.emplace(object_symbol, i32_type);
+    packet.global_init_types[object_symbol] = quxlang::initialization_type::init_with_guard;
     packet.machine_target.machine = quxlang::machine_target_info{
         .cpu_type = quxlang::cpu::x86_64,
         .os_type = quxlang::os::linux,
@@ -6214,6 +6259,19 @@ namespace
 {
 }
 
+::INITGUARD_TRY_ACQUIRE FUNCTION(@guard MUT& INITGUARD): BOOL
+{
+  RETURN TRUE;
+}
+
+::INITGUARD_COMPLETE FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
+::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
+{
+}
+
 ::UNIT_TESTING_PROGRAM_START ASM_PROCEDURE X64
 {
   MOVABS RAX, OFFSET OBJECT_REF(UNIT_TEST_COUNT)
@@ -6278,6 +6336,33 @@ TEST(quxlang, unit_test_suite_output_links_linux_elf_artifact)
 ::case_b UNIT_TEST
 {
   ASSERT(TRUE);
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    std::vector< std::byte > const artifact = graph.make_request< quxlang::output_binary_artifact_query >("tests");
+
+    ASSERT_GE(artifact.size(), static_cast< std::size_t >(4));
+    EXPECT_EQ(artifact.at(0), std::byte{0x7f});
+    EXPECT_EQ(artifact.at(1), std::byte{'E'});
+    EXPECT_EQ(artifact.at(2), std::byte{'L'});
+    EXPECT_EQ(artifact.at(3), std::byte{'F'});
+}
+
+TEST(quxlang, unit_test_suite_output_links_serialoid_static_storage)
+{
+    quxlang::source_bundle sources = make_main_module_unit_test_suite_source_bundle(R"QX(
+::serialoid_probe CLASS SERIALOID
+{
+  .value VAR I32;
+}
+
+::serialoid_static STATIC serialoid_probe := serialoid_probe();
+
+::serialoid_static_case UNIT_TEST
+{
+  ASSERT(serialoid_static.value == 0);
 }
 )QX");
     quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
