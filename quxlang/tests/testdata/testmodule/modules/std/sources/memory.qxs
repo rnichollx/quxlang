@@ -1,0 +1,52 @@
+LANGUAGE QUXLANG EN 0.0;
+
+
+::memory_bucket_size FUNCTION(@size SZ): SZ
+{
+  VAR bucket SZ := 8;
+  VAR step SZ := 8;
+
+  WHILE (bucket < size)
+  {
+    bucket += step;
+    IF (bucket == step * 4)
+    {
+      step *= 2;
+    }
+  }
+
+  RETURN bucket;
+}
+
+::default_allocator CLASS
+{
+  ::alloc_root_for TEMPLATE(@size VALUE SZ, @align VALUE SZ) VAR alloc_root;
+
+  ::alloc_root CLASS
+  {
+    .mtx VAR mutex;
+    .free_list VAR VOID=>>;
+    .new_free_region VAR VOID=>>;
+    .new_free_bytes VAR SZ;
+  };
+
+
+  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ->STORAGE(size, align)
+  {
+     VAR selected_alloc &alloc_root := alloc_root_for#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align));
+
+     selected_alloc.lock();
+
+     IF (selected_alloc.free_list??)
+     {
+       VAR allocation_result VOID=>> := selected_alloc.free_list;
+
+       VAR prev_allocation VOID=>> := (allocation_result.free_list AS REINTERPRET VOID=>> =>>)[0];
+
+       selected_alloc.free_list := prev_allocation;
+
+       RETURN allocation_result;
+     }
+
+  }
+}

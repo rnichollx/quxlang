@@ -1,0 +1,25 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT std;
+
+::memory_bucket_size_test STATIC_TEST
+{
+  ASSERT(std::memory_bucket_size(@size 0) == 8);
+  ASSERT(std::memory_bucket_size(@size 1) == 8);
+  ASSERT(std::memory_bucket_size(@size 8) == 8);
+  ASSERT(std::memory_bucket_size(@size 9) == 16);
+  ASSERT(std::memory_bucket_size(@size 16) == 16);
+  ASSERT(std::memory_bucket_size(@size 17) == 24);
+  ASSERT(std::memory_bucket_size(@size 24) == 24);
+  ASSERT(std::memory_bucket_size(@size 25) == 32);
+  ASSERT(std::memory_bucket_size(@size 32) == 32);
+  ASSERT(std::memory_bucket_size(@size 33) == 48);
+  ASSERT(std::memory_bucket_size(@size 48) == 48);
+  ASSERT(std::memory_bucket_size(@size 49) == 64);
+  ASSERT(std::memory_bucket_size(@size 64) == 64);
+  ASSERT(std::memory_bucket_size(@size 65) == 96);
+  ASSERT(std::memory_bucket_size(@size 96) == 96);
+  ASSERT(std::memory_bucket_size(@size 97) == 128);
+  ASSERT(std::memory_bucket_size(@size 128) == 128);
+  ASSERT(std::memory_bucket_size(@size 129) == 192);
+}
