@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT syscall;
+
 
 ::memory_bucket_size FUNCTION(@size SZ): SZ
 {
@@ -18,6 +20,46 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN bucket;
 }
 
+::memory_region_size FUNCTION(@size SZ): SZ
+{
+  VAR region_size SZ := 4096;
+
+  WHILE (region_size < size)
+  {
+    region_size += 4096;
+  }
+
+  RETURN region_size;
+}
+
+::mutex CLASS
+{
+  .state VAR ATOMIC#I32;
+
+  .lock FUNCTION()
+  {
+    WHILE (TRUE)
+    {
+      VAR expected I32 := 0;
+      IF (.state.COMPARE_EXCHANGE#(@SUCCESS ATOMIC_ACQREL, @FAILURE ATOMIC_ACQUIRE)(expected, 1))
+      {
+        RETURN;
+      }
+
+      WHILE (.state.LOAD#ATOMIC_ACQUIRE() != 0)
+      {
+        syscall::linux::futex_wait(.state, 1);
+      }
+    }
+  }
+
+  .unlock FUNCTION()
+  {
+    .state.STORE#ATOMIC_RELEASE(0);
+    syscall::linux::futex_wake(.state, 1);
+  }
+}
+
 ::default_allocator CLASS
 {
   ::alloc_root_for TEMPLATE(@size VALUE SZ, @align VALUE SZ) VAR alloc_root;
@@ -25,28 +67,54 @@ LANGUAGE QUXLANG EN 0.0;
   ::alloc_root CLASS
   {
     .mtx VAR mutex;
-    .free_list VAR VOID=>>;
-    .new_free_region VAR VOID=>>;
+    .free_list VAR =>>VOID;
+    .new_free_region VAR =>>VOID;
     .new_free_bytes VAR SZ;
-  };
+  }
 
 
-  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ->STORAGE(size, align)
+  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ->ALIGNED_STORAGE(size, align)
   {
-     VAR selected_alloc &alloc_root := alloc_root_for#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align));
+     VAR new_allocation =>>VOID := alloc_bytes#(@size size, @align align)(@count 1);
 
-     selected_alloc.lock();
+     RETURN new_allocation AS REINTERPRET ->ALIGNED_STORAGE(size, align);
+  }
 
-     IF (selected_alloc.free_list??)
+  ::alloc_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>STORAGE(t)
+  {
+     VAR result =>>STORAGE(t);
+     RUNTIME CONSTEXPR
      {
-       VAR allocation_result VOID=>> := selected_alloc.free_list;
-
-       VAR prev_allocation VOID=>> := (allocation_result.free_list AS REINTERPRET VOID=>> =>>)[0];
-
-       selected_alloc.free_list := prev_allocation;
-
-       RETURN allocation_result;
+       result := CONSTEXPR_ALLOC_MULTIPLE#t(count);
+     }
+     ELSE
+     {
+       result := alloc_bytes#(@size SIZEOF(t), @align SIZEOF(t))(@count count) AS REINTERPRET =>>STORAGE(t);
      }
 
+     RETURN result;
+  }
+
+  ::alloc_bytes TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>VOID
+  {
+     VAR selected_size SZ := memory_bucket_size(@size size);
+     VAR selected_bytes SZ := selected_size * count;
+     VAR selected_alloc &alloc_root := alloc_root_for#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align));
+
+     selected_alloc.mtx.lock();
+
+     IF (selected_alloc.new_free_bytes < selected_bytes)
+     {
+       VAR region_size SZ := memory_region_size(@size selected_bytes);
+       selected_alloc.new_free_region := syscall::linux::mmap_anonymous_private(region_size);
+       selected_alloc.new_free_bytes := region_size;
+     }
+
+     VAR new_allocation =>>VOID := selected_alloc.new_free_region;
+     selected_alloc.new_free_region := ((selected_alloc.new_free_region AS REINTERPRET =>>BYTE) + selected_bytes) AS REINTERPRET =>>VOID;
+     selected_alloc.new_free_bytes -= selected_bytes;
+     selected_alloc.mtx.unlock();
+
+     RETURN new_allocation;
   }
 }

@@ -1,5 +1,7 @@
 LANGUAGE QUXLANG EN 0.0;
 
+IMPORT std;
+
 
 ::string CLASS
   STRINGLIKE SERIALOID
@@ -15,17 +17,13 @@ LANGUAGE QUXLANG EN 0.0;
    .CONSTRUCTOR FUNCTION( @OTHER STRING_CONSTANT )
    {
       VAR len SZ := (OTHER.END() - OTHER.BEGIN()) AS ASSUME SZ;
-      RUNTIME CONSTEXPR {
-        .data := CONSTEXPR_ALLOC_MULTIPLE#BYTE(len);
-        .capacity := len;
-        WHILE ( .length < len )
-        {
-           PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
-           .length++;
-        }
-      } ELSE {
-        // Native runtime, need to write standard library allocator first
-        UNIMPLEMENTED;
+      .data := std::default_allocator::alloc_multiple#BYTE(@count len);
+
+      .capacity := len;
+      WHILE ( .length < len )
+      {
+         PLACE AT(.data[.length]) BYTE := OTHER.BEGIN()[.length];
+         .length++;
       }
    }
 
@@ -42,23 +40,15 @@ LANGUAGE QUXLANG EN 0.0;
 
    .reserve FUNCTION( @capacity SZ )
    {
-      RUNTIME NATIVE
-      {
-         UNIMPLEMENTED;
-      }
-      VAR original_capacity SZ := .capacity;
       IF ( .capacity < capacity )
       {
-         VAR new_data =>>STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(capacity);
+         VAR new_data =>>STORAGE(BYTE);
+         new_data := std::default_allocator::alloc_multiple#BYTE(@count capacity);
          VAR i SZ := 0;
          WHILE ( i < .length )
          {
             PLACE AT(new_data[i]) BYTE := PUN .data[i] AS BYTE;
             i++;
-         }
-         IF ( original_capacity > 0 )
-         {
-            CONSTEXPR_DEALLOC_MULTIPLE#BYTE(.data, original_capacity);
          }
          .data := new_data;
          .capacity := capacity;

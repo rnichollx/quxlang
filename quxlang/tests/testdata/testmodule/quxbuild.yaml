@@ -8,6 +8,8 @@ helloworld-linux-x64:
   backend_llvm_options:
     mode: optimize
   modules:
+    syscall:
+      source: syscall
     RUNTIME:
       source: runtime
     std:
@@ -29,6 +31,8 @@ helloworld-linux-arm64:
   backend_llvm_options:
     mode: optimize
   modules:
+    syscall:
+      source: syscall
     RUNTIME:
       source: runtime
     std:
@@ -47,6 +51,8 @@ tests-linux-x64:
   platform: linux
   cpu: x64
   modules:
+    syscall:
+      source: syscall
     RUNTIME:
       source: runtime
     std:
@@ -71,6 +77,8 @@ tests-linux-arm64:
   platform: linux
   cpu: ARM64
   modules:
+    syscall:
+      source: syscall
     RUNTIME:
       source: runtime
     std:
@@ -97,6 +105,8 @@ tests-linux-x86:
   platform: linux
   cpu: x86
   modules:
+    syscall:
+      source: syscall
     RUNTIME:
       source: runtime
     std:

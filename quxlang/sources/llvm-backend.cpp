@@ -4076,7 +4076,11 @@ namespace quxlang::llvm_backend::detail
         {
             (void)current_block;
             quxlang::vmir2::make_pointer_to const& inst = instruction;
-            store_slot_value(state, builder, inst.pointer_index, value_address(state, inst.of_index));
+            quxlang::type_symbol const& source_type = state.routine->local_types.at(local_slot_index(inst.of_index)).type;
+            llvm::Value* pointer_value = quxlang::is_ref(source_type)
+                                             ? load_reference_pointer(state, builder, inst.of_index)
+                                             : value_address(state, inst.of_index);
+            store_slot_value(state, builder, inst.pointer_index, pointer_value);
             return;
         }
 

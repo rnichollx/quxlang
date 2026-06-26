@@ -1,12 +1,12 @@
 LANGUAGE QUXLANG EN 0.0;
 
-IMPORT std;
+IMPORT syscall;
 
 ::stdout STATIC I32 := 1;
 
 ::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
 {
-  linux::syscall::write(fd, begin, end - begin AS ASSUME SZ);
+  syscall::linux::write(fd, begin, end - begin AS ASSUME SZ);
 }
 
 ::write FUNCTION(@fd I32, @msg STRING_CONSTANT)
@@ -18,7 +18,7 @@ IMPORT std;
 {
   STATIC_IF(OS_LINUX)
   {
-    linux::syscall::exit(code);
+    syscall::linux::exit(code);
   }
 }
 
@@ -68,64 +68,6 @@ IMPORT std;
 ::INITGUARD_ABORT FUNCTION(@guard MUT& INITGUARD)
 {
   guard.STORE#ATOMIC_RELEASE(0);
-}
-
-::linux INCLUDE_IF(OS_LINUX) NAMESPACE
-{
-  ::syscall NAMESPACE
-  {
-    ::write INCLUDE_IF(ARCH_X64) ASM_PROCEDURE X64
-      CALLABLE CALLCONV CCALL(I32, CONST =>> BYTE, SZ; RETURN SZ)
-    {
-      MOV RAX, 1
-      SYSCALL
-      RET
-    }
-
-    ::write INCLUDE_IF(ARCH_X86) ASM_PROCEDURE X64
-      CALLABLE CALLCONV CCALL(I32, CONST =>> BYTE, SZ; RETURN SZ)
-    {
-      MOV EBX, [ESP+4]
-      MOV ECX, [ESP+8]
-      MOV EDX, [ESP+12]
-      MOV EAX, 4
-      INT 0x80
-      RET
-    }
-
-    ::write INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM
-      CALLABLE CALLCONV CCALL(I32, CONST =>> BYTE, SZ; RETURN SZ)
-    {
-      MOV X8, 64
-      SVC 0
-      RET
-    }
-
-    ::exit INCLUDE_IF(ARCH_X64) ASM_PROCEDURE X64
-      CALLABLE(I32; RETURN I32)
-    {
-      MOV RAX, 60
-      SYSCALL
-      RET
-    }
-
-    ::exit INCLUDE_IF(ARCH_X86) ASM_PROCEDURE X64
-      CALLABLE(I32; RETURN I32)
-    {
-      MOV EBX, [ESP+4]
-      MOV EAX, 1
-      INT 0x80
-      RET
-    }
-
-    ::exit INCLUDE_IF(ARCH_ARM64) ASM_PROCEDURE ARM
-      CALLABLE(I32; RETURN I32)
-    {
-      MOV X8, 93
-      SVC 0
-      RET
-    }
-  }
 }
 
 ::PROGRAM_START INCLUDE_IF(OS_LINUX && ARCH_X64) ASM_PROCEDURE X64
