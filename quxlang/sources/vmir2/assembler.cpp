@@ -330,6 +330,10 @@ namespace quxlang::vmir2
             {
                 output += "[D <== %" + std::to_string(*v.array_delegate_of_initializer) + "]";
             }
+            if (v.is_projection)
+            {
+                output += "[J]";
+            }
             if (v.delegates.has_value())
             {
                 auto const& d = v.delegates.value();

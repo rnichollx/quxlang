@@ -503,6 +503,7 @@ namespace quxlang::vmir2
                 throw invalid_instruction_transition_error("storage init delegate already alive");
             }
             state[sis.target_value].destroy_delegate = false;
+            state[sis.target_value].is_projection = true;
             state[sis.target_value].storage_valid = true;
             state[sis.target_value].stage = slot_stage::dead;
         }
@@ -514,6 +515,7 @@ namespace quxlang::vmir2
                 throw invalid_instruction_transition_error("storage deinit delegate already alive");
             }
             state[sds.target_value].destroy_delegate = true;
+            state[sds.target_value].is_projection = false;
             state[sds.target_value].storage_valid = true;
             state[sds.target_value].stage = slot_stage::full;
         }
@@ -1044,6 +1046,7 @@ namespace quxlang::vmir2
             for (auto const& [name, index] : dlg.fields.named)
             {
                 state[index].delegate_of = dlg.on_value;
+                state[index].is_projection = false;
                 state[index].storage_valid = true;
                 state[index].stage = slot_stage::dead;
             }
@@ -1099,6 +1102,7 @@ namespace quxlang::vmir2
             state[ain.on_value].delegates = args;
             // Set initializer as a delegate of the array
             state[ain.initializer].delegate_of = ain.on_value;
+            state[ain.initializer].is_projection = false;
             // Initializer itself is alive and valid during initialization
             state[ain.initializer].stage = slot_stage::full;
             state[ain.initializer].storage_valid = true;
@@ -1125,6 +1129,7 @@ namespace quxlang::vmir2
             // Mark target as an array delegate of the initializer; not alive yet, but storage is valid.
             readonly(aiv.initializer);
             state[aiv.target].array_delegate_of_initializer = aiv.initializer;
+            state[aiv.target].is_projection = false;
             state[aiv.target].storage_valid = true;
             state[aiv.target].stage = slot_stage::dead;
         }
@@ -1180,12 +1185,17 @@ namespace quxlang::vmir2
             state[idx].stage = slot_stage::dead;
             state[idx].storage_valid = false;
             state[idx].destroy_delegate = false;
+            state[idx].is_projection = false;
         }
         void output(local_index idx)
         {
             if (state[idx].alive()) [[unlikely]]
             {
                 throw invalid_instruction_transition_error("output already set");
+            }
+            if (!state[idx].storage_valid)
+            {
+                state[idx].is_projection = false;
             }
             state[idx].stage = slot_stage::full;
             if (!state[idx].storage_valid && state[idx].delegate_of.has_value()) [[unlikely]]

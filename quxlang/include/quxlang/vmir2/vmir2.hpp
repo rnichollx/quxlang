@@ -1470,6 +1470,8 @@ namespace quxlang
             std::optional< invocation_args > delegates;
             std::optional< local_index > delegate_of;
             bool destroy_delegate = false;
+            /// Indicates a non-owning view of already allocated storage; cleanup must not destroy or poison this slot.
+            bool is_projection = false;
             std::optional< local_index > array_delegate_of_initializer;
 
             bool alive() const
@@ -1494,6 +1496,10 @@ namespace quxlang
                 {
                     return false;
                 }
+                if (!storage_valid && is_projection)
+                {
+                    return false;
+                }
                 if (nontrivial_dtor.has_value() && !dtor_enabled())
                 {
                     return false;
@@ -1505,7 +1511,7 @@ namespace quxlang
                 return true;
             }
 
-            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, destroy_delegate, array_delegate_of_initializer);
+            RPNX_MEMBER_METADATA(slot_state, stage, storage_valid, nontrivial_dtor, delegates, delegate_of, destroy_delegate, is_projection, array_delegate_of_initializer);
         };
 
         struct slot_states

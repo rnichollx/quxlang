@@ -4879,6 +4879,7 @@ quxlang::vmir2::slot_state quxlang::vmir2::ir2_constexpr_interpreter::ir2_conste
             result.delegate_of = idx;
         }
     }
+    result.is_projection = slot_object.storage_owner.has_value() && !slot_object.storage_destroy_delegate;
     result.destroy_delegate = slot_object.storage_destroy_delegate;
 
     for (auto [idx, local] : frame_object.local_values)

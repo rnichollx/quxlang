@@ -6955,7 +6955,7 @@ namespace quxlang
             {
                 return false;
             }
-            if (source.delegate_of != target.delegate_of || source.destroy_delegate != target.destroy_delegate || source.array_delegate_of_initializer != target.array_delegate_of_initializer)
+            if (source.delegate_of != target.delegate_of || source.destroy_delegate != target.destroy_delegate || source.is_projection != target.is_projection || source.array_delegate_of_initializer != target.array_delegate_of_initializer)
             {
                 return false;
             }

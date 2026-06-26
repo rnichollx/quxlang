@@ -3084,11 +3084,11 @@ namespace quxlang::llvm_backend::detail
         }
 
         /**
-         * Returns true when this VMIR slot is only an alias/delegate view over some other storage owner.
+         * Returns true when this VMIR slot must not control cleanup for the storage it views.
          */
         auto is_cleanup_alias(quxlang::vmir2::slot_state const& slot_state) const -> bool
         {
-            return slot_state.delegate_of.has_value() || slot_state.array_delegate_of_initializer.has_value() || slot_state.destroy_delegate;
+            return slot_state.delegate_of.has_value() || slot_state.array_delegate_of_initializer.has_value() || slot_state.destroy_delegate || slot_state.is_projection;
         }
 
         /**
