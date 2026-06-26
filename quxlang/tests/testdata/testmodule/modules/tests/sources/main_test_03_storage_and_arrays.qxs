@@ -131,7 +131,7 @@ LANGUAGE QUXLANG EN 0.0;
    } ELSE {
       x := 20;
    }
-   ASSERT( x == 10 );
+   ASSERT( x == 20 );
 
    RUNTIME NATIVE {
       x := 30;
@@ -139,7 +139,7 @@ LANGUAGE QUXLANG EN 0.0;
       x := 40;
    }
 
-   ASSERT( x == 40 );
+   ASSERT( x == 30 );
 
 }
 

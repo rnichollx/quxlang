@@ -3879,7 +3879,11 @@ namespace quxlang::llvm_backend::detail
 
             callable_abi abi = callable_abi_from_signature(callable_type.get_as< quxlang::procedure_type >().signature);
             llvm::Value* callee_value = nullptr;
-            if (is_reference_callable)
+            if (is_procedure_reference)
+            {
+                callee_value = load_reference_pointer(state, builder, inst.what_index);
+            }
+            else if (is_reference_callable)
             {
                 llvm::Value* pointer_to_pointer = load_reference_pointer(state, builder, inst.what_index);
                 callee_value = builder.CreateLoad(opaque_pointer_type(), pointer_to_pointer);
@@ -5463,6 +5467,12 @@ namespace quxlang::llvm_backend::detail
             std::uint64_t const element_size = slot_size(array_type.element_type);
             llvm::Value* byte_offset = builder.CreateMul(builder.CreateZExtOrTrunc(index_value, i64_type()), llvm::ConstantInt::get(i64_type(), element_size));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
+            if (array_type.element_type.type_is< quxlang::procedure_type >())
+            {
+                llvm::Value* procedure_pointer = builder.CreateLoad(opaque_pointer_type(), element_pointer);
+                store_reference_pointer(state, builder, inst.store_index, procedure_pointer);
+                return;
+            }
             store_reference_pointer(state, builder, inst.store_index, element_pointer);
             return;
         }
@@ -5479,6 +5489,12 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
             llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_size(element_type)));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
+            if (element_type.type_is< quxlang::procedure_type >())
+            {
+                llvm::Value* procedure_pointer = builder.CreateLoad(opaque_pointer_type(), element_pointer);
+                store_reference_pointer(state, builder, inst.store_index, procedure_pointer);
+                return;
+            }
             store_reference_pointer(state, builder, inst.store_index, element_pointer);
             return;
         }

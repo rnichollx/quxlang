@@ -101,9 +101,8 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(defaulted_named_helper(@x 2, @y 3) == 5);
 }
 
-::defaulted_argument_test_unit_test INCLUDE_IF(FALSE) UNIT_TEST
+::defaulted_argument_test_unit_test UNIT_TEST
 {
-  // this test is broken in native code for some reason
   VAR default_expr_context_value I32 := 100;
 
   ASSERT(defaulted_positional_helper(5) == 12);

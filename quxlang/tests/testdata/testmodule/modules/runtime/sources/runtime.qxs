@@ -14,6 +14,30 @@ IMPORT syscall;
   write_bytes(@fd fd, @begin msg.BEGIN(), @end msg.END());
 }
 
+::write_decimal FUNCTION(@fd I32, @value SZ)
+{
+  VAR digits [20]BYTE;
+  VAR remaining SZ := value;
+  VAR digit_count SZ := 0;
+
+  IF (remaining == 0)
+  {
+    digits[19] := 48;
+    write_bytes(@fd fd, @begin digits[& 19], @end digits[& 20]);
+    RETURN;
+  }
+
+  WHILE (remaining != 0)
+  {
+    digit_count++;
+    VAR digit U8 := ((remaining % 10) + 48) AS PARTIAL U8;
+    digits[20 - digit_count] := digit AS BYTE;
+    remaining := remaining / 10;
+  }
+
+  write_bytes(@fd fd, @begin digits[& (20 - digit_count)], @end digits[& 20]);
+}
+
 ::exit FUNCTION(@code I32)
 {
   STATIC_IF(OS_LINUX)
@@ -117,6 +141,9 @@ IMPORT syscall;
     write(@fd stdout, @msg "\n");
     i++;
   }
+  write(@fd stdout, @msg "All ");
+  write_decimal(@fd stdout, @value count);
+  write(@fd stdout, @msg " unit tests passed\n");
 }
 
 ::UNIT_TESTING_PROGRAM_START INCLUDE_IF(OS_LINUX && ARCH_X64) ASM_PROCEDURE X64
