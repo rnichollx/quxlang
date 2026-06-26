@@ -1193,6 +1193,15 @@ namespace quxlang::vmir2
             {
                 throw invalid_instruction_transition_error("output already set");
             }
+            if (state[idx].is_projection)
+            {
+                if (!state[idx].storage_valid) [[unlikely]]
+                {
+                    throw invalid_instruction_transition_error("projection output not valid");
+                }
+                state.erase(idx);
+                return;
+            }
             if (!state[idx].storage_valid)
             {
                 state[idx].is_projection = false;

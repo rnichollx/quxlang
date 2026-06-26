@@ -319,6 +319,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void begin_lifetime(std::shared_ptr< local > object);
     void end_lifetime(std::shared_ptr< local > object);
 
+    /** Removes a frame-local storage projection after the projected object has been constructed in its owner storage. */
+    void detach_initialized_storage_projection(local_index slot, std::shared_ptr< local > const& object);
     std::shared_ptr< local > output_local(local_index at);
     /** Returns the unique constexpr storage object associated with a global symbol, creating it from the target slot type on first use. */
     std::shared_ptr< local > get_or_create_global_storage(type_symbol symbol, type_symbol storage_type);
@@ -2665,6 +2667,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     begin_lifetime(end_ptr_object);
     end_ptr_object->ref = end_ptr_impl;
     begin_lifetime(output_obj);
+    detach_initialized_storage_projection(lcv.target, output_obj);
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::canonicalize_float const& cpf)
@@ -6487,6 +6490,19 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         object->storage_initiated = false;
     }
 }
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::detach_initialized_storage_projection(local_index slot, std::shared_ptr< local > const& object)
+{
+    if (!object->storage_owner.has_value() || object->storage_destroy_delegate)
+    {
+        return;
+    }
+
+    auto& frame_slot = get_current_frame().local_values[slot];
+    if (frame_slot == object)
+    {
+        frame_slot = nullptr;
+    }
+}
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::output_local(local_index at)
 {
     auto& frame = get_current_frame();
@@ -6499,9 +6515,11 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
     }
     assert(slot_ptr->stage == slot_stage::dead);
 
-    begin_lifetime(slot_ptr);
+    std::shared_ptr< local > result = slot_ptr;
+    begin_lifetime(result);
+    detach_initialized_storage_projection(at, result);
 
-    return slot_ptr;
+    return result;
 }
 
 std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::local > quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::get_or_create_global_storage(type_symbol symbol, type_symbol storage_type)
