@@ -48,7 +48,7 @@ IMPORT syscall;
 
       WHILE (.state.LOAD#ATOMIC_ACQUIRE() != 0)
       {
-        syscall::linux::futex_wait(.state, 1);
+        syscall::linux::futex_wait(.state<-, 1);
       }
     }
   }
@@ -56,11 +56,12 @@ IMPORT syscall;
   .unlock FUNCTION()
   {
     .state.STORE#ATOMIC_RELEASE(0);
-    syscall::linux::futex_wake(.state, 1);
+    syscall::linux::futex_wake(.state<-, 1);
   }
 }
 
 ::default_allocator CLASS
+// This allocator is mostly AI generated so avoid using it as an example of how to write an allocator.
 {
   ::alloc_root_for TEMPLATE(@size VALUE SZ, @align VALUE SZ) VAR alloc_root;
 
@@ -73,11 +74,14 @@ IMPORT syscall;
   }
 
 
-  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): ->ALIGNED_STORAGE(size, align)
+  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): =>>VOID
   {
-     VAR new_allocation =>>VOID := alloc_bytes#(@size size, @align align)(@count 1);
+     RETURN alloc_bytes#(@size size, @align align)(@count 1);
+  }
 
-     RETURN new_allocation AS REINTERPRET ->ALIGNED_STORAGE(size, align);
+  ::dealloc TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>VOID)
+  {
+     dealloc_bytes#(@size size, @align align)(@ptr ptr, @count 1);
   }
 
   ::alloc_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>STORAGE(t)
@@ -95,13 +99,63 @@ IMPORT syscall;
      RETURN result;
   }
 
+
+  ::dealloc_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr AUTO(ptr_type), @count SZ)
+  {
+     RUNTIME NATIVE
+     {
+       dealloc_bytes#(@size SIZEOF(t), @align SIZEOF(t))(@ptr ptr AS REINTERPRET =>>VOID, @count count);
+     }
+     ELSE
+     {
+     }
+  }
+
   ::alloc_bytes TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>VOID
   {
      VAR selected_size SZ := memory_bucket_size(@size size);
+     VAR selected_align SZ := memory_bucket_size(@size align);
+     VAR free_node_data_size SZ := SIZEOF(=>>VOID);
+     free_node_data_size += SIZEOF(SZ);
+     VAR free_node_size SZ := memory_bucket_size(@size free_node_data_size);
+     IF (selected_size < selected_align)
+     {
+       selected_size := selected_align;
+     }
+     IF (selected_size < free_node_size)
+     {
+       selected_size := free_node_size;
+     }
      VAR selected_bytes SZ := selected_size * count;
      VAR selected_alloc &alloc_root := alloc_root_for#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align));
 
      selected_alloc.mtx.lock();
+
+     VAR previous_free_node =>>VOID;
+     VAR current_free_node =>>VOID := selected_alloc.free_list;
+     WHILE (current_free_node??)
+     {
+       VAR current_next =>> =>>VOID := current_free_node AS REINTERPRET =>> =>>VOID;
+       VAR current_bytes_void =>>VOID := ((current_free_node AS REINTERPRET =>>BYTE) + SIZEOF(=>>VOID)) AS REINTERPRET =>>VOID;
+       VAR current_bytes =>>SZ := current_bytes_void AS REINTERPRET =>>SZ;
+       IF (current_bytes-> >= selected_bytes)
+       {
+         IF (previous_free_node??)
+         {
+           VAR previous_next =>> =>>VOID := previous_free_node AS REINTERPRET =>> =>>VOID;
+           previous_next-> := current_next->;
+         }
+         ELSE
+         {
+           selected_alloc.free_list := current_next->;
+         }
+         selected_alloc.mtx.unlock();
+         RETURN current_free_node;
+       }
+
+       previous_free_node := current_free_node;
+       current_free_node := current_next->;
+     }
 
      IF (selected_alloc.new_free_bytes < selected_bytes)
      {
@@ -116,5 +170,38 @@ IMPORT syscall;
      selected_alloc.mtx.unlock();
 
      RETURN new_allocation;
+  }
+
+  ::dealloc_bytes TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>VOID, @count SZ)
+  {
+     IF ((ptr??) == FALSE || count == 0)
+     {
+       RETURN;
+     }
+
+     VAR selected_size SZ := memory_bucket_size(@size size);
+     VAR selected_align SZ := memory_bucket_size(@size align);
+     VAR free_node_data_size SZ := SIZEOF(=>>VOID);
+     free_node_data_size += SIZEOF(SZ);
+     VAR free_node_size SZ := memory_bucket_size(@size free_node_data_size);
+     IF (selected_size < selected_align)
+     {
+       selected_size := selected_align;
+     }
+     IF (selected_size < free_node_size)
+     {
+       selected_size := free_node_size;
+     }
+     VAR selected_bytes SZ := selected_size * count;
+     VAR selected_alloc &alloc_root := alloc_root_for#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align));
+
+     selected_alloc.mtx.lock();
+     VAR free_node =>> =>>VOID := ptr AS REINTERPRET =>> =>>VOID;
+     VAR free_node_bytes_void =>>VOID := ((ptr AS REINTERPRET =>>BYTE) + SIZEOF(=>>VOID)) AS REINTERPRET =>>VOID;
+     VAR free_node_bytes =>>SZ := free_node_bytes_void AS REINTERPRET =>>SZ;
+     free_node-> := selected_alloc.free_list;
+     free_node_bytes-> := selected_bytes;
+     selected_alloc.free_list := ptr;
+     selected_alloc.mtx.unlock();
   }
 }
