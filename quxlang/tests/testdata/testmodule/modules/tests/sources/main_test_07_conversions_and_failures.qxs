@@ -410,7 +410,7 @@ IMPORT syscall;
 {
   VAR begin CONST=>> BYTE := hello_world_message.BEGIN();
   VAR count SZ := (hello_world_message.END() - begin) AS ASSUME SZ;
-  syscall::linux::write(1, begin, count);
+  syscall::linux::write(@fd 1, @buffer begin, @count count);
 }
 
 ::main FUNCTION(): I32

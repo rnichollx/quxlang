@@ -639,6 +639,36 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
     EXPECT_EQ(declaration.instructions.at(2).opcode_mnemonic, "RET");
 }
 
+TEST(parsing, parse_asm_procedure_callable_named_arguments)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@fd I32, @buffer CONST=>> BYTE, @count SZ; RETURN SZ)
+{
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    ASSERT_EQ(declaration.callable_interfaces.size(), 1);
+    quxlang::ast2_asm_callable const& callable = declaration.callable_interfaces.front();
+    ASSERT_EQ(callable.args.size(), 3);
+    ASSERT_TRUE(callable.args.at(0).api_name.has_value());
+    ASSERT_TRUE(callable.args.at(1).api_name.has_value());
+    ASSERT_TRUE(callable.args.at(2).api_name.has_value());
+    EXPECT_EQ(*callable.args.at(0).api_name, "fd");
+    EXPECT_EQ(*callable.args.at(1).api_name, "buffer");
+    EXPECT_EQ(*callable.args.at(2).api_name, "count");
+    EXPECT_FALSE(callable.args.at(0).register_name.has_value());
+    EXPECT_FALSE(callable.args.at(1).register_name.has_value());
+    EXPECT_FALSE(callable.args.at(2).register_name.has_value());
+    EXPECT_EQ(callable.args.at(0).type, parse_type_symbol("I32"));
+    EXPECT_EQ(callable.args.at(1).type, parse_type_symbol("CONST=>> BYTE"));
+    EXPECT_EQ(callable.args.at(2).type, parse_type_symbol("SZ"));
+}
+
 TEST(parsing, parse_x86_asm_procedure)
 {
     quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
@@ -3116,6 +3146,7 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     quxlang::asm_callable callable;
     callable.calling_conv = "CCALL";
     callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = std::nullopt,
         .register_name = std::nullopt,
         .type = i32_type,
     });
@@ -3154,6 +3185,123 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     EXPECT_NE(result.llvm_ir_text.find("module asm"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find(quxlang::to_string(routine_symbol)), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("asm sideeffect"), std::string::npos);
+}
+
+TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const caller_symbol = make_symbol("named_asm_ordering_caller");
+    quxlang::type_symbol const callee_declaration_symbol = make_symbol("named_asm_ordering_callee");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i16_type = quxlang::int_type{
+        .bits = 16,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const i64_type = quxlang::int_type{
+        .bits = 64,
+        .has_sign = true,
+    };
+    quxlang::type_symbol const callee_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = callee_declaration_symbol,
+            .overload_id = 0,
+        },
+        .params = quxlang::instatype{
+            .named = {
+                {"OTHER", quxlang::make_type_instantiation(i16_type)},
+                {"THIS", quxlang::make_type_instantiation(i64_type)},
+                {"alpha", quxlang::make_type_instantiation(i32_type)},
+            },
+        },
+    };
+
+    quxlang::asm_callable callable;
+    callable.calling_conv = "CCALL";
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = "alpha",
+        .register_name = std::nullopt,
+        .type = i32_type,
+    });
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = "THIS",
+        .register_name = std::nullopt,
+        .type = i64_type,
+    });
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = "OTHER",
+        .register_name = std::nullopt,
+        .type = i16_type,
+    });
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+        quxlang::vmir2::local_type{.type = i64_type},
+        quxlang::vmir2::local_type{.type = i16_type},
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "3",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(2),
+        .value = "5",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(3),
+        .value = "7",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = callee_symbol,
+        .args = quxlang::vmir2::invocation_args{
+            .named = {
+                {"OTHER", quxlang::vmir2::local_index(3)},
+                {"THIS", quxlang::vmir2::local_index(2)},
+                {"alpha", quxlang::vmir2::local_index(1)},
+            },
+        },
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = caller_symbol;
+    packet.target_code = caller;
+    packet.asm_callable_interfaces.emplace(callee_symbol, std::move(callable));
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    std::string const link_name = llvm_ir_symbol_reference(callee_symbol);
+    EXPECT_NE(result.llvm_ir_text.find("declare void " + link_name + "(i32, i64, i16)"), std::string::npos);
+
+    std::size_t const call_pos = result.llvm_ir_text.find("call void " + link_name + "(i32 ");
+    ASSERT_NE(call_pos, std::string::npos);
+    std::string const call_window = result.llvm_ir_text.substr(call_pos, 120);
+    std::size_t const alpha_pos = call_window.find("i32 ");
+    std::size_t const this_pos = call_window.find("i64 ");
+    std::size_t const other_pos = call_window.find("i16 ");
+    ASSERT_NE(alpha_pos, std::string::npos);
+    ASSERT_NE(this_pos, std::string::npos);
+    ASSERT_NE(other_pos, std::string::npos);
+    EXPECT_LT(alpha_pos, this_pos);
+    EXPECT_LT(this_pos, other_pos);
 }
 
 TEST(llvm_backend, mutating_float_operators_lower_to_floating_point_load_compute_store)
@@ -6655,6 +6803,44 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
     EXPECT_EQ(assembled.name, quxlang::to_string(write_symbol));
     ASSERT_TRUE(assembled.callable_interface.has_value());
     EXPECT_EQ(assembled.callable_interface->calling_conv, "CCALL");
+}
+
+TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_preserve_order)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@alpha BYTE, @THIS I64, @OTHER I16; RETURN I32)
+{
+    MOV RAX, 1
+    RET
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
+    auto formal_ensigs = graph.make_request< quxlang::functum_map_user_formal_ensigs_query >(write_symbol);
+    ASSERT_EQ(formal_ensigs.size(), 1);
+    quxlang::temploid_ensig const& ensig = formal_ensigs.begin()->first;
+    EXPECT_TRUE(ensig.interface.positional.empty());
+    ASSERT_EQ(ensig.interface.named.size(), 3);
+    EXPECT_EQ(ensig.interface.named.at("alpha").type, parse_type_symbol("BYTE"));
+    EXPECT_EQ(ensig.interface.named.at("THIS").type, parse_type_symbol("I64"));
+    EXPECT_EQ(ensig.interface.named.at("OTHER").type, parse_type_symbol("I16"));
+
+    quxlang::temploid_reference const selected{
+        .templexoid = write_symbol,
+        .overload_id = 0,
+    };
+    quxlang::asm_procedure const assembled = graph.make_request< quxlang::asm_procedure_from_symbol_query >(selected);
+    ASSERT_TRUE(assembled.callable_interface.has_value());
+    ASSERT_EQ(assembled.callable_interface->args.size(), 3);
+    ASSERT_TRUE(assembled.callable_interface->args.at(0).api_name.has_value());
+    ASSERT_TRUE(assembled.callable_interface->args.at(1).api_name.has_value());
+    ASSERT_TRUE(assembled.callable_interface->args.at(2).api_name.has_value());
+    EXPECT_EQ(*assembled.callable_interface->args.at(0).api_name, "alpha");
+    EXPECT_EQ(*assembled.callable_interface->args.at(1).api_name, "THIS");
+    EXPECT_EQ(*assembled.callable_interface->args.at(2).api_name, "OTHER");
 }
 
 TEST(quxlang, asm_procedure_query_formats_x64_procedure_ref_as_direct_symbol)

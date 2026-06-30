@@ -1431,12 +1431,19 @@ namespace quxlang::llvm_backend::detail
         {
             std::vector< abi_parameter > ordered;
             ordered.reserve(callable.args.size());
-            for (std::size_t i = 0; i < callable.args.size(); ++i)
+            std::size_t positional_index = 0;
+            for (quxlang::asm_argument_binding const& argument : callable.args)
             {
+                std::optional< std::size_t > argument_positional_index;
+                if (!argument.api_name.has_value())
+                {
+                    argument_positional_index = positional_index;
+                    positional_index++;
+                }
                 ordered.push_back(abi_parameter{
-                    .name = std::nullopt,
-                    .positional_index = i,
-                    .type = callable.args.at(i).type,
+                    .name = argument.api_name,
+                    .positional_index = argument_positional_index,
+                    .type = argument.type,
                 });
             }
             if (callable.return_type.has_value())

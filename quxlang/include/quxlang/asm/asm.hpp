@@ -36,12 +36,14 @@ namespace quxlang
 
     struct asm_argument_binding
     {
+        /// Optional external call-site name for this callable argument.
+        std::optional< std::string > api_name;
         /// Target register name for this callable argument.
         std::optional< std::string > register_name;
         /// Source-level parameter type corresponding to the bound register.
         type_symbol type;
 
-        RPNX_MEMBER_METADATA(asm_argument_binding, register_name, type);
+        RPNX_MEMBER_METADATA(asm_argument_binding, api_name, register_name, type);
     };
 
     struct asm_callable

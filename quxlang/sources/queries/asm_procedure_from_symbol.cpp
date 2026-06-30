@@ -62,6 +62,7 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
         for (ast2_argument_interface const& argument : callable.args)
         {
             selected_callable.args.push_back(asm_argument_binding{
+                .api_name = argument.api_name,
                 .register_name = argument.register_name,
                 .type = argument.type,
             });

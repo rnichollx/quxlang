@@ -91,10 +91,14 @@ namespace quxlang
 
     struct ast2_argument_interface
     {
+        /// Optional external call-site name for this asm callable argument.
+        std::optional< std::string > api_name;
+        /// Optional target register binding for inline asm callable arguments.
         std::optional< std::string > register_name;
+        /// Declared source-level parameter type.
         type_symbol type;
 
-        RPNX_MEMBER_METADATA(ast2_argument_interface, register_name, type);
+        RPNX_MEMBER_METADATA(ast2_argument_interface, api_name, register_name, type);
     };
 
     using ast2_asm_operand_component = rpnx::variant< std::string, ast2_extern, ast2_procedure_ref, ast2_object_ref >;

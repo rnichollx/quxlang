@@ -11,21 +11,21 @@ INCLUDE_FILE_IF(KERNEL_LINUX);
   ::syscall NAMESPACE
   {
     ::exit ASM_PROCEDURE X64
-      CALLABLE(RDI I32)
+      CALLABLE(@code I32)
     {
       MOV RAX, 60
       SYSCALL
     }
 
     ::exit ASM_PROCEDURE ARM64
-      CALLABLE(X0 I32)
+      CALLABLE(@code I32)
     {
       MOV X8, 93
       SVC 0
     }
 
     ::write ASM_PROCEDURE X64
-      CALLABLE(RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+      CALLABLE(@fd I32, @buffer I32, @count I32; RETURN I32)
     {
       MOV RAX, 1
       SYSCALL
@@ -33,7 +33,7 @@ INCLUDE_FILE_IF(KERNEL_LINUX);
     }
 
     ::write ASM_PROCEDURE ARM64
-      CALLABLE(X0 I32, X1 I32, X2 I32; RETURN X0 I32)
+      CALLABLE(@fd I32, @buffer I32, @count I32; RETURN I32)
     {
       MOV X8, 64
       SVC 0
@@ -41,7 +41,7 @@ INCLUDE_FILE_IF(KERNEL_LINUX);
     }
 
     ::read ASM_PROCEDURE X64
-      CALLABLE(RDI I32, RSI I32, RDX I32; RETURN RAX I32)
+      CALLABLE(@fd I32, @buffer I32, @count I32; RETURN I32)
     {
       MOV RAX, 0
       SYSCALL
@@ -49,7 +49,7 @@ INCLUDE_FILE_IF(KERNEL_LINUX);
     }
 
     ::read ASM_PROCEDURE ARM64
-      CALLABLE(X0 I32, X1 I32, X2 I32; RETURN X0 I32)
+      CALLABLE(@fd I32, @buffer I32, @count I32; RETURN I32)
     {
       MOV X8, 63
       SVC 0

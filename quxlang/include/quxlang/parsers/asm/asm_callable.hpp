@@ -8,6 +8,7 @@
 #include "quxlang/parsers/parse_symbol.hpp"
 #include "quxlang/parsers/parse_whitespace_and_comments.hpp"
 #include "quxlang/parsers/keyword.hpp"
+#include "quxlang/parsers/function.hpp"
 #include "quxlang/parsers/symbol.hpp"
 #include "quxlang/parsers/asm/parse_register.hpp"
 #include "quxlang/parsers/parse_identifier.hpp"
@@ -88,9 +89,16 @@ namespace quxlang::parsers
                 break;
             }
 
+            std::optional< std::string > api_name;
+            if (skip_symbol_if_is(pos, end, "@"))
+            {
+                api_name = parsers::parse_argument_name(pos, end);
+                parsers::skip_whitespace_and_comments(pos, end);
+            }
+
             type_symbol input_type = parsers::parse_type_symbol(trial);
 
-            output.args.push_back(ast2_argument_interface{.register_name = std::nullopt, .type = std::move(input_type)});
+            output.args.push_back(ast2_argument_interface{.api_name = std::move(api_name), .register_name = std::nullopt, .type = std::move(input_type)});
 
             parsers::skip_whitespace_and_comments(pos, end);
 
@@ -240,7 +248,7 @@ namespace quxlang::parsers
 
             auto input_type = parsers::parse_type_symbol(trial);
 
-            output.args.push_back(ast2_argument_interface{.register_name = std::optional< std::string >(std::move(register_name)), .type = std::move(input_type)});
+            output.args.push_back(ast2_argument_interface{.api_name = std::nullopt, .register_name = std::optional< std::string >(std::move(register_name)), .type = std::move(input_type)});
 
             parsers::skip_whitespace_and_comments(pos, end);
 

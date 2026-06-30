@@ -51,7 +51,7 @@ IMPORT syscall;
 
       WHILE (.state.LOAD#ATOMIC_ACQUIRE() != 0)
       {
-        syscall::linux::futex_wait(.state<-, 1);
+        syscall::linux::futex_wait(@address .state<-, @expected 1);
       }
     }
   }
@@ -59,7 +59,7 @@ IMPORT syscall;
   .unlock FUNCTION()
   {
     .state.STORE#ATOMIC_RELEASE(0);
-    syscall::linux::futex_wake(.state<-, 1);
+    syscall::linux::futex_wake(@address .state<-, @count 1);
   }
 }
 
@@ -163,7 +163,7 @@ IMPORT syscall;
      IF (selected_alloc.new_free_bytes < selected_bytes)
      {
        VAR region_size SZ := memory_region_size(@size selected_bytes);
-       selected_alloc.new_free_region := syscall::linux::mmap_anonymous_private(region_size);
+       selected_alloc.new_free_region := syscall::linux::mmap_anonymous_private(@size region_size);
        selected_alloc.new_free_bytes := region_size;
      }
 

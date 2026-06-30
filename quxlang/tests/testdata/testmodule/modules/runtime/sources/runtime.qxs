@@ -6,7 +6,7 @@ IMPORT syscall;
 
 ::write_bytes FUNCTION(@fd I32, @begin CONST =>> BYTE, @end CONST =>> BYTE)
 {
-  syscall::linux::write(fd, begin, end - begin AS ASSUME SZ);
+  syscall::linux::write(@fd fd, @buffer begin, @count end - begin AS ASSUME SZ);
 }
 
 ::write FUNCTION(@fd I32, @msg STRING_CONSTANT)
@@ -42,7 +42,7 @@ IMPORT syscall;
 {
   STATIC_IF(OS_LINUX)
   {
-    syscall::linux::exit(code);
+    syscall::linux::exit(@code code);
   }
 }
 

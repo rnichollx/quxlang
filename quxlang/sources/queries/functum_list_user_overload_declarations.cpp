@@ -77,7 +77,7 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
             {
                 declaration.header.call_parameters.push_back(ast2_function_parameter{
                     .name = std::nullopt,
-                    .api_name = std::nullopt,
+                    .api_name = argument.api_name,
                     .type = argument.type,
                 });
             }
