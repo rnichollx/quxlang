@@ -1404,11 +1404,11 @@ namespace quxlang::llvm_backend::detail
          */
         auto assembly_text(quxlang::asm_procedure const& procedure) const -> std::string
         {
-            if (procedure.architecture == "ARM")
+            if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
             {
                 return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
             }
-            if (procedure.architecture == "X64")
+            if (procedure.architecture == "X64" || procedure.architecture == "X86")
             {
                 return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
             }
@@ -6245,11 +6245,11 @@ auto quxlang::llvm_backend::llvm_backend::assemble(
 {
     auto assembly_text = [&]() -> std::string
     {
-        if (procedure.architecture == "ARM")
+        if (procedure.architecture == "ARM32" || procedure.architecture == "ARM64")
         {
             return quxlang::convert_to_arm_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
         }
-        if (procedure.architecture == "X64")
+        if (procedure.architecture == "X64" || procedure.architecture == "X86")
         {
             return quxlang::convert_to_x64_asm(procedure.instructions.begin(), procedure.instructions.end(), procedure.name);
         }

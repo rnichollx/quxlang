@@ -5390,26 +5390,31 @@ namespace quxlang
             }
             machine_target_info arch = machine_info;
 
-            if (kw.keyword == "ARCH_X64")
+            if (kw.keyword == "ARCH_IS_X64")
             {
                 assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
                 auto result = this->create_bool_value(bidx, arch.cpu_type == cpu::x86_64);
                 assert(bidx == block_index(0) || this->state.blocks.at(0).terminator.has_value());
                 co_return result;
             }
-            if (kw.keyword == "ARCH_X86")
+            if (kw.keyword == "ARCH_IS_X86")
             {
                 co_return this->create_bool_value(bidx, arch.cpu_type == cpu::x86_32);
             }
 
-            if (kw.keyword == "ARCH_ARM32")
+            if (kw.keyword == "ARCH_IS_ARM32")
             {
                 co_return this->create_bool_value(bidx, arch.cpu_type == cpu::arm_32);
             }
 
-            if (kw.keyword == "ARCH_ARM64")
+            if (kw.keyword == "ARCH_IS_ARM64")
             {
                 co_return this->create_bool_value(bidx, arch.cpu_type == cpu::arm_64);
+            }
+
+            if (kw.keyword == "ARCH_IS_RISCV64")
+            {
+                co_return this->create_bool_value(bidx, arch.cpu_type == cpu::riscv_64);
             }
 
             if (kw.keyword == "OS_LINUX")

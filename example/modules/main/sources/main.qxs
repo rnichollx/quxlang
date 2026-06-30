@@ -9,7 +9,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 
 
-::runtime_main INCLUDE_IF(TARGET("CPU") == "ARM64") ASM_PROCEDURE ARM LINKNAME("_start")
+::runtime_main INCLUDE_IF(TARGET("CPU") == "ARM64") ASM_PROCEDURE ARM64 LINKNAME("_start")
   CALLABLE(X1 I32, X2 I32)
 {
   MOV X7, 1; // Comment

@@ -8,9 +8,32 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 
 rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_symbol input)
 {
+    auto asm_procedure_matches_target = [](ast2_asm_procedure_declaration const& declaration, machine_target_info const& machine) -> bool
+    {
+        if (declaration.architecture == "X86")
+        {
+            return machine.cpu_type == cpu::x86_32;
+        }
+        if (declaration.architecture == "X64")
+        {
+            return machine.cpu_type == cpu::x86_64;
+        }
+        if (declaration.architecture == "ARM32")
+        {
+            return machine.cpu_type == cpu::arm_32;
+        }
+        if (declaration.architecture == "ARM64")
+        {
+            return machine.cpu_type == cpu::arm_64;
+        }
+
+        throw compiler_bug("Unsupported asm procedure architecture during merge selection: " + declaration.architecture);
+    };
+
     auto selected_template_decl_to_symboid = [](declaroid const& decl) -> ast2_symboid
     {
         if (typeis< ast2_class_declaration >(decl))
@@ -176,11 +199,16 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
     }
 
     auto declaroids = co_await rpnx::querygraph::request< declaroids_query >(input);
+    machine_target_info const machine_info = co_await rpnx::querygraph::request< machine_info_query >(std::monostate{});
 
     ast2_symboid output;
 
     for (auto& decl : declaroids)
     {
+        if (decl.type_is< ast2_asm_procedure_declaration >() && !asm_procedure_matches_target(decl.get_as< ast2_asm_procedure_declaration >(), machine_info))
+        {
+            continue;
+        }
         merge_entity(output, decl);
     }
 

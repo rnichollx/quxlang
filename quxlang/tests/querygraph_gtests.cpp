@@ -41,6 +41,7 @@
 #include <quxlang/queries/source_file_id.hpp>
 #include <quxlang/queries/source_file_index.hpp>
 #include <quxlang/queries/source_file_name.hpp>
+#include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
@@ -175,6 +176,25 @@ namespace
                                             quxlang::tests::current_test_graph_dump_path());
     }
 
+    /**
+     * Builds a one-module source bundle targeting the requested CPU.
+     */
+    auto make_single_main_source_bundle_for_cpu(std::string contents, quxlang::cpu cpu_type) -> quxlang::source_bundle
+    {
+        quxlang::source_bundle bundle;
+
+        quxlang::target_configuration target;
+        target.target_output_config.cpu_type = cpu_type;
+        target.target_output_config.os_type = quxlang::os::linux;
+        target.target_output_config.binary_type = quxlang::binary::elf;
+        target.module_configurations["main"].source = "main";
+
+        bundle.targets["target"] = target;
+        bundle.module_sources["main"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration(std::move(contents))};
+
+        return bundle;
+    }
+
     /// Builds an I32 constexpr value with the requested low byte.
     auto test_i32_value(std::byte low_byte) -> quxlang::constexpr_value
     {
@@ -272,6 +292,96 @@ TEST(querygraph_queries, binary_keywords_filter_include_if_declarations)
 
     EXPECT_EQ(graph.make_request< quxlang::declaroids_query >(selected).size(), 1);
     EXPECT_TRUE(graph.make_request< quxlang::declaroids_query >(filtered).empty());
+}
+
+TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
+{
+    auto evaluate = [](quxlang::cpu cpu_type, std::string const& keyword) -> bool
+    {
+        quxlang::source_bundle bundle = make_single_main_source_bundle_for_cpu("::main VAR I32;", cpu_type);
+        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
+        quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+        return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+            .expr = quxlang::expression_value_keyword{.keyword = keyword},
+            .context = context,
+        });
+    };
+
+    EXPECT_TRUE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_X64"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_X86"));
+    EXPECT_TRUE(evaluate(quxlang::cpu::x86_32, "ARCH_IS_X86"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::x86_32, "ARCH_IS_X64"));
+    EXPECT_TRUE(evaluate(quxlang::cpu::arm_32, "ARCH_IS_ARM32"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::arm_32, "ARCH_IS_ARM64"));
+    EXPECT_TRUE(evaluate(quxlang::cpu::arm_64, "ARCH_IS_ARM64"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::arm_64, "ARCH_IS_ARM32"));
+    EXPECT_TRUE(evaluate(quxlang::cpu::riscv_64, "ARCH_IS_RISCV64"));
+    EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_RISCV64"));
+}
+
+TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
+{
+    std::string const source = R"QX(
+::entry ASM_PROCEDURE X64
+{
+  MOV RAX, 64
+}
+
+::entry ASM_PROCEDURE X86
+{
+  MOV EAX, 32
+}
+)QX";
+
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const entry = quxlang::type_symbol(quxlang::subsymbol{main, "entry"});
+
+    quxlang::source_bundle x64_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::x86_64);
+    quxlang::compiler_querygraph x64_graph(x64_bundle, "target", x64_bundle.targets.at("target").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
+    quxlang::ast2_symboid const x64_symboid = x64_graph.make_request< quxlang::symboid_query >(entry);
+    ASSERT_TRUE(x64_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
+    EXPECT_EQ(x64_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "X64");
+
+    quxlang::source_bundle x86_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::x86_32);
+    quxlang::compiler_querygraph x86_graph(x86_bundle, "target", x86_bundle.targets.at("target").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
+    quxlang::ast2_symboid const x86_symboid = x86_graph.make_request< quxlang::symboid_query >(entry);
+    ASSERT_TRUE(x86_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
+    EXPECT_EQ(x86_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "X86");
+}
+
+TEST(querygraph_queries, asm_procedure_merge_selects_arm_family_architecture)
+{
+    std::string const source = R"QX(
+::entry ASM_PROCEDURE ARM32
+{
+  MOV R0, 32
+}
+
+::entry ASM_PROCEDURE ARM64
+{
+  MOV X0, 64
+}
+)QX";
+
+    quxlang::type_symbol const main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    quxlang::type_symbol const entry = quxlang::type_symbol(quxlang::subsymbol{main, "entry"});
+
+    quxlang::source_bundle arm32_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::arm_32);
+    quxlang::compiler_querygraph arm32_graph(arm32_bundle, "target", arm32_bundle.targets.at("target").target_output_config,
+                                             quxlang::tests::current_test_graph_dump_path());
+    quxlang::ast2_symboid const arm32_symboid = arm32_graph.make_request< quxlang::symboid_query >(entry);
+    ASSERT_TRUE(arm32_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
+    EXPECT_EQ(arm32_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM32");
+
+    quxlang::source_bundle arm64_bundle = make_single_main_source_bundle_for_cpu(source, quxlang::cpu::arm_64);
+    quxlang::compiler_querygraph arm64_graph(arm64_bundle, "target", arm64_bundle.targets.at("target").target_output_config,
+                                             quxlang::tests::current_test_graph_dump_path());
+    quxlang::ast2_symboid const arm64_symboid = arm64_graph.make_request< quxlang::symboid_query >(entry);
+    ASSERT_TRUE(arm64_symboid.type_is< quxlang::ast2_asm_procedure_declaration >());
+    EXPECT_EQ(arm64_symboid.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
 }
 
 TEST(querygraph_queries, unwind_format_keywords_reflect_current_linux_elf_codegen_policy)

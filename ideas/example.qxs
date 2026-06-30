@@ -81,7 +81,7 @@ MODULE main;
   }
 }
 
-::boxy ASM_PROCEDURE ARM
+::boxy ASM_PROCEDURE ARM64
   CALLABLE(X1 I32, X2 I32)
 {
   MOV X7, 1; // Comment

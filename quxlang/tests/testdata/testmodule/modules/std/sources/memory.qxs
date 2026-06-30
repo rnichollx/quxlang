@@ -3,7 +3,10 @@ LANGUAGE QUXLANG EN 0.0;
 IMPORT syscall;
 
 
-::memory_bucket_size FUNCTION(@size SZ): SZ
+::memory_bucket_size DOC <$
+  The `memory_bucket_size` function is intended to be used to group free-list allocations by useful sizes.
+  $>
+  FUNCTION(@size SZ): SZ
 {
   VAR bucket SZ := 8;
   VAR step SZ := 8;

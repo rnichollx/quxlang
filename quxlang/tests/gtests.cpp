@@ -546,7 +546,7 @@ TEST(parsing, declaration_doc_block)
 
 TEST(parsing, declaration_doc_block_after_include_if)
 {
-    std::string test_string = "::foo INCLUDE_IF(ARCH_X64) DOC <$x$> FUNCTION() { }";
+    std::string test_string = "::foo INCLUDE_IF(ARCH_IS_X64) DOC <$x$> FUNCTION() { }";
 
     auto file = parse_file_text(test_string);
 
@@ -637,6 +637,57 @@ TEST(parsing, parse_x64_asm_procedure_callable_return_and_newline_terminated_ins
     EXPECT_EQ(declaration.instructions.at(0).opcode_mnemonic, "MOV");
     EXPECT_EQ(declaration.instructions.at(1).opcode_mnemonic, "SYSCALL");
     EXPECT_EQ(declaration.instructions.at(2).opcode_mnemonic, "RET");
+}
+
+TEST(parsing, parse_x86_asm_procedure)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::write ASM_PROCEDURE X86
+{
+  MOV EAX, 1
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+    quxlang::ast2_asm_procedure_declaration const& declaration = global.decl.get_as< quxlang::ast2_asm_procedure_declaration >();
+    EXPECT_EQ(declaration.architecture, "X86");
+    ASSERT_EQ(declaration.instructions.size(), 2);
+    EXPECT_EQ(declaration.instructions.front().opcode_mnemonic, "MOV");
+}
+
+TEST(parsing, parse_arm32_and_arm64_asm_procedures)
+{
+    quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::arm32_entry ASM_PROCEDURE ARM32
+{
+  MOV R0, 1
+  RET
+}
+
+::arm64_entry ASM_PROCEDURE ARM64
+{
+  MOV X0, 1
+  RET
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 2);
+    quxlang::global_subdeclaroid const& arm32_global = file.declarations.at(0).get_as< quxlang::global_subdeclaroid >();
+    quxlang::global_subdeclaroid const& arm64_global = file.declarations.at(1).get_as< quxlang::global_subdeclaroid >();
+    EXPECT_EQ(arm32_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM32");
+    EXPECT_EQ(arm64_global.decl.get_as< quxlang::ast2_asm_procedure_declaration >().architecture, "ARM64");
+}
+
+TEST(parsing, parse_asm_procedure_rejects_generic_arm_architecture)
+{
+    EXPECT_THROW(parse_file_text(R"QX(
+::write ASM_PROCEDURE ARM
+{
+  RET
+}
+)QX"), std::logic_error);
 }
 
 TEST(parsing, parse_asm_procedure_rejects_register_bound_callable_arguments)
