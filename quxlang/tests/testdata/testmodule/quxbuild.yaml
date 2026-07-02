@@ -5,8 +5,6 @@ helloworld-linux-x64:
   platform: linux
   cpu: x64
   backend: llvm
-  backend_llvm_options:
-    mode: optimize
   modules:
     syscall:
       source: syscall
@@ -19,6 +17,8 @@ helloworld-linux-x64:
   outputs:
     app:
       type: executable
+      backend_llvm_options:
+        mode: optimize
     app.dbg:
       type: executable
       backend_llvm_options:
@@ -72,6 +72,7 @@ tests-linux-x64:
     tests:
       type: unit_test_suite
       module: tests
+
 
 tests-linux-arm64:
   platform: linux
