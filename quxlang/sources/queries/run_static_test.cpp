@@ -13,12 +13,49 @@
 
 #include <optional>
 #include <rpnx/serialization4.hpp>
+#include <set>
+#include <string>
 #include <stdexcept>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 #include <memory>
 #include <utility>
+
+namespace
+{
+    auto static_test_failure_message(quxlang::type_symbol const& test_symbol, char const* phase, char const* detail) -> std::string
+    {
+        return "STATIC_TEST " + quxlang::to_string(test_symbol) + " failed while " + phase + ": " + detail;
+    }
+
+    auto static_test_failure_error(quxlang::type_symbol const& test_symbol, char const* phase, char const* detail) -> quxlang::compilation_error
+    {
+        quxlang::compilation_error error = quxlang::semantic_compilation_error(static_test_failure_message(test_symbol, phase, detail));
+        error.traceback.push_back(quxlang::trace_frame{.trace_context = "static test " + quxlang::to_string(test_symbol)});
+        return error;
+    }
+
+    auto static_test_failure_error(quxlang::type_symbol const& test_symbol, char const* phase, quxlang::compilation_error error) -> quxlang::compilation_error
+    {
+        std::string message = static_test_failure_message(test_symbol, phase, error.what());
+        error.message = message;
+        error.structured_error = quxlang::semantic_error{std::move(message)};
+        error.traceback.push_back(quxlang::trace_frame{.trace_context = "static test " + quxlang::to_string(test_symbol)});
+        return error;
+    }
+
+    auto static_test_compiler_bug(quxlang::type_symbol const& test_symbol, char const* phase, quxlang::compiler_bug const& error) -> quxlang::compiler_bug
+    {
+        std::string detail = error.what();
+        std::string const prefix = "Compiler Bug: ";
+        if (detail.starts_with(prefix))
+        {
+            detail.erase(0, prefix.size());
+        }
+        return quxlang::compiler_bug(static_test_failure_message(test_symbol, phase, detail.c_str()));
+    }
+} // namespace
 
 rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static_test_impl(type_symbol input)
 {
@@ -37,33 +74,33 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
     {
         routine = co_await rpnx::querygraph::request< quxlang::static_test_vmir_query >(input);
     }
-    catch (compiler_bug const&)
+    catch (compiler_bug const& error)
     {
-        throw;
+        throw static_test_compiler_bug(input, "compiling", error);
     }
     catch (constexpr_runtime_error const& error)
     {
-        if (test.expected_mode == static_test_expected_mode::expect_fail)
+        if (test.expected_mode == static_test_expected_mode::expect_fail || test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw semantic_compilation_error(error.what());
+        throw static_test_failure_error(input, "compiling", error.what());
     }
-    catch (compilation_error const&)
+    catch (compilation_error const& error)
     {
         if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw;
+        throw static_test_failure_error(input, "compiling", error);
     }
-    catch (std::logic_error const&)
+    catch (std::logic_error const& error)
     {
         if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw;
+        throw static_test_failure_error(input, "compiling", error.what());
     }
 
     try
@@ -79,6 +116,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         std::unordered_set< type_symbol, rpnx::serial4::hash > layout_types;
         std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_layouts;
         std::unordered_set< type_symbol, rpnx::serial4::hash > loaded_functanoids;
+        std::set< type_symbol > asm_procedure_symbols;
         std::vector< type_symbol > functanoid_list;
         std::vector< type_symbol > antestatal_global_list;
 
@@ -135,6 +173,17 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                     }
 
                     instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
+                    ast2_symboid const& symboid = co_await rpnx::querygraph::request< symboid_query >(functanoid.temploid.templexoid);
+                    if (typeis< ast2_asm_procedure_declaration >(symboid))
+                    {
+                        if (asm_procedure_symbols.insert(funcname).second)
+                        {
+                            interp.add_constexpr_asm_procedure(funcname);
+                        }
+                        loaded_functanoids.insert(funcname);
+                        continue;
+                    }
+
                     co_yield rpnx::querygraph::dependency< vm_procedure3_query >(rpnx::querygraph::request< vm_procedure3_query >(functanoid));
                 }
 
@@ -146,6 +195,11 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
                     if (!typeis< instanciation_reference >(funcname))
                     {
                         throw compiler_bug("functanoid dependency is not an instanciation reference: " + to_string(funcname));
+                    }
+
+                    if (loaded_functanoids.contains(funcname))
+                    {
+                        continue;
                     }
 
                     instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
@@ -336,27 +390,27 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
         {
             co_return true;
         }
-        throw semantic_compilation_error(error.what());
+        throw static_test_failure_error(input, "executing", error.what());
     }
-    catch (compiler_bug const&)
+    catch (compiler_bug const& error)
     {
-        throw;
+        throw static_test_compiler_bug(input, "executing", error);
     }
-    catch (compilation_error const&)
-    {
-        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
-        {
-            co_return true;
-        }
-        throw;
-    }
-    catch (std::logic_error const&)
+    catch (compilation_error const& error)
     {
         if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
         {
             co_return true;
         }
-        throw;
+        throw static_test_failure_error(input, "executing", error);
+    }
+    catch (std::logic_error const& error)
+    {
+        if (test.expected_mode == static_test_expected_mode::expect_compilation_failure)
+        {
+            co_return true;
+        }
+        throw static_test_failure_error(input, "executing", error.what());
     }
 
     if (test.expected_mode == static_test_expected_mode::expect_fail)

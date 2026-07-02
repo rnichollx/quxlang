@@ -32,6 +32,8 @@ namespace quxlang
             /// Adds a nominal integer-like value type and its exact in-storage bit width.
             void add_nominal_integer_type(type_symbol name, std::uint64_t bits);
             void add_functanoid3(type_symbol addr, functanoid_routine3 func);
+            /// Registers an ASM procedure invocable that may be formed but cannot be called during constexpr evaluation.
+            void add_constexpr_asm_procedure(type_symbol symbol);
             void set_source_index(source_index source_index);
             /// Sets a callback that receives constexpr interpreter debug lines when debug message emission is enabled.
             void set_debug_line_handler(std::function< void(std::string) > handler);
@@ -42,7 +44,7 @@ namespace quxlang
             /// Adds a global storage root whose active object is recursively zero-initialized.
             void add_zero_initialized_global(type_symbol symbol, type_symbol type);
 
-            std::set< type_symbol > const & missing_functanoids();
+            std::set< type_symbol > const & missing_invokables();
             std::set< type_symbol > const & missing_antestatal_globals();
             void exec(type_symbol func);
             void exec3(type_symbol func);

@@ -160,6 +160,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
     std::vector< instanciation_reference > pending_functanoids;
     std::set< type_symbol > queued_functanoids;
     std::set< type_symbol > loaded_functanoids;
+    std::set< type_symbol > asm_procedure_symbols;
     std::vector< type_symbol > pending_antestatal_globals;
     std::set< type_symbol > queued_antestatal_globals;
     std::set< type_symbol > loaded_antestatal_globals;
@@ -355,7 +356,25 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             round_functanoids.push_back(std::move(functanoid));
         }
 
-        for (instanciation_reference const& functanoid : round_functanoids)
+        std::vector< instanciation_reference > round_functions;
+        for (instanciation_reference const& invocable : round_functanoids)
+        {
+            type_symbol const symbol = invocable;
+            ast2_symboid const& symboid = co_await rpnx::querygraph::request< symboid_query >(invocable.temploid.templexoid);
+            if (typeis< ast2_asm_procedure_declaration >(symboid))
+            {
+                if (asm_procedure_symbols.insert(symbol).second)
+                {
+                    interp.add_constexpr_asm_procedure(symbol);
+                }
+                loaded_functanoids.insert(symbol);
+                continue;
+            }
+
+            round_functions.push_back(invocable);
+        }
+
+        for (instanciation_reference const& functanoid : round_functions)
         {
             co_yield rpnx::querygraph::dependency< vm_procedure3_query >(rpnx::querygraph::request< vm_procedure3_query >(functanoid));
         }
@@ -372,7 +391,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
             enqueue_antestatal_globals(requirements.second);
         }
 
-        for (instanciation_reference const& functanoid : round_functanoids)
+        for (instanciation_reference const& functanoid : round_functions)
         {
             type_symbol funcname = functanoid;
             if (loaded_functanoids.contains(funcname))

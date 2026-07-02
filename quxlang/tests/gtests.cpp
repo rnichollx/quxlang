@@ -6831,6 +6831,37 @@ TEST(quxlang, asm_procedure_is_callable_and_uses_readable_symbol_for_selected_ov
     EXPECT_EQ(assembled.callable_interface->calling_conv, "CCALL");
 }
 
+TEST(quxlang, asm_procedure_vm_procedure_generation_is_compiler_bug)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(
+::write ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(I32, I32, I32; RETURN I32)
+{
+    MOV RAX, 1
+    SYSCALL
+    RET
+}
+)QX");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    quxlang::type_symbol const write_symbol = parse_type_symbol("MODULE(main)::write");
+    quxlang::instanciation_reference const inst{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = write_symbol,
+            .overload_id = 0,
+        },
+        .params = quxlang::instatype{
+            .positional = {
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+                quxlang::make_type_instantiation(parse_type_symbol("I32")),
+            },
+        },
+    };
+    EXPECT_THROW((void)graph.make_request< quxlang::vm_procedure3_query >(inst), quxlang::compiler_bug);
+}
+
 TEST(quxlang, asm_procedure_named_callable_arguments_are_named_formals_and_preserve_order)
 {
     quxlang::source_bundle sources = make_main_module_source_bundle(R"QX(

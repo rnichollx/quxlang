@@ -366,6 +366,48 @@ IMPORT syscall;
   ASSERT(bad??);
 }
 
+::constexpr_asm_size ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@value SZ; RETURN SZ)
+{
+  MOV RAX, RDI
+  RET
+}
+
+::constexpr_asm_size ASM_PROCEDURE X86
+  CALLABLE CALLCONV CCALL(@value SZ; RETURN SZ)
+{
+  MOV EAX, [ESP+4]
+  RET
+}
+
+::constexpr_asm_size ASM_PROCEDURE ARM64
+  CALLABLE CALLCONV CCALL(@value SZ; RETURN SZ)
+{
+  RET
+}
+
+::constexpr_asm_size ASM_PROCEDURE ARM32
+  CALLABLE CALLCONV CCALL(@value SZ; RETURN SZ)
+{
+  RET
+}
+
+::asm_procedure_constexpr_direct_call_fails_test STATIC_TEST EXPECT_FAIL
+{
+  constexpr_asm_size(@value 1);
+}
+
+::asm_procedure_constexpr_array_length_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR values [constexpr_asm_size(@value 1)]I32;
+}
+
+::asm_procedure_pointer_not_invoked_static_test STATIC_TEST
+{
+  VAR proc CONST -> PROCEDURE(@code I32: I32) := syscall::linux::exit<-;
+  ASSERT(TRUE);
+}
+
 ::hello_world_message STATIC STRING_CONSTANT := "hello world!";
 
 ::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()

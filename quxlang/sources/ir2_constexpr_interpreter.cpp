@@ -62,7 +62,8 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     std::function< void(std::string) > debug_line_handler;
     std::optional< source_index > printer_source_index;
 
-    std::set< type_symbol > missing_functanoids_val;
+    std::set< type_symbol > missing_invokables_val;
+    std::set< type_symbol > asm_procedure_symbols;
     std::set< type_symbol > missing_antestatal_globals_val;
 
     std::uint64_t next_object_id = 1;
@@ -600,10 +601,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
         std::string funcname_str = quxlang::to_string(functype.get());
     }
 
+    if (asm_procedure_symbols.contains(functype.get()))
+    {
+        raise_fault("ASM_PROCEDURE_CONSTEXPR_INVOKE: " + quxlang::to_string(functype.get()));
+    }
+
+    auto routine_iter = functanoids3.find(functype);
+    if (routine_iter == functanoids3.end())
+    {
+        missing_invokables_val.insert(functype.get());
+        throw constexpr_logic_execution_error("missing constexpr invocable: " + quxlang::to_string(functype.get()));
+    }
+
     stack.emplace_back();
     stack.back().type = functype;
 
-    stack.back().ir3 = functanoids3.at(functype);
+    stack.back().ir3 = routine_iter->second;
     stack.back().address = {functype, block_index(0), 0};
 
     if (functype == void_type{})
@@ -4363,6 +4376,22 @@ void quxlang::vmir2::ir2_constexpr_interpreter::add_functanoid3(type_symbol addr
     this->implementation->functanoids3[addr] = std::move(func);
 }
 
+void quxlang::vmir2::ir2_constexpr_interpreter::add_constexpr_asm_procedure(type_symbol symbol)
+{
+    this->implementation->asm_procedure_symbols.insert(symbol);
+    this->implementation->missing_invokables_val.erase(symbol);
+}
+
+std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_invokables()
+{
+    return this->implementation->missing_invokables_val;
+}
+
+std::set< quxlang::type_symbol > const& quxlang::vmir2::ir2_constexpr_interpreter::missing_antestatal_globals()
+{
+    return this->implementation->missing_antestatal_globals_val;
+}
+
 void quxlang::vmir2::ir2_constexpr_interpreter::set_source_index(source_index source_index)
 {
     this->implementation->printer_source_index = std::move(source_index);
@@ -5652,9 +5681,9 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 {
     auto routine_symbol = routine;
     auto symbol = procedure_symbol(std::move(routine), calling_convention);
-    if (!functanoids3.contains(routine_symbol))
+    if (!functanoids3.contains(routine_symbol) && !asm_procedure_symbols.contains(routine_symbol))
     {
-        missing_functanoids_val.insert(std::move(routine_symbol));
+        missing_invokables_val.insert(std::move(routine_symbol));
     }
 
     auto& proc_local = m_procedures[symbol];

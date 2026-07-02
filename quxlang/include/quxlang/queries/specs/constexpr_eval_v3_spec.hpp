@@ -15,6 +15,7 @@
 #include <quxlang/queries/global_is_antestatal_static.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_index.hpp>
+#include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -27,7 +28,7 @@ namespace quxlang
     struct constexpr_eval_v3_spec
     {
         using query = constexpr_eval_v3_query;
-        using dependencies = rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, enum_info_query, flagset_info_query, functanoid_directly_instantiated_functanoids_query, functanoid_required_class_layouts_query, global_init_type_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, symbol_type_query, variable_type_query, vm_procedure3_query >;
+        using dependencies = rpnx::typelist< antestatal_static_value_query, class_layout_query, constexpr_routine_v3_query, enum_info_query, flagset_info_query, functanoid_directly_instantiated_functanoids_query, functanoid_required_class_layouts_query, global_init_type_query, global_is_antestatal_static_query, source_bundle_query, source_file_index_query, symboid_query, symbol_type_query, variable_type_query, vm_procedure3_query >;
     };
 
     /// Evaluates a constexpr v3 expression and returns all requested result IDs.
