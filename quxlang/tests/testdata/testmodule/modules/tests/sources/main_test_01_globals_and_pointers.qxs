@@ -1,6 +1,6 @@
 LANGUAGE QUXLANG EN 0.0;
 
-::pointer_to_pointer_increment_test STATIC_TEST
+::pointer_to_pointer_increment_test DUAL_TEST
 {
   VAR x I32 := 5;
   VAR px ->I32 := x<-;
@@ -11,16 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
   ptrptr_incr(@ptr ppx);
 }
 
-::pointer_to_pointer_increment_test_unit_test UNIT_TEST
-{
-  VAR x I32 := 5;
-  VAR px ->I32 := x<-;
-  VAR ppx -> ->I32 := px<-;
-  VAR ppx2 -> ->I32 := ppx;
-  ppx-> -> := 10;
-  ASSERT(x == 10);
-  ptrptr_incr(@ptr ppx);
-}
+
 
 ::ptrptr_incr FUNCTION(@ptr CONST-> MUT-> I32)
 {
@@ -38,7 +29,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::global_tmpl TEMPLATE( @foo TYPE AUTO(t) ) VAR t := 1;
 
 
-::mutable_global_and_template_global_test STATIC_TEST
+::mutable_global_and_template_global_test DUAL_TEST
 {
   ASSERT(global == 8);
   global := global + 2;
@@ -51,20 +42,9 @@ LANGUAGE QUXLANG EN 0.0;
 
 }
 
-::mutable_global_and_template_global_test_unit_test UNIT_TEST
-{
-  ASSERT(global == 8);
-  global := global + 2;
-  ASSERT(global == 10);
 
-  ASSERT(global_tmpl#(@foo I32) == 1);
-  global_tmpl#(@foo I32) := 5;
-  ASSERT(global_tmpl#(@foo I32) == 5);
-  ASSERT(global_tmpl#(@foo I64) == 1);
 
-}
-
-::antestatal_static_values_test STATIC_TEST
+::antestatal_static_values_test DUAL_TEST
 {
   ASSERT(antestatal_static_i32 == 4);
   ASSERT(antestatal_static_i32_ptr-> == 4);
@@ -73,14 +53,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 }
 
-::antestatal_static_values_test_unit_test UNIT_TEST
-{
-  ASSERT(antestatal_static_i32 == 4);
-  ASSERT(antestatal_static_i32_ptr-> == 4);
-  ASSERT(antestatal_static_proc(4, 5) == 9);
-  // TODO: Add a negative constexpr test that verifies mutating an antestatal static is rejected.
 
-}
 
 
 ::templated_holder TEMPLATE(TYPE AUTO(t)) CLASS
@@ -88,7 +61,7 @@ LANGUAGE QUXLANG EN 0.0;
   .value VAR t;
 }
 
-::templated_holder_value_test STATIC_TEST
+::templated_holder_value_test DUAL_TEST
 {
   VAR holder templated_holder#( I32 );
   holder.value := 5;
@@ -99,16 +72,7 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(holder.value == 9);
 }
 
-::templated_holder_value_test_unit_test UNIT_TEST
-{
-  VAR holder templated_holder#( I32 );
-  holder.value := 5;
-  ASSERT(holder.value == 5);
 
-  holder.value := 9;
-
-  ASSERT(holder.value == 9);
-}
 
 ::value_template_holder TEMPLATE(@count:value_count VALUE U64) CLASS
 {
@@ -125,21 +89,16 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::value_template_argument_test STATIC_TEST
+::value_template_argument_test DUAL_TEST
 {
   VAR holder value_template_holder#(@count 4);
   ASSERT(holder.fill() == 5);
   ASSERT(holder.stored == 4);
 }
 
-::value_template_argument_test_unit_test UNIT_TEST
-{
-  VAR holder value_template_holder#(@count 4);
-  ASSERT(holder.fill() == 5);
-  ASSERT(holder.stored == 4);
-}
 
-::postincrement_array_iterator_store_test STATIC_TEST
+
+::postincrement_array_iterator_store_test DUAL_TEST
 {
 
   VAR x [3]I32;
@@ -156,44 +115,9 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT( x[2] == 30 );
 }
 
-::postincrement_array_iterator_store_test_unit_test UNIT_TEST
-{
 
-  VAR x [3]I32;
 
-  VAR y =>> I32;
-  y := x[& 0];
-
-  (y++)-> := 10;
-  (y++)-> := 20;
-  (y++)-> := 30;
-
-  ASSERT( x[0] == 10 );
-  ASSERT( x[1] == 20 );
-  ASSERT( x[2] == 30 );
-}
-
-::array_byte_pointer_load_store_test STATIC_TEST
-{
-  VAR x [4]BYTE;
-
-  VAR z =>> BYTE;
-
-  z := x[& 0];
-
-  VAR z2 =>> BYTE;
-  z2 := z;
-
-  z-> := 42;
-
-  ASSERT( x[0] == 42 );
-
-  z2-> := 84;
-
-  ASSERT( x[0] == 84 );
-}
-
-::array_byte_pointer_load_store_test_unit_test UNIT_TEST
+::array_byte_pointer_load_store_test DUAL_TEST
 {
   VAR x [4]BYTE;
 
@@ -214,7 +138,9 @@ LANGUAGE QUXLANG EN 0.0;
 }
 
 
-::static_choose_import_test STATIC_TEST
+
+
+::static_choose_import_test DUAL_TEST
 {
    VAR x I32;
 
@@ -225,16 +151,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT( x == 20 );
 }
 
-::static_choose_import_test_unit_test UNIT_TEST
-{
-   VAR x I32;
 
-   x := STATIC_CHOOSE( foolib::imported_function() == 42 , 10 , 20 );
-   ASSERT( x == 10 );
-
-   x := STATIC_CHOOSE( foolib::imported_function() != 42 , 10 , 20 );
-   ASSERT( x == 20 );
-}
 
 ::static_counter_probe FUNCTION(@counter MUT& I32, @value BOOL) : BOOL
 {
@@ -242,7 +159,7 @@ LANGUAGE QUXLANG EN 0.0;
    RETURN value;
 }
 
-::static_var_loop_expansion_test STATIC_TEST
+::static_var_loop_expansion_test DUAL_TEST
 {
    VAR foo I32 := 0;
    STATIC_VAR x I32 := 1;
@@ -253,18 +170,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(foo == 4);
 }
 
-::static_var_loop_expansion_test_unit_test UNIT_TEST
-{
-   VAR foo I32 := 0;
-   STATIC_VAR x I32 := 1;
-   STATIC_WHILE (x < 5) {
-      foo++;
-      STATIC_EVAL x++;
-   }
-   ASSERT(foo == 4);
-}
 
-::static_while_zero_iterations_test STATIC_TEST
+
+::static_while_zero_iterations_test DUAL_TEST
 {
    VAR foo I32 := 0;
    STATIC_VAR x I32 := 0;
@@ -276,19 +184,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(SNAPSHOT(x) == 0);
 }
 
-::static_while_zero_iterations_test_unit_test UNIT_TEST
-{
-   VAR foo I32 := 0;
-   STATIC_VAR x I32 := 0;
-   STATIC_WHILE (FALSE) {
-      foo++;
-      STATIC_EVAL x++;
-   }
-   ASSERT(foo == 0);
-   ASSERT(SNAPSHOT(x) == 0);
-}
 
-::static_while_condition_mutation_test STATIC_TEST
+
+::static_while_condition_mutation_test DUAL_TEST
 {
    VAR foo I32 := 0;
    STATIC_VAR x I32 := 0;
@@ -299,18 +197,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(SNAPSHOT(x) == 4);
 }
 
-::static_while_condition_mutation_test_unit_test UNIT_TEST
-{
-   VAR foo I32 := 0;
-   STATIC_VAR x I32 := 0;
-   STATIC_WHILE (static_counter_probe(@counter x, @value x < 3)) {
-      foo++;
-   }
-   ASSERT(foo == 3);
-   ASSERT(SNAPSHOT(x) == 4);
-}
 
-::static_if_selected_branch_test STATIC_TEST
+
+::static_if_selected_branch_test DUAL_TEST
 {
    STATIC_VAR x I32 := 0;
    STATIC_IF (FALSE) {
@@ -322,19 +211,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y == 1);
 }
 
-::static_if_selected_branch_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 0;
-   STATIC_IF (FALSE) {
-      STATIC_EVAL x := 99;
-   } STATIC_ELSE {
-      STATIC_EVAL x++;
-   }
-   VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 1);
-}
 
-::static_if_condition_mutation_test STATIC_TEST
+
+::static_if_condition_mutation_test DUAL_TEST
 {
    STATIC_VAR x I32 := 0;
    STATIC_IF (static_counter_probe(@counter x, @value TRUE)) {
@@ -346,19 +225,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y == 2);
 }
 
-::static_if_condition_mutation_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 0;
-   STATIC_IF (static_counter_probe(@counter x, @value TRUE)) {
-      STATIC_EVAL x++;
-   } STATIC_ELSE {
-      STATIC_EVAL x := 99;
-   }
-   VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 2);
-}
 
-::static_if_unselected_branch_not_generated_test STATIC_TEST
+
+::static_if_unselected_branch_not_generated_test DUAL_TEST
 {
    STATIC_IF (TRUE) {
       VAR x I32 := 1;
@@ -369,18 +238,9 @@ LANGUAGE QUXLANG EN 0.0;
    }
 }
 
-::static_if_unselected_branch_not_generated_test_unit_test UNIT_TEST
-{
-   STATIC_IF (TRUE) {
-      VAR x I32 := 1;
-      ASSERT(x == 1);
-   } STATIC_ELSE {
-      VAR y I32 := bogus_unselected;
-      ASSERT(y == 2);
-   }
-}
 
-::static_choose_unselected_expression_not_generated_test STATIC_TEST
+
+::static_choose_unselected_expression_not_generated_test DUAL_TEST
 {
    VAR chosen_a I32 := STATIC_CHOOSE(TRUE, 7, bogus_choice_a);
    VAR chosen_b I32 := STATIC_CHOOSE(FALSE, bogus_choice_b, 11);
@@ -388,15 +248,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(chosen_b == 11);
 }
 
-::static_choose_unselected_expression_not_generated_test_unit_test UNIT_TEST
-{
-   VAR chosen_a I32 := STATIC_CHOOSE(TRUE, 7, bogus_choice_a);
-   VAR chosen_b I32 := STATIC_CHOOSE(FALSE, bogus_choice_b, 11);
-   ASSERT(chosen_a == 7);
-   ASSERT(chosen_b == 11);
-}
 
-::static_default_and_call_initializers_test STATIC_TEST
+
+::static_default_and_call_initializers_test DUAL_TEST
 {
    STATIC x I32;
    STATIC y I32 :(@OTHER 7);
@@ -404,15 +258,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y == 7);
 }
 
-::static_default_and_call_initializers_test_unit_test UNIT_TEST
-{
-   STATIC x I32;
-   STATIC y I32 :(@OTHER 7);
-   ASSERT(x == 0);
-   ASSERT(y == 7);
-}
 
-::static_snapshot_read_after_mutation_test STATIC_TEST
+
+::static_snapshot_read_after_mutation_test DUAL_TEST
 {
    STATIC_VAR x I32 := 1;
    STATIC_VAR z -> I32 := x<-;
@@ -423,18 +271,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(after-> == 2);
 }
 
-::static_snapshot_read_after_mutation_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 1;
-   STATIC_VAR z -> I32 := x<-;
-   VAR before CONST->I32 := SNAPSHOT(z);
-   STATIC_EVAL x++;
-   VAR after CONST->I32 := SNAPSHOT(z);
-   ASSERT(before-> == 1);
-   ASSERT(after-> == 2);
-}
 
-::static_var_nested_block_snapshot_test STATIC_TEST
+
+::static_var_nested_block_snapshot_test DUAL_TEST
 {
    STATIC_VAR outer I32 := 1;
    ASSERT(SNAPSHOT(outer) == 1);
@@ -448,19 +287,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(SNAPSHOT(outer) == 1);
 }
 
-::static_var_nested_block_snapshot_test_unit_test UNIT_TEST
-{
-   STATIC_VAR outer I32 := 1;
-   ASSERT(SNAPSHOT(outer) == 1);
-   {
-      STATIC_VAR inner I32 := 5;
-      ASSERT(SNAPSHOT(inner) == 5);
-      STATIC_EVAL inner++;
-      ASSERT(SNAPSHOT(inner) == 6);
-      ASSERT(SNAPSHOT(outer) == 1);
-   }
-   ASSERT(SNAPSHOT(outer) == 1);
-}
+
 
 ::static_var_shadowed_block_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -471,7 +298,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(SNAPSHOT(x) == 1);
 }
 
-::runtime_if_static_generation_order_test STATIC_TEST
+::runtime_if_static_generation_order_test DUAL_TEST
 {
    STATIC_VAR x I32 := 0;
    IF (TRUE) {
@@ -483,19 +310,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y == 2);
 }
 
-::runtime_if_static_generation_order_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 0;
-   IF (TRUE) {
-      STATIC_EVAL x++;
-   } ELSE {
-      STATIC_EVAL x++;
-   }
-   VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 2);
-}
 
-::runtime_while_static_generation_once_test STATIC_TEST
+
+::runtime_while_static_generation_once_test DUAL_TEST
 {
    STATIC_VAR x I32 := 0;
    VAR i I32 := 0;
@@ -507,19 +324,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y == 1);
 }
 
-::runtime_while_static_generation_once_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 0;
-   VAR i I32 := 0;
-   WHILE (i < 5) {
-      STATIC_EVAL x++;
-      i++;
-   }
-   VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 1);
-}
 
-::runtime_for_loop_test STATIC_TEST
+
+::runtime_for_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } LOOP {
@@ -528,16 +335,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 10);
 }
 
-::runtime_for_loop_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR INIT { VAR i I32 := 0; } TEST(i < 5) STEP { i++; } LOOP {
-      sum := sum + i;
-   };
-   ASSERT(sum == 10);
-}
 
-::runtime_for_posttest_loop_test STATIC_TEST
+
+::runtime_for_posttest_loop_test DUAL_TEST
 {
    VAR count I32 := 0;
    VAR i I32 := 0;
@@ -547,17 +347,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(count == 4);
 }
 
-::runtime_for_posttest_loop_test_unit_test UNIT_TEST
-{
-   VAR count I32 := 0;
-   VAR i I32 := 0;
-   FOR POSTTEST(i < 3) STEP { i++; } LOOP {
-      count++;
-   };
-   ASSERT(count == 4);
-}
 
-::runtime_while_break_continue_test STATIC_TEST
+
+::runtime_while_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
    VAR i I32 := 0;
@@ -574,24 +366,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 8);
 }
 
-::runtime_while_break_continue_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   VAR i I32 := 0;
-   WHILE (i < 8) {
-      i++;
-      IF (i == 2) {
-         CONTINUE;
-      }
-      IF (i == 5) {
-         BREAK;
-      }
-      sum := sum + i;
-   }
-   ASSERT(sum == 8);
-}
 
-::runtime_for_break_continue_test STATIC_TEST
+
+::runtime_for_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } LOOP {
@@ -606,22 +383,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 8);
 }
 
-::runtime_for_break_continue_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR INIT { VAR i I32 := 0; } TEST(i < 8) STEP { i++; } LOOP {
-      IF (i == 2) {
-         CONTINUE;
-      }
-      IF (i == 5) {
-         BREAK;
-      }
-      sum := sum + i;
-   };
-   ASSERT(sum == 8);
-}
 
-::runtime_for_sequence_to_loop_test STATIC_TEST
+
+::runtime_for_sequence_to_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
    VAR two I32 := 2;
@@ -631,17 +395,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 30);
 }
 
-::runtime_for_sequence_to_loop_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   VAR two I32 := 2;
-   FOR VALUE(i) FROM(0 AS I32) TO(10) BY(two) LOOP {
-      sum := sum + i;
-   };
-   ASSERT(sum == 30);
-}
 
-::runtime_for_sequence_until_loop_test STATIC_TEST
+
+::runtime_for_sequence_until_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR VALUE(i) FROM(0 AS I32) UNTIL(5) LOOP {
@@ -650,16 +406,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 10);
 }
 
-::runtime_for_sequence_until_loop_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR VALUE(i) FROM(0 AS I32) UNTIL(5) LOOP {
-      sum := sum + i;
-   };
-   ASSERT(sum == 10);
-}
 
-::runtime_for_sequence_filter_loop_test STATIC_TEST
+
+::runtime_for_sequence_filter_loop_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) LOOP {
@@ -668,16 +417,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 12);
 }
 
-::runtime_for_sequence_filter_loop_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR VALUE(i) FROM(0 AS I32) TO(6) FILTER((i == 0) || (i == 2) || (i == 4) || (i == 6)) LOOP {
-      sum := sum + i;
-   };
-   ASSERT(sum == 12);
-}
 
-::runtime_for_sequence_break_continue_test STATIC_TEST
+
+::runtime_for_sequence_break_continue_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR FROM(0 AS I32) TO(8) VALUE(i) LOOP {
@@ -692,22 +434,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 8);
 }
 
-::runtime_for_sequence_break_continue_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR FROM(0 AS I32) TO(8) VALUE(i) LOOP {
-      IF (i == 2) {
-         CONTINUE;
-      }
-      IF (i == 5) {
-         BREAK;
-      }
-      sum := sum + i;
-   };
-   ASSERT(sum == 8);
-}
 
-::runtime_labeled_for_control_test STATIC_TEST
+
+::runtime_labeled_for_control_test DUAL_TEST
 {
    VAR sum I32 := 0;
    FOR :outer FROM(0 AS I32) TO(4) VALUE(i) LOOP {
@@ -729,29 +458,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 5);
 }
 
-::runtime_labeled_for_control_test_unit_test UNIT_TEST
-{
-   VAR sum I32 := 0;
-   FOR :outer FROM(0 AS I32) TO(4) VALUE(i) LOOP {
-      FOR :inner FROM(0 AS I32) TO(4) VALUE(j) LOOP {
-         IF (j == 1) {
-            CONTINUE :outer;
-         }
-         sum := sum + 1;
-      }
-   };
-   ASSERT(sum == 5);
 
-   FOR :stop FROM(0 AS I32) TO(4) VALUE(i) LOOP {
-      FOR FROM(0 AS I32) TO(4) VALUE(j) LOOP {
-         BREAK :stop;
-      }
-      sum := sum + 100;
-   };
-   ASSERT(sum == 5);
-}
 
-::runtime_labeled_while_control_test STATIC_TEST
+::runtime_labeled_while_control_test DUAL_TEST
 {
    VAR i I32 := 0;
    VAR sum I32 := 0;
@@ -767,23 +476,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(sum == 0);
 }
 
-::runtime_labeled_while_control_test_unit_test UNIT_TEST
-{
-   VAR i I32 := 0;
-   VAR sum I32 := 0;
-   WHILE :outer (i < 5) {
-      i++;
-      VAR j I32 := 0;
-      WHILE :inner (j < 3) {
-         j++;
-         CONTINUE :outer;
-      }
-      sum++;
-   }
-   ASSERT(sum == 0);
-}
 
-::runtime_labeled_block_break_test STATIC_TEST
+
+::runtime_labeled_block_break_test DUAL_TEST
 {
    VAR x I32 := 0;
    LABEL :done {
@@ -794,18 +489,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(x == 1);
 }
 
-::runtime_labeled_block_break_test_unit_test UNIT_TEST
-{
-   VAR x I32 := 0;
-   LABEL :done {
-      x := 1;
-      BREAK :done;
-      x := 99;
-   }
-   ASSERT(x == 1);
-}
 
-::runtime_forward_goto_test STATIC_TEST
+
+::runtime_forward_goto_test DUAL_TEST
 {
    VAR x I32 := 0;
    GOTO :skip;
@@ -814,16 +500,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(x == 0);
 }
 
-::runtime_forward_goto_test_unit_test UNIT_TEST
-{
-   VAR x I32 := 0;
-   GOTO :skip;
-   x := 99;
-   LABEL :skip;
-   ASSERT(x == 0);
-}
 
-::runtime_backward_goto_test STATIC_TEST
+
+::runtime_backward_goto_test DUAL_TEST
 {
    VAR x I32 := 0;
    LABEL :again;
@@ -834,18 +513,9 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(x == 3);
 }
 
-::runtime_backward_goto_test_unit_test UNIT_TEST
-{
-   VAR x I32 := 0;
-   LABEL :again;
-   x++;
-   IF (x < 3) {
-      GOTO :again;
-   }
-   ASSERT(x == 3);
-}
 
-::runtime_goto_out_of_block_test STATIC_TEST
+
+::runtime_goto_out_of_block_test DUAL_TEST
 {
    VAR x I32 := 0;
    {
@@ -857,17 +527,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(x == 1);
 }
 
-::runtime_goto_out_of_block_test_unit_test UNIT_TEST
-{
-   VAR x I32 := 0;
-   {
-      VAR y I32 := 1;
-      x := y;
-      GOTO :after;
-   }
-   LABEL :after;
-   ASSERT(x == 1);
-}
+
 
 ::missing_break_label_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -914,7 +574,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR y I32 := STATIC_CHOOSE(static_counter_probe(@counter x, @value TRUE), 1, 2);
 }
 
-::static_var_regular_var_snapshots_from_address_test STATIC_TEST
+::static_var_regular_var_snapshots_from_address_test DUAL_TEST
 {
    // This test verifies that when a STATIC_VAR is captured at runtime, the complete
    // state of static values is snapshotted and that subsequent mutations to the static
@@ -936,27 +596,7 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(z-> == 1);
 }
 
-::static_var_regular_var_snapshots_from_address_test_unit_test UNIT_TEST
-{
-   // This test verifies that when a STATIC_VAR is captured at runtime, the complete
-   // state of static values is snapshotted and that subsequent mutations to the static
-   // value do not affect the captured snapshot.
-   // It also tests that at each snapshot capture, the pointers to static variables
-   // are updated to point to the current value of the static variable.
 
-   STATIC_VAR x I32 := 0;
-   STATIC_VAR x_ptr CONST->I32 := x<-;
-
-   VAR y CONST->I32 := SNAPSHOT(x)<-;
-   STATIC_EVAL x++;
-   VAR z CONST->I32 := SNAPSHOT(x_ptr);
-
-   STATIC_EVAL x++;
-
-   ASSERT(SNAPSHOT(x) == 2);
-   ASSERT(y-> == 0);
-   ASSERT(z-> == 1);
-}
 
 ::static_var_runtime_access_without_snapshot_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -971,19 +611,14 @@ LANGUAGE QUXLANG EN 0.0;
    VAR y I32 := x;
 }
 
-::static_var_runtime_access_with_snapshot_test STATIC_TEST
+::static_var_runtime_access_with_snapshot_test DUAL_TEST
 {
    STATIC_VAR x I32 := 3;
    VAR y I32 := SNAPSHOT(x);
    ASSERT(y == 3);
 }
 
-::static_var_runtime_access_with_snapshot_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 3;
-   VAR y I32 := SNAPSHOT(x);
-   ASSERT(y == 3);
-}
+
 
 ::static_const_pointer_to_mutable_without_snapshot_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -992,7 +627,7 @@ LANGUAGE QUXLANG EN 0.0;
    VAR y CONST->I32 := ptr;
 }
 
-::static_const_pointer_to_mutable_with_snapshot_test STATIC_TEST
+::static_const_pointer_to_mutable_with_snapshot_test DUAL_TEST
 {
    STATIC_VAR x I32 := 4;
    STATIC ptr CONST->I32 := x<-;
@@ -1000,28 +635,17 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(y-> == 4);
 }
 
-::static_const_pointer_to_mutable_with_snapshot_test_unit_test UNIT_TEST
-{
-   STATIC_VAR x I32 := 4;
-   STATIC ptr CONST->I32 := x<-;
-   VAR y CONST->I32 := SNAPSHOT(ptr);
-   ASSERT(y-> == 4);
-}
+
 
 
 ::zint VAR I32;
 
-::test_default_init_global STATIC_TEST
+::test_default_init_global DUAL_TEST
 {
    ASSERT(zint == 0);
    zint := 1;
    ASSERT(zint == 1);
 }
 
-::test_default_init_global_unit_test UNIT_TEST
-{
-   ASSERT(zint == 0);
-   zint := 1;
-   ASSERT(zint == 1);
-}
+
 

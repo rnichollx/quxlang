@@ -60,6 +60,18 @@
 
 namespace quxlang
 {
+    /**
+     * Appends query dependencies to a co_vmir_generator2 dependency list.
+     */
+    template < typename Existing, typename... Extra >
+    struct append_co_vmir_generator2_dependencies;
+
+    template < typename... Existing, typename... Extra >
+    struct append_co_vmir_generator2_dependencies< rpnx::typelist< Existing... >, Extra... >
+    {
+        using type = rpnx::typelist< Existing..., Extra... >;
+    };
+
     using co_vmir_generator2_query_deps = rpnx::typelist<
         class_default_dtor_query,
         class_field_list_query,

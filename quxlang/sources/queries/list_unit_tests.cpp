@@ -62,12 +62,15 @@ rpnx::querygraph::coroutine< quxlang::list_unit_tests_spec > quxlang::list_unit_
             continue;
         }
 
-        if (!decl->type_is< ast2_unit_test >())
+        if (!decl->type_is< ast2_test >())
         {
             continue;
         }
 
-        result.insert(child);
+        if (co_await rpnx::querygraph::request< test_is_enabled_for_unit_testing_query >(child))
+        {
+            result.insert(child);
+        }
     }
 
     co_return result;

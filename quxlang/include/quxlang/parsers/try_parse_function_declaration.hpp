@@ -61,56 +61,50 @@ namespace quxlang::parsers
         return out;
     }
 
-    inline std::optional< ast2_static_test > try_parse_static_test(parsing_context& ctx)
+    inline std::optional< ast2_test > try_parse_test(parsing_context& ctx)
     {
         auto& pos = ctx.iter_pos;
         auto end = ctx.iter_end;
         auto begin = pos;
 
-        std::optional< ast2_static_test > out;
+        std::optional< ast2_test > out;
 
-        if (!skip_keyword_if_is(pos, end, "STATIC_TEST"))
+        ast2_test_mode mode;
+        if (skip_keyword_if_is(pos, end, "STATIC_TEST"))
+        {
+            mode = ast2_test_mode::static_only;
+        }
+        else if (skip_keyword_if_is(pos, end, "UNIT_TEST"))
+        {
+            mode = ast2_test_mode::unit_only;
+        }
+        else if (skip_keyword_if_is(pos, end, "DUAL_TEST"))
+        {
+            mode = ast2_test_mode::dual;
+        }
+        else
         {
             return out;
         }
-        out = ast2_static_test{};
+
+        out = ast2_test{.mode = mode};
 
         skip_whitespace_and_comments(pos, end);
         if (skip_keyword_if_is(pos, end, "EXPECT_FAIL"))
         {
+            if (mode != ast2_test_mode::static_only)
+            {
+                throw syntax_compilation_error("Only STATIC_TEST supports expectation modifiers");
+            }
             out->expected_mode = static_test_expected_mode::expect_fail;
         }
         else if (skip_keyword_if_is(pos, end, "EXPECT_COMPILATION_FAILURE"))
         {
+            if (mode != ast2_test_mode::static_only)
+            {
+                throw syntax_compilation_error("Only STATIC_TEST supports expectation modifiers");
+            }
             out->expected_mode = static_test_expected_mode::expect_compilation_failure;
-        }
-
-        out->definition.body = parse_function_block(ctx);
-        out->location = ctx.get_location_optional(begin, pos);
-        return out;
-    }
-
-    /**
-     * Attempts to parse a UNIT_TEST declaration body.
-     */
-    inline std::optional< ast2_unit_test > try_parse_unit_test(parsing_context& ctx)
-    {
-        auto& pos = ctx.iter_pos;
-        auto end = ctx.iter_end;
-        auto begin = pos;
-
-        std::optional< ast2_unit_test > out;
-
-        if (!skip_keyword_if_is(pos, end, "UNIT_TEST"))
-        {
-            return out;
-        }
-        out = ast2_unit_test{};
-
-        skip_whitespace_and_comments(pos, end);
-        if (skip_keyword_if_is(pos, end, "EXPECT_FAIL") || skip_keyword_if_is(pos, end, "EXPECT_COMPILATION_FAILURE"))
-        {
-            throw syntax_compilation_error("UNIT_TEST does not support expectation modifiers");
         }
 
         out->definition.body = parse_function_block(ctx);

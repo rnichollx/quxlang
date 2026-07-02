@@ -37,6 +37,8 @@
 #include <quxlang/queries/instanciation.hpp>
 #include <quxlang/queries/interface_defaultable.hpp>
 #include <quxlang/queries/interface_slot_list.hpp>
+#include <quxlang/queries/list_static_tests.hpp>
+#include <quxlang/queries/list_unit_tests.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_id.hpp>
 #include <quxlang/queries/source_file_index.hpp>
@@ -45,6 +47,8 @@
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_backend.hpp>
 #include <quxlang/queries/target_llvm_backend_options.hpp>
+#include <quxlang/queries/test_is_enabled_for_static_testing.hpp>
+#include <quxlang/queries/test_is_enabled_for_unit_testing.hpp>
 #include <quxlang/queries/type_is_antestatal.hpp>
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
@@ -1144,6 +1148,41 @@ TEST(querygraph_queries, option_declaration_resolves_as_option_symbol)
     auto answer = quxlang::type_symbol(quxlang::subsymbol{quxlang::absolute_module_reference{"main"}, "answer"});
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(answer), quxlang::symbol_kind::option);
+}
+
+TEST(querygraph_queries, test_declaration_modes_drive_static_and_unit_discovery)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::static_case STATIC_TEST { }
+::unit_case UNIT_TEST { }
+::dual_case DUAL_TEST { }
+)");
+    auto graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const static_case = quxlang::subsymbol{main, "static_case"};
+    quxlang::type_symbol const unit_case = quxlang::subsymbol{main, "unit_case"};
+    quxlang::type_symbol const dual_case = quxlang::subsymbol{main, "dual_case"};
+
+    std::set< quxlang::type_symbol > const static_tests = graph.make_request< quxlang::list_static_tests_query >(main);
+    std::set< quxlang::type_symbol > const unit_tests = graph.make_request< quxlang::list_unit_tests_query >(main);
+
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(static_case), quxlang::symbol_kind::test);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(unit_case), quxlang::symbol_kind::test);
+    EXPECT_EQ(graph.make_request< quxlang::symbol_type_query >(dual_case), quxlang::symbol_kind::test);
+
+    EXPECT_TRUE(graph.make_request< quxlang::test_is_enabled_for_static_testing_query >(static_case));
+    EXPECT_FALSE(graph.make_request< quxlang::test_is_enabled_for_unit_testing_query >(static_case));
+    EXPECT_FALSE(graph.make_request< quxlang::test_is_enabled_for_static_testing_query >(unit_case));
+    EXPECT_TRUE(graph.make_request< quxlang::test_is_enabled_for_unit_testing_query >(unit_case));
+    EXPECT_TRUE(graph.make_request< quxlang::test_is_enabled_for_static_testing_query >(dual_case));
+    EXPECT_TRUE(graph.make_request< quxlang::test_is_enabled_for_unit_testing_query >(dual_case));
+
+    EXPECT_TRUE(static_tests.contains(static_case));
+    EXPECT_FALSE(static_tests.contains(unit_case));
+    EXPECT_TRUE(static_tests.contains(dual_case));
+    EXPECT_FALSE(unit_tests.contains(static_case));
+    EXPECT_TRUE(unit_tests.contains(unit_case));
+    EXPECT_TRUE(unit_tests.contains(dual_case));
 }
 
 TEST(querygraph_queries, nested_namespace_subdeclaroids_resolve)

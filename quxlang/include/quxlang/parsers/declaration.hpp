@@ -33,8 +33,7 @@ namespace quxlang::parsers
     std::optional< ast2_interface_declaration > try_parse_interface(parsing_context& ctx);
     std::optional< ast2_implementation_declaration > try_parse_implementation(parsing_context& ctx);
     std::optional< ast2_function_declaration > try_parse_function_declaration(parsing_context& ctx);
-    std::optional< ast2_static_test > try_parse_static_test(parsing_context& ctx);
-    std::optional< ast2_unit_test > try_parse_unit_test(parsing_context& ctx);
+    std::optional< ast2_test > try_parse_test(parsing_context& ctx);
     std::optional< ast2_variable_declaration > try_parse_variable_declaration(parsing_context& ctx);
     std::optional< ast2_option > try_parse_option(parsing_context& ctx);
     std::optional< declaroid > try_parse_declaroid(parsing_context& ctx);
@@ -174,13 +173,7 @@ namespace quxlang::parsers
             return std::move(output);
         }
 
-        output = try_parse_static_test(ctx);
-        if (output)
-        {
-            return std::move(output);
-        }
-
-        output = try_parse_unit_test(ctx);
+        output = try_parse_test(ctx);
         if (output)
         {
             return std::move(output);

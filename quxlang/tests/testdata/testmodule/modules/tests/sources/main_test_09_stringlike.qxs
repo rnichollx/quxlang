@@ -34,7 +34,7 @@ LANGUAGE QUXLANG EN 0.0;
 ::stringlike_string_static STATIC STRING_CONSTANT := 1 AS fixed_stringlike;
 ::empty_stringlike_string_static STATIC STRING_CONSTANT := 0 AS fixed_stringlike;
 
-::string_constant_literal_static_test STATIC_TEST
+::string_constant_literal_static_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := literal_string_static.BEGIN();
   ASSERT((it++)-> == 'h');
@@ -45,18 +45,9 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(it == literal_string_static.END());
 }
 
-::string_constant_literal_static_test_unit_test UNIT_TEST
-{
-  VAR it CONST=>> BYTE := literal_string_static.BEGIN();
-  ASSERT((it++)-> == 'h');
-  ASSERT((it++)-> == 'e');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == literal_string_static.END());
-}
 
-::string_constant_copy_static_test STATIC_TEST
+
+::string_constant_copy_static_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := copied_string_static.BEGIN();
   ASSERT((it++)-> == 'h');
@@ -67,18 +58,9 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(it == copied_string_static.END());
 }
 
-::string_constant_copy_static_test_unit_test UNIT_TEST
-{
-  VAR it CONST=>> BYTE := copied_string_static.BEGIN();
-  ASSERT((it++)-> == 'h');
-  ASSERT((it++)-> == 'e');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'l');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == copied_string_static.END());
-}
 
-::stringlike_static_string_constant_test STATIC_TEST
+
+::stringlike_static_string_constant_test DUAL_TEST
 {
   VAR it CONST=>> BYTE := stringlike_string_static.BEGIN();
   ASSERT((it++)-> == 'f');
@@ -87,24 +69,14 @@ LANGUAGE QUXLANG EN 0.0;
   ASSERT(it == stringlike_string_static.END());
 }
 
-::stringlike_static_string_constant_test_unit_test UNIT_TEST
-{
-  VAR it CONST=>> BYTE := stringlike_string_static.BEGIN();
-  ASSERT((it++)-> == 'f');
-  ASSERT((it++)-> == 'o');
-  ASSERT((it++)-> == 'o');
-  ASSERT(it == stringlike_string_static.END());
-}
 
-::empty_stringlike_static_string_constant_test STATIC_TEST
+
+::empty_stringlike_static_string_constant_test DUAL_TEST
 {
   ASSERT(empty_stringlike_string_static.BEGIN() == empty_stringlike_string_static.END());
 }
 
-::empty_stringlike_static_string_constant_test_unit_test UNIT_TEST
-{
-  ASSERT(empty_stringlike_string_static.BEGIN() == empty_stringlike_string_static.END());
-}
+
 
 ::bad_stringlike_no_serialize CLASS STRINGLIKE
 {

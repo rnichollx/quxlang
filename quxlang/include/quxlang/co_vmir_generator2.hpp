@@ -10157,11 +10157,14 @@ namespace quxlang
             co_return get_result();
         }
 
-        [[nodiscard]] auto co_generate_static_test(ast2_static_test const& test) -> co_type< vmir2::functanoid_routine3 >
+        /**
+         * Generates the VMIR2 routine for one test declaration.
+         */
+        [[nodiscard]] auto co_generate_test(ast2_test const& test, std::string const& block_name) -> co_type< vmir2::functanoid_routine3 >
         {
             this->generate_entry_block();
             block_index current_block(0);
-            co_await co_generate_function_block(current_block, test.definition.body, "static_test_body");
+            co_await co_generate_function_block(current_block, test.definition.body, block_name);
 
             this->generate_return(current_block);
 
@@ -10171,21 +10174,17 @@ namespace quxlang
             co_return get_result();
         }
 
+        [[nodiscard]] auto co_generate_static_test(ast2_test const& test) -> co_type< vmir2::functanoid_routine3 >
+        {
+            co_return co_await co_generate_test(test, "static_test_body");
+        }
+
         /**
          * Generates the VMIR2 routine for one runtime UNIT_TEST declaration.
          */
-        [[nodiscard]] auto co_generate_unit_test(ast2_unit_test const& test) -> co_type< vmir2::functanoid_routine3 >
+        [[nodiscard]] auto co_generate_unit_test(ast2_test const& test) -> co_type< vmir2::functanoid_routine3 >
         {
-            this->generate_entry_block();
-            block_index current_block(0);
-            co_await co_generate_function_block(current_block, test.definition.body, "unit_test_body");
-
-            this->generate_return(current_block);
-
-            this->validate_no_pending_gotos();
-            co_await co_generate_dtors();
-
-            co_return get_result();
+            co_return co_await co_generate_test(test, "unit_test_body");
         }
 
         auto add_nontrivial_default_dtor(type_symbol const& type, type_symbol const& dtor) -> void

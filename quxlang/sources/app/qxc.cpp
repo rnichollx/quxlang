@@ -1744,12 +1744,12 @@ int main(int argc, char** argv)
                     for (quxlang::type_symbol const& static_test_symbol : static_tests)
                     {
                         auto sym = graph.make_request< quxlang::symboid_query >(static_test_symbol);
-                        if (!sym.type_is< quxlang::ast2_static_test >())
+                        if (!sym.type_is< quxlang::ast2_test >())
                         {
                             throw quxlang::compiler_bug("list_static_tests returned a non-static-test symbol: " + quxlang::to_string(static_test_symbol));
                         }
 
-                        quxlang::ast2_static_test const& static_test_decl = sym.get_as< quxlang::ast2_static_test >();
+                        quxlang::ast2_test const& static_test_decl = sym.get_as< quxlang::ast2_test >();
                         if (static_test_decl.expected_mode == quxlang::static_test_expected_mode::expect_compilation_failure)
                         {
                             continue;

@@ -64,13 +64,16 @@ rpnx::querygraph::coroutine< quxlang::list_static_tests_spec > quxlang::list_sta
             continue;
         }
 
-        if (!decl->type_is< ast2_static_test >())
+        if (!decl->type_is< ast2_test >())
         {
 
             continue;
         }
 
-        result.insert(child);
+        if (co_await rpnx::querygraph::request< test_is_enabled_for_static_testing_query >(child))
+        {
+            result.insert(child);
+        }
     }
 
     co_return result;

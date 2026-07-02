@@ -57,65 +57,47 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN (-< [] = x)();
 }
 
-::lambda_no_capture_call_test STATIC_TEST
+::lambda_no_capture_call_test DUAL_TEST
 {
   ASSERT(lambda_no_capture_call() == 7);
 }
 
-::lambda_no_capture_call_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_no_capture_call() == 7);
-}
 
-::lambda_implicit_reference_capture_test STATIC_TEST
+
+::lambda_implicit_reference_capture_test DUAL_TEST
 {
   ASSERT(lambda_implicit_reference_capture_call() == 4);
 }
 
-::lambda_implicit_reference_capture_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_implicit_reference_capture_call() == 4);
-}
 
-::lambda_explicit_reference_capture_test STATIC_TEST
+
+::lambda_explicit_reference_capture_test DUAL_TEST
 {
   ASSERT(lambda_explicit_reference_capture_call() == 9);
 }
 
-::lambda_explicit_reference_capture_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_explicit_reference_capture_call() == 9);
-}
 
-::lambda_explicit_value_capture_test STATIC_TEST
+
+::lambda_explicit_value_capture_test DUAL_TEST
 {
   ASSERT(lambda_explicit_value_capture_call() == 4);
 }
 
-::lambda_explicit_value_capture_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_explicit_value_capture_call() == 4);
-}
 
-::lambda_nested_capture_bubbling_test STATIC_TEST
+
+::lambda_nested_capture_bubbling_test DUAL_TEST
 {
   ASSERT(lambda_nested_capture_bubbling_call() == 5);
 }
 
-::lambda_nested_capture_bubbling_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_nested_capture_bubbling_call() == 5);
-}
 
-::lambda_static_path_sensitive_capture_test STATIC_TEST
+
+::lambda_static_path_sensitive_capture_test DUAL_TEST
 {
   ASSERT(lambda_static_path_sensitive_capture_call() == 6);
 }
 
-::lambda_static_path_sensitive_capture_test_unit_test UNIT_TEST
-{
-  ASSERT(lambda_static_path_sensitive_capture_call() == 6);
-}
+
 
 ::lambda_unlisted_capture_rejected_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {

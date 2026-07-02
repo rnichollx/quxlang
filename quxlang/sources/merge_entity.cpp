@@ -125,23 +125,14 @@ void quxlang::merge_entity(ast2_symboid& destination, declaroid const& source)
 
         destination = as< ast2_asm_procedure_declaration >(source);
     }
-    else if (typeis< ast2_static_test > (source))
+    else if (typeis< ast2_test >(source))
     {
         if (!typeis< std::monostate >(destination))
         {
-            throw quxlang::semantic_compilation_error("Cannot merge static test into already existing entity");
+            throw quxlang::semantic_compilation_error("Cannot merge test into already existing entity");
         }
 
-        destination = as < ast2_static_test >(source);
-    }
-    else if (typeis< ast2_unit_test >(source))
-    {
-        if (!typeis< std::monostate >(destination))
-        {
-            throw quxlang::semantic_compilation_error("Cannot merge unit test into already existing entity");
-        }
-
-        destination = as< ast2_unit_test >(source);
+        destination = as< ast2_test >(source);
     }
     else if (typeis< ast2_option >(source))
     {

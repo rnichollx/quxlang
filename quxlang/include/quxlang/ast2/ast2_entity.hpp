@@ -14,6 +14,7 @@
 #include "quxlang/ast2/source_location.hpp"
 
 RPNX_ENUM(quxlang, option_kind, std::uint16_t, number, string, boolean);
+RPNX_ENUM(quxlang, ast2_test_mode, std::uint16_t, static_only, unit_only, dual);
 RPNX_ENUM(quxlang, static_test_expected_mode, std::uint16_t, normal, expect_fail, expect_compilation_failure);
 RPNX_ENUM(quxlang, ast2_asm_declaration_kind, std::uint16_t, procedure, inline_function);
 
@@ -32,8 +33,7 @@ namespace quxlang
     struct ast2_template_declaration;
     struct ast2_function_template_declaration;
     struct ast2_module_declaration;
-    struct ast2_static_test;
-    struct ast2_unit_test;
+    struct ast2_test;
     struct ast2_extern;
     struct ast2_object_ref;
     struct ast2_asm_procedure_declaration;
@@ -45,11 +45,11 @@ namespace quxlang
     struct templex;
     struct ast2_option;
 
-    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_unit_test, ast2_option >;
+    using declaroid = rpnx::variant< std::monostate, ast2_namespace_declaration, ast2_variable_declaration, ast2_template_declaration, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using subdeclaroid = rpnx::variant< member_subdeclaroid, global_subdeclaroid >;
 
-    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_static_test, ast2_unit_test, ast2_option >;
+    using ast2_symboid = rpnx::variant< std::monostate, functum, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_variable_declaration, ast2_templex, ast2_module_declaration, ast2_namespace_declaration, ast2_function_declaration, ast2_template_declaration, ast2_extern, ast2_asm_procedure_declaration, ast2_test, ast2_option >;
 
     using temploid = rpnx::variant< std::monostate, ast2_class_declaration, ast2_interface_declaration, ast2_implementation_declaration, ast2_enum_declaration, ast2_flagset_declaration, ast2_function_declaration, ast2_variable_declaration >;
 
@@ -345,22 +345,16 @@ namespace quxlang
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_implementation_declaration, interface_type, declarations);
     };
 
-    struct ast2_static_test
+    /**
+     * Test declaration parsed from STATIC_TEST, UNIT_TEST, or DUAL_TEST syntax.
+     */
+    struct ast2_test
     {
+        ast2_test_mode mode = ast2_test_mode::static_only;
         static_test_expected_mode expected_mode = static_test_expected_mode::normal;
         ast2_function_definition definition;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_static_test, expected_mode, definition);
-    };
-
-    /**
-     * Runtime unit-test declaration generated into a unit-test suite output.
-     */
-    struct ast2_unit_test
-    {
-        ast2_function_definition definition;
-
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_unit_test, definition);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_test, mode, expected_mode, definition);
     };
 
     struct ast2_named_global

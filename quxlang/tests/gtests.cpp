@@ -1279,7 +1279,8 @@ TEST(parsing, parse_function_local_static_statements)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
-    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
+    ASSERT_EQ(test.mode, quxlang::ast2_test_mode::static_only);
     auto const& statements = test.definition.body.statements;
 
     ASSERT_GE(statements.size(), 10);
@@ -1308,7 +1309,8 @@ TEST(parsing, parse_unit_test_declaration)
     ASSERT_EQ(file.declarations.size(), 1);
     quxlang::global_subdeclaroid const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
     EXPECT_EQ(decl.name, "case_a");
-    quxlang::ast2_unit_test const& test = quxlang::as< quxlang::ast2_unit_test >(decl.decl);
+    quxlang::ast2_test const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
+    EXPECT_EQ(test.mode, quxlang::ast2_test_mode::unit_only);
     ASSERT_EQ(test.definition.body.statements.size(), 1);
     ASSERT_TRUE(quxlang::typeis< quxlang::function_assert_statement >(test.definition.body.statements.front()));
 }
@@ -1317,6 +1319,30 @@ TEST(parsing, reject_unit_test_expectation_modifiers)
 {
     EXPECT_THROW(parse_file_text("::case_a UNIT_TEST EXPECT_FAIL { }"), std::logic_error);
     EXPECT_THROW(parse_file_text("::case_a UNIT_TEST EXPECT_COMPILATION_FAILURE { }"), std::logic_error);
+}
+
+TEST(parsing, parse_dual_test_declaration)
+{
+    quxlang::ast2_file_declaration file = parse_file_text(R"QX(
+::case_a DUAL_TEST
+{
+  ASSERT(TRUE);
+}
+)QX");
+
+    ASSERT_EQ(file.declarations.size(), 1);
+    quxlang::global_subdeclaroid const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
+    EXPECT_EQ(decl.name, "case_a");
+    quxlang::ast2_test const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
+    EXPECT_EQ(test.mode, quxlang::ast2_test_mode::dual);
+    ASSERT_EQ(test.definition.body.statements.size(), 1);
+    ASSERT_TRUE(quxlang::typeis< quxlang::function_assert_statement >(test.definition.body.statements.front()));
+}
+
+TEST(parsing, reject_dual_test_expectation_modifiers)
+{
+    EXPECT_THROW(parse_file_text("::case_a DUAL_TEST EXPECT_FAIL { }"), std::logic_error);
+    EXPECT_THROW(parse_file_text("::case_a DUAL_TEST EXPECT_COMPILATION_FAILURE { }"), std::logic_error);
 }
 
 TEST(parsing, parse_assert_statement_preserves_expression_text)
@@ -1332,7 +1358,7 @@ TEST(parsing, parse_assert_statement_preserves_expression_text)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
-    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
     ASSERT_EQ(statements.size(), 2);
@@ -1366,7 +1392,7 @@ TEST(parsing, parse_for_statement_clauses)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
-    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
     ASSERT_EQ(statements.size(), 3);
@@ -1417,7 +1443,7 @@ TEST(parsing, parse_labeled_control_flow_statements)
     quxlang::ast2_file_declaration file = parse_file_text(test_string);
     ASSERT_EQ(file.declarations.size(), 1);
     auto const& decl = quxlang::as< quxlang::global_subdeclaroid >(file.declarations.front());
-    auto const& test = quxlang::as< quxlang::ast2_static_test >(decl.decl);
+    auto const& test = quxlang::as< quxlang::ast2_test >(decl.decl);
     auto const& statements = test.definition.body.statements;
 
     ASSERT_EQ(statements.size(), 5);

@@ -218,9 +218,13 @@ namespace
             }
 
             quxlang::type_symbol child = is_member ? quxlang::type_symbol{quxlang::submember{.of = context, .name = *name}} : quxlang::type_symbol{quxlang::subsymbol{.of = context, .name = *name}};
-            if (decl->type_is< quxlang::ast2_static_test >())
+            if (decl->type_is< quxlang::ast2_test >())
             {
-                quxlang::ast2_static_test const& static_test = decl->get_as< quxlang::ast2_static_test >();
+                quxlang::ast2_test const& static_test = decl->get_as< quxlang::ast2_test >();
+                if (static_test.mode != quxlang::ast2_test_mode::static_only && static_test.mode != quxlang::ast2_test_mode::dual)
+                {
+                    continue;
+                }
                 int line = 1;
                 if (static_test.location.has_value())
                 {

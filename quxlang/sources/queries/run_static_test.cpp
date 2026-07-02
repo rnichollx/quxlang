@@ -25,12 +25,12 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
 
     auto const& sym = co_await rpnx::querygraph::request< symboid_query >(input);
-    if (!typeis< ast2_static_test >(sym))
+    if (!typeis< ast2_test >(sym) || !(co_await rpnx::querygraph::request< test_is_enabled_for_static_testing_query >(input)))
     {
         throw quxlang::compiler_bug("run_static_test received a symbol that is not a static test: " + quxlang::to_string(input));
     }
 
-    auto const& test = as< ast2_static_test >(sym);
+    auto const& test = as< ast2_test >(sym);
     std::optional< vmir2::functanoid_routine3 > routine;
 
     try

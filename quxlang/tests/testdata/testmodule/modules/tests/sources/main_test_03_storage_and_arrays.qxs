@@ -11,7 +11,7 @@ LANGUAGE QUXLANG EN 0.0;
 
 }
 
-::array_default_constructor_test STATIC_TEST
+::array_default_constructor_test DUAL_TEST
 
 {
     VAR x [3]arrytest_cls;
@@ -21,14 +21,7 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT( x[2].val == 5 );
 }
 
-::array_default_constructor_test_unit_test UNIT_TEST
-{
-    VAR x [3]arrytest_cls;
 
-    ASSERT( x[0].val == 5 );
-    ASSERT( x[1].val == 5 );
-    ASSERT( x[2].val == 5 );
-}
 
 ::array_positional_element_cls CLASS
 {
@@ -40,7 +33,7 @@ LANGUAGE QUXLANG EN 0.0;
   }
 }
 
-::array_positional_constructor_test STATIC_TEST
+::array_positional_constructor_test DUAL_TEST
 {
     VAR x [3]I32 :(1, 2, 3);
 
@@ -53,28 +46,14 @@ LANGUAGE QUXLANG EN 0.0;
     ASSERT( y[1].val == 7 );
 }
 
-::array_positional_constructor_test_unit_test UNIT_TEST
-{
-    VAR x [3]I32 :(1, 2, 3);
 
-    ASSERT( x[0] == 1 );
-    ASSERT( x[1] == 2 );
-    ASSERT( x[2] == 3 );
 
-    VAR y [2]array_positional_element_cls :(4, 7);
-    ASSERT( y[0].val == 4 );
-    ASSERT( y[1].val == 7 );
-}
-
-::array_zero_length_positional_default_test STATIC_TEST
+::array_zero_length_positional_default_test DUAL_TEST
 {
     VAR x [0]I32 :();
 }
 
-::array_zero_length_positional_default_test_unit_test UNIT_TEST
-{
-    VAR x [0]I32 :();
-}
+
 
 ::array_positional_too_many_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -163,15 +142,12 @@ LANGUAGE QUXLANG EN 0.0;
 
 ::option_num OPTION NUMBER DEFAULT(42);
 
-::option_test STATIC_TEST
+::option_test DUAL_TEST
 {
   ASSERT(option_num == 5);
 }
 
-::option_test_unit_test UNIT_TEST
-{
-  ASSERT(option_num == 5);
-}
+
 
 
 ::buz CLASS
@@ -212,15 +188,12 @@ LANGUAGE QUXLANG EN 0.0;
   RETURN 10;
 }
 
-::storage_buz_lifetime_test STATIC_TEST
+::storage_buz_lifetime_test DUAL_TEST
 {
   ASSERT(storage_buz_helper() == 10);
 }
 
-::storage_buz_lifetime_test_unit_test UNIT_TEST
-{
-  ASSERT(storage_buz_helper() == 10);
-}
+
 
 ::constexpr_alloc_i32_helper FUNCTION(): I32
 {

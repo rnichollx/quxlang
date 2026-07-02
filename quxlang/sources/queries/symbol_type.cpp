@@ -191,13 +191,9 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
         {
             co_return symbol_kind::namespace_;
         }
-        else if (typeis< ast2_static_test >(s))
+        else if (typeis< ast2_test >(s))
         {
-            co_return symbol_kind::static_test;
-        }
-        else if (typeis< ast2_unit_test >(s))
-        {
-            co_return symbol_kind::unit_test;
+            co_return symbol_kind::test;
         }
         else if (typeis< ast2_asm_procedure_declaration >(s))
         {
@@ -275,13 +271,9 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        {
           co_return symbol_kind::noexist;
        }
-       else if (typeis< ast2_static_test >(selected_ast))
+       else if (typeis< ast2_test >(selected_ast))
        {
-          co_return symbol_kind::static_test;
-       }
-       else if (typeis< ast2_unit_test >(selected_ast))
-       {
-          co_return symbol_kind::unit_test;
+          co_return symbol_kind::test;
        }
        else
        {

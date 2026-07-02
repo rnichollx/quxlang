@@ -28,7 +28,7 @@ IMPORT syscall;
     }
 }
 
-::implicit_conversions_test STATIC_TEST
+::implicit_conversions_test DUAL_TEST
 {
     VAR a implicit_foo;
     a := 5;
@@ -44,21 +44,7 @@ IMPORT syscall;
     ASSERT(c.x == 8);
 }
 
-::implicit_conversions_test_unit_test UNIT_TEST
-{
-    VAR a implicit_foo;
-    a := 5;
 
-    ASSERT(a.x == 5);
-
-    VAR b I32 := 8;
-    a := b;
-
-    ASSERT(a.x == 8);
-
-    VAR c explicit_cast_only := b AS explicit_cast_only;
-    ASSERT(c.x == 8);
-}
 
 
 
@@ -117,15 +103,12 @@ IMPORT syscall;
   RETURN x[1] ;
 }
 
-::basic_passing_static_test STATIC_TEST
+::basic_passing_static_test DUAL_TEST
 {
   ASSERT (3 == 3);
 }
 
-::basic_passing_static_test_unit_test UNIT_TEST
-{
-  ASSERT (3 == 3);
-}
+
 
 ::unresolved_symbol_compilation_failure_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {
@@ -149,33 +132,23 @@ IMPORT syscall;
   VAR y I8 := x AS I8;
 }
 
-::narrowing_explicit_partial_conversion_test STATIC_TEST
+::narrowing_explicit_partial_conversion_test DUAL_TEST
 {
   VAR x I32 := 300;
   VAR y I8 := x AS PARTIAL I8;
   ASSERT(y == 44);
 }
 
-::narrowing_explicit_partial_conversion_test_unit_test UNIT_TEST
-{
-  VAR x I32 := 300;
-  VAR y I8 := x AS PARTIAL I8;
-  ASSERT(y == 44);
-}
 
-::widening_implicitly_okay_test STATIC_TEST
+
+::widening_implicitly_okay_test DUAL_TEST
 {
   VAR x I32 := 300;
   VAR y I64 := x;
   ASSERT(y == 300);
 }
 
-::widening_implicitly_okay_test_unit_test UNIT_TEST
-{
-  VAR x I32 := 300;
-  VAR y I64 := x;
-  ASSERT(y == 300);
-}
+
 
 ::float_inexact_literal_requires_approximate_test STATIC_TEST EXPECT_FAIL
 {
@@ -188,7 +161,7 @@ IMPORT syscall;
   VAR y F32 := x;
 }
 
-::float_precision_bits_convertible_test STATIC_TEST
+::float_precision_bits_convertible_test DUAL_TEST
 {
   VAR x1 I25;
   VAR x2 U24;
@@ -201,18 +174,7 @@ IMPORT syscall;
   ASSERT(f == 0);
 }
 
-::float_precision_bits_convertible_test_unit_test UNIT_TEST
-{
-  VAR x1 I25;
-  VAR x2 U24;
 
-  VAR f F32;
-
-  f := x1;
-  f := x2;
-
-  ASSERT(f == 0);
-}
 
 ::float_precision_unsigned_not_convertible_test STATIC_TEST EXPECT_COMPILATION_FAILURE
 {

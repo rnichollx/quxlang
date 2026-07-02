@@ -37,6 +37,7 @@
 #include <quxlang/queries/static_test_vmir.hpp>
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/symbol_type.hpp>
+#include <quxlang/queries/test_is_enabled_for_static_testing.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/uintpointer_type.hpp>
@@ -85,6 +86,7 @@ namespace quxlang
             static_test_vmir_query,
             symboid_query,
             symbol_type_query,
+            test_is_enabled_for_static_testing_query,
             temploid_formal_ensig_query,
             type_placement_info_query,
             uintpointer_type_query,
