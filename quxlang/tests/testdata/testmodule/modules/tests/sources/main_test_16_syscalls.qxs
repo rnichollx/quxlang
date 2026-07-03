@@ -1,0 +1,128 @@
+LANGUAGE QUXLANG EN 0.0;
+
+IMPORT syscall;
+
+::a_getpid_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR pid I32 := syscall::linux::getpid();
+    ASSERT(pid > 0);
+}
+
+::b_kill_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR pid I32 := syscall::linux::getpid();
+    VAR res I32 := syscall::linux::kill(@pid pid, @sig 0);
+    ASSERT(res == 0);
+}
+
+::c_nanosleep_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    // timespec is 16 bytes on 64-bit Linux.
+    VAR req [16]BYTE;
+    // req[0..7] = tv_sec = 0
+    VAR i SZ := 0;
+    WHILE (i < 16)
+    {
+        req[i] := 0;
+        i++;
+    }
+
+    // req[8..15] = tv_nsec = 1000000 (0x000F4240)
+    req[8] := 64;  // 0x40
+    req[9] := 66;  // 0x42
+    req[10] := 15; // 0x0F
+    
+    VAR rem [16]BYTE;
+    VAR res I32 := syscall::linux::nanosleep(
+        @req req[& 0],
+        @rem rem[& 0]
+    );
+    ASSERT(res == 0);
+}
+
+::d_mmap_anon_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR size SZ := 4096;
+    VAR ptr =>>BYTE := syscall::linux::mmap_anonymous_private(@size size);
+    ASSERT(ptr??);
+    
+    ptr-> := 123;
+    ASSERT(ptr-> == 123);
+
+    VAR res I32 := syscall::linux::munmap(@addr ptr, @len size);
+    ASSERT(res == 0);
+}
+
+::e_file_ops_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR path [2]BYTE;
+    path[0] := 46; // .
+    path[1] := 0;  // \0
+
+    VAR flags syscall::linux::open_flags := syscall::linux::rdonly;
+    VAR mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+    
+    VAR fd I32 := syscall::linux::open(@path path[& 0], @flags flags, @mode mode);
+    ASSERT(fd >= 0);
+
+    VAR res I32 := syscall::linux::close(@fd fd);
+    ASSERT(res == 0);
+}
+
+::f_write_dev_null_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR path [10]BYTE;
+    // /dev/null\0
+    path[0] := 47; path[1] := 100; path[2] := 101; path[3] := 118; path[4] := 47;
+    path[5] := 110; path[6] := 117; path[7] := 108; path[8] := 108; path[9] := 0;
+
+    VAR flags syscall::linux::open_flags := syscall::linux::rdonly;
+    VAR mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+    
+    VAR fd I32 := syscall::linux::open(@path path[& 0], @flags flags, @mode mode);
+    ASSERT(fd >= 0);
+
+    VAR res I32 := syscall::linux::close(@fd fd);
+    ASSERT(res == 0);
+}
+
+::g_read_dev_null_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR path [10]BYTE;
+    // /dev/null\0
+    path[0] := 47; path[1] := 100; path[2] := 101; path[3] := 118; path[4] := 47;
+    path[5] := 110; path[6] := 117; path[7] := 108; path[8] := 108; path[9] := 0;
+
+    VAR flags syscall::linux::open_flags := syscall::linux::rdonly;
+    VAR mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+    
+    VAR fd I32 := syscall::linux::open(@path path[& 0], @flags flags, @mode mode);
+    ASSERT(fd >= 0);
+
+    VAR read_buf [5]BYTE;
+    VAR read_bytes SZ := syscall::linux::read(@fd fd, @buffer read_buf[& 0], @count 1);
+    // /dev/null read returns 0
+    ASSERT(read_bytes == 0);
+
+    VAR res I32 := syscall::linux::close(@fd fd);
+    ASSERT(res == 0);
+}
+
+::h_lseek_test INCLUDE_IF(OS_LINUX) UNIT_TEST
+{
+    VAR path [2]BYTE;
+    path[0] := 46; // .
+    path[1] := 0;
+
+    VAR flags syscall::linux::open_flags := syscall::linux::rdonly;
+    VAR mode syscall::linux::file_mode := syscall::linux::file_mode::rusr;
+    
+    VAR fd I32 := syscall::linux::open(@path path[& 0], @flags flags, @mode mode);
+    ASSERT(fd >= 0);
+
+    VAR pos SZ := syscall::linux::lseek(@fd fd, @offset 0, @whence syscall::linux::seek_whence::set);
+    ASSERT(pos == 0);
+
+    VAR res I32 := syscall::linux::close(@fd fd);
+    ASSERT(res == 0);
+}

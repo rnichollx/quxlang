@@ -163,7 +163,7 @@ IMPORT syscall;
      IF (selected_alloc.new_free_bytes < selected_bytes)
      {
        VAR region_size SZ := memory_region_size(@size selected_bytes);
-       selected_alloc.new_free_region := syscall::linux::mmap_anonymous_private(@size region_size);
+       selected_alloc.new_free_region := syscall::linux::mmap_anonymous_private(@size region_size) AS REINTERPRET =>>VOID;
        selected_alloc.new_free_bytes := region_size;
      }
 

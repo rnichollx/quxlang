@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <quxlang/compiler_querygraph.hpp>
+#include <quxlang/exception.hpp>
 #include <quxlang/llvm-backend-types.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/parsers/parse_type_symbol.hpp>
@@ -53,6 +54,7 @@
 #include <quxlang/queries/type_is_serialoid.hpp>
 #include <quxlang/queries/type_is_stringlike.hpp>
 #include <quxlang/queries/type_is_trivially_default_constructible.hpp>
+#include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
@@ -778,6 +780,41 @@ TEST(querygraph_queries, output_llvm_input_builds_unit_test_suite_packet)
     EXPECT_EQ(unit.object_reference_types.at(count_object), quxlang::llvm_backend::unit_test_count_object_type());
     EXPECT_EQ(unit.object_reference_types.at(names_object), quxlang::llvm_backend::unit_test_names_object_type());
     EXPECT_EQ(unit.object_reference_types.at(proc_object), quxlang::llvm_backend::unit_test_proc_object_type());
+}
+
+TEST(querygraph_queries, asm_callable_flagset_parameter_lowers_by_value)
+{
+    quxlang::source_bundle bundle = make_single_main_source_bundle(R"QX(
+::flags FLAGSET BITS(32) [read = 1, write = 2];
+
+::raw ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@flags flags; RETURN I32)
+{
+  MOV RAX, RDI
+  RET
+}
+
+::main FUNCTION(): I32
+{
+  VAR value flags := flags::read;
+  RETURN raw(@flags value);
+}
+)QX");
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    std::string const llvm_ir = graph.make_request< quxlang::output_unoptimized_llvm_query >("default");
+
+    std::size_t const declaration_pos = llvm_ir.find("declare i32 @\"MODULE(main)::raw");
+    ASSERT_NE(declaration_pos, std::string::npos);
+    std::string const declaration_window = llvm_ir.substr(declaration_pos, 180);
+    EXPECT_NE(declaration_window.find("(i32)"), std::string::npos);
+    EXPECT_EQ(declaration_window.find("(ptr)"), std::string::npos);
+
+    std::size_t const call_pos = llvm_ir.find("call i32 @\"MODULE(main)::raw");
+    ASSERT_NE(call_pos, std::string::npos);
+    std::string const call_window = llvm_ir.substr(call_pos, 180);
+    EXPECT_NE(call_window.find("(i32 "), std::string::npos);
+    EXPECT_EQ(call_window.find("(ptr "), std::string::npos);
 }
 
 TEST(querygraph_queries, parse_file_rejects_runtime_declared_symbols_in_non_runtime_module)
@@ -1711,6 +1748,30 @@ TEST(querygraph_queries, type_is_trivially_default_constructible_accepts_zero_co
     EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "blocked_record"}));
     EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(quxlang::subsymbol{main, "custom_record"}));
     EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_default_constructible_query >(custom_array));
+}
+
+TEST(querygraph_queries, type_is_trivially_relocatable_accepts_nominal_integer_shapes)
+{
+    auto bundle = make_single_main_source_bundle(R"(
+::zero_enum ENUM [zero = 0 DEFAULT, one = 1];
+::nonzero_enum ENUM [one = 1 DEFAULT, zero = 0];
+::flags FLAGSET [read, write];
+::record CLASS { .x VAR I32; }
+)");
+    auto graph = make_x64_graph(bundle);
+    auto main = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+    auto i32 = quxlang::type_symbol(quxlang::int_type{32, true});
+    auto i32_array = quxlang::type_symbol(quxlang::array_type{.element_type = i32, .element_count = quxlang::expression_numeric_literal{"4"}});
+    auto record_array = quxlang::type_symbol(quxlang::array_type{.element_type = quxlang::subsymbol{main, "record"}, .element_count = quxlang::expression_numeric_literal{"2"}});
+
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(i32));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(i32_array));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "flags"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "zero_enum"}));
+    EXPECT_TRUE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "nonzero_enum"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::subsymbol{main, "record"}));
+    EXPECT_FALSE(graph.make_request< quxlang::type_is_trivially_relocatable_query >(record_array));
+    EXPECT_THROW((void)graph.make_request< quxlang::type_is_trivially_relocatable_query >(quxlang::size_type{}), quxlang::compiler_bug);
 }
 
 TEST(querygraph_queries, global_init_type_classifies_default_trivial_globals)

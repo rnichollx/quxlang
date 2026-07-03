@@ -737,6 +737,18 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
         }
     };
 
+    auto enqueue_asm_callable_surface_types = [&](asm_callable const& callable) -> void
+    {
+        for (asm_argument_binding const& arg : callable.args)
+        {
+            enqueue_type(arg.type);
+        }
+        if (callable.return_type.has_value())
+        {
+            enqueue_type(*callable.return_type);
+        }
+    };
+
     auto enqueue_routine_support_roots = [&](vmir2::functanoid_routine3 const& routine) -> void
     {
         for (type_symbol const& placement_root : vmir2::directly_required_type_placements(routine))
@@ -763,6 +775,10 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
     for (std::pair< type_symbol const, vmir2::functanoid_routine3 > const& routine_entry : output_module_unit.inlinable_functions)
     {
         enqueue_routine_support_roots(routine_entry.second);
+    }
+    for (std::pair< type_symbol const, asm_callable > const& callable_entry : output_module_unit.asm_callable_interfaces)
+    {
+        enqueue_asm_callable_surface_types(callable_entry.second);
     }
 
     std::vector< std::pair< type_symbol, rpnx::querygraph::request< symbol_type_query > > > object_kind_requests;
