@@ -38,6 +38,11 @@ rpnx::querygraph::coroutine< quxlang::antestatal_static_value_spec > quxlang::an
             constexpr_string const string_value = co_await rpnx::querygraph::request< string_static_value_query >(input);
             co_return antestatal_primitive{.value = string_value.bytes};
         }
+        if (constant_type.kind == constant_kind::numeric)
+        {
+            constexpr_numeric const numeric_value = co_await rpnx::querygraph::request< numeric_static_value_query >(input);
+            co_return antestatal_primitive{.value = numeric_value.bytes};
+        }
     }
 
     constexpr_input2 constexpr_input;

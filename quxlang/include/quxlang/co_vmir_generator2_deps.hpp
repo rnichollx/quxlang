@@ -33,6 +33,7 @@
 #include <quxlang/queries/global_is_per_thread.hpp>
 #include <quxlang/queries/global_is_serialoid_static.hpp>
 #include <quxlang/queries/global_is_string_static.hpp>
+#include <quxlang/queries/global_is_numeric_static.hpp>
 #include <quxlang/queries/implementation_function_map.hpp>
 #include <quxlang/queries/implementation_interface_type.hpp>
 #include <quxlang/queries/implicitly_convertible_to.hpp>
@@ -45,6 +46,7 @@
 #include <quxlang/queries/symboid.hpp>
 #include <quxlang/queries/serialoid_static_value.hpp>
 #include <quxlang/queries/string_static_value.hpp>
+#include <quxlang/queries/numeric_static_value.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 #include <quxlang/queries/target_configuration.hpp>
 #include <quxlang/queries/temploid_formal_ensig.hpp>
@@ -96,6 +98,7 @@ namespace quxlang
         global_is_per_thread_query,
         global_is_serialoid_static_query,
         global_is_string_static_query,
+        global_is_numeric_static_query,
         implementation_function_map_query,
         implementation_interface_type_query,
         implicitly_convertible_to_qg_query,
@@ -108,6 +111,7 @@ namespace quxlang
         symboid_query,
         serialoid_static_value_query,
         string_static_value_query,
+        numeric_static_value_query,
         symbol_type_query,
         target_configuration_query,
         temploid_formal_ensig_query,
@@ -142,6 +146,7 @@ namespace quxlang
         global_is_per_thread_query,
         global_is_serialoid_static_query,
         global_is_string_static_query,
+        global_is_numeric_static_query,
         implementation_function_map_query,
         implementation_interface_type_query,
         implicitly_convertible_to_qg_query,
@@ -154,6 +159,7 @@ namespace quxlang
         symboid_query,
         serialoid_static_value_query,
         string_static_value_query,
+        numeric_static_value_query,
         symbol_type_query,
         target_configuration_query,
         temploid_formal_ensig_query,

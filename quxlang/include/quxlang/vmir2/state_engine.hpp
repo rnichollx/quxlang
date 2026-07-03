@@ -572,6 +572,11 @@ namespace quxlang::vmir2
             consume(crf.source_index);
             output(crf.target_index);
         }
+        void apply_internal(vmir2::cast_constant const& cc)
+        {
+            consume(cc.source_index);
+            output(cc.target_index);
+        }
         void apply_internal(vmir2::constexpr_set_result const& csr)
         {
             consume(csr.target);

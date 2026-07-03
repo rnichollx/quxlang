@@ -214,8 +214,13 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT((x #&& y) == 2);
    ASSERT((x #|| y) == 7);
    ASSERT((x #^^ y) == 5);
-   ASSERT((x #^> y) == 4294967291);
-   ASSERT((x #^< y) == 4294967294);
+
+   // #^> and #^< produce unsigned-representable bit patterns; use U32 operands
+   // so the expected unsigned literals fit (4294967291 to I32 is a narrowing rejection).
+   VAR xu U32 := 6;
+   VAR yu U32 := 3;
+   ASSERT((xu #^> yu) == 4294967291);
+   ASSERT((xu #^< yu) == 4294967294);
 
    // Rotate for I32
    VAR r I32 := 1;
@@ -310,6 +315,30 @@ LANGUAGE QUXLANG EN 0.0;
 
    ASSERT((FALSE ^< bool_probe(@counter counter, @value TRUE)) == FALSE);
    ASSERT(counter == 4);
+}
+
+::signed_arithmetic_test DUAL_TEST
+{
+  VAR a I32 := 1;
+  VAR b I32 := 2;
+  VAR x I32 := a + b;
+  ASSERT(x == 3);
+
+  VAR y I32 := a - b;
+  ASSERT(y == (0 - 1));
+  ASSERT(y + b == a);
+
+  VAR c I32 := 3;
+  VAR z I32 := c * c;
+  ASSERT(z == 9);
+
+  VAR d I32 := 15;
+  VAR w I32 := d / 5;
+  ASSERT(w == 3);
+
+  VAR e I32 := 17;
+  VAR r I32 := e % 5;
+  ASSERT(r == 2);
 }
 
 

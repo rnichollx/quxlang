@@ -319,7 +319,12 @@ namespace quxlang
 
     inline bool is_numeric_literal(type_symbol const& ref)
     {
-        return typeis< numeric_literal_reference >(ref);
+        return typeis< numeric_literal_type >(ref);
+    }
+
+    inline bool is_string_literal(type_symbol const& ref)
+    {
+        return typeis< string_literal_type >(ref);
     }
 
     inline std::optional<type_symbol> get_root_module(type_symbol const& ref)

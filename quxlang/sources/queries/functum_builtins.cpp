@@ -674,13 +674,17 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
             add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
         }
 
-        if (typeis< numeric_literal_reference >(parent) && arithmetic_operators.contains(operator_name))
+        if (typeis< numeric_literal_type >(parent) && arithmetic_operators.contains(operator_name))
         {
-            add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, numeric_literal_reference{});
+            auto lit_t1 = numeric_literal_any_temploidic{.name = "__lit1"};
+            auto lit_t2 = numeric_literal_any_temploidic{.name = "__lit2"};
+            add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, freebound_identifier{"__lit1"});
         }
-        else if (typeis< numeric_literal_reference >(parent) && compare_operators.contains(operator_name))
+        else if (typeis< numeric_literal_type >(parent) && compare_operators.contains(operator_name))
         {
-            add_overload({}, {{"THIS", numeric_literal_reference{}}, {"OTHER", numeric_literal_reference{}}}, bool_type{});
+            auto lit_t1 = numeric_literal_any_temploidic{.name = "__lit1"};
+            auto lit_t2 = numeric_literal_any_temploidic{.name = "__lit2"};
+            add_overload({}, {{"THIS", lit_t1}, {"OTHER", lit_t2}}, bool_type{});
         }
 
         if (typeis< ptrref_type >(parent) && operator_name == rightarrow_operator && !typeis< void_type >(as< ptrref_type >(parent).target))

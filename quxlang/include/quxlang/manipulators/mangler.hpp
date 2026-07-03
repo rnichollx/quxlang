@@ -202,6 +202,10 @@ namespace quxlang
         {
             return "T" + mangle_byte_payload(value.template get_as< constexpr_string >().bytes);
         }
+        if (value.template type_is< constexpr_numeric >())
+        {
+            return "TN" + mangle_byte_payload(value.template get_as< constexpr_numeric >().bytes);
+        }
 
         throw quxlang::compiler_bug("unhandled constexpr value kind while mangling");
     }
@@ -302,13 +306,26 @@ namespace quxlang
         {
             return "TH";
         }
-        else if (qt.template type_is< numeric_literal_reference >())
+        else if (qt.template type_is< numeric_literal_type >())
         {
-            return "LN";
+            auto const& nlt = qt.template get_as< numeric_literal_type >();
+            std::string mangled = "LT" + std::to_string(nlt.value.size()) + "_" + nlt.value;
+            return mangled;
         }
-        else if (qt.template type_is< string_literal_reference >())
+        else if (qt.template type_is< numeric_literal_any_temploidic >())
         {
-            return "LS";
+            auto const& nla = qt.template get_as< numeric_literal_any_temploidic >();
+            return "LNA_" + nla.name;
+        }
+        else if (qt.template type_is< string_literal_type >())
+        {
+            auto const& slt = qt.template get_as< string_literal_type >();
+            return "LST" + std::to_string(slt.value.size()) + "_" + slt.value;
+        }
+        else if (qt.template type_is< string_literal_any_temploidic >())
+        {
+            auto const& sla = qt.template get_as< string_literal_any_temploidic >();
+            return "LSA_" + sla.name;
         }
         else if (qt.template type_is< context_reference >())
         {

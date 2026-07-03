@@ -29,6 +29,7 @@ add_library(quxlang include/quxlang/fwd.hpp include/quxlang/data/fwd.hpp include
         include/quxlang/data/numeric_literal.hpp
         include/quxlang/data/lookup_type.hpp
         sources/manipulators/typeutils.cpp
+        include/quxlang/manipulators/numeric_literal_utils.hpp
         include/quxlang/data/function_while_statement.hpp
         include/quxlang/data/symbol_type.hpp
         include/quxlang/operators.hpp
@@ -223,6 +224,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/constexpr_bool_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_string_spec.hpp
+        include/quxlang/queries/specs/constexpr_eval_numeric_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_v3_spec.hpp
         include/quxlang/queries/specs/constexpr_eval_spec.hpp
         include/quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp
@@ -265,6 +267,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/global_is_per_thread_spec.hpp
         include/quxlang/queries/specs/global_is_serialoid_static_spec.hpp
         include/quxlang/queries/specs/global_is_string_static_spec.hpp
+        include/quxlang/queries/specs/global_is_numeric_static_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_ctor_spec.hpp
         include/quxlang/queries/specs/have_nontrivial_member_dtor_spec.hpp
         include/quxlang/queries/specs/implementation_function_map_spec.hpp
@@ -308,6 +311,7 @@ set(QUXLANG_QUERY_SPEC_HEADERS
         include/quxlang/queries/specs/source_file_name_spec.hpp
         include/quxlang/queries/specs/static_test_vmir_spec.hpp
         include/quxlang/queries/specs/string_static_value_spec.hpp
+        include/quxlang/queries/specs/numeric_static_value_spec.hpp
         include/quxlang/queries/specs/symboid_spec.hpp
         include/quxlang/queries/specs/symboid_subdeclaroids_spec.hpp
         include/quxlang/queries/specs/symbol_tempars_spec.hpp
@@ -380,6 +384,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/constexpr_bool.cpp
         sources/queries/constexpr_eval_antestatal.cpp
         sources/queries/constexpr_eval_string.cpp
+        sources/queries/constexpr_eval_numeric.cpp
         sources/queries/constexpr_eval.cpp
         sources/queries/constexpr_routine_antestatal.cpp
         sources/queries/constexpr_routine.cpp
@@ -421,6 +426,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/global_is_per_thread.cpp
         sources/queries/global_is_serialoid_static.cpp
         sources/queries/global_is_string_static.cpp
+        sources/queries/global_is_numeric_static.cpp
         sources/queries/have_nontrivial_member_ctor.cpp
         sources/queries/have_nontrivial_member_dtor.cpp
         sources/queries/implementation_function_map.cpp
@@ -465,6 +471,7 @@ set(QUXLANG_QUERY_SOURCES
         sources/queries/source_file_name.cpp
         sources/queries/static_test_vmir.cpp
         sources/queries/string_static_value.cpp
+        sources/queries/numeric_static_value.cpp
         sources/queries/sintpointer_type.cpp
         sources/queries/symboid.cpp
         sources/queries/symboid_subdeclaroids.cpp

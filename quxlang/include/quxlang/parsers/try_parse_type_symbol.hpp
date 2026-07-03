@@ -15,6 +15,7 @@
 #include <quxlang/parsers/parse_identifier.hpp>
 #include <quxlang/parsers/parse_subentity.hpp>
 #include <quxlang/parsers/parse_whitespace_and_comments.hpp>
+#include <quxlang/parsers/string_literal.hpp>
 #include <quxlang/parsers/symbol.hpp>
 #include <quxlang/parsers/try_parse_integral_keyword.hpp>
 
@@ -89,9 +90,87 @@ namespace quxlang::parsers
         {
             output = builtin_symbol{.name = "UNIT_TEST_PROC"};
         }
-        else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL"))
+        else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL_TYPE"))
         {
-            output = numeric_literal_reference{};
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after NUMERIC_LITERAL_TYPE");
+            }
+            skip_whitespace_and_comments(pos, end);
+            auto str = try_parse_string_literal(pos, end);
+            if (!str)
+            {
+                throw syntax_compilation_error("Expected string literal after NUMERIC_LITERAL_TYPE(");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after NUMERIC_LITERAL_TYPE(\"" + *str + "\"");
+            }
+            output = numeric_literal_type{.value = std::move(*str)};
+        }
+        else if (skip_keyword_if_is(pos, end, "NUMERIC_LITERAL_ANY"))
+        {
+            numeric_literal_any_temploidic tref;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after NUMERIC_LITERAL_ANY");
+            }
+            skip_whitespace_and_comments(pos, end);
+            tref.name = parse_identifier(pos, end);
+            if (tref.name.empty())
+            {
+                throw syntax_compilation_error("Expected identifier after NUMERIC_LITERAL_ANY(");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after NUMERIC_LITERAL_ANY(" + tref.name);
+            }
+            output = std::move(tref);
+        }
+        else if (skip_keyword_if_is(pos, end, "STRING_LITERAL_TYPE"))
+        {
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after STRING_LITERAL_TYPE");
+            }
+            skip_whitespace_and_comments(pos, end);
+            auto str = try_parse_string_literal(pos, end);
+            if (!str)
+            {
+                throw syntax_compilation_error("Expected string literal after STRING_LITERAL_TYPE(");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after STRING_LITERAL_TYPE(\"" + *str + "\"");
+            }
+            output = string_literal_type{.value = std::move(*str)};
+        }
+        else if (skip_keyword_if_is(pos, end, "STRING_LITERAL_ANY"))
+        {
+            string_literal_any_temploidic tref;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, "("))
+            {
+                throw syntax_compilation_error("Expected '(' after STRING_LITERAL_ANY");
+            }
+            skip_whitespace_and_comments(pos, end);
+            tref.name = parse_identifier(pos, end);
+            if (tref.name.empty())
+            {
+                throw syntax_compilation_error("Expected identifier after STRING_LITERAL_ANY(");
+            }
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_symbol_if_is(pos, end, ")"))
+            {
+                throw syntax_compilation_error("Expected ')' after STRING_LITERAL_ANY(" + tref.name);
+            }
+            output = std::move(tref);
         }
         else if (skip_keyword_if_is(pos, end, "STRING_CONSTANT"))
         {

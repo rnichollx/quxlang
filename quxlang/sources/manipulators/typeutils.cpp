@@ -100,6 +100,21 @@ namespace quxlang
             return "SAME_TYPES(" + to_string(types.lhs_type) + ", " + to_string(types.rhs_type) + ")";
         }
 
+        std::string operator()(expression_numeric_literal_fits const& fits) const
+        {
+            return "__NUMERIC_LITERAL_FITS(" + to_string(fits.literal_type) + ", " + to_string(fits.target_type) + ")";
+        }
+
+        std::string operator()(expression_numeric_literal_binary_op const& op) const
+        {
+            return "__NUMERIC_LITERAL_" + op.op + "(" + to_string(op.lhs_type) + ", " + to_string(op.rhs_type) + ")";
+        }
+
+        std::string operator()(expression_numeric_literal_negate const& neg) const
+        {
+            return "__NUMERIC_LITERAL_NEGATE(" + to_string(neg.operand_type) + ")";
+        }
+
         std::string operator()(expression_unary_postfix const& be) const
         {
             return "(" + expr_to_string(be.lhs) + " " + be.operator_str + ")";
@@ -321,7 +336,8 @@ namespace quxlang
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
         std::string operator()(thistype const&) const;
-        std::string operator()(numeric_literal_reference const&) const;
+        std::string operator()(numeric_literal_type const&) const;
+        std::string operator()(numeric_literal_any_temploidic const&) const;
         std::string operator()(auto_temploidic const&) const;
         std::string operator()(decay_temploidic const&) const;
         std::string operator()(type_temploidic const&) const;
@@ -332,7 +348,8 @@ namespace quxlang
         std::string operator()(procedure_type const&) const;
         std::string operator()(ptrref_type const&) const;
         std::string operator()(instanciation_reference const&) const;
-        std::string operator()(string_literal_reference const&) const;
+        std::string operator()(string_literal_type const&) const;
+        std::string operator()(string_literal_any_temploidic const&) const;
         std::string operator()(array_initializer_type const&) const;
         /// Formats an internal function-local static storage symbol.
         std::string operator()(static_local_ref const&) const;
@@ -537,9 +554,14 @@ namespace quxlang
             return false;
         }
 
-        bool operator()(string_literal_reference const&) const
+        bool operator()(string_literal_type const&) const
         {
             return false;
+        }
+
+        bool operator()(string_literal_any_temploidic const&) const
+        {
+            return true;
         }
 
         bool operator()(subsymbol const& ref) const
@@ -685,7 +707,7 @@ namespace quxlang
             return is_template(ref.of);
         }
 
-        bool operator()(numeric_literal_reference const&) const
+        bool operator()(numeric_literal_type const&) const
         {
             return false;
         }
@@ -701,6 +723,11 @@ namespace quxlang
         }
 
         bool operator()(type_temploidic const&) const
+        {
+            return true;
+        }
+
+        bool operator()(numeric_literal_any_temploidic const&) const
         {
             return true;
         }
@@ -1185,14 +1212,23 @@ namespace quxlang
         return to_string_as_postfix_receiver(ref.of) + "::." + ref.name;
     }
 
-    std::string type_symbol_stringifier::operator()(numeric_literal_reference const&) const
+    std::string type_symbol_stringifier::operator()(numeric_literal_type const& ref) const
     {
-        return "NUMERIC_LITERAL";
+        return "NUMERIC_LITERAL_TYPE(\"" + ref.value + "\")";
+    }
+    std::string type_symbol_stringifier::operator()(numeric_literal_any_temploidic const& ref) const
+    {
+        return "NUMERIC_LITERAL_ANY(" + ref.name + ")";
     }
 
-    std::string type_symbol_stringifier::operator()(string_literal_reference const&) const
+    std::string type_symbol_stringifier::operator()(string_literal_type const& ref) const
     {
-        return "STRING_LITERAL";
+        return "STRING_LITERAL_TYPE(\"" + ref.value + "\")";
+    }
+
+    std::string type_symbol_stringifier::operator()(string_literal_any_temploidic const& ref) const
+    {
+        return "STRING_LITERAL_ANY(" + ref.name + ")";
     }
 
     std::string type_symbol_stringifier::operator()(array_initializer_type const& ai) const
@@ -1303,6 +1339,38 @@ namespace quxlang
             output.type = std::move(decayed_type);
             results = std::move(output);
             return results;
+        }
+
+        if (typeis< numeric_literal_any_temploidic >(template_type))
+        {
+            if (!typeis< numeric_literal_type >(type))
+            {
+                return std::nullopt;
+            }
+            template_match_results output;
+            auto name = as< numeric_literal_any_temploidic >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = type;
+            }
+            output.type = type;
+            return output;
+        }
+
+        if (typeis< string_literal_any_temploidic >(template_type))
+        {
+            if (!typeis< string_literal_type >(type))
+            {
+                return std::nullopt;
+            }
+            template_match_results output;
+            auto name = as< string_literal_any_temploidic >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = type;
+            }
+            output.type = type;
+            return output;
         }
 
         if (typeis< thistype >(template_type))
@@ -1482,7 +1550,7 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type) || typeis< string_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< builtin_symbol >(template_type));
         return std::nullopt;
     }
 
@@ -1530,6 +1598,60 @@ namespace quxlang
             output.type = std::move(decayed_type);
             results = std::move(output);
             return results;
+        }
+
+        if (typeis< numeric_literal_any_temploidic >(template_type))
+        {
+            type_symbol const* type_target = nullptr;
+            if (type.type_is< ptrref_type >() && type.as< ptrref_type >().ptr_class == pointer_class::ref)
+            {
+                type_target = &as< ptrref_type >(type).target;
+            }
+            else
+            {
+                type_target = &type;
+            }
+
+            if (!typeis< numeric_literal_type >(*type_target))
+            {
+                return std::nullopt;
+            }
+
+            template_match_results output;
+            auto name = as< numeric_literal_any_temploidic >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = *type_target;
+            }
+            output.type = *type_target;
+            return output;
+        }
+
+        if (typeis< string_literal_any_temploidic >(template_type))
+        {
+            type_symbol const* type_target = nullptr;
+            if (type.type_is< ptrref_type >() && type.as< ptrref_type >().ptr_class == pointer_class::ref)
+            {
+                type_target = &as< ptrref_type >(type).target;
+            }
+            else
+            {
+                type_target = &type;
+            }
+
+            if (!typeis< string_literal_type >(*type_target))
+            {
+                return std::nullopt;
+            }
+
+            template_match_results output;
+            auto name = as< string_literal_any_temploidic >(template_type).name;
+            if (!name.empty())
+            {
+                output.matches[name] = *type_target;
+            }
+            output.type = *type_target;
+            return output;
         }
 
         if (typeis< type_temploidic >(template_type))
@@ -1725,7 +1847,7 @@ namespace quxlang
 
         std::string template_type_str = quxlang::to_string(template_type);
         std::string type_str = quxlang::to_string(type);
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_reference >(template_type) || typeis< string_literal_reference >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< builtin_symbol >(template_type));
         return std::nullopt;
     }
 
@@ -2107,6 +2229,16 @@ namespace quxlang
                 throw compiler_bug("should be unreachable");
             }
 
+            bool check_impl(numeric_literal_any_temploidic const& template_val, numeric_literal_any_temploidic const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
+            bool check_impl(string_literal_any_temploidic const& template_val, string_literal_any_temploidic const& match_val, bool conv)
+            {
+                throw compiler_bug("should be unreachable");
+            }
+
             bool check_impl(decay_temploidic const& template_val, decay_temploidic const& match_val, bool conv)
             {
                 throw compiler_bug("should be unreachable");
@@ -2332,12 +2464,24 @@ namespace quxlang
                 return check(tmpl.carrying_type, val.carrying_type, false);
             }
 
-            bool check_impl(numeric_literal_reference const& tmpl, numeric_literal_reference const& val, bool conv)
+            bool check_impl(numeric_literal_type const& tmpl, numeric_literal_type const& val, bool conv)
+            {
+                if (conv) return true;
+                return tmpl.value == val.value;
+            }
+
+            bool check_impl(numeric_literal_any_temploidic const& tmpl, numeric_literal_type const& val, bool conv)
             {
                 return true;
             }
 
-            bool check_impl(string_literal_reference const& tmpl, string_literal_reference const& val, bool conv)
+            bool check_impl(string_literal_type const& tmpl, string_literal_type const& val, bool conv)
+            {
+                if (conv) return true;
+                return tmpl.value == val.value;
+            }
+
+            bool check_impl(string_literal_any_temploidic const& tmpl, string_literal_type const& val, bool conv)
             {
                 return true;
             }
@@ -2699,6 +2843,20 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
             {
                 value.lhs_type = strip_source_locations(std::move(value.lhs_type));
                 value.rhs_type = strip_source_locations(std::move(value.rhs_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_numeric_literal_fits >)
+            {
+                value.literal_type = strip_source_locations(std::move(value.literal_type));
+                value.target_type = strip_source_locations(std::move(value.target_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_numeric_literal_binary_op >)
+            {
+                value.lhs_type = strip_source_locations(std::move(value.lhs_type));
+                value.rhs_type = strip_source_locations(std::move(value.rhs_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_numeric_literal_negate >)
+            {
+                value.operand_type = strip_source_locations(std::move(value.operand_type));
             }
             else if constexpr (std::is_same_v< value_type, expression_pack_arg >)
             {

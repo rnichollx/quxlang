@@ -147,7 +147,14 @@ namespace quxlang
         RPNX_MEMBER_METADATA(constexpr_string, bytes);
     };
 
-    using constexpr_value = rpnx::variant< antestatal_value, constexpr_serialoid, constexpr_string >;
+    struct constexpr_numeric
+    {
+        std::vector< std::byte > bytes;
+
+        RPNX_MEMBER_METADATA(constexpr_numeric, bytes);
+    };
+
+    using constexpr_value = rpnx::variant< antestatal_value, constexpr_serialoid, constexpr_string, constexpr_numeric >;
 
     struct void_type
     {
@@ -343,14 +350,28 @@ namespace quxlang
         RPNX_MEMBER_METADATA(antestatal_interface, interface_type, functions, is_default);
     };
 
-    struct numeric_literal_reference
+    struct numeric_literal_type
     {
-        RPNX_EMPTY_METADATA(numeric_literal_reference);
+        std::string value;
+        RPNX_MEMBER_METADATA(numeric_literal_type, value);
     };
 
-    struct string_literal_reference
+    struct numeric_literal_any_temploidic
     {
-        RPNX_EMPTY_METADATA(string_literal_reference);
+        std::string name;
+        RPNX_MEMBER_METADATA(numeric_literal_any_temploidic, name);
+    };
+
+    struct string_literal_type
+    {
+        std::string value;
+        RPNX_MEMBER_METADATA(string_literal_type, value);
+    };
+
+    struct string_literal_any_temploidic
+    {
+        std::string name;
+        RPNX_MEMBER_METADATA(string_literal_any_temploidic, name);
     };
 
     struct readonly_constant
@@ -1391,6 +1412,30 @@ namespace quxlang
         type_symbol of_type;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_is_signed, of_type);
+    };
+
+    struct expression_numeric_literal_fits
+    {
+        type_symbol literal_type;
+        type_symbol target_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_numeric_literal_fits, literal_type, target_type);
+    };
+
+    struct expression_numeric_literal_binary_op
+    {
+        std::string op;
+        type_symbol lhs_type;
+        type_symbol rhs_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_numeric_literal_binary_op, op, lhs_type, rhs_type);
+    };
+
+    struct expression_numeric_literal_negate
+    {
+        type_symbol operand_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_numeric_literal_negate, operand_type);
     };
 
     struct expression_typecast

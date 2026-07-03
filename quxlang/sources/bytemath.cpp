@@ -410,7 +410,7 @@ namespace quxlang::bytemath
             if (detail::le_comp_less_raw(a.data, b.data))
             {
                 auto result = detail::unlimited_int_unsigned_sub_le_raw(std::move(b.data), std::move(a.data));
-                return {std::move(result), !b_negative};
+                return {std::move(result), b_negative};
             }
             else
             {

@@ -63,7 +63,7 @@ QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, create_string_literal, 
 QUX_SUBCO_MEMBER_FUNC_DEF(expr_test_provider::interface, create_numeric_literal, quxlang::vmir2::storage_index, (std::string value))
 {
     gen->slots.emplace_back();
-    gen->slots.back().type = numeric_literal_reference{};
+    gen->slots.back().type = numeric_literal_type{.value = ""};
     gen->slots.back().literal_value = value;
     co_return gen->slots.size() - 1;
 }

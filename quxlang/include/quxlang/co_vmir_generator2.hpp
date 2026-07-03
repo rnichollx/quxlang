@@ -19,6 +19,7 @@
 #include "quxlang/fixed_bytemath.hpp"
 #include "quxlang/macros.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
+#include "quxlang/manipulators/numeric_literal_utils.hpp"
 #include "quxlang/operators.hpp"
 #include "quxlang/parsers/parse_int.hpp"
 #include "quxlang/queries/class_default_ctor.hpp"
@@ -45,6 +46,7 @@
 #include "quxlang/queries/global_init_type.hpp"
 #include "quxlang/queries/global_is_per_thread.hpp"
 #include "quxlang/queries/global_is_string_static.hpp"
+#include "quxlang/queries/global_is_numeric_static.hpp"
 #include "quxlang/queries/global_is_serialoid_static.hpp"
 #include "quxlang/queries/implementation_function_map.hpp"
 #include "quxlang/queries/implementation_interface_type.hpp"
@@ -60,6 +62,7 @@
 #include "quxlang/queries/module_options_map.hpp"
 #include "quxlang/queries/serialoid_static_value.hpp"
 #include "quxlang/queries/string_static_value.hpp"
+#include "quxlang/queries/numeric_static_value.hpp"
 #include "quxlang/queries/symboid.hpp"
 #include "quxlang/queries/symbol_type.hpp"
 #include "quxlang/queries/target_configuration.hpp"
@@ -155,10 +158,37 @@ namespace quxlang
         struct codegen_literal
         {
             type_symbol type;
-            std::vector< std::byte > value;
 
-            RPNX_MEMBER_METADATA(codegen_literal, type, value);
+            RPNX_MEMBER_METADATA(codegen_literal, type);
         };
+
+        /// Extracts the textual representation of a codegen literal from its type.
+        /// Numeric literals carry ASCII decimal text in numeric_literal_type::value;
+        /// string literals carry their content in string_literal_type::value.
+        static auto literal_value_string(codegen_literal const& lit) -> std::string
+        {
+            if (lit.type.template type_is< numeric_literal_type >())
+            {
+                return lit.type.template as< numeric_literal_type >().value;
+            }
+            if (lit.type.template type_is< string_literal_type >())
+            {
+                return lit.type.template as< string_literal_type >().value;
+            }
+            throw compiler_bug("codegen_literal has no textual value representation: " + quxlang::to_string(lit.type));
+        }
+
+        static auto literal_value_bytes(codegen_literal const& lit) -> std::vector< std::byte >
+        {
+            auto const& str = literal_value_string(lit);
+            std::vector< std::byte > bytes;
+            bytes.reserve(str.size());
+            for (char c : str)
+            {
+                bytes.push_back(static_cast< std::byte >(c));
+            }
+            return bytes;
+        }
 
         /// Expanded local parameter metadata for one source-level positional pack.
         struct codegen_pack
@@ -559,7 +589,7 @@ namespace quxlang
             {
                 throw compiler_bug("string literal result is not a codegen literal");
             }
-            auto const& literal_value = literal_slot.template get_as< codegen_literal >().value;
+            auto const& literal_value = literal_value_bytes(literal_slot.template get_as< codegen_literal >());
 
             auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
             auto encoded_length = encode_uintany(literal_value.size());
@@ -658,7 +688,7 @@ namespace quxlang
             auto result_type = this->current_type(current_block, result_val);
             auto result_value_type = remove_ref(result_type);
 
-            if (typeis< string_literal_reference >(result_type))
+            if (typeis< string_literal_type >(result_type))
             {
                 co_await co_emit_constexpr_string_literal_result(current_block, result_val, result_id);
                 co_return;
@@ -679,6 +709,128 @@ namespace quxlang
             throw semantic_compilation_error("constexpr string evaluation requires STRING_CONSTANT or STRINGLIKE input, got: " + quxlang::to_string(result_type));
         }
 
+        auto co_emit_constexpr_numeric_literal_result(block_index& current_block, value_index literal, std::uint64_t result_id) -> co_type< void >
+        {
+            auto const& literal_slot = this->state.genvalues.at(static_cast< std::uint64_t >(literal));
+            if (!literal_slot.template type_is< codegen_literal >())
+            {
+                throw compiler_bug("numeric literal result is not a codegen literal");
+            }
+            auto const& literal_value = literal_value_bytes(literal_slot.template get_as< codegen_literal >());
+
+            auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
+            auto encoded_length = encode_uintany(literal_value.size());
+            for (auto byte : encoded_length)
+            {
+                auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
+                co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
+            }
+            for (auto byte : literal_value)
+            {
+                auto byte_value = create_small_uint_value(current_block, std::to_integer< std::uint8_t >(byte), byte_type{});
+                co_await co_emit_proxy_output_byte(current_block, proxy_ref, byte_value);
+            }
+            co_return;
+        }
+
+        auto co_emit_constexpr_numeric_constant_result(block_index& current_block, value_index numeric_value, std::uint64_t result_id) -> co_type< void >
+        {
+            auto numeric_type = remove_ref(this->current_type(current_block, numeric_value));
+            if (!typeis< readonly_constant >(numeric_type) || as< readonly_constant >(numeric_type).kind != constant_kind::numeric)
+            {
+                throw compiler_bug("constexpr numeric constant result requires NUMERIC_CONSTANT input");
+            }
+
+            auto create_numeric_this_ref = [&]() -> value_index
+            {
+                auto current_numeric_type = this->current_type(current_block, numeric_value);
+                if (is_ref(current_numeric_type))
+                {
+                    return this->copy_refernece_internal(current_block, numeric_value);
+                }
+                return this->create_reference(current_block, numeric_value, make_cref(numeric_type));
+            };
+
+            auto begin_functum = submember{.of = numeric_type, .name = "BEGIN"};
+            auto end_functum = submember{.of = numeric_type, .name = "END"};
+            auto begin_iter = co_await this->co_gen_call_functum(current_block, begin_functum, codegen_invocation_args{.named = {{"THIS", create_numeric_this_ref()}}});
+            auto end_iter = co_await this->co_gen_call_functum(current_block, end_functum, codegen_invocation_args{.named = {{"THIS", create_numeric_this_ref()}}});
+            auto iter_type = this->current_type(current_block, begin_iter);
+            auto uintptr_type = co_await rpnx::querygraph::request< uintpointer_type_query >({});
+
+            auto count = load_zero_value(current_block, uintptr_type);
+            auto count_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
+
+            auto count_condition_block = this->generate_subblock(current_block, "constexpr_numeric_count_condition");
+            auto count_body_block = this->generate_subblock(current_block, "constexpr_numeric_count_body");
+            auto emit_length_block = this->generate_subblock(current_block, "constexpr_numeric_emit_length");
+            this->generate_jump(current_block, count_condition_block);
+
+            auto count_iter_value = co_await co_construct_copy(count_condition_block, count_iter, iter_type);
+            auto count_end_value = co_await co_construct_copy(count_condition_block, end_iter, iter_type);
+            auto count_has_more = co_await co_generate_binary(count_condition_block, "<", count_iter_value, count_end_value);
+            this->generate_branch(count_has_more, count_condition_block, count_body_block, emit_length_block);
+
+            {
+                auto count_ref = this->create_reference(count_body_block, count, make_mref(uintptr_type));
+                (void)count_ref;
+                auto one = create_small_uint_value(count_body_block, 1, uintptr_type);
+                auto old_count = co_await co_construct_copy(count_body_block, count, uintptr_type);
+                auto next_count = co_await co_generate_binary(count_body_block, "+", old_count, one);
+                co_await co_store_local_value(count_body_block, count, next_count, uintptr_type);
+                auto count_iter_ref = this->create_reference(count_body_block, count_iter, make_mref(iter_type));
+                co_await co_generate_unary_postfix(count_body_block, "++", count_iter_ref);
+                this->generate_jump(count_body_block, count_condition_block);
+            }
+
+            current_block = emit_length_block;
+            auto proxy_ref = create_constexpr_proxy_ref(current_block, result_id);
+            auto count_cref = this->create_reference(current_block, count, make_cref(uintptr_type));
+            co_await this->co_gen_call_functum(current_block, builtin_symbol{"SERIALIZE_UINTANY"}, codegen_invocation_args{.named = {{"VALUE", count_cref}, {"OUTPUT_ITERATOR", proxy_ref}}});
+
+            auto emit_iter = co_await co_construct_copy(current_block, begin_iter, iter_type);
+            auto emit_condition_block = this->generate_subblock(current_block, "constexpr_numeric_emit_condition");
+            auto emit_body_block = this->generate_subblock(current_block, "constexpr_numeric_emit_body");
+            auto done_block = this->generate_subblock(current_block, "constexpr_numeric_emit_done");
+            this->generate_jump(current_block, emit_condition_block);
+
+            auto emit_iter_value = co_await co_construct_copy(emit_condition_block, emit_iter, iter_type);
+            auto emit_end_value = co_await co_construct_copy(emit_condition_block, end_iter, iter_type);
+            auto emit_has_more = co_await co_generate_binary(emit_condition_block, "<", emit_iter_value, emit_end_value);
+            this->generate_branch(emit_has_more, emit_condition_block, emit_body_block, done_block);
+
+            {
+                auto emit_iter_ref = this->create_reference(emit_body_block, emit_iter, make_mref(iter_type));
+                auto current_byte_ref = co_await co_generate_unary_postfix(emit_body_block, "->", co_await co_generate_unary_postfix(emit_body_block, "++", emit_iter_ref));
+                auto current_byte = load_reference_value(emit_body_block, current_byte_ref, byte_type{});
+                co_await co_emit_proxy_output_byte(emit_body_block, proxy_ref, current_byte);
+                this->generate_jump(emit_body_block, emit_condition_block);
+            }
+
+            current_block = done_block;
+            co_return;
+        }
+
+        auto co_emit_constexpr_numeric_result(block_index& current_block, value_index result_val, std::uint64_t result_id) -> co_type< void >
+        {
+            auto result_type = this->current_type(current_block, result_val);
+            auto result_value_type = remove_ref(result_type);
+
+            if (typeis< numeric_literal_type >(result_value_type))
+            {
+                co_await co_emit_constexpr_numeric_literal_result(current_block, result_val, result_id);
+                co_return;
+            }
+
+            if (typeis< readonly_constant >(result_value_type) && as< readonly_constant >(result_value_type).kind == constant_kind::numeric)
+            {
+                co_await co_emit_constexpr_numeric_constant_result(current_block, result_val, result_id);
+                co_return;
+            }
+
+            throw semantic_compilation_error("constexpr numeric evaluation requires NUMERIC_CONSTANT or numeric literal input, got: " + quxlang::to_string(result_type));
+        }
+
         /// Generates a constexpr v3 routine that can return primary and static mutation results.
         auto co_generate_constexpr_eval_v3(expression expr, std::optional< type_symbol > expected_result_type) -> co_type< constexpr_routine_v3_result >
         {
@@ -696,6 +848,11 @@ namespace quxlang
                 {
                     result_val = co_await this->co_generate_expr(current_block, expr);
                     co_await this->co_emit_constexpr_string_result(current_block, result_val, constexpr_primary_result_id);
+                }
+                else if (typeis< readonly_constant >(*expected_result_type) && as< readonly_constant >(*expected_result_type).kind == constant_kind::numeric)
+                {
+                    result_val = co_await this->co_generate_expr(current_block, expr);
+                    co_await this->co_emit_constexpr_numeric_result(current_block, result_val, constexpr_primary_result_id);
                 }
                 else if (typeis< auto_temploidic >(*expected_result_type))
                 {
@@ -2753,13 +2910,7 @@ namespace quxlang
                 return it->second;
             }
             codegen_literal lit;
-            lit.type = numeric_literal_reference{};
-            std::vector< std::byte > value_bytes;
-            for (char c : str)
-            {
-                value_bytes.push_back(static_cast< std::byte >(c));
-            }
-            lit.value = value_bytes;
+            lit.type = numeric_literal_type{.value = str};
             this->state.genvalues.push_back(lit);
             this->state.codegen_numeric_literals[str] = value_index(this->state.genvalues.size() - 1);
             return value_index(this->state.genvalues.size() - 1);
@@ -2772,13 +2923,7 @@ namespace quxlang
                 return it->second;
             }
             codegen_literal lit;
-            lit.type = string_literal_reference{};
-            std::vector< std::byte > value_bytes;
-            for (char c : str)
-            {
-                value_bytes.push_back(static_cast< std::byte >(c));
-            }
-            lit.value = value_bytes;
+            lit.type = string_literal_type{.value = str};
             this->state.genvalues.push_back(lit);
             this->state.codegen_string_literals[str] = value_index(this->state.genvalues.size() - 1);
             return value_index(this->state.genvalues.size() - 1);
@@ -4057,32 +4202,43 @@ namespace quxlang
                     {
                         auto const ro = cls->as< readonly_constant >();
                         // Numeric literal to readonly constant
-                        if (other.type_is< numeric_literal_reference >() && ro.kind == constant_kind::numeric)
+                        if (other.type_is< numeric_literal_type >() && ro.kind == constant_kind::numeric)
                         {
                             auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
-                            auto const& other_literal = other_slot.template get_as< codegen_literal >();
-                            auto const& other_slot_value = other_literal.value;
-
                             vmir2::load_const_value lcv_result;
-                            lcv_result.value = other_slot_value;
+                            lcv_result.value = literal_value_bytes(other_slot.template get_as< codegen_literal >());
                             lcv_result.target = get_local_index(args.named.at("THIS"));
                             return lcv_result;
                         }
 
                         // String literal to readonly constant
 
-                        else if (other.type_is< string_literal_reference >() && ro.kind == constant_kind::string)
+                        else if (other.type_is< string_literal_type >() && ro.kind == constant_kind::string)
                         {
                             auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
-                            auto const& other_literal = other_slot.template get_as< codegen_literal >();
-                            auto const& other_slot_value = other_literal.value;
-
                             vmir2::load_const_value lcv_result;
-                            lcv_result.value = other_slot_value;
+                            lcv_result.value = literal_value_bytes(other_slot.template get_as< codegen_literal >());
                             lcv_result.target = get_local_index(args.named.at("THIS"));
                             return lcv_result;
+                        }
+
+                        // Explicit cast: NUMERIC_CONSTANT AS STRING_CONSTANT
+                        // Both share the same {__start, __end} byte-span layout. Use cast_constant to
+                        // bitwise-copy the span without aliasing the source reference (load_from_ref would
+                        // read through a mistyped ref). The EXPLICIT parameter is CONST& NUMERIC_CONSTANT.
+                        // No @OTHER overload -> not implicit. No reverse -> STRING_CONSTANT AS NUMERIC_CONSTANT rejected.
+                        else if (ro.kind == constant_kind::string && *ctor_input_name == "EXPLICIT" && is_ref(other))
+                        {
+                            type_symbol other_value = remove_ref(other);
+                            if (other_value.type_is< readonly_constant >() && other_value.as< readonly_constant >().kind == constant_kind::numeric)
+                            {
+                                vmir2::cast_constant cc{};
+                                cc.source_index = get_local_index(other_slot_id);
+                                cc.target_index = get_local_index(args.named.at("THIS"));
+                                return cc;
+                            }
                         }
 
                         if (other.type_is< ptrref_type >() && other.as< ptrref_type >().ptr_class == pointer_class::ref && remove_ref(other) == *cls)
@@ -4093,17 +4249,14 @@ namespace quxlang
                             return lfr;
                         }
                     }
-                    else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && other.type_is< numeric_literal_reference >())
+                    else if ((cls->template type_is< int_type >() || cls->template type_is< byte_type >()) && other.type_is< numeric_literal_type >())
                     {
                         auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
                         assert(other_slot.template type_is< codegen_literal >());
 
-                        auto const& other_literal = other_slot.template get_as< codegen_literal >();
-                        auto const& other_slot_value = other_literal.value;
-
                         vmir2::load_const_int result;
-                        for (auto byte : other_slot_value)
+                        for (auto byte : literal_value_bytes(other_slot.template get_as< codegen_literal >()))
                         {
                             result.value.push_back(static_cast< char >(byte));
                         }
@@ -4111,17 +4264,14 @@ namespace quxlang
 
                         return result;
                     }
-                    else if (cls->template type_is< float_type >() && other.type_is< numeric_literal_reference >())
+                    else if (cls->template type_is< float_type >() && other.type_is< numeric_literal_type >())
                     {
                         auto const& other_slot = this->state.genvalues.at(other_slot_id);
 
                         assert(other_slot.template type_is< codegen_literal >());
 
-                        auto const& other_literal = other_slot.template get_as< codegen_literal >();
-                        auto const& other_slot_value = other_literal.value;
-
                         vmir2::load_const_float result;
-                        for (auto byte : other_slot_value)
+                        for (auto byte : literal_value_bytes(other_slot.template get_as< codegen_literal >()))
                         {
                             result.value.push_back(static_cast< char >(byte));
                         }
@@ -4134,44 +4284,10 @@ namespace quxlang
                     {
                         if (*ctor_input_name != "APPROXIMATE")
                         {
-                            auto const& other_slot = this->state.genvalues.at(other_slot_id);
-                            if (other_slot.template type_is< codegen_literal >())
-                            {
-                                auto const& other_literal = other_slot.template get_as< codegen_literal >();
-                                bytemath::fixed_int_options int_opts{};
-                                if (other_literal.type.template type_is< byte_type >())
-                                {
-                                    int_opts.bits = 8;
-                                    int_opts.has_sign = false;
-                                }
-                                else if (other_literal.type.template type_is< int_type >())
-                                {
-                                    auto const& int_type_info = other_literal.type.template get_as< int_type >();
-                                    int_opts.bits = int_type_info.bits;
-                                    int_opts.has_sign = int_type_info.has_sign;
-                                }
-                                else
-                                {
-                                    throw compiler_bug("Expected integer literal source for float_from_int generation");
-                                }
-                                int_opts.overflow_undefined = false;
-
-                                auto const& float_type_info = cls->template get_as< float_type >();
-                                bytemath::fixed_float_options float_opts{
-                                    .bits = float_type_info.bits,
-                                    .exponent_bits = float_type_info.exponent_bits,
-                                };
-
-                                auto const converted = bytemath::fixed_float_from_int_le(float_opts, int_opts, other_literal.value, false);
-                                if (converted.result_is_undefined)
-                                {
-                                    throw semantic_compilation_error("integer is outside the finite floating point range");
-                                }
-                                if (!converted.result_is_exact)
-                                {
-                                    throw semantic_compilation_error("integer cannot be exactly represented by floating point type; use APPROXIMATE");
-                                }
-                            }
+                            // Constexpr exactness check only applies when the source is a compile-time
+                            // integer literal. Integer literals are represented as numeric_literal_type
+                            // codegen literals (handled above); a concrete int_type/byte_type value is
+                            // always a local, so there is no literal to validate here.
                         }
 
                         vmir2::float_from_int result;
@@ -5256,6 +5372,117 @@ namespace quxlang
             auto rhs_type = co_await resolve_type_expr(expr.rhs_type);
 
             co_return this->create_bool_value(bidx, lhs_type == rhs_type);
+        }
+
+        auto co_resolve_literal_type_expr(block_index& bidx, type_symbol const& sym) -> co_type< type_symbol >
+        {
+            if (sym.template type_is< numeric_literal_type >())
+            {
+                co_return sym;
+            }
+            if (sym.template type_is< int_type >() || sym.template type_is< float_type >() || sym.template type_is< byte_type >())
+            {
+                co_return sym;
+            }
+            if (sym.template type_is< decltype_type_ref >() || sym.template type_is< typeof_type_ref >())
+            {
+                co_return co_await this->co_resolve_type_symbol(bidx, sym);
+            }
+
+            auto type_opt = co_await this->co_lookup_symbol(bidx, sym);
+            if (!type_opt.has_value())
+            {
+                throw semantic_compilation_error("Expected type " + quxlang::to_string(sym) + " to be defined.");
+            }
+
+            auto const& genvalue = this->state.genvalues.at(*type_opt);
+
+            if (genvalue.template type_is< codegen_binding >())
+            {
+                auto const& binding = genvalue.template get_as< codegen_binding >();
+                co_return binding.attached_symbol;
+            }
+
+            throw semantic_compilation_error("Expected " + quxlang::to_string(sym) + " to refer to a type.");
+        }
+
+        auto co_generate(block_index& bidx, expression_numeric_literal_fits expr) -> co_type< value_index >
+        {
+            auto lit_type = co_await co_resolve_literal_type_expr(bidx, expr.literal_type);
+            auto target_type = co_await co_resolve_literal_type_expr(bidx, expr.target_type);
+
+            if (!lit_type.template type_is< numeric_literal_type >())
+            {
+                throw semantic_compilation_error("__NUMERIC_LITERAL_FITS first argument must be a numeric literal type, got " + quxlang::to_string(lit_type));
+            }
+
+            auto const& nlt = lit_type.template get_as< numeric_literal_type >();
+            bool fits = false;
+
+            if (target_type.template type_is< int_type >())
+            {
+                fits = literal_fits_int(nlt.value, target_type.template get_as< int_type >());
+            }
+            else if (target_type.template type_is< float_type >())
+            {
+                fits = literal_fits_float(nlt.value, target_type.template get_as< float_type >());
+            }
+            else if (target_type.template type_is< byte_type >())
+            {
+                int_type byte_as_int{.bits = 8, .has_sign = false};
+                fits = literal_fits_int(nlt.value, byte_as_int);
+            }
+            else
+            {
+                throw semantic_compilation_error("__NUMERIC_LITERAL_FITS second argument must be an int or float type, got " + quxlang::to_string(target_type));
+            }
+
+            co_return this->create_bool_value(bidx, fits);
+        }
+
+        auto co_generate(block_index& bidx, expression_numeric_literal_binary_op expr) -> co_type< value_index >
+        {
+            auto lhs_type = co_await co_resolve_literal_type_expr(bidx, expr.lhs_type);
+            auto rhs_type = co_await co_resolve_literal_type_expr(bidx, expr.rhs_type);
+
+            if (!lhs_type.template type_is< numeric_literal_type >() || !rhs_type.template type_is< numeric_literal_type >())
+            {
+                throw semantic_compilation_error("__NUMERIC_LITERAL_" + expr.op + " arguments must be numeric literal types");
+            }
+
+            auto const& lhs_val = lhs_type.template get_as< numeric_literal_type >().value;
+            auto const& rhs_val = rhs_type.template get_as< numeric_literal_type >().value;
+
+            std::string result;
+            if (expr.op == "ADD")
+                result = literal_add(lhs_val, rhs_val);
+            else if (expr.op == "SUBTRACT")
+                result = literal_subtract(lhs_val, rhs_val);
+            else if (expr.op == "MULTIPLY")
+                result = literal_multiply(lhs_val, rhs_val);
+            else if (expr.op == "DIVIDE")
+                result = literal_divide(lhs_val, rhs_val);
+            else if (expr.op == "MODULUS")
+                result = literal_modulus(lhs_val, rhs_val);
+            else
+                throw semantic_compilation_error("Unknown __NUMERIC_LITERAL op: " + expr.op);
+
+            co_return this->create_numeric_literal(result);
+        }
+
+        auto co_generate(block_index& bidx, expression_numeric_literal_negate expr) -> co_type< value_index >
+        {
+            auto operand_type = co_await co_resolve_literal_type_expr(bidx, expr.operand_type);
+
+            if (!operand_type.template type_is< numeric_literal_type >())
+            {
+                throw semantic_compilation_error("__NUMERIC_LITERAL_NEGATE argument must be a numeric literal type");
+            }
+
+            auto const& val = operand_type.template get_as< numeric_literal_type >().value;
+            std::string result = literal_negate(val);
+
+            co_return this->create_numeric_literal(result);
         }
 
         auto co_generate(block_index& bidx, expression_this_reference expr) -> co_type< value_index >
@@ -6471,50 +6698,61 @@ namespace quxlang
             type_symbol lhs_type = this->current_type(bidx, lhs);
             type_symbol rhs_type = this->current_type(bidx, rhs);
 
-            if (lhs_type.type_is< numeric_literal_reference >() && rhs_type.type_is< numeric_literal_reference >())
+            if (lhs_type.type_is< numeric_literal_type >() && rhs_type.type_is< numeric_literal_type >())
             {
                 auto const& lhs_slot = this->state.genvalues.at(lhs);
                 auto const& rhs_slot = this->state.genvalues.at(rhs);
 
                 if (lhs_slot.template type_is< codegen_literal >() && rhs_slot.template type_is< codegen_literal >())
                 {
-                    auto bytes_to_string = [](std::vector< std::byte > const& bytes)
-                    {
-                        std::string out;
-                        out.reserve(bytes.size());
-                        for (std::byte b : bytes)
-                        {
-                            out.push_back(static_cast< char >(b));
-                        }
-                        return out;
-                    };
+                    auto lhs_str = literal_value_string(lhs_slot.template get_as< codegen_literal >());
+                    auto rhs_str = literal_value_string(rhs_slot.template get_as< codegen_literal >());
 
-                    auto lhs_value = parsers::str_to_int< std::int64_t >(bytes_to_string(lhs_slot.template get_as< codegen_literal >().value));
-                    auto rhs_value = parsers::str_to_int< std::int64_t >(bytes_to_string(rhs_slot.template get_as< codegen_literal >().value));
+                    int cmp = literal_compare(lhs_str, rhs_str);
 
                     if (operator_str == "==")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value == rhs_value);
+                        co_return this->create_bool_value(bidx, cmp == 0);
                     }
                     if (operator_str == "!=")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value != rhs_value);
+                        co_return this->create_bool_value(bidx, cmp != 0);
                     }
                     if (operator_str == "<")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value < rhs_value);
+                        co_return this->create_bool_value(bidx, cmp < 0);
                     }
                     if (operator_str == "<=")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value <= rhs_value);
+                        co_return this->create_bool_value(bidx, cmp <= 0);
                     }
                     if (operator_str == ">")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value > rhs_value);
+                        co_return this->create_bool_value(bidx, cmp > 0);
                     }
                     if (operator_str == ">=")
                     {
-                        co_return this->create_bool_value(bidx, lhs_value >= rhs_value);
+                        co_return this->create_bool_value(bidx, cmp >= 0);
+                    }
+
+                    std::string arith_result;
+                    bool is_arith = true;
+                    if (operator_str == "+")
+                        arith_result = literal_add(lhs_str, rhs_str);
+                    else if (operator_str == "-")
+                        arith_result = literal_subtract(lhs_str, rhs_str);
+                    else if (operator_str == "*")
+                        arith_result = literal_multiply(lhs_str, rhs_str);
+                    else if (operator_str == "/")
+                        arith_result = literal_divide(lhs_str, rhs_str);
+                    else if (operator_str == "%")
+                        arith_result = literal_modulus(lhs_str, rhs_str);
+                    else
+                        is_arith = false;
+
+                    if (is_arith)
+                    {
+                        co_return this->create_numeric_literal(arith_result);
                     }
                 }
             }
@@ -7249,7 +7487,7 @@ namespace quxlang
 
             auto start_input = co_await co_generate_expr(current_block, *st.from_expr);
             auto sequence_type = remove_ref(this->current_type(current_block, start_input));
-            if (sequence_type.template type_is< numeric_literal_reference >())
+            if (sequence_type.template type_is< numeric_literal_type >())
             {
                 throw semantic_compilation_error("FOR sequence FROM expression must have a concrete type (Note: try casting , e.g. `FROM(1 AS I32)` or `FROM(5 AS U64)` for example)");
             }
@@ -8042,6 +8280,19 @@ namespace quxlang
                 this->emit(current_block, vmir2::load_const_value{
                                               .target = get_local_index(storage_delegate),
                                               .value = std::move(string_value.bytes),
+                                          });
+                co_await co_generate_builtin_return(current_block);
+                co_await co_generate_dtor_references();
+                co_return get_result();
+            }
+
+            if (co_await rpnx::querygraph::request< global_is_numeric_static_query >(global_symbol))
+            {
+                auto numeric_value = co_await rpnx::querygraph::request< numeric_static_value_query >(global_symbol);
+                auto storage_delegate = co_await co_begin_storage_delegate(current_block, storage_ref, global_type, false);
+                this->emit(current_block, vmir2::load_const_value{
+                                              .target = get_local_index(storage_delegate),
+                                              .value = std::move(numeric_value.bytes),
                                           });
                 co_await co_generate_builtin_return(current_block);
                 co_await co_generate_dtor_references();

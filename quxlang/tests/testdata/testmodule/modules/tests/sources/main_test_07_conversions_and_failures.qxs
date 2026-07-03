@@ -410,6 +410,35 @@ IMPORT syscall;
 
 ::hello_world_message STATIC STRING_CONSTANT := "hello world!";
 
+::numeric_constant_test STATIC NUMERIC_CONSTANT := 42;
+
+::numeric_constant_to_string_cast_test STATIC_TEST
+{
+  VAR s STRING_CONSTANT := numeric_constant_test AS STRING_CONSTANT;
+  ASSERT(TRUE);
+}
+
+::numeric_constant_implicit_to_string_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR s STRING_CONSTANT := numeric_constant_test;
+}
+
+::string_to_numeric_constant_cast_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR n NUMERIC_CONSTANT := hello_world_message AS NUMERIC_CONSTANT;
+}
+
+::out_of_range_narrowing_i32_fails_test STATIC_TEST EXPECT_COMPILATION_FAILURE
+{
+  VAR x I32 := 4294967291;
+}
+
+::out_of_range_fits_u32_test STATIC_TEST
+{
+  VAR x U32 := 4294967291;
+  ASSERT(x == 4294967291);
+}
+
 ::write_hello_world_linux INCLUDE_IF(OS_LINUX) FUNCTION()
 {
   VAR begin CONST=>> BYTE := hello_world_message.BEGIN();

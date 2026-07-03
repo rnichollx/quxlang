@@ -705,6 +705,21 @@ namespace quxlang::vmir2
 
         return result;
     }
+
+    std::string assembler::to_string_internal(vmir2::cast_constant inst)
+    {
+        std::string result = "CAST_CONSTANT %" + std::to_string(inst.source_index) + ", %" + std::to_string(inst.target_index);
+
+        if (print_comments)
+        {
+            result += " // type1=";
+            result += quxlang::to_string(m_what.local_types.at(inst.source_index).type);
+            result += " type2=";
+            result += quxlang::to_string(m_what.local_types.at(inst.target_index).type);
+        }
+
+        return result;
+    }
     std::string assembler::to_string_internal(vmir2::copy_reference cpr)
     {
         std::string result = "COPYREF %" + std::to_string(cpr.from_index) + ", %" + std::to_string(cpr.to_index);

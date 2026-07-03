@@ -48,6 +48,7 @@ namespace quxlang
         struct jump;
         struct branch;
         struct cast_ptrref;
+        struct cast_constant;
         struct constexpr_set_result;
         struct constexpr_set_result2;
         struct constexpr_make_proxy;
@@ -188,6 +189,7 @@ namespace quxlang
             get_procedure_ptr,
             make_reference,
             cast_ptrref,
+            cast_constant,
             constexpr_set_result,
             constexpr_set_result2,
             constexpr_make_proxy,
@@ -727,6 +729,17 @@ namespace quxlang
             local_index target_index;
 
             QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_ptrref, source_index, target_index);
+        };
+
+        /// Bitwise reinterpret/copy between readonly_constant kinds (e.g. NUMERIC_CONSTANT -> STRING_CONSTANT).
+        /// Both share the {__start, __end} byte-span layout; this copies the span without type aliasing
+        /// the source reference (unlike load_from_ref which would read through a mistyped reference).
+        struct cast_constant
+        {
+            local_index source_index;
+            local_index target_index;
+
+            QUXLANG_WITH_SOURCE_LOCATION_METADATA(cast_constant, source_index, target_index);
         };
 
         struct constexpr_set_result

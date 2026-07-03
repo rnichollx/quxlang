@@ -9,6 +9,7 @@
 #include <quxlang/queries/specs/constexpr_bool_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_antestatal_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_string_spec.hpp>
+#include <quxlang/queries/specs/constexpr_eval_numeric_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_v3_spec.hpp>
 #include <quxlang/queries/specs/constexpr_eval_spec.hpp>
 #include <quxlang/queries/specs/constexpr_routine_antestatal_spec.hpp>
@@ -26,6 +27,7 @@ auto quxlang::detail::register_compiler_querygraph_handlers_4(compiler_querygrap
     graph.register_handler_function< constexpr_bool_spec >(constexpr_bool_impl);
     graph.register_handler_function< constexpr_eval_antestatal_spec >(constexpr_eval_antestatal_impl);
     graph.register_handler_function< constexpr_eval_string_spec >(constexpr_eval_string_impl);
+    graph.register_handler_function< constexpr_eval_numeric_spec >(constexpr_eval_numeric_impl);
     graph.register_handler_function< constexpr_eval_v3_spec >(constexpr_eval_v3_impl);
     graph.register_handler_function< constexpr_eval_spec >(constexpr_eval_impl);
     graph.register_handler_function< constexpr_routine_antestatal_spec >(constexpr_routine_antestatal_impl);

@@ -32,6 +32,10 @@ rpnx::querygraph::coroutine< quxlang::global_is_antestatal_static_spec > quxlang
         {
             co_return true;
         }
+        if (constant_type.kind == constant_kind::numeric)
+        {
+            co_return true;
+        }
     }
     if (!(co_await rpnx::querygraph::request< type_is_antestatal_query >(variable_type)))
     {

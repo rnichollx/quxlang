@@ -9,6 +9,7 @@
 #include <quxlang/parsers/parse_type_symbol.hpp>
 #include <quxlang/source_loader.hpp>
 #include <quxlang/queries/argument_adaptation_is_better_fit.hpp>
+#include <quxlang/queries/argument_adaptation_rank.hpp>
 #include <quxlang/queries/antestatal_static_value.hpp>
 #include <quxlang/queries/constexpr_bool.hpp>
 #include <quxlang/queries/constexpr_eval_v3.hpp>
@@ -1031,7 +1032,7 @@ TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
     quxlang::source_bundle bundle = make_test_source_bundle();
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
 
-    quxlang::type_symbol numeric_literal = quxlang::numeric_literal_reference{};
+    quxlang::type_symbol numeric_literal = quxlang::numeric_literal_type{.value = "42"};
     quxlang::type_symbol unsigned_integer = quxlang::int_type{.bits = 64, .has_sign = false};
     quxlang::type_symbol signed_integer = quxlang::int_type{.bits = 64, .has_sign = true};
 
@@ -1045,6 +1046,53 @@ TEST(querygraph_queries, numeric_literal_prefers_unsigned_integer_target)
         .better_to = signed_integer,
         .worse_to = unsigned_integer,
     }));
+}
+
+TEST(querygraph_queries, numeric_literal_out_of_range_narrowing_has_no_adaptation)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    // 4294967291 does not fit in I32 (signed 32-bit), so adaptation rank should be nullopt.
+    quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "4294967291"};
+    quxlang::type_symbol i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+
+    auto rank = graph.make_request< quxlang::argument_adaptation_rank_query >(quxlang::argument_init_input{
+        .from = literal,
+        .to = i32_type,
+    });
+    ASSERT_FALSE(rank.has_value());
+}
+
+TEST(querygraph_queries, numeric_literal_in_range_u32_has_adaptation)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    // 4294967291 fits in U32 (unsigned 32-bit), so adaptation rank should be present.
+    quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "4294967291"};
+    quxlang::type_symbol u32_type = quxlang::int_type{.bits = 32, .has_sign = false};
+
+    auto rank = graph.make_request< quxlang::argument_adaptation_rank_query >(quxlang::argument_init_input{
+        .from = literal,
+        .to = u32_type,
+    });
+    ASSERT_TRUE(rank.has_value());
+}
+
+TEST(querygraph_queries, numeric_literal_to_numeric_constant_adaptation)
+{
+    quxlang::source_bundle bundle = make_test_source_bundle();
+    quxlang::compiler_querygraph graph = make_x64_graph(bundle);
+
+    quxlang::type_symbol literal = quxlang::numeric_literal_type{.value = "123"};
+    quxlang::type_symbol numeric_constant = quxlang::readonly_constant{.kind = quxlang::constant_kind::numeric};
+
+    auto rank = graph.make_request< quxlang::argument_adaptation_rank_query >(quxlang::argument_init_input{
+        .from = literal,
+        .to = numeric_constant,
+    });
+    ASSERT_TRUE(rank.has_value());
 }
 
 TEST(querygraph_queries, temporary_source_prefers_temporary_reference_target)

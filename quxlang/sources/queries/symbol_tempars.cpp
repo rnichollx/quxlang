@@ -54,6 +54,14 @@ namespace quxlang
             {
                 co_return tempar_name_set{as< type_temploidic >(value).name};
             }
+            if (typeis< numeric_literal_any_temploidic >(value))
+            {
+                co_return tempar_name_set{as< numeric_literal_any_temploidic >(value).name};
+            }
+            if (typeis< string_literal_any_temploidic >(value))
+            {
+                co_return tempar_name_set{as< string_literal_any_temploidic >(value).name};
+            }
             if (typeis< temploid_reference >(value))
             {
                 tempar_name_set result = co_await get_symbol_tempars(as< temploid_reference >(value).templexoid);

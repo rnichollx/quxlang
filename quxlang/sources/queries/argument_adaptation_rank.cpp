@@ -3,6 +3,7 @@
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/argument_adaptation_rank_spec.hpp>
 #include "quxlang/manipulators/typeutils.hpp"
+#include "quxlang/manipulators/numeric_literal_utils.hpp"
 
 #include <optional>
 #include <stdexcept>
@@ -209,18 +210,33 @@ rpnx::querygraph::coroutine< quxlang::argument_adaptation_rank_spec > quxlang::a
         co_return 1;
     }
 
-    if (typeis< numeric_literal_reference >(from) && typeis< int_type >(to))
+    if (typeis< numeric_literal_type >(from) && typeis< int_type >(to))
     {
         auto const& int_to = as< int_type >(to);
+        auto const& nlt = as< numeric_literal_type >(from);
+        if (!literal_fits_int(nlt.value, int_to))
+        {
+            co_return std::nullopt;
+        }
         co_return int_to.has_sign ? 3 : 2;
     }
 
-    if (typeis< numeric_literal_reference >(from) && typeis< float_type >(to))
+    if (typeis< numeric_literal_type >(from) && typeis< float_type >(to))
     {
+        auto const& nlt = as< numeric_literal_type >(from);
+        if (!literal_fits_float(nlt.value, as< float_type >(to)))
+        {
+            co_return std::nullopt;
+        }
         co_return 4;
     }
 
-    if (typeis< string_literal_reference >(from) && typeis< readonly_constant >(to) && as< readonly_constant >(to).kind == constant_kind::string)
+    if (typeis< numeric_literal_type >(from) && typeis< readonly_constant >(to) && as< readonly_constant >(to).kind == constant_kind::numeric)
+    {
+        co_return 2;
+    }
+
+    if (typeis< string_literal_type >(from) && typeis< readonly_constant >(to) && as< readonly_constant >(to).kind == constant_kind::string)
     {
         co_return 2;
     }

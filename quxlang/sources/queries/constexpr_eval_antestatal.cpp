@@ -438,11 +438,20 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         result.values[id] = constexpr_value(std::move(value));
     }
     bool const expects_string_result = input.expected_result_type.has_value() && is_string_constant_type(*input.expected_result_type);
+    bool const expects_numeric_result = input.expected_result_type.has_value() &&
+        quxlang::typeis< quxlang::readonly_constant >(*input.expected_result_type) &&
+        quxlang::as< quxlang::readonly_constant >(*input.expected_result_type).kind == quxlang::constant_kind::numeric;
     for (auto& [id, value] : interp.get_cr_serialoid_values())
     {
         if (expects_string_result && id == constexpr_primary_result_id)
         {
             result.values[id] = constexpr_value(decode_uintany_string(value.bytes));
+        }
+        else if (expects_numeric_result && id == constexpr_primary_result_id)
+        {
+            quxlang::constexpr_numeric numeric_result;
+            numeric_result.bytes = decode_uintany_string(value.bytes).bytes;
+            result.values[id] = constexpr_value(std::move(numeric_result));
         }
         else
         {

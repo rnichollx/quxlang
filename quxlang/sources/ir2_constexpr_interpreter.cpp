@@ -404,6 +404,7 @@ class quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl
     void exec_instr_val(vmir2::runtime_constexpr const& rce);
     void exec_instr_val(vmir2::initguard_try_acquire const& ita);
     void exec_instr_val(vmir2::cast_ptrref const& cst);
+    void exec_instr_val(vmir2::cast_constant const& cc);
     void exec_instr_val(vmir2::constexpr_set_result const& csr);
     void exec_instr_val(vmir2::constexpr_set_result2 const& csr);
     void exec_instr_val(vmir2::constexpr_make_proxy const& cmp);
@@ -2568,6 +2569,78 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
 
     end_lifetime(local_ptr_base);
     local_ptr_base = nullptr;
+}
+
+void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::cast_constant const& cc)
+{
+    auto& source_slot = get_current_frame().local_values.at(cc.source_index);
+
+    if (!source_slot || !source_slot->alive())
+    {
+        throw constexpr_logic_execution_error("Error executing <cast_constant>: accessing deallocated storage");
+    }
+
+    // The source may be a reference (CONST& NUMERIC_CONSTANT) or a value.
+    std::shared_ptr< local > source_obj;
+    bool source_is_ref = source_slot->ref.has_value();
+
+    if (source_is_ref)
+    {
+        if (pointer_invalidated(*source_slot->ref))
+        {
+            throw constexpr_logic_execution_error("Error executing <cast_constant>: accessing deallocated storage");
+        }
+        source_obj = source_slot->ref->pointer_target.value().lock();
+        if (!source_obj || !source_obj->alive())
+        {
+            throw constexpr_logic_execution_error("Error executing <cast_constant>: accessing deallocated storage");
+        }
+    }
+    else
+    {
+        source_obj = source_slot;
+    }
+
+    auto target_slot = output_local(cc.target_index);
+
+    // Both readonly_constant kinds share the {__start, __end} byte-span layout.
+    // Copy the two pointer members verbatim (a bitwise copy of the span).
+    for (auto const& field_name : {"__start", "__end"})
+    {
+        auto src_it = source_obj->struct_members.find(field_name);
+        auto tgt_it = target_slot->struct_members.find(field_name);
+
+        if (src_it == source_obj->struct_members.end())
+        {
+            throw compiler_bug("cast_constant: source missing member " + std::string(field_name));
+        }
+        if (tgt_it == target_slot->struct_members.end())
+        {
+            throw compiler_bug("cast_constant: target missing member " + std::string(field_name));
+        }
+
+        auto const& src_member = src_it->second;
+        auto const& tgt_member = tgt_it->second;
+
+        if (src_member == nullptr)
+        {
+            throw compiler_bug("cast_constant: source member " + std::string(field_name) + " not initialized");
+        }
+        if (tgt_member == nullptr)
+        {
+            throw compiler_bug("cast_constant: target member " + std::string(field_name) + " not allocated");
+        }
+
+        begin_lifetime(tgt_member);
+        tgt_member->ref = src_member->ref;
+        tgt_member->actual_type = src_member->actual_type;
+    }
+
+    if (!source_is_ref)
+    {
+        end_lifetime(source_slot);
+    }
+    source_slot = nullptr;
 }
 
 void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::exec_instr_val(vmir2::constexpr_set_result const& csr)

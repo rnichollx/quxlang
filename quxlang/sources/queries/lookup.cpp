@@ -583,11 +583,11 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         assert(!type_is_contextual(type));
         co_return type;
     }
-    else if (type.template type_is< numeric_literal_reference >())
+    else if (type.template type_is< numeric_literal_type >())
     {
         co_return type;
     }
-    else if (type.template type_is< string_literal_reference >())
+    else if (type.template type_is< string_literal_type >())
     {
         co_return type;
     }

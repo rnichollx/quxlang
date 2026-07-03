@@ -128,6 +128,11 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         return expression_same_types{.lhs_type = std::move(lhs_type), .rhs_type = std::move(rhs_type)};
     };
 
+    auto numeric_literal_fits_expr = [](type_symbol literal_type, type_symbol target_type) -> expression
+    {
+        return expression_numeric_literal_fits{.literal_type = std::move(literal_type), .target_type = std::move(target_type)};
+    };
+
     auto binary_expr = [](std::string operator_str, expression lhs, expression rhs) -> expression
     {
         return expression_binary{.operator_str = std::move(operator_str), .lhs = std::move(lhs), .rhs = std::move(rhs)};
@@ -258,7 +263,16 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", string_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", string_literal_any_temploidic{.name = "__lit"}}}, void_type{});
+                                     });
+            // Explicit-only cast: NUMERIC_CONSTANT AS STRING_CONSTANT
+            // Both share the same {__start, __end} byte-span layout, so it's a bitwise copy
+            // via load_from_ref (same path as STRING_CONSTANT copy from a ref).
+            // No @OTHER overload -> not implicit. No reverse -> STRING_CONSTANT AS NUMERIC_CONSTANT rejected.
+            run_under_profiling_void("list_builtin_constructors add_overload call",
+                                     [&]
+                                     {
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"EXPLICIT", make_cref(readonly_constant{.kind = constant_kind::numeric})}}, void_type{});
                                      });
         }
         if (rc.kind == constant_kind::numeric)
@@ -266,7 +280,7 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", numeric_literal_any_temploidic{.name = "__lit"}}}, void_type{});
                                      });
         }
     }
@@ -296,10 +310,13 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                  });
         if (typeis< byte_type >(input))
         {
+            auto lit_any = numeric_literal_any_temploidic{.name = "__lit"};
+            auto lit_guard_type = type_symbol(freebound_identifier{.name = "__lit"});
+            auto fits_guard = numeric_literal_fits_expr(lit_guard_type, input);
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", lit_any}}, void_type{}, std::move(fits_guard), -1);
                                      });
 
             auto u8_type = type_symbol(int_type{.bits = 8, .has_sign = false});
@@ -311,25 +328,28 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         }
         else if (typeis< int_type >(input))
         {
+            auto lit_any = numeric_literal_any_temploidic{.name = "__lit"};
+            auto lit_guard_type = type_symbol(freebound_identifier{.name = "__lit"});
+            auto fits_guard = numeric_literal_fits_expr(lit_guard_type, input);
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", lit_any}}, void_type{}, std::move(fits_guard), -1);
                                      });
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"CHECKED", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"CHECKED", lit_any}}, void_type{});
                                      });
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"ASSUME", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"ASSUME", lit_any}}, void_type{});
                                      });
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"PARTIAL", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"PARTIAL", lit_any}}, void_type{});
                                      });
 
             bool input_signed = input.as< int_type >().has_sign;
@@ -394,15 +414,18 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         }
         else if (typeis< float_type >(input))
         {
+            auto lit_any = numeric_literal_any_temploidic{.name = "__lit"};
+            auto lit_guard_type = type_symbol(freebound_identifier{.name = "__lit"});
+            auto fits_guard = numeric_literal_fits_expr(lit_guard_type, input);
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", lit_any}}, void_type{}, std::move(fits_guard), -1);
                                      });
             run_under_profiling_void("list_builtin_constructors add_overload call",
                                      [&]
                                      {
-                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"APPROXIMATE", numeric_literal_reference{}}}, void_type{});
+                                         add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"APPROXIMATE", lit_any}}, void_type{});
                                      });
 
             auto const& float_info = input.as< float_type >();

@@ -8,6 +8,7 @@
 #include <quxlang/backends/asm/x64_asm_converter.hpp>
 #include <quxlang/manipulators/llvm_lookup.hpp>
 #include <quxlang/manipulators/typeutils.hpp>
+#include <quxlang/manipulators/numeric_literal_utils.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/state_engine.hpp>
 
@@ -3945,6 +3946,19 @@ namespace quxlang::llvm_backend::detail
             return;
         }
 
+        void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::cast_constant const& instruction)
+        {
+            (void)current_block;
+            quxlang::vmir2::cast_constant const& inst = instruction;
+            // Source is a CONST& readonly_constant; load the referenced {__start, __end} span and
+            // store it into the destination readonly_constant value (same layout, different kind).
+            quxlang::type_symbol target_type = state.routine->local_types.at(local_slot_index(inst.target_index)).type;
+            llvm::Value* pointer_value = load_reference_pointer(state, builder, inst.source_index);
+            llvm::Value* loaded = builder.CreateLoad(value_storage_type(target_type), pointer_value);
+            store_slot_value(state, builder, inst.target_index, loaded);
+            return;
+        }
+
 
         void emit_instruction_ovl(function_codegen_state& state, llvm::BasicBlock*& current_block, quxlang::vmir2::constexpr_set_result const& instruction)
         {
@@ -3993,6 +4007,26 @@ namespace quxlang::llvm_backend::detail
             if (is_negative)
             {
                 digits.erase(digits.begin());
+            }
+            // Check that the literal fits the target int type before constructing APInt
+            // (APInt silently truncates on overflow)
+            int_type check_type;
+            if (typeis< int_type >(target_type))
+            {
+                check_type = as< int_type >(target_type);
+            }
+            else if (typeis< byte_type >(target_type))
+            {
+                check_type = int_type{.bits = 8, .has_sign = false};
+            }
+            else
+            {
+                check_type = int_type{.bits = static_cast<std::size_t>(integer_type->getBitWidth()), .has_sign = false};
+            }
+            std::string full_value = (is_negative ? "-" : "") + digits;
+            if (!literal_fits_int(full_value, check_type))
+            {
+                throw std::overflow_error("Integer literal " + inst.value + " does not fit in target type");
             }
             llvm::APInt value(integer_type->getBitWidth(), digits, 10);
             if (is_negative)

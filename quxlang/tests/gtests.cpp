@@ -1004,6 +1004,12 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("UNIT_TEST_COUNT") == type_symbol(builtin_symbol{.name = "UNIT_TEST_COUNT"}));
     ASSERT_TRUE(parse_type_symbol("UNIT_TEST_NAMES") == type_symbol(builtin_symbol{.name = "UNIT_TEST_NAMES"}));
     ASSERT_TRUE(parse_type_symbol("UNIT_TEST_PROC") == type_symbol(builtin_symbol{.name = "UNIT_TEST_PROC"}));
+
+    ASSERT_TRUE(parse_type_symbol("NUMERIC_LITERAL_TYPE(\"42\")") == type_symbol(numeric_literal_type{.value = "42"}));
+    ASSERT_TRUE(parse_type_symbol("NUMERIC_LITERAL_ANY(lit)") == type_symbol(numeric_literal_any_temploidic{.name = "lit"}));
+
+    ASSERT_TRUE(parse_type_symbol("STRING_LITERAL_TYPE(\"hello\")") == type_symbol(string_literal_type{.value = "hello"}));
+    ASSERT_TRUE(parse_type_symbol("STRING_LITERAL_ANY(lit)") == type_symbol(string_literal_any_temploidic{.name = "lit"}));
 }
 
 TEST(parsing, parse_pack_expressions)
