@@ -65,6 +65,7 @@ rpnx::querygraph::coroutine< quxlang::enum_info_spec > quxlang::enum_info_impl(t
 
     enum_info result;
     result.allow_unknown = declaration.allow_unknown;
+    result.is_ipc = declaration.is_ipc;
     std::vector< pending_enum_value > pending_values;
     std::set< std::string > names;
     std::set< std::uint64_t > used_values;

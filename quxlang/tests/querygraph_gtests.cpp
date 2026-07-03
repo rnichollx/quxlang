@@ -1248,21 +1248,29 @@ TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)
 ::choice ENUM BITS(8) [none = NULL, x, RESERVED FROM(2) TO(3), y = 4] ALLOW_UNKNOWN {
     ::zero STATIC choice := none;
 }
+::ipc_choice IPC_ENUM BITS(8) [zero = 0, one = 1];
 )");
     quxlang::compiler_querygraph graph = make_x64_graph(bundle);
     quxlang::type_symbol main = quxlang::absolute_module_reference{"main"};
     quxlang::type_symbol choice = quxlang::subsymbol{main, "choice"};
+    quxlang::type_symbol ipc_choice = quxlang::subsymbol{main, "ipc_choice"};
     quxlang::type_symbol none = quxlang::subsymbol{choice, "none"};
     quxlang::type_symbol zero = quxlang::subsymbol{choice, "zero"};
 
     quxlang::enum_info info = graph.make_request< quxlang::enum_info_query >(choice);
+    quxlang::enum_info ipc_info = graph.make_request< quxlang::enum_info_query >(ipc_choice);
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(choice), quxlang::symbol_kind::enum_);
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(ipc_choice), quxlang::symbol_kind::enum_);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(none), quxlang::symbol_kind::enum_value);
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(zero), quxlang::symbol_kind::global_variable);
     EXPECT_EQ(info.bits, 8);
     EXPECT_EQ(info.storage_bytes, 1);
     EXPECT_TRUE(info.allow_unknown);
+    EXPECT_FALSE(info.is_ipc);
+    EXPECT_EQ(ipc_info.bits, 8);
+    EXPECT_EQ(ipc_info.storage_bytes, 1);
+    EXPECT_TRUE(ipc_info.is_ipc);
     ASSERT_EQ(info.values.size(), 3);
     ASSERT_EQ(info.reserved_ranges.size(), 1);
     EXPECT_EQ(info.reserved_ranges.at(0).from, 2);

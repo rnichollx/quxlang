@@ -229,9 +229,10 @@ namespace quxlang
         std::optional< expression > bit_width;
         std::vector< ast2_enum_entry > entries;
         bool allow_unknown = false;
+        bool is_ipc = false;
         std::vector< subdeclaroid > declarations;
 
-        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_declaration, bit_width, entries, allow_unknown, declarations);
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(ast2_enum_declaration, bit_width, entries, allow_unknown, is_ipc, declarations);
     };
 
     /// A named flag mask as written in a FLAGSET declaration list.
