@@ -795,6 +795,37 @@ TEST(parsing, parse_unit_testing_program_start_asm_procedure_global_declaration)
     EXPECT_EQ(declaration.architecture, "X64");
 }
 
+TEST(parsing, parse_extern_procedure)
+{
+    try {
+        quxlang::ast2_file_declaration const file = parse_file_text(R"QX(
+::malloc EXTERN_PROCEDURE["glibc":"malloc" VERSION "GLIBC_2.2.5" OPTIONAL]
+   CALLABLE CALLCONV CCALL(@bytes SZ; RETURN =>> -> BYTE);
+)QX");
+
+        ASSERT_EQ(file.declarations.size(), 1);
+        quxlang::global_subdeclaroid const& global = file.declarations.front().get_as< quxlang::global_subdeclaroid >();
+        EXPECT_EQ(global.name, "malloc");
+        quxlang::ast2_extern_procedure const& declaration = global.decl.get_as< quxlang::ast2_extern_procedure >();
+        EXPECT_EQ(declaration.library_name, "glibc");
+        EXPECT_EQ(declaration.external_symbol_name, "malloc");
+        ASSERT_TRUE(declaration.version.has_value());
+        EXPECT_EQ(*declaration.version, "GLIBC_2.2.5");
+        EXPECT_TRUE(declaration.is_optional);
+        ASSERT_TRUE(declaration.callable.has_value());
+        quxlang::ast2_asm_callable const& callable = *declaration.callable;
+        EXPECT_EQ(callable.calling_conv, "CCALL");
+        ASSERT_EQ(callable.args.size(), 1);
+        EXPECT_EQ(callable.args.front().api_name, "bytes");
+        EXPECT_EQ(callable.args.front().type, parse_type_symbol("SZ"));
+        ASSERT_TRUE(callable.return_type.has_value());
+        EXPECT_EQ(*callable.return_type, parse_type_symbol("=>> -> BYTE"));
+    } catch (const std::exception& e) {
+        std::cout << "TEST_ERROR: " << e.what() << std::endl;
+        throw;
+    }
+}
+
 TEST(parsing, reject_runtime_declared_symbols_outside_runtime_module)
 {
     EXPECT_THROW(parse_file_text(R"QX(
@@ -3228,6 +3259,109 @@ TEST(llvm_backend, callable_asm_procedure_emits_abi_declaration_and_module_asm)
     EXPECT_NE(result.llvm_ir_text.find("module asm"), std::string::npos);
     EXPECT_NE(result.llvm_ir_text.find(quxlang::to_string(routine_symbol)), std::string::npos);
     EXPECT_EQ(result.llvm_ir_text.find("asm sideeffect"), std::string::npos);
+}
+
+TEST(llvm_backend, extern_procedure_emits_symver_on_elf)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("malloc");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::asm_callable callable;
+    callable.calling_conv = "CCALL";
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = std::nullopt,
+        .register_name = std::nullopt,
+        .type = i32_type,
+    });
+    callable.return_type = i32_type;
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = make_symbol("dummy_main");
+    packet.target_code = std::move(routine);
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
+    packet.extern_procedures.insert(routine_symbol);
+    packet.extern_procedure_versions.emplace(routine_symbol, "GLIBC_2.2.5");
+    packet.procedure_linksymbols.emplace(routine_symbol, "malloc");
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_NE(result.llvm_ir_text.find(".symver malloc, malloc@GLIBC_2.2.5"), std::string::npos);
+}
+
+TEST(llvm_backend, extern_procedure_emits_dllimport_on_pe_without_symver)
+{
+    auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const routine_symbol = make_symbol("malloc");
+    quxlang::type_symbol const i32_type = quxlang::int_type{
+        .bits = 32,
+        .has_sign = true,
+    };
+
+    quxlang::asm_callable callable;
+    callable.calling_conv = "CCALL";
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = std::nullopt,
+        .register_name = std::nullopt,
+        .type = i32_type,
+    });
+    callable.return_type = i32_type;
+
+    quxlang::vmir2::functanoid_routine3 routine;
+    routine.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+    };
+    routine.blocks.resize(1);
+    routine.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = make_symbol("dummy_main");
+    packet.target_code = std::move(routine);
+    packet.asm_callable_interfaces.emplace(routine_symbol, std::move(callable));
+    packet.extern_procedures.insert(routine_symbol);
+    packet.extern_procedure_versions.emplace(routine_symbol, "GLIBC_2.2.5");
+    packet.procedure_linksymbols.emplace(routine_symbol, "malloc");
+    packet.machine_target.machine = quxlang::machine_target_info{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::windows,
+        .binary_type = quxlang::binary::pe,
+    };
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const result = backend.compile(packet);
+
+    EXPECT_EQ(result.llvm_ir_text.find(".symver malloc"), std::string::npos);
+    EXPECT_NE(result.llvm_ir_text.find("dllimport"), std::string::npos);
 }
 
 TEST(llvm_backend, named_asm_callable_uses_declaration_order_for_call_abi)

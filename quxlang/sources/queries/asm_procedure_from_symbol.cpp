@@ -97,6 +97,36 @@ rpnx::querygraph::coroutine< quxlang::asm_procedure_from_symbol_spec > quxlang::
 
     asm_procedure out;
 
+    if (typeis< ast2_extern_procedure >(ast))
+    {
+        auto proc = as< ast2_extern_procedure >(ast);
+        out.architecture = "";
+        out.name = to_string(declaration_symbol);
+
+        if (proc.callable.has_value())
+        {
+            ast2_asm_callable const& callable = *proc.callable;
+            asm_callable selected_callable;
+            selected_callable.calling_conv = callable.calling_conv;
+            selected_callable.clobber = callable.clobber;
+            selected_callable.return_register_name = callable.return_register_name;
+            if (callable.return_type.has_value())
+            {
+                selected_callable.return_type = co_await resolve_asm_callable_type(declaration_symbol, *callable.return_type);
+            }
+            for (ast2_argument_interface const& argument : callable.args)
+            {
+                selected_callable.args.push_back(asm_argument_binding{
+                    .api_name = argument.api_name,
+                    .register_name = argument.register_name,
+                    .type = co_await resolve_asm_callable_type(declaration_symbol, argument.type),
+                });
+            }
+            out.callable_interface = std::move(selected_callable);
+        }
+        co_return out;
+    }
+
     if (!typeis< ast2_asm_procedure_declaration >(ast))
     {
         throw quxlang::compiler_bug("Not an asm procedure");

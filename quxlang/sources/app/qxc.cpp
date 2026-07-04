@@ -1550,6 +1550,10 @@ int main(int argc, char** argv)
                             collect_asm_routine(functanoid_symbol, symboid.get_as< quxlang::ast2_asm_procedure_declaration >(), std::move(dependency_traceback));
                             continue;
                         }
+                        else if (symboid.type_is< quxlang::ast2_extern_procedure >())
+                        {
+                            continue;
+                        }
 
                         quxlang::vmir2::functanoid_routine3 procedure;
                         try

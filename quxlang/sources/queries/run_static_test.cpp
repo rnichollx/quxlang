@@ -174,7 +174,7 @@ rpnx::querygraph::coroutine< quxlang::run_static_test_spec > quxlang::run_static
 
                     instanciation_reference const& functanoid = funcname.get_as< instanciation_reference >();
                     ast2_symboid const& symboid = co_await rpnx::querygraph::request< symboid_query >(functanoid.temploid.templexoid);
-                    if (typeis< ast2_asm_procedure_declaration >(symboid))
+                    if (typeis< ast2_asm_procedure_declaration >(symboid) || typeis< ast2_extern_procedure >(symboid))
                     {
                         if (asm_procedure_symbols.insert(funcname).second)
                         {

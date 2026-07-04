@@ -1477,7 +1477,28 @@ namespace quxlang::llvm_backend::detail
             llvm::Function* function = module->getFunction(link_name);
             if (function == nullptr)
             {
-                function = llvm::Function::Create(abi.llvm_type, llvm::GlobalValue::ExternalLinkage, link_name, module.get());
+                llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
+                if (input.optional_extern_procedures.contains(symbol))
+                {
+                    linkage = llvm::GlobalValue::ExternalWeakLinkage;
+                }
+                function = llvm::Function::Create(abi.llvm_type, linkage, link_name, module.get());
+
+                if (input.extern_procedures.contains(symbol))
+                {
+                    if (input.machine_target.machine.binary_type == quxlang::binary::pe)
+                    {
+                        function->setDLLStorageClass(llvm::GlobalValue::DLLImportStorageClass);
+                    }
+                    else if (input.machine_target.machine.binary_type == quxlang::binary::elf)
+                    {
+                        std::map< quxlang::type_symbol, std::string >::const_iterator found_version = input.extern_procedure_versions.find(symbol);
+                        if (found_version != input.extern_procedure_versions.end())
+                        {
+                            module->appendModuleInlineAsm(".symver " + link_name + ", " + link_name + "@" + found_version->second + "\n");
+                        }
+                    }
+                }
             }
             apply_calling_convention(function, abi);
             functions[symbol] = function;

@@ -88,6 +88,28 @@ rpnx::querygraph::coroutine< quxlang::functum_list_user_overload_declarations_sp
         co_return result;
     }
 
+    if (maybe_functum_ast.type_is< ast2_extern_procedure >())
+    {
+        ast2_extern_procedure const& ext_decl = maybe_functum_ast.get_as< ast2_extern_procedure >();
+        if (ext_decl.callable.has_value())
+        {
+            ast2_asm_callable const& callable = *ext_decl.callable;
+            ast2_function_declaration declaration;
+            for (ast2_argument_interface const& argument : callable.args)
+            {
+                declaration.header.call_parameters.push_back(ast2_function_parameter{
+                    .name = std::nullopt,
+                    .api_name = argument.api_name,
+                    .type = argument.type,
+                });
+            }
+            declaration.definition.return_type = callable.return_type.value_or(type_symbol(void_type{}));
+            declaration.location = ext_decl.location;
+            result.push_back(std::move(declaration));
+        }
+        co_return result;
+    }
+
     if (!typeis< functum >(maybe_functum_ast))
     {
         // TODO: Redirect to constructor?

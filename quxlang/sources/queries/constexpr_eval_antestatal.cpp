@@ -361,7 +361,7 @@ rpnx::querygraph::coroutine< quxlang::constexpr_eval_v3_spec > quxlang::constexp
         {
             type_symbol const symbol = invocable;
             ast2_symboid const& symboid = co_await rpnx::querygraph::request< symboid_query >(invocable.temploid.templexoid);
-            if (typeis< ast2_asm_procedure_declaration >(symboid))
+            if (typeis< ast2_asm_procedure_declaration >(symboid) || typeis< ast2_extern_procedure >(symboid))
             {
                 if (asm_procedure_symbols.insert(symbol).second)
                 {

@@ -670,6 +670,22 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                 enqueue_asm_object_lookup_requests(object_lookup_requests, asm_declaration_symbol, declaration);
                 continue;
             }
+            else if (symboid.type_is< ast2_extern_procedure >())
+            {
+                ast2_extern_procedure const& declaration = symboid.get_as< ast2_extern_procedure >();
+                output_module_unit.extern_procedures.insert(functanoid_symbol);
+                if (declaration.is_optional)
+                {
+                    output_module_unit.optional_extern_procedures.insert(functanoid_symbol);
+                }
+                if (declaration.version)
+                {
+                    output_module_unit.extern_procedure_versions.emplace(functanoid_symbol, *declaration.version);
+                }
+                asm_callable_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< asm_procedure_from_symbol_query >(functanoid_symbol)));
+                co_yield rpnx::querygraph::dependency(asm_callable_requests.back().second);
+                continue;
+            }
 
             vm_requests.push_back(std::make_pair(functanoid_symbol, rpnx::querygraph::request< vm_procedure3_query >(round_functanoids.at(i).first)));
             vm_tracebacks.push_back(round_functanoids.at(i).second);

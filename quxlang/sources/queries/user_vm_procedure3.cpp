@@ -12,6 +12,10 @@ rpnx::querygraph::coroutine< quxlang::user_vm_procedure3_spec > quxlang::user_vm
     {
         throw compiler_bug("Attempted to generate VMIR2 for ASM_PROCEDURE: " + to_string(input));
     }
+    if (typeis< ast2_extern_procedure >(symboid))
+    {
+        throw compiler_bug("Attempted to generate VMIR2 for EXTERN_PROCEDURE: " + to_string(input));
+    }
 
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::user_vm_procedure3_spec > > gen(machine_info, input);

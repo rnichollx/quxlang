@@ -22,6 +22,7 @@
 #include <quxlang/parsers/try_parse_name.hpp>
 #include <quxlang/parsers/try_parse_variable_declaration.hpp>
 #include <quxlang/parsers/parse_asm_procedure.hpp>
+#include <quxlang/parsers/try_parse_extern_procedure.hpp>
 #include <quxlang/parsers/option.hpp>
 
 namespace quxlang::parsers
@@ -168,6 +169,12 @@ namespace quxlang::parsers
         }
 
         output = try_parse_asm_procedure_declaration(ctx);
+        if (output)
+        {
+            return std::move(output);
+        }
+
+        output = try_parse_extern_procedure_declaration(ctx);
         if (output)
         {
             return std::move(output);
