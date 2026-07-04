@@ -98,6 +98,35 @@ namespace quxlang
             return "unknown";
         }
 
+        inline auto environment_name(environment value) -> std::string
+        {
+            switch (value)
+            {
+            case environment::none:
+                return "none";
+            case environment::glibc:
+                return "glibc";
+            case environment::musl:
+                return "musl";
+            case environment::bionic:
+                return "bionic";
+            case environment::msvc:
+                return "msvc";
+            case environment::ucrt:
+                return "ucrt";
+            case environment::cygwin:
+                return "cygwin";
+            case environment::static_:
+                return "static";
+            case environment::libsystem:
+                return "libsystem";
+            case environment::freestanding:
+                return "freestanding";
+            }
+
+            return "unknown";
+        }
+
         template < typename Map >
         inline auto debug_key_list(Map const& map) -> std::string
         {
@@ -132,6 +161,8 @@ namespace quxlang
             result += os_name(value.os_type);
             result += ", binary_type=";
             result += binary_name(value.binary_type);
+            result += ", environment_type=";
+            result += environment_name(value.environment_type);
             result += "}";
             return result;
         }
@@ -367,6 +398,35 @@ namespace rpnx
             }
 
             throw quxlang::compiler_bug("invalid binary enum string");
+        }
+    };
+
+    template <>
+    struct enum_traits< quxlang::environment >
+    {
+        static auto constexpr strings()
+        {
+            return std::vector< std::string >{"none", "glibc", "musl", "bionic", "msvc", "ucrt", "cygwin", "static", "libsystem", "freestanding"};
+        }
+
+        static auto constexpr to_string(quxlang::environment value) -> std::string
+        {
+            return strings().at(static_cast< std::size_t >(value));
+        }
+
+        static auto constexpr from_string(std::string_view value) -> quxlang::environment
+        {
+            auto const values = strings();
+
+            for (std::size_t index = 0; index < values.size(); ++index)
+            {
+                if (values[index] == value)
+                {
+                    return static_cast< quxlang::environment >(index);
+                }
+            }
+
+            throw quxlang::compiler_bug("invalid environment enum string");
         }
     };
 

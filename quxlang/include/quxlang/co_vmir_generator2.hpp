@@ -5679,6 +5679,43 @@ namespace quxlang
                 co_return this->create_bool_value(bidx, arch.binary_type == binary::wasm);
             }
 
+            if (kw.keyword == "ENVIRONMENT_IS_GLIBC")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::glibc);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_MUSL")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::musl);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_BIONIC")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::bionic);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_MSVC")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::msvc);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_UCRT")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::ucrt);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_CYGWIN")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::cygwin);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_STATIC")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::static_);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_LIBSYSTEM")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::libsystem);
+            }
+            if (kw.keyword == "ENVIRONMENT_IS_FREESTANDING")
+            {
+                co_return this->create_bool_value(bidx, arch.environment_type == environment::freestanding);
+            }
+
             if (kw.keyword == "UNWIND_FORMAT_IS_NONE" ||
                 kw.keyword == "UNWIND_FORMAT_IS_DWARF_EH_FRAME" ||
                 kw.keyword == "UNWIND_FORMAT_IS_ARM_EHABI" ||

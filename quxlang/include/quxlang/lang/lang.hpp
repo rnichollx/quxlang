@@ -92,7 +92,17 @@ namespace quxlang
                 "UNWIND_FORMAT_IS_ARM_EHABI",
                 "UNWIND_FORMAT_IS_WINDOWS_SEH",
                 "UNWIND_FORMAT_IS_SJLJ",
-                "UNWIND_FORMAT_IS_WASM"
+                "UNWIND_FORMAT_IS_WASM",
+
+                "ENVIRONMENT_IS_GLIBC",
+                "ENVIRONMENT_IS_MUSL",
+                "ENVIRONMENT_IS_BIONIC",
+                "ENVIRONMENT_IS_MSVC",
+                "ENVIRONMENT_IS_UCRT",
+                "ENVIRONMENT_IS_CYGWIN",
+                "ENVIRONMENT_IS_STATIC",
+                "ENVIRONMENT_IS_LIBSYSTEM",
+                "ENVIRONMENT_IS_FREESTANDING"
             };
             // clang-format on
 

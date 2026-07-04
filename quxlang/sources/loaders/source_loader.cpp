@@ -38,6 +38,51 @@ namespace
 
         throw quxlang::semantic_compilation_error("Unknown/unsupported binary " + binary);
     }
+
+    /**
+     * Parses a quxbuild target environment value into the internal environment type enum.
+     */
+    auto parse_environment_type(std::string const& environment) -> quxlang::environment
+    {
+        if (environment == "glibc")
+        {
+            return quxlang::environment::glibc;
+        }
+        if (environment == "musl")
+        {
+            return quxlang::environment::musl;
+        }
+        if (environment == "bionic")
+        {
+            return quxlang::environment::bionic;
+        }
+        if (environment == "msvc")
+        {
+            return quxlang::environment::msvc;
+        }
+        if (environment == "ucrt")
+        {
+            return quxlang::environment::ucrt;
+        }
+        if (environment == "cygwin")
+        {
+            return quxlang::environment::cygwin;
+        }
+        if (environment == "static")
+        {
+            return quxlang::environment::static_;
+        }
+        if (environment == "libsystem")
+        {
+            return quxlang::environment::libsystem;
+        }
+        if (environment == "freestanding")
+        {
+            return quxlang::environment::freestanding;
+        }
+
+        throw quxlang::semantic_compilation_error("Unknown/unsupported environment " + environment);
+    }
 } // namespace
 
 namespace quxlang
@@ -139,7 +184,7 @@ namespace quxlang
             // Validate target-level keys
             {
                 static const std::set<std::string> allowed_target_keys = {
-                    "platform", "cpu", "binary", "backend", "backend_llvm_options", "unimplemented_mode", "run_static_tests", "outputs", "modules"};
+                    "platform", "cpu", "binary", "environment", "backend", "backend_llvm_options", "unimplemented_mode", "run_static_tests", "outputs", "modules"};
                 for (auto const& kv : target_config_node)
                 {
                     auto key = kv.first.as<std::string>();
@@ -162,16 +207,19 @@ namespace quxlang
                 {
                     info.os_type = quxlang::os::linux;
                     info.binary_type = quxlang::binary::elf;
+                    info.environment_type = quxlang::environment::static_;
                 }
                 else if (platform == "windows")
                 {
                     info.os_type = quxlang::os::windows;
                     info.binary_type = quxlang::binary::pe;
+                    info.environment_type = quxlang::environment::msvc;
                 }
                 else if (platform == "macos")
                 {
                     info.os_type = quxlang::os::macos;
                     info.binary_type = quxlang::binary::macho;
+                    info.environment_type = quxlang::environment::libsystem;
                 }
                 else
                 {
@@ -183,6 +231,12 @@ namespace quxlang
                 {
                     std::string const binary = target_config_node["binary"].as< std::string >();
                     info.binary_type = parse_binary_type(binary);
+                }
+
+                if (target_config_node["environment"].IsDefined())
+                {
+                    std::string const environment = target_config_node["environment"].as< std::string >();
+                    info.environment_type = parse_environment_type(environment);
                 }
 
                 if (cpu == "x64")

@@ -327,6 +327,44 @@ TEST(querygraph_queries, architecture_keywords_reflect_machine_info)
     EXPECT_FALSE(evaluate(quxlang::cpu::x86_64, "ARCH_IS_RISCV64"));
 }
 
+TEST(querygraph_queries, environment_keywords_reflect_machine_info)
+{
+    auto evaluate = [](quxlang::environment environment_type, std::string const& keyword) -> bool
+    {
+        quxlang::source_bundle bundle;
+        quxlang::target_configuration target;
+        target.target_output_config.cpu_type = quxlang::cpu::x86_64;
+        target.target_output_config.os_type = quxlang::os::linux;
+        target.target_output_config.binary_type = quxlang::binary::elf;
+        target.target_output_config.environment_type = environment_type;
+        target.module_configurations["main"].source = "main_env";
+
+        bundle.targets["target"] = target;
+        bundle.module_sources["main_env"].files["main.qxs"] = quxlang::source_file{.contents = with_test_language_declaration("::main VAR I32;")};
+
+        quxlang::compiler_querygraph graph(bundle, "target", bundle.targets.at("target").target_output_config,
+                                           quxlang::tests::current_test_graph_dump_path());
+        quxlang::type_symbol const context = quxlang::type_symbol(quxlang::absolute_module_reference{"main"});
+        return graph.make_request< quxlang::constexpr_bool_query >(quxlang::constexpr_input{
+            .expr = quxlang::expression_value_keyword{.keyword = keyword},
+            .context = context,
+        });
+    };
+
+    EXPECT_TRUE(evaluate(quxlang::environment::static_, "ENVIRONMENT_IS_STATIC"));
+    EXPECT_FALSE(evaluate(quxlang::environment::static_, "ENVIRONMENT_IS_GLIBC"));
+    EXPECT_TRUE(evaluate(quxlang::environment::glibc, "ENVIRONMENT_IS_GLIBC"));
+    EXPECT_FALSE(evaluate(quxlang::environment::glibc, "ENVIRONMENT_IS_STATIC"));
+    EXPECT_TRUE(evaluate(quxlang::environment::musl, "ENVIRONMENT_IS_MUSL"));
+    EXPECT_TRUE(evaluate(quxlang::environment::bionic, "ENVIRONMENT_IS_BIONIC"));
+    EXPECT_TRUE(evaluate(quxlang::environment::msvc, "ENVIRONMENT_IS_MSVC"));
+    EXPECT_TRUE(evaluate(quxlang::environment::ucrt, "ENVIRONMENT_IS_UCRT"));
+    EXPECT_TRUE(evaluate(quxlang::environment::cygwin, "ENVIRONMENT_IS_CYGWIN"));
+    EXPECT_TRUE(evaluate(quxlang::environment::libsystem, "ENVIRONMENT_IS_LIBSYSTEM"));
+    EXPECT_TRUE(evaluate(quxlang::environment::freestanding, "ENVIRONMENT_IS_FREESTANDING"));
+    EXPECT_FALSE(evaluate(quxlang::environment::glibc, "ENVIRONMENT_IS_FREESTANDING"));
+}
+
 TEST(querygraph_queries, asm_procedure_merge_selects_x86_family_architecture)
 {
     std::string const source = R"QX(

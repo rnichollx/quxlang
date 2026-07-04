@@ -31,11 +31,15 @@ namespace quxlang
     /// unwind_format names the runtime unwind information format emitted by the backend.
     enum class unwind_format { none, dwarf_eh_frame, arm_ehabi, windows_seh, sjlj, wasm };
 
+    /// environment names the C runtime / linking model the target links against.
+    enum class environment { none, glibc, musl, bionic, msvc, ucrt, cygwin, static_, libsystem, freestanding };
+
     struct machine_target_info
     {
         cpu cpu_type = cpu::none;
         os os_type = os::none;
         binary binary_type = binary::none;
+        environment environment_type = environment::none;
 
         constexpr inline std::size_t pointer_size_bytes() const
         {
@@ -213,7 +217,7 @@ namespace quxlang
             return pointer_size_bytes();
         }
 
-        RPNX_MEMBER_METADATA(machine_target_info, cpu_type, os_type, binary_type);
+        RPNX_MEMBER_METADATA(machine_target_info, cpu_type, os_type, binary_type, environment_type);
     };
 
     /**
