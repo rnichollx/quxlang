@@ -68,9 +68,9 @@ IMPORT syscall;
 //
 // Public API (8 entry points, 2x2x2 matrix of [T vs Size+Align] x [Single vs Multiple]):
 //
-//   Single, typed:        allocate#T()                 -> ->STORAGE(T)
-//   Single, Size+Align:   allocate#(@size, @align)()   -> ->STORAGE(size, align)
-//   Multi,  typed:        allocate_multiple#T(count)            -> =>>STORAGE(T)
+//   Single, typed:        allocate#T()                 -> ->TYPED_STORAGE(T)
+//   Single, Size+Align:   allocate#(@size, @align)()   -> ->ALIGNED_STORAGE(size, align)
+//   Multi,  typed:        allocate_multiple#T(count)            -> =>>TYPED_STORAGE(T)
 //   Multi,  Size+Align:   allocate_multiple#(@size, @align)(count) -> =>>VOID
 //
 //   dealloc#T(ptr)                       dealloc#(size, align)(ptr)
@@ -111,30 +111,30 @@ IMPORT syscall;
   // ============================================================================
 
   // Single, typed
-  ::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> STORAGE(t)
+  ::allocate TEMPLATE(@T TYPE AUTO(t)) FUNCTION(): -> TYPED_STORAGE(t)
   {
      // Bucket size/align before forwarding so the native allocator receives a canonical
      // size class (matching what the matching `dealloc` will pass).
      VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))();
-     RETURN BEGIN_ALLOC_REGION addr TO -> STORAGE(t);
+     RETURN BEGIN_ALLOC_REGION addr TO -> TYPED_STORAGE(t);
   }
 
   // Single, Size+Align
-  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): -> STORAGE(size, align)
+  ::allocate TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(): -> ALIGNED_STORAGE(size, align)
   {
      VAR addr ADDRESS := alloc_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))();
-     RETURN BEGIN_ALLOC_REGION addr TO -> STORAGE(size, align);
+     RETURN BEGIN_ALLOC_REGION addr TO -> ALIGNED_STORAGE(size, align);
   }
 
   // Single, typed dealloc
-  ::dealloc TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr -> STORAGE(t))
+  ::dealloc TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@ptr -> TYPED_STORAGE(t))
   {
      VAR addr ADDRESS := END_ALLOC_REGION ptr;
      dealloc_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@ptr addr);
   }
 
   // Single, Size+Align dealloc
-  ::dealloc TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>VOID)
+  ::dealloc TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr AUTO(ptr_type))
   {
      VAR addr ADDRESS := END_ALLOC_REGION ptr;
      dealloc_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@ptr addr);
@@ -145,7 +145,7 @@ IMPORT syscall;
   // ============================================================================
 
   // Multi, typed
-  ::allocate_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>STORAGE(t)
+  ::allocate_multiple TEMPLATE(@T TYPE AUTO(t)) FUNCTION(@count SZ): =>>TYPED_STORAGE(t)
   {
      RUNTIME CONSTEXPR
      {
@@ -154,7 +154,7 @@ IMPORT syscall;
      ELSE
      {
        VAR addr ADDRESS := alloc_multiple_native#(@size memory_bucket_size(@size SIZEOF(t)), @align memory_bucket_size(@size SIZEOF(t)))(@count count);
-       RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>STORAGE(t);
+       RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>TYPED_STORAGE(t);
      }
   }
 

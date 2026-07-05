@@ -5,7 +5,7 @@ IMPORT itanium;
 
 ::unwind_personality_proc INCLUDE_IF(UNWIND_FORMAT_IS_DWARF_EH_FRAME) PROCEDURE CC("ccc") IMPL unwind_handler;
 
-::unwind_action BITMASK STORAGE(I32)
+::unwind_action BITMASK TYPED_STORAGE(I32)
 {
   search_phase VALUE(1),
   cleanup_phase VALUE(2),

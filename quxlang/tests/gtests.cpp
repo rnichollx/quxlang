@@ -1024,8 +1024,9 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("-> I64") == type_symbol(ptrref_type{int_type{64, true}}));
     ASSERT_TRUE(parse_type_symbol("UINTPTR") == type_symbol(size_type{}));
     ASSERT_TRUE(parse_type_symbol("ADDRESS") == type_symbol(address_type{}));
-    ASSERT_TRUE(parse_type_symbol("STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
-    ASSERT_TRUE(parse_type_symbol("STORAGE(I64, I32)") == parse_type_symbol("STORAGE(I32, I64)"));
+    EXPECT_THROW((void)parse_type_symbol("STORAGE(I32)"), std::exception);
+    ASSERT_TRUE(parse_type_symbol("TYPED_STORAGE(I32, I64)") == type_symbol(storage{.storable_types = {int_type{32, true}, int_type{64, true}}}));
+    ASSERT_TRUE(parse_type_symbol("TYPED_STORAGE(I64, I32)") == parse_type_symbol("TYPED_STORAGE(I32, I64)"));
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
     ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
 
@@ -5465,7 +5466,7 @@ TEST(parsing, constexpr_allocator_storage_statements)
 ::constexpr_allocator_parse_smoke FUNCTION(): VOID
 {
   VAR count SZ := 2;
-  VAR slots =>> STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
+  VAR slots =>> TYPED_STORAGE(BYTE) := CONSTEXPR_ALLOC_MULTIPLE#BYTE(count);
   PLACE AT(slots[1]) BYTE := 9;
   ASSERT((PUN slots[1] AS BYTE) == 9);
   ASSERT((slots[&1] - slots) == 1);
@@ -7925,11 +7926,11 @@ TEST(quxlang, storage_type_lookup)
 
     auto resolved = c.get_lookup(quxlang::contextual_type_reference{
         .context = mainmodule,
-        .type = parse_type_symbol("STORAGE(buz, yak)"),
+        .type = parse_type_symbol("TYPED_STORAGE(buz, yak)"),
     }, std::nullopt);
 
     ASSERT_TRUE(resolved.has_value());
-    ASSERT_EQ(quxlang::to_string(*resolved), "STORAGE(MODULE(tests)::buz, MODULE(tests)::yak)");
+    ASSERT_EQ(quxlang::to_string(*resolved), "TYPED_STORAGE(MODULE(tests)::buz, MODULE(tests)::yak)");
 }
 
 TEST(quxlang, constexpr_allocator_builtin_lookup_and_overloads)

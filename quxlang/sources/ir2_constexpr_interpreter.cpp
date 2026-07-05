@@ -712,7 +712,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
             {
                 // DESTROY[T] consumes the caller-side object immediately.
                 //
-                // The owning STORAGE(...) slot retains the storage metadata; the destroy delegate
+                // The owning TYPED_STORAGE(...) slot retains the storage metadata; the destroy delegate
                 // itself is just a temporary alias and can disappear completely from the caller frame.
                 previous_frame.local_values[previous_arg_index] = nullptr;
             }
@@ -2391,7 +2391,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     auto const storage_type = remove_ref(target_type);
     if (!typeis< storage >(storage_type))
     {
-        throw compiler_bug("GET_OBJECT_REF STORAGE requires a destination of type QUAL& STORAGE(T)");
+        throw compiler_bug("GET_OBJECT_REF STORAGE requires a destination of type QUAL& TYPED_STORAGE(T)");
     }
 
     auto storage_local = get_or_create_global_storage(symbol, storage_type);
@@ -6628,7 +6628,7 @@ std::shared_ptr< quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interp
 {
     if (!typeis< storage >(storage_type))
     {
-        throw compiler_bug("global storage must be created with STORAGE(T)");
+        throw compiler_bug("global storage must be created with TYPED_STORAGE(T)");
     }
 
     auto& storage_local = global_storages[symbol];
@@ -6658,7 +6658,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     if (!typeis< storage >(storage_type))
     {
-        throw compiler_bug("antestatal global storage must be STORAGE(T)");
+        throw compiler_bug("antestatal global storage must be TYPED_STORAGE(T)");
     }
 
     auto const& storable_types = as< storage >(storage_type).storable_types;
@@ -6681,7 +6681,7 @@ void quxlang::vmir2::ir2_constexpr_interpreter::ir2_constexpr_interpreter_impl::
     }
     if (!typeis< storage >(storage_type))
     {
-        throw compiler_bug("zero-initialized global storage must be STORAGE(T)");
+        throw compiler_bug("zero-initialized global storage must be TYPED_STORAGE(T)");
     }
 
     auto const& storable_types = as< storage >(storage_type).storable_types;

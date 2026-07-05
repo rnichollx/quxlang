@@ -6,7 +6,7 @@ IMPORT std;
 ::string CLASS
   STRINGLIKE SERIALOID
 {
-   .data VAR =>>STORAGE(BYTE);
+   .data VAR =>>TYPED_STORAGE(BYTE);
    .length VAR SZ;
    .capacity VAR SZ;
 
@@ -42,7 +42,7 @@ IMPORT std;
    {
       IF ( .capacity < capacity )
       {
-         VAR new_data =>>STORAGE(BYTE);
+         VAR new_data =>>TYPED_STORAGE(BYTE);
          new_data := std::default_allocator::allocate_multiple#BYTE(@count capacity);
          VAR i SZ := 0;
          WHILE ( i < .length )

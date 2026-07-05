@@ -304,14 +304,14 @@ namespace quxlang::parsers
         {
             output = initguard_lock_type{};
         }
-        else if (skip_keyword_if_is(pos, end, "STORAGE"))
+        else if (skip_keyword_if_is(pos, end, "TYPED_STORAGE"))
         {
             storage result;
 
             skip_whitespace_and_comments(pos, end);
             if (!skip_symbol_if_is(pos, end, "("))
             {
-                throw syntax_compilation_error("Expected '(' after STORAGE");
+                throw syntax_compilation_error("Expected '(' after TYPED_STORAGE");
             }
 
             skip_whitespace_and_comments(pos, end);
@@ -330,13 +330,13 @@ namespace quxlang::parsers
                     {
                         break;
                     }
-                    throw syntax_compilation_error("Expected ',' or ')' after STORAGE type list");
+                    throw syntax_compilation_error("Expected ',' or ')' after TYPED_STORAGE type list");
                 }
             }
 
             if (result.storable_types.empty())
             {
-                throw syntax_compilation_error("STORAGE requires at least one type");
+                throw syntax_compilation_error("TYPED_STORAGE requires at least one type");
             }
 
             output = std::move(result);

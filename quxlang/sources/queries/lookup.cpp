@@ -32,6 +32,15 @@ namespace quxlang
         co_return;
     }
 
+    auto evaluate_u64_type_expression(type_symbol context, expression expr) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::uint64_t >
+    {
+        constexpr_input input;
+        input.context = context;
+        input.expr = std::move(expr);
+        co_await apply_context_instantiation_scopes(context, input);
+        co_return co_await rpnx::querygraph::request< constexpr_u64_query >(std::move(input));
+    }
+
     auto declared_parameter_type_from_context(type_symbol context, std::string const& name) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::optional< type_symbol > >
     {
         std::optional< type_symbol > current_context = std::move(context);
@@ -236,11 +245,8 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             throw quxlang::semantic_compilation_error("PACK_ARG_TYPE requires an instantiated function context");
         }
 
-        auto const& ref = as< pack_arg_type_ref >(type);
-        constexpr_input index_input;
-        index_input.context = context;
-        index_input.expr = ref.index;
-        std::uint64_t const pack_index = co_await rpnx::querygraph::request< constexpr_u64_query >(index_input);
+        pack_arg_type_ref const& ref = as< pack_arg_type_ref >(type);
+        std::uint64_t const pack_index = co_await evaluate_u64_type_expression(context, ref.index);
 
         auto const pack_info = co_await rpnx::querygraph::request< function_pack_info_query >(as< instanciation_reference >(context));
         auto const pack_it = pack_info.packs.find(ref.pack_name);
@@ -634,13 +640,9 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     }
     else if (typeis< array_type >(type))
     {
-        auto const& arry = type.template get_as< array_type >();
-        constexpr_input ce_input;
-        ce_input.context = context;
-        ce_input.expr = arry.element_count;
-        co_await apply_context_instantiation_scopes(context, ce_input);
         // TODO: support non-64bit platforms
-        std::uint64_t element_count = co_await rpnx::querygraph::request< constexpr_u64_query >(ce_input);
+        array_type const& arry = type.template get_as< array_type >();
+        std::uint64_t const element_count = co_await evaluate_u64_type_expression(context, arry.element_count);
         array_type result_type;
         result_type.element_count = expression_numeric_literal{std::to_string(element_count)};
         auto lookup_element_type = co_await rpnx::querygraph::request< lookup_query >({.type = arry.element_type, .context = context});
@@ -667,18 +669,9 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
     }
     else if (typeis< aligned_storage >(type))
     {
-        auto const& storage_type = as< aligned_storage >(type);
-        constexpr_input size_input{
-            .context = context,
-            .expr = storage_type.size,
-        };
-        constexpr_input align_input{
-            .context = context,
-            .expr = storage_type.align,
-        };
-
-        auto size_value = co_await rpnx::querygraph::request< constexpr_u64_query >(size_input);
-        auto align_value = co_await rpnx::querygraph::request< constexpr_u64_query >(align_input);
+        aligned_storage const& storage_type = as< aligned_storage >(type);
+        std::uint64_t const size_value = co_await evaluate_u64_type_expression(context, storage_type.size);
+        std::uint64_t const align_value = co_await evaluate_u64_type_expression(context, storage_type.align);
 
         co_return aligned_storage{
             .size = expression_numeric_literal{std::to_string(size_value)},

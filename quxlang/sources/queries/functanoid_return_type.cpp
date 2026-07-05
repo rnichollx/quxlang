@@ -2,6 +2,7 @@
 
 #include <quxlang/data/compilation_result.hpp>
 #include <quxlang/queries/specs/functanoid_return_type_spec.hpp>
+#include "quxlang/ast2/source_location.hpp"
 #include "quxlang/exception.hpp"
 #include "quxlang/manipulators/typeutils.hpp"
 
@@ -46,7 +47,27 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
     std::optional< type_symbol > decl_type = co_await rpnx::querygraph::request< lookup_query >(decl_ctx);
     if (!decl_type.has_value())
     {
-        throw semantic_compilation_error("failed to resolve return type: " + quxlang::to_string(decl_ctx.type) );
+//
+        // Surface both the function whose return type failed to resolve and the
+        // source location where that return type was declared so the developer
+        // can find the offending declaration.
+        std::string message = "failed to resolve return type: " + quxlang::to_string(decl_ctx.type);
+        message += "\n    note: return type declared for function '" + quxlang::to_string(selected_function) + "'";
+        std::optional< source_location > declared_at = decl->definition.location;
+        if (!declared_at.has_value())
+        {
+            declared_at = decl->location;
+        }
+        if (declared_at.has_value())
+        {
+            message += quxlang::source_location_suffix(*declared_at);
+        }
+        compilation_error error = semantic_compilation_error(std::move(message));
+        error.traceback.push_back(trace_frame{
+            .trace_context = "return type of " + quxlang::to_string(selected_function),
+            .location = declared_at,
+        });
+        throw error;
     }
 
     if (is_template(decl_type.value()))

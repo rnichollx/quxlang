@@ -1160,7 +1160,7 @@ namespace quxlang
 
     std::string type_symbol_stringifier::operator()(storage const& ref) const
     {
-        std::string result = "STORAGE(";
+        std::string result = "TYPED_STORAGE(";
         bool first = true;
         for (auto const& stored_type : ref.storable_types)
         {
