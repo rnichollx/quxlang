@@ -22,6 +22,7 @@ namespace quxlang
 
     struct array_type;
     struct size_type;
+    struct address_type;
 
     struct nvalue_slot;
     struct temploid_reference;
@@ -57,7 +58,7 @@ namespace quxlang
     struct typeof_type_ref;
     struct function_block;
 
-    using type_symbol = rpnx::variant< void_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_type, numeric_literal_any_temploidic, string_literal_type, string_literal_any_temploidic, nvalue_slot, dvalue_slot, array_type, size_type, readonly_constant, storage, aligned_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref, decltype_type_ref, typeof_type_ref >;
+    using type_symbol = rpnx::variant< void_type, byte_type, initguard_type, initguard_lock_type, constexpr_proxy, freebound_identifier, builtin_symbol, context_reference, auto_temploidic, decay_temploidic, type_temploidic, absolute_module_reference, subsymbol, int_type, float_type, bool_type, initialization_reference, instanciation_reference, temploid_reference, value_expression_reference, submember, thistype, procedure_type, ptrref_type, attached_type_reference, numeric_literal_type, numeric_literal_any_temploidic, string_literal_type, string_literal_any_temploidic, nvalue_slot, dvalue_slot, array_type, size_type, address_type, readonly_constant, storage, aligned_storage, array_initializer_type, static_local_ref, static_snapshot_ref, pack_arg_type_ref, decltype_type_ref, typeof_type_ref >;
 
     struct expression_multiply;
     struct expression_modulus;
@@ -97,13 +98,23 @@ namespace quxlang
 
     struct expression_static_choose;
     struct expression_choose;
+    struct expression_begin_alloc_region;
+    struct expression_end_alloc_region;
+    struct expression_begin_multi_alloc_region;
+    struct expression_end_multi_alloc_region;
+    struct expression_resize_multi_alloc_region;
+    struct expression_begin_dynamic_alloc_region;
+    struct expression_end_dynamic_alloc_region;
+    struct expression_resize_dynamic_alloc_region;
+    struct expression_parent_alloc_address;
+    struct expression_relocate_region_objects;
     struct expression_snapshot;
     struct expression_pack_size;
     struct expression_pack_arg;
     struct expression_forward;
     struct expression_lambda;
 
-    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_same_types, expression_numeric_literal_fits, expression_numeric_literal_binary_op, expression_numeric_literal_negate, expression_typecast, expression_pun, expression_place, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_forward, expression_lambda >;
+    using expression = rpnx::variant< expression_symbol_reference, expression_this_reference, expression_call, expression_thisdot_reference, expression_dotreference, expression_binary, expression_numeric_literal, expression_target, expression_sizeof, expression_string_literal, expression_rightarrow, expression_leftarrow, expression_multibind, expression_unary_postfix, expression_unary_prefix, expression_value_keyword, expression_char_literal, expression_sizeof, expression_bits, expression_is_signed, expression_is_integral, expression_same_types, expression_numeric_literal_fits, expression_numeric_literal_binary_op, expression_numeric_literal_negate, expression_typecast, expression_pun, expression_place, expression_choose, expression_static_choose, expression_snapshot, expression_pack_size, expression_pack_arg, expression_forward, expression_lambda, expression_begin_alloc_region, expression_end_alloc_region, expression_begin_multi_alloc_region, expression_end_multi_alloc_region, expression_resize_multi_alloc_region, expression_begin_dynamic_alloc_region, expression_end_dynamic_alloc_region, expression_resize_dynamic_alloc_region, expression_parent_alloc_address, expression_relocate_region_objects >;
 
     struct call_initializer;
     struct array_initializer;

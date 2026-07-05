@@ -54,7 +54,7 @@ rpnx::querygraph::coroutine< quxlang::function_builtin_spec > quxlang::function_
     };
     auto is_intrinsic_builtin_type = [](type_symbol const& type) -> bool
     {
-        return type.type_is< int_type >() || type.type_is< float_type >() || type.type_is< bool_type >() || type.type_is< procedure_type >() || type.type_is< ptrref_type >() || type.type_is< array_type >() || type.type_is< byte_type >() || type.type_is< readonly_constant >() || type.type_is< constexpr_proxy >() || is_atomic_type(type);
+        return type.type_is< int_type >() || type.type_is< float_type >() || type.type_is< bool_type >() || type.type_is< procedure_type >() || type.type_is< ptrref_type >() || type.type_is< array_type >() || type.type_is< byte_type >() || type.type_is< readonly_constant >() || type.type_is< constexpr_proxy >() || type.type_is< address_type >() || is_atomic_type(type);
     };
 
     type_symbol classified_symbol = input.templexoid;

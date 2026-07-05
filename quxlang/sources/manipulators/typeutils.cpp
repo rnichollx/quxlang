@@ -160,6 +160,62 @@ namespace quxlang
             return "CHOOSE( " + expr_to_string(expr.condition) + " , " + expr_to_string(expr.true_expr) + " , " + expr_to_string(expr.false_expr) + " )";
         }
 
+        std::string operator()(expression_begin_alloc_region const& expr) const
+        {
+            return "( BEGIN_ALLOC_REGION " + expr_to_string(expr.address) + " TO " + to_string(expr.as_type) + " )";
+        }
+
+        std::string operator()(expression_end_alloc_region const& expr) const
+        {
+            return "( END_ALLOC_REGION " + expr_to_string(expr.pointer) + " )";
+        }
+
+        std::string operator()(expression_begin_multi_alloc_region const& expr) const
+        {
+            return "( BEGIN_MULTI_ALLOC_REGION " + expr_to_string(expr.address) + " SIZE " + expr_to_string(expr.count) + " TO " + to_string(expr.as_type) + " )";
+        }
+
+        std::string operator()(expression_end_multi_alloc_region const& expr) const
+        {
+            std::string result = "( END_MULTI_ALLOC_REGION " + expr_to_string(expr.pointer);
+            if (expr.count.has_value())
+            {
+                result += " SIZE " + expr_to_string(*expr.count);
+            }
+            result += " )";
+            return result;
+        }
+
+        std::string operator()(expression_resize_multi_alloc_region const& expr) const
+        {
+            return "( RESIZE_MULTI_ALLOC_REGION " + expr_to_string(expr.pointer) + " COUNT " + expr_to_string(expr.newcount) + " )";
+        }
+
+        std::string operator()(expression_begin_dynamic_alloc_region const& expr) const
+        {
+            return "( BEGIN_DYNAMIC_ALLOC_REGION " + expr_to_string(expr.address) + " SIZE " + expr_to_string(expr.count) + " )";
+        }
+
+        std::string operator()(expression_end_dynamic_alloc_region const& expr) const
+        {
+            return "( END_DYNAMIC_ALLOC_REGION " + expr_to_string(expr.address) + " SIZE " + expr_to_string(expr.count) + " )";
+        }
+
+        std::string operator()(expression_resize_dynamic_alloc_region const& expr) const
+        {
+            return "( RESIZE_DYNAMIC_ALLOC_REGION " + expr_to_string(expr.address) + " SIZE " + expr_to_string(expr.newsize) + " )";
+        }
+
+        std::string operator()(expression_parent_alloc_address const& expr) const
+        {
+            return "( PARENT_ALLOC_ADDRESS " + expr_to_string(expr.pointer_or_address) + " )";
+        }
+
+        std::string operator()(expression_relocate_region_objects const& expr) const
+        {
+            return "( RELOCATE_REGION_OBJECTS FROM " + expr_to_string(expr.from) + " TO " + expr_to_string(expr.to) + " SIZE " + expr_to_string(expr.byte_count) + " )";
+        }
+
         std::string operator()(expression_lambda const& expr) const
         {
             std::string result = "-<";
@@ -332,6 +388,7 @@ namespace quxlang
         std::string operator()(bool_type const& ref) const;
         std::string operator()(array_type const& arr) const;
         std::string operator()(size_type const& ref) const;
+        std::string operator()(address_type const& ref) const;
         std::string operator()(value_expression_reference const& ref) const;
         std::string operator()(submember const& ref) const;
         std::string operator()(void_type const&) const;
@@ -570,6 +627,11 @@ namespace quxlang
         }
 
         bool operator()(size_type const&)
+        {
+            return false;
+        }
+
+        bool operator()(address_type const&)
         {
             return false;
         }
@@ -918,6 +980,11 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(size_type const& ref) const
     {
         return "SZ";
+    }
+
+    std::string type_symbol_stringifier::operator()(address_type const& ref) const
+    {
+        return "ADDRESS";
     }
 
     std::string type_symbol_stringifier::operator()(array_type const& arr) const
@@ -1550,7 +1617,7 @@ namespace quxlang
         // In other cases, we are talking about a non-composite reference
         // However, we should make sure we don't miss types
 
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< builtin_symbol >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< address_type >(template_type) || typeis< builtin_symbol >(template_type));
         return std::nullopt;
     }
 
@@ -1847,7 +1914,7 @@ namespace quxlang
 
         std::string template_type_str = quxlang::to_string(template_type);
         std::string type_str = quxlang::to_string(type);
-        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< builtin_symbol >(template_type));
+        assert(typeis< int_type >(template_type) || typeis< float_type >(template_type) || typeis< bool_type >(template_type) || typeis< void_type >(template_type) || typeis< absolute_module_reference >(template_type) || typeis< numeric_literal_type >(template_type) || typeis< numeric_literal_any_temploidic >(template_type) || typeis< string_literal_type >(template_type) || typeis< string_literal_any_temploidic >(template_type) || typeis< readonly_constant >(template_type) || typeis< byte_type >(template_type) || typeis< size_type >(template_type) || typeis< address_type >(template_type) || typeis< builtin_symbol >(template_type));
         return std::nullopt;
     }
 
@@ -2307,6 +2374,11 @@ namespace quxlang
             }
 
             bool check_impl(size_type const& template_val, size_type const& match_val, bool conv)
+            {
+                return true;
+            }
+
+            bool check_impl(address_type const& template_val, address_type const& match_val, bool conv)
             {
                 return true;
             }
@@ -2829,6 +2901,59 @@ quxlang::expression quxlang::strip_source_locations(expression expr)
                 value.condition = strip_source_locations(std::move(value.condition));
                 value.true_expr = strip_source_locations(std::move(value.true_expr));
                 value.false_expr = strip_source_locations(std::move(value.false_expr));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_begin_alloc_region >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.as_type = strip_source_locations(std::move(value.as_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_end_alloc_region >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_begin_multi_alloc_region >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.count = strip_source_locations(std::move(value.count));
+                value.as_type = strip_source_locations(std::move(value.as_type));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_end_multi_alloc_region >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
+                if (value.count.has_value())
+                {
+                    value.count = strip_source_locations(std::move(*value.count));
+                }
+            }
+            else if constexpr (std::is_same_v< value_type, expression_resize_multi_alloc_region >)
+            {
+                value.pointer = strip_source_locations(std::move(value.pointer));
+                value.newcount = strip_source_locations(std::move(value.newcount));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_begin_dynamic_alloc_region >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.count = strip_source_locations(std::move(value.count));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_end_dynamic_alloc_region >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.count = strip_source_locations(std::move(value.count));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_resize_dynamic_alloc_region >)
+            {
+                value.address = strip_source_locations(std::move(value.address));
+                value.newsize = strip_source_locations(std::move(value.newsize));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_parent_alloc_address >)
+            {
+                value.pointer_or_address = strip_source_locations(std::move(value.pointer_or_address));
+            }
+            else if constexpr (std::is_same_v< value_type, expression_relocate_region_objects >)
+            {
+                value.from = strip_source_locations(std::move(value.from));
+                value.to = strip_source_locations(std::move(value.to));
+                value.byte_count = strip_source_locations(std::move(value.byte_count));
             }
             else if constexpr (std::is_same_v< value_type, expression_symbol_reference >)
             {

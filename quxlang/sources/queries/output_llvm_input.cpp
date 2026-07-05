@@ -998,6 +998,13 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
                     .alignment = machine.pointer_align(),
                 };
             }
+            else if (type.type_is< address_type >())
+            {
+                output_module_unit.type_placements[type] = type_placement_info{
+                    .size = machine.pointer_size_bytes(),
+                    .alignment = machine.pointer_align(),
+                };
+            }
             else if (!skip_type_placement_query)
             {
                 type_placement_requests.push_back(std::make_pair(type, rpnx::querygraph::request< type_placement_info_query >(type)));

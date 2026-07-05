@@ -46,7 +46,7 @@ rpnx::querygraph::coroutine< quxlang::functanoid_return_type_spec > quxlang::fun
     std::optional< type_symbol > decl_type = co_await rpnx::querygraph::request< lookup_query >(decl_ctx);
     if (!decl_type.has_value())
     {
-        throw quxlang::compiler_bug("Function return type could not be resolved");
+        throw semantic_compilation_error("failed to resolve return type: " + quxlang::to_string(decl_ctx.type) );
     }
 
     if (is_template(decl_type.value()))

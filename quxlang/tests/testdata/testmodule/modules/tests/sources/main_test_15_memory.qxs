@@ -26,19 +26,19 @@ IMPORT std;
 
 ::default_allocator_dealloc_multiple_test_unit_test UNIT_TEST
 {
-  VAR first =>> STORAGE(BYTE) := std::default_allocator::alloc_multiple#BYTE(@count 2);
+  VAR first =>> STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 2);
   std::default_allocator::dealloc_multiple#BYTE(@ptr first, @count 2);
 
-  VAR second =>> STORAGE(BYTE) := std::default_allocator::alloc_multiple#BYTE(@count 2);
+  VAR second =>> STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 2);
   ASSERT(second == first);
 }
 
 ::default_allocator_dealloc_multiple_count_test_unit_test UNIT_TEST
 {
-  VAR first =>> STORAGE(BYTE) := std::default_allocator::alloc_multiple#BYTE(@count 1);
+  VAR first =>> STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 1);
   std::default_allocator::dealloc_multiple#BYTE(@ptr first, @count 1);
 
-  VAR second =>> STORAGE(BYTE) := std::default_allocator::alloc_multiple#BYTE(@count 2);
+  VAR second =>> STORAGE(BYTE) := std::default_allocator::allocate_multiple#BYTE(@count 2);
   ASSERT(second != first);
 }
 

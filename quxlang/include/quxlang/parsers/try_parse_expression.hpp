@@ -601,6 +601,170 @@ namespace quxlang::parsers
             *value_bind_point = std::move(place_expr);
             have_anything = true;
         }
+        else if (skip_keyword_if_is(pos, end, "BEGIN_ALLOC_REGION"))
+        {
+            expression_begin_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "TO"))
+            {
+                throw syntax_compilation_error("Expected 'TO' after BEGIN_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            auto as_type = try_parse_type_symbol(ctx);
+            if (!as_type)
+            {
+                throw syntax_compilation_error("Expected type after BEGIN_ALLOC_REGION <expr> TO");
+            }
+            region_expr.as_type = std::move(*as_type);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "END_ALLOC_REGION"))
+        {
+            expression_end_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.pointer = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "BEGIN_MULTI_ALLOC_REGION"))
+        {
+            expression_begin_multi_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                throw syntax_compilation_error("Expected 'SIZE' after BEGIN_MULTI_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.count = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "TO"))
+            {
+                throw syntax_compilation_error("Expected 'TO' after BEGIN_MULTI_ALLOC_REGION <expr> SIZE <count>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            auto as_type = try_parse_type_symbol(ctx);
+            if (!as_type)
+            {
+                throw syntax_compilation_error("Expected type after BEGIN_MULTI_ALLOC_REGION ... TO");
+            }
+            region_expr.as_type = std::move(*as_type);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "END_MULTI_ALLOC_REGION"))
+        {
+            expression_end_multi_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.pointer = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                skip_whitespace_and_comments(pos, end);
+                region_expr.count = parse_expression_impl(ctx);
+            }
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "RESIZE_MULTI_ALLOC_REGION"))
+        {
+            expression_resize_multi_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.pointer = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "COUNT"))
+            {
+                throw syntax_compilation_error("Expected 'COUNT' after RESIZE_MULTI_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.newcount = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "BEGIN_DYNAMIC_ALLOC_REGION"))
+        {
+            expression_begin_dynamic_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                throw syntax_compilation_error("Expected 'SIZE' after BEGIN_DYNAMIC_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.count = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "END_DYNAMIC_ALLOC_REGION"))
+        {
+            expression_end_dynamic_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                throw syntax_compilation_error("Expected 'SIZE' after END_DYNAMIC_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.count = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "RESIZE_DYNAMIC_ALLOC_REGION"))
+        {
+            expression_resize_dynamic_alloc_region region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.address = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                throw syntax_compilation_error("Expected 'SIZE' after RESIZE_DYNAMIC_ALLOC_REGION <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.newsize = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "PARENT_ALLOC_ADDRESS"))
+        {
+            expression_parent_alloc_address region_expr;
+            skip_whitespace_and_comments(pos, end);
+            region_expr.pointer_or_address = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
+        else if (skip_keyword_if_is(pos, end, "RELOCATE_REGION_OBJECTS"))
+        {
+            expression_relocate_region_objects region_expr;
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "FROM"))
+            {
+                throw syntax_compilation_error("Expected 'FROM' after RELOCATE_REGION_OBJECTS");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.from = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "TO"))
+            {
+                throw syntax_compilation_error("Expected 'TO' after RELOCATE_REGION_OBJECTS FROM <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.to = parse_expression_impl(ctx);
+            skip_whitespace_and_comments(pos, end);
+            if (!skip_keyword_if_is(pos, end, "SIZE"))
+            {
+                throw syntax_compilation_error("Expected 'SIZE' after RELOCATE_REGION_OBJECTS FROM <expr> TO <expr>");
+            }
+            skip_whitespace_and_comments(pos, end);
+            region_expr.byte_count = parse_expression_impl(ctx);
+            *value_bind_point = std::move(region_expr);
+            have_anything = true;
+        }
         else if (auto number_end = iter_parse_number(pos, end); number_end != pos)
         {
             expression_numeric_literal num;

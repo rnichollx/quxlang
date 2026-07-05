@@ -1132,6 +1132,13 @@ namespace
                     .alignment = machine.pointer_align(),
                 };
             }
+            else if (type.type_is< quxlang::address_type >())
+            {
+                result.type_placements[type] = quxlang::type_placement_info{
+                    .size = machine.pointer_size_bytes(),
+                    .alignment = machine.pointer_align(),
+                };
+            }
             else if (!skip_type_placement_query)
             {
                 result.type_placements[type] = graph.make_request< quxlang::type_placement_info_query >(type);

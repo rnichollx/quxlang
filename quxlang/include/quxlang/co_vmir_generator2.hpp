@@ -3575,7 +3575,7 @@ namespace quxlang
 
         bool is_intrinsic_type(type_symbol of_type)
         {
-            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || is_atomic_type(of_type);
+            return of_type.type_is< int_type >() || of_type.type_is< float_type >() || of_type.type_is< bool_type >() || of_type.type_is< procedure_type >() || of_type.type_is< ptrref_type >() || of_type.type_is< array_type >() || of_type.type_is< byte_type >() || of_type.type_is< initguard_type >() || of_type.type_is< readonly_constant >() || of_type.type_is< constexpr_proxy >() || of_type.type_is< address_type >() || is_atomic_type(of_type);
         }
 
         /// Converts a canonical atomic access-mode type into a VMIR access mode.
@@ -4014,7 +4014,7 @@ namespace quxlang
 
             if (member->name == "OPERATOR??" || member->name == "OPERATOR?!")
             {
-                if ((cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref) || cls->template type_is< int_type >())
+                if ((cls->template type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class != pointer_class::ref) || cls->template type_is< int_type >() || cls->template type_is< address_type >())
                 {
                     if (args.named.contains("THIS") && args.named.contains("RETURN") && args.size() == 2)
                     {
@@ -4184,6 +4184,14 @@ namespace quxlang
 
             if (member->name == "CONSTRUCTOR")
             {
+                // Default constructor for ADDRESS (no input arguments): zero-initialize (null pointer).
+                if (cls->type_is< address_type >() && args.size() == 1 && args.named.contains("THIS"))
+                {
+                    vmir2::load_const_zero result{};
+                    result.target = get_local_index(args.named.at("THIS"));
+                    return result;
+                }
+
                 std::optional< std::string > ctor_input_name;
                 for (std::string const& candidate_name : {"OTHER", "EXPLICIT", "REINTERPRET", "CHECKED", "ASSUME", "PARTIAL", "APPROXIMATE"})
                 {
@@ -4344,6 +4352,16 @@ namespace quxlang
                         crf.target_index = get_local_index(this_slot_id);
                         return crf;
                     }
+                    else if (cls->type_is< address_type >() && other.type_is< address_type >())
+                    {
+                        // ADDRESS copy ctor (OTHER ADDRESS): bitwise copy of the opaque pointer.
+                        auto this_slot_id = args.named.at("THIS");
+
+                        vmir2::cast_ptrref crf;
+                        crf.source_index = get_local_index(other_slot_id);
+                        crf.target_index = get_local_index(this_slot_id);
+                        return crf;
+                    }
                     else if (cls->type_is< ptrref_type >() && cls->as< ptrref_type >().ptr_class == pointer_class::ref)
                     {
                         auto materialized_type = remove_ref(*cls);
@@ -4376,7 +4394,7 @@ namespace quxlang
             if (member->name == "OPERATOR:=")
             {
                 if (cls->template type_is< int_type >() || cls->template type_is< byte_type >() || cls->template type_is< float_type >() || cls->template type_is< bool_type >()
-                    || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >())
+                    || cls->template type_is< ptrref_type >() || cls->template type_is< readonly_constant >() || cls->template type_is< address_type >())
                 {
                     if (call.named.contains("OTHER") && call.named.contains("THIS") && call.size() == 2)
                     {
@@ -4882,6 +4900,69 @@ namespace quxlang
                     pdf.to = get_local_index(args.named.at("OTHER"));
                     pdf.result = get_local_index(args.named.at("RETURN"));
                     return pdf;
+                }
+            }
+
+            // ADDRESS + SZ / ADDRESS - SZ -> ADDRESS (byte offset)
+            // ADDRESS - ADDRESS -> SZ (byte difference)
+            if (cls->template type_is< address_type >() && (member->name == "OPERATOR+" || member->name == "OPERATOR-"))
+            {
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< int_type >() && call.size() == 2)
+                {
+                    vmir2::pointer_arith par;
+                    par.from = get_local_index(args.named.at("THIS"));
+                    if (member->name == "OPERATOR-")
+                    {
+                        par.multiplier = -1;
+                    }
+                    else
+                    {
+                        assert(member->name == "OPERATOR+");
+                        par.multiplier = 1;
+                    }
+                    par.offset = get_local_index(args.named.at("OTHER"));
+                    par.result = get_local_index(args.named.at("RETURN"));
+                    return par;
+                }
+                if (call.named.contains("THIS") && call.named.contains("OTHER") && call.named.at("OTHER").type_is< address_type >() && call.size() == 2)
+                {
+                    vmir2::pointer_diff pdf;
+                    pdf.from = get_local_index(args.named.at("THIS"));
+                    pdf.to = get_local_index(args.named.at("OTHER"));
+                    pdf.result = get_local_index(args.named.at("RETURN"));
+                    return pdf;
+                }
+            }
+
+            // ADDRESS comparisons use the integer cmp ops (cmp_eq/cmp_ne/cmp_lt/cmp_ge) since
+            // ADDRESS lowers to an opaque pointer in LLVM and the lowering code converts via
+            // CreatePtrToInt before the ICmp.
+            if (cls->template type_is< address_type >())
+            {
+                std::optional< vmir2::vm_instruction > instr;
+                if (implement_binary_instruction< vmir2::cmp_eq >(instr, "==", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ne >(instr, "!=", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, "<", true, *member, call, args))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_lt >(instr, ">", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, "<=", true, *member, call, args, true))
+                {
+                    return instr;
+                }
+                else if (implement_binary_instruction< vmir2::cmp_ge >(instr, ">=", true, *member, call, args))
+                {
+                    return instr;
                 }
             }
 
@@ -6223,6 +6304,57 @@ namespace quxlang
                             this->add_lambda_capture(analysis, capture.name);
                         }
                     }
+                    else if constexpr (std::is_same_v< value_type, expression_begin_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_end_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_begin_multi_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                        co_await this->co_analyze_lambda_expression(analysis, value.count);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_end_multi_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                        if (value.count.has_value())
+                        {
+                            co_await this->co_analyze_lambda_expression(analysis, *value.count);
+                        }
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_resize_multi_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer);
+                        co_await this->co_analyze_lambda_expression(analysis, value.newcount);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_begin_dynamic_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                        co_await this->co_analyze_lambda_expression(analysis, value.count);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_end_dynamic_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                        co_await this->co_analyze_lambda_expression(analysis, value.count);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_resize_dynamic_alloc_region >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.address);
+                        co_await this->co_analyze_lambda_expression(analysis, value.newsize);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_parent_alloc_address >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.pointer_or_address);
+                    }
+                    else if constexpr (std::is_same_v< value_type, expression_relocate_region_objects >)
+                    {
+                        co_await this->co_analyze_lambda_expression(analysis, value.from);
+                        co_await this->co_analyze_lambda_expression(analysis, value.to);
+                        co_await this->co_analyze_lambda_expression(analysis, value.byte_count);
+                    }
                     co_return;
                 });
             co_return;
@@ -6989,6 +7121,109 @@ namespace quxlang
             }
 
             throw semantic_compilation_error("Cannot cast " + to_string(this->current_type(bidx, arg_val)) + " AS " + to_string(target_class));
+        }
+
+        // Provenance alloc region keyword expressions. BEGIN_ALLOC_REGION <addr> AS =>>T converts
+        // an ADDRESS into a typed storage pointer; END_ALLOC_REGION <ptr> does the reverse. In this
+        // pass they emit a `cast_ptrref` VMIR instruction directly (a bitwise copy of the underlying
+        // opaque pointer), avoiding any REINTERPRET-constructor round-trip. The MULTI / DYNAMIC
+        // variants behave the same for now (with extra operands evaluated for side effects);
+        // PARENT_ALLOC_ADDRESS returns its argument; RELOCATE_REGION_OBJECTS is a no-op for now.
+        // Provenance / ASAN hooks will be layered in later without touching parsers.
+
+        auto co_generate(block_index& bidx, expression_begin_alloc_region input) -> co_type< value_index >
+        {
+            auto addr_val = co_await co_generate_expr(bidx, input.address);
+            type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
+            auto result = create_local_value(target_type);
+            vmir2::cast_ptrref ref;
+            ref.source_index = get_local_index(addr_val);
+            ref.target_index = get_local_index(result);
+            this->emit(bidx, ref);
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_end_alloc_region input) -> co_type< value_index >
+        {
+            auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
+            auto result = create_local_value(type_symbol(address_type{}));
+            vmir2::cast_ptrref ref;
+            ref.source_index = get_local_index(ptr_val);
+            ref.target_index = get_local_index(result);
+            this->emit(bidx, ref);
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_begin_multi_alloc_region input) -> co_type< value_index >
+        {
+            auto addr_val = co_await co_generate_expr(bidx, input.address);
+            (void)co_await co_generate_expr(bidx, input.count);
+            type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
+            auto result = create_local_value(target_type);
+            vmir2::cast_ptrref ref;
+            ref.source_index = get_local_index(addr_val);
+            ref.target_index = get_local_index(result);
+            this->emit(bidx, ref);
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_end_multi_alloc_region input) -> co_type< value_index >
+        {
+            auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
+            if (input.count.has_value())
+            {
+                (void)co_await co_generate_expr(bidx, *input.count);
+            }
+            auto result = create_local_value(type_symbol(address_type{}));
+            vmir2::cast_ptrref ref;
+            ref.source_index = get_local_index(ptr_val);
+            ref.target_index = get_local_index(result);
+            this->emit(bidx, ref);
+            co_return result;
+        }
+
+        auto co_generate(block_index& bidx, expression_resize_multi_alloc_region input) -> co_type< value_index >
+        {
+            // No-op for now; resize semantics will be filled in with provenance tracking later.
+            (void)co_await co_generate_expr(bidx, input.pointer);
+            (void)co_await co_generate_expr(bidx, input.newcount);
+            co_return co_await co_generate_expr(bidx, input.pointer);
+        }
+
+        auto co_generate(block_index& bidx, expression_begin_dynamic_alloc_region input) -> co_type< value_index >
+        {
+            auto addr_val = co_await co_generate_expr(bidx, input.address);
+            (void)co_await co_generate_expr(bidx, input.count);
+            co_return addr_val;
+        }
+
+        auto co_generate(block_index& bidx, expression_end_dynamic_alloc_region input) -> co_type< value_index >
+        {
+            auto addr_val = co_await co_generate_expr(bidx, input.address);
+            (void)co_await co_generate_expr(bidx, input.count);
+            co_return addr_val;
+        }
+
+        auto co_generate(block_index& bidx, expression_resize_dynamic_alloc_region input) -> co_type< value_index >
+        {
+            auto addr_val = co_await co_generate_expr(bidx, input.address);
+            (void)co_await co_generate_expr(bidx, input.newsize);
+            co_return addr_val;
+        }
+
+        auto co_generate(block_index& bidx, expression_parent_alloc_address input) -> co_type< value_index >
+        {
+            // PARENT_ALLOC_ADDRESS returns its argument unchanged in this pass.
+            co_return co_await co_generate_expr(bidx, input.pointer_or_address);
+        }
+
+        auto co_generate(block_index& bidx, expression_relocate_region_objects input) -> co_type< value_index >
+        {
+            // No-op relocation for this pass; provenance/ASAN hooks come later.
+            auto from_val = co_await co_generate_expr(bidx, input.from);
+            (void)co_await co_generate_expr(bidx, input.to);
+            (void)co_await co_generate_expr(bidx, input.byte_count);
+            co_return from_val;
         }
 
         auto co_try_generate_flagset_to_unsigned_cast(block_index& bidx, value_index arg_val, type_symbol const& target_class, std::optional< std::string > const& keyword) -> co_type< std::optional< value_index > >

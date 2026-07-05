@@ -507,6 +507,14 @@ namespace quxlang
         RPNX_EMPTY_METADATA(size_type);
     };
 
+    /// ADDRESS is a unique pointer-valued type used by allocators to carry
+    /// a raw machine address without any read/write authority. It is NOT an
+    /// integer (unlike SZ) and lowers to a typeless (opaque) pointer in LLVM.
+    struct address_type
+    {
+        RPNX_EMPTY_METADATA(address_type);
+    };
+
     struct value_expression_reference
     {
         // TODO: Implement
@@ -1517,6 +1525,110 @@ namespace quxlang
         expression false_expr;
 
         QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_choose, condition, true_expr, false_expr);
+    };
+
+    // Provenance-related alloc region keyword expressions (see docs/disorganized_ideas/provenance.md).
+    // For now these are parsed and carried through the AST; in the VMIR/LLVM backends they lower
+    // like REINTERPRET casts (no provenance tracking or LLVM intrinsics yet).
+
+    /// `BEGIN_ALLOC_REGION <expr> AS <type>` -- casts an ADDRESS to a storage pointer while
+    /// (eventually) beginning storage provenance in the selected region.
+    struct expression_begin_alloc_region
+    {
+        expression address;
+        type_symbol as_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_begin_alloc_region, address, as_type);
+    };
+
+    /// `END_ALLOC_REGION <storage_pointer>` -- ends an alloc region allocated with
+    /// BEGIN_ALLOC_REGION and returns an ADDRESS with the parent provenance.
+    struct expression_end_alloc_region
+    {
+        expression pointer;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_end_alloc_region, pointer);
+    };
+
+    /// `BEGIN_MULTI_ALLOC_REGION <expr> SIZE <count> AS <type>` -- like BEGIN_ALLOC_REGION but
+    /// includes a count of storage elements, for dynamically sized arrays of known storage types.
+    struct expression_begin_multi_alloc_region
+    {
+        expression address;
+        expression count;
+        type_symbol as_type;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_begin_multi_alloc_region, address, count, as_type);
+    };
+
+    /// `END_MULTI_ALLOC_REGION <expr> [SIZE <count>]` -- pops the provenance region of a
+    /// multi-alloc and returns an ADDRESS.
+    struct expression_end_multi_alloc_region
+    {
+        expression pointer;
+        std::optional< expression > count;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_end_multi_alloc_region, pointer, count);
+    };
+
+    /// `RESIZE_MULTI_ALLOC_REGION <expr> COUNT <newcount>` -- changes the alloc size of an
+    /// existing multi-alloc.
+    struct expression_resize_multi_alloc_region
+    {
+        expression pointer;
+        expression newcount;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_resize_multi_alloc_region, pointer, newcount);
+    };
+
+    /// `BEGIN_DYNAMIC_ALLOC_REGION <expr> SIZE <count>` -- takes an ADDRESS and returns a
+    /// provenance-constrained ADDRESS.
+    struct expression_begin_dynamic_alloc_region
+    {
+        expression address;
+        expression count;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_begin_dynamic_alloc_region, address, count);
+    };
+
+    /// `END_DYNAMIC_ALLOC_REGION <expr> SIZE <count>` -- recovers a pointer to the parent
+    /// provenance while ending the provenance constraint of the provided address.
+    struct expression_end_dynamic_alloc_region
+    {
+        expression address;
+        expression count;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_end_dynamic_alloc_region, address, count);
+    };
+
+    /// `RESIZE_DYNAMIC_ALLOC_REGION <expr> SIZE <newsize>` -- changes the alloc size of an
+    /// existing dynamic alloc region in-place.
+    struct expression_resize_dynamic_alloc_region
+    {
+        expression address;
+        expression newsize;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_resize_dynamic_alloc_region, address, newsize);
+    };
+
+    /// `PARENT_ALLOC_ADDRESS <storage_pointer or address>` -- exposes the address of the
+    /// allocation associated only with the direct parent allocation.
+    struct expression_parent_alloc_address
+    {
+        expression pointer_or_address;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_parent_alloc_address, pointer_or_address);
+    };
+
+    /// `RELOCATE_REGION_OBJECTS FROM <alloc1> TO <alloc2> SIZE <byte count>` -- relocates any
+    /// live objects in the source region to the destination region.
+    struct expression_relocate_region_objects
+    {
+        expression from;
+        expression to;
+        expression byte_count;
+
+        QUXLANG_WITH_SOURCE_LOCATION_METADATA(expression_relocate_region_objects, from, to, byte_count);
     };
 
     struct delegate

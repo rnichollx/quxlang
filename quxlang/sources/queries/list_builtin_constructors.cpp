@@ -530,6 +530,10 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
                                              }
                                          });
             }
+
+            // NOTE: No reciprocal REINTERPRET-casting from ADDRESS into this pointer type.
+            // Conversions between ADDRESS and typed pointer types must go through the
+            // BEGIN_ALLOC_REGION / END_ALLOC_REGION keyword expressions.
         }
 
         if (target_pref.ptr_class == pointer_class::ref)
@@ -601,12 +605,38 @@ rpnx::querygraph::coroutine< quxlang::list_builtin_constructors_spec > quxlang::
         }
     }
 
+    if (typeis< address_type >(input))
+    {
+        // Default ctor (uninitialized ADDRESS).
+        run_under_profiling_void("list_builtin_constructors address default ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}}, void_type{});
+                                 });
+        // Copy ctor.
+        run_under_profiling_void("list_builtin_constructors address copy ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_cref(builtin_self_type)}}, void_type{});
+                                 });
+        // Move ctor.
+        run_under_profiling_void("list_builtin_constructors address move ctor",
+                                 [&]
+                                 {
+                                     add_overload({}, {{"THIS", create_nslot(builtin_self_type)}, {"OTHER", make_tref(builtin_self_type)}}, void_type{});
+                                 });
+        // NOTE: ADDRESS intentionally does NOT provide a REINTERPRET constructor. Conversions
+        // between ADDRESS and typed pointer types must go through the BEGIN_ALLOC_REGION /
+        // END_ALLOC_REGION keyword expressions (which lower directly to a `cast_ptrref` VMIR
+        // instruction), not via `ptr AS REINTERPRET ADDRESS`.
+    }
+
     if (typeis< procedure_type >(input))
     {
         co_return result;
     }
 
-    if (typeis< int_type >(input) || typeis< float_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >())
+    if (typeis< int_type >(input) || typeis< float_type >(input) || input.type_is< bool_type >() || input.type_is< ptrref_type >() || input.type_is< readonly_constant >() || input.type_is< address_type >())
     {
         co_return result;
     }

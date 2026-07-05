@@ -82,6 +82,7 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     }
     else if ( typeis< numeric_literal_type >(input) ||  typeis< string_literal_type >(input) || typeis< bool_type >(input) || typeis< int_type >(input) || typeis< float_type >(input) || typeis< procedure_type >(input) || typeis< ptrref_type >(input) || typeis<nvalue_slot>(input) || is_ref(input) || typeis<dvalue_slot>(input) || typeis< byte_type >(input) || typeis< initguard_type >(input) || typeis< initguard_lock_type >(input) || typeis< constexpr_proxy >(input) || typeis< thistype >(input)
      || typeis<readonly_constant>(input)
+     || typeis< address_type >(input)
     )
     {
         co_return symbol_kind::class_;

@@ -302,6 +302,10 @@ namespace quxlang
         {
             return "SZ";
         }
+        else if (qt.template type_is< address_type >())
+        {
+            return "ADDR";
+        }
         else if (qt.template type_is< thistype >())
         {
             return "TH";

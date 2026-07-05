@@ -462,7 +462,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                                      {
                                          return p.ptr_class != pointer_class::ref;
                                      }) ||
-                                 parent.type_is< int_type >()))
+                                 parent.type_is< int_type >() || parent.type_is< address_type >()))
     {
         add_overload({}, {{"THIS", parent}}, bool_type{});
     }
@@ -526,6 +526,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_byte_type = typeis< byte_type >(parent);
         bool is_bool_type = typeis< bool_type >(parent);
         bool is_pointer_type = typeis< ptrref_type >(parent);
+        bool is_address_type = typeis< address_type >(parent);
         bool is_arithmetic_operator = arithmetic_operators.contains(operator_name);
         bool is_compound_assignment_operator = compound_assignment_operators.contains(operator_name);
         bool is_swap_operator = operator_name == "<->";
@@ -533,7 +534,7 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
         bool is_compare_operator = compare_operators.contains(operator_name);
         bool is_incdec_operator = incdec_operators.contains(operator_name);
         bool is_pointer_arith_operator = pointer_arithmetic_operators.contains(operator_name);
-        bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type;
+        bool is_regular_primitive_type = is_int_type || is_float_type || is_bool_type || is_pointer_type || is_byte_type || is_address_type;
         if (is_swap_operator && is_regular_primitive_type)
         {
             if (is_rhs)
@@ -784,6 +785,49 @@ rpnx::querygraph::coroutine< quxlang::functum_builtins_spec > quxlang::functum_b
                 {
                     // prefix operator
                     add_overload({}, {{"THIS", make_mref(ptr)}}, make_mref(parent));
+                }
+            }
+        }
+
+        // ADDRESS operator overloads. ADDRESS is a unique pointer-valued type that supports
+        // byte-wise +/- with SZ, all six comparisons against another ADDRESS, incdec,
+        // compound assignment with SZ, and assignment/swap like other primitives.
+        if (is_address_type)
+        {
+            if (compare_operators.contains(operator_name) && !is_rhs)
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, bool_type{});
+            }
+
+            if (operator_name == "+" && !is_rhs)
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, parent);
+                add_overload({}, {{"THIS", uintptr_type}, {"OTHER", parent}}, parent);
+            }
+
+            if (operator_name == "-" && !is_rhs)
+            {
+                add_overload({}, {{"THIS", parent}, {"OTHER", uintptr_type}}, parent);
+                // ADDRESS - ADDRESS -> SZ (byte difference)
+                add_overload({}, {{"THIS", parent}, {"OTHER", parent}}, uintptr_type);
+            }
+
+            if (is_compound_assignment_operator && (operator_name == "+=" || operator_name == "-=") && !is_rhs)
+            {
+                add_overload({}, {{"THIS", make_mref(parent)}, {"OTHER", uintptr_type}}, void_type{});
+            }
+
+            if (incdec_operators.contains(operator_name))
+            {
+                if (!is_rhs)
+                {
+                    // Postfix
+                    add_overload({}, {{"THIS", make_mref(parent)}}, parent);
+                }
+                else
+                {
+                    // Prefix
+                    add_overload({}, {{"THIS", make_mref(parent)}}, make_mref(parent));
                 }
             }
         }

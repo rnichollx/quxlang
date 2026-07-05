@@ -787,7 +787,7 @@ namespace quxlang::llvm_backend::detail
 
         auto is_pointer_valued_type(quxlang::type_symbol const& type) const -> bool
         {
-            return quxlang::is_ref(type) || quxlang::is_ptr(type) || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || interface_runtime_type(type);
+            return quxlang::is_ref(type) || quxlang::is_ptr(type) || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >() || interface_runtime_type(type);
         }
 
         auto interface_runtime_type(quxlang::type_symbol const& type) const -> bool
@@ -843,7 +843,7 @@ namespace quxlang::llvm_backend::detail
             }
 
             if (type.type_is< quxlang::bool_type >() || type.type_is< quxlang::byte_type >() || type.type_is< quxlang::int_type >() || type.type_is< quxlang::size_type >() ||
-                type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >())
+                type.type_is< quxlang::float_type >() || type.type_is< quxlang::procedure_type >() || type.type_is< quxlang::initguard_lock_type >() || type.type_is< quxlang::address_type >())
             {
                 return true;
             }
@@ -930,6 +930,10 @@ namespace quxlang::llvm_backend::detail
             if (type.type_is< quxlang::size_type >())
             {
                 return pointer_integer_type();
+            }
+            if (type.type_is< quxlang::address_type >())
+            {
+                return opaque_pointer_type();
             }
             if (type.type_is< quxlang::float_type >())
             {
@@ -1804,6 +1808,15 @@ namespace quxlang::llvm_backend::detail
                 unsigned const bit_width = static_cast< unsigned >(input.machine_target.machine.pointer_size_bytes() * 8);
                 llvm::APInt const integer_value = little_endian_apint(value.get_as< quxlang::antestatal_primitive >().value, bit_width);
                 return llvm::ConstantInt::get(context, integer_value);
+            }
+
+            if (type.type_is< quxlang::address_type >())
+            {
+                if (value.type_is< quxlang::antestatal_ptrref >())
+                {
+                    return constant_pointer_from_antestatal_access(value.get_as< quxlang::antestatal_ptrref >().target, quxlang::void_type{});
+                }
+                throw quxlang::semantic_compilation_error("Expected nullptr or pointer readonly antestatal initializer for ADDRESS");
             }
 
             if (std::optional< unsigned > const nominal_bits = nominal_integer_bit_width(type); nominal_bits.has_value())
@@ -5249,6 +5262,13 @@ namespace quxlang::llvm_backend::detail
                 store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_key, rhs_key));
                 return;
             }
+            if (type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
+                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
+                store_boolean(state, builder, instruction.result, builder.CreateICmpULT(lhs_addr, rhs_addr));
+                return;
+            }
             bool is_signed = true;
             if (type.type_is< quxlang::int_type >())
             {
@@ -5276,6 +5296,13 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
                 llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
                 store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_key, rhs_key));
+                return;
+            }
+            if (type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
+                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
+                store_boolean(state, builder, instruction.result, builder.CreateICmpUGE(lhs_addr, rhs_addr));
                 return;
             }
             bool is_signed = true;
@@ -5306,6 +5333,13 @@ namespace quxlang::llvm_backend::detail
                 store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_key, rhs_key));
                 return;
             }
+            if (type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
+                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
+                store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs_addr, rhs_addr));
+                return;
+            }
             store_boolean(state, builder, instruction.result, builder.CreateICmpEQ(lhs, rhs));
             return;
         }
@@ -5323,6 +5357,13 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* lhs_key = float_total_order_key(lhs, float_info, builder);
                 llvm::Value* rhs_key = float_total_order_key(rhs, float_info, builder);
                 store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_key, rhs_key));
+                return;
+            }
+            if (type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* lhs_addr = builder.CreatePtrToInt(lhs, pointer_integer_type());
+                llvm::Value* rhs_addr = builder.CreatePtrToInt(rhs, pointer_integer_type());
+                store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs_addr, rhs_addr));
                 return;
             }
             store_boolean(state, builder, instruction.result, builder.CreateICmpNE(lhs, rhs));
@@ -5597,6 +5638,14 @@ namespace quxlang::llvm_backend::detail
                 store_slot_value(state, builder, instruction.result, old_value);
                 return;
             }
+            if (pointee_type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::get(i64_type(), 1));
+                builder.CreateStore(updated_pointer, target_pointer);
+                store_slot_value(state, builder, instruction.result, old_pointer);
+                return;
+            }
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
@@ -5627,6 +5676,14 @@ namespace quxlang::llvm_backend::detail
                 llvm::Value* updated_value = builder.CreateSub(old_value, scalar_one(llvm_value_type));
                 builder.CreateStore(updated_value, target_pointer);
                 store_slot_value(state, builder, instruction.result, old_value);
+                return;
+            }
+            if (pointee_type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -1));
+                builder.CreateStore(updated_pointer, target_pointer);
+                store_slot_value(state, builder, instruction.result, old_pointer);
                 return;
             }
             if (quxlang::is_ptr(pointee_type))
@@ -5665,6 +5722,21 @@ namespace quxlang::llvm_backend::detail
                 else
                 {
                     store_slot_value(state, builder, instruction.target2, updated_value);
+                }
+                return;
+            }
+            if (pointee_type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::get(i64_type(), 1));
+                builder.CreateStore(updated_pointer, target_pointer);
+                if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
+                {
+                    store_reference_pointer(state, builder, instruction.target2, target_pointer);
+                }
+                else
+                {
+                    store_slot_value(state, builder, instruction.target2, updated_pointer);
                 }
                 return;
             }
@@ -5714,6 +5786,21 @@ namespace quxlang::llvm_backend::detail
                 }
                 return;
             }
+            if (pointee_type.type_is< quxlang::address_type >())
+            {
+                llvm::Value* old_pointer = builder.CreateLoad(opaque_pointer_type(), target_pointer);
+                llvm::Value* updated_pointer = builder.CreateInBoundsGEP(i8_type(), old_pointer, llvm::ConstantInt::getSigned(i64_type(), -1));
+                builder.CreateStore(updated_pointer, target_pointer);
+                if (quxlang::is_ref(state.routine->local_types.at(local_slot_index(instruction.target2)).type))
+                {
+                    store_reference_pointer(state, builder, instruction.target2, target_pointer);
+                }
+                else
+                {
+                    store_slot_value(state, builder, instruction.target2, updated_pointer);
+                }
+                return;
+            }
             if (quxlang::is_ptr(pointee_type))
             {
                 quxlang::type_symbol element_type = quxlang::remove_ptr(pointee_type);
@@ -5739,7 +5826,16 @@ namespace quxlang::llvm_backend::detail
             (void)current_block;
             quxlang::vmir2::pointer_arith const& inst = instruction;
             quxlang::type_symbol pointer_type = state.routine->local_types.at(local_slot_index(inst.from)).type;
-            quxlang::type_symbol element_type = quxlang::remove_ptr(pointer_type);
+            std::uint64_t element_size;
+            if (pointer_type.type_is< quxlang::address_type >())
+            {
+                element_size = 1;
+            }
+            else
+            {
+                quxlang::type_symbol element_type = quxlang::remove_ptr(pointer_type);
+                element_size = slot_size(element_type);
+            }
             quxlang::type_symbol const& offset_type = state.routine->local_types.at(local_slot_index(inst.offset)).type;
             bool const signed_offset = offset_type.type_is< quxlang::int_type >() && offset_type.get_as< quxlang::int_type >().has_sign;
             llvm::Value* base_pointer = load_slot_value(state, builder, inst.from);
@@ -5769,7 +5865,7 @@ namespace quxlang::llvm_backend::detail
                 throw quxlang::semantic_compilation_error("PTR_ARITH multiplier must be 1 or -1 for LLVM lowering");
             }
             llvm::Value* byte_pointer = builder.CreateBitCast(base_pointer, opaque_pointer_type());
-            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), slot_size(element_type)));
+            llvm::Value* byte_offset = builder.CreateMul(index_value, llvm::ConstantInt::get(i64_type(), element_size));
             llvm::Value* element_pointer = builder.CreateInBoundsGEP(i8_type(), byte_pointer, byte_offset);
             store_slot_value(state, builder, inst.result, element_pointer);
             return;
@@ -5782,15 +5878,29 @@ namespace quxlang::llvm_backend::detail
             quxlang::vmir2::pointer_diff const& inst = instruction;
             quxlang::type_symbol const& from_type = state.routine->local_types.at(local_slot_index(inst.from)).type;
             quxlang::type_symbol const& to_type = state.routine->local_types.at(local_slot_index(inst.to)).type;
-            if (!quxlang::is_ptr(from_type) || !quxlang::is_ptr(to_type))
-            {
-                throw quxlang::semantic_compilation_error("PTR_DIFF requires pointer operands for LLVM lowering");
-            }
 
-            quxlang::type_symbol const element_type = quxlang::remove_ptr(from_type);
-            if (element_type != quxlang::remove_ptr(to_type))
+            std::uint64_t element_size;
+            if (from_type.type_is< quxlang::address_type >() || to_type.type_is< quxlang::address_type >())
             {
-                throw quxlang::semantic_compilation_error("PTR_DIFF requires matching pointer element types for LLVM lowering");
+                if (!(from_type.type_is< quxlang::address_type >() && to_type.type_is< quxlang::address_type >()))
+                {
+                    throw quxlang::semantic_compilation_error("PTR_DIFF requires both operands to be ADDRESS, or both to be matching pointer types");
+                }
+                element_size = 1;
+            }
+            else
+            {
+                if (!quxlang::is_ptr(from_type) || !quxlang::is_ptr(to_type))
+                {
+                    throw quxlang::semantic_compilation_error("PTR_DIFF requires pointer operands for LLVM lowering");
+                }
+
+                quxlang::type_symbol const element_type = quxlang::remove_ptr(from_type);
+                if (element_type != quxlang::remove_ptr(to_type))
+                {
+                    throw quxlang::semantic_compilation_error("PTR_DIFF requires matching pointer element types for LLVM lowering");
+                }
+                element_size = slot_size(element_type);
             }
 
             llvm::Value* from_pointer = load_slot_value(state, builder, inst.from);
@@ -5798,7 +5908,6 @@ namespace quxlang::llvm_backend::detail
             llvm::Value* from_address = builder.CreatePtrToInt(from_pointer, i64_type());
             llvm::Value* to_address = builder.CreatePtrToInt(to_pointer, i64_type());
             llvm::Value* element_delta = builder.CreateSub(from_address, to_address);
-            std::uint64_t const element_size = slot_size(element_type);
             if (element_size != 1)
             {
                 element_delta = builder.CreateExactSDiv(element_delta, llvm::ConstantInt::getSigned(i64_type(), static_cast< std::int64_t >(element_size)));
