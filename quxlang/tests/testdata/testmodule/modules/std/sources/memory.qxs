@@ -71,7 +71,7 @@ IMPORT syscall;
 //   Single, typed:        allocate#T()                 -> ->TYPED_STORAGE(T)
 //   Single, Size+Align:   allocate#(@size, @align)()   -> ->ALIGNED_STORAGE(size, align)
 //   Multi,  typed:        allocate_multiple#T(count)            -> =>>TYPED_STORAGE(T)
-//   Multi,  Size+Align:   allocate_multiple#(@size, @align)(count) -> =>>VOID
+//   Multi,  Size+Align:   allocate_multiple#(@size, @align)(count) -> =>>ALIGNED_STORAGE(size, align)
 //
 //   dealloc#T(ptr)                       dealloc#(size, align)(ptr)
 //   dealloc_multiple#T(ptr, count)       dealloc_multiple#(size, align)(ptr, count)
@@ -159,10 +159,10 @@ IMPORT syscall;
   }
 
   // Multi, Size+Align
-  ::allocate_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>VOID
+  ::allocate_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@count SZ): =>>ALIGNED_STORAGE(size, align)
   {
      VAR addr ADDRESS := alloc_multiple_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@count count);
-     RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>VOID;
+     RETURN BEGIN_MULTI_ALLOC_REGION addr SIZE count TO =>>ALIGNED_STORAGE(size, align);
   }
 
   // Multi, typed dealloc
@@ -180,7 +180,7 @@ IMPORT syscall;
   }
 
   // Multi, Size+Align dealloc
-  ::dealloc_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>VOID, @count SZ)
+  ::dealloc_multiple TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>>ALIGNED_STORAGE(size, align), @count SZ)
   {
      VAR addr ADDRESS := END_MULTI_ALLOC_REGION ptr SIZE count;
      dealloc_multiple_native#(@size memory_bucket_size(@size size), @align memory_bucket_size(@size align))(@ptr addr, @count count);

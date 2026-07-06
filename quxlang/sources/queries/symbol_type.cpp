@@ -69,6 +69,67 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
        }
     }
 
+    if (typeis< instanciation_reference >(input))
+    {
+       auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
+
+       if (typeis< ast2_class_declaration >(selected_ast))
+       {
+          co_return symbol_kind::class_;
+       }
+       else if (typeis< ast2_interface_declaration >(selected_ast))
+       {
+          co_return symbol_kind::interface_;
+       }
+       else if (typeis< ast2_implementation_declaration >(selected_ast))
+       {
+          co_return symbol_kind::implementation_;
+       }
+       else if (typeis< ast2_enum_declaration >(selected_ast))
+       {
+          co_return symbol_kind::enum_;
+       }
+       else if (typeis< ast2_flagset_declaration >(selected_ast))
+       {
+          co_return symbol_kind::flagset_;
+       }
+       else if (typeis< functum >(selected_ast))
+       {
+          co_return symbol_kind::functum;
+       }
+       else if (typeis< ast2_function_declaration >(selected_ast))
+       {
+          co_return symbol_kind::funtanoid;
+       }
+       else if (typeis< ast2_variable_declaration >(selected_ast))
+       {
+          if (typeis< subsymbol >(as< instanciation_reference >(input).temploid.templexoid))
+          {
+             co_return symbol_kind::global_variable;
+          }
+          else if (typeis< submember >(as< instanciation_reference >(input).temploid.templexoid))
+          {
+             co_return symbol_kind::member_variable;
+          }
+          else
+          {
+             throw compiler_bug("templated variable symbol must be a subsymbol or submember");
+          }
+       }
+       else if (typeis< std::monostate >(selected_ast))
+       {
+          co_return symbol_kind::noexist;
+       }
+       else if (typeis< ast2_test >(selected_ast))
+       {
+          co_return symbol_kind::test;
+       }
+       else
+       {
+          throw compiler_bug("instanciation_reference resolved to unsupported symboid kind for " + to_string(input));
+       }
+    }
+
     auto functions = co_await rpnx::querygraph::request< functum_overloads_query >(input);
     if (functions.size() > 0)
     {
@@ -89,6 +150,19 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     }
     else if (typeis <void_type>(input))
     {
+        co_return symbol_kind::noexist;
+    }
+    else if (typeis< subtag_type >(input))
+    {
+        auto binding = co_await rpnx::querygraph::request< subtag_binding_query >(as< subtag_type >(input));
+        if (!binding.has_value())
+        {
+            co_return symbol_kind::noexist;
+        }
+        if (binding->template type_is< parameter_value_instantiation >())
+        {
+            co_return symbol_kind::global_variable;
+        }
         co_return symbol_kind::noexist;
     }
     else if (typeis< submember >(input) || typeis< subsymbol >(input))
@@ -224,66 +298,6 @@ rpnx::querygraph::coroutine< quxlang::symbol_type_spec > quxlang::symbol_type_im
     else if (typeis <array_type>(input))
     {
         co_return symbol_kind::class_;
-    }
-    else if (typeis< instanciation_reference >(input))
-    {
-       auto const& selected_ast = co_await rpnx::querygraph::request< symboid_query >(input);
-
-       if (typeis< ast2_class_declaration >(selected_ast))
-       {
-          co_return symbol_kind::class_;
-       }
-       else if (typeis< ast2_interface_declaration >(selected_ast))
-       {
-          co_return symbol_kind::interface_;
-       }
-       else if (typeis< ast2_implementation_declaration >(selected_ast))
-       {
-          co_return symbol_kind::implementation_;
-       }
-       else if (typeis< ast2_enum_declaration >(selected_ast))
-       {
-          co_return symbol_kind::enum_;
-       }
-       else if (typeis< ast2_flagset_declaration >(selected_ast))
-       {
-          co_return symbol_kind::flagset_;
-       }
-       else if (typeis< functum >(selected_ast))
-       {
-          co_return symbol_kind::functum;
-       }
-       else if (typeis< ast2_function_declaration >(selected_ast))
-       {
-          co_return symbol_kind::funtanoid;
-       }
-       else if (typeis< ast2_variable_declaration >(selected_ast))
-       {
-          if (typeis< subsymbol >(as< instanciation_reference >(input).temploid.templexoid))
-          {
-             co_return symbol_kind::global_variable;
-          }
-          else if (typeis< submember >(as< instanciation_reference >(input).temploid.templexoid))
-          {
-             co_return symbol_kind::member_variable;
-          }
-          else
-          {
-             throw compiler_bug("templated variable symbol must be a subsymbol or submember");
-          }
-       }
-       else if (typeis< std::monostate >(selected_ast))
-       {
-          co_return symbol_kind::noexist;
-       }
-       else if (typeis< ast2_test >(selected_ast))
-       {
-          co_return symbol_kind::test;
-       }
-       else
-       {
-          throw compiler_bug("instanciation_reference resolved to unsupported symboid kind for " + to_string(input));
-       }
     }
     throw compiler_bug("symbol_type does not support symbol: " + to_string(input));
 }

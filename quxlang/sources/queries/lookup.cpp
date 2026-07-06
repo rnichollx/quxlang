@@ -13,31 +13,11 @@
 
 namespace quxlang
 {
-    auto apply_context_instantiation_scopes(type_symbol context, constexpr_input& input) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< void >
-    {
-        std::optional< type_symbol > current_context = std::move(context);
-        while (current_context.has_value())
-        {
-            if (typeis< instanciation_reference >(*current_context))
-            {
-                auto const& inst = as< instanciation_reference >(*current_context);
-                auto inst_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
-                if (inst_kind == symbol_kind::template_)
-                {
-                    merge_instantiation_scope_bindings(instantiation_scope_for(inst), input);
-                }
-            }
-            current_context = type_parent(*current_context);
-        }
-        co_return;
-    }
-
     auto evaluate_u64_type_expression(type_symbol context, expression expr) -> rpnx::querygraph::coroutine< lookup_spec >::cosubroutine< std::uint64_t >
     {
         constexpr_input input;
         input.context = context;
         input.expr = std::move(expr);
-        co_await apply_context_instantiation_scopes(context, input);
         co_return co_await rpnx::querygraph::request< constexpr_u64_query >(std::move(input));
     }
 
@@ -287,6 +267,16 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
             throw quxlang::semantic_compilation_error("DECLTYPE requires a value symbol");
         }
 
+        if (canonical_symbol->template type_is< subtag_type >())
+        {
+            auto binding = co_await rpnx::querygraph::request< subtag_binding_query >(canonical_symbol->template get_as< subtag_type >());
+            if (binding.has_value() && binding->template type_is< parameter_value_instantiation >())
+            {
+                co_return binding->template get_as< parameter_value_instantiation >().type;
+            }
+            throw quxlang::semantic_compilation_error("DECLTYPE subtag target is not a value");
+        }
+
         auto declaration = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
         if (!declaration.template type_is< ast2_variable_declaration >())
         {
@@ -315,49 +305,7 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
 
         while (current_context.has_value())
         {
-            std::string name = fb.name;
-            if (typeis< instanciation_reference >(*current_context))
-            {
-                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-                {
-                    co_yield rpnx::querygraph::debug_message("Instanciation:  within {} check  {}", to_string(*current_context), to_string(type));
-                }
-
-                // Two possibilities, 1 = this is a template, 2 = this is a function
-                instanciation_reference inst = as< instanciation_reference >(*current_context);
-
-                auto param_set = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(inst);
-
-                if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
-                {
-                    co_yield rpnx::querygraph::debug_message("Param set, name={}", name);
-                    co_yield rpnx::querygraph::debug_message("Param map {} / {} {}", to_string(inst), to_string(*current_context), param_set.parameter_map.size());
-                    for (auto it = param_set.parameter_map.begin(); it != param_set.parameter_map.end(); it++)
-                    {
-                        co_yield rpnx::querygraph::debug_message("Param map: k={} v={}", it->first, to_string(it->second));
-                    }
-                }
-                auto it = param_set.parameter_map.find(name);
-                if (it != param_set.parameter_map.end())
-                {
-                    co_return it->second;
-                }
-            }
-
             subsymbol sub2{current_context.value(), fb.name};
-
-            if (current_context.value().type_is< absolute_module_reference >())
-            {
-                ast2_module_declaration const & module_ast = co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(current_context.value()).module_name);
-
-                auto import_at = module_ast.imports.find(fb.name);
-
-                if (import_at != module_ast.imports.end())
-                {
-                    co_return absolute_module_reference{import_at->second};
-                }
-            }
-
             auto exists = co_await rpnx::querygraph::request< exists_query >(sub2);
 
             if constexpr (QUXLANG_DEBUG_MESSAGES_ENABLED)
@@ -372,6 +320,29 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
                     co_yield rpnx::querygraph::debug_message("Found '{}' in context {}", fb.name, quxlang::to_string(current_context.value()));
                 }
                 co_return sub2;
+            }
+
+            subtag_type tag{current_context.value(), fb.name};
+            auto tag_binding = co_await rpnx::querygraph::request< subtag_binding_query >(tag);
+            if (tag_binding.has_value())
+            {
+                if (tag_binding->template type_is< parameter_type_instantiation >())
+                {
+                    co_return tag_binding->template get_as< parameter_type_instantiation >().type;
+                }
+                co_return tag;
+            }
+
+            if (current_context.value().type_is< absolute_module_reference >())
+            {
+                ast2_module_declaration const& module_ast = co_await rpnx::querygraph::request< module_ast_query >(as< absolute_module_reference >(current_context.value()).module_name);
+
+                auto import_at = module_ast.imports.find(fb.name);
+
+                if (import_at != module_ast.imports.end())
+                {
+                    co_return absolute_module_reference{import_at->second};
+                }
             }
 
             current_context = type_parent(current_context.value());
@@ -429,6 +400,31 @@ rpnx::querygraph::coroutine< quxlang::lookup_spec > quxlang::lookup_impl(context
         auto parent_canonical_str = to_string(parent_canonical);
         assert(!type_is_contextual(parent_canonical));
         co_return subsymbol{parent_canonical, sub.name};
+    }
+    else if (type.template type_is< subtag_type >())
+    {
+        subtag_type const& sub = as< subtag_type >(type);
+        type_symbol const& parent = sub.of;
+
+        auto parent_canonical_opt = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = context, .type = parent});
+        if (!parent_canonical_opt.has_value())
+        {
+            co_return std::nullopt;
+        }
+
+        subtag_type canonical{.of = parent_canonical_opt.value(), .name = sub.name};
+        auto binding = co_await rpnx::querygraph::request< subtag_binding_query >(canonical);
+        if (!binding.has_value())
+        {
+            co_return std::nullopt;
+        }
+        if (binding->template type_is< parameter_type_instantiation >())
+        {
+            co_return binding->template get_as< parameter_type_instantiation >().type;
+        }
+
+        assert(!type_is_contextual(canonical.of));
+        co_return canonical;
     }
     else if (type.template type_is< submember >())
     {

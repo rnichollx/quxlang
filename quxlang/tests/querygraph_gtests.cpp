@@ -41,6 +41,7 @@
 #include <quxlang/queries/interface_slot_list.hpp>
 #include <quxlang/queries/list_static_tests.hpp>
 #include <quxlang/queries/list_unit_tests.hpp>
+#include <quxlang/queries/lookup.hpp>
 #include <quxlang/queries/source_bundle.hpp>
 #include <quxlang/queries/source_file_id.hpp>
 #include <quxlang/queries/source_file_index.hpp>
@@ -58,6 +59,7 @@
 #include <quxlang/queries/type_is_trivially_relocatable.hpp>
 #include <quxlang/queries/type_placement_info.hpp>
 #include <quxlang/queries/user_deserialize_exists.hpp>
+#include <quxlang/queries/variable_type.hpp>
 #include <quxlang/queries/vm_procedure3.hpp>
 #include <quxlang/vmir2/assembler.hpp>
 #include <quxlang/vmir2/vmir2.hpp>
@@ -81,6 +83,7 @@ namespace
     auto parse_type_symbol_text(std::string const& text) -> quxlang::type_symbol
     {
         quxlang::parsers::parsing_context ctx = quxlang::parsers::make_unlocated_parsing_context(text);
+        ctx.allow_internal_subtag_symbols = true;
         quxlang::type_symbol result = quxlang::parsers::parse_type_symbol(ctx);
         if (ctx.iter_pos != ctx.iter_end)
         {
@@ -1326,6 +1329,117 @@ TEST(querygraph_queries, nested_namespace_subdeclaroids_resolve)
     quxlang::type_symbol value = quxlang::subsymbol{inner, "value"};
 
     ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(value), quxlang::symbol_kind::global_variable);
+}
+
+TEST(querygraph_queries, template_subtags_resolve_type_and_value_bindings)
+{
+    quxlang::type_symbol const parsed_tag = parse_type_symbol_text("templ#(@x I32)$x");
+    ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(parsed_tag));
+    quxlang::subtag_type const& parsed_subtag = quxlang::as< quxlang::subtag_type >(parsed_tag);
+    ASSERT_EQ(parsed_subtag.name, "x");
+    ASSERT_TRUE(quxlang::typeis< quxlang::initialization_reference >(parsed_subtag.of));
+
+    std::string const printed_tag = quxlang::to_string(parsed_tag);
+    ASSERT_NE(printed_tag.find("$x"), std::string::npos);
+    ASSERT_EQ(parse_type_symbol_text(printed_tag), parsed_tag);
+
+    auto bundle = make_single_main_source_bundle(R"(
+::local_count VAR U64;
+
+::alias_holder TEMPLATE(@T TYPE AUTO(t), @count:local_count VALUE U64, @public_count VALUE U64) CLASS
+{
+  .value VAR t;
+}
+
+::shadow_holder TEMPLATE(@T TYPE AUTO(t)) CLASS
+{
+  ::t VAR I64;
+}
+)");
+    auto graph = make_x64_graph(bundle);
+    quxlang::type_symbol const main = quxlang::absolute_module_reference{"main"};
+    quxlang::type_symbol const i32 = quxlang::int_type{32, true};
+    quxlang::type_symbol const u64 = quxlang::int_type{64, false};
+    quxlang::type_symbol const alias_input = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)");
+
+    std::optional< quxlang::type_symbol > alias_context = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = alias_input,
+    });
+    ASSERT_TRUE(alias_context.has_value());
+
+    std::optional< quxlang::type_symbol > type_alias = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$t"),
+    });
+    ASSERT_EQ(type_alias, std::optional< quxlang::type_symbol >(i32));
+
+    std::optional< quxlang::type_symbol > local_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$local_count"),
+    });
+    ASSERT_TRUE(local_value_tag.has_value());
+    ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(*local_value_tag));
+    ASSERT_EQ(quxlang::as< quxlang::subtag_type >(*local_value_tag).name, "local_count");
+    ASSERT_EQ(graph.make_request< quxlang::symbol_type_query >(*local_value_tag), quxlang::symbol_kind::global_variable);
+    ASSERT_EQ(graph.make_request< quxlang::variable_type_query >(*local_value_tag), u64);
+    ASSERT_TRUE(graph.make_request< quxlang::global_is_antestatal_static_query >(*local_value_tag));
+    ASSERT_TRUE(quxlang::typeis< std::monostate >(graph.make_request< quxlang::symboid_query >(*local_value_tag)));
+
+    std::optional< quxlang::type_symbol > api_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$count"),
+    });
+    ASSERT_FALSE(api_value_tag.has_value());
+
+    quxlang::antestatal_value const local_value = graph.make_request< quxlang::antestatal_static_value_query >(*local_value_tag);
+    ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(local_value));
+    std::vector< std::byte > const& local_bytes = quxlang::as< quxlang::antestatal_primitive >(local_value).value;
+    ASSERT_GE(local_bytes.size(), static_cast< std::size_t >(1));
+    ASSERT_EQ(std::to_integer< std::uint32_t >(local_bytes.at(0)), 7);
+
+    std::uint64_t const constexpr_read = graph.make_request< quxlang::constexpr_u64_query >(quxlang::constexpr_input{
+        .expr = quxlang::expression_symbol_reference{*local_value_tag},
+        .context = main,
+    });
+    ASSERT_EQ(constexpr_read, 7);
+
+    std::optional< quxlang::type_symbol > public_value_tag = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::alias_holder#(@T I32, @count 7, @public_count 9)$public_count"),
+    });
+    ASSERT_TRUE(public_value_tag.has_value());
+    ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(*public_value_tag));
+    ASSERT_EQ(quxlang::as< quxlang::subtag_type >(*public_value_tag).name, "public_count");
+    quxlang::antestatal_value const public_value = graph.make_request< quxlang::antestatal_static_value_query >(*public_value_tag);
+    ASSERT_TRUE(quxlang::typeis< quxlang::antestatal_primitive >(public_value));
+    std::vector< std::byte > const& public_bytes = quxlang::as< quxlang::antestatal_primitive >(public_value).value;
+    ASSERT_GE(public_bytes.size(), static_cast< std::size_t >(1));
+    ASSERT_EQ(std::to_integer< std::uint32_t >(public_bytes.at(0)), 9);
+
+    std::optional< quxlang::type_symbol > free_local = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = *alias_context,
+        .type = quxlang::freebound_identifier{"local_count"},
+    });
+    ASSERT_EQ(free_local, local_value_tag);
+
+    std::optional< quxlang::type_symbol > decltype_local = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = *alias_context,
+        .type = parse_type_symbol_text("DECLTYPE(local_count)"),
+    });
+    ASSERT_EQ(decltype_local, std::optional< quxlang::type_symbol >(u64));
+
+    std::optional< quxlang::type_symbol > shadow_context = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = main,
+        .type = parse_type_symbol_text("MODULE(main)::shadow_holder#(@T I32)"),
+    });
+    ASSERT_TRUE(shadow_context.has_value());
+
+    std::optional< quxlang::type_symbol > shadow_lookup = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = *shadow_context,
+        .type = quxlang::freebound_identifier{"t"},
+    });
+    ASSERT_EQ(shadow_lookup, std::optional< quxlang::type_symbol >(quxlang::subsymbol{*shadow_context, "t"}));
 }
 
 TEST(querygraph_queries, enum_info_normalizes_values_defaults_and_reservations)

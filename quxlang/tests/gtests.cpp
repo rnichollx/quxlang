@@ -1029,6 +1029,14 @@ TEST(parsing, parse_basic_types)
     ASSERT_TRUE(parse_type_symbol("TYPED_STORAGE(I64, I32)") == parse_type_symbol("TYPED_STORAGE(I32, I64)"));
     ASSERT_TRUE(parse_type_symbol("ALIGNED_STORAGE(4, 8)") == type_symbol(aligned_storage{.size = expression_numeric_literal{"4"}, .align = expression_numeric_literal{"8"}}));
     ASSERT_TRUE(parse_type_symbol("PACK_ARG_TYPE(b, 0)") == type_symbol(pack_arg_type_ref{.pack_name = "b", .index = expression_numeric_literal{"0"}}));
+    EXPECT_THROW((void)parse_type_symbol("templated_holder#(I32)$t"), quxlang::compilation_error);
+    EXPECT_THROW(parse_file_text(R"(
+::tag_value_decl_parse_probe FUNCTION()
+{
+  VAR type_tag_value templated_holder#(I32)$t := 3;
+}
+)"),
+                 quxlang::compilation_error);
 
     ASSERT_TRUE(parse_type_symbol("BOOL") == type_symbol(bool_type{}));
     ASSERT_TRUE(parse_type_symbol("F32") == type_symbol(float_type{.bits = 32, .exponent_bits = 8}));
@@ -6784,6 +6792,73 @@ TEST(quxlang, value_template_parameter_is_available_in_class_field_type)
     auto const& array = quxlang::as< quxlang::array_type >(fields.front().type);
     ASSERT_EQ(array.element_type, parse_type_symbol("U64"));
     ASSERT_EQ(array.element_count, quxlang::expression(quxlang::expression_numeric_literal{.value = "4"}));
+}
+
+TEST(quxlang, value_template_parameter_is_available_in_function_return_type)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::make_aligned TEMPLATE(@size:value_size VALUE SZ, @align:value_align VALUE SZ) FUNCTION(): -> ALIGNED_STORAGE(value_size, value_align)
+{
+    UNIMPLEMENTED;
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    std::optional< quxlang::type_symbol > template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = parse_type_symbol("MODULE(main)"),
+        .type = parse_type_symbol("MODULE(main)::make_aligned#(@size 4, @align 8)"),
+    });
+    ASSERT_TRUE(template_symbol.has_value());
+    ASSERT_TRUE(quxlang::typeis< quxlang::instanciation_reference >(*template_symbol));
+
+    std::optional< quxlang::instanciation_reference > function_symbol = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+        .initializee = *template_symbol,
+    });
+    ASSERT_TRUE(function_symbol.has_value());
+
+    quxlang::type_symbol const return_type = graph.make_request< quxlang::functanoid_return_type_query >(*function_symbol);
+    ASSERT_EQ(return_type, parse_type_symbol("-> ALIGNED_STORAGE(4, 8)"));
+}
+
+TEST(quxlang, value_template_parameter_is_available_in_function_parameter_type_and_body)
+{
+    quxlang::source_bundle sources = make_main_module_source_bundle(R"(
+::take_aligned TEMPLATE(@size VALUE SZ, @align VALUE SZ) FUNCTION(@ptr =>> ALIGNED_STORAGE(size, align)): SZ
+{
+    RETURN size;
+}
+)");
+    quxlang::compiler_querygraph graph(sources, "linux-x64", sources.targets.at("linux-x64").target_output_config,
+                                       quxlang::tests::current_test_graph_dump_path());
+
+    std::optional< quxlang::type_symbol > template_symbol;
+    ASSERT_NO_THROW(template_symbol = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+                        .context = parse_type_symbol("MODULE(main)"),
+                        .type = parse_type_symbol("MODULE(main)::take_aligned#(@size 4, @align 8)"),
+                    }));
+    ASSERT_TRUE(template_symbol.has_value());
+
+    quxlang::instatype call_params;
+    call_params.named["ptr"] = quxlang::make_type_instantiation(parse_type_symbol("=>> ALIGNED_STORAGE(4, 8)"));
+    std::optional< quxlang::instanciation_reference > function_symbol;
+    ASSERT_NO_THROW(function_symbol = graph.make_request< quxlang::instanciation_query >(quxlang::initialization_reference{
+                        .initializee = *template_symbol,
+                        .parameters = std::move(call_params),
+                    }));
+    ASSERT_TRUE(function_symbol.has_value());
+
+    std::optional< quxlang::type_symbol > size_lookup = graph.make_request< quxlang::lookup_query >(quxlang::contextual_type_reference{
+        .context = *function_symbol,
+        .type = quxlang::freebound_identifier{"size"},
+    });
+    ASSERT_TRUE(size_lookup.has_value());
+    ASSERT_TRUE(quxlang::typeis< quxlang::subtag_type >(*size_lookup));
+
+    quxlang::instatype concrete_params = graph.make_request< quxlang::instanciation_concrete_params_query >(*function_symbol);
+    ASSERT_EQ(quxlang::parameter_instantiation_type(concrete_params.named.at("ptr")), parse_type_symbol("=>> ALIGNED_STORAGE(4, 8)"));
+
+    (void)graph.make_request< quxlang::vm_procedure3_query >(*function_symbol);
 }
 
 TEST(quxlang, lambda_subqueries_define_closure_fields_and_operator)

@@ -458,6 +458,17 @@ namespace quxlang
         RPNX_MEMBER_METADATA(submember, of, name);
     };
 
+    /// Template instantiation tag that exposes one instantiated template parameter as a symbol.
+    struct subtag_type
+    {
+        /// Instantiated template or function that owns the parameter binding.
+        type_symbol of;
+        /// Source-level tag name exposed by the template parameter declaration.
+        std::string name;
+
+        RPNX_MEMBER_METADATA(subtag_type, of, name);
+    };
+
     struct int_type
     {
         std::size_t bits = 0;

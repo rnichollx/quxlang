@@ -365,6 +365,12 @@ namespace quxlang
 
             return mangle_internal(se.of) + "N" + mangle_internal(se.name);
         }
+        else if (qt.template type_is< subtag_type >())
+        {
+            subtag_type const& se = as< subtag_type >(qt);
+
+            return mangle_internal(se.of) + "TG" + mangle_internal(se.name);
+        }
         else if (qt.template type_is< submember >())
         {
             submember const& se = as< submember >(qt);

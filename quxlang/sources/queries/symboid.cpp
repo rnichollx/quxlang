@@ -92,46 +92,6 @@ rpnx::querygraph::coroutine< quxlang::symboid_spec > quxlang::symboid_impl(type_
         }
     };
 
-    auto template_parameter_name = [](declared_parameter const& param) -> std::optional< std::string >
-    {
-        if (param.name.has_value())
-        {
-            return param.name;
-        }
-        if (param.api_name.has_value())
-        {
-            return param.api_name;
-        }
-
-        auto const& param_type = param.type;
-        if (typeis< auto_temploidic >(param_type))
-        {
-            auto const& name = as< auto_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-        else if (typeis< decay_temploidic >(param_type))
-        {
-            auto const& name = as< decay_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-        else if (typeis< type_temploidic >(param_type))
-        {
-            auto const& name = as< type_temploidic >(param_type).name;
-            if (!name.empty())
-            {
-                return name;
-            }
-        }
-
-        return std::nullopt;
-    };
-
     if (typeis< initialization_reference >(input))
     {
         auto const& init = as< initialization_reference >(input);

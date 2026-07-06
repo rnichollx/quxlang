@@ -111,47 +111,6 @@ namespace quxlang
     /// Source-level scoped definition visible to constexpr v3 routine generation.
     using scoped_definition_v3 = rpnx::variant< scoped_typedef, scoped_static >;
 
-    struct instantiation_scope_bindings
-    {
-        std::map< std::string, scoped_definition_v3 > scoped_definitions;
-        std::map< static_local_ref, constexpr_static > statics;
-
-        RPNX_MEMBER_METADATA(instantiation_scope_bindings, scoped_definitions, statics);
-    };
-
-    inline auto add_instantiation_scope_binding(instantiation_scope_bindings& bindings, type_symbol const& owner, std::string const& name, parameter_instantiation const& param) -> void
-    {
-        if (param.template type_is< parameter_type_instantiation >())
-        {
-            bindings.scoped_definitions[name] = scoped_typedef{.type = param.template get_as< parameter_type_instantiation >().type};
-            return;
-        }
-
-        auto const& value = param.template get_as< parameter_value_instantiation >();
-        auto symbol = static_local_ref{.functanoid = owner, .name = name, .generation = 0};
-        bindings.scoped_definitions[name] = scoped_static{.symbol = symbol};
-        bindings.statics[symbol] = constexpr_static{
-            .type = value.type,
-            .value = value.value,
-            .mutation_result_id = std::nullopt,
-        };
-    }
-
-    inline auto instantiation_scope_for(type_symbol const& owner, instatype const& params) -> instantiation_scope_bindings
-    {
-        instantiation_scope_bindings bindings;
-        for (auto const& [name, param] : params.named)
-        {
-            add_instantiation_scope_binding(bindings, owner, name, param);
-        }
-        return bindings;
-    }
-
-    inline auto instantiation_scope_for(instanciation_reference const& inst) -> instantiation_scope_bindings
-    {
-        return instantiation_scope_for(type_symbol(inst), inst.params);
-    }
-
     /// Result map returned by constexpr v3 evaluation.
     struct constexpr_result_v3
     {
@@ -209,28 +168,6 @@ namespace quxlang
 
         RPNX_MEMBER_METADATA(constexpr_input, expr, context, scoped_definitions, static_inputs, scoped_static_symbols);
     };
-
-    inline auto merge_instantiation_scope_bindings(const instantiation_scope_bindings& bindings, constexpr_input_v3& input) -> void
-    {
-        input.scoped_definitions.insert(bindings.scoped_definitions.begin(), bindings.scoped_definitions.end());
-        input.statics.insert(bindings.statics.begin(), bindings.statics.end());
-    }
-
-    inline auto merge_instantiation_scope_bindings(const instantiation_scope_bindings& bindings, constexpr_input& input) -> void
-    {
-        for (auto const& [name, definition] : bindings.scoped_definitions)
-        {
-            if (definition.template type_is< scoped_typedef >())
-            {
-                input.scoped_definitions[name] = definition.template get_as< scoped_typedef >().type;
-            }
-            else if (definition.template type_is< scoped_static >())
-            {
-                input.scoped_static_symbols[name] = definition.template get_as< scoped_static >().symbol;
-            }
-        }
-        input.static_inputs.insert(bindings.statics.begin(), bindings.statics.end());
-    }
 
     struct constexpr_input2
     {

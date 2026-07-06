@@ -46,6 +46,12 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
         }
     }
 
+    type_symbol declared_type_context = type_parent(input).value_or(void_type{});
+    if (typeis< instanciation_reference >(input))
+    {
+        declared_type_context = input;
+    }
+
     for (std::size_t i = 0; i < decls.size(); i++)
     {
         auto const& decl = decls.at(i);
@@ -58,7 +64,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
             declared_type_with_context.type = param.second.type;
 
             // We can't look at the typedefs of the function while we are resolving the function's formal ensig, as this would cause a circular dependency.
-            declared_type_with_context.context = type_parent(input).value_or(void_type{});
+            declared_type_with_context.context = declared_type_context;
 
             auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
@@ -75,7 +81,7 @@ rpnx::querygraph::coroutine< quxlang::functum_map_user_formal_ensigs_spec > quxl
         {
             contextual_type_reference declared_type_with_context;
             declared_type_with_context.type = param.type;
-            declared_type_with_context.context = type_parent(input).value_or(void_type{});
+            declared_type_with_context.context = declared_type_context;
             auto const& formal_type_opt = co_await rpnx::querygraph::request< lookup_query >(declared_type_with_context);
             if (!formal_type_opt.has_value())
             {

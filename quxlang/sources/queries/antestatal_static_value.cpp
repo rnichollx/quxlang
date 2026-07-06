@@ -8,6 +8,35 @@
 
 rpnx::querygraph::coroutine< quxlang::antestatal_static_value_spec > quxlang::antestatal_static_value_impl(type_symbol input)
 {
+    if (typeis< subtag_type >(input))
+    {
+        std::optional< parameter_instantiation > binding = co_await rpnx::querygraph::request< subtag_binding_query >(as< subtag_type >(input));
+        if (!binding.has_value() || !binding->template type_is< parameter_value_instantiation >())
+        {
+            throw quxlang::semantic_compilation_error("requested antestatal value for a non-antestatal static: " + quxlang::to_string(input));
+        }
+
+        constexpr_value const& value = binding->template get_as< parameter_value_instantiation >().value;
+        if (typeis< antestatal_value >(value))
+        {
+            co_return as< antestatal_value >(value);
+        }
+        if (typeis< constexpr_serialoid >(value))
+        {
+            co_return antestatal_primitive{.value = as< constexpr_serialoid >(value).bytes};
+        }
+        if (typeis< constexpr_string >(value))
+        {
+            co_return antestatal_primitive{.value = as< constexpr_string >(value).bytes};
+        }
+        if (typeis< constexpr_numeric >(value))
+        {
+            co_return antestatal_primitive{.value = as< constexpr_numeric >(value).bytes};
+        }
+
+        throw quxlang::compiler_bug("unsupported subtag constexpr value");
+    }
+
     if (!(co_await rpnx::querygraph::request< global_is_antestatal_static_query >(input)))
     {
         throw quxlang::semantic_compilation_error("requested antestatal value for a non-antestatal static: " + quxlang::to_string(input));

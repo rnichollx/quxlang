@@ -375,6 +375,7 @@ namespace quxlang
         std::string operator()(builtin_symbol const& ref) const;
         std::string operator()(context_reference const& ref) const;
         std::string operator()(subsymbol const& ref) const;
+        std::string operator()(subtag_type const& ref) const;
         std::string operator()(initialization_reference const& ref) const;
         std::string operator()(absolute_module_reference const& ref) const;
         std::string operator()(attached_type_reference const& ref) const;
@@ -626,6 +627,11 @@ namespace quxlang
             return is_template(ref.of);
         }
 
+        bool operator()(subtag_type const& ref) const
+        {
+            return is_template(ref.of);
+        }
+
         bool operator()(size_type const&)
         {
             return false;
@@ -817,6 +823,10 @@ namespace quxlang
         {
             return as< subsymbol >(input).of;
         }
+        else if (input.template type_is< subtag_type >())
+        {
+            return as< subtag_type >(input).of;
+        }
         else if (input.template type_is< ptrref_type >())
         {
             return as< ptrref_type >(input).target;
@@ -869,6 +879,10 @@ namespace quxlang
         else if (ref.template type_is< subsymbol >())
         {
             return subsymbol{with_context(as< subsymbol >(ref).of, context), as< subsymbol >(ref).name};
+        }
+        else if (ref.template type_is< subtag_type >())
+        {
+            return subtag_type{with_context(as< subtag_type >(ref).of, context), as< subtag_type >(ref).name};
         }
         else if (ref.template type_is< ptrref_type >())
         {
@@ -975,6 +989,11 @@ namespace quxlang
     std::string type_symbol_stringifier::operator()(subsymbol const& ref) const
     {
         return to_string_as_postfix_receiver(ref.of) + "::" + ref.name;
+    }
+
+    std::string type_symbol_stringifier::operator()(subtag_type const& ref) const
+    {
+        return to_string_as_postfix_receiver(ref.of) + "$" + ref.name;
     }
 
     std::string type_symbol_stringifier::operator()(size_type const& ref) const
@@ -1576,6 +1595,26 @@ namespace quxlang
             match->type = subsymbol{std::move(match->type), sub_template.name};
             return match;
         }
+        else if (typeis< subtag_type >(template_type))
+        {
+            subtag_type const& sub_template = as< subtag_type >(template_type);
+            if (!type.type_is< subtag_type >())
+            {
+                return std::nullopt;
+            }
+            subtag_type const& sub_type = as< subtag_type >(type);
+            if (sub_template.name != sub_type.name)
+            {
+                return std::nullopt;
+            }
+            auto match = match_template_noconv(sub_template.of, sub_type.of);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+            match->type = subtag_type{std::move(match->type), sub_template.name};
+            return match;
+        }
         else if (typeis< submember >(template_type))
         {
             // it is not possible for a type to be a subdotentity_reference
@@ -1869,6 +1908,26 @@ namespace quxlang
                 return std::nullopt;
             }
             match->type = subsymbol{std::move(match->type), sub_template.name};
+            return match;
+        }
+        else if (typeis< subtag_type >(template_type))
+        {
+            subtag_type const& sub_template = as< subtag_type >(template_type);
+            if (!type.type_is< subtag_type >())
+            {
+                return std::nullopt;
+            }
+            subtag_type const& sub_type = as< subtag_type >(type);
+            if (sub_template.name != sub_type.name)
+            {
+                return std::nullopt;
+            }
+            auto match = match_template(sub_template.of, sub_type.of);
+            if (!match.has_value())
+            {
+                return std::nullopt;
+            }
+            match->type = subtag_type{std::move(match->type), sub_template.name};
             return match;
         }
         else if (typeis< submember >(template_type))
@@ -2345,6 +2404,15 @@ namespace quxlang
             }
 
             bool check_impl(subsymbol const& template_val, subsymbol const& match_val, bool conv)
+            {
+                if (template_val.name != match_val.name)
+                {
+                    return false;
+                }
+                return check(template_val.of, match_val.of, false);
+            }
+
+            bool check_impl(subtag_type const& template_val, subtag_type const& match_val, bool conv)
             {
                 if (template_val.name != match_val.name)
                 {
@@ -3128,7 +3196,7 @@ quxlang::type_symbol quxlang::strip_source_locations(type_symbol ref)
         [](auto& value)
         {
             using value_type = std::decay_t< decltype(value) >;
-            if constexpr (std::is_same_v< value_type, subsymbol > || std::is_same_v< value_type, submember >)
+            if constexpr (std::is_same_v< value_type, subsymbol > || std::is_same_v< value_type, submember > || std::is_same_v< value_type, subtag_type >)
             {
                 value.of = strip_source_locations(std::move(value.of));
             }

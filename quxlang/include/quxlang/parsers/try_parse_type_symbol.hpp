@@ -706,6 +706,21 @@ namespace quxlang::parsers
             output = subsymbol{std::move(output), std::move(ident)};
             goto check_next;
         }
+        else if (skip_symbol_if_is(pos, end, "$"))
+        {
+            if (!ctx.allow_internal_subtag_symbols)
+            {
+                throw syntax_compilation_error("Subtag symbols are internal implementation details and cannot be named in source");
+            }
+            auto ident = parse_subentity(pos, end);
+            if (ident.empty())
+            {
+                throw syntax_compilation_error("expected identifier after $");
+            }
+
+            output = subtag_type{std::move(output), std::move(ident)};
+            goto check_next;
+        }
         else if (skip_symbol_if_is(pos, end, "#("))
         {
             initialization_reference param_set;

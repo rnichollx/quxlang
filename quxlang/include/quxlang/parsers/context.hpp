@@ -15,6 +15,8 @@ namespace quxlang::parsers
         std::uint64_t file_id = {};
         bool source_locations_enabled = false;
         bool parsing_runtime_module = false;
+        /// Enables parsing implementation-only subtag symbols in internal symbol-string tests.
+        bool allow_internal_subtag_symbols = false;
 
         parse_iterator iter_begin;
         parse_iterator iter_pos;

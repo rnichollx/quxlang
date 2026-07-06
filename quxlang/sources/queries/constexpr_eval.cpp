@@ -53,7 +53,7 @@ namespace
 
     auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
     {
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
+        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::subtag_type >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
     }
 } // namespace
 

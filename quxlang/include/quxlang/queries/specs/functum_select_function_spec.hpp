@@ -9,7 +9,6 @@
 #include <quxlang/queries/function_ensig_init_with.hpp>
 #include <quxlang/queries/functum_builtin_overloads.hpp>
 #include <quxlang/queries/functum_map_user_formal_ensigs.hpp>
-#include <quxlang/queries/instanciation_tempar_map.hpp>
 #include <quxlang/queries/symbol_type.hpp>
 
 #include <new>
@@ -20,7 +19,7 @@ namespace quxlang
     struct functum_select_function_spec
     {
         using query = functum_select_function_query;
-        using dependencies = rpnx::typelist< argument_adaptation_is_better_fit_query, constexpr_bool_query, function_ensig_init_with_query, functum_builtin_overloads_query, functum_map_user_formal_ensigs_query, instanciation_tempar_map_query, symbol_type_query >;
+        using dependencies = rpnx::typelist< argument_adaptation_is_better_fit_query, constexpr_bool_query, function_ensig_init_with_query, functum_builtin_overloads_query, functum_map_user_formal_ensigs_query, symbol_type_query >;
     };
 
     rpnx::querygraph::coroutine< functum_select_function_spec > functum_select_function_impl(initialization_reference input);

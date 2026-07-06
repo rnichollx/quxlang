@@ -647,5 +647,3 @@ LANGUAGE QUXLANG EN 0.0;
    ASSERT(zint == 1);
 }
 
-
-

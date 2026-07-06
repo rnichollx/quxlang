@@ -1533,6 +1533,10 @@ namespace quxlang
             {
                 return has_forbidden_codegen_thistype(as< subsymbol >(type).of, true);
             }
+            if (typeis< subtag_type >(type))
+            {
+                return has_forbidden_codegen_thistype(as< subtag_type >(type).of, true);
+            }
             if (typeis< submember >(type))
             {
                 return has_forbidden_codegen_thistype(as< submember >(type).of, true);
@@ -2224,19 +2228,7 @@ namespace quxlang
                 throw semantic_compilation_error("DECLTYPE requires a value symbol");
             }
 
-            auto sym = co_await rpnx::querygraph::request< symboid_query >(*canonical_symbol);
-            if (!sym.template type_is< ast2_variable_declaration >())
-            {
-                throw semantic_compilation_error("DECLTYPE target variable is not declared as a variable");
-            }
-
-            auto declared_type = sym.template get_as< ast2_variable_declaration >().type;
-            auto resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{.context = *canonical_symbol, .type = declared_type});
-            if (!resolved.has_value())
-            {
-                throw semantic_compilation_error("DECLTYPE target type could not be resolved");
-            }
-            co_return *resolved;
+            co_return co_await rpnx::querygraph::request< variable_type_query >(*canonical_symbol);
         }
 
         auto co_resolve_type_symbol(block_index& idx, type_symbol type) -> co_type< type_symbol >
@@ -2996,7 +2988,6 @@ namespace quxlang
             {
                 auto declaration_context = type_parent(what.temploid.templexoid).value_or(void_type{});
                 auto context_scope = this->scoped_declaration_context(bidx, std::move(declaration_context));
-                co_await this->co_apply_context_instantiation_scopes(what);
                 co_return co_await this->co_generate_expr(bidx, expr);
             };
 
@@ -10217,43 +10208,6 @@ namespace quxlang
             return this->state.blocks.at(block).terminator.has_value();
         }
 
-        auto co_apply_instantiation_scope(instanciation_reference const& inst) -> co_type< void >
-        {
-            auto inst_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
-            if (inst_kind != symbol_kind::template_)
-            {
-                co_return;
-            }
-
-            auto scoped_bindings = instantiation_scope_for(inst);
-            for (auto& [name, definition] : scoped_bindings.scoped_definitions)
-            {
-                this->state.scoped_definitions[std::move(name)] = std::move(definition);
-            }
-            for (auto& [symbol, binding] : scoped_bindings.statics)
-            {
-                this->state.statics[std::move(symbol)] = codegen_static{
-                    .type = std::move(binding.type),
-                    .value = std::move(binding.value),
-                    .mutation_result_id = std::nullopt,
-                };
-            }
-        }
-
-        auto co_apply_context_instantiation_scopes(type_symbol context) -> co_type< void >
-        {
-            std::optional< type_symbol > current_context = std::move(context);
-            while (current_context.has_value())
-            {
-                if (typeis< instanciation_reference >(*current_context))
-                {
-                    co_await co_apply_instantiation_scope(as< instanciation_reference >(*current_context));
-                }
-                current_context = type_parent(*current_context);
-            }
-            co_return;
-        }
-
         auto create_return_parameter(type_symbol return_type) -> value_index
         {
             if (this->state.params.named.contains("RETURN"))
@@ -10358,8 +10312,6 @@ namespace quxlang
 
             // This function should be called before generating any blocks.
             assert(this->state.blocks.empty());
-
-            co_await co_apply_context_instantiation_scopes(inst);
 
             type_symbol return_type = co_await co_lookup_declared_return_type(inst);
             this->state.declared_return_type = return_type;

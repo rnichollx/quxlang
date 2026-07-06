@@ -133,7 +133,7 @@ namespace
     /// Returns true when a type symbol may need a class_layout query before interpretation.
     auto type_might_have_layout(quxlang::type_symbol const& type) -> bool
     {
-        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
+        return type.type_is< quxlang::subsymbol >() || type.type_is< quxlang::subtag_type >() || type.type_is< quxlang::instanciation_reference >() || type.type_is< quxlang::readonly_constant >();
     }
 } // namespace
 

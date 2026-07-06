@@ -1,6 +1,7 @@
 // Copyright 2026 Ryan P. Nicholl, rnicholl@protonmail.com
 
 #include <quxlang/data/compilation_result.hpp>
+#include <quxlang/manipulators/typeutils.hpp>
 #include <quxlang/queries/specs/instanciation_concrete_params_spec.hpp>
 
 namespace quxlang
@@ -62,7 +63,15 @@ namespace quxlang
             {
                 array_type output = as< array_type >(type);
                 output.element_type = co_await self(self, output.element_type);
-                co_return output;
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = input,
+                    .type = std::move(output),
+                });
+                if (!resolved.has_value())
+                {
+                    throw semantic_compilation_error("Could not resolve concrete array parameter type");
+                }
+                co_return *resolved;
             }
             if (typeis< array_initializer_type >(type))
             {
@@ -99,7 +108,15 @@ namespace quxlang
             }
             if (typeis< aligned_storage >(type))
             {
-                co_return type;
+                std::optional< type_symbol > resolved = co_await rpnx::querygraph::request< lookup_query >(contextual_type_reference{
+                    .context = input,
+                    .type = std::move(type),
+                });
+                if (!resolved.has_value())
+                {
+                    throw semantic_compilation_error("Could not resolve concrete aligned storage parameter type");
+                }
+                co_return *resolved;
             }
             if (typeis< initialization_reference >(type))
             {

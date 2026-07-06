@@ -5,6 +5,16 @@
 
 rpnx::querygraph::coroutine< quxlang::variable_type_spec > quxlang::variable_type_impl(type_symbol input)
 {
+    if (typeis< subtag_type >(input))
+    {
+        auto binding = co_await rpnx::querygraph::request< subtag_binding_query >(as< subtag_type >(input));
+        if (binding.has_value() && binding->template type_is< parameter_value_instantiation >())
+        {
+            co_return binding->template get_as< parameter_value_instantiation >().type;
+        }
+        throw quxlang::compiler_bug("Subtag is not a variable.");
+    }
+
     auto sym = co_await rpnx::querygraph::request< symboid_query >(input);
 
     if (!typeis< ast2_variable_declaration >(sym))

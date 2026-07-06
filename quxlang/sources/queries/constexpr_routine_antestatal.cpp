@@ -42,26 +42,6 @@ namespace quxlang
         }
         return result;
     }
-
-    template < typename Spec >
-    auto apply_context_instantiation_scopes(type_symbol context, constexpr_input_v3& input) -> typename rpnx::querygraph::coroutine< Spec >::template cosubroutine< void >
-    {
-        std::optional< type_symbol > current_context = std::move(context);
-        while (current_context.has_value())
-        {
-            if (typeis< instanciation_reference >(*current_context))
-            {
-                auto const& inst = as< instanciation_reference >(*current_context);
-                auto inst_kind = co_await rpnx::querygraph::request< symbol_type_query >(inst.temploid);
-                if (inst_kind == symbol_kind::template_)
-                {
-                    merge_instantiation_scope_bindings(instantiation_scope_for(inst), input);
-                }
-            }
-            current_context = type_parent(*current_context);
-        }
-        co_return;
-    }
 }
 
 rpnx::querygraph::coroutine< quxlang::constexpr_routine_antestatal_spec > quxlang::constexpr_routine_antestatal_impl(constexpr_input2 input)
@@ -69,7 +49,6 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_antestatal_spec > quxlan
     auto v3_input = make_v3_input(std::move(input));
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::constexpr_routine_antestatal_spec > > emitter(machine_info, v3_input.context);
-    co_await apply_context_instantiation_scopes< constexpr_routine_antestatal_spec >(v3_input.context, v3_input);
     emitter.set_scoped_definitions_v3(std::move(v3_input.scoped_definitions));
     emitter.set_static_eval_context_v3(std::move(v3_input.statics));
     auto result = co_await emitter.co_generate_constexpr_eval_v3(v3_input.expr, v3_input.expected_result_type);
@@ -82,7 +61,6 @@ rpnx::querygraph::coroutine< quxlang::constexpr_routine_v3_spec > quxlang::const
 {
     auto const machine_info = co_await rpnx::querygraph::request< machine_info_query >(machine_info_query::input_type{});
     co_vmir_generator2< rpnx::querygraph::coroutine< quxlang::constexpr_routine_v3_spec > > emitter(machine_info, input.context);
-    co_await apply_context_instantiation_scopes< constexpr_routine_v3_spec >(input.context, input);
     emitter.set_scoped_definitions_v3(std::move(input.scoped_definitions));
     emitter.set_static_eval_context_v3(std::move(input.statics));
     co_return co_await emitter.co_generate_constexpr_eval_v3(input.expr, input.expected_result_type);

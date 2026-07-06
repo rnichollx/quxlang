@@ -271,22 +271,6 @@ rpnx::querygraph::coroutine< quxlang::functum_select_function_spec > quxlang::fu
             instanciation_reference inst{.temploid = tr, .params = *candidate};
             // Use the instantiated function context so pack type inspection can see the expanded parameters.
             cx_input.context = inst;
-            // Load instantiated named parameters into constexpr scoped definitions
-            for (auto const& [n, t] : candidate->named)
-            {
-                if (t.template type_is< parameter_type_instantiation >())
-                {
-                    cx_input.scoped_definitions[n] = parameter_instantiation_type(t);
-                }
-            }
-            // Also load ensig template parameters (tempars) mapped during instantiation
-            {
-                auto tempar_map = co_await rpnx::querygraph::request< instanciation_tempar_map_query >(inst);
-                for (auto const& [name, t] : tempar_map.parameter_map)
-                {
-                    cx_input.scoped_definitions[name] = t;
-                }
-            }
             bool include = co_await rpnx::querygraph::request< constexpr_bool_query >(cx_input);
             if (!include)
             {
