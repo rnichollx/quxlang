@@ -459,6 +459,7 @@ namespace quxlang
     };
 
     /// Template instantiation tag that exposes one instantiated template parameter as a symbol.
+    /// This is an implementation detail, not a user facing type.
     struct subtag_type
     {
         /// Instantiated template or function that owns the parameter binding.
