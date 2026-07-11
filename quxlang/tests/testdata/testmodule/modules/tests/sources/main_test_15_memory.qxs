@@ -48,3 +48,18 @@ IMPORT std;
   ASSERT(slots??);
   std::default_allocator::dealloc_multiple#(@size 8, @align 8)(@ptr slots, @count 2);
 }
+
+::alloc_region_address_roundtrip_unit_test UNIT_TEST
+{
+  VAR single_address ADDRESS := std::default_allocator::alloc_native#(@size 8, @align 8)();
+  VAR slot -> ALIGNED_STORAGE(8, 8) := BEGIN_ALLOC_REGION single_address TO ->ALIGNED_STORAGE(8, 8);
+  VAR single_roundtrip ADDRESS := END_ALLOC_REGION slot;
+  ASSERT(single_roundtrip == single_address);
+  std::default_allocator::dealloc_native#(@size 8, @align 8)(@ptr single_roundtrip);
+
+  VAR multi_address ADDRESS := std::default_allocator::alloc_multiple_native#(@size 8, @align 8)(@count 2);
+  VAR slots =>> ALIGNED_STORAGE(8, 8) := BEGIN_MULTI_ALLOC_REGION multi_address SIZE 2 TO =>>ALIGNED_STORAGE(8, 8);
+  VAR multi_roundtrip ADDRESS := END_MULTI_ALLOC_REGION slots SIZE 2;
+  ASSERT(multi_roundtrip == multi_address);
+  std::default_allocator::dealloc_multiple_native#(@size 8, @align 8)(@ptr multi_roundtrip, @count 2);
+}

@@ -145,17 +145,13 @@ IMPORT std;
 
 ::string_tests DUAL_TEST
 {
-  // Temporarily skip this allocator-dependent test until the runtime allocator crash is fixed.
-  STATIC_IF(FALSE)
-  {
-    VAR str1 string := "Hello, ";
-    VAR str2 string := "world!";
-    VAR str3 string := str1 + str2;
+  VAR str1 string := "Hello, ";
+  VAR str2 string := "world!";
+  VAR str3 string := str1 + str2;
 
-    ASSERT(str3 == "Hello, world!");
+  ASSERT(str3 == "Hello, world!");
 
-    ASSERT(str3 == static_string);
-  }
+  ASSERT(str3 == static_string);
 }
 
 

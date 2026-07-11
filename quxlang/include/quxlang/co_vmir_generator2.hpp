@@ -7115,16 +7115,14 @@ namespace quxlang
         }
 
         // Provenance alloc region keyword expressions. BEGIN_ALLOC_REGION <addr> AS =>>T converts
-        // an ADDRESS into a typed storage pointer; END_ALLOC_REGION <ptr> does the reverse. In this
-        // pass they emit a `cast_ptrref` VMIR instruction directly (a bitwise copy of the underlying
-        // opaque pointer), avoiding any REINTERPRET-constructor round-trip. The MULTI / DYNAMIC
-        // variants behave the same for now (with extra operands evaluated for side effects);
-        // PARENT_ALLOC_ADDRESS returns its argument; RELOCATE_REGION_OBJECTS is a no-op for now.
-        // Provenance / ASAN hooks will be layered in later without touching parsers.
+        // an ADDRESS value into a typed storage pointer; END_ALLOC_REGION <ptr> does the reverse.
+        // The MULTI variants behave the same for now (with count operands evaluated for side
+        // effects). Provenance / ASAN hooks will be layered in later without touching parsers.
 
         auto co_generate(block_index& bidx, expression_begin_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
+            addr_val = co_await co_gen_implicit_conversion(bidx, addr_val, type_symbol(address_type{}));
             type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
             auto result = create_local_value(target_type);
             vmir2::cast_ptrref ref;
@@ -7137,6 +7135,8 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_end_alloc_region input) -> co_type< value_index >
         {
             auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
+            type_symbol const ptr_value_type = remove_ref(this->current_type(bidx, ptr_val));
+            ptr_val = co_await co_gen_implicit_conversion(bidx, ptr_val, ptr_value_type);
             auto result = create_local_value(type_symbol(address_type{}));
             vmir2::cast_ptrref ref;
             ref.source_index = get_local_index(ptr_val);
@@ -7148,6 +7148,7 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_begin_multi_alloc_region input) -> co_type< value_index >
         {
             auto addr_val = co_await co_generate_expr(bidx, input.address);
+            addr_val = co_await co_gen_implicit_conversion(bidx, addr_val, type_symbol(address_type{}));
             (void)co_await co_generate_expr(bidx, input.count);
             type_symbol target_type = co_await this->co_resolve_type_symbol(bidx, input.as_type);
             auto result = create_local_value(target_type);
@@ -7161,6 +7162,8 @@ namespace quxlang
         auto co_generate(block_index& bidx, expression_end_multi_alloc_region input) -> co_type< value_index >
         {
             auto ptr_val = co_await co_generate_expr(bidx, input.pointer);
+            type_symbol const ptr_value_type = remove_ref(this->current_type(bidx, ptr_val));
+            ptr_val = co_await co_gen_implicit_conversion(bidx, ptr_val, ptr_value_type);
             if (input.count.has_value())
             {
                 (void)co_await co_generate_expr(bidx, *input.count);
