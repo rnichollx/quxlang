@@ -109,6 +109,8 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, std::string> procedure_linksymbols;
         std::set<type_symbol> extern_procedures;
         std::set<type_symbol> optional_extern_procedures;
+        /// Logical external library names for procedures resolved by the platform loader.
+        std::map<type_symbol, std::string> extern_procedure_libraries;
         std::map<type_symbol, std::string> extern_procedure_versions;
         std::map<type_symbol, type_symbol> object_reference_types;
         std::map<type_symbol, antestatal_value> antestatal_constants;
@@ -119,7 +121,7 @@ namespace quxlang::llvm_backend
         std::map<type_symbol, struct_layout> struct_layouts;
         std::map<type_symbol, class_placement_info> type_placements;
 
-        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, type_placements);
+        RPNX_MEMBER_METADATA(llvm_compilable_unit, target_name, target_code, machine_target, whole_module, whole_module_output_kind, executable_entry_symbol, unit_tests, source_index, inlinable_functions, asm_callable_interfaces, asm_functions, runtime_procedures, procedure_linksymbols, extern_procedures, optional_extern_procedures, extern_procedure_libraries, extern_procedure_versions, object_reference_types, antestatal_constants, global_init_types, interface_slots, enum_infos, flagset_infos, struct_layouts, type_placements);
     };
 
     /// Returns true when a type symbol names the requested builtin object.

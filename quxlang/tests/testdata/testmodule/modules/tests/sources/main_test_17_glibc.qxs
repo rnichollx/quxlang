@@ -1,0 +1,19 @@
+LANGUAGE QUXLANG EN 0.0;
+
+::malloc INCLUDE_IF(ENVIRONMENT_IS_GLIBC) EXTERN_PROCEDURE["glibc":"malloc" VERSION "GLIBC_2.2.5"]
+  CALLABLE CALLCONV CCALL(@bytes SZ; RETURN =>>BYTE);
+
+::observe_malloc_allocation INCLUDE_IF(ENVIRONMENT_IS_GLIBC) ASM_PROCEDURE X64
+  CALLABLE CALLCONV CCALL(@allocation =>>BYTE)
+{
+  RET
+}
+
+::malloc_extern_test INCLUDE_IF(ENVIRONMENT_IS_GLIBC) UNIT_TEST
+{
+  VAR allocation =>>BYTE := malloc(@bytes 64);
+  ASSERT(allocation??);
+  allocation-> := 123;
+  observe_malloc_allocation(@allocation allocation);
+  ASSERT(allocation-> == 123);
+}

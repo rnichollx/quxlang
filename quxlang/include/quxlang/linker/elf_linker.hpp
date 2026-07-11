@@ -13,6 +13,23 @@
 namespace quxlang
 {
     /**
+     * elf_dynamic_import describes one procedure resolved by the ELF runtime loader.
+     */
+    struct elf_dynamic_import
+    {
+        /// Name referenced by relocations in the input object, including any symbol version suffix.
+        std::string relocation_symbol_name;
+        /// Unversioned symbol name exposed to the runtime loader.
+        std::string symbol_name;
+        /// Declaration-level logical library name resolved by the target environment.
+        std::string library_name;
+        /// Required ELF symbol version, or empty when the import is unversioned.
+        std::string version;
+        /// Whether failure to resolve the symbol may produce a null runtime address.
+        bool optional = false;
+    };
+
+    /**
      * elf_link_options controls optional metadata emitted into the final ELF image.
      */
     struct elf_link_options
@@ -23,10 +40,15 @@ namespace quxlang
          * Maps raw object-file symbol names to names written in the output ELF symbol table.
          */
         std::map< std::string, std::string > symbol_display_names;
+
+        /**
+         * Procedures that the runtime loader resolves from shared libraries.
+         */
+        std::vector< elf_dynamic_import > dynamic_imports;
     };
 
     /**
-     * elf_linker links one Linux ELF relocatable object into one standalone executable image.
+     * elf_linker links one Linux ELF relocatable object into one executable image.
      *
      * The linker consumes the object bytes in memory and returns the final ELF file bytes
      * without creating intermediate files.

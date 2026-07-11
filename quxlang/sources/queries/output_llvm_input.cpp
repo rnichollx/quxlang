@@ -674,6 +674,7 @@ rpnx::querygraph::coroutine< quxlang::output_llvm_input_spec > quxlang::output_l
             {
                 ast2_extern_procedure const& declaration = symboid.get_as< ast2_extern_procedure >();
                 output_module_unit.extern_procedures.insert(functanoid_symbol);
+                output_module_unit.extern_procedure_libraries.emplace(functanoid_symbol, declaration.library_name);
                 if (declaration.is_optional)
                 {
                     output_module_unit.optional_extern_procedures.insert(functanoid_symbol);

@@ -74,6 +74,32 @@ tests-linux-x64:
       module: tests
 
 
+linux-x64-tests-glibc:
+  platform: linux
+  cpu: x64
+  environment: glibc
+  run_static_tests: false
+  modules:
+    syscall:
+      source: syscall
+    RUNTIME:
+      source: runtime
+    std:
+      source: std
+    foolib:
+      source: foolib1_0
+    barlib:
+      source: barlib2_1
+    tests:
+      options:
+        option_num: 5
+      source: tests
+  outputs:
+    tests:
+      type: unit_test_suite
+      module: tests
+
+
 tests-linux-arm64:
   platform: linux
   cpu: ARM64

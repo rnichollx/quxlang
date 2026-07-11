@@ -3328,6 +3328,95 @@ TEST(llvm_backend, extern_procedure_emits_symver_on_elf)
     EXPECT_NE(result.llvm_ir_text.find(".symver malloc, malloc@GLIBC_2.2.5"), std::string::npos);
 }
 
+TEST(elf_linker, glibc_dynamic_import_emits_loader_metadata)
+{
+    auto make_symbol = [](std::string const& name) -> quxlang::type_symbol
+    {
+        return quxlang::submember{
+            .of = quxlang::absolute_module_reference{"main"},
+            .name = name,
+        };
+    };
+
+    quxlang::type_symbol const caller_symbol = make_symbol("dynamic_import_entry");
+    quxlang::type_symbol const malloc_declaration_symbol = make_symbol("malloc");
+    quxlang::type_symbol const i32_type = quxlang::int_type{.bits = 32, .has_sign = true};
+    quxlang::type_symbol const malloc_symbol = quxlang::instanciation_reference{
+        .temploid = quxlang::temploid_reference{
+            .templexoid = malloc_declaration_symbol,
+            .overload_id = 0,
+        },
+        .params = quxlang::instatype{
+            .positional = {quxlang::make_type_instantiation(i32_type)},
+        },
+    };
+
+    quxlang::asm_callable callable;
+    callable.calling_conv = "CCALL";
+    callable.args.push_back(quxlang::asm_argument_binding{
+        .api_name = std::nullopt,
+        .register_name = std::nullopt,
+        .type = i32_type,
+    });
+
+    quxlang::vmir2::functanoid_routine3 caller;
+    caller.local_types = {
+        quxlang::vmir2::local_type{.type = quxlang::void_type{}},
+        quxlang::vmir2::local_type{.type = i32_type},
+    };
+    caller.blocks.resize(1);
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::load_const_int{
+        .target = quxlang::vmir2::local_index(1),
+        .value = "64",
+    });
+    caller.blocks[0].instructions.push_back(quxlang::vmir2::invoke{
+        .what = malloc_symbol,
+        .args = quxlang::vmir2::invocation_args{
+            .positional = {quxlang::vmir2::local_index(1)},
+        },
+    });
+    caller.blocks[0].terminator = quxlang::vmir2::ret{};
+
+    quxlang::machine_target_info const machine{
+        .cpu_type = quxlang::cpu::x86_64,
+        .os_type = quxlang::os::linux,
+        .binary_type = quxlang::binary::elf,
+        .environment_type = quxlang::environment::glibc,
+    };
+    quxlang::llvm_backend::llvm_compilable_unit packet;
+    packet.target_name = caller_symbol;
+    packet.target_code = std::move(caller);
+    packet.asm_callable_interfaces.emplace(malloc_symbol, std::move(callable));
+    packet.extern_procedures.insert(malloc_symbol);
+    packet.extern_procedure_libraries.emplace(malloc_symbol, "glibc");
+    packet.extern_procedure_versions.emplace(malloc_symbol, "GLIBC_2.2.5");
+    packet.procedure_linksymbols.emplace(malloc_symbol, "malloc");
+    packet.machine_target.machine = machine;
+
+    quxlang::llvm_backend::llvm_backend backend;
+    quxlang::llvm_backend::llvm_compiled_unit const compiled = backend.compile(packet);
+    quxlang::elf_linker linker;
+    std::vector< std::byte > const executable = linker.link_linux_executable(
+        machine,
+        compiled.object_file,
+        quxlang::to_string(caller_symbol),
+        quxlang::elf_link_options{
+            .dynamic_imports = {
+                quxlang::elf_dynamic_import{
+                    .relocation_symbol_name = "malloc@GLIBC_2.2.5",
+                    .symbol_name = "malloc",
+                    .library_name = "glibc",
+                    .version = "GLIBC_2.2.5",
+                },
+            },
+        });
+
+    EXPECT_TRUE(byte_vector_contains_ascii(executable, "/lib64/ld-linux-x86-64.so.2"));
+    EXPECT_TRUE(byte_vector_contains_ascii(executable, "libc.so.6"));
+    EXPECT_TRUE(byte_vector_contains_ascii(executable, "malloc"));
+    EXPECT_TRUE(byte_vector_contains_ascii(executable, "GLIBC_2.2.5"));
+}
+
 TEST(llvm_backend, extern_procedure_emits_dllimport_on_pe_without_symver)
 {
     auto const make_symbol = [](std::string const& name) -> quxlang::type_symbol

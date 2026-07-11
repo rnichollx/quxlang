@@ -7,6 +7,8 @@
 #include <quxlang/queries/specs/llvm_output_binary_artifact_spec.hpp>
 
 #include <map>
+#include <utility>
+#include <vector>
 
 rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang::llvm_output_binary_artifact_impl(std::string input)
 {
@@ -49,9 +51,43 @@ rpnx::querygraph::coroutine< quxlang::llvm_output_binary_artifact_spec > quxlang
 
             return result;
         };
+        auto dynamic_imports = [](llvm_backend::llvm_compilable_unit const& llvm_input) -> std::vector< elf_dynamic_import >
+        {
+            std::vector< elf_dynamic_import > result;
+            for (type_symbol const& symbol : llvm_input.extern_procedures)
+            {
+                std::map< type_symbol, std::string >::const_iterator const link_name = llvm_input.procedure_linksymbols.find(symbol);
+                std::map< type_symbol, std::string >::const_iterator const library = llvm_input.extern_procedure_libraries.find(symbol);
+                if (link_name == llvm_input.procedure_linksymbols.end() || library == llvm_input.extern_procedure_libraries.end())
+                {
+                    throw compiler_bug("Extern procedure is missing linker metadata: " + to_string(symbol));
+                }
+
+                std::string version;
+                std::map< type_symbol, std::string >::const_iterator const found_version = llvm_input.extern_procedure_versions.find(symbol);
+                if (found_version != llvm_input.extern_procedure_versions.end())
+                {
+                    version = found_version->second;
+                }
+                std::string relocation_symbol_name = link_name->second;
+                if (!version.empty())
+                {
+                    relocation_symbol_name += "@" + version;
+                }
+                result.push_back(elf_dynamic_import{
+                    .relocation_symbol_name = std::move(relocation_symbol_name),
+                    .symbol_name = link_name->second,
+                    .library_name = library->second,
+                    .version = std::move(version),
+                    .optional = llvm_input.optional_extern_procedures.contains(symbol),
+                });
+            }
+            return result;
+        };
         elf_link_options const link_options{
             .preserve_symbols = llvm_options.mode == backend_llvm_mode::debug,
             .symbol_display_names = llvm_options.mode == backend_llvm_mode::debug ? output_symbol_display_names(llvm_input) : std::map< std::string, std::string >{},
+            .dynamic_imports = dynamic_imports(llvm_input),
         };
 
         elf_linker linker;

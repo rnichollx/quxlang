@@ -102,6 +102,19 @@ namespace quxlang::detail
         std::uint64_t alignment = 1;
     };
 
+    /**
+     * dynamic_import_layout stores the output indices assigned to one runtime-loaded procedure.
+     */
+    struct dynamic_import_layout
+    {
+        quxlang::elf_dynamic_import import;
+        std::string soname;
+        std::uint32_t symbol_name_offset = 0;
+        std::uint16_t version_index = llvm::ELF::VER_NDX_GLOBAL;
+        std::size_t dynamic_symbol_index = 0;
+        std::size_t procedure_linkage_table_index = 0;
+    };
+
     class elf_link_session
     {
     public:
@@ -122,6 +135,7 @@ namespace quxlang::detail
             open_object();
             collect_sections();
             collect_common_symbols();
+            add_dynamic_link_sections();
             layout_sections();
             std::set< std::string > const undefined_symbols = collect_undefined_relocation_symbols();
             if (!undefined_symbols.empty())
@@ -134,6 +148,7 @@ namespace quxlang::detail
                 layout_sections();
                 refresh_arm64_got_slots();
             }
+            populate_dynamic_link_sections();
             apply_relocations();
             if (options.preserve_symbols)
             {
@@ -159,6 +174,20 @@ namespace quxlang::detail
         std::map< std::uint64_t, got_slot > got_slots_by_target_address;
         std::optional< std::size_t > common_bss_section_index;
         std::optional< std::size_t > got_section_index;
+        std::vector< dynamic_import_layout > dynamic_imports;
+        std::map< std::string, std::size_t > dynamic_import_indices_by_relocation_symbol;
+        std::vector< std::string > needed_sonames;
+        std::map< std::string, std::uint32_t > dynamic_string_offsets;
+        std::map< std::string, std::vector< std::pair< std::string, std::uint16_t > > > versions_by_soname;
+        std::optional< std::size_t > interpreter_section_index;
+        std::optional< std::size_t > dynamic_string_section_index;
+        std::optional< std::size_t > dynamic_symbol_section_index;
+        std::optional< std::size_t > symbol_version_section_index;
+        std::optional< std::size_t > version_need_section_index;
+        std::optional< std::size_t > procedure_relocation_section_index;
+        std::optional< std::size_t > procedure_linkage_table_section_index;
+        std::optional< std::size_t > procedure_got_section_index;
+        std::optional< std::size_t > dynamic_section_index;
         std::uint64_t executable_base_address = 0;
         std::uint64_t page_alignment = 0x1000;
         std::uint64_t file_size = 0;
@@ -399,6 +428,205 @@ namespace quxlang::detail
             sections.push_back(std::move(common_bss));
         }
 
+        /**
+         * Returns the runtime loader pathname encoded for a self-contained glibc target.
+         */
+        auto glibc_interpreter_path() const -> std::string
+        {
+            switch (machine.cpu_type)
+            {
+            case quxlang::cpu::x86_64:
+                return "/lib64/ld-linux-x86-64.so.2";
+            case quxlang::cpu::x86_32:
+                return "/lib/ld-linux.so.2";
+            case quxlang::cpu::arm_64:
+                return "/lib/ld-linux-aarch64.so.1";
+            default:
+                break;
+            }
+            throw quxlang::semantic_compilation_error("glibc dynamic linking is not supported for this CPU target");
+        }
+
+        /**
+         * Resolves one declaration-level library name without reading a host sysroot.
+         */
+        auto dynamic_library_soname(std::string const& library_name) const -> std::string
+        {
+            if (machine.environment_type == quxlang::environment::glibc && library_name == "glibc")
+            {
+                return "libc.so.6";
+            }
+            throw quxlang::semantic_compilation_error("ELF dynamic library is not supported for this target environment: " + library_name);
+        }
+
+        /**
+         * Adds the allocated sections whose sizes are determined by dynamic import declarations.
+         */
+        void add_dynamic_link_sections()
+        {
+            if (options.dynamic_imports.empty())
+            {
+                return;
+            }
+            if (machine.environment_type != quxlang::environment::glibc)
+            {
+                throw quxlang::semantic_compilation_error("ELF dynamic imports require a supported hosted target environment");
+            }
+            if (machine.cpu_type != quxlang::cpu::x86_64)
+            {
+                throw quxlang::semantic_compilation_error("ELF dynamic imports are currently supported for Linux x86-64 targets");
+            }
+
+            dynamic_imports.clear();
+            dynamic_import_indices_by_relocation_symbol.clear();
+            needed_sonames.clear();
+            dynamic_string_offsets.clear();
+            versions_by_soname.clear();
+
+            std::vector< std::byte > dynamic_strings(1, std::byte{0});
+            auto add_dynamic_string = [&](std::string const& value) -> std::uint32_t
+            {
+                std::map< std::string, std::uint32_t >::const_iterator const existing = dynamic_string_offsets.find(value);
+                if (existing != dynamic_string_offsets.end())
+                {
+                    return existing->second;
+                }
+                if (dynamic_strings.size() > std::numeric_limits< std::uint32_t >::max())
+                {
+                    throw quxlang::semantic_compilation_error("ELF dynamic string table is too large");
+                }
+                std::uint32_t const offset = static_cast< std::uint32_t >(dynamic_strings.size());
+                for (char const character : value)
+                {
+                    dynamic_strings.push_back(static_cast< std::byte >(character));
+                }
+                dynamic_strings.push_back(std::byte{0});
+                dynamic_string_offsets.emplace(value, offset);
+                return offset;
+            };
+
+            std::map< std::pair< std::string, std::string >, std::uint16_t > version_indices;
+            std::uint32_t next_version_index = 2;
+            for (quxlang::elf_dynamic_import const& import : options.dynamic_imports)
+            {
+                if (import.relocation_symbol_name.empty() || import.symbol_name.empty() || import.library_name.empty())
+                {
+                    throw quxlang::semantic_compilation_error("ELF dynamic import metadata is incomplete");
+                }
+                if (dynamic_import_indices_by_relocation_symbol.contains(import.relocation_symbol_name))
+                {
+                    continue;
+                }
+
+                std::string const soname = dynamic_library_soname(import.library_name);
+                if (std::find(needed_sonames.begin(), needed_sonames.end(), soname) == needed_sonames.end())
+                {
+                    needed_sonames.push_back(soname);
+                    add_dynamic_string(soname);
+                }
+
+                std::uint16_t version_index = llvm::ELF::VER_NDX_GLOBAL;
+                if (!import.version.empty())
+                {
+                    std::pair< std::string, std::string > const version_key(soname, import.version);
+                    std::map< std::pair< std::string, std::string >, std::uint16_t >::const_iterator const existing_version = version_indices.find(version_key);
+                    if (existing_version != version_indices.end())
+                    {
+                        version_index = existing_version->second;
+                    }
+                    else
+                    {
+                        if (next_version_index > std::numeric_limits< std::uint16_t >::max())
+                        {
+                            throw quxlang::semantic_compilation_error("ELF dynamic symbol version table is too large");
+                        }
+                        version_index = static_cast< std::uint16_t >(next_version_index++);
+                        version_indices.emplace(version_key, version_index);
+                        versions_by_soname[soname].push_back(std::make_pair(import.version, version_index));
+                        add_dynamic_string(import.version);
+                    }
+                }
+
+                std::size_t const import_index = dynamic_imports.size();
+                dynamic_import_indices_by_relocation_symbol.emplace(import.relocation_symbol_name, import_index);
+                dynamic_imports.push_back(dynamic_import_layout{
+                    .import = import,
+                    .soname = soname,
+                    .symbol_name_offset = add_dynamic_string(import.symbol_name),
+                    .version_index = version_index,
+                    .dynamic_symbol_index = import_index + 1,
+                    .procedure_linkage_table_index = import_index + 1,
+                });
+            }
+
+            auto append_section = [&](std::string name,
+                                      std::uint32_t type,
+                                      std::uint64_t alignment,
+                                      bool writable,
+                                      bool executable,
+                                      std::uint64_t entry_size,
+                                      std::vector< std::byte > contents) -> std::size_t
+            {
+                linked_section section;
+                section.name = std::move(name);
+                section.input_index = static_cast< std::uint64_t >(sections.size() + 1);
+                section.section_type = type;
+                section.entry_size = entry_size;
+                section.alignment = alignment;
+                section.allocated = true;
+                section.writable = writable;
+                section.executable = executable;
+                section.synthetic = true;
+                section.contents = std::move(contents);
+                section.memory_size = section.contents.size();
+                std::size_t const index = sections.size();
+                sections.push_back(std::move(section));
+                return index;
+            };
+
+            std::string const interpreter = glibc_interpreter_path();
+            std::vector< std::byte > interpreter_contents;
+            for (char const character : interpreter)
+            {
+                interpreter_contents.push_back(static_cast< std::byte >(character));
+            }
+            interpreter_contents.push_back(std::byte{0});
+
+            interpreter_section_index = append_section(".interp", llvm::ELF::SHT_PROGBITS, 1, false, false, 0, std::move(interpreter_contents));
+            dynamic_string_section_index = append_section(".dynstr", llvm::ELF::SHT_STRTAB, 1, false, false, 0, std::move(dynamic_strings));
+            dynamic_symbol_section_index = append_section(".dynsym", llvm::ELF::SHT_DYNSYM, 8, false, false, 24, std::vector< std::byte >((dynamic_imports.size() + 1) * 24));
+            symbol_version_section_index = append_section(".gnu.version", llvm::ELF::SHT_GNU_versym, 2, false, false, 2, std::vector< std::byte >((dynamic_imports.size() + 1) * 2));
+
+            std::size_t version_need_size = 0;
+            for (std::pair< std::string const, std::vector< std::pair< std::string, std::uint16_t > > > const& library_versions : versions_by_soname)
+            {
+                version_need_size += 16 + library_versions.second.size() * 16;
+            }
+            if (version_need_size != 0)
+            {
+                version_need_section_index = append_section(".gnu.version_r", llvm::ELF::SHT_GNU_verneed, 8, false, false, 0, std::vector< std::byte >(version_need_size));
+            }
+
+            procedure_relocation_section_index = append_section(".rela.plt", llvm::ELF::SHT_RELA, 8, false, false, 24, std::vector< std::byte >(dynamic_imports.size() * 24));
+            procedure_linkage_table_section_index = append_section(".plt", llvm::ELF::SHT_PROGBITS, 16, false, true, 16, std::vector< std::byte >((dynamic_imports.size() + 1) * 16));
+            procedure_got_section_index = append_section(".got.plt", llvm::ELF::SHT_PROGBITS, 8, true, false, 8, std::vector< std::byte >((dynamic_imports.size() + 3) * 8));
+
+            std::size_t const dynamic_entry_count = needed_sonames.size() + 11 + (version_need_section_index.has_value() ? 2 : 0);
+            dynamic_section_index = append_section(".dynamic", llvm::ELF::SHT_DYNAMIC, 8, true, false, 16, std::vector< std::byte >(dynamic_entry_count * 16));
+
+            sections.at(*dynamic_symbol_section_index).section_link = static_cast< std::uint32_t >(*dynamic_string_section_index + 1);
+            sections.at(*dynamic_symbol_section_index).section_info = 1;
+            sections.at(*symbol_version_section_index).section_link = static_cast< std::uint32_t >(*dynamic_symbol_section_index + 1);
+            if (version_need_section_index.has_value())
+            {
+                sections.at(*version_need_section_index).section_link = static_cast< std::uint32_t >(*dynamic_string_section_index + 1);
+                sections.at(*version_need_section_index).section_info = static_cast< std::uint32_t >(versions_by_soname.size());
+            }
+            sections.at(*procedure_relocation_section_index).section_link = static_cast< std::uint32_t >(*dynamic_symbol_section_index + 1);
+            sections.at(*procedure_relocation_section_index).section_info = static_cast< std::uint32_t >(*procedure_got_section_index + 1);
+            sections.at(*dynamic_section_index).section_link = static_cast< std::uint32_t >(*dynamic_string_section_index + 1);
+        }
+
         auto align_up(std::uint64_t value, std::uint64_t alignment) const -> std::uint64_t
         {
             if (alignment <= 1)
@@ -558,7 +786,8 @@ namespace quxlang::detail
             std::uint64_t const elf_header_size = machine.pointer_size_bytes() == 8 ? 64 : 52;
             std::uint64_t const program_header_size = machine.pointer_size_bytes() == 8 ? 56 : 32;
             std::uint64_t const section_header_entry_size = machine.pointer_size_bytes() == 8 ? 64 : 40;
-            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0));
+            std::uint16_t const dynamic_program_header_count = dynamic_imports.empty() ? 0 : 2;
+            program_header_count = static_cast< std::uint16_t >(1 + count_loadable_section_runs() + (has_tls_sections() ? 1 : 0) + dynamic_program_header_count);
             std::uint64_t const header_end = elf_header_size + program_header_size * program_header_count;
             std::uint64_t file_cursor = align_up(header_end, page_alignment);
             std::uint64_t memory_cursor = file_cursor;
@@ -978,7 +1207,11 @@ namespace quxlang::detail
                     llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
                     if (symbol_is_undefined(target_symbol))
                     {
-                        result.insert(symbol_name(target_symbol));
+                        std::string const undefined_symbol_name = symbol_name(target_symbol);
+                        if (!dynamic_import_indices_by_relocation_symbol.contains(undefined_symbol_name))
+                        {
+                            result.insert(undefined_symbol_name);
+                        }
                     }
                 }
             }
@@ -1312,6 +1545,174 @@ namespace quxlang::detail
             }
         }
 
+        /**
+         * Computes the ELF hash recorded in one GNU version-need auxiliary entry.
+         */
+        auto gnu_symbol_version_hash(std::string const& version) const -> std::uint32_t
+        {
+            std::uint32_t hash = 0;
+            for (unsigned char const character : version)
+            {
+                hash = (hash << 4) + character;
+                std::uint32_t const high = hash & 0xf0000000U;
+                if (high != 0)
+                {
+                    hash ^= high >> 24;
+                }
+                hash &= ~high;
+            }
+            return hash;
+        }
+
+        /**
+         * Returns the procedure-linkage-table address assigned to one undefined import symbol.
+         */
+        auto dynamic_import_plt_address(std::string const& relocation_symbol_name) const -> std::uint64_t
+        {
+            std::map< std::string, std::size_t >::const_iterator const found = dynamic_import_indices_by_relocation_symbol.find(relocation_symbol_name);
+            if (found == dynamic_import_indices_by_relocation_symbol.end() || !procedure_linkage_table_section_index.has_value())
+            {
+                throw quxlang::semantic_compilation_error("ELF relocation does not name a configured dynamic import: " + relocation_symbol_name);
+            }
+            return sections.at(*procedure_linkage_table_section_index).virtual_address + dynamic_imports.at(found->second).procedure_linkage_table_index * 16;
+        }
+
+        /**
+         * Populates address-dependent ELF dynamic-loader structures after section layout.
+         */
+        void populate_dynamic_link_sections()
+        {
+            if (dynamic_imports.empty())
+            {
+                return;
+            }
+
+            linked_section& dynamic_symbols = sections.at(*dynamic_symbol_section_index);
+            linked_section& symbol_versions = sections.at(*symbol_version_section_index);
+            linked_section& procedure_relocations = sections.at(*procedure_relocation_section_index);
+            linked_section& procedure_linkage_table = sections.at(*procedure_linkage_table_section_index);
+            linked_section& procedure_got = sections.at(*procedure_got_section_index);
+            linked_section& dynamic_section = sections.at(*dynamic_section_index);
+            linked_section const& dynamic_strings = sections.at(*dynamic_string_section_index);
+
+            write_u16(symbol_versions.contents, 0, llvm::ELF::VER_NDX_LOCAL);
+            write_u64(procedure_got.contents, 0, dynamic_section.virtual_address);
+
+            procedure_linkage_table.contents.at(0) = std::byte{0xff};
+            procedure_linkage_table.contents.at(1) = std::byte{0x35};
+            patch_signed32(procedure_linkage_table,
+                           2,
+                           static_cast< std::int64_t >(procedure_got.virtual_address + 8) - static_cast< std::int64_t >(procedure_linkage_table.virtual_address + 6),
+                           "x86-64 PLT resolver GOT displacement is out of range");
+            procedure_linkage_table.contents.at(6) = std::byte{0xff};
+            procedure_linkage_table.contents.at(7) = std::byte{0x25};
+            patch_signed32(procedure_linkage_table,
+                           8,
+                           static_cast< std::int64_t >(procedure_got.virtual_address + 16) - static_cast< std::int64_t >(procedure_linkage_table.virtual_address + 12),
+                           "x86-64 PLT resolver jump displacement is out of range");
+            procedure_linkage_table.contents.at(12) = std::byte{0x0f};
+            procedure_linkage_table.contents.at(13) = std::byte{0x1f};
+            procedure_linkage_table.contents.at(14) = std::byte{0x40};
+            procedure_linkage_table.contents.at(15) = std::byte{0x00};
+
+            for (std::size_t i = 0; i < dynamic_imports.size(); ++i)
+            {
+                dynamic_import_layout const& import = dynamic_imports.at(i);
+                std::size_t const symbol_offset = import.dynamic_symbol_index * 24;
+                write_u32(dynamic_symbols.contents, symbol_offset, import.symbol_name_offset);
+                std::uint8_t const binding = import.import.optional ? llvm::ELF::STB_WEAK : llvm::ELF::STB_GLOBAL;
+                dynamic_symbols.contents.at(symbol_offset + 4) = static_cast< std::byte >((binding << 4) | llvm::ELF::STT_FUNC);
+                write_u16(dynamic_symbols.contents, symbol_offset + 6, llvm::ELF::SHN_UNDEF);
+                write_u16(symbol_versions.contents, import.dynamic_symbol_index * 2, import.version_index);
+
+                std::uint64_t const got_slot_address = procedure_got.virtual_address + (i + 3) * 8;
+                std::size_t const relocation_offset = i * 24;
+                write_u64(procedure_relocations.contents, relocation_offset, got_slot_address);
+                write_u64(procedure_relocations.contents,
+                          relocation_offset + 8,
+                          (static_cast< std::uint64_t >(import.dynamic_symbol_index) << 32) | llvm::ELF::R_X86_64_JUMP_SLOT);
+                write_u64(procedure_relocations.contents, relocation_offset + 16, 0);
+
+                std::size_t const plt_offset = import.procedure_linkage_table_index * 16;
+                std::uint64_t const plt_address = procedure_linkage_table.virtual_address + plt_offset;
+                procedure_linkage_table.contents.at(plt_offset) = std::byte{0xff};
+                procedure_linkage_table.contents.at(plt_offset + 1) = std::byte{0x25};
+                patch_signed32(procedure_linkage_table,
+                               plt_offset + 2,
+                               static_cast< std::int64_t >(got_slot_address) - static_cast< std::int64_t >(plt_address + 6),
+                               "x86-64 PLT import GOT displacement is out of range");
+                procedure_linkage_table.contents.at(plt_offset + 6) = std::byte{0x68};
+                write_u32(procedure_linkage_table.contents, plt_offset + 7, static_cast< std::uint32_t >(i));
+                procedure_linkage_table.contents.at(plt_offset + 11) = std::byte{0xe9};
+                patch_signed32(procedure_linkage_table,
+                               plt_offset + 12,
+                               static_cast< std::int64_t >(procedure_linkage_table.virtual_address) - static_cast< std::int64_t >(plt_address + 16),
+                               "x86-64 PLT resolver displacement is out of range");
+                write_u64(procedure_got.contents, (i + 3) * 8, plt_address + 6);
+            }
+
+            if (version_need_section_index.has_value())
+            {
+                linked_section& version_need = sections.at(*version_need_section_index);
+                std::size_t record_offset = 0;
+                std::size_t library_index = 0;
+                for (std::pair< std::string const, std::vector< std::pair< std::string, std::uint16_t > > > const& library_versions : versions_by_soname)
+                {
+                    std::size_t const record_size = 16 + library_versions.second.size() * 16;
+                    write_u16(version_need.contents, record_offset, llvm::ELF::VER_NEED_CURRENT);
+                    write_u16(version_need.contents, record_offset + 2, static_cast< std::uint16_t >(library_versions.second.size()));
+                    write_u32(version_need.contents, record_offset + 4, dynamic_string_offsets.at(library_versions.first));
+                    write_u32(version_need.contents, record_offset + 8, 16);
+                    write_u32(version_need.contents, record_offset + 12, library_index + 1 == versions_by_soname.size() ? 0 : static_cast< std::uint32_t >(record_size));
+
+                    for (std::size_t version_i = 0; version_i < library_versions.second.size(); ++version_i)
+                    {
+                        std::pair< std::string, std::uint16_t > const& version = library_versions.second.at(version_i);
+                        std::size_t const auxiliary_offset = record_offset + 16 + version_i * 16;
+                        write_u32(version_need.contents, auxiliary_offset, gnu_symbol_version_hash(version.first));
+                        write_u16(version_need.contents, auxiliary_offset + 4, 0);
+                        write_u16(version_need.contents, auxiliary_offset + 6, version.second);
+                        write_u32(version_need.contents, auxiliary_offset + 8, dynamic_string_offsets.at(version.first));
+                        write_u32(version_need.contents, auxiliary_offset + 12, version_i + 1 == library_versions.second.size() ? 0 : 16);
+                    }
+                    record_offset += record_size;
+                    ++library_index;
+                }
+            }
+
+            std::size_t dynamic_offset = 0;
+            auto write_dynamic_entry = [&](std::int64_t tag, std::uint64_t value)
+            {
+                write_u64(dynamic_section.contents, dynamic_offset, static_cast< std::uint64_t >(tag));
+                write_u64(dynamic_section.contents, dynamic_offset + 8, value);
+                dynamic_offset += 16;
+            };
+            for (std::string const& soname : needed_sonames)
+            {
+                write_dynamic_entry(llvm::ELF::DT_NEEDED, dynamic_string_offsets.at(soname));
+            }
+            write_dynamic_entry(llvm::ELF::DT_STRTAB, dynamic_strings.virtual_address);
+            write_dynamic_entry(llvm::ELF::DT_STRSZ, dynamic_strings.contents.size());
+            write_dynamic_entry(llvm::ELF::DT_SYMTAB, dynamic_symbols.virtual_address);
+            write_dynamic_entry(llvm::ELF::DT_SYMENT, 24);
+            write_dynamic_entry(llvm::ELF::DT_PLTGOT, procedure_got.virtual_address);
+            write_dynamic_entry(llvm::ELF::DT_PLTRELSZ, procedure_relocations.contents.size());
+            write_dynamic_entry(llvm::ELF::DT_PLTREL, llvm::ELF::DT_RELA);
+            write_dynamic_entry(llvm::ELF::DT_JMPREL, procedure_relocations.virtual_address);
+            write_dynamic_entry(llvm::ELF::DT_RELAENT, 24);
+            write_dynamic_entry(llvm::ELF::DT_VERSYM, symbol_versions.virtual_address);
+            if (version_need_section_index.has_value())
+            {
+                write_dynamic_entry(llvm::ELF::DT_VERNEED, sections.at(*version_need_section_index).virtual_address);
+                write_dynamic_entry(llvm::ELF::DT_VERNEEDNUM, versions_by_soname.size());
+            }
+            write_dynamic_entry(llvm::ELF::DT_NULL, 0);
+            if (dynamic_offset != dynamic_section.contents.size())
+            {
+                throw quxlang::semantic_compilation_error("ELF dynamic table size does not match its entries");
+            }
+        }
+
         void patch_x86_64_abs64(linked_section& section, std::size_t offset, std::uint64_t target_value) const
         {
             write_u64(section.contents, offset, target_value);
@@ -1472,8 +1873,29 @@ namespace quxlang::detail
                     case quxlang::cpu::x86_64:
                         if (relocation_type == llvm::ELF::R_X86_64_64)
                         {
-                            std::uint64_t const symbol_value = relocation_target_address(relocation);
+                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
+                            std::uint64_t const symbol_value = symbol_is_undefined(target_symbol)
+                                                                   ? dynamic_import_plt_address(symbol_name(target_symbol))
+                                                                   : symbol_address(target_symbol);
                             patch_x86_64_abs64(section, static_cast< std::size_t >(offset), symbol_value + static_cast< std::uint64_t >(addend));
+                            continue;
+                        }
+                        if (relocation_type == llvm::ELF::R_X86_64_PLT32 || relocation_type == llvm::ELF::R_X86_64_PC32)
+                        {
+                            llvm::object::SymbolRef const target_symbol = relocation_target_symbol(relocation);
+                            std::uint64_t symbol_value = 0;
+                            if (symbol_is_undefined(target_symbol))
+                            {
+                                symbol_value = dynamic_import_plt_address(symbol_name(target_symbol));
+                            }
+                            else
+                            {
+                                symbol_value = symbol_address(target_symbol);
+                            }
+                            patch_signed32(section,
+                                           static_cast< std::size_t >(offset),
+                                           static_cast< std::int64_t >(symbol_value) + addend - static_cast< std::int64_t >(place_address),
+                                           "x86-64 PC-relative relocation is out of range");
                             continue;
                         }
                         if (relocation_type == llvm::ELF::R_X86_64_TPOFF32)
@@ -1676,10 +2098,23 @@ namespace quxlang::detail
         {
             if (machine.pointer_size_bytes() == 8)
             {
-                for (std::size_t i = 0; i < load_segments.size(); ++i)
+                std::size_t program_index = 0;
+                if (interpreter_section_index.has_value())
                 {
-                    load_segment const& segment = load_segments.at(i);
-                    std::size_t const offset = 64 + i * 56;
+                    linked_section const& interpreter = sections.at(*interpreter_section_index);
+                    std::size_t const offset = 64 + program_index++ * 56;
+                    write_u32(output_file_bytes, offset, llvm::ELF::PT_INTERP);
+                    write_u32(output_file_bytes, offset + 4, llvm::ELF::PF_R);
+                    write_u64(output_file_bytes, offset + 8, interpreter.file_offset);
+                    write_u64(output_file_bytes, offset + 16, interpreter.virtual_address);
+                    write_u64(output_file_bytes, offset + 24, interpreter.virtual_address);
+                    write_u64(output_file_bytes, offset + 32, interpreter.contents.size());
+                    write_u64(output_file_bytes, offset + 40, interpreter.contents.size());
+                    write_u64(output_file_bytes, offset + 48, 1);
+                }
+                for (load_segment const& segment : load_segments)
+                {
+                    std::size_t const offset = 64 + program_index++ * 56;
                     write_u32(output_file_bytes, offset, llvm::ELF::PT_LOAD);
                     write_u32(output_file_bytes, offset + 4, segment.flags);
                     write_u64(output_file_bytes, offset + 8, segment.file_offset);
@@ -1691,7 +2126,7 @@ namespace quxlang::detail
                 }
                 if (tls_segment_info.has_value())
                 {
-                    std::size_t const offset = 64 + load_segments.size() * 56;
+                    std::size_t const offset = 64 + program_index++ * 56;
                     write_u32(output_file_bytes, offset, llvm::ELF::PT_TLS);
                     write_u32(output_file_bytes, offset + 4, llvm::ELF::PF_R);
                     write_u64(output_file_bytes, offset + 8, tls_segment_info->file_offset);
@@ -1700,6 +2135,23 @@ namespace quxlang::detail
                     write_u64(output_file_bytes, offset + 32, tls_segment_info->file_size);
                     write_u64(output_file_bytes, offset + 40, tls_segment_info->memory_size);
                     write_u64(output_file_bytes, offset + 48, tls_segment_info->alignment);
+                }
+                if (dynamic_section_index.has_value())
+                {
+                    linked_section const& dynamic_section = sections.at(*dynamic_section_index);
+                    std::size_t const offset = 64 + program_index++ * 56;
+                    write_u32(output_file_bytes, offset, llvm::ELF::PT_DYNAMIC);
+                    write_u32(output_file_bytes, offset + 4, llvm::ELF::PF_R | llvm::ELF::PF_W);
+                    write_u64(output_file_bytes, offset + 8, dynamic_section.file_offset);
+                    write_u64(output_file_bytes, offset + 16, dynamic_section.virtual_address);
+                    write_u64(output_file_bytes, offset + 24, dynamic_section.virtual_address);
+                    write_u64(output_file_bytes, offset + 32, dynamic_section.contents.size());
+                    write_u64(output_file_bytes, offset + 40, dynamic_section.contents.size());
+                    write_u64(output_file_bytes, offset + 48, 8);
+                }
+                if (program_index != program_header_count)
+                {
+                    throw quxlang::semantic_compilation_error("ELF program-header count does not match its entries");
                 }
                 return;
             }
