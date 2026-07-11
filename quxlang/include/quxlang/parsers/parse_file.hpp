@@ -58,7 +58,7 @@ namespace quxlang::parsers
         }
         skip_whitespace_and_comments(pos, end);
 
-        if (skip_keyword_if_is(pos, end, "IMPORT"))
+        while (skip_keyword_if_is(pos, end, "IMPORT"))
         {
             skip_whitespace_and_comments(pos, end);
             std::string module_name = parse_identifier(pos, end);
@@ -66,7 +66,7 @@ namespace quxlang::parsers
 
             std::string import_name = module_name;
 
-            if (skip_symbol_if_is(pos, end, "AS"))
+            if (skip_keyword_if_is(pos, end, "AS"))
             {
                 skip_whitespace_and_comments(pos, end);
                 import_name = parse_identifier(pos, end);
@@ -79,9 +79,9 @@ namespace quxlang::parsers
             }
 
             output.imports.emplace(std::move(import_name), std::move(module_name));
+            skip_whitespace_and_comments(pos, end);
         }
 
-        skip_whitespace_and_comments(pos, end);
         auto decl = parse_subdeclaroids(ctx);
         skip_whitespace_and_comments(pos, end);
 

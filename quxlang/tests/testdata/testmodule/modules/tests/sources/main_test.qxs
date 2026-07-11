@@ -1,3 +1,10 @@
 LANGUAGE QUXLANG EN 0.0;
 
 IMPORT foolib;
+IMPORT foolib AS aliased_foolib;
+
+::multiple_imports_test STATIC_TEST
+{
+    ASSERT(foolib::imported_function() == 42);
+    ASSERT(aliased_foolib::imported_function() == 42);
+}
